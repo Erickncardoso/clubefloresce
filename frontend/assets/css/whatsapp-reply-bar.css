@@ -1,0 +1,96 @@
+/* =========================================================
+   Barra de resposta (reply) e toast de ação
+   replying-to-*, chat-action-toast, chat-toast-fade-*
+   ========================================================= */
+
+.replying-to-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 0;
+  border-top: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #eef2f6 0%, #f8fafc 100%);
+}
+.replying-to-accent {
+  width: 4px;
+  flex-shrink: 0;
+  align-self: stretch;
+  min-height: 44px;
+  background: #f2a382;
+  border-radius: 0 3px 3px 0;
+}
+.replying-to-body {
+  flex: 1;
+  min-width: 0;
+}
+.replying-to-author {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #d97757;
+  line-height: 1.25;
+}
+.replying-to-preview {
+  margin: 3px 0 0 0;
+  font-size: 0.84rem;
+  color: #2d7a8f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.replying-to-preview--media {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+}
+.replying-to-ico {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  opacity: 0.88;
+}
+.replying-to-thumb {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 6px 4px 4px 6px;
+}
+.replying-to-close {
+  border: none;
+  background: transparent;
+  padding: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #64748b;
+}
+.replying-to-close:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+/* Toast de ação (copiar, encaminhar, etc.) */
+.chat-action-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  z-index: 45;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+.chat-toast-fade-enter-active,
+.chat-toast-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.chat-toast-fade-enter-from,
+.chat-toast-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
+}

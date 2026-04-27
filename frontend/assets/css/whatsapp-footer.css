@@ -1,0 +1,76 @@
+/* =========================================================
+   Rodapé do chat (input de mensagem)
+   chat-footer, input-wrapper, send-btn, hidden-input
+   ========================================================= */
+
+.chat-footer-shell {
+  position: relative;
+}
+.chat-footer {
+  height: 80px; display: flex; align-items: center; gap: 1rem;
+  padding: 0 1.5rem; border-top: 1px solid #f1f5f9; background: white;
+}
+.footer-plus-wrap {
+  position: relative;
+}
+.footer-plus-menu {
+  position: absolute;
+  left: 0;
+  bottom: 54px;
+  width: 220px;
+  border-radius: 14px;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  z-index: 20;
+}
+.footer-plus-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #e5e7eb;
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: left;
+}
+.footer-plus-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.footer-plus-item-icon {
+  width: 16px;
+  height: 16px;
+  color: #60a5fa;
+}
+.footer-menu-fade-enter-active,
+.footer-menu-fade-leave-active {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.footer-menu-fade-enter-from,
+.footer-menu-fade-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.input-wrapper {
+  flex: 1; background: #f1f5f9; border-radius: 24px; padding: 0 1.5rem;
+  display: flex; align-items: center; height: 48px;
+}
+.input-wrapper input {
+  width: 100%; border: none; background: transparent; outline: none;
+  font-size: 0.95rem; color: #334155;
+}
+.send-btn {
+  width: 48px; height: 48px; border-radius: 24px; border: none;
+  display: flex; align-items: center; justify-content: center;
+  background: #0ea5e9; color: white; cursor: pointer; transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+.send-btn:hover:not(:disabled) { transform: scale(1.05); }
+.send-btn:disabled { background: #94a3b8; cursor: not-allowed; box-shadow: none; }
+
+.hidden-input { display: none; }

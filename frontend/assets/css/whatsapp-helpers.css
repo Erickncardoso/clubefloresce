@@ -1,0 +1,39 @@
+/* =========================================================
+   Utilitários e helpers globais do WhatsApp Chat
+   btn-icon, text-*, font-*, icon-*, spin, loading-*, animate-fade-in
+   ========================================================= */
+
+.btn-icon {
+  background: transparent; border: none; cursor: pointer;
+  padding: 8px; border-radius: 8px; transition: background 0.2s;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.btn-icon:hover { background: rgba(0,0,0,0.05); }
+
+.text-muted { color: #94a3b8; }
+.text-primary { color: #0ea5e9; }
+.font-mono { font-family: monospace; }
+.text-xs { font-size: 0.75rem; }
+.text-sm { font-size: 0.85rem; }
+
+.icon-xxl { width: 64px; height: 64px; }
+.icon-xl  { width: 48px; height: 48px; }
+.icon-medium { width: 22px; height: 22px; }
+.icon-small  { width: 18px; height: 18px; }
+.icon-tiny   { width: 14px; height: 14px; }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.loading-state-mini,
+.empty-state-mini { display: flex; justify-content: center; padding: 2rem; }
+.loading-messages { display: flex; justify-content: center; padding: 2rem; width: 100%; }
+
+.animate-fade-in { animation: fadeIn 0.4s ease forwards; }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

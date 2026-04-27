@@ -1,0 +1,17 @@
+[
+  {
+    "id": "c0137696-24c4-4efc-a15f-8c0eb18ac721",
+    "email": "nutri@florescer.com",
+    "role": "NUTRICIONISTA"
+  },
+  {
+    "id": "31023e1f-170e-4399-bd47-116390bd8adf",
+    "email": "paciente@florescer.com",
+    "role": "PACIENTE"
+  },
+  {
+    "id": "8dc266d8-0a26-4c36-9110-cf268d87ff21",
+    "email": "erick@admin.pw",
+    "role": "NUTRICIONISTA"
+  }
+]

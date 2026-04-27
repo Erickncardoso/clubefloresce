@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  NUTRICIONISTA
+  PACIENTE
+}
+
+enum UserStatus {
+  ATIVO
+  INATIVO
+  PENDENTE
+}
+
+enum UserPlan {
+  FREE
+  PREMIUM
+  PLATINUM
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role       @default(PACIENTE)
+  avatar        String?
+  status        UserStatus @default(ATIVO)
+  plan          UserPlan   @default(FREE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  transactions  Transaction[]
+
+  courses       Course[]
+  posts         Post[]
+  comments      Comment[]
+  notifications Notification[]
+  lessonProgress LessonProgress[]
+  likedComments Comment[]        @relation("CommentLikes")
+  likedPosts    Post[]           @relation("PostLikes")
+  whatsappChats WhatsappChat[]
+  whatsappContactStates WhatsappContactState[]
+  whatsappContactDirectory WhatsappContactDirectory?
+  whatsappGroupObservedSenders WhatsappGroupObservedSenders[]
+}
+
+model Course {
+  id              String   @id @default(uuid())
+  title           String
+  description     String?
+  thumbnail       String?
+  thumbnailMobile String?
+  bannerImage     String?
+  bannerImageMobile String?
+  bannerTitle     String?
+  bannerSubtitle  String?
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [id])
+  modules         Module[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Module {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  thumbnail   String?
+  order       Int      @default(0)
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+}
+
+model Lesson {
+  id       String  @id @default(uuid())
+  title    String
+  videoUrl String
+  content  String?
+  thumbnail String?
+  duration  String?
+  order     Int     @default(0)
+  moduleId  String
+  module    Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  
+  materials     Json?    @default("[]")
+  transcription Json?    @default("[]")
+  progress      LessonProgress[]
+  comments      Comment[]
+}
+
+model LessonProgress {
+  id         String   @id @default(uuid())
+  userId     String
+  lessonId   String
+  watched    Boolean  @default(false)
+  liked      Boolean  @default(false)
+  disliked   Boolean  @default(false)
+  favorited  Boolean  @default(false)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+model Ebook {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  fileUrl     String
+  thumbnail   String?
+  createdAt   DateTime @default(now())
+}
+
+model Post {
+  id        String    @id @default(uuid())
+  content   String
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id])
+  createdAt  DateTime  @default(now())
+  likesCount Int       @default(0)
+  likedBy    User[]    @relation("PostLikes")
+  comments   Comment[]
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  content    String
+  postId     String?
+  post       Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  lessonId   String?
+  lesson     Lesson?  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  likesCount Int      @default(0)
+  likedBy    User[]   @relation("CommentLikes")
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  amount    Float
+  status    String   @default("PAID") // PAID, PENDING, CANCELLED
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model WhatsappChat {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatJid         String
+  name            String?
+  pushName        String?
+  avatarUrl       String?
+  isGroup         Boolean  @default(false)
+  lastMessage     String?
+  lastMessageTime BigInt?
+  unreadCount     Int      @default(0)
+  raw             Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, chatJid])
+  @@index([userId, lastMessageTime])
+}
+
+// Diretório de contatos salvos: { jid/phone: nome } — fonte de nomes no chat.
+// Um registro por usuário, atualizado a cada sync com UAZAPI /contacts/list.
+model WhatsappContactDirectory {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json     // { "55119...@s.whatsapp.net": "Nome Salvo", ... }
+  updatedAt DateTime @updatedAt
+}
+
+// Nomes aprendidos no chat de grupo (LID/JID → display), persistidos para histórico reabrir com rótulos.
+model WhatsappGroupObservedSenders {
+  id        String   @id @default(uuid())
+  userId    String
+  groupJid  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json     // { "....@lid": "Maria", "5511...@s.whatsapp.net": "João", ... }
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, groupJid])
+  @@index([userId])
+}
+
+model WhatsappContactState {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contactJid    String
+  isSaved       Boolean  @default(false)
+  isBusiness    Boolean  @default(false)
+  lastCheckedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, contactJid])
+  @@index([userId, updatedAt])
+}

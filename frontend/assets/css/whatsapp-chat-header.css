@@ -1,0 +1,12 @@
+/* =========================================================
+   Cabeçalho do chat ativo
+   chat-header, chat-contact-info, chat-actions
+   ========================================================= */
+
+.chat-header {
+  height: 70px; display: flex; justify-content: space-between; align-items: center;
+  padding: 0 1.5rem; border-bottom: 1px solid #f1f5f9; background: white;
+}
+.chat-contact-info { display: flex; align-items: center; gap: 1rem; }
+.chat-contact-info h3 { margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 700; }
+.chat-actions { display: flex; gap: 0.5rem; }

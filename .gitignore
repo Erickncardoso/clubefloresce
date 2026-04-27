@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.output/
+.nuxt/
+.cache/
+coverage/
+*.log
+tmp/
+backend/public/uploads/
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+Thumbs.db

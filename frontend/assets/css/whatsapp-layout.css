@@ -1,0 +1,43 @@
+/* =========================================================
+   Layout principal do WhatsApp Chat
+   chat-wrapper, chat-container, chat-main, active-chat, chat-body
+   ========================================================= */
+
+.chat-wrapper {
+  height: calc(100vh - 70px - 4rem); /* 70px top-nav, 4rem padding do dashboard */
+  min-height: 600px;
+}
+
+.chat-container {
+  display: flex;
+  height: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.6);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.chat-main {
+  flex: 1; display: flex; flex-direction: column; background: white;
+}
+
+.active-chat { display: flex; flex-direction: column; height: 100%; }
+.active-chat { position: relative; }
+
+.chat-body {
+  flex: 1; overflow-y: auto; padding: 1.5rem; background: #f8fafc;
+  display: flex; flex-direction: column;
+}
+
+.empty-chat-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; text-align: center; padding: 2rem;
+}
+.empty-icon-wrap {
+  width: 100px; height: 100px; border-radius: 30px; background: #f0f9ff;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;
+}
+.empty-chat-state h3 { font-size: 1.8rem; color: #1e293b; margin: 0 0 0.5rem; }
+.secure-badge { margin-top: 2rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: #94a3b8; }
