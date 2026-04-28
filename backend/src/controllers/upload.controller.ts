@@ -8,9 +8,18 @@ const MB = 1024 * 1024;
 const VIDEO_UPLOAD_MAX_SIZE_MB = Number(process.env.VIDEO_UPLOAD_MAX_SIZE_MB || 2048);
 const VIDEO_UPLOAD_MAX_SIZE_BYTES = VIDEO_UPLOAD_MAX_SIZE_MB * MB;
 
-// Diretório de upload temporário
+const safeUnlink = (filePath?: string) => {
+  if (!filePath) return;
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (e) {
+    console.warn(`[UploadController] Falha ao remover arquivo temporário: ${filePath}`, e);
+  }
+};
+
+// Diretório de upload temporário (NÃO público)
 const getUploadPath = () => {
-  const uploadPath = path.join(__dirname, "../../public/uploads");
+  const uploadPath = path.join(__dirname, "../../tmp/uploads");
   if (!fs.existsSync(uploadPath)) {
     fs.mkdirSync(uploadPath, { recursive: true });
   }
@@ -83,12 +92,6 @@ export const uploadFile = multer({
 });
 
 export class UploadController {
-  private getLocalFileUrl(req: Request, fileName: string): string {
-    const protocol = (req.headers["x-forwarded-proto"] as string) || req.protocol || "http";
-    const host = req.get("host") || "localhost:3001";
-    return `${protocol}://${host}/public/uploads/${encodeURIComponent(fileName)}`;
-  }
-
   // Upload de imagem -> Cloudinary
   async handleUpload(req: Request, res: Response): Promise<any> {
     try {
@@ -99,30 +102,19 @@ export class UploadController {
       console.log(`[UploadController] Iniciando upload de imagem para Cloudinary: ${req.file.filename}`);
       
       // Upload para Cloudinary
-      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-image-uploads");
-
-      // Deletar arquivo local temporário
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-        console.log(`[UploadController] Arquivo temporário removido: ${req.file.path}`);
-      }
+      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-image-uploads", { resourceType: "image" });
+      safeUnlink(req.file.path);
 
       return res.json({ 
         url: cloudinaryUrl, 
         fileName: req.file.filename 
       });
     } catch (error: any) {
-      if (req.file) {
-        const localUrl = this.getLocalFileUrl(req, req.file.filename);
-        console.warn(`[UploadController] Cloudinary indisponível para imagem. Usando fallback local: ${req.file.filename}`);
-        return res.json({
-          url: localUrl,
-          fileName: req.file.filename,
-          storage: "local-fallback",
-          warning: "Cloudinary indisponível para este arquivo. Upload salvo localmente."
-        });
-      }
-      return res.status(500).json({ message: error.message });
+      safeUnlink(req.file?.path);
+      console.error("[UploadController] Falha ao enviar imagem para Cloudinary:", error);
+      return res.status(503).json({
+        message: "Falha ao enviar imagem para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
+      });
     }
   }
 
@@ -136,12 +128,8 @@ export class UploadController {
       const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
       console.log(`[UploadController] Iniciando upload de vídeo para Cloudinary: ${req.file.filename} (${fileSizeMB}MB)`);
 
-      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-video-lessons");
-
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-        console.log(`[UploadController] Vídeo temporário removido: ${req.file.path}`);
-      }
+      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-video-lessons", { resourceType: "video" });
+      safeUnlink(req.file.path);
 
       return res.json({ 
         url: cloudinaryUrl, 
@@ -149,19 +137,11 @@ export class UploadController {
         sizeMB: fileSizeMB 
       });
     } catch (error: any) {
-      if (req.file) {
-        const localUrl = this.getLocalFileUrl(req, req.file.filename);
-        const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
-        console.warn(`[UploadController] Cloudinary indisponível para vídeo. Usando fallback local: ${req.file.filename}`);
-        return res.json({
-          url: localUrl,
-          fileName: req.file.filename,
-          sizeMB: fileSizeMB,
-          storage: "local-fallback",
-          warning: "Cloudinary indisponível para este arquivo. Upload salvo localmente."
-        });
-      }
-      return res.status(500).json({ message: error.message });
+      safeUnlink(req.file?.path);
+      console.error("[UploadController] Falha ao enviar vídeo para Cloudinary:", error);
+      return res.status(503).json({
+        message: "Falha ao enviar vídeo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
+      });
     }
   }
 
@@ -176,13 +156,8 @@ export class UploadController {
       console.log(`[UploadController] Iniciando upload de documento para Cloudinary: ${req.file.filename} (${fileSizeMB}MB)`);
 
       // Upload para Cloudinary com resource_type auto/raw
-      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-documents");
-
-      // Deletar arquivo local temporário
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-        console.log(`[UploadController] Documento temporário removido: ${req.file.path}`);
-      }
+      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-documents", { resourceType: "raw" });
+      safeUnlink(req.file.path);
 
       return res.json({ 
         url: cloudinaryUrl, 
@@ -190,19 +165,11 @@ export class UploadController {
         sizeMB: fileSizeMB 
       });
     } catch (error: any) {
-      if (req.file) {
-        const localUrl = this.getLocalFileUrl(req, req.file.filename);
-        const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
-        console.warn(`[UploadController] Cloudinary indisponível para documento. Usando fallback local: ${req.file.filename}`);
-        return res.json({
-          url: localUrl,
-          fileName: req.file.originalname,
-          sizeMB: fileSizeMB,
-          storage: "local-fallback",
-          warning: "Cloudinary indisponível para este arquivo. Upload salvo localmente."
-        });
-      }
-      return res.status(500).json({ message: error.message });
+      safeUnlink(req.file?.path);
+      console.error("[UploadController] Falha ao enviar documento para Cloudinary:", error);
+      return res.status(503).json({
+        message: "Falha ao enviar arquivo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
+      });
     }
   }
 }

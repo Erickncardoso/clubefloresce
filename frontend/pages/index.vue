@@ -5,7 +5,7 @@
       <div class="visual-overlay"></div>
       <img src="https://images.unsplash.com/photo-1543362906-acfc16c623a2?q=80&w=1974&auto=format&fit=crop" alt="Botanical Background" />
       <div class="visual-content">
-        <div class="brand-badge">Clube Florescer</div>
+        <div class="brand-badge">Florescer</div>
         <h1>Nutrição que <br/><span>Floresce</span> de dentro <br/>para fora.</h1>
         <p>Acesse sua plataforma exclusiva de acompanhamento nutricional e conteúdo premium.</p>
       </div>
@@ -121,7 +121,7 @@
       </div>
 
       <footer class="main-footer">
-        &copy; 2026 Clube Florescer. Design de Elite.
+        &copy; 2026 Florescer. Design de Elite.
       </footer>
     </main>
   </div>
