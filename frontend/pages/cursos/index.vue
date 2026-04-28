@@ -3459,11 +3459,12 @@ onMounted(() => {
 }
 
 .patient-card .card-content h3 {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: 1.18rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: #ffffff;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  line-height: 1.08;
 }
 
 .patient-card .card-content p {

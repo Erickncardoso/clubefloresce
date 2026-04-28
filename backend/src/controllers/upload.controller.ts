@@ -1,41 +1,13 @@
 import { Request, Response } from "express";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { cloudinaryUpload } from "../utils/cloudinary";
 
 const MB = 1024 * 1024;
 const VIDEO_UPLOAD_MAX_SIZE_MB = Number(process.env.VIDEO_UPLOAD_MAX_SIZE_MB || 2048);
 const VIDEO_UPLOAD_MAX_SIZE_BYTES = VIDEO_UPLOAD_MAX_SIZE_MB * MB;
 
-const safeUnlink = (filePath?: string) => {
-  if (!filePath) return;
-  try {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch (e) {
-    console.warn(`[UploadController] Falha ao remover arquivo temporário: ${filePath}`, e);
-  }
-};
-
-// Diretório de upload temporário (NÃO público)
-const getUploadPath = () => {
-  const uploadPath = path.join(__dirname, "../../tmp/uploads");
-  if (!fs.existsSync(uploadPath)) {
-    fs.mkdirSync(uploadPath, { recursive: true });
-  }
-  return uploadPath;
-};
-
-// Configuração de armazenamento temporário (diskStorage)
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, getUploadPath());
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
+const storage = multer.memoryStorage();
 
 // ── Multer para IMAGENS ──────────────────────────────────────────
 export const upload = multer({
@@ -99,18 +71,19 @@ export class UploadController {
         return res.status(400).json({ message: "Nenhum arquivo enviado." });
       }
 
-      console.log(`[UploadController] Iniciando upload de imagem para Cloudinary: ${req.file.filename}`);
+      console.log(`[UploadController] Iniciando upload de imagem para Cloudinary: ${req.file.originalname}`);
       
       // Upload para Cloudinary
-      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-image-uploads", { resourceType: "image" });
-      safeUnlink(req.file.path);
+      const cloudinaryUrl = await cloudinaryUpload(req.file.buffer, "clube-image-uploads", {
+        resourceType: "image",
+        fileSizeBytes: req.file.size,
+      });
 
       return res.json({ 
         url: cloudinaryUrl, 
-        fileName: req.file.filename 
+        fileName: req.file.originalname 
       });
     } catch (error: any) {
-      safeUnlink(req.file?.path);
       console.error("[UploadController] Falha ao enviar imagem para Cloudinary:", error);
       return res.status(503).json({
         message: "Falha ao enviar imagem para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
@@ -126,18 +99,19 @@ export class UploadController {
       }
 
       const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
-      console.log(`[UploadController] Iniciando upload de vídeo para Cloudinary: ${req.file.filename} (${fileSizeMB}MB)`);
+      console.log(`[UploadController] Iniciando upload de vídeo para Cloudinary: ${req.file.originalname} (${fileSizeMB}MB)`);
 
-      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-video-lessons", { resourceType: "video" });
-      safeUnlink(req.file.path);
+      const cloudinaryUrl = await cloudinaryUpload(req.file.buffer, "clube-video-lessons", {
+        resourceType: "video",
+        fileSizeBytes: req.file.size,
+      });
 
       return res.json({ 
         url: cloudinaryUrl, 
-        fileName: req.file.filename, 
+        fileName: req.file.originalname, 
         sizeMB: fileSizeMB 
       });
     } catch (error: any) {
-      safeUnlink(req.file?.path);
       console.error("[UploadController] Falha ao enviar vídeo para Cloudinary:", error);
       return res.status(503).json({
         message: "Falha ao enviar vídeo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
@@ -153,11 +127,13 @@ export class UploadController {
       }
 
       const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
-      console.log(`[UploadController] Iniciando upload de documento para Cloudinary: ${req.file.filename} (${fileSizeMB}MB)`);
+      console.log(`[UploadController] Iniciando upload de documento para Cloudinary: ${req.file.originalname} (${fileSizeMB}MB)`);
 
       // Upload para Cloudinary com resource_type auto/raw
-      const cloudinaryUrl = await cloudinaryUpload(req.file.path, "clube-documents", { resourceType: "raw" });
-      safeUnlink(req.file.path);
+      const cloudinaryUrl = await cloudinaryUpload(req.file.buffer, "clube-documents", {
+        resourceType: "raw",
+        fileSizeBytes: req.file.size,
+      });
 
       return res.json({ 
         url: cloudinaryUrl, 
@@ -165,7 +141,6 @@ export class UploadController {
         sizeMB: fileSizeMB 
       });
     } catch (error: any) {
-      safeUnlink(req.file?.path);
       console.error("[UploadController] Falha ao enviar documento para Cloudinary:", error);
       return res.status(503).json({
         message: "Falha ao enviar arquivo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
