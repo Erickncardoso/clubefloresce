@@ -69,6 +69,57 @@
         </form>
       </div>
 
+      <div v-if="showFirstAccessModal" class="modal-overlay">
+        <div class="modal-card">
+          <h3>Primeiro acesso: altere sua senha</h3>
+          <p>Por segurança, você precisa criar uma nova senha para continuar.</p>
+
+          <form class="modal-form" @submit.prevent="handleFirstAccessPasswordChange">
+            <div class="form-group" :class="{ 'focused': focusedField === 'newPassword' }">
+              <label>Nova senha</label>
+              <div class="input-wrapper">
+                <Lock class="input-icon" />
+                <input
+                  type="password"
+                  v-model="firstAccessForm.newPassword"
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                  minlength="6"
+                  @focus="focusedField = 'newPassword'"
+                  @blur="focusedField = ''"
+                >
+              </div>
+            </div>
+
+            <div class="form-group" :class="{ 'focused': focusedField === 'confirmPassword' }">
+              <label>Confirmar nova senha</label>
+              <div class="input-wrapper">
+                <Lock class="input-icon" />
+                <input
+                  type="password"
+                  v-model="firstAccessForm.confirmPassword"
+                  placeholder="Repita a nova senha"
+                  required
+                  minlength="6"
+                  @focus="focusedField = 'confirmPassword'"
+                  @blur="focusedField = ''"
+                >
+              </div>
+            </div>
+
+            <button type="submit" :disabled="firstAccessLoading" class="btn-auth-submit">
+              <span v-if="firstAccessLoading">Atualizando senha...</span>
+              <span v-else>Salvar nova senha</span>
+            </button>
+          </form>
+
+          <p v-if="firstAccessError" class="error-banner">
+            <AlertCircle class="error-icon" />
+            {{ firstAccessError }}
+          </p>
+        </div>
+      </div>
+
       <footer class="main-footer">
         &copy; 2026 Clube Florescer. Design de Elite.
       </footer>
@@ -90,6 +141,13 @@ const form = reactive({
 const loading = ref(false)
 const error = ref('')
 const focusedField = ref('')
+const showFirstAccessModal = ref(false)
+const firstAccessLoading = ref(false)
+const firstAccessError = ref('')
+const firstAccessForm = reactive({
+  newPassword: '',
+  confirmPassword: ''
+})
 
 const handleLogin = async () => {
   loading.value = true
@@ -105,7 +163,12 @@ const handleLogin = async () => {
     localStorage.setItem('user_role', data.user.role)
     localStorage.setItem('user_name', data.user.name)
     localStorage.setItem('user_id', data.user.id)
-    
+
+    if (data.mustChangePassword) {
+      showFirstAccessModal.value = true
+      return
+    }
+
     navigateTo('/dashboard')
   } catch (err) {
     console.error("Erro completo:", err);
@@ -116,6 +179,47 @@ const handleLogin = async () => {
     }
   } finally {
     loading.value = false
+  }
+}
+
+const handleFirstAccessPasswordChange = async () => {
+  firstAccessError.value = ''
+
+  if (firstAccessForm.newPassword !== firstAccessForm.confirmPassword) {
+    firstAccessError.value = 'A confirmação de senha precisa ser igual à nova senha.'
+    return
+  }
+
+  const token = localStorage.getItem('auth_token')
+  if (!token) {
+    firstAccessError.value = 'Sessão inválida. Faça login novamente.'
+    return
+  }
+
+  firstAccessLoading.value = true
+  try {
+    await $fetch('http://localhost:3001/api/auth/first-access/change-password', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: {
+        newPassword: firstAccessForm.newPassword
+      }
+    })
+
+    showFirstAccessModal.value = false
+    firstAccessForm.newPassword = ''
+    firstAccessForm.confirmPassword = ''
+    navigateTo('/dashboard')
+  } catch (err) {
+    if (err.data && err.data.message) {
+      firstAccessError.value = err.data.message
+    } else {
+      firstAccessError.value = 'Não foi possível atualizar a senha.'
+    }
+  } finally {
+    firstAccessLoading.value = false
   }
 }
 </script>
@@ -358,5 +462,42 @@ const handleLogin = async () => {
   font-size: 0.8rem;
   color: #ccc;
   font-weight: 600;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+}
+
+.modal-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+  color: #12231a;
+}
+
+.modal-card p {
+  margin: 0 0 16px;
+  color: #46574f;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 </style>

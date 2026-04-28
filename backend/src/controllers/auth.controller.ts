@@ -49,6 +49,29 @@ export class AuthController {
     }
   }
 
+  async changeFirstAccessPassword(req: Request, res: Response): Promise<any> {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Usuário não autenticado." });
+      }
+
+      const { newPassword } = req.body;
+      const user = await authService.changePasswordOnFirstAccess(req.user.id, newPassword);
+      return res.json({ user, message: "Senha alterada com sucesso." });
+    } catch (error: any) {
+      if (error.message === "A nova senha deve ter pelo menos 6 caracteres.") {
+        return res.status(400).json({ message: error.message });
+      }
+      if (error.message === "Troca de senha de primeiro acesso não é necessária.") {
+        return res.status(409).json({ message: error.message });
+      }
+      if (error.message === "Usuário não encontrado.") {
+        return res.status(404).json({ message: error.message });
+      }
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   async me(req: Request, res: Response): Promise<any> {
     try {
       const authHeader = req.headers.authorization;

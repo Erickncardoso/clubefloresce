@@ -64,9 +64,9 @@ const success = ref("")
 const setupKey = ref("")
 
 const form = reactive({
-  name: "",
-  email: "",
-  password: ""
+  name: "Isabella Jardim",
+  email: "nutri.isabellajardim@gmail.com",
+  password: "123456"
 })
 
 const fetchStatus = async () => {

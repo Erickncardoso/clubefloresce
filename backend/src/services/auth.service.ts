@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository";
-import { Role } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 
 const userRepository = new UserRepository();
 
@@ -50,6 +50,7 @@ export class AuthService {
       email: data.email,
       password: data.password,
       role: Role.NUTRICIONISTA,
+      status: UserStatus.PENDENTE,
     });
   }
 
@@ -87,10 +88,38 @@ export class AuthService {
     );
 
     const { password, ...userWithoutPassword } = user;
-    return { user: userWithoutPassword, token };
+    return {
+      user: userWithoutPassword,
+      token,
+      mustChangePassword: user.status === UserStatus.PENDENTE,
+    };
   }
 
   async findById(id: string): Promise<any> {
     return userRepository.findById(id);
+  }
+
+  async changePasswordOnFirstAccess(userId: string, newPassword: string): Promise<any> {
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("A nova senha deve ter pelo menos 6 caracteres.");
+    }
+
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new Error("Usuário não encontrado.");
+    }
+
+    if (user.status !== UserStatus.PENDENTE) {
+      throw new Error("Troca de senha de primeiro acesso não é necessária.");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const updatedUser = await userRepository.update(userId, {
+      password: hashedPassword,
+      status: UserStatus.ATIVO,
+    });
+
+    const { password, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
   }
 }
