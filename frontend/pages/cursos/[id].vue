@@ -804,6 +804,7 @@ const inferLessonTitleFromFileName = (fileName) => {
 
 const applySelectedVideoFile = (file) => {
   if (!file) return
+  videoSourceTab.value = 'upload'
   videoFileLocal.value = file
   if (frameVideoObjectUrl.value) URL.revokeObjectURL(frameVideoObjectUrl.value)
   frameVideoObjectUrl.value = URL.createObjectURL(file)
@@ -884,6 +885,7 @@ const handleVideoUpload = async () => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${apiBase}/upload/video`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.timeout = 1000 * 60 * 30 // 30min
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {
         videoUploadProgress.value = Math.round((event.loaded / event.total) * 100)
@@ -891,18 +893,32 @@ const handleVideoUpload = async () => {
     })
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        const data = JSON.parse(xhr.responseText)
+        const data = JSON.parse(xhr.responseText || '{}')
+        if (!data?.url) {
+          videoUploadStatus.value = 'error'
+          reject(new Error('Upload concluído, mas não retornou URL do Cloudinary.'))
+          return
+        }
         videoUploadStatus.value = 'done'
         newLesson.videoUrl = data.url
         resolve(data.url)
       } else {
         videoUploadStatus.value = 'error'
-        reject(new Error('Erro no upload do vídeo'))
+        let message = 'Erro no upload do vídeo.'
+        try {
+          const errData = JSON.parse(xhr.responseText || '{}')
+          message = errData?.message || message
+        } catch {}
+        reject(new Error(message))
       }
     }
     xhr.onerror = () => {
       videoUploadStatus.value = 'error'
       reject(new Error('Erro de rede no upload'))
+    }
+    xhr.ontimeout = () => {
+      videoUploadStatus.value = 'error'
+      reject(new Error('Timeout no upload do vídeo. Tente novamente.'))
     }
     xhr.send(formData)
   })

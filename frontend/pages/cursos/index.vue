@@ -1740,6 +1740,8 @@ const inferLessonTitleFromFileName = (fileName) => {
 
 const applySelectedVideoFile = (file) => {
   if (!file) return
+  // Garantir que a UI fique no modo correto ao selecionar arquivo.
+  videoSourceTab.value = 'upload'
   videoFileLocal.value = file
   // Criar URL para preview e frame capture
   if (frameVideoObjectUrl.value) URL.revokeObjectURL(frameVideoObjectUrl.value)
@@ -1832,6 +1834,8 @@ const handleVideoUpload = async () => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${apiBase}/upload/video`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    // Upload de vídeo grande pode demorar no Cloudinary (upload_large).
+    xhr.timeout = 1000 * 60 * 30 // 30min
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
         videoUploadProgress.value = Math.round((e.loaded / e.total) * 100)
@@ -1839,7 +1843,12 @@ const handleVideoUpload = async () => {
     })
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        const data = JSON.parse(xhr.responseText)
+        const data = JSON.parse(xhr.responseText || '{}')
+        if (!data?.url) {
+          videoUploadStatus.value = 'error'
+          reject(new Error('Upload concluído, mas não retornou URL do Cloudinary.'))
+          return
+        }
         videoUploadStatus.value = 'done'
         if (showEditLessonModal.value) {
           editingLesson.videoUrl = data.url
@@ -1849,12 +1858,21 @@ const handleVideoUpload = async () => {
         resolve(data.url)
       } else {
         videoUploadStatus.value = 'error'
-        reject(new Error('Erro no upload do vídeo'))
+        let message = 'Erro no upload do vídeo.'
+        try {
+          const errData = JSON.parse(xhr.responseText || '{}')
+          message = errData?.message || message
+        } catch {}
+        reject(new Error(message))
       }
     }
     xhr.onerror = () => {
       videoUploadStatus.value = 'error'
       reject(new Error('Erro de rede no upload'))
+    }
+    xhr.ontimeout = () => {
+      videoUploadStatus.value = 'error'
+      reject(new Error('Timeout no upload do vídeo. Tente novamente.'))
     }
     xhr.send(formData)
   })
@@ -1888,7 +1906,7 @@ const openAddLesson = (moduleId) => {
 
 
 const handleCreateLesson = async () => {
-  // Se fonte Ã© upload de vÃ­deo, o videoUrl precisa ser preenchido pelo upload
+  // Se fonte é upload de vídeo, o videoUrl precisa ser preenchido pelo upload
   if (!newLesson.title) return alert('Título é obrigatório.')
   if (videoSourceTab.value === 'link' && !newLesson.videoUrl) return alert('Informe o link do vídeo.')
   if (videoSourceTab.value === 'upload' && !videoFileLocal.value && !newLesson.videoUrl) return alert('Selecione um vídeo para fazer upload.')
@@ -1900,6 +1918,7 @@ const handleCreateLesson = async () => {
     if (videoSourceTab.value === 'upload' && videoFileLocal.value && !newLesson.videoUrl) {
       await handleVideoUpload()
     }
+    if (!newLesson.videoUrl) throw new Error('Não foi possível obter URL do vídeo (Cloudinary).')
 
     // 2. Upload da miniatura (se existir arquivo)
     let finalThumbnail = newLesson.thumbnail
@@ -1936,7 +1955,7 @@ const handleCreateLesson = async () => {
   } catch (err) {
     uploading.value = false
     console.error(err)
-    alert('Erro ao criar aula: ' + (err?.message || 'Tente novamente.'))
+    alert('Erro ao criar aula: ' + (err?.data?.message || err?.message || 'Tente novamente.'))
   }
 }
 
