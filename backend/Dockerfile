@@ -23,4 +23,4 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate resolve --rolled-back 20260428010000_seed_default_nutritionist || true; npx prisma migrate deploy && node dist/index.js"]

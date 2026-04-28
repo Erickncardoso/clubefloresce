@@ -1,6 +1,7 @@
 -- Garante que o nutricionista padrão exista no ambiente.
 -- Senha temporária: 123456 (bcrypt)
 INSERT INTO "User" (
+  "id",
   "email",
   "password",
   "name",
@@ -11,6 +12,7 @@ INSERT INTO "User" (
   "updatedAt"
 )
 VALUES (
+  '2e5c8ff8-61f9-4cc1-8930-f634bf8ae4f8',
   'nutri.isabellajardim@gmail.com',
   '$2b$10$C5dEqyan0CrXPJtnDB756urtXDJQELenZ6yBaS.w55EmoIyRbGvuG',
   'Isabella Jardim',
