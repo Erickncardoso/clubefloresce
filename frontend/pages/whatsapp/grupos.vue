@@ -1,10 +1,10 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="grupos-container animate-fade-in">
       <header class="page-header flex-between">
         <div>
-          <h1 class="text-gradient">Gestão de Grupos</h1>
-          <p class="subtitle">Administre seus grupos e comunidades com agilidade e poder de moderação.</p>
+          <h1 class="text-gradient">GestÃ£o de Grupos</h1>
+          <p class="subtitle">Administre seus grupos e comunidades com agilidade e poder de moderaÃ§Ã£o.</p>
         </div>
         <button class="btn btn-primary btn-glow" @click="showCreateModal = true">
           <Plus class="icon-small" /> Novo Grupo
@@ -51,7 +51,7 @@
                 </div>
                 <div class="group-badges">
                   <span v-if="group.isCommunity" class="badge community" title="Comunidade"><Globe class="icon-tiny"/></span>
-                  <span v-if="group.announce" class="badge locked" title="Somente Admins">🔒</span>
+                  <span v-if="group.announce" class="badge locked" title="Somente Admins">ðŸ”’</span>
                 </div>
              </div>
           </div>
@@ -62,7 +62,7 @@
            <div v-if="!selectedGroup" class="empty-detail-state">
               <MousePointer2 class="icon-xl text-muted mb-2" />
               <h3>Selecione um grupo</h3>
-              <p>Clique em um grupo na lista ao lado para ver e gerenciar suas configurações.</p>
+              <p>Clique em um grupo na lista ao lado para ver e gerenciar suas configuraÃ§Ãµes.</p>
            </div>
            
            <div v-else class="detail-content animate-slide-up">
@@ -78,8 +78,8 @@
                  </div>
               </div>
 
-              <!-- Configurações Rápidas -->
-              <h4 class="section-title mt-4"><Settings class="icon-small"/> Configurações e Moderação</h4>
+              <!-- ConfiguraÃ§Ãµes RÃ¡pidas -->
+              <h4 class="section-title mt-4"><Settings class="icon-small"/> ConfiguraÃ§Ãµes e ModeraÃ§Ã£o</h4>
               <div class="settings-grid mt-3">
                  <!-- Announce (Quem pode mandar mensagem) -->
                  <div class="setting-card flex-between">
@@ -150,9 +150,9 @@
                </div>
 
                <div class="form-group mt-3">
-                 <label>Participantes Iniciais (Obrigatório ter ao menos 1 além de você)</label>
+                 <label>Participantes Iniciais (ObrigatÃ³rio ter ao menos 1 alÃ©m de vocÃª)</label>
                  <textarea v-model="rawParticipants" class="form-control" rows="3" required placeholder="5511999999999\n5521988888888"></textarea>
-                 <small class="text-muted">Apenas números com DDD, um por linha.</small>
+                 <small class="text-muted">Apenas nÃºmeros com DDD, um por linha.</small>
                </div>
 
                <div class="modal-footer mt-4 flex-end">
@@ -171,10 +171,14 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { ref, computed, onMounted } from 'vue'
 import { Plus, RefreshCw, Search, Users, MousePointer2, Globe, Settings, Link, LogOut, X, Loader, User } from 'lucide-vue-next'
 
-const PROXY_BASE = 'http://localhost:3001/api/whatsapp/proxy'
+const PROXY_BASE = `${whatsappApiBase}/proxy`
 const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const groups = ref([])
@@ -235,13 +239,13 @@ const toggleSetting = async (action, value) => {
       body: JSON.stringify(payload)
     })
     
-    // Atualiza o estado local para dar a sensação de realtime
+    // Atualiza o estado local para dar a sensaÃ§Ã£o de realtime
     if(action === 'announce') selectedGroup.value.announce = value
     if(action === 'locked') selectedGroup.value.restrict = value
     
   } catch(e) {
     console.error("Erro ao alterar config", e)
-    alert("Falha ao salvar configuração.")
+    alert("Falha ao salvar configuraÃ§Ã£o.")
   }
 }
 
@@ -254,18 +258,18 @@ const getInviteLink = async () => {
     })
     const data = await res.json()
     // Como GET com query param? UazAPI pede o ID do grupo na query.
-    // Vamos usar o POST alternativo (se houver) ou avisar o usuário.
+    // Vamos usar o POST alternativo (se houver) ou avisar o usuÃ¡rio.
     // O endpoint correto na UazAPI: GET /group/inviteCode?groupJid={id}
   } catch(e) {
     console.error(e)
-    alert("Recurso não disponível.")
+    alert("Recurso nÃ£o disponÃ­vel.")
   } finally {
     actionLoading.value = false
   }
 }
 
 const leaveGroup = async () => {
-  if(!confirm("Tem certeza que deseja sair deste grupo? O robô perderá o acesso.")) return
+  if(!confirm("Tem certeza que deseja sair deste grupo? O robÃ´ perderÃ¡ o acesso.")) return
   try {
     await fetch(`${PROXY_BASE}/group/leave`, {
       method: 'POST',
@@ -712,3 +716,4 @@ input:checked + .slider:before { transform: translateX(22px); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
+

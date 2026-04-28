@@ -1,9 +1,9 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="quick-replies-container animate-fade-in">
       <header class="page-header flex-between">
         <div>
-          <h1 class="text-gradient">Respostas Rápidas</h1>
+          <h1 class="text-gradient">Respostas RÃ¡pidas</h1>
           <p class="subtitle">Automatize e padronize seu atendimento criando templates de respostas.</p>
         </div>
         <button class="btn btn-primary btn-glow" @click="openModal()">
@@ -29,7 +29,7 @@
 
          <div v-else-if="filteredReplies.length === 0" class="empty-state">
             <MessageSquarePlus class="icon-xl text-muted mb-2" />
-            <p>Nenhuma resposta rápida encontrada.</p>
+            <p>Nenhuma resposta rÃ¡pida encontrada.</p>
          </div>
 
          <div v-else class="replies-grid">
@@ -47,7 +47,7 @@
                      <button class="btn-icon text-danger" title="Excluir" @click="deleteReply(reply.id)" v-if="!reply.onWhatsApp">
                         <Trash2 class="icon-small" />
                      </button>
-                     <span v-if="reply.onWhatsApp" class="badge whatsapp-origin text-sm" title="Criado via WhatsApp Business">📱 WAB</span>
+                     <span v-if="reply.onWhatsApp" class="badge whatsapp-origin text-sm" title="Criado via WhatsApp Business">ðŸ“± WAB</span>
                   </div>
                </div>
                
@@ -62,7 +62,7 @@
                         <Mic v-else-if="['audio', 'ptt', 'myaudio'].includes(reply.type)" class="icon-medium" />
                      </div>
                      <div class="media-info">
-                        <strong>Mídia Anexada ({{ reply.type }})</strong>
+                        <strong>MÃ­dia Anexada ({{ reply.type }})</strong>
                         <p class="text-muted text-sm line-clamp-1">{{ reply.text || 'Sem legenda' }}</p>
                      </div>
                   </div>
@@ -75,7 +75,7 @@
       <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
          <div class="modal-content glass-card animate-slide-up">
             <div class="modal-header flex-between mb-4">
-               <h2>{{ editingReply?.id ? 'Editar Resposta' : 'Nova Resposta Rápida' }}</h2>
+               <h2>{{ editingReply?.id ? 'Editar Resposta' : 'Nova Resposta RÃ¡pida' }}</h2>
                <button class="btn-icon" @click="showModal = false"><X class="icon-medium" /></button>
             </div>
             
@@ -94,8 +94,8 @@
                       <option value="text">Texto</option>
                       <option value="image">Imagem</option>
                       <option value="document">Documento</option>
-                      <option value="video">Vídeo</option>
-                      <option value="audio">Áudio</option>
+                      <option value="video">VÃ­deo</option>
+                      <option value="audio">Ãudio</option>
                    </select>
                  </div>
                </div>
@@ -112,7 +112,7 @@
 
                <div class="form-group mt-3">
                  <label>{{ form.type === 'text' ? 'Mensagem' : 'Legenda (opcional)' }}</label>
-                 <textarea v-model="form.text" class="form-control" rows="4" :required="form.type === 'text'" placeholder="Olá! Como posso ajudar hoje?"></textarea>
+                 <textarea v-model="form.text" class="form-control" rows="4" :required="form.type === 'text'" placeholder="OlÃ¡! Como posso ajudar hoje?"></textarea>
                </div>
 
                <div class="modal-footer mt-4 flex-end">
@@ -131,10 +131,14 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { ref, computed, onMounted } from 'vue'
 import { Plus, RefreshCw, Search, MessageSquarePlus, Edit2, Trash2, X, Loader, Save, Image, Video, FileText, Mic } from 'lucide-vue-next'
 
-const PROXY_BASE = 'http://localhost:3001/api/whatsapp/proxy'
+const PROXY_BASE = `${whatsappApiBase}/proxy`
 const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const replies = ref([])
@@ -199,7 +203,7 @@ const submitReply = async () => {
   try {
     saving.value = true
     const payload = { ...form.value }
-    if(!payload.id) delete payload.id // Criação não tem ID
+    if(!payload.id) delete payload.id // CriaÃ§Ã£o nÃ£o tem ID
 
     const res = await fetch(`${PROXY_BASE}/quickreply/edit`, {
       method: 'POST',
@@ -219,14 +223,14 @@ const submitReply = async () => {
     }
   } catch(e) {
     console.error("Erro ao salvar", e)
-    alert("Falha na requisição.")
+    alert("Falha na requisiÃ§Ã£o.")
   } finally {
     saving.value = false
   }
 }
 
 const deleteReply = async (id) => {
-  if(!confirm("Tem certeza que deseja excluir esta resposta rápida?")) return
+  if(!confirm("Tem certeza que deseja excluir esta resposta rÃ¡pida?")) return
   try {
     await fetch(`${PROXY_BASE}/quickreply/edit`, {
       method: 'POST',
@@ -236,7 +240,7 @@ const deleteReply = async (id) => {
       },
       body: JSON.stringify({ id, delete: true })
     })
-    alert("Resposta excluída.")
+    alert("Resposta excluÃ­da.")
     loadReplies()
   } catch(e) {
     console.error("Erro ao excluir", e)
@@ -399,3 +403,4 @@ onMounted(() => {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
+

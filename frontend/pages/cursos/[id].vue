@@ -429,6 +429,8 @@ import {
 } from 'lucide-vue-next'
 
 const route = useRoute()
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
 const course = ref(null)
 const isNutri = ref(false)
 const showLessonModal = ref(false)
@@ -735,7 +737,7 @@ const fetchLessonsProgress = async (courseData, token) => {
 
   const entries = await Promise.all(lessonIds.map(async (lessonId) => {
     try {
-      const progressData = await $fetch(`http://localhost:3001/api/courses/lessons/${lessonId}/progress`, {
+      const progressData = await $fetch(`${apiBase}/courses/lessons/${lessonId}/progress`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       return [lessonId, parseCompletionFromProgress(progressData)]
@@ -849,7 +851,7 @@ const handleVideoUpload = async () => {
     const formData = new FormData()
     formData.append('file', videoFileLocal.value)
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', 'http://localhost:3001/api/upload/video')
+    xhr.open('POST', `${apiBase}/upload/video`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {
@@ -905,7 +907,7 @@ const handleCreateLessonFromDetail = async () => {
     if (lessonThumbFile.value) {
       const formData = new FormData()
       formData.append('file', lessonThumbFile.value)
-      const uploadRes = await $fetch('http://localhost:3001/api/upload', {
+      const uploadRes = await $fetch(`${apiBase}/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -915,7 +917,7 @@ const handleCreateLessonFromDetail = async () => {
 
     if (!newLesson.videoUrl) throw new Error('Não foi possível obter URL do vídeo.')
 
-    await $fetch('http://localhost:3001/api/courses/lessons', {
+    await $fetch(`${apiBase}/courses/lessons`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: {
@@ -941,7 +943,7 @@ const handleCreateLessonFromDetail = async () => {
 const fetchCourse = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch(`http://localhost:3001/api/courses/${route.params.id}`, {
+    const data = await $fetch(`${apiBase}/courses/${route.params.id}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     course.value = data

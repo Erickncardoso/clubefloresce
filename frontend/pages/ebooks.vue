@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="ebooks-container">
       <div class="ebooks-page">
@@ -6,7 +6,7 @@
         <div class="page-header">
           <div>
             <h1>Biblioteca Digital</h1>
-            <p>Guia práticos, receitas e materiais exclusivos para download.</p>
+            <p>Guia prÃ¡ticos, receitas e materiais exclusivos para download.</p>
           </div>
           <button v-if="isNutri" @click="showCreateEbookModal = true" class="btn-primary">
             <Plus class="btn-icon" />
@@ -52,7 +52,7 @@
             <Book class="empty-icon" />
           </div>
           <h3>Biblioteca vazia</h3>
-          <p>Ainda não há materiais disponíveis para download.</p>
+          <p>Ainda nÃ£o hÃ¡ materiais disponÃ­veis para download.</p>
           <button v-if="isNutri" @click="showCreateEbookModal = true" class="btn-primary mt-4">Adicionar primeiro ebook</button>
         </div>
 
@@ -78,13 +78,13 @@
             </div>
 
             <div class="form-group">
-              <label>Título do Ebook</label>
+              <label>TÃ­tulo do Ebook</label>
               <input v-model="newEbook.title" placeholder="Ex: Guia de Receitas Detox" />
             </div>
             
             <div class="form-group">
-              <label>Descrição Curta</label>
-              <textarea v-model="newEbook.description" rows="2" placeholder="Resumo do conteúdo..." />
+              <label>DescriÃ§Ã£o Curta</label>
+              <textarea v-model="newEbook.description" rows="2" placeholder="Resumo do conteÃºdo..." />
             </div>
 
             <!-- Upload de PDF -->
@@ -116,6 +116,10 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { 
   Book, 
   BookOpen, 
@@ -147,7 +151,7 @@ const newEbook = reactive({
 const fetchEbooks = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch('http://localhost:3001/api/ebooks', {
+    const data = await $fetch(`${apiBase}/ebooks`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     ebooks.value = data
@@ -179,7 +183,7 @@ const handlePdfSelect = (e) => {
 }
 
 const handleCreateEbook = async () => {
-  if (!newEbook.title) return alert('O título é obrigatório.')
+  if (!newEbook.title) return alert('O tÃ­tulo Ã© obrigatÃ³rio.')
   if (!selectedPdfFile.value && !newEbook.fileUrl) return alert('Selecione um arquivo PDF ou insira um link.')
   
   uploading.value = true
@@ -190,7 +194,7 @@ const handleCreateEbook = async () => {
     if (selectedFile.value) {
       const formData = new FormData()
       formData.append('file', selectedFile.value)
-      const uploadRes = await $fetch('http://localhost:3001/api/upload', {
+      const uploadRes = await $fetch(`${apiBase}/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -202,7 +206,7 @@ const handleCreateEbook = async () => {
     if (selectedPdfFile.value) {
       const formData = new FormData()
       formData.append('file', selectedPdfFile.value)
-      const uploadRes = await $fetch('http://localhost:3001/api/upload/file', {
+      const uploadRes = await $fetch(`${apiBase}/upload/file`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -211,7 +215,7 @@ const handleCreateEbook = async () => {
     }
 
     // 3. Salvar Ebook no Banco
-    await $fetch('http://localhost:3001/api/ebooks', {
+    await $fetch(`${apiBase}/ebooks`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: { ...newEbook }
@@ -236,7 +240,7 @@ const handleDeleteEbook = async (id) => {
   if (!confirm('Deseja excluir este material permanentemente?')) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/ebooks/${id}`, {
+    await $fetch(`${apiBase}/ebooks/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -606,3 +610,5 @@ onMounted(() => {
 
 .file-input-hidden { display: none; }
 </style>
+
+

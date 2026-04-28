@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="sender-container animate-fade-in">
       <header class="page-header flex-between">
@@ -15,7 +15,7 @@
         <!-- Lista de Campanhas -->
         <div class="card glass-card campaigns-list">
           <div class="card-header flex-between">
-            <h3>Histórico de Campanhas</h3>
+            <h3>HistÃ³rico de Campanhas</h3>
             <button class="btn-icon" @click="loadCampaigns" title="Atualizar">
               <RefreshCw :class="{ 'spin': loadingList }" class="icon-small text-muted" />
             </button>
@@ -59,7 +59,7 @@
            <div v-if="!selectedCampaign" class="empty-detail-state">
               <MousePointer2 class="icon-xl text-muted mb-2" />
               <h3>Selecione uma campanha</h3>
-              <p>Clique em uma campanha na lista ao lado para ver as estatísticas e os números que receberam a mensagem.</p>
+              <p>Clique em uma campanha na lista ao lado para ver as estatÃ­sticas e os nÃºmeros que receberam a mensagem.</p>
            </div>
            
            <div v-else class="detail-content animate-slide-up">
@@ -102,9 +102,9 @@
                     <table class="modern-table">
                        <thead>
                           <tr>
-                             <th>Número</th>
+                             <th>NÃºmero</th>
                              <th>Status</th>
-                             <th>Ação</th>
+                             <th>AÃ§Ã£o</th>
                           </tr>
                        </thead>
                        <tbody>
@@ -142,29 +142,29 @@
             <form @submit.prevent="submitCampaign">
                <div class="form-group">
                  <label>Nome da Campanha (Interno)</label>
-                 <input type="text" v-model="newCamp.info" class="form-control" required placeholder="Ex: Promoção Dia das Mães">
+                 <input type="text" v-model="newCamp.info" class="form-control" required placeholder="Ex: PromoÃ§Ã£o Dia das MÃ£es">
                </div>
 
                <div class="form-row">
                  <div class="form-group">
-                   <label>Delay Mínimo (segundos)</label>
+                   <label>Delay MÃ­nimo (segundos)</label>
                    <input type="number" v-model="newCamp.delayMin" class="form-control" required min="3">
                  </div>
                  <div class="form-group">
-                   <label>Delay Máximo (segundos)</label>
+                   <label>Delay MÃ¡ximo (segundos)</label>
                    <input type="number" v-model="newCamp.delayMax" class="form-control" required min="5">
                  </div>
                </div>
 
                <div class="form-group mt-3">
                  <label>Mensagem</label>
-                 <textarea v-model="newCamp.text" class="form-control" rows="4" required placeholder="Olá! Temos uma oferta especial..."></textarea>
+                 <textarea v-model="newCamp.text" class="form-control" rows="4" required placeholder="OlÃ¡! Temos uma oferta especial..."></textarea>
                </div>
 
                <div class="form-group mt-3">
-                 <label>Lista de Números (Um por linha)</label>
+                 <label>Lista de NÃºmeros (Um por linha)</label>
                  <textarea v-model="rawNumbers" class="form-control" rows="4" required placeholder="5511999999999\n5521988888888"></textarea>
-                 <small class="text-muted">Apenas números com DDD. Formato internacional limpo.</small>
+                 <small class="text-muted">Apenas nÃºmeros com DDD. Formato internacional limpo.</small>
                </div>
 
                <div class="modal-footer mt-4 flex-end">
@@ -183,10 +183,14 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { ref, onMounted } from 'vue'
 import { Plus, RefreshCw, Send, MousePointer2, Eye, X, Loader } from 'lucide-vue-next'
 
-const PROXY_BASE = 'http://localhost:3001/api/whatsapp/proxy'
+const PROXY_BASE = `${whatsappApiBase}/proxy`
 const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const campaigns = ref([])
@@ -249,7 +253,7 @@ const loadMessages = async () => {
 }
 
 const editCampaign = async (action) => {
-  if(!confirm(`Tem certeza que deseja aplicar a ação: ${action}?`)) return
+  if(!confirm(`Tem certeza que deseja aplicar a aÃ§Ã£o: ${action}?`)) return
   try {
     await fetch(`${PROXY_BASE}/sender/edit`, {
       method: 'POST',
@@ -259,11 +263,11 @@ const editCampaign = async (action) => {
       },
       body: JSON.stringify({ folder_id: selectedCampaign.value.id, action })
     })
-    alert('Ação executada com sucesso!')
+    alert('AÃ§Ã£o executada com sucesso!')
     loadCampaigns()
   } catch(e) {
     console.error("Erro", e)
-    alert('Falha ao executar ação.')
+    alert('Falha ao executar aÃ§Ã£o.')
   }
 }
 
@@ -276,7 +280,7 @@ const openNewCampaignModal = () => {
 const submitCampaign = async () => {
   const nums = rawNumbers.value.split('\n').map(n => n.trim()).filter(n => n)
   if(nums.length === 0) {
-    alert("Informe ao menos um número válido.")
+    alert("Informe ao menos um nÃºmero vÃ¡lido.")
     return
   }
 
@@ -636,3 +640,4 @@ onMounted(() => {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
+

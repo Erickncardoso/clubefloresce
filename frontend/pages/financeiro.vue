@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="finance-container">
       <div class="finance-page">
@@ -10,11 +10,11 @@
           </div>
           <button class="btn-export">
             <Download class="btn-icon" />
-            Exportar Relatório
+            Exportar RelatÃ³rio
           </button>
         </div>
 
-        <!-- KPIs: Métricas de Impacto -->
+        <!-- KPIs: MÃ©tricas de Impacto -->
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-icon-box blue">
@@ -23,7 +23,7 @@
             <div class="stat-data">
               <span class="stat-label">Faturamento Total</span>
               <h2 class="stat-value">{{ formatCurrency(summary.totalRevenue) }}</h2>
-              <span class="stat-change positive">+{{ summary.growth }}% este mês</span>
+              <span class="stat-change positive">+{{ summary.growth }}% este mÃªs</span>
             </div>
           </div>
 
@@ -43,19 +43,19 @@
               <CreditCard />
             </div>
             <div class="stat-data">
-              <span class="stat-label">Ticket Médio</span>
+              <span class="stat-label">Ticket MÃ©dio</span>
               <h2 class="stat-value">R$ 189,90</h2>
-              <span class="stat-change">Estável</span>
+              <span class="stat-change">EstÃ¡vel</span>
             </div>
           </div>
         </div>
 
         <!-- Chart & Transactions -->
         <div class="finance-content">
-          <!-- Gráfico Simulado (Elite Style) -->
+          <!-- GrÃ¡fico Simulado (Elite Style) -->
           <div class="chart-section">
             <div class="section-header">
-              <h3>Evolução de Receita</h3>
+              <h3>EvoluÃ§Ã£o de Receita</h3>
               <div class="period-selector">
                 <button class="period-btn active">7D</button>
                 <button class="period-btn">30D</button>
@@ -63,7 +63,7 @@
               </div>
             </div>
             <div class="chart-container">
-              <!-- Placeholder para gráfico botânico -->
+              <!-- Placeholder para grÃ¡fico botÃ¢nico -->
               <div class="mock-chart">
                 <div class="chart-line" v-for="(h, i) in [40, 65, 50, 85, 70, 95, 80]" :key="i" :style="{ height: h + '%' }">
                   <div class="chart-tooltip">R$ {{ (h * 50).toFixed(0) }}</div>
@@ -75,7 +75,7 @@
             </div>
           </div>
 
-          <!-- Transações Recentes -->
+          <!-- TransaÃ§Ãµes Recentes -->
           <div class="transactions-section">
             <div class="section-header">
               <h3>Vendas Recentes</h3>
@@ -98,7 +98,7 @@
               
               <!-- Mock if empty -->
               <div v-if="!summary.recentTransactions?.length" class="empty-tx">
-                <p>Nenhuma transação recente encontrada.</p>
+                <p>Nenhuma transaÃ§Ã£o recente encontrada.</p>
               </div>
             </div>
           </div>
@@ -109,6 +109,10 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { 
   TrendingUp, 
   Users, 
@@ -126,7 +130,7 @@ const summary = ref({
 const fetchFinancial = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch('http://localhost:3001/api/financial/summary', {
+    const data = await $fetch(`${apiBase}/financial/summary`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     summary.value = data
@@ -392,3 +396,4 @@ onMounted(fetchFinancial)
 .see-all { font-size: 0.85rem; font-weight: 700; color: var(--primary); text-decoration: none; }
 .empty-tx { text-align: center; color: #ccc; padding: 2rem 0; font-size: 0.9rem; }
 </style>
+

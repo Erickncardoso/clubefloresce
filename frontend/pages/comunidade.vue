@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="community-container">
       <div class="community-page">
@@ -11,7 +11,7 @@
           <div class="community-stats" v-if="posts.length">
             <span class="stat-badge">
               <Users class="stat-icon" />
-              {{ posts.length }} Publicações
+              {{ posts.length }} PublicaÃ§Ãµes
             </span>
           </div>
         </div>
@@ -27,7 +27,7 @@
                 </div>
                 <textarea 
                   v-model="newPostContent" 
-                  placeholder="No que você está pensando hoje?" 
+                  placeholder="No que vocÃª estÃ¡ pensando hoje?" 
                   rows="1"
                   @input="autoResize"
                   ref="postArea"
@@ -76,7 +76,7 @@
                   </button>
                   <button class="interaction-btn" @click="toggleComments(post.id)">
                     <MessageCircle class="inter-icon" />
-                    <span>{{ post.comments?.length || 0 }} Comentários</span>
+                    <span>{{ post.comments?.length || 0 }} ComentÃ¡rios</span>
                   </button>
                 </div>
 
@@ -103,7 +103,7 @@
                       <input 
                         v-model="post.newComment" 
                         @keyup.enter="handleAddComment(post)" 
-                        placeholder="Escreva um comentário..." 
+                        placeholder="Escreva um comentÃ¡rio..." 
                       />
                       <button @click="handleAddComment(post)" :disabled="!post.newComment?.trim()">
                         <Send class="send-comment-icon" />
@@ -120,7 +120,7 @@
                 <MessageCircle class="empty-icon" />
               </div>
               <h3>Comece a conversa!</h3>
-              <p>Ainda não há publicações nesta comunidade. Seja o primeiro a compartilhar algo.</p>
+              <p>Ainda nÃ£o hÃ¡ publicaÃ§Ãµes nesta comunidade. Seja o primeiro a compartilhar algo.</p>
             </div>
           </div>
 
@@ -128,15 +128,15 @@
           <aside class="community-sidebar">
             <div class="sidebar-widget">
               <h3>Sobre a Comunidade</h3>
-              <p>Um espaço seguro para compartilhar sua evolução, tirar dúvidas sobre planos alimentares e se conectar com outros membros do Clube.</p>
+              <p>Um espaÃ§o seguro para compartilhar sua evoluÃ§Ã£o, tirar dÃºvidas sobre planos alimentares e se conectar com outros membros do Clube.</p>
             </div>
             
             <div class="sidebar-widget">
-              <h3>Regras Básicas</h3>
+              <h3>Regras BÃ¡sicas</h3>
               <ul class="community-rules">
-                <li>Respeito mútuo sempre</li>
+                <li>Respeito mÃºtuo sempre</li>
                 <li>Compartilhe conquistas</li>
-                <li>Tire dúvidas construtivas</li>
+                <li>Tire dÃºvidas construtivas</li>
               </ul>
             </div>
           </aside>
@@ -147,6 +147,10 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { 
   User, 
   Send, 
@@ -170,7 +174,7 @@ const userInitial = computed(() => (localStorage.getItem('user_name') || 'U').ch
 const fetchPosts = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch('http://localhost:3001/api/posts', {
+    const data = await $fetch(`${apiBase}/posts`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     posts.value = data.map(p => ({ ...p, newComment: '' }))
@@ -184,7 +188,7 @@ const handleCreatePost = async () => {
   loading.value = true
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch('http://localhost:3001/api/posts', {
+    await $fetch(`${apiBase}/posts`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: { content: newPostContent.value }
@@ -202,7 +206,7 @@ const handleAddComment = async (post) => {
   if (!post.newComment?.trim()) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/posts/${post.id}/comments`, {
+    await $fetch(`${apiBase}/posts/${post.id}/comments`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: { content: post.newComment }
@@ -210,15 +214,15 @@ const handleAddComment = async (post) => {
     post.newComment = ''
     fetchPosts()
   } catch (err) {
-    alert('Erro ao adicionar comentário.')
+    alert('Erro ao adicionar comentÃ¡rio.')
   }
 }
 
 const handleDeletePost = async (id) => {
-  if (!confirm('Deseja excluir esta publicação?')) return
+  if (!confirm('Deseja excluir esta publicaÃ§Ã£o?')) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/posts/${id}`, {
+    await $fetch(`${apiBase}/posts/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -654,7 +658,7 @@ onMounted(() => {
 }
 
 .community-rules li::before {
-  content: "•";
+  content: "â€¢";
   color: var(--primary);
   font-weight: 900;
   margin-right: 10px;
@@ -679,3 +683,5 @@ onMounted(() => {
 
 .empty-icon { width: 36px; height: 36px; }
 </style>
+
+

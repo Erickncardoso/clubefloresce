@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="courses-container" :class="{ 'patient-view': isPacienteView }">
       <div class="courses-page" :class="{ 'patient-page': isPacienteView }">
@@ -18,9 +18,9 @@
           <div class="patient-banner-bottom-blur"></div>
           <div class="patient-banner-content">
             <span class="patient-banner-kicker">Destaque da semana</span>
-            <h2>{{ featuredCourse?.bannerTitle || featuredCourse?.title || 'Sua jornada de transformação continua' }}</h2>
+            <h2>{{ featuredCourse?.bannerTitle || featuredCourse?.title || 'Sua jornada de transformaÃ§Ã£o continua' }}</h2>
             <p>
-              {{ featuredCourse?.bannerSubtitle || featuredCourse?.description || 'Assista às aulas e mantenha consistência no seu processo.' }}
+              {{ featuredCourse?.bannerSubtitle || featuredCourse?.description || 'Assista Ã s aulas e mantenha consistÃªncia no seu processo.' }}
             </p>
             <button v-if="featuredCourse" class="patient-banner-btn" @click="openCoursePlayerPage(featuredCourse)">
               Continuar agora
@@ -63,11 +63,11 @@
                       <BookOpen class="placeholder-icon" />
                     </div>
                     <div class="card-gradient"></div>
-                    <div class="card-tag-patient">método</div>
+                    <div class="card-tag-patient">mÃ©todo</div>
 
                     <div class="card-content">
                       <h3>{{ course.title }}</h3>
-                      <p>{{ course.modules?.length || 0 }} módulo(s)</p>
+                      <p>{{ course.modules?.length || 0 }} mÃ³dulo(s)</p>
                     </div>
 
                     <div class="card-hover-actions" v-if="isNutri">
@@ -127,7 +127,7 @@
 
                 <div class="card-content">
                   <h3>{{ course.title }}</h3>
-                  <p>{{ course.modules?.length || 0 }} módulo(s)</p>
+                  <p>{{ course.modules?.length || 0 }} mÃ³dulo(s)</p>
                 </div>
 
                 <!-- Hover Actions -->
@@ -149,7 +149,7 @@
 
         <div v-else-if="coursesLoadError" class="empty-state">
           <BookOpen class="empty-state-icon" />
-          <h3>Não foi possível carregar os cursos</h3>
+          <h3>NÃ£o foi possÃ­vel carregar os cursos</h3>
           <p>{{ coursesLoadError }}</p>
           <button class="btn-primary mt-4" @click="fetchCourses">Tentar novamente</button>
         </div>
@@ -157,8 +157,8 @@
         <!-- Estado vazio -->
         <div v-else class="empty-state">
           <BookOpen class="empty-state-icon" />
-          <h3>Nenhum curso disponível</h3>
-          <p>{{ isPacienteView ? 'Ainda não há cursos ou ebooks disponíveis para você.' : 'Você ainda não possui cursos cadastrados em sua conta.' }}</p>
+          <h3>Nenhum curso disponÃ­vel</h3>
+          <p>{{ isPacienteView ? 'Ainda nÃ£o hÃ¡ cursos ou ebooks disponÃ­veis para vocÃª.' : 'VocÃª ainda nÃ£o possui cursos cadastrados em sua conta.' }}</p>
           <button v-if="isNutri" @click="showCreateCourseModal = true" class="btn-primary mt-4">Criar meu primeiro curso</button>
         </div>
 
@@ -179,7 +179,7 @@
                     </button>
                     <!-- Icon buttons for Nutris -->
                     <button v-if="isNutri" class="btn-netflix-icon" title="Editar Curso" @click="openEditCourseById(selectedCourseDetails?.id, 'card')"><Edit2/></button>
-                    <button v-if="isNutri" class="btn-netflix-icon" title="Adicionar Módulo" @click="openAddModule(selectedCourseDetails)"><Plus/></button>
+                    <button v-if="isNutri" class="btn-netflix-icon" title="Adicionar MÃ³dulo" @click="openAddModule(selectedCourseDetails)"><Plus/></button>
                     <button v-if="isNutri" class="btn-netflix-icon" title="Deletar Curso" @click="handleDeleteCourse(selectedCourseDetails.id)"><Trash2/></button>
                   </div>
                </div>
@@ -190,10 +190,10 @@
                  <span class="match-score">Relevante</span>
                  <span class="year">2026</span>
                  <span class="age-rating">Livre</span>
-                 <span class="seasons" v-if="selectedCourseDetails.modules">{{ selectedCourseDetails.modules.length }} Módulos</span>
+                 <span class="seasons" v-if="selectedCourseDetails.modules">{{ selectedCourseDetails.modules.length }} MÃ³dulos</span>
                </div>
                
-               <p class="netflix-description">{{ selectedCourseDetails.description || 'Nenhuma descrição fornecida.' }}</p>
+               <p class="netflix-description">{{ selectedCourseDetails.description || 'Nenhuma descriÃ§Ã£o fornecida.' }}</p>
 
                <div class="episodes-section">
                  <div class="episodes-header">
@@ -206,7 +206,7 @@
                  </div>
                  
                  <div v-if="isNutri" class="module-edit-actions">
-                    <span class="module-selected-title">Módulo: {{ currentDropModule?.title }}</span>
+                    <span class="module-selected-title">MÃ³dulo: {{ currentDropModule?.title }}</span>
                     <div class="module-nutri-btns">
                       <button @click="openAddLesson(selectedModuleDropId)" class="btn-text-netflix"><Plus class="xs-icon"/> Nova Aula</button>
                       <button @click="handleDeleteModule(selectedModuleDropId, selectedCourseDetails.id)" class="btn-text-netflix danger"><Trash2 class="xs-icon"/></button>
@@ -214,10 +214,10 @@
                  </div>
 
                  <div v-if="!currentDropModule" class="empty-episodes">
-                    <p>Módulo não selecionado ou inexistente.</p>
+                    <p>MÃ³dulo nÃ£o selecionado ou inexistente.</p>
                  </div>
                  <div v-else-if="!currentDropModule.lessons?.length" class="empty-episodes">
-                    <p>Nenhuma aula neste módulo.</p>
+                    <p>Nenhuma aula neste mÃ³dulo.</p>
                  </div>
                  <div v-else class="episodes-list">
                     <div v-for="(lesson, idx) in currentDropModule.lessons" :key="lesson.id" class="episode-row" @click="navigateTo(`/modulos/${selectedModuleDropId}?lessonId=${lesson.id}`)">
@@ -286,20 +286,20 @@
             </div>
 
             <div class="form-group">
-              <label>Título do Curso</label>
-              <input v-model="newCourse.title" placeholder="Ex: Nutrição para Hipertrofia" />
+              <label>TÃ­tulo do Curso</label>
+              <input v-model="newCourse.title" placeholder="Ex: NutriÃ§Ã£o para Hipertrofia" />
             </div>
             <div class="form-group">
-              <label>Descrição</label>
+              <label>DescriÃ§Ã£o</label>
               <textarea v-model="newCourse.description" rows="3" placeholder="Descreva brevemente os objetivos do curso" />
             </div>
             <div class="form-group">
-              <label>Título no Banner (Opcional)</label>
-              <input v-model="newCourse.bannerTitle" placeholder="Ex: Nutrição Avançada" />
+              <label>TÃ­tulo no Banner (Opcional)</label>
+              <input v-model="newCourse.bannerTitle" placeholder="Ex: NutriÃ§Ã£o AvanÃ§ada" />
             </div>
             <div class="form-group">
               <label>Texto do Banner (Opcional)</label>
-              <textarea v-model="newCourse.bannerSubtitle" rows="2" placeholder="Ex: Assista às aulas e mantenha consistência no seu processo." />
+              <textarea v-model="newCourse.bannerSubtitle" rows="2" placeholder="Ex: Assista Ã s aulas e mantenha consistÃªncia no seu processo." />
             </div>
             <div class="modal-actions">
               <button @click="showCreateCourseModal = false" class="btn-cancel">Cancelar</button>
@@ -346,52 +346,52 @@
             </div>
 
             <div class="form-group">
-              <label>Título do Curso</label>
-              <input v-model="editingCourse.title" placeholder="Ex: Nutrição para Hipertrofia" />
+              <label>TÃ­tulo do Curso</label>
+              <input v-model="editingCourse.title" placeholder="Ex: NutriÃ§Ã£o para Hipertrofia" />
             </div>
             <div class="form-group">
-              <label>Descrição</label>
+              <label>DescriÃ§Ã£o</label>
               <textarea v-model="editingCourse.description" rows="3" placeholder="Descreva brevemente os objetivos do curso" />
             </div>
             <div class="form-group">
-              <label>Título no Banner (Opcional)</label>
-              <input v-model="editingCourse.bannerTitle" placeholder="Ex: Nutrição Avançada" />
+              <label>TÃ­tulo no Banner (Opcional)</label>
+              <input v-model="editingCourse.bannerTitle" placeholder="Ex: NutriÃ§Ã£o AvanÃ§ada" />
             </div>
             <div class="form-group">
               <label>Texto do Banner (Opcional)</label>
-              <textarea v-model="editingCourse.bannerSubtitle" rows="2" placeholder="Ex: Assista às aulas e mantenha consistência no seu processo." />
+              <textarea v-model="editingCourse.bannerSubtitle" rows="2" placeholder="Ex: Assista Ã s aulas e mantenha consistÃªncia no seu processo." />
             </div>
             <div class="modal-actions">
               <button @click="showEditCourseModal = false" class="btn-cancel">Cancelar</button>
               <button @click="handleUpdateCourse" class="btn-primary" :disabled="uploading">
                 <span v-if="uploading">Salvando...</span>
-                <span v-else>Salvar Alterações</span>
+                <span v-else>Salvar AlteraÃ§Ãµes</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Modal: Criar Módulo -->
+        <!-- Modal: Criar MÃ³dulo -->
         <div v-if="showModuleModal" class="modal-overlay" @click.self="showModuleModal = false">
           <div class="modal-card">
             <div class="modal-header">
-              <h2>Novo Módulo</h2>
+              <h2>Novo MÃ³dulo</h2>
               <button @click="showModuleModal = false" class="btn-close"><X /></button>
             </div>
             <p class="modal-subtitle">Adicionando ao curso: <strong>{{ selectedCourse?.title }}</strong></p>
 
             <div class="form-group">
-              <label>Título do Módulo</label>
-              <input v-model="newModule.title" placeholder="Ex: Introdução e Conceitos Básicos" />
+              <label>TÃ­tulo do MÃ³dulo</label>
+              <input v-model="newModule.title" placeholder="Ex: IntroduÃ§Ã£o e Conceitos BÃ¡sicos" />
             </div>
             <div class="form-group">
-              <label>Descrição (opcional)</label>
-              <textarea v-model="newModule.description" rows="2" placeholder="O que o aluno aprenderá neste módulo?" />
+              <label>DescriÃ§Ã£o (opcional)</label>
+              <textarea v-model="newModule.description" rows="2" placeholder="O que o aluno aprenderÃ¡ neste mÃ³dulo?" />
             </div>
 
             <div class="modal-actions">
               <button @click="showModuleModal = false" class="btn-cancel">Cancelar</button>
-              <button @click="handleCreateModule" class="btn-primary">Criar Módulo</button>
+              <button @click="handleCreateModule" class="btn-primary">Criar MÃ³dulo</button>
             </div>
           </div>
         </div>
@@ -404,21 +404,21 @@
             </div>
             <p class="modal-subtitle">Editando detalhes da aula</p>
 
-            <!-- Título -->
+            <!-- TÃ­tulo -->
             <div class="form-group">
-              <label>Título da Aula</label>
-              <input v-model="editingLesson.title" placeholder="Ex: A importância das proteínas" />
+              <label>TÃ­tulo da Aula</label>
+              <input v-model="editingLesson.title" placeholder="Ex: A importÃ¢ncia das proteÃ­nas" />
             </div>
 
-            <!-- Abas: Fonte do Vídeo -->
+            <!-- Abas: Fonte do VÃ­deo -->
             <div class="form-group">
-              <label>Vídeo</label>
+              <label>VÃ­deo</label>
               <div class="tab-pills">
                 <button :class="['tab-pill', videoSourceTab === 'link' ? 'active' : '']" @click="videoSourceTab = 'link'">
                   <Link class="xs-icon" /> Link Externo
                 </button>
                 <button :class="['tab-pill', videoSourceTab === 'upload' ? 'active' : '']" @click="videoSourceTab = 'upload'">
-                  <Upload class="xs-icon" /> Upload de Vídeo
+                  <Upload class="xs-icon" /> Upload de VÃ­deo
                 </button>
               </div>
 
@@ -432,13 +432,13 @@
                 <input ref="videoFileInput" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.avi,.mkv" class="file-input-hidden" @change="handleVideoFileSelect" />
                 <div v-if="!videoFileLocal && !editingLesson.videoUrl" class="video-upload-area" @click="triggerVideoUpload">
                   <Film class="upload-icon" />
-                  <span>Clique para selecionar um vídeo (mp4, mov, webm)</span>
-                  <span class="upload-hint">Máximo: 500MB</span>
+                  <span>Clique para selecionar um vÃ­deo (mp4, mov, webm)</span>
+                  <span class="upload-hint">MÃ¡ximo: 500MB</span>
                 </div>
                 <div v-else class="video-selected-info">
                   <Film class="xs-icon" />
                   <span v-if="videoFileLocal">{{ videoFileLocal.name }}</span>
-                  <span v-else class="video-url-preview">Vídeo atual salvo</span>
+                  <span v-else class="video-url-preview">VÃ­deo atual salvo</span>
                   <button class="btn-mini" @click="triggerVideoUpload">Trocar</button>
                 </div>
                 <!-- Barra de progresso -->
@@ -446,14 +446,14 @@
                   <div class="progress-fill" :style="{ width: videoUploadProgress + '%' }"></div>
                   <span>{{ videoUploadProgress }}%</span>
                 </div>
-                <div v-if="videoUploadStatus === 'done'" class="upload-done">✓ Upload concluído</div>
-                <div v-if="videoUploadStatus === 'error'" class="upload-error">✗ Erro no upload. Tente novamente.</div>
+                <div v-if="videoUploadStatus === 'done'" class="upload-done">âœ“ Upload concluÃ­do</div>
+                <div v-if="videoUploadStatus === 'error'" class="upload-error">âœ— Erro no upload. Tente novamente.</div>
               </div>
             </div>
 
-            <!-- Duração -->
+            <!-- DuraÃ§Ã£o -->
             <div class="form-group">
-              <label>Duração (opcional)</label>
+              <label>DuraÃ§Ã£o (opcional)</label>
               <input v-model="editingLesson.duration" placeholder="Ex: 44min ou 1h 20min" />
             </div>
 
@@ -465,7 +465,7 @@
                   <ImageIcon class="xs-icon" /> Upload de Imagem
                 </button>
                 <button :class="['tab-pill', thumbSourceTab === 'frame' ? 'active' : '']" @click="thumbSourceTab = 'frame'" :disabled="!frameVideoObjectUrl">
-                  <Camera class="xs-icon" /> Frame do Vídeo
+                  <Camera class="xs-icon" /> Frame do VÃ­deo
                 </button>
                 <button v-if="isYoutube(editingLesson.videoUrl)" :class="['tab-pill', thumbSourceTab === 'youtube' ? 'active' : '']" @click="thumbSourceTab = 'youtube'; applyYoutubeThumb()">
                   <Play class="xs-icon" /> Capa YouTube
@@ -484,7 +484,7 @@
                 </div>
               </div>
 
-              <!-- Aba Frame do Vídeo -->
+              <!-- Aba Frame do VÃ­deo -->
               <div v-if="thumbSourceTab === 'frame'" class="tab-content">
                 <div v-if="frameVideoObjectUrl" class="frame-capture-area">
                   <video ref="frameVideoRef" :src="frameVideoObjectUrl" class="frame-video-preview" preload="metadata" @loadedmetadata="onFrameVideoLoaded" muted></video>
@@ -501,7 +501,7 @@
                 </div>
                 <div v-else class="upload-placeholder">
                   <Camera class="upload-icon" />
-                  <span>Faça upload de um vídeo na aba ao lado para capturar um frame</span>
+                  <span>FaÃ§a upload de um vÃ­deo na aba ao lado para capturar um frame</span>
                 </div>
               </div>
 
@@ -510,7 +510,7 @@
                 <div class="lesson-upload-area has-image" v-if="lessonThumbPreview">
                   <img :src="lessonThumbPreview" class="upload-preview" />
                 </div>
-                <p class="thumb-hint">Capa extraída automaticamente do YouTube</p>
+                <p class="thumb-hint">Capa extraÃ­da automaticamente do YouTube</p>
               </div>
             </div>
 
@@ -518,7 +518,7 @@
               <button @click="showEditLessonModal = false" class="btn-cancel">Cancelar</button>
               <button @click="handleUpdateLesson" class="btn-primary" :disabled="uploading">
                 <span v-if="uploading">Salvando...</span>
-                <span v-else>Salvar Alterações</span>
+                <span v-else>Salvar AlteraÃ§Ãµes</span>
               </button>
             </div>
           </div>
@@ -531,23 +531,23 @@
               <h2>Nova Aula</h2>
               <button @click="showLessonModal = false" class="btn-close"><X /></button>
             </div>
-            <p class="modal-subtitle">Adicionando aula neste módulo</p>
+            <p class="modal-subtitle">Adicionando aula neste mÃ³dulo</p>
 
-            <!-- Título -->
+            <!-- TÃ­tulo -->
             <div class="form-group">
-              <label>Título da Aula</label>
-              <input v-model="newLesson.title" placeholder="Ex: A importância das proteínas" />
+              <label>TÃ­tulo da Aula</label>
+              <input v-model="newLesson.title" placeholder="Ex: A importÃ¢ncia das proteÃ­nas" />
             </div>
 
-            <!-- Abas: Fonte do Vídeo -->
+            <!-- Abas: Fonte do VÃ­deo -->
             <div class="form-group">
-              <label>Vídeo</label>
+              <label>VÃ­deo</label>
               <div class="tab-pills">
                 <button :class="['tab-pill', videoSourceTab === 'link' ? 'active' : '']" @click="videoSourceTab = 'link'">
                   <Link class="xs-icon" /> Link Externo
                 </button>
                 <button :class="['tab-pill', videoSourceTab === 'upload' ? 'active' : '']" @click="videoSourceTab = 'upload'">
-                  <Upload class="xs-icon" /> Upload de Vídeo
+                  <Upload class="xs-icon" /> Upload de VÃ­deo
                 </button>
               </div>
 
@@ -561,8 +561,8 @@
                 <input ref="videoFileInput" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.avi,.mkv" class="file-input-hidden" @change="handleVideoFileSelect" />
                 <div v-if="!videoFileLocal" class="video-upload-area" @click="triggerVideoUpload">
                   <Film class="upload-icon" />
-                  <span>Clique para selecionar um vídeo (mp4, mov, webm)</span>
-                  <span class="upload-hint">Máximo: 500MB</span>
+                  <span>Clique para selecionar um vÃ­deo (mp4, mov, webm)</span>
+                  <span class="upload-hint">MÃ¡ximo: 500MB</span>
                 </div>
                 <div v-else class="video-selected-info">
                   <Film class="xs-icon" />
@@ -574,14 +574,14 @@
                   <div class="progress-fill" :style="{ width: videoUploadProgress + '%' }"></div>
                   <span>{{ videoUploadProgress }}%</span>
                 </div>
-                <div v-if="videoUploadStatus === 'done'" class="upload-done">✓ Upload concluído</div>
-                <div v-if="videoUploadStatus === 'error'" class="upload-error">✗ Erro no upload. Tente novamente.</div>
+                <div v-if="videoUploadStatus === 'done'" class="upload-done">âœ“ Upload concluÃ­do</div>
+                <div v-if="videoUploadStatus === 'error'" class="upload-error">âœ— Erro no upload. Tente novamente.</div>
               </div>
             </div>
 
-            <!-- Duração -->
+            <!-- DuraÃ§Ã£o -->
             <div class="form-group">
-              <label>Duração (opcional)</label>
+              <label>DuraÃ§Ã£o (opcional)</label>
               <input v-model="newLesson.duration" placeholder="Ex: 44min ou 1h 20min" />
             </div>
 
@@ -593,7 +593,7 @@
                   <ImageIcon class="xs-icon" /> Upload de Imagem
                 </button>
                 <button :class="['tab-pill', thumbSourceTab === 'frame' ? 'active' : '']" @click="thumbSourceTab = 'frame'" :disabled="!frameVideoObjectUrl">
-                  <Camera class="xs-icon" /> Frame do Vídeo
+                  <Camera class="xs-icon" /> Frame do VÃ­deo
                 </button>
                 <button v-if="isYoutube(newLesson.videoUrl)" :class="['tab-pill', thumbSourceTab === 'youtube' ? 'active' : '']" @click="thumbSourceTab = 'youtube'; applyYoutubeThumb()">
                   <Play class="xs-icon" /> Capa YouTube
@@ -612,7 +612,7 @@
                 </div>
               </div>
 
-              <!-- Aba Frame do Vídeo -->
+              <!-- Aba Frame do VÃ­deo -->
               <div v-if="thumbSourceTab === 'frame'" class="tab-content">
                 <div v-if="frameVideoObjectUrl" class="frame-capture-area">
                   <video ref="frameVideoRef" :src="frameVideoObjectUrl" class="frame-video-preview" preload="metadata" @loadedmetadata="onFrameVideoLoaded" muted></video>
@@ -629,7 +629,7 @@
                 </div>
                 <div v-else class="upload-placeholder">
                   <Camera class="upload-icon" />
-                  <span>Faça upload de um vídeo na aba ao lado para capturar um frame</span>
+                  <span>FaÃ§a upload de um vÃ­deo na aba ao lado para capturar um frame</span>
                 </div>
               </div>
 
@@ -638,14 +638,14 @@
                 <div class="lesson-upload-area has-image" v-if="lessonThumbPreview">
                   <img :src="lessonThumbPreview" class="upload-preview" />
                 </div>
-                <p class="thumb-hint">Capa extraída automaticamente do YouTube</p>
+                <p class="thumb-hint">Capa extraÃ­da automaticamente do YouTube</p>
               </div>
             </div>
 
             <div class="modal-actions">
               <button @click="showLessonModal = false" class="btn-cancel">Cancelar</button>
               <button @click="handleCreateLesson" class="btn-primary" :disabled="uploading">
-                <span v-if="uploading && videoUploadStatus === 'uploading'">Enviando vídeo... {{ videoUploadProgress }}%</span>
+                <span v-if="uploading && videoUploadStatus === 'uploading'">Enviando vÃ­deo... {{ videoUploadProgress }}%</span>
                 <span v-else-if="uploading">Salvando...</span>
                 <span v-else>Criar Aula</span>
               </button>
@@ -658,6 +658,10 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera } from 'lucide-vue-next'
 const route = useRoute()
 const courses = ref([])
@@ -687,10 +691,10 @@ const lessonThumbPreview = ref(null)
 const lessonThumbInput = ref(null)
 const lessonThumbFile = ref(null)
 
-// ── Novos estados: Upload de Vídeo + Captura de Frame ───────────
+// â”€â”€ Novos estados: Upload de VÃ­deo + Captura de Frame â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const videoSourceTab = ref('link') // 'link' | 'upload'
 const thumbSourceTab = ref('upload') // 'upload' | 'frame' | 'youtube'
-const videoFileLocal = ref(null) // File do vídeo
+const videoFileLocal = ref(null) // File do vÃ­deo
 const videoUploadProgress = ref(0)
 const videoUploadStatus = ref('') // '', 'uploading', 'done', 'error'
 const frameVideoRef = ref(null) // ref do <video> para frame
@@ -716,8 +720,8 @@ const inferCourseRowName = (course) => {
   if (explicitCategory) return explicitCategory
 
   const haystack = `${course?.title || ''} ${course?.description || ''}`.toLowerCase()
-  if (/(culin|cozinh|receita|gastron)/.test(haystack)) return 'Culinária'
-  if (/(nutri|alimenta|dieta|metabol|macro|saúde)/.test(haystack)) return 'Nutrição'
+  if (/(culin|cozinh|receita|gastron)/.test(haystack)) return 'CulinÃ¡ria'
+  if (/(nutri|alimenta|dieta|metabol|macro|saÃºde)/.test(haystack)) return 'NutriÃ§Ã£o'
   if (/(treino|fitness|academia|muscul|hipertrof|exerc)/.test(haystack)) return 'Treino'
   if (/(mindset|mental|emocional|foco|ansiedade)/.test(haystack)) return 'Mentalidade'
   return 'Outros'
@@ -831,7 +835,7 @@ const openEditCourseById = (courseId, mode = 'card') => {
   if (!courseId) return
   const course = courses.value.find((item) => item.id === courseId)
   if (!course) {
-    alert('Não foi possível encontrar o curso selecionado para edição.')
+    alert('NÃ£o foi possÃ­vel encontrar o curso selecionado para ediÃ§Ã£o.')
     return
   }
   openEditCourse(course, mode)
@@ -840,7 +844,7 @@ const openEditCourseById = (courseId, mode = 'card') => {
 const triggerCourseUpload = () => {
   const input = courseFileInput.value
   if (!input) return
-  // Força disparar change mesmo ao escolher o mesmo arquivo novamente.
+  // ForÃ§a disparar change mesmo ao escolher o mesmo arquivo novamente.
   input.value = ''
   input.click()
 }
@@ -861,7 +865,7 @@ const getImageDimensions = (file) => new Promise((resolve, reject) => {
   }
   img.onerror = () => {
     URL.revokeObjectURL(objectUrl)
-    reject(new Error('Não foi possível ler as dimensões da imagem.'))
+    reject(new Error('NÃ£o foi possÃ­vel ler as dimensÃµes da imagem.'))
   }
   img.src = objectUrl
 })
@@ -906,11 +910,11 @@ const fetchCourses = async () => {
     coursesLoadError.value = ''
     const token = localStorage.getItem('auth_token')
     if (!token) {
-      coursesLoadError.value = 'Sessão expirada. Faça login novamente.'
+      coursesLoadError.value = 'SessÃ£o expirada. FaÃ§a login novamente.'
       handleAuthTokenInvalid()
       return
     }
-    const data = await $fetch('http://localhost:3001/api/courses', {
+    const data = await $fetch(`${apiBase}/courses`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     if (Array.isArray(data)) {
@@ -923,12 +927,12 @@ const fetchCourses = async () => {
   } catch (err) {
     console.error('Erro ao buscar cursos:', err)
     if (isTokenInvalidError(err)) {
-      coursesLoadError.value = 'Sessão expirada. Faça login novamente.'
+      coursesLoadError.value = 'SessÃ£o expirada. FaÃ§a login novamente.'
       handleAuthTokenInvalid()
       return
     }
     courses.value = []
-    coursesLoadError.value = err?.data?.message || err?.message || 'Falha de conexão com o servidor de cursos.'
+    coursesLoadError.value = err?.data?.message || err?.message || 'Falha de conexÃ£o com o servidor de cursos.'
   }
 }
 
@@ -959,7 +963,7 @@ const handleAuthTokenInvalid = () => {
 
 const isTokenInvalidError = (err) => {
   const message = String(err?.data?.message || err?.message || '').toLowerCase()
-  return message.includes('token inválido')
+  return message.includes('token invÃ¡lido')
     || message.includes('token invalido')
     || message.includes('jwt')
     || message.includes('unauthorized')
@@ -980,7 +984,7 @@ const fetchEbooks = async () => {
       ebooks.value = []
       return
     }
-    const data = await $fetch('http://localhost:3001/api/ebooks', {
+    const data = await $fetch(`${apiBase}/ebooks`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     ebooks.value = Array.isArray(data) ? data : []
@@ -1007,7 +1011,7 @@ const handlePendingAddLessonAction = () => {
 
   const targetModuleId = requestedModuleId || targetCourse.modules?.[0]?.id
   if (!targetModuleId) {
-    alert('Este curso não possui módulo. Crie um módulo antes de adicionar aulas.')
+    alert('Este curso nÃ£o possui mÃ³dulo. Crie um mÃ³dulo antes de adicionar aulas.')
     navigateTo('/cursos', { replace: true })
     return
   }
@@ -1021,7 +1025,7 @@ const openEbooksPage = () => {
 }
 
 const handleCreateCourse = async () => {
-  if (!newCourse.title) return alert('Informe o título do curso.')
+  if (!newCourse.title) return alert('Informe o tÃ­tulo do curso.')
   uploading.value = true
   try {
     const token = localStorage.getItem('auth_token')
@@ -1031,14 +1035,14 @@ const handleCreateCourse = async () => {
       const formData = new FormData()
       formData.append('file', courseFile.value)
       try {
-        const uploadRes = await $fetch('http://localhost:3001/api/upload', {
+        const uploadRes = await $fetch(`${apiBase}/upload`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData
         })
         newCourse.thumbnail = uploadRes.url
       } catch (e) {
-        console.warn('Falha no upload da imagem (curso continuará sem capa):', e?.data?.message || e)
+        console.warn('Falha no upload da imagem (curso continuarÃ¡ sem capa):', e?.data?.message || e)
       }
     }
 
@@ -1047,19 +1051,19 @@ const handleCreateCourse = async () => {
       const formData = new FormData()
       formData.append('file', courseMobileFile.value)
       try {
-        const uploadRes = await $fetch('http://localhost:3001/api/upload', {
+        const uploadRes = await $fetch(`${apiBase}/upload`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData
         })
         newCourse.thumbnailMobile = uploadRes.url
       } catch (e) {
-        console.warn('Falha no upload da capa mobile (curso continuará sem capa mobile):', e?.data?.message || e)
+        console.warn('Falha no upload da capa mobile (curso continuarÃ¡ sem capa mobile):', e?.data?.message || e)
       }
     }
 
     try {
-      await $fetch('http://localhost:3001/api/courses', {
+      await $fetch(`${apiBase}/courses`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1069,7 +1073,7 @@ const handleCreateCourse = async () => {
       })
     } catch (err) {
       if (!shouldFallbackLegacyPayload(err)) throw err
-      await $fetch('http://localhost:3001/api/courses', {
+      await $fetch(`${apiBase}/courses`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1096,7 +1100,7 @@ const handleCreateCourse = async () => {
     let msg = 'Erro desconhecido ao criar curso.'
     
     if (err.message?.includes('Failed to fetch')) {
-      msg = 'Não foi possível conectar ao servidor. O backend (porta 3001) está rodando?'
+      msg = 'NÃ£o foi possÃ­vel conectar ao servidor. O backend (porta 3001) estÃ¡ rodando?'
     } else {
       msg = err?.data?.message || err?.message || msg
     }
@@ -1109,7 +1113,7 @@ const handleCreateCourse = async () => {
 }
 
 const handleUpdateCourse = async () => {
-  if (!editingCourse.title) return alert('Informe o título do curso.')
+  if (!editingCourse.title) return alert('Informe o tÃ­tulo do curso.')
   uploading.value = true
   try {
     const token = localStorage.getItem('auth_token')
@@ -1117,13 +1121,13 @@ const handleUpdateCourse = async () => {
     if (courseFile.value) {
       const formData = new FormData()
       formData.append('file', courseFile.value)
-      const uploadRes = await $fetch('http://localhost:3001/api/upload', {
+      const uploadRes = await $fetch(`${apiBase}/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
       })
       if (!uploadRes?.url) {
-        throw new Error('Upload da capa desktop não retornou URL válida.')
+        throw new Error('Upload da capa desktop nÃ£o retornou URL vÃ¡lida.')
       }
       if (editCourseMode.value === 'banner') {
         editingCourse.bannerImage = uploadRes.url
@@ -1135,13 +1139,13 @@ const handleUpdateCourse = async () => {
     if (courseMobileFile.value) {
       const formData = new FormData()
       formData.append('file', courseMobileFile.value)
-      const uploadRes = await $fetch('http://localhost:3001/api/upload', {
+      const uploadRes = await $fetch(`${apiBase}/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
       })
       if (!uploadRes?.url) {
-        throw new Error('Upload da capa mobile não retornou URL válida.')
+        throw new Error('Upload da capa mobile nÃ£o retornou URL vÃ¡lida.')
       }
       if (editCourseMode.value === 'banner') {
         editingCourse.bannerImageMobile = uploadRes.url
@@ -1151,7 +1155,7 @@ const handleUpdateCourse = async () => {
     }
 
     try {
-      await $fetch(`http://localhost:3001/api/courses/${editingCourse.id}`, {
+      await $fetch(`${apiBase}/courses/${editingCourse.id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1161,7 +1165,7 @@ const handleUpdateCourse = async () => {
       })
     } catch (err) {
       if (!shouldFallbackLegacyPayload(err)) throw err
-      await $fetch(`http://localhost:3001/api/courses/${editingCourse.id}`, {
+      await $fetch(`${apiBase}/courses/${editingCourse.id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1178,17 +1182,17 @@ const handleUpdateCourse = async () => {
     courseMobilePreview.value = null
     fetchCourses()
   } catch (err) {
-    alert(`Erro ao atualizar curso: ${err?.data?.message || err?.message || 'Falha ao salvar alterações.'}`)
+    alert(`Erro ao atualizar curso: ${err?.data?.message || err?.message || 'Falha ao salvar alteraÃ§Ãµes.'}`)
   } finally {
     uploading.value = false
   }
 }
 
 const handleCreateModule = async () => {
-  if (!newModule.title) return alert('Informe o título do módulo.')
+  if (!newModule.title) return alert('Informe o tÃ­tulo do mÃ³dulo.')
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/courses/${selectedCourse.value.id}/modules`, {
+    await $fetch(`${apiBase}/courses/${selectedCourse.value.id}/modules`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: newModule
@@ -1199,15 +1203,15 @@ const handleCreateModule = async () => {
         selectedCourseDetails.value = courses.value.find(c => c.id === selectedCourseDetails.value.id)
     }
   } catch (err) {
-    alert('Erro ao criar módulo.')
+    alert('Erro ao criar mÃ³dulo.')
   }
 }
 
 const handleDeleteCourse = async (id) => {
-  if (!confirm('Tem certeza que deseja excluir este curso e todos os seus módulos?')) return
+  if (!confirm('Tem certeza que deseja excluir este curso e todos os seus mÃ³dulos?')) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/courses/${id}`, {
+    await $fetch(`${apiBase}/courses/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -1242,7 +1246,7 @@ const handleVideoFileSelect = (e) => {
   frameVideoObjectUrl.value = URL.createObjectURL(file)
   frameSeekTime.value = 0
   frameVideoDuration.value = 0
-  // Auto-mudar aba de thumbnail para 'frame' quando tem vídeo local
+  // Auto-mudar aba de thumbnail para 'frame' quando tem vÃ­deo local
   thumbSourceTab.value = 'frame'
 }
 
@@ -1259,7 +1263,7 @@ const onFrameVideoLoaded = () => {
     const duration = frameVideoRef.value.duration || 0
     frameVideoDuration.value = duration
     
-    // Sugerir duração automaticamente se o campo estiver vazio ou for novo vídeo
+    // Sugerir duraÃ§Ã£o automaticamente se o campo estiver vazio ou for novo vÃ­deo
     const formatted = formatSecondsToDuration(duration)
     if (showEditLessonModal.value) {
       if (!editingLesson.duration || editingLesson.duration === "-- min") {
@@ -1307,7 +1311,7 @@ const handleVideoUpload = async () => {
     const formData = new FormData()
     formData.append('file', videoFileLocal.value)
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', 'http://localhost:3001/api/upload/video')
+    xhr.open('POST', `${apiBase}/upload/video`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
@@ -1326,7 +1330,7 @@ const handleVideoUpload = async () => {
         resolve(data.url)
       } else {
         videoUploadStatus.value = 'error'
-        reject(new Error('Erro no upload do vídeo'))
+        reject(new Error('Erro no upload do vÃ­deo'))
       }
     }
     xhr.onerror = () => {
@@ -1365,15 +1369,15 @@ const openAddLesson = (moduleId) => {
 
 
 const handleCreateLesson = async () => {
-  // Se fonte é upload de vídeo, o videoUrl precisa ser preenchido pelo upload
-  if (!newLesson.title) return alert('Título é obrigatório.')
-  if (videoSourceTab.value === 'link' && !newLesson.videoUrl) return alert('Informe o link do vídeo.')
-  if (videoSourceTab.value === 'upload' && !videoFileLocal.value && !newLesson.videoUrl) return alert('Selecione um vídeo para fazer upload.')
+  // Se fonte Ã© upload de vÃ­deo, o videoUrl precisa ser preenchido pelo upload
+  if (!newLesson.title) return alert('TÃ­tulo Ã© obrigatÃ³rio.')
+  if (videoSourceTab.value === 'link' && !newLesson.videoUrl) return alert('Informe o link do vÃ­deo.')
+  if (videoSourceTab.value === 'upload' && !videoFileLocal.value && !newLesson.videoUrl) return alert('Selecione um vÃ­deo para fazer upload.')
   try {
     uploading.value = true
     const token = localStorage.getItem('auth_token')
     
-    // 1. Upload do vídeo local (se necessário)
+    // 1. Upload do vÃ­deo local (se necessÃ¡rio)
     if (videoSourceTab.value === 'upload' && videoFileLocal.value && !newLesson.videoUrl) {
       await handleVideoUpload()
     }
@@ -1383,7 +1387,7 @@ const handleCreateLesson = async () => {
     if (lessonThumbFile.value) {
       const formData = new FormData()
       formData.append('file', lessonThumbFile.value)
-      const uploadRes = await $fetch('http://localhost:3001/api/upload', {
+      const uploadRes = await $fetch(`${apiBase}/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -1391,7 +1395,7 @@ const handleCreateLesson = async () => {
       finalThumbnail = uploadRes.url
     }
 
-    await $fetch('http://localhost:3001/api/courses/lessons', {
+    await $fetch(`${apiBase}/courses/lessons`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: {
@@ -1426,22 +1430,22 @@ const openEditLesson = (lesson) => {
   lessonThumbPreview.value = lesson.thumbnail || null
   lessonThumbFile.value = null
   resetLessonVideoState()
-  // Se o link atual não é YouTube, mostrar como link externo
+  // Se o link atual nÃ£o Ã© YouTube, mostrar como link externo
   if (lesson.videoUrl && !isYoutube(lesson.videoUrl)) {
     videoSourceTab.value = 'link'
   }
-  // Se há thumbnail, mudar aba para upload
+  // Se hÃ¡ thumbnail, mudar aba para upload
   thumbSourceTab.value = lesson.thumbnail ? 'upload' : 'upload'
   showEditLessonModal.value = true
 }
 
 const handleUpdateLesson = async () => {
-  if (!editingLesson.title) return alert('Título é obrigatório.')
+  if (!editingLesson.title) return alert('TÃ­tulo Ã© obrigatÃ³rio.')
   if (videoSourceTab.value === 'upload' && videoFileLocal.value) {
-    // Upload do novo vídeo primeiro
+    // Upload do novo vÃ­deo primeiro
     await handleVideoUpload()
   }
-  if (!editingLesson.videoUrl) return alert('Informe o link ou faça upload de um vídeo.')
+  if (!editingLesson.videoUrl) return alert('Informe o link ou faÃ§a upload de um vÃ­deo.')
   try {
     uploading.value = true
     const token = localStorage.getItem('auth_token')
@@ -1450,7 +1454,7 @@ const handleUpdateLesson = async () => {
     if (lessonThumbFile.value) {
       const formData = new FormData()
       formData.append('file', lessonThumbFile.value)
-      const uploadRes = await $fetch('http://localhost:3001/api/upload', {
+      const uploadRes = await $fetch(`${apiBase}/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -1458,7 +1462,7 @@ const handleUpdateLesson = async () => {
       finalThumbnail = uploadRes.url
     }
 
-    await $fetch(`http://localhost:3001/api/courses/lessons/${editingLesson.id}`, {
+    await $fetch(`${apiBase}/courses/lessons/${editingLesson.id}`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` },
       body: {
@@ -1513,7 +1517,7 @@ const handleDeleteLesson = async (lessonId, moduleId) => {
   if (!confirm('Deseja excluir esta aula?')) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/courses/lessons/${lessonId}`, {
+    await $fetch(`${apiBase}/courses/lessons/${lessonId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -1527,16 +1531,16 @@ const handleDeleteLesson = async (lessonId, moduleId) => {
 }
 
 const handleDeleteModule = async (moduleId, courseId) => {
-  if (!confirm('Deseja excluir este módulo? Todas as aulas vinculadas também serão removidas.')) return
+  if (!confirm('Deseja excluir este mÃ³dulo? Todas as aulas vinculadas tambÃ©m serÃ£o removidas.')) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/courses/${courseId}/modules/${moduleId}`, {
+    await $fetch(`${apiBase}/courses/${courseId}/modules/${moduleId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
     fetchCourses()
   } catch (err) {
-    alert('Erro ao excluir módulo.')
+    alert('Erro ao excluir mÃ³dulo.')
   }
 }
 
@@ -1560,7 +1564,7 @@ onMounted(() => {
 .courses-page {
   padding: 3rem;
   width: 100%;
-  max-width: 1440px; /* Expande mais a largura, mas mantém limite para TVs 4K */
+  max-width: 1440px; /* Expande mais a largura, mas mantÃ©m limite para TVs 4K */
   margin: 0 auto;
 }
 
@@ -1652,7 +1656,7 @@ onMounted(() => {
 .card-image-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 3/4; /* Pôster vertical */
+  aspect-ratio: 3/4; /* PÃ´ster vertical */
   background: #f4f6f8;
   display: flex;
   align-items: center;
@@ -2373,7 +2377,7 @@ onMounted(() => {
   transform: scale(0.95);
 }
 
-/* ── Modal Lição (maior para caber os controles) ── */
+/* â”€â”€ Modal LiÃ§Ã£o (maior para caber os controles) â”€â”€ */
 .modal-card--lesson {
   max-width: 620px;
   max-height: 90vh;
@@ -2384,7 +2388,7 @@ onMounted(() => {
 .modal-card--lesson::-webkit-scrollbar { width: 4px; }
 .modal-card--lesson::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
 
-/* ── Tab Pills ── */
+/* â”€â”€ Tab Pills â”€â”€ */
 .tab-pills {
   display: flex;
   gap: 0.5rem;
@@ -2437,7 +2441,7 @@ onMounted(() => {
   margin-top: 0;
 }
 
-/* ── Área de Upload de Vídeo ── */
+/* â”€â”€ Ãrea de Upload de VÃ­deo â”€â”€ */
 .video-upload-area {
   border: 2px dashed #d8d8d8;
   border-radius: 12px;
@@ -2509,7 +2513,7 @@ onMounted(() => {
   color: #111;
 }
 
-/* ── Barra de Progresso de Upload ── */
+/* â”€â”€ Barra de Progresso de Upload â”€â”€ */
 .upload-progress-bar {
   margin-top: 0.75rem;
   border-radius: 8px;
@@ -2554,7 +2558,7 @@ onMounted(() => {
   font-weight: 700;
 }
 
-/* ── Frame Capture ── */
+/* â”€â”€ Frame Capture â”€â”€ */
 .frame-capture-area {
   display: flex;
   flex-direction: column;
@@ -2926,3 +2930,5 @@ onMounted(() => {
 }
 
 </style>
+
+

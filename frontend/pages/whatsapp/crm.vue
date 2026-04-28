@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="crm-container animate-fade-in">
       <header class="page-header flex-between">
@@ -14,7 +14,7 @@
           <div class="card-header flex-between mb-3">
              <div class="search-box">
                 <Search class="icon-small text-muted" />
-                <input type="text" v-model="searchQuery" placeholder="Buscar por número ou nome..." @keyup.enter="loadContacts(true)">
+                <input type="text" v-model="searchQuery" placeholder="Buscar por nÃºmero ou nome..." @keyup.enter="loadContacts(true)">
              </div>
              <button class="btn-icon ml-2" @click="loadContacts(true)" title="Pesquisar">
                <RefreshCw :class="{ 'spin': loadingList }" class="icon-small text-muted" />
@@ -46,7 +46,7 @@
                   <h4>{{ contact.pushName || contact.name || contact.number || 'Desconhecido' }}</h4>
                   <p class="text-muted text-sm">{{ contact.id?.replace('@s.whatsapp.net', '') }}</p>
                 </div>
-                <!-- Exibir se for bloqueado, por exemplo, se tivesse na lista, mas como é via api separada não temos agora. -->
+                <!-- Exibir se for bloqueado, por exemplo, se tivesse na lista, mas como Ã© via api separada nÃ£o temos agora. -->
              </div>
              <div v-if="loadingList" class="text-center py-2 text-muted text-sm">Carregando mais...</div>
           </div>
@@ -77,7 +77,7 @@
                  </div>
               </div>
 
-              <!-- Formulário de Enriquecimento (CRM) -->
+              <!-- FormulÃ¡rio de Enriquecimento (CRM) -->
               <h4 class="section-title mt-4"><Database class="icon-small"/> Dados do Lead (CRM)</h4>
               <form @submit.prevent="saveLeadData" class="crm-form mt-3">
                  <div class="form-row">
@@ -86,7 +86,7 @@
                       <input type="text" v-model="leadForm.name" class="form-control" placeholder="Nome completo">
                     </div>
                     <div class="form-group flex-1">
-                      <label>Etiquetas (IDs separados por vírgula)</label>
+                      <label>Etiquetas (IDs separados por vÃ­rgula)</label>
                       <input type="text" v-model="leadForm.labels" class="form-control" placeholder="Ex: 10,20">
                     </div>
                  </div>
@@ -104,7 +104,7 @@
                  </div>
 
                  <div class="form-group mt-3">
-                   <label>Observações do Atendente</label>
+                   <label>ObservaÃ§Ãµes do Atendente</label>
                    <textarea v-model="leadForm.notes" class="form-control" rows="3" placeholder="Cliente entrou em contato sobre..."></textarea>
                  </div>
 
@@ -124,10 +124,14 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { ref, onMounted } from 'vue'
 import { Search, RefreshCw, Users, User, UserCircle, Database, Plus, Trash2, Save, Loader } from 'lucide-vue-next'
 
-const PROXY_BASE = 'http://localhost:3001/api/whatsapp/proxy'
+const PROXY_BASE = `${whatsappApiBase}/proxy`
 const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const contacts = ref([])
@@ -256,7 +260,7 @@ const saveLeadData = async () => {
     }
   } catch(e) {
     console.error("Erro", e)
-    alert("Falha na requisição.")
+    alert("Falha na requisiÃ§Ã£o.")
   } finally {
     saving.value = false
   }
@@ -427,3 +431,4 @@ onMounted(() => {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
+

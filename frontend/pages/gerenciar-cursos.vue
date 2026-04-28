@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="manage-courses">
       <div class="page-header">
@@ -23,12 +23,12 @@
         <div class="modal-card">
           <h2>Novo Curso</h2>
           <div class="form-group">
-            <label>Título</label>
+            <label>TÃ­tulo</label>
             <input v-model="newCourse.title" placeholder="Nome do curso" />
           </div>
           <div class="form-group">
-            <label>Descrição</label>
-            <textarea v-model="newCourse.description" placeholder="Breve descrição"></textarea>
+            <label>DescriÃ§Ã£o</label>
+            <textarea v-model="newCourse.description" placeholder="Breve descriÃ§Ã£o"></textarea>
           </div>
           <div class="modal-actions">
             <button @click="showCreateModal = false" class="btn-cancel">Cancelar</button>
@@ -41,6 +41,10 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 const courses = ref([])
 const showCreateModal = ref(false)
 const newCourse = reactive({ title: '', description: '' })
@@ -48,7 +52,7 @@ const newCourse = reactive({ title: '', description: '' })
 const fetchCourses = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch('http://localhost:3001/api/courses', {
+    const data = await $fetch(`${apiBase}/courses`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     courses.value = data
@@ -60,7 +64,7 @@ const fetchCourses = async () => {
 const handleCreateCourse = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch('http://localhost:3001/api/courses', {
+    await $fetch(`${apiBase}/courses`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: newCourse
@@ -76,7 +80,7 @@ const handleDeleteCourse = async (id) => {
   if (!confirm('Deseja excluir este curso?')) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/courses/${id}`, {
+    await $fetch(`${apiBase}/courses/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -86,7 +90,7 @@ const handleDeleteCourse = async (id) => {
   }
 }
 
-onMounted(fetchPosts) // Reutilizando a lógica de montagem
+onMounted(fetchPosts) // Reutilizando a lÃ³gica de montagem
 onMounted(fetchCourses)
 </script>
 
@@ -177,3 +181,5 @@ onMounted(fetchCourses)
   cursor: pointer;
 }
 </style>
+
+

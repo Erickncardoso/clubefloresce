@@ -134,6 +134,9 @@ definePageMeta({
   layout: false
 })
 
+const config = useRuntimeConfig()
+const authApiBase = `${config.public.apiBase}/auth`
+
 const form = reactive({
   email: '',
   password: ''
@@ -153,7 +156,7 @@ const handleLogin = async () => {
   loading.value = true
   error.value = ''
   try {
-    const data = await $fetch('http://localhost:3001/api/auth/login', {
+    const data = await $fetch(`${authApiBase}/login`, {
       method: 'POST',
       body: form
     })
@@ -175,7 +178,7 @@ const handleLogin = async () => {
     if (err.data && err.data.message) {
       error.value = err.data.message; // Erro vindo do backend (ex: senha incorreta)
     } else {
-      error.value = 'Erro de conexão com o servidor. O backend está rodando na porta 3001?';
+      error.value = 'Erro de conexão com o servidor. Verifique a URL da API configurada no frontend.';
     }
   } finally {
     loading.value = false
@@ -198,7 +201,7 @@ const handleFirstAccessPasswordChange = async () => {
 
   firstAccessLoading.value = true
   try {
-    await $fetch('http://localhost:3001/api/auth/first-access/change-password', {
+    await $fetch(`${authApiBase}/first-access/change-password`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`

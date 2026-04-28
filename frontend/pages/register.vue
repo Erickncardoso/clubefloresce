@@ -117,6 +117,9 @@ definePageMeta({
   layout: false
 })
 
+const config = useRuntimeConfig()
+const authApiBase = `${config.public.apiBase}/auth`
+
 const form = reactive({
   name: '',
   email: '',
@@ -131,7 +134,7 @@ const handleRegister = async () => {
   loading.value = true
   error.value = ''
   try {
-    await $fetch('http://localhost:3001/api/auth/register', {
+    await $fetch(`${authApiBase}/register`, {
       method: 'POST',
       body: form
     })

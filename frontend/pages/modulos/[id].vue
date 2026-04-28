@@ -421,6 +421,9 @@ import { useRoute, navigateTo } from '#app'
 
 const route = useRoute()
 const moduleId = route.params.id
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const authApiBase = `${config.public.apiBase}/auth`
 const moduleData = ref(null)
 const loading = ref(true)
 const activeLesson = ref(null)
@@ -492,7 +495,7 @@ const toggleProgress = async (lessonId, field) => {
     if (field === 'liked' && newValue) payload.disliked = false
     if (field === 'disliked' && newValue) payload.liked = false
 
-    const res = await $fetch(`http://localhost:3001/api/courses/lessons/${lessonId}/progress`, {
+    const res = await $fetch(`${apiBase}/courses/lessons/${lessonId}/progress`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: payload
@@ -591,7 +594,7 @@ const newCommentText = ref('')
 const fetchComments = async (lessonId) => {
   try {
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch(`http://localhost:3001/api/courses/lessons/${lessonId}/comments`, {
+    const data = await $fetch(`${apiBase}/courses/lessons/${lessonId}/comments`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     activeLessonComments.value = data
@@ -606,7 +609,7 @@ const sendComment = async () => {
     const content = newCommentText.value
     newCommentText.value = '' // Limpa antes para feedback rápido
     
-    const res = await $fetch(`http://localhost:3001/api/courses/lessons/${activeLesson.value.id}/comments`, {
+    const res = await $fetch(`${apiBase}/courses/lessons/${activeLesson.value.id}/comments`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: { content }
@@ -646,7 +649,7 @@ const saveEdit = async (commentId) => {
   if (!editingContent.value.trim()) return
   try {
     const token = localStorage.getItem('auth_token')
-    const res = await $fetch(`http://localhost:3001/api/courses/comments/${commentId}`, {
+    const res = await $fetch(`${apiBase}/courses/comments/${commentId}`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` },
       body: { content: editingContent.value }
@@ -663,7 +666,7 @@ const saveEdit = async (commentId) => {
 const toggleCommentLike = async (commentId) => {
   try {
     const token = localStorage.getItem('auth_token')
-    const res = await $fetch(`http://localhost:3001/api/courses/comments/${commentId}/toggle-like`, {
+    const res = await $fetch(`${apiBase}/courses/comments/${commentId}/toggle-like`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -681,7 +684,7 @@ const deleteComment = async (commentId) => {
   if (!confirm('Tem certeza que deseja excluir seu comentário?')) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/courses/comments/${commentId}`, {
+    await $fetch(`${apiBase}/courses/comments/${commentId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -692,7 +695,7 @@ const deleteComment = async (commentId) => {
 const fetchModule = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch(`http://localhost:3001/api/courses/modules/${moduleId}`, { headers: { Authorization: `Bearer ${token}` } })
+    const data = await $fetch(`${apiBase}/courses/modules/${moduleId}`, { headers: { Authorization: `Bearer ${token}` } })
     moduleData.value = data
     if (data.lessons?.length > 0) {
       activeLesson.value = data.lessons[0]
@@ -708,7 +711,7 @@ const fetchCurrentUser = async () => {
   try {
     const token = localStorage.getItem('auth_token')
     if (!token) return
-    const user = await $fetch('http://localhost:3001/api/auth/me', {
+    const user = await $fetch(`${authApiBase}/me`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     currentUser.value = user

@@ -1,12 +1,12 @@
-<template>
+﻿<template>
   <NuxtLayout name="dashboard">
     <div class="users-container">
       <div class="users-page">
         <!-- Header -->
         <div class="page-header">
           <div>
-            <h1>Gestão de Alunos</h1>
-            <p>Gerencie quem tem acesso ao seu conteúdo e controle planos de assinatura.</p>
+            <h1>GestÃ£o de Alunos</h1>
+            <p>Gerencie quem tem acesso ao seu conteÃºdo e controle planos de assinatura.</p>
           </div>
           <div class="header-actions">
             <div class="search-bar">
@@ -25,12 +25,12 @@
           <table class="users-table">
             <thead>
               <tr>
-                <th>Usuário</th>
+                <th>UsuÃ¡rio</th>
                 <th>Papel</th>
                 <th>Plano</th>
                 <th>Status</th>
                 <th>Membro desde</th>
-                <th class="text-right">Ações</th>
+                <th class="text-right">AÃ§Ãµes</th>
               </tr>
             </thead>
             <tbody>
@@ -86,6 +86,10 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+
 import { Search, UserPlus, Edit3, Trash2 } from 'lucide-vue-next'
 
 const users = ref([])
@@ -94,12 +98,12 @@ const searchQuery = ref('')
 const fetchUsers = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch('http://localhost:3001/api/users', {
+    const data = await $fetch(`${apiBase}/users`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     users.value = data
   } catch (err) {
-    console.warn('Erro ao buscar usuários. Verifique autenticação.')
+    console.warn('Erro ao buscar usuÃ¡rios. Verifique autenticaÃ§Ã£o.')
   }
 }
 
@@ -119,13 +123,13 @@ const handleDelete = async (id) => {
   if (!confirm('Deseja realmente remover este acesso?')) return
   try {
     const token = localStorage.getItem('auth_token')
-    await $fetch(`http://localhost:3001/api/users/${id}`, {
+    await $fetch(`${apiBase}/users/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
     fetchUsers()
   } catch (err) {
-    alert('Erro ao excluir usuário.')
+    alert('Erro ao excluir usuÃ¡rio.')
   }
 }
 
@@ -360,3 +364,5 @@ onMounted(fetchUsers)
   color: #ccc;
 }
 </style>
+
+
