@@ -99,7 +99,7 @@ const handleSubmit = async () => {
     form.name = ""
     form.email = ""
     form.password = ""
-  } catch (err: any) {
+  } catch (err) {
     error.value = err?.data?.message || "Não foi possível criar o nutricionista."
   } finally {
     submitting.value = false
