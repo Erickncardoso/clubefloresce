@@ -25,82 +25,10 @@ if (typeof (process.stderr as any).setEncoding === "function") {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const parseCorsOrigins = (): string[] => {
-  const rawOrigins = process.env.CORS_ORIGINS;
-  if (rawOrigins && rawOrigins.trim()) {
-    return rawOrigins
-      .split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean);
-  }
-
-  return [
-    "http://localhost:3000",
-    "http://localhost:3002",
-  ];
-};
-
-const allowedOrigins = parseCorsOrigins();
-const normalizeOrigin = (value: string): string => value.trim().replace(/\/+$/, "").toLowerCase();
-
-const safeParseUrl = (value: string): URL | null => {
-  try {
-    return new URL(value);
-  } catch {
-    return null;
-  }
-};
-
-const matchesWildcardHost = (hostname: string, wildcardRule: string): boolean => {
-  const suffix = wildcardRule.slice(2); // remove "*."
-  return hostname === suffix || hostname.endsWith(`.${suffix}`);
-};
-
-const isOriginAllowed = (requestOrigin: string): boolean => {
-  const normalizedOrigin = normalizeOrigin(requestOrigin);
-  const requestUrl = safeParseUrl(normalizedOrigin);
-  const requestHost = requestUrl?.hostname?.toLowerCase();
-
-  return allowedOrigins.some((rawRule) => {
-    const rule = normalizeOrigin(rawRule);
-    if (!rule) return false;
-
-    if (rule === "*") return true;
-
-    // Suporta configuração por host sem protocolo (ex: "clube.seudominio.com")
-    if (!rule.startsWith("http://") && !rule.startsWith("https://")) {
-      if (!requestHost) return false;
-      if (rule.startsWith("*.")) return matchesWildcardHost(requestHost, rule);
-      return requestHost === rule;
-    }
-
-    const parsedRule = safeParseUrl(rule);
-    if (!parsedRule) return normalizedOrigin === rule;
-
-    if (parsedRule.hostname.startsWith("*.")) {
-      if (!requestHost) return false;
-      return matchesWildcardHost(requestHost, parsedRule.hostname.toLowerCase());
-    }
-
-    return normalizedOrigin === rule;
-  });
-};
-
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // Permite chamadas server-to-server e ferramentas sem Origin.
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-
-    if (isOriginAllowed(origin)) {
-      callback(null, true);
-      return;
-    }
-
-    // Não lança erro para evitar resposta 500 no preflight.
-    callback(null, false);
+    // CORS liberado para qualquer origem para evitar bloqueios entre frontend e backend em domínios distintos.
+    callback(null, true);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
