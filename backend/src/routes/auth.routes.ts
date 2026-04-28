@@ -7,5 +7,7 @@ const authController = new AuthController();
 router.post("/register", authController.register);
 router.post("/login", authController.login);
 router.get("/me", authController.me);
+router.get("/setup/nutricionista/status", authController.oneTimeNutritionistStatus);
+router.post("/setup/nutricionista", authController.oneTimeNutritionistRegister);
 
 export default router;

@@ -5,6 +5,31 @@ import jwt from "jsonwebtoken";
 const authService = new AuthService();
 
 export class AuthController {
+  async oneTimeNutritionistStatus(req: Request, res: Response): Promise<any> {
+    try {
+      const status = await authService.getOneTimeNutritionistSetupStatus();
+      return res.json(status);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+
+  async oneTimeNutritionistRegister(req: Request, res: Response): Promise<any> {
+    try {
+      const setupKey = req.headers["x-setup-key"] as string | undefined;
+      const user = await authService.registerFirstNutritionist(req.body, setupKey);
+      return res.status(201).json(user);
+    } catch (error: any) {
+      if (error.message === "Setup já utilizado. Já existe nutricionista cadastrado.") {
+        return res.status(409).json({ message: error.message });
+      }
+      if (error.message === "Chave de setup inválida." || error.message === "Nome, e-mail e senha são obrigatórios.") {
+        return res.status(400).json({ message: error.message });
+      }
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   async register(req: Request, res: Response): Promise<any> {
     try {
       const user = await authService.register(req.body);
