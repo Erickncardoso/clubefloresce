@@ -60,8 +60,10 @@ model Course {
   thumbnailMobile String?
   bannerImage     String?
   bannerImageMobile String?
+  bannerKicker    String?
   bannerTitle     String?
   bannerSubtitle  String?
+  bannerCtaText   String?
   authorId        String
   author          User     @relation(fields: [authorId], references: [id])
   modules         Module[]

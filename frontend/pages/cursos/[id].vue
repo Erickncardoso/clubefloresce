@@ -320,10 +320,16 @@
           </div>
           <div v-if="videoSourceTab === 'upload'" class="tab-content">
             <input ref="videoFileInput" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.avi,.mkv" class="file-input-hidden" @change="handleVideoFileSelect" />
-            <div v-if="!videoFileLocal" class="video-upload-area" @click="triggerVideoUpload">
+            <div
+              v-if="!videoFileLocal"
+              class="video-upload-area"
+              @click="triggerVideoUpload"
+              @dragover.prevent
+              @drop.prevent="handleVideoDrop"
+            >
               <Film class="upload-icon" />
-              <span>Clique para selecionar um vídeo (mp4, mov, webm)</span>
-              <span class="upload-hint">Máximo: 500MB</span>
+              <span>Clique ou arraste um vídeo (mp4, mov, webm)</span>
+              <span class="upload-hint">Máximo: 2GB</span>
             </div>
             <div v-else class="video-selected-info">
               <Film class="xs-icon" />
@@ -785,8 +791,18 @@ const triggerVideoUpload = () => {
   videoFileInput.value?.click()
 }
 
-const handleVideoFileSelect = (event) => {
-  const file = event.target.files?.[0]
+const inferLessonTitleFromFileName = (fileName) => {
+  const baseName = String(fileName || '')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!baseName) return ''
+  return baseName.charAt(0).toUpperCase() + baseName.slice(1)
+}
+
+const applySelectedVideoFile = (file) => {
   if (!file) return
   videoFileLocal.value = file
   if (frameVideoObjectUrl.value) URL.revokeObjectURL(frameVideoObjectUrl.value)
@@ -794,6 +810,21 @@ const handleVideoFileSelect = (event) => {
   frameSeekTime.value = 0
   frameVideoDuration.value = 0
   thumbSourceTab.value = 'frame'
+
+  const inferredTitle = inferLessonTitleFromFileName(file.name)
+  if (!newLesson.title?.trim() && inferredTitle) {
+    newLesson.title = inferredTitle
+  }
+}
+
+const handleVideoFileSelect = (event) => {
+  const file = event.target.files?.[0]
+  applySelectedVideoFile(file)
+}
+
+const handleVideoDrop = (event) => {
+  const file = event.dataTransfer?.files?.[0]
+  applySelectedVideoFile(file)
 }
 
 const onFrameVideoLoaded = () => {

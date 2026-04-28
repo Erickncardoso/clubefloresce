@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <NuxtLayout name="dashboard">
     <div class="courses-container" :class="{ 'patient-view': isPacienteView }">
       <div class="courses-page" :class="{ 'patient-page': isPacienteView }">
@@ -17,15 +17,15 @@
           </button>
           <div class="patient-banner-bottom-blur"></div>
           <div class="patient-banner-content">
-            <span class="patient-banner-kicker">Destaque da semana</span>
-            <h2>{{ featuredCourse?.bannerTitle || featuredCourse?.title || 'Sua jornada de transformaÃ§Ã£o continua' }}</h2>
+            <span class="patient-banner-kicker">{{ displayBannerKicker }}</span>
+            <h2>{{ displayBannerTitle }}</h2>
             <p>
-              {{ featuredCourse?.bannerSubtitle || featuredCourse?.description || 'Assista Ã s aulas e mantenha consistÃªncia no seu processo.' }}
+              {{ displayBannerSubtitle }}
             </p>
             <button v-if="featuredCourse" class="patient-banner-btn" @click="openCoursePlayerPage(featuredCourse)">
-              Continuar agora
+              {{ displayBannerCtaText }}
             </button>
-            <button v-if="isNutri" class="patient-banner-btn ghost" @click="showCreateCourseModal = true">
+            <button v-if="isNutri" class="patient-banner-btn ghost" @click="openCreateCourseModal">
               Novo curso
             </button>
           </div>
@@ -37,7 +37,7 @@
             <h1>Meus Cursos</h1>
             <p>Acesse suas aulas e trilhas de conhecimento.</p>
           </div>
-          <button v-if="isNutri" @click="showCreateCourseModal = true" class="btn-primary">
+          <button v-if="isNutri" @click="openCreateCourseModal" class="btn-primary">
             <Plus class="btn-icon" />
             Novo Curso
           </button>
@@ -63,15 +63,13 @@
                       <BookOpen class="placeholder-icon" />
                     </div>
                     <div class="card-gradient"></div>
-                    <div class="card-tag-patient">mÃ©todo</div>
-
                     <div class="card-content">
                       <h3>{{ course.title }}</h3>
-                      <p>{{ course.modules?.length || 0 }} mÃ³dulo(s)</p>
+                      <p>{{ course.modules?.length || 0 }} módulo(s)</p>
                     </div>
 
                     <div class="card-hover-actions" v-if="isNutri">
-                      <button @click.stop="showCreateCourseModal = true" class="action-btn-circle" title="Novo Curso">
+                      <button @click.stop="openAddLessonFromCourse(course)" class="action-btn-circle" title="Adicionar Videoaula">
                         <Plus />
                       </button>
                       <button @click.stop="openEditCourseById(course.id, 'card')" class="action-btn-circle update mt-2" style="color: #64b5f6;" title="Editar Curso">
@@ -83,10 +81,20 @@
                     </div>
                   </div>
                 </div>
+
+                <button
+                  v-if="isNutri"
+                  type="button"
+                  class="netflix-card patient-card add-course-card"
+                  @click="openCreateCourseModal"
+                  title="Adicionar novo curso"
+                >
+                  <Plus class="add-course-icon" />
+                </button>
               </div>
             </section>
 
-            <section v-if="ebooks.length" class="course-row-block">
+            <section v-if="ebooks.length || isNutri" class="course-row-block">
               <h2 class="course-row-title course-row-title-link" @click="openEbooksPage">Ebooks</h2>
               <div class="courses-gallery patient-gallery">
                 <div
@@ -101,14 +109,48 @@
                       <BookOpen class="placeholder-icon" />
                     </div>
                     <div class="card-gradient"></div>
-                    <div class="card-tag-patient card-tag-ebook">ebook</div>
 
                     <div class="card-content">
                       <h3>{{ ebook.title }}</h3>
                       <p>Material para leitura</p>
                     </div>
+
+                    <div class="card-hover-actions" v-if="isNutri">
+                      <button
+                        @click.stop="openCreateEbookFromCourses"
+                        class="action-btn-circle"
+                        title="Adicionar PDF"
+                      >
+                        <Plus />
+                      </button>
+                      <button
+                        @click.stop="openEditEbookFromCourses(ebook)"
+                        class="action-btn-circle update mt-2"
+                        style="color: #64b5f6;"
+                        title="Editar Ebook"
+                      >
+                        <Edit2 />
+                      </button>
+                      <button
+                        @click.stop="handleDeleteEbookFromCourses(ebook.id)"
+                        class="action-btn-circle danger mt-2"
+                        title="Excluir Ebook"
+                      >
+                        <Trash2 />
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                <button
+                  v-if="isNutri"
+                  type="button"
+                  class="netflix-card patient-card add-course-card"
+                  @click="openCreateEbookFromCourses"
+                  title="Adicionar novo ebook"
+                >
+                  <Plus class="add-course-icon" />
+                </button>
               </div>
             </section>
           </template>
@@ -127,12 +169,12 @@
 
                 <div class="card-content">
                   <h3>{{ course.title }}</h3>
-                  <p>{{ course.modules?.length || 0 }} mÃ³dulo(s)</p>
+                  <p>{{ course.modules?.length || 0 }} módulo(s)</p>
                 </div>
 
                 <!-- Hover Actions -->
                 <div class="card-hover-actions" v-if="isNutri">
-                  <button @click.stop="showCreateCourseModal = true" class="action-btn-circle" title="Novo Curso">
+                  <button @click.stop="openAddLessonFromCourse(course)" class="action-btn-circle" title="Adicionar Videoaula">
                     <Plus />
                   </button>
                   <button @click.stop="openEditCourseById(course.id, 'card')" class="action-btn-circle update mt-2" style="color: #64b5f6;" title="Editar Curso">
@@ -149,7 +191,7 @@
 
         <div v-else-if="coursesLoadError" class="empty-state">
           <BookOpen class="empty-state-icon" />
-          <h3>NÃ£o foi possÃ­vel carregar os cursos</h3>
+          <h3>Não foi possível carregar os cursos</h3>
           <p>{{ coursesLoadError }}</p>
           <button class="btn-primary mt-4" @click="fetchCourses">Tentar novamente</button>
         </div>
@@ -157,9 +199,9 @@
         <!-- Estado vazio -->
         <div v-else class="empty-state">
           <BookOpen class="empty-state-icon" />
-          <h3>Nenhum curso disponÃ­vel</h3>
-          <p>{{ isPacienteView ? 'Ainda nÃ£o hÃ¡ cursos ou ebooks disponÃ­veis para vocÃª.' : 'VocÃª ainda nÃ£o possui cursos cadastrados em sua conta.' }}</p>
-          <button v-if="isNutri" @click="showCreateCourseModal = true" class="btn-primary mt-4">Criar meu primeiro curso</button>
+          <h3>Nenhum curso disponível</h3>
+          <p>{{ isPacienteView ? 'Ainda não há cursos ou ebooks disponíveis para você.' : 'Você ainda não possui cursos cadastrados em sua conta.' }}</p>
+          <button v-if="isNutri" @click="openCreateCourseModal" class="btn-primary mt-4">Criar meu primeiro curso</button>
         </div>
 
         <!-- Modal: Detalhes do Curso (Aulas) - Estilo Netflix Drawer -->
@@ -179,7 +221,7 @@
                     </button>
                     <!-- Icon buttons for Nutris -->
                     <button v-if="isNutri" class="btn-netflix-icon" title="Editar Curso" @click="openEditCourseById(selectedCourseDetails?.id, 'card')"><Edit2/></button>
-                    <button v-if="isNutri" class="btn-netflix-icon" title="Adicionar MÃ³dulo" @click="openAddModule(selectedCourseDetails)"><Plus/></button>
+                    <button v-if="isNutri" class="btn-netflix-icon" title="Adicionar Módulo" @click="openAddModule(selectedCourseDetails)"><Plus/></button>
                     <button v-if="isNutri" class="btn-netflix-icon" title="Deletar Curso" @click="handleDeleteCourse(selectedCourseDetails.id)"><Trash2/></button>
                   </div>
                </div>
@@ -190,10 +232,10 @@
                  <span class="match-score">Relevante</span>
                  <span class="year">2026</span>
                  <span class="age-rating">Livre</span>
-                 <span class="seasons" v-if="selectedCourseDetails.modules">{{ selectedCourseDetails.modules.length }} MÃ³dulos</span>
+                 <span class="seasons" v-if="selectedCourseDetails.modules">{{ selectedCourseDetails.modules.length }} Módulos</span>
                </div>
                
-               <p class="netflix-description">{{ selectedCourseDetails.description || 'Nenhuma descriÃ§Ã£o fornecida.' }}</p>
+               <p class="netflix-description">{{ selectedCourseDetails.description || 'Nenhuma descrição fornecida.' }}</p>
 
                <div class="episodes-section">
                  <div class="episodes-header">
@@ -206,7 +248,7 @@
                  </div>
                  
                  <div v-if="isNutri" class="module-edit-actions">
-                    <span class="module-selected-title">MÃ³dulo: {{ currentDropModule?.title }}</span>
+                    <span class="module-selected-title">Módulo: {{ currentDropModule?.title }}</span>
                     <div class="module-nutri-btns">
                       <button @click="openAddLesson(selectedModuleDropId)" class="btn-text-netflix"><Plus class="xs-icon"/> Nova Aula</button>
                       <button @click="handleDeleteModule(selectedModuleDropId, selectedCourseDetails.id)" class="btn-text-netflix danger"><Trash2 class="xs-icon"/></button>
@@ -214,10 +256,10 @@
                  </div>
 
                  <div v-if="!currentDropModule" class="empty-episodes">
-                    <p>MÃ³dulo nÃ£o selecionado ou inexistente.</p>
+                    <p>Módulo não selecionado ou inexistente.</p>
                  </div>
                  <div v-else-if="!currentDropModule.lessons?.length" class="empty-episodes">
-                    <p>Nenhuma aula neste mÃ³dulo.</p>
+                    <p>Nenhuma aula neste módulo.</p>
                  </div>
                  <div v-else class="episodes-list">
                     <div v-for="(lesson, idx) in currentDropModule.lessons" :key="lesson.id" class="episode-row" @click="navigateTo(`/modulos/${selectedModuleDropId}?lessonId=${lesson.id}`)">
@@ -252,57 +294,38 @@
         </div>
 
         <!-- Modal: Criar Curso -->
-        <div v-if="showCreateCourseModal" class="modal-overlay" @click.self="showCreateCourseModal = false">
+        <div v-if="showCreateCourseModal" class="modal-overlay" @click.self="closeCreateCourseModal">
           <div class="modal-card">
             <div class="modal-header">
               <h2>Novo Curso</h2>
-              <button @click="showCreateCourseModal = false" class="btn-close"><X /></button>
+              <button @click="closeCreateCourseModal" class="btn-close"><X /></button>
             </div>
+            <p class="modal-subtitle">Crie um novo card de curso com capa, título e descrição.</p>
 
-            <!-- Imagem de Capa do Curso -->
+            <!-- Card do curso (não banner) -->
             <div class="form-group">
-              <label>Imagem de Capa (Opcional)</label>
-              <small class="form-hint">Banner desktop: recomendado 1920x640 px (min. 1200x400)</small>
+              <label>Imagem de Capa do Card (Opcional)</label>
+              <small class="form-hint">Capa desktop: recomendado 1080x1350 px (min. 720x900)</small>
               <div class="upload-area" @click="triggerCourseUpload" :class="{ 'has-image': coursePreview }">
                 <img v-if="coursePreview" :src="coursePreview" class="upload-preview" />
                 <div v-else class="upload-placeholder">
                   <ImageIcon class="upload-icon" />
-                  <span>Clique para selecionar uma imagem de capa</span>
+                  <span>Clique para selecionar a capa do card</span>
                 </div>
                 <input ref="courseFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseImageSelect" />
               </div>
             </div>
-            <div class="form-group">
-              <label>Imagem de Capa Mobile (Opcional)</label>
-              <small class="form-hint">Banner mobile: recomendado 1080x1350 px (min. 720x900)</small>
-              <div class="upload-area" @click="triggerCourseMobileUpload" :class="{ 'has-image': courseMobilePreview }">
-                <img v-if="courseMobilePreview" :src="courseMobilePreview" class="upload-preview" />
-                <div v-else class="upload-placeholder">
-                  <ImageIcon class="upload-icon" />
-                  <span>Clique para selecionar a capa mobile</span>
-                </div>
-                <input ref="courseMobileFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseMobileImageSelect" />
-              </div>
-            </div>
 
-            <div class="form-group">
-              <label>TÃ­tulo do Curso</label>
-              <input v-model="newCourse.title" placeholder="Ex: NutriÃ§Ã£o para Hipertrofia" />
+            <div class="form-group floating-field">
+              <label>Título do Curso</label>
+              <input v-model="newCourse.title" placeholder="Ex: Nutrição para Hipertrofia" />
             </div>
-            <div class="form-group">
-              <label>DescriÃ§Ã£o</label>
+            <div class="form-group floating-field">
+              <label>Descrição</label>
               <textarea v-model="newCourse.description" rows="3" placeholder="Descreva brevemente os objetivos do curso" />
             </div>
-            <div class="form-group">
-              <label>TÃ­tulo no Banner (Opcional)</label>
-              <input v-model="newCourse.bannerTitle" placeholder="Ex: NutriÃ§Ã£o AvanÃ§ada" />
-            </div>
-            <div class="form-group">
-              <label>Texto do Banner (Opcional)</label>
-              <textarea v-model="newCourse.bannerSubtitle" rows="2" placeholder="Ex: Assista Ã s aulas e mantenha consistÃªncia no seu processo." />
-            </div>
             <div class="modal-actions">
-              <button @click="showCreateCourseModal = false" class="btn-cancel">Cancelar</button>
+              <button @click="closeCreateCourseModal" class="btn-cancel">Cancelar</button>
               <button @click="handleCreateCourse" class="btn-primary" :disabled="uploading">
                 <span v-if="uploading">Enviando...</span>
                 <span v-else>Criar Curso</span>
@@ -315,83 +338,100 @@
         <div v-if="showEditCourseModal" class="modal-overlay" @click.self="showEditCourseModal = false">
           <div class="modal-card">
             <div class="modal-header">
-              <h2>Editar Curso</h2>
+              <h2>{{ isBannerEditMode ? 'Editar Banner' : 'Editar Curso' }}</h2>
               <button @click="showEditCourseModal = false" class="btn-close"><X /></button>
             </div>
 
-            <!-- Imagem de Capa do Curso -->
+            <!-- Imagem conforme modo de edição -->
             <div class="form-group">
-              <label>Imagem de Capa (Opcional)</label>
-              <small class="form-hint">Banner desktop: recomendado 1920x640 px (min. 1200x400)</small>
+              <label>{{ isBannerEditMode ? 'Imagem do Banner (Opcional)' : 'Imagem de Capa (Opcional)' }}</label>
+              <small class="form-hint">
+                {{ isBannerEditMode ? 'Banner desktop: recomendado 1920x640 px (min. 1200x400)' : 'Capa desktop: recomendado 1080x1350 px (min. 720x900)' }}
+              </small>
               <div class="upload-area" @click="triggerCourseUpload" :class="{ 'has-image': coursePreview }">
                 <img v-if="coursePreview" :src="coursePreview" class="upload-preview" />
                 <div v-else class="upload-placeholder">
                   <ImageIcon class="upload-icon" />
-                  <span>Clique para selecionar uma nova imagem de capa</span>
+                  <span>{{ isBannerEditMode ? 'Clique para selecionar uma nova imagem do banner' : 'Clique para selecionar uma nova imagem de capa' }}</span>
                 </div>
                 <input ref="courseFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseImageSelect" />
               </div>
             </div>
             <div class="form-group">
-              <label>Imagem de Capa Mobile (Opcional)</label>
-              <small class="form-hint">Banner mobile: recomendado 1080x1350 px (min. 720x900)</small>
+              <label>{{ isBannerEditMode ? 'Imagem do Banner Mobile (Opcional)' : 'Imagem de Capa Mobile (Opcional)' }}</label>
+              <small class="form-hint">
+                {{ isBannerEditMode ? 'Banner mobile: recomendado 1080x1350 px (min. 720x900)' : 'Capa mobile: recomendado 1080x1350 px (min. 720x900)' }}
+              </small>
               <div class="upload-area" @click="triggerCourseMobileUpload" :class="{ 'has-image': courseMobilePreview }">
                 <img v-if="courseMobilePreview" :src="courseMobilePreview" class="upload-preview" />
                 <div v-else class="upload-placeholder">
                   <ImageIcon class="upload-icon" />
-                  <span>Clique para selecionar uma nova capa mobile</span>
+                  <span>{{ isBannerEditMode ? 'Clique para selecionar um novo banner mobile' : 'Clique para selecionar uma nova capa mobile' }}</span>
                 </div>
                 <input ref="courseMobileFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseMobileImageSelect" />
               </div>
             </div>
 
-            <div class="form-group">
-              <label>TÃ­tulo do Curso</label>
-              <input v-model="editingCourse.title" placeholder="Ex: NutriÃ§Ã£o para Hipertrofia" />
-            </div>
-            <div class="form-group">
-              <label>DescriÃ§Ã£o</label>
-              <textarea v-model="editingCourse.description" rows="3" placeholder="Descreva brevemente os objetivos do curso" />
-            </div>
-            <div class="form-group">
-              <label>TÃ­tulo no Banner (Opcional)</label>
-              <input v-model="editingCourse.bannerTitle" placeholder="Ex: NutriÃ§Ã£o AvanÃ§ada" />
-            </div>
-            <div class="form-group">
-              <label>Texto do Banner (Opcional)</label>
-              <textarea v-model="editingCourse.bannerSubtitle" rows="2" placeholder="Ex: Assista Ã s aulas e mantenha consistÃªncia no seu processo." />
-            </div>
+            <template v-if="isCardEditMode">
+              <div class="form-group floating-field">
+                <label>Título do Curso</label>
+                <input v-model="editingCourse.title" placeholder="Ex: Nutrição para Hipertrofia" />
+              </div>
+              <div class="form-group floating-field">
+                <label>Descrição</label>
+                <textarea v-model="editingCourse.description" rows="3" placeholder="Descreva brevemente os objetivos do curso" />
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="form-group floating-field">
+                <label>Etiqueta do Banner (Opcional)</label>
+                <input v-model="editingCourse.bannerKicker" placeholder="Ex: Destaque da semana" />
+              </div>
+              <div class="form-group floating-field">
+                <label>Título no Banner (Opcional)</label>
+                <input v-model="editingCourse.bannerTitle" placeholder="Ex: Nutrição Avançada" />
+              </div>
+              <div class="form-group floating-field">
+                <label>Texto do Banner (Opcional)</label>
+                <textarea v-model="editingCourse.bannerSubtitle" rows="2" placeholder="Ex: Assista às aulas e mantenha consistência no seu processo." />
+              </div>
+              <div class="form-group floating-field">
+                <label>Texto do Botão (Opcional)</label>
+                <input v-model="editingCourse.bannerCtaText" placeholder="Ex: Continuar agora" />
+              </div>
+            </template>
             <div class="modal-actions">
               <button @click="showEditCourseModal = false" class="btn-cancel">Cancelar</button>
               <button @click="handleUpdateCourse" class="btn-primary" :disabled="uploading">
                 <span v-if="uploading">Salvando...</span>
-                <span v-else>Salvar AlteraÃ§Ãµes</span>
+                <span v-else>Salvar Alterações</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Modal: Criar MÃ³dulo -->
+        <!-- Modal: Criar Módulo -->
         <div v-if="showModuleModal" class="modal-overlay" @click.self="showModuleModal = false">
           <div class="modal-card">
             <div class="modal-header">
-              <h2>Novo MÃ³dulo</h2>
+              <h2>Novo Módulo</h2>
               <button @click="showModuleModal = false" class="btn-close"><X /></button>
             </div>
             <p class="modal-subtitle">Adicionando ao curso: <strong>{{ selectedCourse?.title }}</strong></p>
 
             <div class="form-group">
-              <label>TÃ­tulo do MÃ³dulo</label>
-              <input v-model="newModule.title" placeholder="Ex: IntroduÃ§Ã£o e Conceitos BÃ¡sicos" />
+              <label>Título do Módulo</label>
+              <input v-model="newModule.title" placeholder="Ex: Introdução e Conceitos Básicos" />
             </div>
             <div class="form-group">
-              <label>DescriÃ§Ã£o (opcional)</label>
-              <textarea v-model="newModule.description" rows="2" placeholder="O que o aluno aprenderÃ¡ neste mÃ³dulo?" />
+              <label>Descrição (opcional)</label>
+              <textarea v-model="newModule.description" rows="2" placeholder="O que o aluno aprenderá neste módulo?" />
             </div>
 
             <div class="modal-actions">
               <button @click="showModuleModal = false" class="btn-cancel">Cancelar</button>
-              <button @click="handleCreateModule" class="btn-primary">Criar MÃ³dulo</button>
+              <button @click="handleCreateModule" class="btn-primary">Criar Módulo</button>
             </div>
           </div>
         </div>
@@ -404,21 +444,21 @@
             </div>
             <p class="modal-subtitle">Editando detalhes da aula</p>
 
-            <!-- TÃ­tulo -->
+            <!-- Título -->
             <div class="form-group">
-              <label>TÃ­tulo da Aula</label>
-              <input v-model="editingLesson.title" placeholder="Ex: A importÃ¢ncia das proteÃ­nas" />
+              <label>Título da Aula</label>
+              <input v-model="editingLesson.title" placeholder="Ex: A importância das proteínas" />
             </div>
 
-            <!-- Abas: Fonte do VÃ­deo -->
+            <!-- Abas: Fonte do Vídeo -->
             <div class="form-group">
-              <label>VÃ­deo</label>
+              <label>Vídeo</label>
               <div class="tab-pills">
                 <button :class="['tab-pill', videoSourceTab === 'link' ? 'active' : '']" @click="videoSourceTab = 'link'">
                   <Link class="xs-icon" /> Link Externo
                 </button>
                 <button :class="['tab-pill', videoSourceTab === 'upload' ? 'active' : '']" @click="videoSourceTab = 'upload'">
-                  <Upload class="xs-icon" /> Upload de VÃ­deo
+                  <Upload class="xs-icon" /> Upload de Vídeo
                 </button>
               </div>
 
@@ -430,15 +470,21 @@
               <!-- Aba Upload -->
               <div v-if="videoSourceTab === 'upload'" class="tab-content">
                 <input ref="videoFileInput" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.avi,.mkv" class="file-input-hidden" @change="handleVideoFileSelect" />
-                <div v-if="!videoFileLocal && !editingLesson.videoUrl" class="video-upload-area" @click="triggerVideoUpload">
+                <div
+                  v-if="!videoFileLocal && !editingLesson.videoUrl"
+                  class="video-upload-area"
+                  @click="triggerVideoUpload"
+                  @dragover.prevent
+                  @drop.prevent="handleVideoDrop"
+                >
                   <Film class="upload-icon" />
-                  <span>Clique para selecionar um vÃ­deo (mp4, mov, webm)</span>
-                  <span class="upload-hint">MÃ¡ximo: 500MB</span>
+                  <span>Clique ou arraste um vídeo (mp4, mov, webm)</span>
+                  <span class="upload-hint">Máximo: 2GB</span>
                 </div>
                 <div v-else class="video-selected-info">
                   <Film class="xs-icon" />
                   <span v-if="videoFileLocal">{{ videoFileLocal.name }}</span>
-                  <span v-else class="video-url-preview">VÃ­deo atual salvo</span>
+                  <span v-else class="video-url-preview">Vídeo atual salvo</span>
                   <button class="btn-mini" @click="triggerVideoUpload">Trocar</button>
                 </div>
                 <!-- Barra de progresso -->
@@ -446,14 +492,14 @@
                   <div class="progress-fill" :style="{ width: videoUploadProgress + '%' }"></div>
                   <span>{{ videoUploadProgress }}%</span>
                 </div>
-                <div v-if="videoUploadStatus === 'done'" class="upload-done">âœ“ Upload concluÃ­do</div>
-                <div v-if="videoUploadStatus === 'error'" class="upload-error">âœ— Erro no upload. Tente novamente.</div>
+                <div v-if="videoUploadStatus === 'done'" class="upload-done">✓ Upload concluído</div>
+                <div v-if="videoUploadStatus === 'error'" class="upload-error">✗ Erro no upload. Tente novamente.</div>
               </div>
             </div>
 
-            <!-- DuraÃ§Ã£o -->
+            <!-- Duração -->
             <div class="form-group">
-              <label>DuraÃ§Ã£o (opcional)</label>
+              <label>Duração (opcional)</label>
               <input v-model="editingLesson.duration" placeholder="Ex: 44min ou 1h 20min" />
             </div>
 
@@ -465,7 +511,7 @@
                   <ImageIcon class="xs-icon" /> Upload de Imagem
                 </button>
                 <button :class="['tab-pill', thumbSourceTab === 'frame' ? 'active' : '']" @click="thumbSourceTab = 'frame'" :disabled="!frameVideoObjectUrl">
-                  <Camera class="xs-icon" /> Frame do VÃ­deo
+                  <Camera class="xs-icon" /> Frame do Vídeo
                 </button>
                 <button v-if="isYoutube(editingLesson.videoUrl)" :class="['tab-pill', thumbSourceTab === 'youtube' ? 'active' : '']" @click="thumbSourceTab = 'youtube'; applyYoutubeThumb()">
                   <Play class="xs-icon" /> Capa YouTube
@@ -484,7 +530,7 @@
                 </div>
               </div>
 
-              <!-- Aba Frame do VÃ­deo -->
+              <!-- Aba Frame do Vídeo -->
               <div v-if="thumbSourceTab === 'frame'" class="tab-content">
                 <div v-if="frameVideoObjectUrl" class="frame-capture-area">
                   <video ref="frameVideoRef" :src="frameVideoObjectUrl" class="frame-video-preview" preload="metadata" @loadedmetadata="onFrameVideoLoaded" muted></video>
@@ -501,7 +547,7 @@
                 </div>
                 <div v-else class="upload-placeholder">
                   <Camera class="upload-icon" />
-                  <span>FaÃ§a upload de um vÃ­deo na aba ao lado para capturar um frame</span>
+                  <span>Faça upload de um vídeo na aba ao lado para capturar um frame</span>
                 </div>
               </div>
 
@@ -510,7 +556,7 @@
                 <div class="lesson-upload-area has-image" v-if="lessonThumbPreview">
                   <img :src="lessonThumbPreview" class="upload-preview" />
                 </div>
-                <p class="thumb-hint">Capa extraÃ­da automaticamente do YouTube</p>
+                <p class="thumb-hint">Capa extraída automaticamente do YouTube</p>
               </div>
             </div>
 
@@ -518,7 +564,7 @@
               <button @click="showEditLessonModal = false" class="btn-cancel">Cancelar</button>
               <button @click="handleUpdateLesson" class="btn-primary" :disabled="uploading">
                 <span v-if="uploading">Salvando...</span>
-                <span v-else>Salvar AlteraÃ§Ãµes</span>
+                <span v-else>Salvar Alterações</span>
               </button>
             </div>
           </div>
@@ -531,23 +577,23 @@
               <h2>Nova Aula</h2>
               <button @click="showLessonModal = false" class="btn-close"><X /></button>
             </div>
-            <p class="modal-subtitle">Adicionando aula neste mÃ³dulo</p>
+            <p class="modal-subtitle">Adicionando aula neste módulo</p>
 
-            <!-- TÃ­tulo -->
+            <!-- Título -->
             <div class="form-group">
-              <label>TÃ­tulo da Aula</label>
-              <input v-model="newLesson.title" placeholder="Ex: A importÃ¢ncia das proteÃ­nas" />
+              <label>Título da Aula</label>
+              <input v-model="newLesson.title" placeholder="Ex: A importância das proteínas" />
             </div>
 
-            <!-- Abas: Fonte do VÃ­deo -->
+            <!-- Abas: Fonte do Vídeo -->
             <div class="form-group">
-              <label>VÃ­deo</label>
+              <label>Vídeo</label>
               <div class="tab-pills">
                 <button :class="['tab-pill', videoSourceTab === 'link' ? 'active' : '']" @click="videoSourceTab = 'link'">
                   <Link class="xs-icon" /> Link Externo
                 </button>
                 <button :class="['tab-pill', videoSourceTab === 'upload' ? 'active' : '']" @click="videoSourceTab = 'upload'">
-                  <Upload class="xs-icon" /> Upload de VÃ­deo
+                  <Upload class="xs-icon" /> Upload de Vídeo
                 </button>
               </div>
 
@@ -559,10 +605,16 @@
               <!-- Aba Upload -->
               <div v-if="videoSourceTab === 'upload'" class="tab-content">
                 <input ref="videoFileInput" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.avi,.mkv" class="file-input-hidden" @change="handleVideoFileSelect" />
-                <div v-if="!videoFileLocal" class="video-upload-area" @click="triggerVideoUpload">
+                <div
+                  v-if="!videoFileLocal"
+                  class="video-upload-area"
+                  @click="triggerVideoUpload"
+                  @dragover.prevent
+                  @drop.prevent="handleVideoDrop"
+                >
                   <Film class="upload-icon" />
-                  <span>Clique para selecionar um vÃ­deo (mp4, mov, webm)</span>
-                  <span class="upload-hint">MÃ¡ximo: 500MB</span>
+                  <span>Clique ou arraste um vídeo (mp4, mov, webm)</span>
+                  <span class="upload-hint">Máximo: 2GB</span>
                 </div>
                 <div v-else class="video-selected-info">
                   <Film class="xs-icon" />
@@ -574,14 +626,14 @@
                   <div class="progress-fill" :style="{ width: videoUploadProgress + '%' }"></div>
                   <span>{{ videoUploadProgress }}%</span>
                 </div>
-                <div v-if="videoUploadStatus === 'done'" class="upload-done">âœ“ Upload concluÃ­do</div>
-                <div v-if="videoUploadStatus === 'error'" class="upload-error">âœ— Erro no upload. Tente novamente.</div>
+                <div v-if="videoUploadStatus === 'done'" class="upload-done">✓ Upload concluído</div>
+                <div v-if="videoUploadStatus === 'error'" class="upload-error">✗ Erro no upload. Tente novamente.</div>
               </div>
             </div>
 
-            <!-- DuraÃ§Ã£o -->
+            <!-- Duração -->
             <div class="form-group">
-              <label>DuraÃ§Ã£o (opcional)</label>
+              <label>Duração (opcional)</label>
               <input v-model="newLesson.duration" placeholder="Ex: 44min ou 1h 20min" />
             </div>
 
@@ -593,7 +645,7 @@
                   <ImageIcon class="xs-icon" /> Upload de Imagem
                 </button>
                 <button :class="['tab-pill', thumbSourceTab === 'frame' ? 'active' : '']" @click="thumbSourceTab = 'frame'" :disabled="!frameVideoObjectUrl">
-                  <Camera class="xs-icon" /> Frame do VÃ­deo
+                  <Camera class="xs-icon" /> Frame do Vídeo
                 </button>
                 <button v-if="isYoutube(newLesson.videoUrl)" :class="['tab-pill', thumbSourceTab === 'youtube' ? 'active' : '']" @click="thumbSourceTab = 'youtube'; applyYoutubeThumb()">
                   <Play class="xs-icon" /> Capa YouTube
@@ -612,7 +664,7 @@
                 </div>
               </div>
 
-              <!-- Aba Frame do VÃ­deo -->
+              <!-- Aba Frame do Vídeo -->
               <div v-if="thumbSourceTab === 'frame'" class="tab-content">
                 <div v-if="frameVideoObjectUrl" class="frame-capture-area">
                   <video ref="frameVideoRef" :src="frameVideoObjectUrl" class="frame-video-preview" preload="metadata" @loadedmetadata="onFrameVideoLoaded" muted></video>
@@ -629,7 +681,7 @@
                 </div>
                 <div v-else class="upload-placeholder">
                   <Camera class="upload-icon" />
-                  <span>FaÃ§a upload de um vÃ­deo na aba ao lado para capturar um frame</span>
+                  <span>Faça upload de um vídeo na aba ao lado para capturar um frame</span>
                 </div>
               </div>
 
@@ -638,16 +690,118 @@
                 <div class="lesson-upload-area has-image" v-if="lessonThumbPreview">
                   <img :src="lessonThumbPreview" class="upload-preview" />
                 </div>
-                <p class="thumb-hint">Capa extraÃ­da automaticamente do YouTube</p>
+                <p class="thumb-hint">Capa extraída automaticamente do YouTube</p>
               </div>
             </div>
 
             <div class="modal-actions">
               <button @click="showLessonModal = false" class="btn-cancel">Cancelar</button>
               <button @click="handleCreateLesson" class="btn-primary" :disabled="uploading">
-                <span v-if="uploading && videoUploadStatus === 'uploading'">Enviando vÃ­deo... {{ videoUploadProgress }}%</span>
+                <span v-if="uploading && videoUploadStatus === 'uploading'">Enviando vídeo... {{ videoUploadProgress }}%</span>
                 <span v-else-if="uploading">Salvando...</span>
                 <span v-else>Criar Aula</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Novo Ebook -->
+        <div v-if="showCreateEbookModal" class="modal-overlay" @click.self="closeCreateEbookModal">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h2>Novo Ebook</h2>
+              <button @click="closeCreateEbookModal" class="btn-close"><X /></button>
+            </div>
+            <p class="modal-subtitle">Adicione capa, título, descrição e o arquivo PDF.</p>
+
+            <div class="form-group">
+              <label>Capa do Ebook (Opcional)</label>
+              <div class="upload-area" @click="triggerEbookCoverUpload" :class="{ 'has-image': ebookPreviewUrl }">
+                <img v-if="ebookPreviewUrl" :src="ebookPreviewUrl" class="upload-preview" />
+                <div v-else class="upload-placeholder">
+                  <ImageIcon class="upload-icon" />
+                  <span>Clique para selecionar a capa</span>
+                </div>
+                <input ref="ebookFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleEbookCoverSelect" />
+              </div>
+            </div>
+
+            <div class="form-group floating-field">
+              <label>Título do Ebook</label>
+              <input v-model="newEbook.title" placeholder="Ex: Guia de Receitas Detox" />
+            </div>
+
+            <div class="form-group floating-field">
+              <label>Descrição Curta</label>
+              <textarea v-model="newEbook.description" rows="2" placeholder="Resumo do conteúdo..." />
+            </div>
+
+            <div class="form-group">
+              <label>Arquivo PDF</label>
+              <div class="pdf-upload-box" @click="triggerEbookPdfUpload" :class="{ 'has-file': selectedEbookPdfFile }">
+                <FileText class="pdf-icon-big" />
+                <span v-if="selectedEbookPdfFile">{{ selectedEbookPdfFile.name }}</span>
+                <span v-else>Clique para selecionar o PDF</span>
+                <input ref="ebookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEbookPdfSelect" />
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button @click="closeCreateEbookModal" class="btn-cancel">Cancelar</button>
+              <button @click="handleCreateEbookFromCourses" class="btn-primary" :disabled="ebookUploading">
+                <span v-if="ebookUploading">Enviando...</span>
+                <span v-else>Salvar Ebook</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Editar Ebook -->
+        <div v-if="showEditEbookModal" class="modal-overlay" @click.self="closeEditEbookModal">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h2>Editar Ebook</h2>
+              <button @click="closeEditEbookModal" class="btn-close"><X /></button>
+            </div>
+            <p class="modal-subtitle">Altere imagem, título, descrição e arquivo PDF se quiser.</p>
+
+            <div class="form-group">
+              <label>Capa do Ebook (Opcional)</label>
+              <div class="upload-area" @click="triggerEditEbookCoverUpload" :class="{ 'has-image': editEbookPreviewUrl }">
+                <img v-if="editEbookPreviewUrl" :src="editEbookPreviewUrl" class="upload-preview" />
+                <div v-else class="upload-placeholder">
+                  <ImageIcon class="upload-icon" />
+                  <span>Clique para selecionar uma nova capa</span>
+                </div>
+                <input ref="editEbookFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleEditEbookCoverSelect" />
+              </div>
+            </div>
+
+            <div class="form-group floating-field">
+              <label>Título do Ebook</label>
+              <input v-model="editingEbook.title" placeholder="Ex: Guia de Receitas Detox" />
+            </div>
+
+            <div class="form-group floating-field">
+              <label>Descrição Curta</label>
+              <textarea v-model="editingEbook.description" rows="2" placeholder="Resumo do conteúdo..." />
+            </div>
+
+            <div class="form-group">
+              <label>Arquivo PDF (Opcional)</label>
+              <div class="pdf-upload-box" @click="triggerEditEbookPdfUpload" :class="{ 'has-file': selectedEditEbookPdfFile }">
+                <FileText class="pdf-icon-big" />
+                <span v-if="selectedEditEbookPdfFile">{{ selectedEditEbookPdfFile.name }}</span>
+                <span v-else>Clique para selecionar novo PDF (opcional)</span>
+                <input ref="editEbookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEditEbookPdfSelect" />
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button @click="closeEditEbookModal" class="btn-cancel">Cancelar</button>
+              <button @click="handleUpdateEbookFromCourses" class="btn-primary" :disabled="ebookUploading">
+                <span v-if="ebookUploading">Salvando...</span>
+                <span v-else>Salvar Alterações</span>
               </button>
             </div>
           </div>
@@ -662,7 +816,7 @@ const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 
-import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera } from 'lucide-vue-next'
+import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText } from 'lucide-vue-next'
 const route = useRoute()
 const courses = ref([])
 const ebooks = ref([])
@@ -679,10 +833,12 @@ const courseMobilePreview = ref(null)
 const courseMobileFileInput = ref(null)
 const courseMobileFile = ref(null)
 
-const newCourse = reactive({ title: '', description: '', thumbnail: '', thumbnailMobile: '', bannerImage: '', bannerImageMobile: '', bannerTitle: '', bannerSubtitle: '' })
+const newCourse = reactive({ title: '', description: '', thumbnail: '', thumbnailMobile: '', bannerImage: '', bannerImageMobile: '', bannerKicker: '', bannerTitle: '', bannerSubtitle: '', bannerCtaText: '' })
 const showEditCourseModal = ref(false)
-const editingCourse = reactive({ id: '', title: '', description: '', thumbnail: '', thumbnailMobile: '', bannerImage: '', bannerImageMobile: '', bannerTitle: '', bannerSubtitle: '' })
+const editingCourse = reactive({ id: '', title: '', description: '', thumbnail: '', thumbnailMobile: '', bannerImage: '', bannerImageMobile: '', bannerKicker: '', bannerTitle: '', bannerSubtitle: '', bannerCtaText: '' })
 const editCourseMode = ref('card')
+const isBannerEditMode = computed(() => editCourseMode.value === 'banner')
+const isCardEditMode = computed(() => editCourseMode.value !== 'banner')
 const newModule = reactive({ title: '', description: '' })
 const newLesson = reactive({ title: '', videoUrl: '', duration: '', thumbnail: '' })
 const showEditLessonModal = ref(false)
@@ -694,7 +850,7 @@ const lessonThumbFile = ref(null)
 // â”€â”€ Novos estados: Upload de VÃ­deo + Captura de Frame â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const videoSourceTab = ref('link') // 'link' | 'upload'
 const thumbSourceTab = ref('upload') // 'upload' | 'frame' | 'youtube'
-const videoFileLocal = ref(null) // File do vÃ­deo
+const videoFileLocal = ref(null) // File do vídeo
 const videoUploadProgress = ref(0)
 const videoUploadStatus = ref('') // '', 'uploading', 'done', 'error'
 const frameVideoRef = ref(null) // ref do <video> para frame
@@ -706,6 +862,32 @@ const videoFileInput = ref(null)
 const showDetailsModal = ref(false)
 const showLessonModal = ref(false)
 const currentModuleIdForLesson = ref(null)
+const showCreateEbookModal = ref(false)
+const showEditEbookModal = ref(false)
+const ebookUploading = ref(false)
+const ebookPreviewUrl = ref(null)
+const ebookFileInput = ref(null)
+const ebookPdfInput = ref(null)
+const selectedEbookCoverFile = ref(null)
+const selectedEbookPdfFile = ref(null)
+const editEbookPreviewUrl = ref(null)
+const editEbookFileInput = ref(null)
+const editEbookPdfInput = ref(null)
+const selectedEditEbookCoverFile = ref(null)
+const selectedEditEbookPdfFile = ref(null)
+const newEbook = reactive({
+  title: '',
+  description: '',
+  fileUrl: '',
+  thumbnail: ''
+})
+const editingEbook = reactive({
+  id: '',
+  title: '',
+  description: '',
+  fileUrl: '',
+  thumbnail: ''
+})
 
 const selectedCourseDetails = ref(null)
 const selectedModuleDropId = ref(null)
@@ -720,26 +902,21 @@ const inferCourseRowName = (course) => {
   if (explicitCategory) return explicitCategory
 
   const haystack = `${course?.title || ''} ${course?.description || ''}`.toLowerCase()
-  if (/(culin|cozinh|receita|gastron)/.test(haystack)) return 'CulinÃ¡ria'
-  if (/(nutri|alimenta|dieta|metabol|macro|saÃºde)/.test(haystack)) return 'NutriÃ§Ã£o'
+  if (/(culin|cozinh|receita|gastron)/.test(haystack)) return 'Culinária'
+  if (/(nutri|alimenta|dieta|metabol|macro|saúde)/.test(haystack)) return 'Nutrição'
   if (/(treino|fitness|academia|muscul|hipertrof|exerc)/.test(haystack)) return 'Treino'
   if (/(mindset|mental|emocional|foco|ansiedade)/.test(haystack)) return 'Mentalidade'
   return 'Outros'
 }
 
 const patientCourseRows = computed(() => {
-  const rowMap = new Map()
-  for (const course of courses.value) {
-    const rowName = inferCourseRowName(course)
-    if (!rowMap.has(rowName)) rowMap.set(rowName, [])
-    rowMap.get(rowName).push(course)
-  }
-
-  return Array.from(rowMap.entries()).map(([name, rowCourses]) => ({
-    key: name.toLowerCase().replace(/\s+/g, '-'),
-    title: `Cursos de ${name}`,
-    courses: rowCourses
-  }))
+  return [
+    {
+      key: 'todos-os-cursos',
+      title: 'Cursos',
+      courses: courses.value
+    }
+  ]
 })
 const featuredCourse = computed(() => courses.value?.[0] || null)
 const getCourseCover = (course, variant = 'desktop') => {
@@ -778,6 +955,44 @@ const patientBannerStyle = computed(() => {
   }
 })
 
+const isEditingFeaturedBanner = computed(() => {
+  return Boolean(
+    showEditCourseModal.value
+    && editCourseMode.value === 'banner'
+    && featuredCourse.value?.id
+    && editingCourse.id
+    && featuredCourse.value.id === editingCourse.id
+  )
+})
+
+const displayBannerKicker = computed(() => {
+  if (isEditingFeaturedBanner.value) {
+    return editingCourse.bannerKicker
+  }
+  return featuredCourse.value?.bannerKicker || 'Destaque da semana'
+})
+
+const displayBannerTitle = computed(() => {
+  if (isEditingFeaturedBanner.value) {
+    return editingCourse.bannerTitle
+  }
+  return featuredCourse.value?.bannerTitle || featuredCourse.value?.title || 'Sua jornada de transformação continua'
+})
+
+const displayBannerSubtitle = computed(() => {
+  if (isEditingFeaturedBanner.value) {
+    return editingCourse.bannerSubtitle
+  }
+  return featuredCourse.value?.bannerSubtitle || featuredCourse.value?.description || 'Assista às aulas e mantenha consistência no seu processo.'
+})
+
+const displayBannerCtaText = computed(() => {
+  if (isEditingFeaturedBanner.value) {
+    return editingCourse.bannerCtaText
+  }
+  return featuredCourse.value?.bannerCtaText || 'Continuar agora'
+})
+
 const openCourseDetails = (course) => {
   selectedCourseDetails.value = course
   if (course.modules && course.modules.length > 0) {
@@ -790,7 +1005,11 @@ const openCourseDetails = (course) => {
 
 const openCoursePlayerPage = (course) => {
   if (!course?.id) return
-  navigateTo(`/cursos/${course.id}`)
+  const firstModuleWithLesson = (course.modules || []).find((module) => module?.lessons?.length)
+  const firstLesson = firstModuleWithLesson?.lessons?.[0]
+  if (firstModuleWithLesson?.id && firstLesson?.id) {
+    navigateTo(`/modulos/${firstModuleWithLesson.id}?lessonId=${firstLesson.id}`)
+  }
 }
 
 const closeDetailsModal = () => {
@@ -808,6 +1027,57 @@ const openAddModule = (course) => {
   showModuleModal.value = true
 }
 
+const resetCreateCourseState = () => {
+  newCourse.title = ''
+  newCourse.description = ''
+  newCourse.thumbnail = ''
+  newCourse.thumbnailMobile = ''
+  newCourse.bannerImage = ''
+  newCourse.bannerImageMobile = ''
+  newCourse.bannerKicker = ''
+  newCourse.bannerTitle = ''
+  newCourse.bannerSubtitle = ''
+  newCourse.bannerCtaText = ''
+  if (coursePreview.value && String(coursePreview.value).startsWith('blob:')) {
+    URL.revokeObjectURL(coursePreview.value)
+  }
+  if (courseMobilePreview.value && String(courseMobilePreview.value).startsWith('blob:')) {
+    URL.revokeObjectURL(courseMobilePreview.value)
+  }
+  coursePreview.value = null
+  courseMobilePreview.value = null
+  courseFile.value = null
+  courseMobileFile.value = null
+}
+
+const openCreateCourseModal = () => {
+  resetCreateCourseState()
+  showCreateCourseModal.value = true
+}
+
+const closeCreateCourseModal = () => {
+  showCreateCourseModal.value = false
+  resetCreateCourseState()
+}
+
+const openAddLessonFromCourse = async (course) => {
+  if (!course?.id) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    const ensuredModule = await $fetch(`${apiBase}/courses/${course.id}/modules/ensure-first`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!ensuredModule?.id) {
+      throw new Error('Não foi possível preparar o módulo inicial do curso.')
+    }
+    await fetchCourses()
+    openAddLesson(ensuredModule.id)
+  } catch (err) {
+    alert(err?.data?.message || err?.message || 'Erro ao preparar módulo para nova videoaula.')
+  }
+}
+
 const openEditCourse = (course, mode = 'card') => {
   if (!course?.id) return
   editCourseMode.value = mode
@@ -820,8 +1090,10 @@ const openEditCourse = (course, mode = 'card') => {
   editingCourse.thumbnailMobile = course.thumbnailMobile || ''
   editingCourse.bannerImage = course.bannerImage || ''
   editingCourse.bannerImageMobile = course.bannerImageMobile || ''
-  editingCourse.bannerTitle = course.bannerTitle || ''
-  editingCourse.bannerSubtitle = course.bannerSubtitle || ''
+  editingCourse.bannerKicker = course.bannerKicker || 'Destaque da semana'
+  editingCourse.bannerTitle = course.bannerTitle || course.title || 'Sua jornada de transformação continua'
+  editingCourse.bannerSubtitle = course.bannerSubtitle || course.description || 'Assista às aulas e mantenha consistência no seu processo.'
+  editingCourse.bannerCtaText = course.bannerCtaText || 'Continuar agora'
   coursePreview.value = mode === 'banner'
     ? (course.bannerImage || null)
     : (course.thumbnail || null)
@@ -835,7 +1107,7 @@ const openEditCourseById = (courseId, mode = 'card') => {
   if (!courseId) return
   const course = courses.value.find((item) => item.id === courseId)
   if (!course) {
-    alert('NÃ£o foi possÃ­vel encontrar o curso selecionado para ediÃ§Ã£o.')
+    alert('Não foi possível encontrar o curso selecionado para edição.')
     return
   }
   openEditCourse(course, mode)
@@ -844,7 +1116,7 @@ const openEditCourseById = (courseId, mode = 'card') => {
 const triggerCourseUpload = () => {
   const input = courseFileInput.value
   if (!input) return
-  // ForÃ§a disparar change mesmo ao escolher o mesmo arquivo novamente.
+  // Força disparar change mesmo ao escolher o mesmo arquivo novamente.
   input.value = ''
   input.click()
 }
@@ -865,7 +1137,7 @@ const getImageDimensions = (file) => new Promise((resolve, reject) => {
   }
   img.onerror = () => {
     URL.revokeObjectURL(objectUrl)
-    reject(new Error('NÃ£o foi possÃ­vel ler as dimensÃµes da imagem.'))
+    reject(new Error('Não foi possível ler as dimensões da imagem.'))
   }
   img.src = objectUrl
 })
@@ -910,7 +1182,7 @@ const fetchCourses = async () => {
     coursesLoadError.value = ''
     const token = localStorage.getItem('auth_token')
     if (!token) {
-      coursesLoadError.value = 'SessÃ£o expirada. FaÃ§a login novamente.'
+      coursesLoadError.value = 'Sessão expirada. Faça login novamente.'
       handleAuthTokenInvalid()
       return
     }
@@ -927,12 +1199,12 @@ const fetchCourses = async () => {
   } catch (err) {
     console.error('Erro ao buscar cursos:', err)
     if (isTokenInvalidError(err)) {
-      coursesLoadError.value = 'SessÃ£o expirada. FaÃ§a login novamente.'
+      coursesLoadError.value = 'Sessão expirada. Faça login novamente.'
       handleAuthTokenInvalid()
       return
     }
     courses.value = []
-    coursesLoadError.value = err?.data?.message || err?.message || 'Falha de conexÃ£o com o servidor de cursos.'
+    coursesLoadError.value = err?.data?.message || err?.message || 'Falha de conexão com o servidor de cursos.'
   }
 }
 
@@ -943,8 +1215,10 @@ const buildCoursePayload = (courseData) => ({
   thumbnailMobile: courseData.thumbnailMobile || null,
   bannerImage: courseData.bannerImage || null,
   bannerImageMobile: courseData.bannerImageMobile || null,
+  bannerKicker: courseData.bannerKicker || null,
   bannerTitle: courseData.bannerTitle || null,
-  bannerSubtitle: courseData.bannerSubtitle || null
+  bannerSubtitle: courseData.bannerSubtitle || null,
+  bannerCtaText: courseData.bannerCtaText || null
 })
 
 const buildLegacyCoursePayload = (courseData) => ({
@@ -963,7 +1237,7 @@ const handleAuthTokenInvalid = () => {
 
 const isTokenInvalidError = (err) => {
   const message = String(err?.data?.message || err?.message || '').toLowerCase()
-  return message.includes('token invÃ¡lido')
+  return message.includes('token inválido')
     || message.includes('token invalido')
     || message.includes('jwt')
     || message.includes('unauthorized')
@@ -973,8 +1247,10 @@ const shouldFallbackLegacyPayload = (err) => {
   const message = String(err?.data?.message || err?.message || '').toLowerCase()
   return message.includes('unknown arg')
     || message.includes('thumbnailmobile')
+    || message.includes('bannerkicker')
     || message.includes('bannertitle')
     || message.includes('bannersubtitle')
+    || message.includes('bannerctatext')
 }
 
 const fetchEbooks = async () => {
@@ -1011,7 +1287,7 @@ const handlePendingAddLessonAction = () => {
 
   const targetModuleId = requestedModuleId || targetCourse.modules?.[0]?.id
   if (!targetModuleId) {
-    alert('Este curso nÃ£o possui mÃ³dulo. Crie um mÃ³dulo antes de adicionar aulas.')
+    alert('Este curso não possui módulo. Crie um módulo antes de adicionar aulas.')
     navigateTo('/cursos', { replace: true })
     return
   }
@@ -1024,8 +1300,247 @@ const openEbooksPage = () => {
   navigateTo('/ebooks')
 }
 
+const openCreateEbookFromCourses = () => {
+  openCreateEbookModal()
+}
+
+const handleDeleteEbookFromCourses = async (ebookId) => {
+  if (!ebookId) return
+  if (!confirm('Deseja excluir este ebook?')) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      handleAuthTokenInvalid()
+      return
+    }
+    await $fetch(`${apiBase}/ebooks/${ebookId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    await fetchEbooks()
+  } catch (err) {
+    alert(err?.data?.message || err?.message || 'Erro ao excluir ebook.')
+  }
+}
+
+const resetEditEbookState = () => {
+  Object.assign(editingEbook, { id: '', title: '', description: '', fileUrl: '', thumbnail: '' })
+  if (editEbookPreviewUrl.value && String(editEbookPreviewUrl.value).startsWith('blob:')) {
+    URL.revokeObjectURL(editEbookPreviewUrl.value)
+  }
+  editEbookPreviewUrl.value = null
+  selectedEditEbookCoverFile.value = null
+  selectedEditEbookPdfFile.value = null
+}
+
+const openEditEbookFromCourses = (ebook) => {
+  if (!ebook?.id) return
+  resetEditEbookState()
+  editingEbook.id = ebook.id
+  editingEbook.title = ebook.title || ''
+  editingEbook.description = ebook.description || ''
+  editingEbook.fileUrl = ebook.fileUrl || ''
+  editingEbook.thumbnail = ebook.thumbnail || ''
+  editEbookPreviewUrl.value = ebook.thumbnail || null
+  showEditEbookModal.value = true
+}
+
+const closeEditEbookModal = () => {
+  showEditEbookModal.value = false
+  resetEditEbookState()
+}
+
+const resetCreateEbookState = () => {
+  Object.assign(newEbook, { title: '', description: '', fileUrl: '', thumbnail: '' })
+  if (ebookPreviewUrl.value && String(ebookPreviewUrl.value).startsWith('blob:')) {
+    URL.revokeObjectURL(ebookPreviewUrl.value)
+  }
+  ebookPreviewUrl.value = null
+  selectedEbookCoverFile.value = null
+  selectedEbookPdfFile.value = null
+}
+
+const openCreateEbookModal = () => {
+  resetCreateEbookState()
+  showCreateEbookModal.value = true
+}
+
+const closeCreateEbookModal = () => {
+  showCreateEbookModal.value = false
+  resetCreateEbookState()
+}
+
+const triggerEbookCoverUpload = () => {
+  const input = ebookFileInput.value
+  if (!input) return
+  input.value = ''
+  input.click()
+}
+
+const triggerEbookPdfUpload = () => {
+  const input = ebookPdfInput.value
+  if (!input) return
+  input.value = ''
+  input.click()
+}
+
+const handleEbookCoverSelect = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  selectedEbookCoverFile.value = file
+  if (ebookPreviewUrl.value && String(ebookPreviewUrl.value).startsWith('blob:')) {
+    URL.revokeObjectURL(ebookPreviewUrl.value)
+  }
+  ebookPreviewUrl.value = URL.createObjectURL(file)
+}
+
+const handleEbookPdfSelect = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  if (file.type !== 'application/pdf') {
+    alert('Selecione um arquivo PDF válido.')
+    return
+  }
+  selectedEbookPdfFile.value = file
+}
+
+const handleCreateEbookFromCourses = async () => {
+  if (!newEbook.title?.trim()) return alert('O título do ebook é obrigatório.')
+  if (!selectedEbookPdfFile.value) return alert('Selecione o arquivo PDF do ebook.')
+  ebookUploading.value = true
+  try {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      handleAuthTokenInvalid()
+      return
+    }
+
+    if (selectedEbookCoverFile.value) {
+      const coverFormData = new FormData()
+      coverFormData.append('file', selectedEbookCoverFile.value)
+      const coverUploadRes = await $fetch(`${apiBase}/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: coverFormData
+      })
+      newEbook.thumbnail = coverUploadRes.url
+    }
+
+    const pdfFormData = new FormData()
+    pdfFormData.append('file', selectedEbookPdfFile.value)
+    const pdfUploadRes = await $fetch(`${apiBase}/upload/file`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: pdfFormData
+    })
+    newEbook.fileUrl = pdfUploadRes.url
+
+    await $fetch(`${apiBase}/ebooks`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: { ...newEbook }
+    })
+
+    closeCreateEbookModal()
+    await fetchEbooks()
+  } catch (err) {
+    alert(err?.data?.message || err?.message || 'Erro ao criar ebook.')
+  } finally {
+    ebookUploading.value = false
+  }
+}
+
+const triggerEditEbookCoverUpload = () => {
+  const input = editEbookFileInput.value
+  if (!input) return
+  input.value = ''
+  input.click()
+}
+
+const triggerEditEbookPdfUpload = () => {
+  const input = editEbookPdfInput.value
+  if (!input) return
+  input.value = ''
+  input.click()
+}
+
+const handleEditEbookCoverSelect = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  selectedEditEbookCoverFile.value = file
+  if (editEbookPreviewUrl.value && String(editEbookPreviewUrl.value).startsWith('blob:')) {
+    URL.revokeObjectURL(editEbookPreviewUrl.value)
+  }
+  editEbookPreviewUrl.value = URL.createObjectURL(file)
+}
+
+const handleEditEbookPdfSelect = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  if (file.type !== 'application/pdf') {
+    alert('Selecione um arquivo PDF válido.')
+    return
+  }
+  selectedEditEbookPdfFile.value = file
+}
+
+const handleUpdateEbookFromCourses = async () => {
+  if (!editingEbook.id) return
+  if (!editingEbook.title?.trim()) return alert('O título do ebook é obrigatório.')
+  ebookUploading.value = true
+  try {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      handleAuthTokenInvalid()
+      return
+    }
+
+    const payload = {
+      title: editingEbook.title,
+      description: editingEbook.description || '',
+      fileUrl: editingEbook.fileUrl || '',
+      thumbnail: editingEbook.thumbnail || null
+    }
+
+    if (selectedEditEbookCoverFile.value) {
+      const coverFormData = new FormData()
+      coverFormData.append('file', selectedEditEbookCoverFile.value)
+      const coverUploadRes = await $fetch(`${apiBase}/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: coverFormData
+      })
+      payload.thumbnail = coverUploadRes.url
+    }
+
+    if (selectedEditEbookPdfFile.value) {
+      const pdfFormData = new FormData()
+      pdfFormData.append('file', selectedEditEbookPdfFile.value)
+      const pdfUploadRes = await $fetch(`${apiBase}/upload/file`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: pdfFormData
+      })
+      payload.fileUrl = pdfUploadRes.url
+    }
+
+    await $fetch(`${apiBase}/ebooks/${editingEbook.id}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body: payload
+    })
+
+    closeEditEbookModal()
+    await fetchEbooks()
+  } catch (err) {
+    alert(err?.data?.message || err?.message || 'Erro ao atualizar ebook.')
+  } finally {
+    ebookUploading.value = false
+  }
+}
+
 const handleCreateCourse = async () => {
-  if (!newCourse.title) return alert('Informe o tÃ­tulo do curso.')
+  if (!newCourse.title) return alert('Informe o título do curso.')
   uploading.value = true
   try {
     const token = localStorage.getItem('auth_token')
@@ -1042,25 +1557,12 @@ const handleCreateCourse = async () => {
         })
         newCourse.thumbnail = uploadRes.url
       } catch (e) {
-        console.warn('Falha no upload da imagem (curso continuarÃ¡ sem capa):', e?.data?.message || e)
+        console.warn('Falha no upload da imagem (curso continuará sem capa):', e?.data?.message || e)
       }
     }
 
-    // Upload local da capa mobile
-    if (courseMobileFile.value) {
-      const formData = new FormData()
-      formData.append('file', courseMobileFile.value)
-      try {
-        const uploadRes = await $fetch(`${apiBase}/upload`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData
-        })
-        newCourse.thumbnailMobile = uploadRes.url
-      } catch (e) {
-        console.warn('Falha no upload da capa mobile (curso continuarÃ¡ sem capa mobile):', e?.data?.message || e)
-      }
-    }
+    // No modal de criação usamos apenas uma capa principal.
+    newCourse.thumbnailMobile = ''
 
     try {
       await $fetch(`${apiBase}/courses`, {
@@ -1082,25 +1584,13 @@ const handleCreateCourse = async () => {
         body: JSON.stringify(buildLegacyCoursePayload(newCourse))
       })
     }
-    showCreateCourseModal.value = false
-    newCourse.title = ''
-    newCourse.description = ''
-    newCourse.thumbnail = ''
-    newCourse.thumbnailMobile = ''
-    newCourse.bannerImage = ''
-    newCourse.bannerImageMobile = ''
-    newCourse.bannerTitle = ''
-    newCourse.bannerSubtitle = ''
-    coursePreview.value = null
-    courseMobilePreview.value = null
-    courseFile.value = null
-    courseMobileFile.value = null
+    closeCreateCourseModal()
     fetchCourses()
   } catch (err) {
     let msg = 'Erro desconhecido ao criar curso.'
     
     if (err.message?.includes('Failed to fetch')) {
-      msg = 'NÃ£o foi possÃ­vel conectar ao servidor. O backend (porta 3001) estÃ¡ rodando?'
+      msg = 'Não foi possível conectar ao servidor. O backend (porta 3001) está rodando?'
     } else {
       msg = err?.data?.message || err?.message || msg
     }
@@ -1113,7 +1603,7 @@ const handleCreateCourse = async () => {
 }
 
 const handleUpdateCourse = async () => {
-  if (!editingCourse.title) return alert('Informe o tÃ­tulo do curso.')
+  if (!editingCourse.title) return alert('Informe o título do curso.')
   uploading.value = true
   try {
     const token = localStorage.getItem('auth_token')
@@ -1127,7 +1617,7 @@ const handleUpdateCourse = async () => {
         body: formData
       })
       if (!uploadRes?.url) {
-        throw new Error('Upload da capa desktop nÃ£o retornou URL vÃ¡lida.')
+        throw new Error('Upload da capa desktop não retornou URL válida.')
       }
       if (editCourseMode.value === 'banner') {
         editingCourse.bannerImage = uploadRes.url
@@ -1145,7 +1635,7 @@ const handleUpdateCourse = async () => {
         body: formData
       })
       if (!uploadRes?.url) {
-        throw new Error('Upload da capa mobile nÃ£o retornou URL vÃ¡lida.')
+        throw new Error('Upload da capa mobile não retornou URL válida.')
       }
       if (editCourseMode.value === 'banner') {
         editingCourse.bannerImageMobile = uploadRes.url
@@ -1182,14 +1672,14 @@ const handleUpdateCourse = async () => {
     courseMobilePreview.value = null
     fetchCourses()
   } catch (err) {
-    alert(`Erro ao atualizar curso: ${err?.data?.message || err?.message || 'Falha ao salvar alteraÃ§Ãµes.'}`)
+    alert(`Erro ao atualizar curso: ${err?.data?.message || err?.message || 'Falha ao salvar alterações.'}`)
   } finally {
     uploading.value = false
   }
 }
 
 const handleCreateModule = async () => {
-  if (!newModule.title) return alert('Informe o tÃ­tulo do mÃ³dulo.')
+  if (!newModule.title) return alert('Informe o título do módulo.')
   try {
     const token = localStorage.getItem('auth_token')
     await $fetch(`${apiBase}/courses/${selectedCourse.value.id}/modules`, {
@@ -1203,12 +1693,12 @@ const handleCreateModule = async () => {
         selectedCourseDetails.value = courses.value.find(c => c.id === selectedCourseDetails.value.id)
     }
   } catch (err) {
-    alert('Erro ao criar mÃ³dulo.')
+    alert('Erro ao criar módulo.')
   }
 }
 
 const handleDeleteCourse = async (id) => {
-  if (!confirm('Tem certeza que deseja excluir este curso e todos os seus mÃ³dulos?')) return
+  if (!confirm('Tem certeza que deseja excluir este curso e todos os seus módulos?')) return
   try {
     const token = localStorage.getItem('auth_token')
     await $fetch(`${apiBase}/courses/${id}`, {
@@ -1237,8 +1727,18 @@ const triggerVideoUpload = () => {
   videoFileInput.value?.click()
 }
 
-const handleVideoFileSelect = (e) => {
-  const file = e.target.files?.[0]
+const inferLessonTitleFromFileName = (fileName) => {
+  const baseName = String(fileName || '')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!baseName) return ''
+  return baseName.charAt(0).toUpperCase() + baseName.slice(1)
+}
+
+const applySelectedVideoFile = (file) => {
   if (!file) return
   videoFileLocal.value = file
   // Criar URL para preview e frame capture
@@ -1246,8 +1746,27 @@ const handleVideoFileSelect = (e) => {
   frameVideoObjectUrl.value = URL.createObjectURL(file)
   frameSeekTime.value = 0
   frameVideoDuration.value = 0
-  // Auto-mudar aba de thumbnail para 'frame' quando tem vÃ­deo local
+  // Auto-mudar aba de thumbnail para 'frame' quando tem vídeo local
   thumbSourceTab.value = 'frame'
+
+  const inferredTitle = inferLessonTitleFromFileName(file.name)
+  if (showEditLessonModal.value) {
+    if (!editingLesson.title?.trim() && inferredTitle) {
+      editingLesson.title = inferredTitle
+    }
+  } else if (!newLesson.title?.trim() && inferredTitle) {
+    newLesson.title = inferredTitle
+  }
+}
+
+const handleVideoFileSelect = (e) => {
+  const file = e.target.files?.[0]
+  applySelectedVideoFile(file)
+}
+
+const handleVideoDrop = (e) => {
+  const file = e.dataTransfer?.files?.[0]
+  applySelectedVideoFile(file)
 }
 
 const formatSecondsToDuration = (totalSeconds) => {
@@ -1330,7 +1849,7 @@ const handleVideoUpload = async () => {
         resolve(data.url)
       } else {
         videoUploadStatus.value = 'error'
-        reject(new Error('Erro no upload do vÃ­deo'))
+        reject(new Error('Erro no upload do vídeo'))
       }
     }
     xhr.onerror = () => {
@@ -1370,9 +1889,9 @@ const openAddLesson = (moduleId) => {
 
 const handleCreateLesson = async () => {
   // Se fonte Ã© upload de vÃ­deo, o videoUrl precisa ser preenchido pelo upload
-  if (!newLesson.title) return alert('TÃ­tulo Ã© obrigatÃ³rio.')
-  if (videoSourceTab.value === 'link' && !newLesson.videoUrl) return alert('Informe o link do vÃ­deo.')
-  if (videoSourceTab.value === 'upload' && !videoFileLocal.value && !newLesson.videoUrl) return alert('Selecione um vÃ­deo para fazer upload.')
+  if (!newLesson.title) return alert('Título é obrigatório.')
+  if (videoSourceTab.value === 'link' && !newLesson.videoUrl) return alert('Informe o link do vídeo.')
+  if (videoSourceTab.value === 'upload' && !videoFileLocal.value && !newLesson.videoUrl) return alert('Selecione um vídeo para fazer upload.')
   try {
     uploading.value = true
     const token = localStorage.getItem('auth_token')
@@ -1440,12 +1959,12 @@ const openEditLesson = (lesson) => {
 }
 
 const handleUpdateLesson = async () => {
-  if (!editingLesson.title) return alert('TÃ­tulo Ã© obrigatÃ³rio.')
+  if (!editingLesson.title) return alert('Título é obrigatório.')
   if (videoSourceTab.value === 'upload' && videoFileLocal.value) {
     // Upload do novo vÃ­deo primeiro
     await handleVideoUpload()
   }
-  if (!editingLesson.videoUrl) return alert('Informe o link ou faÃ§a upload de um vÃ­deo.')
+  if (!editingLesson.videoUrl) return alert('Informe o link ou faça upload de um vídeo.')
   try {
     uploading.value = true
     const token = localStorage.getItem('auth_token')
@@ -1531,7 +2050,7 @@ const handleDeleteLesson = async (lessonId, moduleId) => {
 }
 
 const handleDeleteModule = async (moduleId, courseId) => {
-  if (!confirm('Deseja excluir este mÃ³dulo? Todas as aulas vinculadas tambÃ©m serÃ£o removidas.')) return
+  if (!confirm('Deseja excluir este módulo? Todas as aulas vinculadas também serão removidas.')) return
   try {
     const token = localStorage.getItem('auth_token')
     await $fetch(`${apiBase}/courses/${courseId}/modules/${moduleId}`, {
@@ -1540,7 +2059,7 @@ const handleDeleteModule = async (moduleId, courseId) => {
     })
     fetchCourses()
   } catch (err) {
-    alert('Erro ao excluir mÃ³dulo.')
+    alert('Erro ao excluir módulo.')
   }
 }
 
@@ -2100,6 +2619,19 @@ onMounted(() => {
   width: 100%;
   max-width: 520px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d6d6d6 transparent;
+}
+
+.modal-card::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-card::-webkit-scrollbar-thumb {
+  background: #d6d6d6;
+  border-radius: 999px;
 }
 
 .modal-header {
@@ -2159,6 +2691,27 @@ onMounted(() => {
   color: #444;
   margin-bottom: 0.6rem;
   letter-spacing: 0.01em;
+}
+
+.form-group.floating-field {
+  position: relative;
+  margin-top: 1.05rem;
+}
+
+.form-group.floating-field label {
+  position: absolute;
+  top: -0.62rem;
+  left: 0.78rem;
+  margin-bottom: 0;
+  padding: 0 0.42rem;
+  background: #fff;
+  z-index: 2;
+  line-height: 1;
+}
+
+.form-group.floating-field input,
+.form-group.floating-field textarea {
+  padding-top: 1rem;
 }
 
 .form-hint {
@@ -2292,6 +2845,39 @@ onMounted(() => {
 
 .file-input-hidden {
   display: none;
+}
+
+.pdf-upload-box {
+  border: 2px dashed #dfe3e8;
+  border-radius: 12px;
+  min-height: 110px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  background: #fafafa;
+  color: #64748b;
+  text-align: center;
+}
+
+.pdf-upload-box:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #f8fbf8;
+}
+
+.pdf-upload-box.has-file {
+  border-color: #2d5a27;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.pdf-icon-big {
+  width: 26px;
+  height: 26px;
 }
 
 .empty-state {
@@ -2830,21 +3416,23 @@ onMounted(() => {
 }
 
 .netflix-card.patient-card {
-  border-radius: 18px;
+  border-radius: 8px;
   background: #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+  box-shadow: none;
   transform: none;
   transition: box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .netflix-card.patient-card:hover {
   transform: none;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
+  box-shadow: none;
 }
 
 .patient-card .card-image-wrapper {
   aspect-ratio: 3 / 4.1;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .patient-card .card-gradient {
@@ -2855,12 +3443,38 @@ onMounted(() => {
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: #0f172a;
+  color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 .patient-card .card-content p {
-  color: rgba(15, 23, 42, 0.8);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 0.82rem;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+
+.netflix-card.patient-card.add-course-card {
+  aspect-ratio: 3 / 4.1;
+  width: 100%;
+  background: transparent !important;
+  border: 2px dashed rgba(15, 23, 42, 0.28) !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.netflix-card.patient-card.add-course-card:hover {
+  border-color: rgba(15, 23, 42, 0.42) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.add-course-icon {
+  width: 38px;
+  height: 38px;
+  color: rgba(15, 23, 42, 0.62);
 }
 
 .card-tag-patient {
@@ -2926,6 +3540,22 @@ onMounted(() => {
     right: 0.85rem;
     opacity: 1;
     transform: none;
+  }
+
+  .modal-overlay {
+    padding: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .modal-card {
+    max-width: 100%;
+    max-height: calc(100vh - 1.5rem);
+    padding: 1.15rem;
+    border-radius: 16px;
+  }
+
+  .modal-header {
+    margin-bottom: 1rem;
   }
 }
 

@@ -77,6 +77,15 @@ export class CourseController {
     }
   }
 
+  async ensureFirstModule(req: Request, res: Response): Promise<any> {
+    try {
+      const module = await courseService.ensureFirstModule(req.params.id);
+      return res.status(200).json(module);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   async addLesson(req: Request, res: Response): Promise<any> {
     try {
       const lesson = await courseService.addLesson({

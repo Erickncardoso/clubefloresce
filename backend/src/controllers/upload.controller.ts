@@ -4,6 +4,10 @@ import path from "path";
 import fs from "fs";
 import { cloudinaryUpload } from "../utils/cloudinary";
 
+const MB = 1024 * 1024;
+const VIDEO_UPLOAD_MAX_SIZE_MB = Number(process.env.VIDEO_UPLOAD_MAX_SIZE_MB || 2048);
+const VIDEO_UPLOAD_MAX_SIZE_BYTES = VIDEO_UPLOAD_MAX_SIZE_MB * MB;
+
 // Diretório de upload temporário
 const getUploadPath = () => {
   const uploadPath = path.join(__dirname, "../../public/uploads");
@@ -40,7 +44,7 @@ export const upload = multer({
 // ── Multer para VÍDEOS ──────────────────────────────────────────
 export const uploadVideo = multer({
   storage,
-  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+  limits: { fileSize: VIDEO_UPLOAD_MAX_SIZE_BYTES },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /mp4|mov|webm|avi|mkv|m4v/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());

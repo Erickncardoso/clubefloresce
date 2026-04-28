@@ -172,7 +172,7 @@ const handleLogin = async () => {
       return
     }
 
-    navigateTo('/dashboard')
+    navigateTo('/cursos')
   } catch (err) {
     console.error("Erro completo:", err);
     if (err.data && err.data.message) {
@@ -214,7 +214,7 @@ const handleFirstAccessPasswordChange = async () => {
     showFirstAccessModal.value = false
     firstAccessForm.newPassword = ''
     firstAccessForm.confirmPassword = ''
-    navigateTo('/dashboard')
+    navigateTo('/cursos')
   } catch (err) {
     if (err.data && err.data.message) {
       firstAccessError.value = err.data.message

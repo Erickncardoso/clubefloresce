@@ -10,6 +10,7 @@ router.get("/", authenticate, ebookController.getAll);
 
 // Rotas administrativas (Nutricionista)
 router.post("/", authenticate, authorize(["NUTRICIONISTA"]), ebookController.create);
+router.put("/:id", authenticate, authorize(["NUTRICIONISTA"]), ebookController.update);
 router.delete("/:id", authenticate, authorize(["NUTRICIONISTA"]), ebookController.delete);
 
 export default router;

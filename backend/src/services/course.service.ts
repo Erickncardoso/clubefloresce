@@ -32,6 +32,10 @@ export class CourseService {
     return courseRepository.createModule(data);
   }
 
+  async ensureFirstModule(courseId: string): Promise<Module> {
+    return courseRepository.ensureFirstModule(courseId);
+  }
+
   async addLesson(data: any): Promise<Lesson> {
     return courseRepository.createLesson(data);
   }

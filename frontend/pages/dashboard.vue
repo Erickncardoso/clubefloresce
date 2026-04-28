@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <NuxtLayout name="dashboard">
     <div class="dashboard-page">
       <!-- SeÃ§Ã£o Superior: Postar Novidades + Novas Aulas -->
@@ -147,6 +147,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: [() => navigateTo('/cursos')]
+})
+
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase

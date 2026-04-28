@@ -1,120 +1,71 @@
 <template>
   <div class="dashboard-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar" :class="{ 'collapsed': isCollapsed }">
-      <div class="sidebar-header">
-        <div class="logo-container">
-          <img src="/logoflorescer.svg" alt="Logo Clube Florescer" class="sidebar-logo" />
-        </div>
-        <button @click="isCollapsed = !isCollapsed" class="btn-toggle">
-          <ChevronLeft v-if="!isCollapsed" />
-          <ChevronRight v-else />
-        </button>
-      </div>
-
-      <nav class="sidebar-nav">
-        <ul>
-          <li v-for="item in menuItems" :key="item.path || item.label">
-            <template v-if="item.children?.length">
-              <button
-                type="button"
-                class="sidebar-group-btn"
-                :class="{ active: isWhatsappMenuActive }"
-                :title="item.label"
-                @click="toggleWhatsappMenu"
-              >
-                <component :is="item.icon" class="icon" />
-                <span v-if="!isCollapsed">{{ item.label }}</span>
-                <ChevronDown v-if="!isCollapsed" class="sidebar-group-chevron" :class="{ open: whatsappMenuOpen }" />
-              </button>
-              <ul v-if="!isCollapsed && whatsappMenuOpen" class="sidebar-submenu">
-                <li v-for="child in item.children" :key="child.path">
-                  <NuxtLink :to="child.path" :class="{ 'active': $route.path === child.path }" :title="child.label">
+    <main class="main-content" :class="{ 'patient-courses-main': isPacienteCoursesPage }">
+      <header
+        class="top-nav"
+        :class="{
+          'patient-courses-top-nav': isPacienteCoursesPage,
+          'header-scrolled': isPacienteCoursesPage && hasScrolledHeader
+        }"
+      >
+        <div class="top-nav-left">
+          <img src="/logoflorescer.svg" alt="Logo Clube Florescer" class="top-nav-logo" />
+          <nav class="top-nav-menu">
+            <template v-for="item in menuItems" :key="item.path || item.label">
+              <div v-if="item.children?.length" class="top-nav-mega-menu">
+                <NuxtLink
+                  :to="item.children[0].path"
+                  class="top-nav-mega-trigger"
+                  :class="{ active: isWhatsappMenuActive }"
+                  :title="item.label"
+                >
+                  <component :is="item.icon" class="icon" />
+                  <span>{{ item.label }}</span>
+                </NuxtLink>
+                <div class="top-nav-mega-dropdown">
+                  <NuxtLink
+                    v-for="child in item.children"
+                    :key="child.path"
+                    :to="child.path"
+                    class="top-nav-mega-item"
+                    :class="{ active: $route.path === child.path }"
+                  >
                     <component :is="child.icon" class="icon" />
                     <span>{{ child.label }}</span>
                   </NuxtLink>
-                </li>
-              </ul>
-            </template>
-            <NuxtLink v-else :to="item.path" :class="{ 'active': $route.path === item.path }" :title="item.label">
-              <component :is="item.icon" class="icon" />
-              <span v-if="!isCollapsed">{{ item.label }}</span>
-            </NuxtLink>
-          </li>
-        </ul>
-      </nav>
-
-      <div class="sidebar-footer">
-        <button @click="handleLogout" class="btn-logout" :title="'Sair'">
-          <LogOut class="icon" />
-          <span v-if="!isCollapsed">Sair</span>
-        </button>
-      </div>
-    </aside>
-
-    <!-- Mobile Top Header -->
-    <header class="mobile-topbar">
-      <img src="/logoflorescer.svg" alt="Logo Clube Florescer" class="mobile-topbar-logo" />
-      <button class="mobile-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen" aria-label="Abrir menu">
-        <Menu v-if="!mobileMenuOpen" class="icon" />
-        <X v-else class="icon" />
-      </button>
-    </header>
-
-    <!-- Mobile Drawer -->
-    <Transition name="fade">
-      <div v-if="mobileMenuOpen" class="mobile-drawer-backdrop" @click="mobileMenuOpen = false"></div>
-    </Transition>
-
-    <aside class="mobile-drawer" :class="{ open: mobileMenuOpen }">
-      <nav class="mobile-drawer-nav">
-        <ul>
-          <li v-for="item in menuItems" :key="`mobile-${item.path || item.label}`">
-            <template v-if="item.children?.length">
-              <button
-                type="button"
-                class="mobile-drawer-group-btn"
-                :class="{ active: isWhatsappMenuActive }"
-                @click="mobileWhatsappMenuOpen = !mobileWhatsappMenuOpen"
+                </div>
+              </div>
+              <NuxtLink
+                v-else
+                :to="item.path"
+                :class="{ active: $route.path === item.path }"
+                :title="item.label"
               >
                 <component :is="item.icon" class="icon" />
                 <span>{{ item.label }}</span>
-                <ChevronDown class="sidebar-group-chevron" :class="{ open: mobileWhatsappMenuOpen }" />
-              </button>
-              <ul v-if="mobileWhatsappMenuOpen" class="mobile-drawer-submenu">
-                <li v-for="child in item.children" :key="`mobile-child-${child.path}`">
-                  <NuxtLink :to="child.path" :class="{ 'active': $route.path === child.path }" @click="mobileMenuOpen = false">
-                    <component :is="child.icon" class="icon" />
-                    <span>{{ child.label }}</span>
-                  </NuxtLink>
-                </li>
-              </ul>
+              </NuxtLink>
             </template>
-            <NuxtLink v-else :to="item.path" :class="{ 'active': $route.path === item.path }" @click="mobileMenuOpen = false">
-              <component :is="item.icon" class="icon" />
-              <span>{{ item.label }}</span>
-            </NuxtLink>
-          </li>
-        </ul>
-      </nav>
-
-      <button @click="handleLogout" class="mobile-drawer-logout">
-        <LogOut class="icon" />
-        <span>Sair</span>
-      </button>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="main-content" :class="{ 'patient-courses-main': isPacienteCoursesPage }">
-      <header class="top-nav" :class="{ 'patient-courses-top-nav': isPacienteCoursesPage }">
+          </nav>
+        </div>
         <div class="top-nav-actions">
-          <div class="user-info" :class="{ 'patient-courses-user-info': isPacienteCoursesPage }">
-            <span>{{ role === 'NUTRICIONISTA' ? 'Nutricionista' : 'Paciente' }}</span>
+          <div ref="profileMenuRef" class="profile-menu">
+            <button
+              type="button"
+              class="profile-menu-trigger"
+              :class="{ 'profile-menu-trigger-open': profileMenuOpen }"
+              @click.stop="toggleProfileMenu"
+              title="Abrir menu de perfil"
+            >
+              <img src="/user-avatar.svg" alt="Avatar do usuário" class="profile-avatar-image" />
+              <ChevronDown class="profile-arrow-icon" :class="{ open: profileMenuOpen }" />
+            </button>
+            <div v-if="profileMenuOpen" class="profile-menu-dropdown">
+              <button class="profile-menu-logout" @click="handleLogout">
+                <LogOut class="icon" />
+                <span>Sair</span>
+              </button>
+            </div>
           </div>
-          <button class="btn-top-logout" :class="{ 'patient-courses-btn-logout': isPacienteCoursesPage }" @click="handleLogout" title="Sair">
-            <LogOut class="icon" />
-            <span>Sair</span>
-          </button>
         </div>
       </header>
       
@@ -127,7 +78,6 @@
 
 <script setup>
 import { 
-  LayoutDashboard, 
   BookOpen, 
   Users, 
   Book, 
@@ -136,29 +86,44 @@ import {
   DollarSign, 
   Palette, 
   LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Menu,
-  X,
+  ChevronDown,
   MessageCircle,
   Send
 } from 'lucide-vue-next'
 
 const role = ref('')
-const isCollapsed = ref(false)
 const menuItems = ref([])
-const mobileMenuOpen = ref(false)
-const whatsappMenuOpen = ref(false)
-const mobileWhatsappMenuOpen = ref(false)
 const route = useRoute()
 const isPacienteCoursesPage = computed(() => route.path.startsWith('/cursos'))
+const hasScrolledHeader = ref(false)
 const isWhatsappMenuActive = computed(() => String(route.path || '').startsWith('/whatsapp/'))
+const profileMenuOpen = ref(false)
+const profileMenuRef = ref(null)
+
+const updateHeaderScrollState = () => {
+  hasScrolledHeader.value = isPacienteCoursesPage.value && window.scrollY > 20
+}
+
+const toggleProfileMenu = () => {
+  profileMenuOpen.value = !profileMenuOpen.value
+}
+
+const closeProfileMenu = () => {
+  profileMenuOpen.value = false
+}
+
+const handleClickOutsideProfileMenu = (event) => {
+  const container = profileMenuRef.value
+  if (!container) return
+  if (!container.contains(event.target)) {
+    closeProfileMenu()
+  }
+}
 
 onMounted(() => {
   role.value = localStorage.getItem('user_role') || 'PACIENTE'
   
   const commonMenu = [
-    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Cursos', path: '/cursos', icon: BookOpen },
     { label: 'Comunidade', path: '/comunidade', icon: Users },
   ]
@@ -181,242 +146,37 @@ onMounted(() => {
   ]
 
   menuItems.value = role.value === 'NUTRICIONISTA' ? nutricionistaMenu : commonMenu
-  whatsappMenuOpen.value = isWhatsappMenuActive.value
+  updateHeaderScrollState()
+  window.addEventListener('scroll', updateHeaderScrollState, { passive: true })
+  document.addEventListener('click', handleClickOutsideProfileMenu)
 })
 
-const toggleWhatsappMenu = () => {
-  if (isCollapsed.value) {
-    isCollapsed.value = false
-    whatsappMenuOpen.value = true
-    return
-  }
-  whatsappMenuOpen.value = !whatsappMenuOpen.value
-}
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', updateHeaderScrollState)
+  document.removeEventListener('click', handleClickOutsideProfileMenu)
+})
+
+watch(() => route.path, () => {
+  updateHeaderScrollState()
+  closeProfileMenu()
+})
 
 const handleLogout = () => {
   localStorage.removeItem('auth_token')
   localStorage.removeItem('user_role')
+  closeProfileMenu()
   navigateTo('/')
 }
 
-watch(() => route.path, () => {
-  mobileMenuOpen.value = false
-  if (isWhatsappMenuActive.value) {
-    whatsappMenuOpen.value = true
-    mobileWhatsappMenuOpen.value = true
-  }
-})
 </script>
 
 <style scoped>
 .dashboard-layout {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.mobile-topbar,
-.mobile-drawer,
-.mobile-drawer-backdrop {
-  display: none;
-}
-
-.sidebar {
-  width: 260px;
-  background: var(--bg-app);
-  border-right: 1px solid #e0e0e0;
-  display: flex;
-  flex-direction: column;
-  padding: 1.5rem 1rem;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-}
-
-.sidebar.collapsed {
-  width: 80px;
-  padding: 1.5rem 0.8rem;
-}
-
-.sidebar-header {
-  margin-bottom: 3rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0.5rem;
-}
-
-.logo-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  width: 100%;
-}
-
-.sidebar-logo {
-  width: 128px;
-  height: 40px;
-  object-fit: contain;
-  object-position: center;
-  display: block;
-}
-
-.collapsed .sidebar-logo {
-  width: 34px;
-  height: 34px;
-  object-position: center;
-}
-
-.btn-toggle {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: var(--transition);
-}
-
-.btn-toggle:hover {
-  background: var(--secondary);
-  color: var(--primary);
-}
-
-.sidebar-nav ul {
-  list-style: none;
-  flex: 1;
-}
-
-.sidebar-group-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  text-decoration: none;
-  color: var(--text-muted);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  font-weight: 500;
-  margin-bottom: 0.4rem;
-  font-size: 0.95rem;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.sidebar-group-btn:hover {
-  background: var(--secondary);
-  color: var(--primary);
-}
-
-.sidebar-group-btn.active {
-  background: var(--primary);
-  color: #fff;
-}
-
-.sidebar-group-chevron {
-  width: 16px;
-  height: 16px;
-  margin-left: auto;
-  transition: transform 0.2s ease;
-}
-
-.sidebar-group-chevron.open {
-  transform: rotate(180deg);
-}
-
-.sidebar-submenu {
-  list-style: none;
-  margin: -0.15rem 0 0.4rem;
-  padding: 0 0 0 0.9rem;
-  border-left: 2px solid rgba(17, 123, 56, 0.15);
-}
-
-.sidebar-submenu a {
-  margin-bottom: 0.25rem;
-  font-size: 0.9rem;
-}
-
-.sidebar-nav a {
-  display: flex;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  text-decoration: none;
-  color: var(--text-muted);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  font-weight: 500;
-  margin-bottom: 0.4rem;
-  font-size: 0.95rem;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.collapsed .sidebar-nav a {
-  justify-content: center;
-  padding: 0.8rem;
-}
-
-.sidebar-nav a:hover {
-  background: var(--secondary);
-  color: var(--primary);
-}
-
-.sidebar-nav a.active {
-  background: var(--primary);
-  color: white;
-}
-
-.sidebar-nav .icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.sidebar:not(.collapsed) .icon {
-  margin-right: 12px;
-}
-
-.sidebar-footer {
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.btn-logout {
-  width: 100%;
-  padding: 0.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: white;
-  border: 1px solid #f0f0f0;
-  color: var(--error);
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.collapsed .btn-logout {
-  gap: 0;
-}
-
-.btn-logout:hover {
-  background: #fff5f5;
-  border-color: var(--error);
-  transform: scale(1.02);
+  min-height: 100vh;
 }
 
 .main-content {
-  flex: 1;
-  overflow-y: auto;
+  min-height: 100vh;
   background: var(--secondary);
   display: flex;
   flex-direction: column;
@@ -428,8 +188,131 @@ watch(() => route.path, () => {
   border-bottom: 1px solid #e0e0e0;
   display: flex;
   align-items: center;
-  padding: 0 3rem;
-  justify-content: flex-end;
+  justify-content: space-between;
+  padding: 0 2rem;
+}
+
+.top-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.top-nav-logo {
+  width: 118px;
+  height: 36px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.top-nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.top-nav-menu a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.48rem 0.8rem;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.top-nav-menu a:hover {
+  background: var(--secondary);
+  color: var(--primary);
+}
+
+.top-nav-menu a.active {
+  background: transparent;
+  color: var(--primary);
+}
+
+.top-nav-menu .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.top-nav-mega-menu {
+  position: relative;
+}
+
+.top-nav-mega-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.48rem 0.8rem;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.top-nav-mega-trigger:hover {
+  background: var(--secondary);
+  color: var(--primary);
+}
+
+.top-nav-mega-trigger.active {
+  background: transparent;
+  color: var(--primary);
+}
+
+.top-nav-mega-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  min-width: 250px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14);
+  padding: 0.45rem;
+  display: grid;
+  gap: 0.3rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: all 0.2s ease;
+  z-index: 80;
+}
+
+.top-nav-mega-menu:hover .top-nav-mega-dropdown,
+.top-nav-mega-menu:focus-within .top-nav-mega-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.top-nav-mega-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9px;
+  color: #334155;
+  text-decoration: none;
+  padding: 0.56rem 0.66rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.top-nav-mega-item:hover {
+  background: #f6faf7;
+  color: var(--primary);
+}
+
+.top-nav-mega-item.active {
+  background: #eef8f0;
+  color: var(--primary);
 }
 
 .top-nav-actions {
@@ -438,29 +321,77 @@ watch(() => route.path, () => {
   gap: 1rem;
 }
 
-.user-info {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-muted);
+.profile-menu {
+  position: relative;
 }
 
-.btn-top-logout {
+.profile-menu-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 10px;
-  padding: 0.5rem 0.8rem;
-  color: var(--error);
+  gap: 0.25rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  height: 40px;
+  padding: 0 0.45rem;
   cursor: pointer;
-  font-weight: 600;
   transition: all 0.2s ease;
 }
 
-.btn-top-logout:hover {
+.profile-menu-trigger:hover,
+.profile-menu-trigger.profile-menu-trigger-open {
+  border-color: rgba(17, 123, 56, 0.38);
+  background: #ffffff;
+}
+
+.profile-avatar-image {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-arrow-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+  transition: transform 0.2s ease;
+}
+
+.profile-arrow-icon.open {
+  transform: rotate(180deg);
+}
+
+.profile-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+  padding: 0.35rem;
+  z-index: 95;
+}
+
+.profile-menu-logout {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: #ef4444;
+  border-radius: 8px;
+  padding: 0.52rem 0.65rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.profile-menu-logout:hover {
   background: #fff5f5;
-  border-color: var(--error);
 }
 
 .content-body {
@@ -485,12 +416,40 @@ watch(() => route.path, () => {
   z-index: 40;
   height: 70px;
   min-height: 70px;
-  padding: 0 3rem;
+  padding: 0 2rem;
   margin-bottom: -70px;
   background: transparent;
   border-bottom: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+.top-nav.patient-courses-top-nav.header-scrolled {
+  background: #ffffff;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+}
+
+.top-nav.patient-courses-top-nav.header-scrolled .top-nav-menu a {
+  color: var(--primary);
+  background: transparent;
+}
+
+.top-nav.patient-courses-top-nav.header-scrolled .top-nav-menu a:hover,
+.top-nav.patient-courses-top-nav.header-scrolled .top-nav-menu a.active {
+  color: var(--primary);
+  background: transparent;
+}
+
+.top-nav.patient-courses-top-nav.header-scrolled .top-nav-mega-trigger {
+  color: var(--primary);
+  background: transparent;
+}
+
+.top-nav.patient-courses-top-nav.header-scrolled .top-nav-mega-trigger:hover,
+.top-nav.patient-courses-top-nav.header-scrolled .top-nav-mega-trigger.active {
+  color: var(--primary);
+  background: transparent;
 }
 
 .top-nav.patient-courses-top-nav .top-nav-actions {
@@ -499,176 +458,67 @@ watch(() => route.path, () => {
   align-items: center;
 }
 
-.user-info.patient-courses-user-info {
-  color: #0f172a;
-}
-
-.btn-top-logout.patient-courses-btn-logout {
+.top-nav.patient-courses-top-nav .profile-menu-trigger {
   background: rgba(255, 255, 255, 0.82);
-  color: #0f172a;
   border-color: rgba(15, 23, 42, 0.14);
 }
 
-.btn-top-logout.patient-courses-btn-logout:hover {
-  background: #ffffff;
-  border-color: rgba(15, 23, 42, 0.24);
+.top-nav.patient-courses-top-nav.header-scrolled .profile-menu-trigger {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.12);
 }
 
 @media (max-width: 900px) {
-  .sidebar,
   .top-nav {
-    display: none;
-  }
-
-  .mobile-topbar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    background: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 1rem;
-    z-index: 70;
-  }
-
-  .mobile-topbar-logo {
-    width: 116px;
-    height: 36px;
-    object-fit: contain;
-    object-position: left center;
-  }
-
-  .mobile-menu-btn {
-    border: 1px solid #e5e7eb;
-    background: #fff;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #0f172a;
-  }
-
-  .mobile-drawer-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(2, 6, 23, 0.34);
-    z-index: 75;
-  }
-
-  .mobile-drawer {
-    display: flex;
+    height: auto;
+    min-height: 64px;
+    padding: 0.8rem 1rem;
+    align-items: flex-start;
+    gap: 0.8rem;
     flex-direction: column;
-    position: fixed;
-    top: 64px;
-    right: -280px;
-    width: 280px;
-    height: calc(100vh - 64px);
-    background: #fff;
-    border-left: 1px solid #e5e7eb;
-    z-index: 80;
-    transition: right 0.25s ease;
-    padding: 1rem 0.8rem;
   }
 
-  .mobile-drawer.open {
-    right: 0;
-  }
-
-  .mobile-drawer-nav ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .mobile-drawer-nav a {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.75rem 0.8rem;
-    border-radius: 10px;
-    color: #334155;
-    text-decoration: none;
-    margin-bottom: 0.35rem;
-    font-weight: 600;
-  }
-
-  .mobile-drawer-group-btn {
+  .top-nav-left {
     width: 100%;
-    display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 0.65rem;
-    padding: 0.75rem 0.8rem;
-    border-radius: 10px;
-    color: #334155;
-    text-decoration: none;
-    margin-bottom: 0.35rem;
-    font-weight: 600;
-    border: 0;
-    background: transparent;
   }
 
-  .mobile-drawer-group-btn.active {
-    background: var(--primary);
-    color: #fff;
-  }
-
-  .mobile-drawer-submenu {
-    list-style: none;
-    margin: -0.15rem 0 0.35rem;
-    padding: 0 0 0 0.75rem;
-    border-left: 2px solid rgba(17, 123, 56, 0.15);
-  }
-
-  .mobile-drawer-submenu a {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.65rem 0.75rem;
-    border-radius: 10px;
-    color: #334155;
-    text-decoration: none;
-    margin-bottom: 0.25rem;
-    font-weight: 600;
-    font-size: 0.92rem;
-  }
-
-  .mobile-drawer-submenu a.active {
-    background: var(--primary);
-    color: #fff;
-  }
-
-  .mobile-drawer-nav a.active {
-    background: var(--primary);
-    color: #fff;
-  }
-
-  .mobile-drawer-logout {
-    margin-top: auto;
-    border: 1px solid #fecaca;
-    color: #ef4444;
-    background: #fff;
-    border-radius: 10px;
-    padding: 0.75rem 0.9rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.55rem;
-    font-weight: 700;
-  }
-
-  .main-content {
+  .top-nav-menu {
     width: 100%;
+    gap: 0.45rem;
+  }
+
+  .top-nav-menu a {
+    padding: 0.44rem 0.66rem;
+    font-size: 0.84rem;
+  }
+
+  .top-nav-mega-trigger {
+    padding: 0.44rem 0.66rem;
+    font-size: 0.84rem;
+  }
+
+  .top-nav-mega-dropdown {
+    min-width: 220px;
+  }
+
+  .top-nav-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .content-body {
-    padding-top: calc(64px + 1rem);
+    padding: 1rem;
+  }
+
+  .top-nav.patient-courses-top-nav {
+    position: sticky;
+    top: 0;
+    min-height: 64px;
+    margin-bottom: -64px;
+    padding: 0.8rem 1rem;
   }
 
   .content-body.patient-courses-content {

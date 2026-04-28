@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <NuxtLayout name="dashboard">
     <div class="ebooks-container">
       <div class="ebooks-page">
@@ -8,7 +8,7 @@
             <h1>Biblioteca Digital</h1>
             <p>Guia prÃ¡ticos, receitas e materiais exclusivos para download.</p>
           </div>
-          <button v-if="isNutri" @click="showCreateEbookModal = true" class="btn-primary">
+          <button v-if="isNutri" @click="openCreateEbookModal" class="btn-primary">
             <Plus class="btn-icon" />
             Adicionar Ebook
           </button>
@@ -53,15 +53,15 @@
           </div>
           <h3>Biblioteca vazia</h3>
           <p>Ainda nÃ£o hÃ¡ materiais disponÃ­veis para download.</p>
-          <button v-if="isNutri" @click="showCreateEbookModal = true" class="btn-primary mt-4">Adicionar primeiro ebook</button>
+          <button v-if="isNutri" @click="openCreateEbookModal" class="btn-primary mt-4">Adicionar primeiro ebook</button>
         </div>
 
         <!-- Modal: Novo Ebook -->
-        <div v-if="showCreateEbookModal" class="modal-overlay" @click.self="showCreateEbookModal = false">
+        <div v-if="showCreateEbookModal" class="modal-overlay" @click.self="closeCreateEbookModal">
           <div class="modal-card">
             <div class="modal-header">
               <h2>Novo Ebook</h2>
-              <button @click="showCreateEbookModal = false" class="btn-close"><X /></button>
+              <button @click="closeCreateEbookModal" class="btn-close"><X /></button>
             </div>
 
             <!-- Upload de Capa -->
@@ -78,13 +78,13 @@
             </div>
 
             <div class="form-group">
-              <label>TÃ­tulo do Ebook</label>
+              <label>Título do Ebook</label>
               <input v-model="newEbook.title" placeholder="Ex: Guia de Receitas Detox" />
             </div>
             
             <div class="form-group">
-              <label>DescriÃ§Ã£o Curta</label>
-              <textarea v-model="newEbook.description" rows="2" placeholder="Resumo do conteÃºdo..." />
+              <label>Descrição Curta</label>
+              <textarea v-model="newEbook.description" rows="2" placeholder="Resumo do conteúdo..." />
             </div>
 
             <!-- Upload de PDF -->
@@ -102,7 +102,7 @@
             </div>
 
             <div class="modal-actions">
-              <button @click="showCreateEbookModal = false" class="btn-cancel">Cancelar</button>
+              <button @click="closeCreateEbookModal" class="btn-cancel">Cancelar</button>
               <button @click="handleCreateEbook" class="btn-primary" :disabled="uploading">
                 <span v-if="uploading">Enviando...</span>
                 <span v-else>Salvar Ebook</span>
@@ -119,6 +119,7 @@
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
+const route = useRoute()
 
 import { 
   Book, 
@@ -182,8 +183,28 @@ const handlePdfSelect = (e) => {
   selectedPdfFile.value = file
 }
 
+const resetCreateEbookState = () => {
+  Object.assign(newEbook, { title: '', description: '', fileUrl: '', thumbnail: '' })
+  if (previewUrl.value && String(previewUrl.value).startsWith('blob:')) {
+    URL.revokeObjectURL(previewUrl.value)
+  }
+  previewUrl.value = null
+  selectedFile.value = null
+  selectedPdfFile.value = null
+}
+
+const openCreateEbookModal = () => {
+  resetCreateEbookState()
+  showCreateEbookModal.value = true
+}
+
+const closeCreateEbookModal = () => {
+  showCreateEbookModal.value = false
+  resetCreateEbookState()
+}
+
 const handleCreateEbook = async () => {
-  if (!newEbook.title) return alert('O tÃ­tulo Ã© obrigatÃ³rio.')
+  if (!newEbook.title) return alert('O título é obrigatório.')
   if (!selectedPdfFile.value && !newEbook.fileUrl) return alert('Selecione um arquivo PDF ou insira um link.')
   
   uploading.value = true
@@ -221,12 +242,7 @@ const handleCreateEbook = async () => {
       body: { ...newEbook }
     })
 
-    showCreateEbookModal.value = false
-    // Reset form
-    Object.assign(newEbook, { title: '', description: '', fileUrl: '', thumbnail: '' })
-    previewUrl.value = null
-    selectedFile.value = null
-    selectedPdfFile.value = null
+    closeCreateEbookModal()
     fetchEbooks()
   } catch (err) {
     alert('Erro ao processar upload ou criar ebook.')
@@ -253,6 +269,9 @@ const handleDeleteEbook = async (id) => {
 onMounted(() => {
   isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
   fetchEbooks()
+  if (isNutri.value && route.query.action === 'create') {
+    openCreateEbookModal()
+  }
 })
 </script>
 

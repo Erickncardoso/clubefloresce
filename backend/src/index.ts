@@ -69,7 +69,12 @@ app.get("/", (req, res) => {
 app.use((err: any, req: any, res: any, next: any) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({ message: "Arquivo muito grande. Limite de 100MB para imagens." });
+      const uploadMaxVideoSizeMb = Number(process.env.VIDEO_UPLOAD_MAX_SIZE_MB || 2048);
+      const isVideoUpload = String(req?.originalUrl || "").includes("/api/upload/video");
+      const message = isVideoUpload
+        ? `Arquivo de vídeo muito grande. Limite atual: ${uploadMaxVideoSizeMb}MB.`
+        : "Arquivo muito grande. Limite de 100MB para imagens.";
+      return res.status(413).json({ message });
     }
     return res.status(400).json({ message: err.message || "Erro no upload do arquivo." });
   }

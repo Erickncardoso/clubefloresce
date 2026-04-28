@@ -19,6 +19,18 @@ export class EbookRepository {
     });
   }
 
+  async update(id: string, data: any): Promise<Ebook> {
+    return prisma.ebook.update({
+      where: { id },
+      data: {
+        ...(data.title !== undefined ? { title: data.title } : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(data.fileUrl !== undefined ? { fileUrl: data.fileUrl } : {}),
+        ...(data.thumbnail !== undefined ? { thumbnail: data.thumbnail } : {}),
+      },
+    });
+  }
+
   async delete(id: string): Promise<Ebook> {
     return prisma.ebook.delete({
       where: { id },

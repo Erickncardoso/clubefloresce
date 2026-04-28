@@ -16,6 +16,10 @@ export class EbookService {
     return ebookRepository.create(data);
   }
 
+  async updateEbook(id: string, data: any): Promise<Ebook> {
+    return ebookRepository.update(id, data);
+  }
+
   async deleteEbook(id: string): Promise<Ebook> {
     return ebookRepository.delete(id);
   }

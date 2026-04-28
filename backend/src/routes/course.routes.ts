@@ -26,6 +26,7 @@ router.post("/", authenticate, authorize(["NUTRICIONISTA"]), courseController.cr
 router.put("/:id", authenticate, authorize(["NUTRICIONISTA"]), courseController.update);
 router.delete("/:id", authenticate, authorize(["NUTRICIONISTA"]), courseController.delete);
 router.post("/:id/modules", authenticate, authorize(["NUTRICIONISTA"]), courseController.addModule);
+router.post("/:id/modules/ensure-first", authenticate, authorize(["NUTRICIONISTA"]), courseController.ensureFirstModule);
 router.post("/lessons", authenticate, authorize(["NUTRICIONISTA"]), courseController.addLesson);
 router.put("/lessons/:lessonId", authenticate, authorize(["NUTRICIONISTA"]), courseController.updateLesson);
 router.delete("/lessons/:lessonId", authenticate, authorize(["NUTRICIONISTA"]), courseController.deleteLesson);

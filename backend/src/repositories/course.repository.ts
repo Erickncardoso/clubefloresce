@@ -63,8 +63,10 @@ export class CourseRepository {
           thumbnailMobile: data.thumbnailMobile || null,
           bannerImage: data.bannerImage || null,
           bannerImageMobile: data.bannerImageMobile || null,
+          bannerKicker: data.bannerKicker || null,
           bannerTitle: data.bannerTitle || null,
           bannerSubtitle: data.bannerSubtitle || null,
+          bannerCtaText: data.bannerCtaText || null,
           authorId: data.authorId,
         },
       });
@@ -84,8 +86,10 @@ export class CourseRepository {
       ...(data.thumbnailMobile !== undefined ? { thumbnailMobile: data.thumbnailMobile } : {}),
       ...(data.bannerImage !== undefined ? { bannerImage: data.bannerImage } : {}),
       ...(data.bannerImageMobile !== undefined ? { bannerImageMobile: data.bannerImageMobile } : {}),
+      ...(data.bannerKicker !== undefined ? { bannerKicker: data.bannerKicker } : {}),
       ...(data.bannerTitle !== undefined ? { bannerTitle: data.bannerTitle } : {}),
       ...(data.bannerSubtitle !== undefined ? { bannerSubtitle: data.bannerSubtitle } : {}),
+      ...(data.bannerCtaText !== undefined ? { bannerCtaText: data.bannerCtaText } : {}),
     };
 
     return prisma.course.update({
@@ -104,6 +108,26 @@ export class CourseRepository {
   async createModule(data: any): Promise<Module> {
     return prisma.module.create({
       data,
+    });
+  }
+
+  async ensureFirstModule(courseId: string): Promise<Module> {
+    const existingModule = await prisma.module.findFirst({
+      where: { courseId },
+      orderBy: { order: "asc" },
+    });
+
+    if (existingModule) {
+      return existingModule;
+    }
+
+    return prisma.module.create({
+      data: {
+        courseId,
+        title: "Módulo 1",
+        description: "Módulo inicial criado automaticamente para receber videoaulas.",
+        order: 0,
+      },
     });
   }
 
