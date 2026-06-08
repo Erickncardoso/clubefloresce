@@ -1,0 +1,25 @@
+# Dependências locais (reinstaladas no build)
+**/node_modules
+**/.nuxt
+**/.nuxt-mobile
+**/.output
+**/dist
+
+# Dev / git
+.git
+.gitignore
+**/.env
+**/.env.*
+!**/.env.example
+.cursor
+.agents
+.claude
+**/*.md
+
+# Backend não entra no build do cliente
+backend
+
+# Artefatos e logs
+**/*.log
+**/coverage
+**/.DS_Store
