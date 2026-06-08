@@ -1,0 +1,18 @@
+# Deploy do app paciente (PWA) — Coolify Docker Compose
+#
+# Coolify:
+#   Tipo:            Docker Compose
+#   Base Directory:  /          (raiz do repositório)
+#   Compose file:    docker-compose.cliente.yml
+#   Porta:           80
+
+name: clube-florescer-cliente
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: cliente/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"

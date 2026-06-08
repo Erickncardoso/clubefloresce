@@ -1,14 +1,5 @@
-# App paciente (PWA) — Clube Florescer
-#
-# IMPORTANTE — contexto Docker = RAIZ do repositório (contém frontend/ e cliente/)
-#
-# Coolify (Dockerfile):
-#   Base Directory:  /          ← deixe VAZIO (raiz do repo, NÃO /cliente)
-#   Dockerfile:      cliente/Dockerfile
-#   Porta:           80
-#
-# Coolify (Docker Compose — alternativa):
-#   Use docker-compose.cliente.yml na raiz do repo
+# Alias do build do app paciente — use na raiz do repo.
+# Coolify: Base Directory = /  |  Dockerfile = Dockerfile.cliente
 
 FROM node:20-alpine AS builder
 WORKDIR /app
