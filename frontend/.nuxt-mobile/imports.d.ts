@@ -37,6 +37,7 @@ export { useMealSubstitutions } from '../composables/useMealSubstitutions';
 export { usePatientApp, PatientProfile } from '../composables/usePatientApp';
 export { usePatientLocalTime } from '../composables/usePatientLocalTime';
 export { usePatientMealPlan } from '../composables/usePatientMealPlan';
+export { PROD_API_ORIGIN, PROD_API_BASE, PROD_WHATSAPP_API_BASE } from '../utils/api-env';
 export { BELLA_ACTIONS, navigateBellaAction } from '../utils/bella-actions';
 export { getMessageAttachment, getMessageDisplayText, shouldShowUserMessageText, getUserMessageImageUrl, formatBellaMarkdown } from '../utils/bella-message-format';
 export { topicToTone, inferCourseTopic, countCourseLessons, formatModuleCount, formatLessonCount, mapCourseToTile, mapEbookToTile } from '../utils/course-tile';

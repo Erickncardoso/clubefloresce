@@ -1,5 +1,10 @@
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
+import { PROD_API_BASE, PROD_WHATSAPP_API_BASE } from '../frontend/utils/api-env.mjs'
+
+const isDev = process.env.NODE_ENV !== 'production'
+const devHost = process.env.NUXT_HOST || '127.0.0.1'
+const devPort = Number(process.env.NUXT_PORT || 3002)
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url))
 const frontendRoot = fileURLToPath(new URL('../frontend', import.meta.url))
@@ -18,9 +23,9 @@ export default defineNuxtConfig({
   },
 
   devServer: {
-    port: 3002,
+    port: devPort,
     strictPort: true,
-    host: '127.0.0.1',
+    host: devHost,
   },
 
   vite: {
@@ -43,8 +48,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       mobileApp: true,
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
-      whatsappApiBase: process.env.NUXT_PUBLIC_WHATSAPP_API_BASE || '/api/whatsapp',
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || (isDev ? '/api' : PROD_API_BASE),
+      whatsappApiBase:
+        process.env.NUXT_PUBLIC_WHATSAPP_API_BASE || (isDev ? '/api/whatsapp' : PROD_WHATSAPP_API_BASE),
     },
   },
 })

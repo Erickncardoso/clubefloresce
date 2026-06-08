@@ -6,7 +6,7 @@
     "dev": "npm run dev:paciente --prefix ../frontend",
     "build": "npm run build:paciente --prefix ../frontend",
     "generate": "npm run generate:paciente --prefix ../frontend",
-    "preview": "npm run preview --prefix ../frontend",
+    "preview": "npm run preview:paciente --prefix ../frontend",
     "prepare": "npm run prepare:mobile --prefix ../frontend"
   }
 }

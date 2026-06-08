@@ -2,6 +2,9 @@
 export {}
 declare global {
   const BELLA_ACTIONS: typeof import('../../utils/bella-actions').BELLA_ACTIONS
+  const PROD_API_BASE: typeof import('../../utils/api-env').PROD_API_BASE
+  const PROD_API_ORIGIN: typeof import('../../utils/api-env').PROD_API_ORIGIN
+  const PROD_WHATSAPP_API_BASE: typeof import('../../utils/api-env').PROD_WHATSAPP_API_BASE
   const abortNavigation: typeof import('../../node_modules/nuxt/dist/app/composables/router').abortNavigation
   const addRouteMiddleware: typeof import('../../node_modules/nuxt/dist/app/composables/router').addRouteMiddleware
   const applyFoodMatch: typeof import('../../utils/meal-diary').applyFoodMatch
@@ -234,6 +237,9 @@ import { UnwrapRef } from 'vue'
 declare module 'vue' {
   interface ComponentCustomProperties {
     readonly BELLA_ACTIONS: UnwrapRef<typeof import('../../utils/bella-actions')['BELLA_ACTIONS']>
+    readonly PROD_API_BASE: UnwrapRef<typeof import('../../utils/api-env')['PROD_API_BASE']>
+    readonly PROD_API_ORIGIN: UnwrapRef<typeof import('../../utils/api-env')['PROD_API_ORIGIN']>
+    readonly PROD_WHATSAPP_API_BASE: UnwrapRef<typeof import('../../utils/api-env')['PROD_WHATSAPP_API_BASE']>
     readonly abortNavigation: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['abortNavigation']>
     readonly addRouteMiddleware: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['addRouteMiddleware']>
     readonly applyFoodMatch: UnwrapRef<typeof import('../../utils/meal-diary')['applyFoodMatch']>

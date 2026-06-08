@@ -1,26 +1,26 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { fixWindowsVitePaths } from './utils/fix-windows-vite-paths'
+import { PROD_API_BASE, PROD_WHATSAPP_API_BASE } from './utils/api-env.mjs'
 
 const isMobileApp = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
 const isGenerate =
   process.argv.some((arg) => arg.includes('generate')) ||
   process.env.npm_lifecycle_event?.includes('generate')
 const isDev = process.env.NODE_ENV !== 'production' && !isGenerate
+const devHost = process.env.NUXT_HOST || '127.0.0.1'
+const devPort = Number(process.env.NUXT_PORT || 3002)
 const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
-const defaultApiBase =
-  isMobileApp && isDev && !process.env.NUXT_PUBLIC_API_BASE ? '/api' : 'http://localhost:3001/api'
-const defaultWhatsappApiBase =
-  isMobileApp && isDev && !process.env.NUXT_PUBLIC_WHATSAPP_API_BASE
-    ? '/api/whatsapp'
-    : 'http://localhost:3001/api/whatsapp'
+const defaultApiBase = process.env.NUXT_PUBLIC_API_BASE
+  || (isMobileApp ? (isDev ? '/api' : PROD_API_BASE) : 'http://localhost:3001/api')
+const defaultWhatsappApiBase = process.env.NUXT_PUBLIC_WHATSAPP_API_BASE
+  || (isMobileApp ? (isDev ? '/api/whatsapp' : PROD_WHATSAPP_API_BASE) : 'http://localhost:3001/api/whatsapp')
 
 export default defineNuxtConfig({
   // Web (:3000) e app paciente (:3002) podem rodar ao mesmo tempo sem conflitar cache
   buildDir: isMobileApp ? '.nuxt-mobile' : '.nuxt',
   modules: isMobileApp ? ['@vite-pwa/nuxt'] : [],
-  // Dev do paciente usa SSR para renderizar no preview do Cursor/navegador.
-  // O build estático (generate) continua SPA para Capacitor.
-  ssr: !(isMobileApp && isGenerate),
+  // App paciente é SPA (evita crash do worker Nitro com localStorage/API no SSR).
+  ssr: !isMobileApp,
   app: {
     head: {
       title: isMobileApp ? 'Clube Florescer' : 'Florescer',
@@ -153,7 +153,7 @@ export default defineNuxtConfig({
             periodicSyncForUpdates: 3600,
           },
           devOptions: {
-            enabled: true,
+            enabled: process.env.NUXT_PWA_DEV === 'true',
             suppressWarnings: true,
             navigateFallback: '/',
             type: 'module',
@@ -164,9 +164,9 @@ export default defineNuxtConfig({
   ...(isMobileApp
     ? {
         devServer: {
-          port: 3002,
+          port: devPort,
           strictPort: true,
-          host: '127.0.0.1',
+          host: devHost,
         },
         features: {
           inlineStyles: true,
@@ -174,8 +174,9 @@ export default defineNuxtConfig({
         vite: {
           plugins: [fixWindowsVitePaths()],
           server: {
-            origin: 'http://127.0.0.1:3002',
+            origin: `http://${devHost === '0.0.0.0' ? '127.0.0.1' : devHost}:${devPort}`,
             strictPort: true,
+            hmr: devHost === '0.0.0.0' ? { host: '127.0.0.1', port: devPort } : undefined,
             proxy: {
               '/api': {
                 target: devApiOrigin,
@@ -186,5 +187,13 @@ export default defineNuxtConfig({
         },
       }
     : {}),
-  nitro: isMobileApp && isGenerate ? { preset: 'static' } : undefined,
+  nitro: isMobileApp
+    ? {
+        preset: isGenerate ? 'static' : undefined,
+        prerender: {
+          crawlLinks: false,
+          routes: isGenerate ? undefined : ['/'],
+        },
+      }
+    : undefined,
 })
