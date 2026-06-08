@@ -92,6 +92,21 @@ export default defineNuxtConfig({
   },
   ...(isMobileApp
     ? {
+        watchers: {
+          chokidar: {
+            ignoreInitial: true,
+            ignored: [
+              '**/.nuxt/**',
+              '**/.nuxt-mobile/dist/**',
+              '**/.output/**',
+              '**/node_modules/**',
+            ],
+          },
+        },
+      }
+    : {}),
+  ...(isMobileApp
+    ? {
         pwa: {
           registerType: 'autoUpdate',
           injectRegister: 'auto',
@@ -184,7 +199,12 @@ export default defineNuxtConfig({
             strictPort: true,
             hmr: devHost === '0.0.0.0' ? { host: '127.0.0.1', port: devPort } : undefined,
             watch: {
-              ignored: ['**/.output/**', '**/.nuxt-mobile/dist/**'],
+              ignored: [
+                '**/.output/**',
+                '**/.nuxt/**',
+                '**/.nuxt-mobile/dist/**',
+                '**/dist/**',
+              ],
             },
             proxy: {
               '/api': {

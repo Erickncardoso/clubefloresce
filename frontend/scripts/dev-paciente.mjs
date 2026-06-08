@@ -1,19 +1,44 @@
 /**
- * Limpa artefatos de generate/build que quebram o `nuxt dev` do app paciente.
+ * Dev do app paciente (:3002) — limpa cache, libera porta e sobe um único Nuxt.
  */
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 const root = join(import.meta.dirname, '..')
-const staleDirs = ['.nuxt-mobile/dist', '.output']
+const devPort = Number(process.env.NUXT_PORT || 3002)
 const backendOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
 
-for (const dir of staleDirs) {
-  const target = join(root, dir)
-  if (existsSync(target)) {
-    rmSync(target, { recursive: true, force: true })
-    console.log(`[dev:paciente] removido ${dir}`)
+function run(cmd, args, options = {}) {
+  return spawnSync(cmd, args, { cwd: root, stdio: 'inherit', shell: true, ...options })
+}
+
+function killPort(port) {
+  if (process.platform !== 'win32') return
+
+  const netstat = spawnSync('netstat', ['-ano'], { encoding: 'utf8', shell: true })
+  if (netstat.status !== 0) return
+
+  const pids = new Set()
+  for (const line of netstat.stdout.split('\n')) {
+    if (!line.includes('LISTENING') || !line.includes(`:${port}`)) continue
+    const pid = line.trim().split(/\s+/).at(-1)
+    if (pid && /^\d+$/.test(pid) && pid !== '0') pids.add(pid)
+  }
+
+  for (const pid of pids) {
+    console.log(`[dev:paciente] encerrando processo ${pid} na porta ${port}`)
+    run('taskkill', ['/PID', pid, '/F'])
+  }
+}
+
+function cleanMobileArtifacts() {
+  for (const dir of ['.nuxt-mobile', '.output']) {
+    const target = join(root, dir)
+    if (existsSync(target)) {
+      rmSync(target, { recursive: true, force: true })
+      console.log(`[dev:paciente] removido ${dir}`)
+    }
   }
 }
 
@@ -44,18 +69,29 @@ async function assertBackendReachable() {
   }
 }
 
+console.log(`[dev:paciente] liberando porta ${devPort}…`)
+killPort(devPort)
+cleanMobileArtifacts()
+
 await assertBackendReachable()
 
-const prepare = spawnSync(
-  'npx',
-  ['cross-env', 'NUXT_PUBLIC_MOBILE_APP=true', 'nuxt', 'prepare'],
-  { cwd: root, stdio: 'inherit', shell: true },
-)
+console.log('[dev:paciente] preparando .nuxt-mobile…')
+const prepare = run('npx', [
+  'cross-env',
+  'NUXT_PUBLIC_MOBILE_APP=true',
+  'nuxt',
+  'prepare',
+])
 if (prepare.status !== 0) process.exit(prepare.status ?? 1)
 
-const dev = spawnSync(
-  'npx',
-  ['cross-env', 'NUXT_PUBLIC_MOBILE_APP=true', 'NUXT_PORT=3002', 'nuxt', 'dev'],
-  { cwd: root, stdio: 'inherit', shell: true },
-)
+console.log(`[dev:paciente] iniciando em http://127.0.0.1:${devPort}`)
+const dev = run('npx', [
+  'cross-env',
+  'NUXT_PUBLIC_MOBILE_APP=true',
+  `NUXT_PORT=${devPort}`,
+  'nuxt',
+  'dev',
+  '--host',
+  '127.0.0.1',
+])
 process.exit(dev.status ?? 0)
