@@ -1,5 +1,5 @@
 <template>
-  <div class="dashboard-layout">
+  <div class="dashboard-layout" :class="{ 'patient-app-layout': isPatientApp }">
     <main class="main-content" :class="{ 'patient-courses-main': isPacienteCoursesPage }">
       <header
         class="top-nav"
@@ -10,7 +10,7 @@
       >
         <div class="top-nav-left">
           <img src="/logoflorescer.svg" alt="Logo Clube Florescer" class="top-nav-logo" />
-          <nav class="top-nav-menu">
+          <nav v-if="!isPatientApp" class="top-nav-menu">
             <template v-for="item in menuItems" :key="item.path || item.label">
               <div v-if="item.children?.length" class="top-nav-mega-menu">
                 <NuxtLink
@@ -48,6 +48,18 @@
           </nav>
         </div>
         <div class="top-nav-actions">
+          <button
+            v-if="!isPatientApp"
+            type="button"
+            class="mobile-nav-toggle"
+            :aria-expanded="mobileNavOpen"
+            aria-controls="mobile-nav-drawer"
+            :aria-label="mobileNavOpen ? 'Fechar menu' : 'Abrir menu'"
+            @click="toggleMobileNav"
+          >
+            <X v-if="mobileNavOpen" class="mobile-nav-toggle-icon" />
+            <Menu v-else class="mobile-nav-toggle-icon" />
+          </button>
           <div ref="profileMenuRef" class="profile-menu">
             <button
               type="button"
@@ -68,6 +80,64 @@
           </div>
         </div>
       </header>
+
+      <Teleport v-if="!isPatientApp" to="body">
+        <div
+          v-if="mobileNavOpen"
+          class="mobile-nav-backdrop"
+          aria-hidden="true"
+          @click="closeMobileNav"
+        />
+        <nav
+          id="mobile-nav-drawer"
+          class="mobile-nav-drawer"
+          :class="{ open: mobileNavOpen }"
+          :aria-hidden="!mobileNavOpen"
+        >
+          <div class="mobile-nav-drawer-header">
+            <img src="/logoflorescer.svg" alt="Florescer" class="mobile-nav-drawer-logo" />
+            <button
+              type="button"
+              class="mobile-nav-close"
+              aria-label="Fechar menu"
+              @click="closeMobileNav"
+            >
+              <X class="mobile-nav-toggle-icon" />
+            </button>
+          </div>
+          <div class="mobile-nav-drawer-body">
+            <template v-for="item in menuItems" :key="'mobile-' + (item.path || item.label)">
+              <div v-if="item.children?.length" class="mobile-nav-group">
+                <p class="mobile-nav-group-label">
+                  <component :is="item.icon" class="icon" />
+                  <span>{{ item.label }}</span>
+                </p>
+                <NuxtLink
+                  v-for="child in item.children"
+                  :key="child.path"
+                  :to="child.path"
+                  class="mobile-nav-link mobile-nav-link--child"
+                  :class="{ active: $route.path === child.path }"
+                  @click="closeMobileNav"
+                >
+                  <component :is="child.icon" class="icon" />
+                  <span>{{ child.label }}</span>
+                </NuxtLink>
+              </div>
+              <NuxtLink
+                v-else
+                :to="item.path"
+                class="mobile-nav-link"
+                :class="{ active: $route.path === item.path }"
+                @click="closeMobileNav"
+              >
+                <component :is="item.icon" class="icon" />
+                <span>{{ item.label }}</span>
+              </NuxtLink>
+            </template>
+          </div>
+        </nav>
+      </Teleport>
       
       <div class="content-body" :class="{ 'patient-courses-content': isPacienteCoursesPage }">
         <slot />
@@ -88,7 +158,11 @@ import {
   LogOut,
   ChevronDown,
   MessageCircle,
-  Send
+  Send,
+  Menu,
+  X,
+  CalendarCheck,
+  Sparkles
 } from 'lucide-vue-next'
 
 const role = ref('')
@@ -99,6 +173,7 @@ const hasScrolledHeader = ref(false)
 const isWhatsappMenuActive = computed(() => String(route.path || '').startsWith('/whatsapp/'))
 const profileMenuOpen = ref(false)
 const profileMenuRef = ref(null)
+const mobileNavOpen = ref(false)
 
 const updateHeaderScrollState = () => {
   hasScrolledHeader.value = isPacienteCoursesPage.value && window.scrollY > 20
@@ -112,6 +187,15 @@ const closeProfileMenu = () => {
   profileMenuOpen.value = false
 }
 
+const toggleMobileNav = () => {
+  mobileNavOpen.value = !mobileNavOpen.value
+  if (mobileNavOpen.value) closeProfileMenu()
+}
+
+const closeMobileNav = () => {
+  mobileNavOpen.value = false
+}
+
 const handleClickOutsideProfileMenu = (event) => {
   const container = profileMenuRef.value
   if (!container) return
@@ -120,9 +204,29 @@ const handleClickOutsideProfileMenu = (event) => {
   }
 }
 
+const config = useRuntimeConfig()
+const isPatientApp = computed(() => Boolean(config.public.mobileApp))
+
+const PACIENTE_MENU = [
+  { label: 'Cursos', path: '/cursos', icon: BookOpen },
+  { label: 'Comunidade', path: '/comunidade', icon: Users },
+  { label: 'Check-in', path: '/check-in', icon: CalendarCheck },
+  { label: 'BELLA', path: '/bella', icon: Sparkles },
+]
+
 onMounted(() => {
   role.value = localStorage.getItem('user_role') || 'PACIENTE'
+
+  if (config.public.mobileApp) {
+    menuItems.value = PACIENTE_MENU
+    updateHeaderScrollState()
+    window.addEventListener('scroll', updateHeaderScrollState, { passive: true })
+    document.addEventListener('click', handleClickOutsideProfileMenu)
+    return
+  }
   
+  const pacienteMenu = PACIENTE_MENU
+
   const commonMenu = [
     { label: 'Cursos', path: '/cursos', icon: BookOpen },
     { label: 'Comunidade', path: '/comunidade', icon: Users },
@@ -130,6 +234,7 @@ onMounted(() => {
 
   const nutricionistaMenu = [
     ...commonMenu,
+    { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
     { label: 'Ebooks', path: '/ebooks', icon: Book },
     { label: 'Financeiro', path: '/financeiro', icon: DollarSign },
     { label: 'Usuários', path: '/usuarios', icon: Users },
@@ -145,7 +250,7 @@ onMounted(() => {
     },
   ]
 
-  menuItems.value = role.value === 'NUTRICIONISTA' ? nutricionistaMenu : commonMenu
+  menuItems.value = role.value === 'NUTRICIONISTA' ? nutricionistaMenu : pacienteMenu
   updateHeaderScrollState()
   window.addEventListener('scroll', updateHeaderScrollState, { passive: true })
   document.addEventListener('click', handleClickOutsideProfileMenu)
@@ -154,11 +259,20 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', updateHeaderScrollState)
   document.removeEventListener('click', handleClickOutsideProfileMenu)
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = ''
+  }
 })
 
 watch(() => route.path, () => {
   updateHeaderScrollState()
   closeProfileMenu()
+  closeMobileNav()
+})
+
+watch(mobileNavOpen, (open) => {
+  if (typeof document === 'undefined') return
+  document.body.style.overflow = open ? 'hidden' : ''
 })
 
 const handleLogout = () => {
@@ -468,45 +582,198 @@ const handleLogout = () => {
   border-color: rgba(15, 23, 42, 0.12);
 }
 
+.mobile-nav-toggle {
+  display: none;
+}
+
+.mobile-nav-backdrop,
+.mobile-nav-drawer {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .top-nav {
-    height: auto;
+    height: 64px;
     min-height: 64px;
-    padding: 0.8rem 1rem;
-    align-items: flex-start;
-    gap: 0.8rem;
-    flex-direction: column;
+    padding: 0 1rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
   }
 
   .top-nav-left {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.65rem;
+    flex: 1;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .top-nav-logo {
+    width: 100px;
+    height: 30px;
   }
 
   .top-nav-menu {
-    width: 100%;
-    gap: 0.45rem;
-  }
-
-  .top-nav-menu a {
-    padding: 0.44rem 0.66rem;
-    font-size: 0.84rem;
-  }
-
-  .top-nav-mega-trigger {
-    padding: 0.44rem 0.66rem;
-    font-size: 0.84rem;
-  }
-
-  .top-nav-mega-dropdown {
-    min-width: 220px;
+    display: none;
   }
 
   .top-nav-actions {
-    width: 100%;
+    width: auto;
+    flex-shrink: 0;
+    gap: 0.5rem;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 10px;
+    background: #fff;
+    color: #2d5a27;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .mobile-nav-toggle:hover {
+    background: #f6faf7;
+    border-color: rgba(45, 90, 39, 0.25);
+  }
+
+  .mobile-nav-toggle-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 200;
+  }
+
+  .mobile-nav-drawer {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(320px, 88vw);
+    height: 100vh;
+    height: 100dvh;
+    background: #fff;
+    z-index: 210;
+    box-shadow: -8px 0 32px rgba(15, 23, 42, 0.12);
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    visibility: hidden;
+  }
+
+  .mobile-nav-drawer.open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .mobile-nav-drawer-header {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid #eef2f0;
+    flex-shrink: 0;
+  }
+
+  .mobile-nav-drawer-logo {
+    width: 110px;
+    height: 32px;
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  .mobile-nav-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 10px;
+    background: #f4f7f6;
+    color: #334155;
+    cursor: pointer;
+  }
+
+  .mobile-nav-close:hover {
+    background: #eef8f0;
+    color: #2d5a27;
+  }
+
+  .mobile-nav-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .mobile-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .mobile-nav-link .icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .mobile-nav-link:hover,
+  .mobile-nav-link.active {
+    background: #eef8f0;
+    color: #2d5a27;
+  }
+
+  .mobile-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-top: 0.25rem;
+  }
+
+  .mobile-nav-group-label {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0;
+    padding: 0.65rem 1rem 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94a3b8;
+  }
+
+  .mobile-nav-group-label .icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .mobile-nav-link--child {
+    padding-left: 1.35rem;
+    font-size: 0.9rem;
   }
 
   .content-body {
@@ -516,9 +783,18 @@ const handleLogout = () => {
   .top-nav.patient-courses-top-nav {
     position: sticky;
     top: 0;
+    height: 64px;
     min-height: 64px;
     margin-bottom: -64px;
-    padding: 0.8rem 1rem;
+    padding: 0 1rem;
+  }
+
+  .top-nav.patient-courses-top-nav .mobile-nav-toggle {
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .top-nav.patient-courses-top-nav.header-scrolled .mobile-nav-toggle {
+    background: #fff;
   }
 
   .content-body.patient-courses-content {

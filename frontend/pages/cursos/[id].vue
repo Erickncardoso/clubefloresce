@@ -1,5 +1,5 @@
 <template>
-  <NuxtLayout name="dashboard">
+  <NuxtLayout :name="layoutName">
     <section v-if="course" class="lesson-design-page">
       <header class="top-hero">
         <img
@@ -436,6 +436,7 @@ import {
 
 const route = useRoute()
 const config = useRuntimeConfig()
+const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
 const apiBase = config.public.apiBase
 const course = ref(null)
 const isNutri = ref(false)

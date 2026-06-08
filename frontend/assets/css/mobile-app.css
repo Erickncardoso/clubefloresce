@@ -1,0 +1,32 @@
+/* Safe areas e ajustes do app do paciente (preview web / futuro Capacitor) */
+.dashboard-layout.patient-app-layout {
+  padding-top: env(safe-area-inset-top);
+}
+
+.dashboard-layout.patient-app-layout .content-body {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+.top-nav {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.mobile-nav-drawer {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bella-input-bar,
+.checkin-page,
+.community-page {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+html,
+body {
+  overscroll-behavior-y: auto;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+  max-width: 100%;
+}

@@ -1,0 +1,8 @@
+node_modules
+.nuxt
+.nuxt-mobile
+.output
+dist
+.env
+.env.*
+!.env.example

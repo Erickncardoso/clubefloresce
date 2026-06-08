@@ -5,8 +5,6 @@
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800&display=swap');
-
 :root {
   --primary: #2d5a27;
   --primary-light: #4c8c4a;
@@ -62,7 +60,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--cf-font);
 }
 
 body {

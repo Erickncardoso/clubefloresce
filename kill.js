@@ -1,13 +1,13 @@
 const { execSync } = require('child_process');
 
 try {
-  console.log('Fechando processos nas portas 3000 e 3001...');
+  console.log('Fechando processos nas portas 3000, 3001 e 3002...');
   if (process.platform === 'win32') {
-    // Busca PIDs das portas 3000 e 3001
+    const ports = [':3000', ':3001', ':3002'];
     const pids = [];
     const stdout = execSync('netstat -ano').toString();
     stdout.split('\n').forEach(line => {
-      if (line.includes(':3000') || line.includes(':3001')) {
+      if (ports.some((port) => line.includes(port))) {
         const parts = line.trim().split(/\s+/);
         const pid = parts[parts.length - 1];
         if (pid && pid !== '0' && !pids.includes(pid)) {
@@ -23,7 +23,7 @@ try {
       } catch(e) {}
     }
   } else {
-    execSync('lsof -ti:3000,3001 | xargs kill -9');
+    execSync('lsof -ti:3000,3001,3002 | xargs kill -9');
   }
   console.log('Portas liberadas com sucesso!');
 } catch (e) {

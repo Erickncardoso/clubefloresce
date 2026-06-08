@@ -268,6 +268,10 @@ const handleDeleteEbook = async (id) => {
 
 onMounted(() => {
   isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
+  if (config.public.mobileApp) {
+    navigateTo('/cursos#ebooks', { replace: true })
+    return
+  }
   fetchEbooks()
   if (isNutri.value && route.query.action === 'create') {
     openCreateEbookModal()
@@ -520,7 +524,7 @@ onMounted(() => {
   padding: 0.8rem 1rem;
   border: 1px solid #eee;
   border-radius: 10px;
-  font-family: 'Figtree', sans-serif;
+  font-family: inherit;
   outline: none;
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <NuxtLayout name="dashboard">
+  <NuxtLayout :name="layoutName">
     <div class="courses-container" :class="{ 'patient-view': isPacienteView }">
       <div class="courses-page" :class="{ 'patient-page': isPacienteView }">
         <section
@@ -52,106 +52,76 @@
               class="course-row-block"
             >
               <h2 class="course-row-title">{{ row.title }}</h2>
-              <div class="courses-gallery patient-gallery">
-                <div v-for="course in row.courses" :key="course.id" class="netflix-card patient-card" @click="openCoursePlayerPage(course)">
-                  <div class="card-image-wrapper">
-                    <picture v-if="getCourseCover(course)">
-                      <source media="(max-width: 640px)" :srcset="getCourseCover(course, 'mobile')" />
-                      <img :src="getCourseCover(course, 'desktop')" :alt="course.title" />
-                    </picture>
-                    <div v-else class="card-placeholder">
-                      <BookOpen class="placeholder-icon" />
-                    </div>
-                    <div class="card-gradient"></div>
-                    <div class="card-content">
-                      <h3>{{ course.title }}</h3>
-                      <p>{{ course.modules?.length || 0 }} módulo(s)</p>
-                    </div>
-
-                    <div class="card-hover-actions" v-if="isNutri">
-                      <button @click.stop="openAddLessonFromCourse(course)" class="action-btn-circle" title="Adicionar Videoaula">
-                        <Plus />
-                      </button>
-                      <button @click.stop="openEditCourseById(course.id, 'card')" class="action-btn-circle update mt-2" style="color: #64b5f6;" title="Editar Curso">
-                        <Edit2 />
-                      </button>
-                      <button @click.stop="handleDeleteCourse(course.id)" class="action-btn-circle danger mt-2" title="Excluir Curso">
-                        <Trash2 />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  v-if="isNutri"
-                  type="button"
-                  class="netflix-card patient-card add-course-card"
-                  @click="openCreateCourseModal"
-                  title="Adicionar novo curso"
-                >
-                  <Plus class="add-course-icon" />
-                </button>
-              </div>
+              <SharedCfTileCarousel
+                :items="patientCourseTiles"
+                :aria-label="row.title"
+                @select="onCourseTileSelect"
+              >
+                <template v-if="isNutri" #actions="{ item }">
+                  <button
+                    type="button"
+                    class="action-btn-circle"
+                    title="Adicionar Videoaula"
+                    @click.stop="openAddLessonFromCourse(item.raw)"
+                  >
+                    <Plus />
+                  </button>
+                  <button
+                    type="button"
+                    class="action-btn-circle update"
+                    style="color: #64b5f6;"
+                    title="Editar Curso"
+                    @click.stop="openEditCourseById(item.raw.id, 'card')"
+                  >
+                    <Edit2 />
+                  </button>
+                  <button
+                    type="button"
+                    class="action-btn-circle danger"
+                    title="Excluir Curso"
+                    @click.stop="handleDeleteCourse(item.raw.id)"
+                  >
+                    <Trash2 />
+                  </button>
+                </template>
+              </SharedCfTileCarousel>
             </section>
 
-            <section v-if="ebooks.length || isNutri" class="course-row-block">
+            <section v-if="ebooks.length || isNutri" id="patient-ebooks" class="course-row-block">
               <h2 class="course-row-title course-row-title-link" @click="openEbooksPage">Ebooks</h2>
-              <div class="courses-gallery patient-gallery">
-                <div
-                  v-for="ebook in ebooks"
-                  :key="ebook.id"
-                  class="netflix-card patient-card"
-                  @click="openEbooksPage"
-                >
-                  <div class="card-image-wrapper">
-                    <img v-if="ebook.thumbnail" :src="ebook.thumbnail" :alt="ebook.title" />
-                    <div v-else class="card-placeholder">
-                      <BookOpen class="placeholder-icon" />
-                    </div>
-                    <div class="card-gradient"></div>
-
-                    <div class="card-content">
-                      <h3>{{ ebook.title }}</h3>
-                      <p>Material para leitura</p>
-                    </div>
-
-                    <div class="card-hover-actions" v-if="isNutri">
-                      <button
-                        @click.stop="openCreateEbookFromCourses"
-                        class="action-btn-circle"
-                        title="Adicionar PDF"
-                      >
-                        <Plus />
-                      </button>
-                      <button
-                        @click.stop="openEditEbookFromCourses(ebook)"
-                        class="action-btn-circle update mt-2"
-                        style="color: #64b5f6;"
-                        title="Editar Ebook"
-                      >
-                        <Edit2 />
-                      </button>
-                      <button
-                        @click.stop="handleDeleteEbookFromCourses(ebook.id)"
-                        class="action-btn-circle danger mt-2"
-                        title="Excluir Ebook"
-                      >
-                        <Trash2 />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  v-if="isNutri"
-                  type="button"
-                  class="netflix-card patient-card add-course-card"
-                  @click="openCreateEbookFromCourses"
-                  title="Adicionar novo ebook"
-                >
-                  <Plus class="add-course-icon" />
-                </button>
-              </div>
+              <SharedCfTileCarousel
+                :items="patientEbookTiles"
+                aria-label="Ebooks"
+                @select="onEbookTileSelect"
+              >
+                <template v-if="isNutri" #actions="{ item }">
+                  <button
+                    type="button"
+                    class="action-btn-circle"
+                    title="Adicionar PDF"
+                    @click.stop="openCreateEbookFromCourses"
+                  >
+                    <Plus />
+                  </button>
+                  <button
+                    type="button"
+                    class="action-btn-circle update"
+                    style="color: #64b5f6;"
+                    title="Editar Ebook"
+                    @click.stop="openEditEbookFromCourses(item.raw)"
+                  >
+                    <Edit2 />
+                  </button>
+                  <button
+                    type="button"
+                    class="action-btn-circle danger"
+                    title="Excluir Ebook"
+                    @click.stop="handleDeleteEbookFromCourses(item.raw.id)"
+                  >
+                    <Trash2 />
+                  </button>
+                </template>
+              </SharedCfTileCarousel>
             </section>
           </template>
 
@@ -813,10 +783,12 @@
 
 <script setup>
 const config = useRuntimeConfig()
+const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 
 import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText } from 'lucide-vue-next'
+import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 const route = useRoute()
 const courses = ref([])
 const ebooks = ref([])
@@ -918,7 +890,86 @@ const patientCourseRows = computed(() => {
     }
   ]
 })
+
+const patientCourseTiles = computed(() => {
+  const tiles = courses.value.map((course) => mapCourseToTile(course, { getCover: getCourseCover }))
+  if (isNutri.value) {
+    tiles.push({
+      id: 'add-course',
+      isAdd: true,
+      tone: 'blue',
+      label: 'Novo curso',
+      value: 'Adicionar conteúdo',
+      meta: '',
+      icon: Plus,
+      className: 'cf-tile-card--add',
+      ariaLabel: 'Adicionar novo curso',
+    })
+  }
+  return tiles
+})
+
+const patientEbookTiles = computed(() => {
+  const tiles = ebooks.value.map((ebook) => mapEbookToTile(ebook))
+  if (isNutri.value) {
+    tiles.push({
+      id: 'add-ebook',
+      isAdd: true,
+      tone: 'purple',
+      label: 'Novo ebook',
+      value: 'Adicionar PDF',
+      meta: '',
+      icon: Plus,
+      className: 'cf-tile-card--add',
+      ariaLabel: 'Adicionar novo ebook',
+    })
+  }
+  return tiles
+})
+
+function onCourseTileSelect(item) {
+  if (item?.isAdd) {
+    openCreateCourseModal()
+    return
+  }
+  openCoursePlayerPage(item.raw)
+}
+
+function onEbookTileSelect(item) {
+  if (item?.isAdd) {
+    openCreateEbookFromCourses()
+    return
+  }
+  const ebook = item?.raw
+  if (ebook?.fileUrl) {
+    window.open(ebook.fileUrl, '_blank', 'noopener,noreferrer')
+    return
+  }
+  openEbooksPage()
+}
+
+function scrollToPatientEbooks() {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      document.getElementById('patient-ebooks')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  })
+}
+
+const openEbooksPage = () => {
+  if (config.public.mobileApp) {
+    if (route.path === '/cursos') {
+      scrollToPatientEbooks()
+      return
+    }
+    navigateTo('/cursos#ebooks')
+    return
+  }
+  navigateTo('/ebooks')
+}
+
 const featuredCourse = computed(() => courses.value?.[0] || null)
+
 const getCourseCover = (course, variant = 'desktop') => {
   const desktop = '/curso-capa-personalizada.png'
   const mobile = '/curso-capa-personalizada-mobile.png'
@@ -1294,10 +1345,6 @@ const handlePendingAddLessonAction = () => {
 
   openAddLesson(targetModuleId)
   navigateTo('/cursos', { replace: true })
-}
-
-const openEbooksPage = () => {
-  navigateTo('/ebooks')
 }
 
 const openCreateEbookFromCourses = () => {
@@ -2082,15 +2129,22 @@ const handleDeleteModule = async (moduleId, courseId) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (!localStorage.getItem('auth_token')) {
     handleAuthTokenInvalid()
     return
   }
   isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
-  fetchCourses()
-  fetchEbooks()
+  await Promise.all([fetchCourses(), fetchEbooks()])
+  if (route.hash === '#ebooks') scrollToPatientEbooks()
 })
+
+watch(
+  () => route.hash,
+  (hash) => {
+    if (hash === '#ebooks') scrollToPatientEbooks()
+  },
+)
 </script>
 
 <style scoped>
@@ -2140,7 +2194,7 @@ onMounted(() => {
   cursor: pointer;
   font-weight: 700;
   font-size: 1rem;
-  font-family: 'Figtree', sans-serif;
+  font-family: inherit;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -3410,14 +3464,44 @@ onMounted(() => {
 }
 
 .course-row-block {
-  margin-bottom: 2rem;
+  margin-bottom: 1.35rem;
 }
 
 .course-row-title {
-  color: #0f172a;
-  font-size: 1.4rem;
-  font-weight: 800;
-  margin: 0 0 0.9rem;
+  margin: 0 0 0.75rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--cf-text, #141414);
+}
+
+.course-row-block :deep(.cf-tile-carousel) {
+  scroll-padding-inline: 2.5rem;
+  margin-inline: -2.5rem;
+  padding-inline: 2.5rem;
+}
+
+.course-row-block :deep(.cf-tile-carousel-wrap) {
+  overflow: visible;
+}
+
+.course-row-block :deep(.cf-tile-card-actions .action-btn-circle) {
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.course-row-block :deep(.cf-tile-card-actions .action-btn-circle svg) {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .course-row-title-link {
@@ -3426,108 +3510,18 @@ onMounted(() => {
 }
 
 .course-row-title-link:hover {
-  opacity: 0.88;
-}
-
-.courses-gallery.patient-gallery {
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1.8rem;
-}
-
-.netflix-card.patient-card {
-  border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: none;
-  transform: none;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
-}
-
-.netflix-card.patient-card:hover {
-  transform: none;
-  box-shadow: none;
-}
-
-.patient-card .card-image-wrapper {
-  aspect-ratio: 3 / 4.1;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.patient-card .card-gradient {
-  background: none;
-}
-
-.patient-card .card-content h3 {
-  font-size: 1.18rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #ffffff;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-  line-height: 1.08;
-}
-
-.patient-card .card-content p {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.82rem;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
-}
-
-.netflix-card.patient-card.add-course-card {
-  aspect-ratio: 3 / 4.1;
-  width: 100%;
-  background: transparent !important;
-  border: 2px dashed rgba(15, 23, 42, 0.28) !important;
-  box-shadow: none !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.netflix-card.patient-card.add-course-card:hover {
-  border-color: rgba(15, 23, 42, 0.42) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.add-course-icon {
-  width: 38px;
-  height: 38px;
-  color: rgba(15, 23, 42, 0.62);
-}
-
-.card-tag-patient {
-  position: absolute;
-  left: 1rem;
-  top: 1rem;
-  z-index: 3;
-  text-transform: lowercase;
-  letter-spacing: 0.08em;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: rgba(15, 23, 42, 0.88);
-  padding: 0.28rem 0.5rem;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.22);
-  background: rgba(255, 255, 255, 0.74);
-  backdrop-filter: blur(4px);
-}
-
-.card-tag-ebook {
-  background: rgba(17, 24, 39, 0.62);
-}
-
-@media (max-width: 900px) {
-  .courses-gallery.patient-gallery {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 1rem;
-  }
+  color: var(--cf-green-dark, #4d7348);
 }
 
 @media (max-width: 640px) {
   .courses-page.patient-page {
     padding: 0 1.2rem 1.2rem;
+  }
+
+  .course-row-block :deep(.cf-tile-carousel) {
+    scroll-padding-inline: 1.2rem;
+    margin-inline: -1.2rem;
+    padding-inline: 1.2rem;
   }
 
   .patient-banner {

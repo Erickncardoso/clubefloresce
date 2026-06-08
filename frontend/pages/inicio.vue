@@ -1,0 +1,605 @@
+<template>
+  <div class="patient-page home-page">
+    <PatientHeader :has-notifications="true" />
+
+    <header class="home-hero">
+      <NuxtLink to="/perfil" class="home-hero-row">
+        <PatientAvatar
+          size="lg"
+          :src="avatarUrl"
+          :name="fullName"
+          interactive
+        />
+        <div class="home-hero-copy">
+          <p class="home-hero-greeting">{{ timeGreeting }}</p>
+          <h1 class="home-hero-name">{{ firstName }}</h1>
+          <p class="home-hero-streak">
+            Você está há <strong>{{ streakDays }} {{ streakDaysLabel }}</strong> florescendo.
+          </p>
+        </div>
+      </NuxtLink>
+    </header>
+
+    <section v-if="hasMealPlan" class="home-section" aria-labelledby="meal-title">
+      <div class="home-section-head">
+        <h2 id="meal-title">Refeição do dia</h2>
+        <NuxtLink to="/dieta" class="home-section-link">
+          Ver dieta
+          <ChevronRight class="home-section-link-icon" aria-hidden="true" />
+        </NuxtLink>
+      </div>
+      <HomeCurrentMealCard />
+    </section>
+
+    <section class="home-section" aria-labelledby="nutrition-title">
+      <div class="home-section-head">
+        <h2 id="nutrition-title">Sua nutrição</h2>
+        <span class="home-section-meta">Hoje</span>
+      </div>
+      <HomeNutritionPanel
+        :targets="targets"
+        :consumed="consumed"
+        :streak-days="streakDays"
+        :percent="calorieConsumedPct"
+      />
+    </section>
+
+    <section class="home-section" aria-labelledby="goals-title">
+      <div class="home-section-head">
+        <h2 id="goals-title">Metas diárias</h2>
+        <NuxtLink to="/check-in" class="home-section-link">
+          Check-in
+          <ChevronRight class="home-section-link-icon" aria-hidden="true" />
+        </NuxtLink>
+      </div>
+      <div class="home-goals cf-squircle" role="group" aria-label="Metas diárias">
+        <div v-for="metric in metrics" :key="metric.label" class="home-goal">
+          <div class="home-goal-head">
+            <component :is="metric.icon" class="home-goal-icon" :style="{ color: metric.color }" aria-hidden="true" />
+            <span class="home-goal-label">{{ metric.label }}</span>
+            <span class="home-goal-pct">{{ metric.value }}%</span>
+          </div>
+          <div class="home-goal-track" role="progressbar" :aria-valuenow="metric.value" aria-valuemin="0" aria-valuemax="100">
+            <div class="home-goal-fill" :style="{ width: `${metric.value}%`, backgroundColor: metric.color }" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="home-bella-overflow">
+      <NuxtLink to="/bella/chat/general" class="home-bella cf-squircle">
+        <div class="home-bella-avatar-slot" aria-hidden="true">
+          <img
+            src="/falecomabella.webp"
+            alt=""
+            class="home-bella-avatar"
+            width="88"
+            height="120"
+            loading="lazy"
+          />
+        </div>
+        <div class="home-bella-copy">
+          <h3>Fale com a Bella</h3>
+          <p>Sua nutricionista IA para dúvidas do dia a dia.</p>
+        </div>
+        <ChevronRight class="home-bella-arrow" aria-hidden="true" />
+      </NuxtLink>
+    </div>
+
+    <button type="button" class="home-bella-teach cf-squircle" @click="openBellaTeach">
+      <div class="home-bella-teach-copy">
+        <div class="home-bella-teach-head">
+          <Lightbulb class="home-bella-teach-bulb" aria-hidden="true" />
+          <div>
+            <h3 class="home-bella-teach-title">Bella ensina</h3>
+            <p class="home-bella-teach-eyebrow">Nova curiosidade</p>
+          </div>
+        </div>
+        <p class="home-bella-teach-tip">{{ bellaTip }}</p>
+      </div>
+      <div class="home-bella-teach-visual">
+        <img :src="teachImage" alt="" class="home-bella-teach-photo" loading="lazy" />
+        <span class="home-bella-teach-go" aria-hidden="true">
+          <ChevronRight class="home-bella-teach-go-icon" />
+        </span>
+      </div>
+    </button>
+  </div>
+</template>
+
+<script setup>
+import {
+  Activity,
+  ChevronRight,
+  Droplets,
+  Lightbulb,
+  Moon,
+  Utensils,
+} from 'lucide-vue-next'
+
+definePageMeta({ layout: 'patient', middleware: 'patient-only' })
+
+const { fetchPlan } = usePatientMealPlan()
+const { hasPlan: hasMealPlan } = useMealPlan()
+
+const config = useRuntimeConfig()
+const { userName, userFullName, userAvatar } = usePatientApp()
+
+const firstName = computed(() => userName())
+const fullName = computed(() => userFullName())
+const avatarUrl = computed(() => userAvatar())
+
+const streakDaysLabel = computed(() => (streakDays.value === 1 ? 'dia' : 'dias'))
+const featuredCourse = ref(null)
+const dailySummary = ref(null)
+const streakDays = ref(12)
+
+const defaultTargets = {
+  caloriesKcal: 2000,
+  proteinG: 120,
+  carbsG: 220,
+  fatG: 65,
+}
+
+const metrics = ref([
+  { label: 'Água', value: 80, icon: Droplets, color: '#5ba4d9' },
+  { label: 'Alimentação', value: 90, icon: Utensils, color: 'var(--cf-pink)' },
+  { label: 'Exercício', value: 70, icon: Activity, color: 'var(--cf-green)' },
+  { label: 'Sono', value: 85, icon: Moon, color: '#7c6bae' },
+])
+
+const timeGreeting = computed(() => {
+  const h = new Date().getHours()
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+})
+
+const bellaTips = [
+  'Proteínas no café da manhã ajudam a controlar a fome ao longo do dia.',
+  'Um copo de água ao acordar ajuda o metabolismo a funcionar melhor.',
+  'Vegetais coloridos no almoço trazem mais vitaminas e saciedade.',
+  'Dormir bem melhora a resposta do corpo à alimentação do dia seguinte.',
+]
+
+const bellaTip = computed(() => bellaTips[new Date().getDate() % bellaTips.length])
+
+const teachImage = computed(() => {
+  const c = featuredCourse.value
+  const cover = c?.thumbnailMobile || c?.thumbnail
+  if (cover) return cover
+  return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=480&q=80'
+})
+
+const targets = computed(() => dailySummary.value?.targets ?? defaultTargets)
+
+const consumed = computed(() =>
+  dailySummary.value?.consumed ?? {
+    caloriesKcal: 0,
+    proteinG: 0,
+    carbsG: 0,
+    fatG: 0,
+  },
+)
+
+const calorieConsumedPct = computed(() => {
+  if (!targets.value.caloriesKcal) return 0
+  return Math.min(100, Math.round((consumed.value.caloriesKcal / targets.value.caloriesKcal) * 100))
+})
+
+const { patientTimeHeaders } = usePatientLocalTime()
+
+const openBellaTeach = () => {
+  if (featuredCourse.value?.id) {
+    navigateTo(`/cursos/${featuredCourse.value.id}`)
+    return
+  }
+  navigateTo('/bella/chat/general')
+}
+
+onMounted(async () => {
+  await fetchPlan()
+  try {
+    const courses = await $fetch(`${config.public.apiBase}/courses`, { headers: patientTimeHeaders() })
+    featuredCourse.value = courses?.[0] || null
+  } catch {
+    featuredCourse.value = null
+  }
+  try {
+    dailySummary.value = await $fetch(`${config.public.apiBase}/food-diary/today`, { headers: patientTimeHeaders() })
+  } catch {
+    dailySummary.value = null
+  }
+  try {
+    const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: patientTimeHeaders() })
+    if (data.current) {
+      metrics.value[1].value = Math.min(100, (data.current.adherence || 3) * 20)
+      metrics.value[2].value = Math.min(100, (data.current.energy || 3) * 20)
+      metrics.value[3].value = Math.min(100, (data.current.mood || 3) * 20)
+    }
+    streakDays.value = Math.max(1, (data.history?.length || 0) + (data.current ? 1 : 0))
+  } catch {
+    /* defaults */
+  }
+})
+</script>
+
+<style scoped>
+.patient-page.home-page {
+  padding-inline: 1.25rem;
+  padding-top: 0.75rem;
+  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 0.5rem);
+  box-sizing: border-box;
+  background: var(--cf-bg);
+}
+
+/* Hero */
+.home-hero {
+  margin-bottom: 1rem;
+}
+
+.home-hero-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-decoration: none;
+  color: inherit;
+  padding: 0.25rem 0;
+  border-radius: var(--cf-radius-sm);
+  transition: background 0.15s ease;
+}
+
+.home-hero-row:active {
+  background: var(--cf-green-soft);
+}
+
+.home-hero-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-hero-greeting {
+  margin: 0 0 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--cf-text-muted);
+  line-height: 1.3;
+}
+
+.home-hero-name {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  color: var(--cf-text);
+  text-wrap: balance;
+}
+
+.home-hero-streak {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--cf-text-muted);
+}
+
+.home-hero-streak strong {
+  font-weight: 700;
+  color: var(--cf-pink);
+}
+
+/* Sections */
+.home-section {
+  margin-bottom: 1.5rem;
+}
+
+.home-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.home-section-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--cf-text);
+}
+
+.home-section-meta {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--cf-text-muted);
+  background: #f6f6f4;
+  border: 1px solid var(--cf-border);
+}
+
+.home-section-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--cf-pink-dark);
+  text-decoration: none;
+}
+
+.home-section-link-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+/* Metas */
+.home-goals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 1px solid var(--cf-border);
+  background: var(--cf-surface);
+  box-shadow: var(--cf-shadow-lg);
+  color: inherit;
+}
+
+.home-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.home-goal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.home-goal-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+}
+
+.home-goal-label {
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--cf-text);
+}
+
+.home-goal-pct {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--cf-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-goal-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--cf-track);
+  overflow: hidden;
+}
+
+.home-goal-fill {
+  height: 100%;
+  border-radius: 999px;
+  min-width: 0;
+}
+
+/* Bella CTA */
+.home-bella-overflow {
+  position: relative;
+  z-index: 5;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-top: 1.35rem;
+  overflow: visible;
+}
+
+.home-bella {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 1.15rem 1.125rem 0.85rem 5.75rem;
+  margin: 0;
+  min-height: 4.5rem;
+  border: none;
+  background: var(--cf-pink);
+  color: #fff;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.12);
+  overflow: visible;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.home-bella.cf-squircle {
+  overflow: visible;
+}
+
+.home-bella:active {
+  transform: scale(0.99);
+  background: var(--cf-pink-dark);
+}
+
+.home-bella:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.home-bella-avatar-slot {
+  position: absolute;
+  left: 0.15rem;
+  bottom: 0;
+  width: 5.25rem;
+  height: 0;
+  overflow: visible;
+  line-height: 0;
+}
+
+.home-bella-avatar {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: auto;
+  height: 6.75rem;
+  max-width: none;
+  display: block;
+  object-fit: contain;
+  object-position: bottom center;
+  pointer-events: none;
+}
+
+.home-bella-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-bella-copy h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.home-bella-copy p {
+  margin: 0;
+  font-size: 0.8125rem;
+  opacity: 0.92;
+  line-height: 1.4;
+}
+
+.home-bella-arrow {
+  width: 1.125rem;
+  height: 1.125rem;
+  opacity: 0.85;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Bella ensina */
+.home-bella-teach {
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding: 0.9rem 0.85rem 0.9rem 1rem;
+  border: 1px solid var(--cf-border);
+  background: var(--cf-surface);
+  box-shadow: var(--cf-shadow-lg);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.home-bella-teach:active {
+  background: var(--cf-bg);
+}
+
+.home-bella-teach-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.home-bella-teach-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.home-bella-teach-bulb {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: #d4a056;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.home-bella-teach-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #a06267;
+  line-height: 1.2;
+}
+
+.home-bella-teach-eyebrow {
+  margin: 0.1rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--cf-text-muted);
+}
+
+.home-bella-teach-tip {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--cf-text);
+}
+
+.home-bella-teach-visual {
+  position: relative;
+  width: 5.5rem;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.home-bella-teach-photo {
+  width: 100%;
+  height: 5.5rem;
+  border-radius: var(--cf-radius-md);
+  object-fit: cover;
+  display: block;
+}
+
+.home-bella-teach-go {
+  position: absolute;
+  right: -0.35rem;
+  bottom: -0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: var(--cf-radius-full);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.home-bella-teach-go-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--cf-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-bella,
+  .home-bella-teach {
+    transition: none;
+  }
+}
+</style>

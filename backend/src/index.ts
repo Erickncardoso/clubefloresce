@@ -11,6 +11,10 @@ import userRoutes from "./routes/user.routes";
 import financialRoutes from "./routes/financial.routes";
 import uploadRoutes from "./routes/upload.routes";
 import whatsappRoutes from "./routes/whatsapp.routes";
+import checkinRoutes from "./routes/checkin.routes";
+import bellaRoutes from "./routes/bella.routes";
+import foodDiaryRoutes from "./routes/food-diary.routes";
+import mealPlanRoutes from "./routes/meal-plan.routes";
 
 dotenv.config();
 
@@ -59,6 +63,10 @@ app.use("/api/users", userRoutes);
 app.use("/api/financial", financialRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
+app.use("/api/checkin", checkinRoutes);
+app.use("/api/bella", bellaRoutes);
+app.use("/api/food-diary", foodDiaryRoutes);
+app.use("/api/meal-plan", mealPlanRoutes);
 
 // Basic Route for testing
 app.get("/", (req, res) => {
@@ -84,4 +92,10 @@ app.use((err: any, req: any, res: any, next: any) => {
 // App initialization
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
+  const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
+  if (openaiConfigured) {
+    console.log("[Bella] OpenAI configurada — chat, imagem e PDF ativos.");
+  } else {
+    console.warn("[Bella] OPENAI_API_KEY ausente no .env — Bella usará respostas locais limitadas.");
+  }
 });

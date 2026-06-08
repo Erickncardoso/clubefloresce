@@ -1,5 +1,5 @@
 <template>
-  <NuxtLayout name="default">
+  <NuxtLayout :name="layoutName">
     <div class="player-wrapper" :class="{ 'theater-mode': isTheaterMode }" v-if="moduleData">
       <!-- Header Principal (Ocultado no Modo Teatro) -->
       <PlayerHeader 
@@ -422,6 +422,7 @@ import { useRoute, navigateTo } from '#app'
 const route = useRoute()
 const moduleId = route.params.id
 const config = useRuntimeConfig()
+const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'default'))
 const apiBase = config.public.apiBase
 const authApiBase = `${config.public.apiBase}/auth`
 const moduleData = ref(null)

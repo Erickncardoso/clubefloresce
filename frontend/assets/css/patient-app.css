@@ -1,0 +1,621 @@
+/* Clube Florescer — design system app paciente */
+:root {
+  --cf-font: 'Metropolis', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cf-pink: #c17b80;
+  --cf-pink-soft: #faecef;
+  --cf-pink-dark: #a06267;
+  --cf-green: #6d9a66;
+  --cf-green-soft: #edf3eb;
+  --cf-green-dark: #4d7348;
+  --cf-bg: #ffffff;
+  --cf-surface: #ffffff;
+  --cf-text: #141414;
+  --cf-text-muted: #525252;
+  --cf-border: #e4e4e0;
+  --cf-track: #e8e8e4;
+  --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --cf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --cf-tab-h: 5.25rem;
+  --cf-fab-size: 3.25rem;
+  --cf-avatar-mask: url('/icons/userAvatar.svg');
+  --cf-space-1: 0.25rem;
+  --cf-space-2: 0.5rem;
+  --cf-space-3: 0.75rem;
+  --cf-space-4: 1rem;
+  --cf-space-5: 1.25rem;
+  --cf-space-6: 1.5rem;
+
+  /* aliases legados */
+  --pa-font: var(--cf-font);
+  --pa-primary: var(--cf-green);
+  --pa-primary-light: var(--cf-green-dark);
+  --pa-green: var(--cf-green);
+  --pa-green-dark: var(--cf-green-dark);
+  --pa-green-light: var(--cf-green-soft);
+  --pa-green-muted: var(--cf-green-soft);
+  --pa-bg: var(--cf-bg);
+  --pa-surface: var(--cf-surface);
+  --pa-text: var(--cf-text);
+  --pa-text-muted: var(--cf-text-muted);
+  --pa-border: var(--cf-border);
+  --pa-radius: var(--cf-radius);
+  --pa-radius-sm: var(--cf-radius-sm);
+  --pa-shadow: var(--cf-shadow);
+  --pa-tab-h: var(--cf-tab-h);
+  --pa-red: #d64545;
+}
+
+html:has(.patient-shell),
+html:has(.patient-login-mode),
+html:has(.cf-tab-bar) {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  font-family: var(--cf-font);
+  overflow-x: hidden;
+}
+
+html:has(.patient-shell) body,
+html:has(.patient-login-mode) body,
+html:has(.cf-tab-bar) body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  background: #ffffff;
+}
+
+.patient-shell,
+.patient-login-mode {
+  font-family: var(--cf-font);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.011em;
+  color: var(--cf-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+.patient-shell {
+  min-height: 100vh;
+  background: var(--cf-bg);
+  overflow-x: clip;
+  width: 100%;
+  max-width: 100%;
+}
+
+.patient-shell-body {
+  max-width: 430px;
+  width: 100%;
+  margin: 0 auto;
+  min-height: 100vh;
+  overflow-x: clip;
+  background: #ffffff;
+}
+
+html:has(.cf-tab-bar) .patient-shell-body,
+html:has(.cf-tab-bar-wrap) .patient-shell-body,
+html:has(.cf-tab-bar) .patient-page,
+html:has(.cf-tab-bar-wrap) .patient-page,
+html:has(.cf-tab-bar) .onboarding-page,
+html:has(.cf-tab-bar-wrap) .onboarding-page,
+html:has(.cf-tab-bar) .bella-chat-page,
+html:has(.cf-tab-bar-wrap) .bella-chat-page,
+html:has(.cf-tab-bar) .player-wrapper,
+html:has(.cf-tab-bar-wrap) .player-wrapper,
+html:has(.cf-tab-bar) .lesson-design-page,
+html:has(.cf-tab-bar-wrap) .lesson-design-page {
+  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 0.5rem);
+}
+
+.patient-page {
+  padding: 0 1rem 1.5rem;
+  max-width: 100%;
+  overflow-x: clip;
+  box-sizing: border-box;
+}
+
+.cf-card {
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-border);
+  box-shadow: var(--cf-shadow-lg);
+  padding: var(--cf-space-5);
+}
+
+.cf-squircle {
+  --cf-squircle-r: var(--cf-radius-sheet, 2.75rem);
+  border-radius: var(--cf-squircle-r);
+}
+
+.cf-squircle--composer {
+  --cf-squircle-r: var(--cf-radius-composer, 1.875rem);
+  overflow: hidden;
+}
+
+.cf-squircle--msg-media {
+  --cf-squircle-r: var(--cf-radius-msg-media, 1.25rem);
+  overflow: hidden;
+}
+
+.cf-squircle--attach {
+  --cf-squircle-r: var(--cf-radius-attach, 1.125rem);
+  overflow: hidden;
+}
+
+.cf-squircle--tile {
+  --cf-squircle-r: var(--cf-radius-squircle-tile, min(3rem, 42%));
+  overflow: hidden;
+}
+
+.home-bella.cf-squircle,
+.home-bella-teach.cf-squircle {
+  overflow: visible;
+}
+
+@supports (corner-shape: squircle) {
+  .cf-squircle,
+  .cf-squircle--icon,
+  .cf-squircle--attach,
+  .cf-squircle--msg-media {
+    corner-shape: squircle;
+  }
+}
+
+.cf-squircle--icon {
+  --cf-squircle-r: var(--cf-radius-icon, 0.875rem);
+  border-radius: var(--cf-squircle-r);
+}
+
+.cf-card.cf-squircle,
+.cf-squircle.cf-card {
+  border-radius: var(--cf-squircle-r, var(--cf-radius-sheet, 2.75rem));
+}
+
+.cf-card--compact {
+  box-shadow: var(--cf-shadow);
+  padding: var(--cf-space-4);
+}
+
+.cf-card--compact.cf-squircle {
+  --cf-squircle-r: var(--cf-radius-xl);
+}
+
+.cf-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.cf-list-thumb {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--cf-radius-icon);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cf-pink-soft);
+  color: var(--cf-pink-dark);
+}
+
+.cf-list-thumb--round {
+  border-radius: var(--cf-radius-full);
+}
+
+.cf-list-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cf-list-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-list-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--cf-text);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-list-meta {
+  margin: 0.12rem 0 0;
+  font-size: 0.75rem;
+  color: var(--cf-text-muted);
+  line-height: 1.3;
+}
+
+.cf-card-title {
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--cf-text);
+}
+
+.cf-section-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--cf-text);
+}
+
+.cf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.75rem 1.15rem;
+  border: none;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-green);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cf-btn:hover:not(:disabled) {
+  background: var(--cf-green-dark);
+}
+
+.cf-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cf-btn--pink {
+  background: var(--cf-pink);
+}
+
+.cf-btn--pink:hover:not(:disabled) {
+  background: var(--cf-pink-dark);
+}
+
+.cf-btn--outline {
+  background: var(--cf-surface);
+  color: var(--cf-pink);
+  border: 1.5px solid var(--cf-pink-soft);
+}
+
+.cf-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--cf-surface);
+  color: var(--cf-text-muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cf-chip.active {
+  background: var(--cf-pink-soft);
+  color: var(--cf-pink-dark);
+  font-weight: 600;
+}
+
+.cf-progress-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--cf-border);
+  overflow: hidden;
+}
+
+.cf-progress-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cf-green);
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cf-icon-pink {
+  color: var(--cf-pink);
+}
+
+.cf-icon-green {
+  color: var(--cf-green);
+}
+
+/* legado patient-* */
+.patient-card {
+  background: var(--cf-surface);
+  border: none;
+  border-radius: var(--cf-radius);
+  padding: 1.15rem;
+  box-shadow: var(--cf-shadow);
+}
+
+.patient-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.75rem 1.15rem;
+  border: none;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-green);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.patient-btn--outline {
+  background: var(--cf-surface);
+  color: var(--cf-green);
+  border: 1.5px solid var(--cf-green);
+}
+
+.patient-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--cf-surface);
+  color: var(--cf-text-muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.patient-chip.active {
+  background: var(--cf-pink-soft);
+  color: var(--cf-pink-dark);
+  font-weight: 600;
+}
+
+.patient-input {
+  width: 100%;
+  border: 1.5px solid var(--cf-border);
+  border-radius: var(--cf-radius-sm);
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: var(--cf-surface);
+  color: var(--cf-text);
+}
+
+.patient-input:focus {
+  outline: none;
+  border-color: var(--cf-pink);
+  box-shadow: 0 0 0 3px rgba(201, 137, 142, 0.15);
+}
+
+.patient-progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #eceae6;
+  overflow: hidden;
+}
+
+.patient-progress-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cf-green);
+}
+
+.patient-badge {
+  display: inline-block;
+  padding: 0.25rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.patient-badge--green {
+  background: var(--cf-green-soft);
+  color: var(--cf-green-dark);
+}
+
+.patient-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-surface);
+  box-shadow: var(--cf-shadow);
+  color: var(--cf-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.patient-list-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--cf-pink);
+  flex-shrink: 0;
+}
+
+.patient-list-arrow {
+  width: 1rem;
+  height: 1rem;
+  color: #c4c4c4;
+  margin-left: auto;
+}
+
+/* Comunidade — app paciente */
+.patient-shell .community-container {
+  padding: 0;
+}
+
+.patient-shell .community-page {
+  padding: 0 1.15rem 1rem;
+  background: var(--cf-bg);
+}
+
+.patient-shell .patient-app-header h1 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--cf-text);
+}
+
+.patient-shell .new-post-card,
+.patient-shell .post-card {
+  border-radius: var(--cf-radius);
+  box-shadow: var(--cf-shadow);
+  border: none;
+}
+
+.patient-shell .btn-post-submit {
+  background: var(--cf-pink);
+  border-radius: var(--cf-radius-sm);
+}
+
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Login — estilos globais para renderizar mesmo sem CSS scoped (preview Cursor) */
+.patient-login-mode {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: var(--cf-bg);
+  justify-content: center;
+  font-family: var(--cf-font);
+}
+
+.patient-auth {
+  flex: 1;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(1.5rem + env(safe-area-inset-top)) 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  background: var(--cf-bg);
+}
+
+.patient-auth-inner {
+  width: 100%;
+  max-width: 380px;
+}
+
+.patient-auth-brand {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.patient-auth-logo {
+  display: block;
+  margin: 0 auto 0.5rem;
+  object-fit: contain;
+}
+
+.patient-auth-tagline {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--cf-text-muted);
+}
+
+.patient-auth-card {
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-border);
+  border-radius: var(--cf-radius-sm);
+  padding: 1.35rem;
+  box-shadow: var(--cf-shadow);
+}
+
+.patient-auth-header h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--cf-text);
+}
+
+.patient-auth-header p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--cf-text-muted);
+}
+
+.patient-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 1.25rem;
+}
+
+.patient-login-mode .form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+  color: var(--cf-text);
+}
+
+.patient-login-mode .input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1.5px solid var(--cf-border);
+  border-radius: var(--cf-radius-sm);
+  padding: 0 0.85rem;
+  background: var(--cf-surface);
+}
+
+.patient-login-mode .input-wrapper input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.85rem 0;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--cf-text);
+  outline: none;
+}
+
+.patient-auth-submit {
+  width: 100%;
+  min-height: 3rem;
+  border: none;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-green);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.patient-auth-footer {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--cf-text-muted);
+}
+
+.patient-auth-footer a {
+  color: var(--cf-pink);
+  font-weight: 600;
+  text-decoration: none;
+}

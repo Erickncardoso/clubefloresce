@@ -197,7 +197,7 @@ onMounted(fetchUsers)
   border: 1px solid #eee;
   border-radius: 12px;
   background: white;
-  font-family: 'Figtree', sans-serif;
+  font-family: inherit;
   font-size: 0.9rem;
   outline: none;
   transition: all 0.2s;

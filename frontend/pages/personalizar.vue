@@ -263,7 +263,7 @@ const handleSave = () => {
   padding: 0.9rem 1.1rem;
   border: 1px solid #eee;
   border-radius: 12px;
-  font-family: 'Figtree', sans-serif;
+  font-family: inherit;
   font-size: 0.95rem;
   outline: none;
   background: #fafafa;

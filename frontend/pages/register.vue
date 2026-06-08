@@ -55,13 +55,22 @@
             <div class="input-wrapper">
               <Lock class="input-icon" />
               <input 
-                type="password" 
+                :type="showPassword ? 'text' : 'password'" 
                 v-model="form.password" 
                 placeholder="Mínimo 8 caracteres" 
                 required
                 @focus="focusedField = 'password'" 
                 @blur="focusedField = ''"
               >
+              <button
+                type="button"
+                class="password-toggle-btn"
+                :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
+                @click="showPassword = !showPassword"
+              >
+                <EyeOff v-if="showPassword" class="password-toggle-icon" />
+                <Eye v-else class="password-toggle-icon" />
+              </button>
             </div>
           </div>
 
@@ -111,7 +120,7 @@
 </template>
 
 <script setup>
-import { Mail, Lock, User, AlertCircle } from 'lucide-vue-next'
+import { Mail, Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 
 definePageMeta({
   layout: false
@@ -129,6 +138,7 @@ const form = reactive({
 const loading = ref(false)
 const error = ref('')
 const focusedField = ref('')
+const showPassword = ref(false)
 
 const handleRegister = async () => {
   loading.value = true
@@ -150,11 +160,13 @@ const handleRegister = async () => {
 
 <style scoped>
 .auth-container {
+  --primary: #2d5a27;
+  --primary-light: #4c8c4a;
   display: flex;
   min-height: 100vh;
   width: 100%;
   background: white;
-  font-family: 'Figtree', sans-serif;
+  font-family: inherit;
 }
 
 /* LADO VISUAL (LEFT) */
@@ -265,13 +277,43 @@ const handleRegister = async () => {
 
 .input-wrapper input {
   flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   padding: 0.9rem 0.8rem;
-  font-family: 'Figtree', sans-serif;
+  font-family: inherit;
   font-size: 0.95rem;
   color: #111;
   outline: none;
+}
+
+.password-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0.25rem;
+  margin-left: 0.25rem;
+  cursor: pointer;
+  color: #aaa;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.password-toggle-btn:hover {
+  color: var(--primary);
+  background: rgba(45, 90, 39, 0.06);
+}
+
+.password-toggle-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.form-group.focused .password-toggle-btn {
+  color: var(--primary);
 }
 
 .form-group.focused .input-wrapper {
@@ -309,8 +351,10 @@ const handleRegister = async () => {
 }
 
 .btn-auth-submit {
+  width: 100%;
+  background: #2d5a27;
   background: var(--primary);
-  color: white;
+  color: #fff;
   border: none;
   padding: 1.1rem;
   border-radius: 12px;

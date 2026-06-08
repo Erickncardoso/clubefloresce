@@ -50,6 +50,86 @@ model User {
   whatsappContactStates WhatsappContactState[]
   whatsappContactDirectory WhatsappContactDirectory?
   whatsappGroupObservedSenders WhatsappGroupObservedSenders[]
+  weeklyCheckIns WeeklyCheckIn[]
+  bellaMessages  BellaMessage[]
+  nutritionTarget NutritionTarget?
+  foodDiaryEntries FoodDiaryEntry[]
+  patientMealPlan PatientMealPlan?
+}
+
+model PatientMealPlan {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName     String
+  pdfUrl       String?
+  title        String?
+  patientName  String?
+  prescribedAt String?
+  plan         Json
+  parserSource String   @default("dietbox")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model WeeklyCheckIn {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart DateTime
+  mood      Int
+  energy    Int
+  adherence Int?
+  weightKg  Float?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, weekStart])
+  @@index([weekStart])
+}
+
+model BellaMessage {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  topic     String   @default("general")
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, topic, createdAt])
+}
+
+model NutritionTarget {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  caloriesKcal Int      @default(2000)
+  proteinG     Float    @default(120)
+  carbsG       Float    @default(220)
+  fatG         Float    @default(65)
+  updatedAt    DateTime @updatedAt
+}
+
+model FoodDiaryEntry {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryDate    DateTime @db.Date
+  mealType     String
+  mealLabel    String?
+  imageUrl     String?
+  items        Json
+  caloriesKcal Float
+  carbsG       Float
+  proteinG     Float
+  fatG         Float
+  createdAt    DateTime @default(now())
+
+  @@index([userId, entryDate])
 }
 
 model Course {
@@ -126,6 +206,7 @@ model Ebook {
 model Post {
   id        String    @id @default(uuid())
   content   String
+  imageUrl  String?
   authorId  String
   author    User      @relation(fields: [authorId], references: [id])
   createdAt  DateTime  @default(now())

@@ -1,0 +1,270 @@
+import type { ParsedFoodItem, ParsedMeal, ParsedMealPlan } from "../../types/meal-plan.types";
+
+const MEAL_HEADER_RE = /^(\d{2}:\d{2})\s*-\s*(.+)$/;
+const PAGE_NOISE_RE =
+  /^(Isabella Jardim|Nutricionista CRN|nutri\.|Rua Doutor|Página \d|-- \d+ of \d+ --|Planejamento alimentar)$/i;
+const META_PATIENT_RE = /Paciente\s+(.+?)\s*\|\s*Prescrito em:\s*([\d/]+)/i;
+const SUB_HEADER_RE = /^[•*]?\s*Op[cç][õo]es de substitui[cç][aã]o para\s+(.+?):\s*$/i;
+const FOOD_PARENS_END_RE = /\((\d+(?:\.\d+)?)(g|ml)\)\s*$/i;
+const FOOD_PLAIN_END_RE = /(\d+(?:\.\d+)?)(g|ml)\s*$/i;
+
+function slugify(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
+function cleanLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+function isNoiseLine(line: string): boolean {
+  return PAGE_NOISE_RE.test(line) || /^Cardápio/i.test(line);
+}
+
+function normalizeFractions(value: string): string {
+  return value.replace(/½/g, "0.5").replace(/¼/g, "0.25").replace(/¾/g, "0.75");
+}
+
+function parseQuantityTail(body: string): { name: string; amount: number | null; unit: string } {
+  const normalized = normalizeFractions(body.trim());
+
+  const avontade = /à vontade/i.test(normalized);
+  if (avontade) {
+    const name = normalized.replace(/\s*à vontade.*$/i, "").replace(/\s+\d+.*$/, "").trim();
+    return { name: name || normalized, amount: null, unit: "avontade" };
+  }
+
+  const qtyMatch = normalized.match(
+    /^(.*?)\s+(\d+(?:\.\d+)?)\s+(Unidade\(s\)|unidades?|fatia\(s\)|Fatia\(s\)|Colher\(es\)|colheres?|colher|Medidor\(es\)|Porção\(ões\)|Prato\(s\)|Filé\(s\)|Xícara\(s\)|Xicara\(s\)|Medida\(s\))(?:\s+.+)?$/i,
+  );
+
+  if (qtyMatch) {
+    const unitRaw = qtyMatch[3].toLowerCase();
+    let unit = "unidade";
+    if (unitRaw.includes("fatia")) unit = "fatia";
+    else if (unitRaw.includes("colher") || unitRaw.includes("medidor")) unit = "colher";
+    else if (unitRaw.includes("xícara") || unitRaw.includes("xicara")) unit = "xicara";
+    else if (unitRaw.includes("prato") || unitRaw.includes("porção") || unitRaw.includes("porcao")) unit = "porcao";
+    else if (unitRaw.includes("filé") || unitRaw.includes("file")) unit = "file";
+
+    return {
+      name: qtyMatch[1].trim(),
+      amount: Number(qtyMatch[2]),
+      unit,
+    };
+  }
+
+  return { name: normalized, amount: null, unit: "porcao" };
+}
+
+function buildFoodItem(raw: string, substitutions: ParsedFoodItem[] = []): ParsedFoodItem | null {
+  const text = normalizeFractions(raw.replace(/\s+/g, " ").trim());
+  if (!text || SUB_HEADER_RE.test(text) || MEAL_HEADER_RE.test(text)) return null;
+
+  if (/à vontade/i.test(text) && !FOOD_PARENS_END_RE.test(text) && !FOOD_PLAIN_END_RE.test(text)) {
+    const name = text.replace(/\s*-\s*.*à vontade.*$/i, "").replace(/\s+à vontade.*$/i, "").trim();
+    const key = slugify(name || text);
+    return {
+      key,
+      name: name || text,
+      amount: null,
+      unit: "avontade",
+      grams: null,
+      ml: null,
+      display: text,
+      substitutions,
+    };
+  }
+
+  const parensMatch = text.match(/^(.*)\((\d+(?:\.\d+)?)(g|ml)\)\s*$/i);
+  if (parensMatch) {
+    const body = parensMatch[1].trim();
+    const measure = Number(parensMatch[2]);
+    const measureUnit = parensMatch[3].toLowerCase();
+    const { name, amount, unit } = parseQuantityTail(body);
+
+    return {
+      key: slugify(name),
+      name,
+      amount,
+      unit,
+      grams: measureUnit === "g" ? measure : null,
+      ml: measureUnit === "ml" ? measure : null,
+      display: text,
+      substitutions,
+    };
+  }
+
+  const plainMatch = text.match(/^(.*)(\d+(?:\.\d+)?)(g|ml)\s*$/i);
+  if (plainMatch) {
+    const body = plainMatch[1].trim();
+    const measure = Number(plainMatch[2]);
+    const measureUnit = plainMatch[3].toLowerCase();
+    const { name, amount, unit } = parseQuantityTail(body);
+
+    return {
+      key: slugify(name),
+      name,
+      amount,
+      unit,
+      grams: measureUnit === "g" ? measure : null,
+      ml: measureUnit === "ml" ? measure : null,
+      display: text,
+      substitutions,
+    };
+  }
+
+  return null;
+}
+
+function parseSubstitutionOptions(raw: string): ParsedFoodItem[] {
+  const chunks = raw
+    .split(/\s+-\s+ou\s+-\s+/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return chunks
+    .map((chunk) => buildFoodItem(chunk.replace(/^-\s*/, "")))
+    .filter((item): item is ParsedFoodItem => Boolean(item));
+}
+
+function extractMeta(text: string): { title: string | null; patientName: string | null; prescribedAt: string | null } {
+  const lines = cleanLines(text);
+  const title = lines.find((line) => /^Cardápio/i.test(line)) || null;
+  const metaLine = lines.find((line) => META_PATIENT_RE.test(line));
+  const metaMatch = metaLine?.match(META_PATIENT_RE);
+
+  return {
+    title,
+    patientName: metaMatch?.[1]?.trim() || null,
+    prescribedAt: metaMatch?.[2]?.trim() || null,
+  };
+}
+
+function trimPlanText(text: string): string {
+  const shoppingIdx = text.search(/Lista de compras/i);
+  const slice = shoppingIdx >= 0 ? text.slice(0, shoppingIdx) : text;
+  return slice;
+}
+
+export function parseDietboxMealPlan(text: string, fileName: string): ParsedMealPlan {
+  const meta = extractMeta(text);
+  const lines = cleanLines(trimPlanText(text)).filter((line) => !isNoiseLine(line));
+
+  const meals: ParsedMeal[] = [];
+  let currentMeal: ParsedMeal | null = null;
+  let itemBuffer: string[] = [];
+  let pendingSubTarget: string | null = null;
+  let pendingSubLines: string[] = [];
+
+  const flushItemBuffer = () => {
+    if (!currentMeal || !itemBuffer.length) {
+      itemBuffer = [];
+      return;
+    }
+
+    const joined = itemBuffer.join(" ").replace(/\s+/g, " ").trim();
+    itemBuffer = [];
+
+    const item = buildFoodItem(joined);
+    if (item) currentMeal.items.push(item);
+  };
+
+  const attachPendingSubstitutions = () => {
+    if (!currentMeal || !pendingSubTarget || !pendingSubLines.length) {
+      pendingSubTarget = null;
+      pendingSubLines = [];
+      return;
+    }
+
+    const options = parseSubstitutionOptions(pendingSubLines.join(" "));
+    const targetNorm = pendingSubTarget.toLowerCase();
+    const item = currentMeal.items.find((entry) => entry.name.toLowerCase().includes(targetNorm.split("(")[0].trim()));
+
+    if (item) {
+      item.substitutions = options;
+    }
+
+    pendingSubTarget = null;
+    pendingSubLines = [];
+  };
+
+  for (const line of lines) {
+    const mealMatch = line.match(MEAL_HEADER_RE);
+    if (mealMatch) {
+      flushItemBuffer();
+      attachPendingSubstitutions();
+
+      const time = mealMatch[1];
+      const label = mealMatch[2].trim();
+      currentMeal = {
+        id: slugify(`${time}-${label}`),
+        time,
+        label,
+        items: [],
+      };
+      meals.push(currentMeal);
+      continue;
+    }
+
+    const subMatch = line.match(SUB_HEADER_RE);
+    if (subMatch) {
+      flushItemBuffer();
+      attachPendingSubstitutions();
+      pendingSubTarget = subMatch[1].trim();
+      pendingSubLines = [];
+      continue;
+    }
+
+    if (pendingSubTarget) {
+      if (MEAL_HEADER_RE.test(line)) {
+        attachPendingSubstitutions();
+        continue;
+      }
+      pendingSubLines.push(line);
+      continue;
+    }
+
+    if (!currentMeal) continue;
+
+    const combined = [...itemBuffer, line].join(" ");
+    if (FOOD_PARENS_END_RE.test(combined) || (FOOD_PLAIN_END_RE.test(combined) && !/refogada sem$/i.test(combined))) {
+      itemBuffer.push(line);
+      flushItemBuffer();
+      continue;
+    }
+
+    if (/à vontade/i.test(line) && !itemBuffer.length) {
+      const item = buildFoodItem(line);
+      if (item) currentMeal.items.push(item);
+      continue;
+    }
+
+    itemBuffer.push(line);
+  }
+
+  flushItemBuffer();
+  attachPendingSubstitutions();
+
+  const mealsWithItems = meals.filter((meal) => meal.items.length > 0);
+  if (!mealsWithItems.length) {
+    throw new Error("Não foi possível identificar refeições no PDF. Verifique se é um planejamento alimentar exportado em texto.");
+  }
+
+  return {
+    title: meta.title || "Planejamento alimentar",
+    patientName: meta.patientName,
+    prescribedAt: meta.prescribedAt,
+    fileName,
+    meals: mealsWithItems,
+    parserSource: "dietbox",
+  };
+}
