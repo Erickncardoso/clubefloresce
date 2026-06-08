@@ -1,8 +1,10 @@
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
-import { PROD_API_BASE } from '../frontend/utils/api-env.mjs'
+import { resolveApiBaseAtBuild } from '../frontend/utils/resolve-api-base.mjs'
 
-const isDev = process.env.NODE_ENV !== 'production'
+const isGenerate =
+  process.argv.some((arg) => arg.includes('generate')) ||
+  process.env.npm_lifecycle_event?.includes('generate')
 const devHost = process.env.NUXT_HOST || '127.0.0.1'
 const devPort = Number(process.env.NUXT_PORT || 3002)
 
@@ -48,7 +50,11 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       mobileApp: true,
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || (isDev ? '/api' : PROD_API_BASE),
+      apiBase: resolveApiBaseAtBuild({
+        mobileApp: true,
+        explicitBase: process.env.NUXT_PUBLIC_API_BASE,
+        isGenerate,
+      }),
     },
   },
 })

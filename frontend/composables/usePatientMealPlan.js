@@ -1,3 +1,5 @@
+import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
+
 export function usePatientMealPlan() {
   const config = useRuntimeConfig()
   const planRecord = useState('patient-meal-plan', () => null)
@@ -37,8 +39,11 @@ export function usePatientMealPlan() {
     }
 
     const message = String(err?.message || '')
-    if (/failed to fetch|networkerror|fetch failed|ECONNREFUSED/i.test(message)) {
-      return 'Não foi possível conectar ao servidor. Verifique se o backend está rodando em http://localhost:3001.'
+    if (isApiConnectionError(err)) {
+      return apiConnectionErrorMessage({
+        dev: import.meta.dev,
+        hostname: import.meta.client ? window.location.hostname : undefined,
+      })
     }
 
     return message || 'Não foi possível importar o PDF.'

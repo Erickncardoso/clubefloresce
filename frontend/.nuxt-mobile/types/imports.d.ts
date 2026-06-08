@@ -2,11 +2,14 @@
 export {}
 declare global {
   const BELLA_ACTIONS: typeof import('../../utils/bella-actions').BELLA_ACTIONS
+  const DEV_MOBILE_API_BASE: typeof import('../../utils/resolve-api-base').DEV_MOBILE_API_BASE
+  const DEV_PANEL_API_BASE: typeof import('../../utils/resolve-api-base').DEV_PANEL_API_BASE
   const PROD_API_BASE: typeof import('../../utils/api-env').PROD_API_BASE
   const PROD_API_ORIGIN: typeof import('../../utils/api-env').PROD_API_ORIGIN
   const PROD_WHATSAPP_API_BASE: typeof import('../../utils/api-env').PROD_WHATSAPP_API_BASE
   const abortNavigation: typeof import('../../node_modules/nuxt/dist/app/composables/router').abortNavigation
   const addRouteMiddleware: typeof import('../../node_modules/nuxt/dist/app/composables/router').addRouteMiddleware
+  const apiConnectionErrorMessage: typeof import('../../utils/resolve-api-base').apiConnectionErrorMessage
   const applyFoodMatch: typeof import('../../utils/meal-diary').applyFoodMatch
   const callOnce: typeof import('../../node_modules/nuxt/dist/app/composables/once').callOnce
   const cancelIdleCallback: typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback').cancelIdleCallback
@@ -55,6 +58,8 @@ declare global {
   const inferCourseTopic: typeof import('../../utils/course-tile').inferCourseTopic
   const inject: typeof import('vue').inject
   const injectHead: typeof import('../../node_modules/nuxt/dist/app/composables/head').injectHead
+  const isApiConnectionError: typeof import('../../utils/resolve-api-base').isApiConnectionError
+  const isLocalHostname: typeof import('../../utils/resolve-api-base').isLocalHostname
   const isNuxtError: typeof import('../../node_modules/nuxt/dist/app/composables/error').isNuxtError
   const isPrerendered: typeof import('../../node_modules/nuxt/dist/app/composables/payload').isPrerendered
   const isProxy: typeof import('vue').isProxy
@@ -107,6 +112,8 @@ declare global {
   const refreshNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').refreshNuxtData
   const reloadNuxtApp: typeof import('../../node_modules/nuxt/dist/app/composables/chunk').reloadNuxtApp
   const requestIdleCallback: typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback').requestIdleCallback
+  const resolveApiBaseAtBuild: typeof import('../../utils/resolve-api-base').resolveApiBaseAtBuild
+  const resolveApiBaseAtRuntime: typeof import('../../utils/resolve-api-base').resolveApiBaseAtRuntime
   const resolveComponent: typeof import('vue').resolveComponent
   const roundMacro: typeof import('../../utils/meal-diary').roundMacro
   const scaleMealItem: typeof import('../../utils/meal-diary').scaleMealItem
@@ -237,11 +244,14 @@ import { UnwrapRef } from 'vue'
 declare module 'vue' {
   interface ComponentCustomProperties {
     readonly BELLA_ACTIONS: UnwrapRef<typeof import('../../utils/bella-actions')['BELLA_ACTIONS']>
+    readonly DEV_MOBILE_API_BASE: UnwrapRef<typeof import('../../utils/resolve-api-base')['DEV_MOBILE_API_BASE']>
+    readonly DEV_PANEL_API_BASE: UnwrapRef<typeof import('../../utils/resolve-api-base')['DEV_PANEL_API_BASE']>
     readonly PROD_API_BASE: UnwrapRef<typeof import('../../utils/api-env')['PROD_API_BASE']>
     readonly PROD_API_ORIGIN: UnwrapRef<typeof import('../../utils/api-env')['PROD_API_ORIGIN']>
     readonly PROD_WHATSAPP_API_BASE: UnwrapRef<typeof import('../../utils/api-env')['PROD_WHATSAPP_API_BASE']>
     readonly abortNavigation: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['abortNavigation']>
     readonly addRouteMiddleware: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['addRouteMiddleware']>
+    readonly apiConnectionErrorMessage: UnwrapRef<typeof import('../../utils/resolve-api-base')['apiConnectionErrorMessage']>
     readonly applyFoodMatch: UnwrapRef<typeof import('../../utils/meal-diary')['applyFoodMatch']>
     readonly callOnce: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/once')['callOnce']>
     readonly cancelIdleCallback: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback')['cancelIdleCallback']>
@@ -290,6 +300,8 @@ declare module 'vue' {
     readonly inferCourseTopic: UnwrapRef<typeof import('../../utils/course-tile')['inferCourseTopic']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/head')['injectHead']>
+    readonly isApiConnectionError: UnwrapRef<typeof import('../../utils/resolve-api-base')['isApiConnectionError']>
+    readonly isLocalHostname: UnwrapRef<typeof import('../../utils/resolve-api-base')['isLocalHostname']>
     readonly isNuxtError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['isNuxtError']>
     readonly isPrerendered: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['isPrerendered']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
@@ -342,6 +354,8 @@ declare module 'vue' {
     readonly refreshNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['refreshNuxtData']>
     readonly reloadNuxtApp: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/chunk')['reloadNuxtApp']>
     readonly requestIdleCallback: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback')['requestIdleCallback']>
+    readonly resolveApiBaseAtBuild: UnwrapRef<typeof import('../../utils/resolve-api-base')['resolveApiBaseAtBuild']>
+    readonly resolveApiBaseAtRuntime: UnwrapRef<typeof import('../../utils/resolve-api-base')['resolveApiBaseAtRuntime']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly roundMacro: UnwrapRef<typeof import('../../utils/meal-diary')['roundMacro']>
     readonly scaleMealItem: UnwrapRef<typeof import('../../utils/meal-diary')['scaleMealItem']>

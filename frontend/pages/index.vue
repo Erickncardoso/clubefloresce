@@ -236,6 +236,7 @@
 
 <script setup>
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
+import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
 
 definePageMeta({
   layout: false
@@ -301,9 +302,16 @@ const handleLogin = async () => {
     if (err.data?.message) {
       error.value = err.data.message
     } else if (err.statusCode === 500) {
-      error.value = 'Servidor indisponível. Rode o backend com npm run dev:backend e feche outros apps na porta 3001.'
+      error.value = import.meta.dev
+        ? 'Servidor indisponível. Rode o backend com npm run dev:backend e feche outros apps na porta 3001.'
+        : 'Servidor indisponível. Tente novamente em alguns instantes.'
+    } else if (isApiConnectionError(err)) {
+      error.value = apiConnectionErrorMessage({
+        dev: import.meta.dev,
+        hostname: import.meta.client ? window.location.hostname : undefined,
+      })
     } else {
-      error.value = 'Não foi possível conectar à API. Confira se o backend está rodando em http://localhost:3001.'
+      error.value = 'Não foi possível entrar. Verifique e-mail e senha.'
     }
   } finally {
     loading.value = false

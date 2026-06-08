@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { fixWindowsVitePaths } from './utils/fix-windows-vite-paths'
-import { PROD_API_BASE } from './utils/api-env.mjs'
+import { PROD_API_BASE, PROD_WHATSAPP_API_BASE } from './utils/api-env.mjs'
+import { resolveApiBaseAtBuild } from './utils/resolve-api-base.mjs'
 
 const isMobileApp = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
 const isGenerate =
@@ -10,10 +11,13 @@ const isDev = process.env.NODE_ENV !== 'production' && !isGenerate
 const devHost = process.env.NUXT_HOST || '127.0.0.1'
 const devPort = Number(process.env.NUXT_PORT || 3002)
 const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
-const defaultApiBase = process.env.NUXT_PUBLIC_API_BASE
-  || (isMobileApp ? (isDev ? '/api' : PROD_API_BASE) : 'http://localhost:3001/api')
+const defaultApiBase = resolveApiBaseAtBuild({
+  mobileApp: isMobileApp,
+  explicitBase: process.env.NUXT_PUBLIC_API_BASE,
+  isGenerate,
+})
 const defaultWhatsappApiBase = process.env.NUXT_PUBLIC_WHATSAPP_API_BASE
-  || (isDev ? '/api/whatsapp' : 'http://localhost:3001/api/whatsapp')
+  || (isDev ? '/api/whatsapp' : PROD_WHATSAPP_API_BASE)
 
 export default defineNuxtConfig({
   // Web (:3000) e app paciente (:3002) podem rodar ao mesmo tempo sem conflitar cache
@@ -73,7 +77,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       mobileApp: isMobileApp,
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || defaultApiBase,
+      apiBase: defaultApiBase,
       ...(isMobileApp
         ? {}
         : { whatsappApiBase: process.env.NUXT_PUBLIC_WHATSAPP_API_BASE || defaultWhatsappApiBase }),
