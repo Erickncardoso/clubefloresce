@@ -1,3 +1,97 @@
+<script setup>
+import { X } from 'lucide-vue-next'
+
+const config = useRuntimeConfig()
+const nuxtApp = useNuxtApp()
+
+const visible = ref(false)
+const isIos = ref(false)
+const canInstall = ref(false)
+const dismissedKey = 'cf-pwa-prompt-dismissed'
+
+/** @type {import('vue').Ref<BeforeInstallPromptEvent | null>} */
+const deferredPrompt = ref(null)
+
+function isStandaloneMode() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(display-mode: standalone)').matches
+    || window.matchMedia('(display-mode: fullscreen)').matches
+    || Boolean(window.navigator.standalone)
+}
+
+function dismiss() {
+  visible.value = false
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(dismissedKey, '1')
+  }
+}
+
+async function install() {
+  if (deferredPrompt.value) {
+    await deferredPrompt.value.prompt()
+    await deferredPrompt.value.userChoice
+    deferredPrompt.value = null
+  } else if (nuxtApp.$pwa?.install) {
+    await nuxtApp.$pwa.install()
+  }
+  canInstall.value = false
+  visible.value = false
+}
+
+function onBeforeInstallPrompt(event) {
+  event.preventDefault()
+  deferredPrompt.value = event
+  canInstall.value = true
+  if (!sessionStorage.getItem(dismissedKey)) {
+    visible.value = true
+  }
+}
+
+function onAppInstalled() {
+  deferredPrompt.value = null
+  canInstall.value = false
+  visible.value = false
+}
+
+function syncFromModule() {
+  const pwa = nuxtApp.$pwa
+  const available = Boolean(pwa?.showInstallPrompt?.value ?? pwa?.showInstallPrompt)
+  if (available && !deferredPrompt.value) {
+    canInstall.value = true
+    if (!sessionStorage.getItem(dismissedKey)) visible.value = true
+  }
+}
+
+onMounted(() => {
+  if (!config.public.mobileApp || isStandaloneMode()) return
+
+  const ua = window.navigator.userAgent || ''
+  isIos.value = /iPad|iPhone|iPod/.test(ua) && !window.MSStream
+
+  if (sessionStorage.getItem(dismissedKey)) return
+
+  if (isIos.value) {
+    visible.value = true
+    return
+  }
+
+  window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+  window.addEventListener('appinstalled', onAppInstalled)
+  syncFromModule()
+
+  const stop = watch(
+    () => nuxtApp.$pwa?.showInstallPrompt?.value ?? nuxtApp.$pwa?.showInstallPrompt,
+    () => syncFromModule(),
+  )
+
+  onUnmounted(() => {
+    window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+    window.removeEventListener('appinstalled', onAppInstalled)
+    stop()
+  })
+})
+</script>
+
 <template>
   <Transition name="pwa-prompt-slide">
     <aside v-if="visible" class="pwa-prompt" role="status" aria-live="polite">
@@ -23,71 +117,6 @@
     </aside>
   </Transition>
 </template>
-
-<script setup>
-import { X } from 'lucide-vue-next'
-
-const config = useRuntimeConfig()
-const nuxtApp = useNuxtApp()
-
-const visible = ref(false)
-const isIos = ref(false)
-const canInstall = ref(false)
-const dismissedKey = 'cf-pwa-prompt-dismissed'
-
-function isStandaloneMode() {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia('(display-mode: standalone)').matches
-    || window.matchMedia('(display-mode: fullscreen)').matches
-    || Boolean(window.navigator.standalone)
-}
-
-function dismiss() {
-  visible.value = false
-  if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(dismissedKey, '1')
-  }
-}
-
-async function install() {
-  const pwa = nuxtApp.$pwa
-  if (!pwa?.install) return
-  await pwa.install()
-  visible.value = false
-}
-
-function syncInstallState() {
-  const pwa = nuxtApp.$pwa
-  canInstall.value = Boolean(pwa?.showInstallPrompt)
-  if (canInstall.value && !sessionStorage.getItem(dismissedKey)) {
-    visible.value = true
-  }
-}
-
-onMounted(() => {
-  if (!config.public.mobileApp || isStandaloneMode()) return
-
-  const ua = window.navigator.userAgent || ''
-  isIos.value = /iPad|iPhone|iPod/.test(ua) && !window.MSStream
-
-  if (sessionStorage.getItem(dismissedKey)) return
-
-  if (isIos.value) {
-    visible.value = true
-    return
-  }
-
-  syncInstallState()
-
-  const stop = watch(
-    () => nuxtApp.$pwa?.showInstallPrompt,
-    () => syncInstallState(),
-    { immediate: true },
-  )
-
-  onUnmounted(stop)
-})
-</script>
 
 <style scoped>
 .pwa-prompt {

@@ -294,9 +294,7 @@ const handleLogin = async () => {
       return
     }
 
-    navigateTo(config.public.mobileApp
-      ? (localStorage.getItem('patient_onboarding_done') ? '/inicio' : '/onboarding')
-      : '/cursos')
+    navigateTo(config.public.mobileApp ? '/inicio' : '/cursos')
   } catch (err) {
     console.error('Erro completo:', err)
     if (err.data?.message) {
@@ -347,9 +345,7 @@ const handleFirstAccessPasswordChange = async () => {
     showFirstAccessModal.value = false
     firstAccessForm.newPassword = ''
     firstAccessForm.confirmPassword = ''
-    navigateTo(config.public.mobileApp
-      ? (localStorage.getItem('patient_onboarding_done') ? '/inicio' : '/onboarding')
-      : '/cursos')
+    navigateTo(config.public.mobileApp ? '/inicio' : '/cursos')
   } catch (err) {
     if (err.data && err.data.message) {
       firstAccessError.value = err.data.message

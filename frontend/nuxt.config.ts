@@ -33,6 +33,7 @@ export default defineNuxtConfig({
             { rel: 'icon', type: 'image/svg+xml', href: '/logoflorescer.svg' },
             { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/pwa/icon-192.png' },
             { rel: 'apple-touch-icon', href: '/pwa/apple-touch-icon.png', sizes: '180x180' },
+            { rel: 'manifest', href: '/manifest.webmanifest' },
           ]
         : [{ rel: 'icon', type: 'image/svg+xml', href: '/logoflorescer.svg' }],
       meta: isMobileApp
@@ -92,6 +93,9 @@ export default defineNuxtConfig({
   },
   ...(isMobileApp
     ? {
+        routeRules: {
+          '/onboarding': { redirect: { to: '/inicio', statusCode: 301 } },
+        },
         watchers: {
           chokidar: {
             ignoreInitial: true,
@@ -203,6 +207,7 @@ export default defineNuxtConfig({
                 '**/.output/**',
                 '**/.nuxt/**',
                 '**/.nuxt-mobile/dist/**',
+                '**/.nuxt-mobile/dev-sw-dist/**',
                 '**/dist/**',
               ],
             },

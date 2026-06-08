@@ -1,4 +1,5 @@
 <template>
+  <NuxtPwaManifest />
   <NuxtPage />
   <PatientTabBar v-if="showTabBar" />
   <PatientPwaPrompt v-if="config.public.mobileApp" />

@@ -33,11 +33,12 @@ function killPort(port) {
 }
 
 function cleanMobileArtifacts() {
-  for (const dir of ['.nuxt-mobile', '.output']) {
-    const target = join(root, dir)
+  const stalePaths = ['.nuxt-mobile/dist', '.output']
+  for (const rel of stalePaths) {
+    const target = join(root, rel)
     if (existsSync(target)) {
       rmSync(target, { recursive: true, force: true })
-      console.log(`[dev:paciente] removido ${dir}`)
+      console.log(`[dev:paciente] removido ${rel}`)
     }
   }
 }
