@@ -1,7 +1,6 @@
 <template>
-  <NuxtLayout :name="layoutName">
-    <!-- App paciente -->
-    <div v-if="config.public.mobileApp" class="patient-page comm-page">
+  <!-- App paciente — layout via middleware (sem NuxtLayout aninhado) -->
+  <div v-if="config.public.mobileApp" class="patient-page comm-page">
       <PatientHeader title="Comunidade" :has-notifications="true">
         <template #actions>
           <button type="button" class="comm-header-btn" aria-label="Buscar">
@@ -173,10 +172,11 @@
         <Users class="comm-empty-icon" />
         <p>{{ activeTab === 'groups' ? 'Grupos em breve.' : 'Amigas em breve.' }}</p>
       </div>
-    </div>
+  </div>
 
-    <!-- Portal web -->
-    <div v-else class="community-container">
+  <!-- Portal web -->
+  <NuxtLayout v-else name="dashboard">
+    <div class="community-container">
       <div class="community-page">
         <!-- Header -->
         <div class="page-header" :class="{ 'patient-app-header': config.public.mobileApp }">
@@ -384,8 +384,9 @@
         </div>
       </div>
     </div>
+  </NuxtLayout>
 
-    <Teleport to="body">
+  <Teleport to="body">
       <div
         v-if="lightboxImageUrl"
         class="comm-image-lightbox"
@@ -400,22 +401,16 @@
         <img :src="lightboxImageUrl" alt="Imagem ampliada" class="comm-image-lightbox-img" />
       </div>
     </Teleport>
-  </NuxtLayout>
 </template>
 
 <script setup>
-const config = useRuntimeConfig()
-const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
-const apiBase = config.public.apiBase
-const whatsappApiBase = config.public.whatsappApiBase
-
-import { 
-  User, 
-  Send, 
-  MessageCircle, 
-  Users, 
-  Heart, 
-  Image as ImageIcon, 
+import {
+  User,
+  Send,
+  MessageCircle,
+  Users,
+  Heart,
+  Image as ImageIcon,
   Hash,
   X,
   Search,
@@ -426,6 +421,9 @@ import {
   UtensilsCrossed,
   Sparkles,
 } from 'lucide-vue-next'
+
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
 
 const posts = ref([])
 const newPostContent = ref('')

@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { fixWindowsVitePaths } from './utils/fix-windows-vite-paths'
-import { PROD_API_BASE, PROD_WHATSAPP_API_BASE } from './utils/api-env.mjs'
+import { PROD_API_BASE } from './utils/api-env.mjs'
 
 const isMobileApp = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
 const isGenerate =
@@ -13,7 +13,7 @@ const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
 const defaultApiBase = process.env.NUXT_PUBLIC_API_BASE
   || (isMobileApp ? (isDev ? '/api' : PROD_API_BASE) : 'http://localhost:3001/api')
 const defaultWhatsappApiBase = process.env.NUXT_PUBLIC_WHATSAPP_API_BASE
-  || (isMobileApp ? (isDev ? '/api/whatsapp' : PROD_WHATSAPP_API_BASE) : 'http://localhost:3001/api/whatsapp')
+  || (isDev ? '/api/whatsapp' : 'http://localhost:3001/api/whatsapp')
 
 export default defineNuxtConfig({
   // Web (:3000) e app paciente (:3002) podem rodar ao mesmo tempo sem conflitar cache
@@ -74,7 +74,9 @@ export default defineNuxtConfig({
     public: {
       mobileApp: isMobileApp,
       apiBase: process.env.NUXT_PUBLIC_API_BASE || defaultApiBase,
-      whatsappApiBase: process.env.NUXT_PUBLIC_WHATSAPP_API_BASE || defaultWhatsappApiBase,
+      ...(isMobileApp
+        ? {}
+        : { whatsappApiBase: process.env.NUXT_PUBLIC_WHATSAPP_API_BASE || defaultWhatsappApiBase }),
     },
   },
   sourcemap: {
@@ -177,6 +179,9 @@ export default defineNuxtConfig({
             origin: `http://${devHost === '0.0.0.0' ? '127.0.0.1' : devHost}:${devPort}`,
             strictPort: true,
             hmr: devHost === '0.0.0.0' ? { host: '127.0.0.1', port: devPort } : undefined,
+            watch: {
+              ignored: ['**/.output/**', '**/.nuxt-mobile/dist/**'],
+            },
             proxy: {
               '/api': {
                 target: devApiOrigin,
@@ -187,13 +192,16 @@ export default defineNuxtConfig({
         },
       }
     : {}),
-  nitro: isMobileApp
-    ? {
-        preset: isGenerate ? 'static' : undefined,
-        prerender: {
-          crawlLinks: false,
-          routes: isGenerate ? undefined : ['/'],
-        },
-      }
-    : undefined,
+  nitro: isMobileApp && isGenerate
+    ? { preset: 'static' }
+    : isMobileApp
+      ? {
+          devProxy: {
+            '/api': {
+              target: `${devApiOrigin}/api`,
+              changeOrigin: true,
+            },
+          },
+        }
+      : undefined,
 })

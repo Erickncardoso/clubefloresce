@@ -297,11 +297,13 @@ const handleLogin = async () => {
       ? (localStorage.getItem('patient_onboarding_done') ? '/inicio' : '/onboarding')
       : '/cursos')
   } catch (err) {
-    console.error("Erro completo:", err);
-    if (err.data && err.data.message) {
-      error.value = err.data.message; // Erro vindo do backend (ex: senha incorreta)
+    console.error('Erro completo:', err)
+    if (err.data?.message) {
+      error.value = err.data.message
+    } else if (err.statusCode === 500) {
+      error.value = 'Servidor indisponível. Rode o backend com npm run dev:backend e feche outros apps na porta 3001.'
     } else {
-      error.value = 'Erro de conexão com o servidor. Verifique a URL da API configurada no frontend.';
+      error.value = 'Não foi possível conectar à API. Confira se o backend está rodando em http://localhost:3001.'
     }
   } finally {
     loading.value = false

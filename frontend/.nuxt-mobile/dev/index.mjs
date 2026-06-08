@@ -640,8 +640,7 @@ const _inlineRuntimeConfig = {
   },
   "public": {
     "mobileApp": true,
-    "apiBase": "/api",
-    "whatsappApiBase": "/api/whatsapp"
+    "apiBase": "/api"
   }
 };
 const envOptions = {

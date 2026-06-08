@@ -19,8 +19,6 @@ import { NuxtModule, ModuleDependencyMeta } from '@nuxt/schema'
    mobileApp: boolean,
 
    apiBase: string,
-
-   whatsappApiBase: string,
   }
 declare module '@nuxt/schema' {
   interface ModuleDependencies {
