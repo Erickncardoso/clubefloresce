@@ -4,7 +4,7 @@
 #   Tipo:            Docker Compose
 #   Base Directory:  /          (raiz do repositório)
 #   Compose file:    docker-compose.cliente.yml
-#   Porta:           80
+#   Porta:           3000
 
 name: clube-florescer-cliente
 
@@ -14,5 +14,5 @@ services:
       context: .
       dockerfile: cliente/Dockerfile
     restart: unless-stopped
-    ports:
-      - "80:80"
+    expose:
+      - "3000"

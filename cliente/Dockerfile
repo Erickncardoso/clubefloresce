@@ -3,7 +3,7 @@
 # Coolify:
 #   Base Directory:  /          (raiz do repositório)
 #   Dockerfile:      cliente/Dockerfile
-#   Porta:           80
+#   Porta:           3000
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -28,6 +28,6 @@ FROM nginx:1.27-alpine AS runner
 COPY --from=builder /app/cliente/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/frontend/.output/public /usr/share/nginx/html
 
-EXPOSE 80
+EXPOSE 3000
 
 CMD ["nginx", "-g", "daemon off;"]
