@@ -30,4 +30,24 @@ export class CheckInController {
       return res.status(500).json({ message: error.message });
     }
   }
+
+  async getPatientCheckIns(req: Request, res: Response): Promise<any> {
+    try {
+      const data = await checkInService.getPatientCheckIns(req.params.userId);
+      return res.json(data);
+    } catch (error: any) {
+      const status = error.message?.includes("não encontrado") ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async upsertPatientCheckIn(req: Request, res: Response): Promise<any> {
+    try {
+      const checkIn = await checkInService.upsertForPatient(req.params.userId, req.body);
+      return res.json(checkIn);
+    } catch (error: any) {
+      const status = error.message?.includes("não encontrado") ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
 }

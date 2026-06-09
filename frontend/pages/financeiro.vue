@@ -1,20 +1,19 @@
 ﻿<template>
   <NuxtLayout name="dashboard">
     <div class="finance-container">
-      <div class="finance-page">
-        <!-- Header -->
-        <div class="page-header">
+      <div class="admin-shell">
+        <header class="admin-shell-header">
           <div>
             <h1>Centro Financeiro</h1>
             <p>Monitore seu faturamento, membros ativos e desempenho do portal.</p>
           </div>
-          <button class="btn-export">
+          <button type="button" class="admin-btn-secondary">
             <Download class="btn-icon" />
-            Exportar RelatÃ³rio
+            Exportar Relatório
           </button>
-        </div>
+        </header>
 
-        <!-- KPIs: MÃ©tricas de Impacto -->
+        <!-- KPIs: Métricas de Impacto -->
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-icon-box blue">
@@ -23,7 +22,7 @@
             <div class="stat-data">
               <span class="stat-label">Faturamento Total</span>
               <h2 class="stat-value">{{ formatCurrency(summary.totalRevenue) }}</h2>
-              <span class="stat-change positive">+{{ summary.growth }}% este mÃªs</span>
+              <span class="stat-change positive">+{{ summary.growth }}% este mês</span>
             </div>
           </div>
 
@@ -43,19 +42,19 @@
               <CreditCard />
             </div>
             <div class="stat-data">
-              <span class="stat-label">Ticket MÃ©dio</span>
+              <span class="stat-label">Ticket Médio</span>
               <h2 class="stat-value">R$ 189,90</h2>
-              <span class="stat-change">EstÃ¡vel</span>
+              <span class="stat-change">Estável</span>
             </div>
           </div>
         </div>
 
         <!-- Chart & Transactions -->
         <div class="finance-content">
-          <!-- GrÃ¡fico Simulado (Elite Style) -->
+          <!-- Gráfico Simulado (Elite Style) -->
           <div class="chart-section">
             <div class="section-header">
-              <h3>EvoluÃ§Ã£o de Receita</h3>
+              <h3>Evolução de Receita</h3>
               <div class="period-selector">
                 <button class="period-btn active">7D</button>
                 <button class="period-btn">30D</button>
@@ -63,7 +62,7 @@
               </div>
             </div>
             <div class="chart-container">
-              <!-- Placeholder para grÃ¡fico botÃ¢nico -->
+              <!-- Placeholder para gráfico botânico -->
               <div class="mock-chart">
                 <div class="chart-line" v-for="(h, i) in [40, 65, 50, 85, 70, 95, 80]" :key="i" :style="{ height: h + '%' }">
                   <div class="chart-tooltip">R$ {{ (h * 50).toFixed(0) }}</div>
@@ -75,7 +74,7 @@
             </div>
           </div>
 
-          <!-- TransaÃ§Ãµes Recentes -->
+          <!-- Transações Recentes -->
           <div class="transactions-section">
             <div class="section-header">
               <h3>Vendas Recentes</h3>
@@ -98,7 +97,7 @@
               
               <!-- Mock if empty -->
               <div v-if="!summary.recentTransactions?.length" class="empty-tx">
-                <p>Nenhuma transaÃ§Ã£o recente encontrada.</p>
+                <p>Nenhuma transação recente encontrada.</p>
               </div>
             </div>
           </div>

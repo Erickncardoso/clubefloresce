@@ -3,7 +3,7 @@
     <div class="whatsapp-container animate-fade-in">
       <header class="page-header">
         <div>
-          <h1 class="text-gradient">ConexÃ£o WhatsApp</h1>
+          <h1 class="text-gradient">Conexão WhatsApp</h1>
           <p class="subtitle">Conecte seu WhatsApp para automatizar suas mensagens e gerenciar alunos.</p>
         </div>
       </header>
@@ -14,8 +14,8 @@
           <!-- State: Loading -->
           <div v-if="loading" class="state-content">
             <Loader class="spin icon-xl text-primary" />
-            <h3>Analisando ConexÃ£o...</h3>
-            <p>Estabelecendo comunicaÃ§Ã£o segura com a API do WhatsApp.</p>
+            <h3>Analisando Conexão...</h3>
+            <p>Estabelecendo comunicação segura com a API do WhatsApp.</p>
           </div>
           
           <!-- State: Connected -->
@@ -29,7 +29,7 @@
             </div>
             
             <h3>{{ instanceData?.profileName || 'WhatsApp Conectado!' }}</h3>
-            <p class="phone-number">{{ instanceData?.name || 'SessÃ£o Ativa' }}</p>
+            <p class="phone-number">{{ instanceData?.name || 'Sessão Ativa' }}</p>
             
             <div class="connection-stats">
                <div class="stat-item">
@@ -38,7 +38,7 @@
                </div>
                <div class="stat-item">
                  <span class="stat-label">Conta Business</span>
-                 <span class="stat-value">{{ instanceData?.isBusiness ? 'Sim' : 'NÃ£o' }}</span>
+                 <span class="stat-value">{{ instanceData?.isBusiness ? 'Sim' : 'Não' }}</span>
                </div>
             </div>
 
@@ -46,7 +46,7 @@
               <button class="btn btn-outline-danger" @click="disconnectWhatsApp" :disabled="actionLoading">
                 <Loader v-if="actionLoading" class="spin icon-small" />
                 <LogOut v-else class="icon-small" />
-                Desconectar SessÃ£o
+                Desconectar Sessão
               </button>
             </div>
           </div>
@@ -56,8 +56,8 @@
             <div class="icon-circle warning">
               <Scan class="icon-xl" />
             </div>
-            <h3>SincronizaÃ§Ã£o Segura</h3>
-            <p>1. Abra o WhatsApp no celular<br/>2. VÃ¡ em <strong>Aparelhos Conectados</strong><br/>3. Escaneie o cÃ³digo abaixo:</p>
+            <h3>Sincronização Segura</h3>
+            <p>1. Abra o WhatsApp no celular<br/>2. Vá em <strong>Aparelhos Conectados</strong><br/>3. Escaneie o código abaixo:</p>
             
             <div class="qr-wrapper">
               <div class="qr-corners top-left"></div>
@@ -89,15 +89,15 @@
               <Smartphone class="icon-xl" />
             </div>
             <h3>Aparelho Desconectado</h3>
-            <p>Seu assistente virtual estÃ¡ inativo. Vincule um aparelho para iniciar as automaÃ§Ãµes.</p>
+            <p>Seu assistente virtual está inativo. Vincule um aparelho para iniciar as automações.</p>
             
             <div v-if="lastDisconnectReasonLabel" class="disconnect-reason">
-              Ãšltima queda: {{ lastDisconnectReasonLabel }}
+              �altima queda: {{ lastDisconnectReasonLabel }}
             </div>
 
-            <!-- Campo para Nome da InstÃ¢ncia -->
+            <!-- Campo para Nome da Instância -->
             <div class="mt-4 text-start">
-              <label class="form-label">Nome da InstÃ¢ncia (Opcional)</label>
+              <label class="form-label">Nome da Instância (Opcional)</label>
               <input v-model="customInstanceName" type="text" class="form-control" placeholder="Ex: minha_instancia">
             </div>
 
@@ -115,13 +115,13 @@
               <button class="btn btn-outline-primary" @click="createInstance" :disabled="actionLoading">
                 <Loader v-if="actionLoading" class="spin icon-small" />
                 <Plus v-else class="icon-small" />
-                Criar InstÃ¢ncia
+                Criar Instância
               </button>
             </div>
 
-            <!-- Lista de InstÃ¢ncias Existentes (Para Limpeza) -->
+            <!-- Lista de Instâncias Existentes (Para Limpeza) -->
             <div v-if="allInstances.length > 0" class="mt-5 text-start">
-              <h6 class="mb-3 text-muted">Gerenciar InstÃ¢ncias (UazAPI)</h6>
+              <h6 class="mb-3 text-muted">Gerenciar Instâncias (UazAPI)</h6>
               <div class="list-group">
                 <div v-for="inst in allInstances" :key="inst.name || inst.instanceName" class="list-group-item d-flex justify-content-between align-items-center">
                   <div>
@@ -139,16 +139,16 @@
           </div>
         </div>
 
-        <!-- Painel Lateral: ConfiguraÃ§Ãµes da InstÃ¢ncia -->
+        <!-- Painel Lateral: Configurações da Instância -->
         <div class="card glass-card config-panel" v-if="status === 'connected'">
-           <h3 class="panel-title"><Settings class="icon-medium"/> AutomaÃ§Ã£o (Chatbot)</h3>
-           <p class="panel-desc">Gerencie as regras do assistente automÃ¡tico para esta linha.</p>
+           <h3 class="panel-title"><Settings class="icon-medium"/> Automação (Chatbot)</h3>
+           <p class="panel-desc">Gerencie as regras do assistente automático para esta linha.</p>
            
            <div class="form-group mt-4">
               <label class="toggle-switch">
                 <input type="checkbox" v-model="formSettings.chatbot_enabled" @change="saveSettings">
                 <span class="slider round"></span>
-                <span class="toggle-label">Habilitar IA e Fluxos AutomÃ¡ticos</span>
+                <span class="toggle-label">Habilitar IA e Fluxos Automáticos</span>
               </label>
            </div>
            
@@ -163,13 +163,13 @@
            <div class="form-group config-input">
               <label>Palavra-chave para Pausa</label>
               <input type="text" v-model="formSettings.chatbot_stopConversation" class="form-control" @blur="saveSettings" placeholder="Ex: parar, cancelar, atendente">
-              <small>Ao digitar isso, o robÃ´ silencia por X minutos.</small>
+              <small>Ao digitar isso, o robô silencia por X minutos.</small>
            </div>
 
            <div class="form-group config-input">
-              <label>Tempo de Pausa AutomÃ¡tica (Minutos)</label>
+              <label>Tempo de Pausa Automática (Minutos)</label>
               <input type="number" v-model="formSettings.chatbot_stopMinutes" class="form-control" @blur="saveSettings">
-              <small>Silencia o robÃ´ automaticamente se vocÃª (humano) responder a pessoa.</small>
+              <small>Silencia o robô automaticamente se você (humano) responder a pessoa.</small>
            </div>
         </div>
       </div>
@@ -199,14 +199,14 @@ const status = ref('disconnected')
 const qrcode = ref('')
 const manualDisconnectRequested = ref(false)
 const qrStickyUntil = ref(0)
-// Timestamp atÃ© o qual devemos manter polling ativo independente do status.
-// Setado por generateQrCode para garantir que detecÃ§Ã£o de conexÃ£o apÃ³s scan continue.
+// Timestamp até o qual devemos manter polling ativo independente do status.
+// Setado por generateQrCode para garantir que detecção de conexão após scan continue.
 const awaitingQrScanUntil = ref(0)
 const instanceData = ref(null)
 const pollInterval = ref(null)
-const allInstances = ref([]) // Lista de todas as instÃ¢ncias
+const allInstances = ref([]) // Lista de todas as instâncias
 const customInstanceName = ref('') // Nome customizado
-const phone = ref('') // NÃºmero para pareamento
+const phone = ref('') // Número para pareamento
 
 const formSettings = reactive({
   chatbot_enabled: true,
@@ -216,7 +216,7 @@ const formSettings = reactive({
 })
 
 const deleteInstance = async (name) => {
-  if (!confirm(`Deseja mesmo DELETAR a instÃ¢ncia "${name}"? Isso liberarÃ¡ espaÃ§o na sua conta.`)) return
+  if (!confirm(`Deseja mesmo DELETAR a instância "${name}"? Isso liberará espaço na sua conta.`)) return
   try {
     actionLoading.value = true
     const res = await fetch(`${API_BASE}/instance/${encodeURIComponent(name)}`, {
@@ -225,13 +225,13 @@ const deleteInstance = async (name) => {
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok && data.success) {
-       alert(`âœ… InstÃ¢ncia "${name}" deletada com sucesso!`)
+       alert(`�S& Instância "${name}" deletada com sucesso!`)
        fetchStatus()
     } else {
        alert(`âŒ Falha ao deletar: ${data.message || 'Erro desconhecido'}`)
     }
   } catch(e) {
-    alert(`âŒ Erro de conexÃ£o: ${e?.message || e}`)
+    alert(`�R Erro de conexão: ${e?.message || e}`)
   } finally {
     actionLoading.value = false
   }
@@ -245,7 +245,7 @@ const statusClass = computed(() => {
   }
 })
 
-/** Foto do perfil: UAZAPI pode enviar em vÃ¡rios campos ou sÃ³ apÃ³s o backend enriquecer o /status. */
+/** Foto do perfil: UAZAPI pode enviar em vários campos ou só após o backend enriquecer o /status. */
 const instanceProfilePicUrl = computed(() => {
   const i = instanceData.value
   if (!i) return ''
@@ -274,12 +274,12 @@ const lastDisconnectReasonLabel = computed(() => {
 
   const normalized = reason.toLowerCase().trim()
 
-  // RuÃ­do comum durante regeneraÃ§Ã£o de QR na UAZAPI; nÃ£o deve ser exibido como erro real.
+  // Ruído comum durante regeneração de QR na UAZAPI; não deve ser exibido como erro real.
   if (normalized.includes('connection attempt canceled by api')) return ''
 
-  if (normalized.includes('logged out')) return 'SessÃ£o encerrada no celular'
-  if (normalized.includes('timed out')) return 'Tempo de conexÃ£o expirado'
-  if (normalized.includes('connection closed')) return 'ConexÃ£o encerrada'
+  if (normalized.includes('logged out')) return 'Sessão encerrada no celular'
+  if (normalized.includes('timed out')) return 'Tempo de conexão expirado'
+  if (normalized.includes('connection closed')) return 'Conexão encerrada'
 
   return reason
 })
@@ -287,7 +287,7 @@ const lastDisconnectReasonLabel = computed(() => {
 const updateQrCodeIfAvailable = (nextQr) => {
   if (nextQr && typeof nextQr === 'string' && nextQr.trim().length > 0) {
     qrcode.value = nextQr
-    // MantÃ©m o QR estÃ¡vel por alguns segundos para evitar flicker entre polls.
+    // Mantém o QR estável por alguns segundos para evitar flicker entre polls.
     qrStickyUntil.value = Date.now() + 20000
   }
 }
@@ -306,7 +306,7 @@ const fetchStatus = async () => {
       throw new Error(data.message || `Falha ao consultar status (${res.status})`)
     }
     
-    // Atualiza lista de instÃ¢ncias
+    // Atualiza lista de instâncias
     if (Array.isArray(data.allInstances)) {
       allInstances.value = data.allInstances
     }
@@ -314,7 +314,7 @@ const fetchStatus = async () => {
     const inst = data.instance || null
     instanceData.value = inst
 
-    // Determina o status de conexÃ£o
+    // Determina o status de conexão
     // A UazAPI retorna status como objeto ou string
     const rawStatus = (
       inst?.status ||
@@ -335,7 +335,7 @@ const fetchStatus = async () => {
 
     const nextQr = inst?.qrcode || inst?.qr || data.status?.qrcode || ''
     if (isQrAlreadyRead) {
-      // QR jÃ¡ foi escaneado: nÃ£o manter QR antigo visÃ­vel.
+      // QR já foi escaneado: não manter QR antigo visível.
       qrcode.value = ''
     } else {
       updateQrCodeIfAvailable(nextQr)
@@ -355,14 +355,14 @@ const fetchStatus = async () => {
     } else if (normalizedStatus === 'connecting' || isQrAlreadyRead) {
       status.value = 'connecting'
     } else if (shouldKeepStickyQr || Date.now() < awaitingQrScanUntil.value) {
-      // MantÃ©m "connecting" enquanto: hÃ¡ QR visÃ­vel OU aguardamos scan recente.
+      // Mantém "connecting" enquanto: há QR visível OU aguardamos scan recente.
       status.value = 'connecting'
     } else {
       status.value = 'disconnected'
       if (!shouldKeepStickyQr) qrcode.value = ''
     }
 
-    // ConfiguraÃ§Ãµes do chatbot
+    // Configurações do chatbot
     if (inst) {
       formSettings.chatbot_enabled = inst.chatbot_enabled ?? true
       formSettings.chatbot_ignoreGroups = inst.chatbot_ignoreGroups ?? true
@@ -382,7 +382,7 @@ const fetchStatus = async () => {
 
 const saveSettings = async () => {
   try {
-    // Usamos a rota proxy pra atualizar as configuraÃ§Ãµes da instÃ¢ncia na UazAPI
+    // Usamos a rota proxy pra atualizar as configurações da instância na UazAPI
     await fetch(`${PROXY_BASE}/instance/settings`, {
        method: 'POST',
        headers: { 
@@ -430,22 +430,22 @@ const connectWhatsApp = async () => {
 const generateQrCode = async () => {
   try {
     if (status.value === 'connected') {
-      alert("VocÃª jÃ¡ estÃ¡ conectado. Para gerar novo QR, desconecte a sessÃ£o primeiro.")
+      alert("Você já está conectado. Para gerar novo QR, desconecte a sessão primeiro.")
       return
     }
 
     actionLoading.value = true
     manualDisconnectRequested.value = false
 
-    // ForÃ§a desconexÃ£o prÃ©via para garantir que a sessÃ£o em cache seja limpa
-    // antes de gerar o QR, evitando reconexÃ£o automÃ¡tica indesejada.
+    // Força desconexão prévia para garantir que a sessão em cache seja limpa
+    // antes de gerar o QR, evitando reconexão automática indesejada.
     await fetch(`${API_BASE}/disconnect`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
     }).catch(() => {})
     resetWhatsappAfterDisconnect()
 
-    // Pequena pausa para a UAZAPI processar a desconexÃ£o
+    // Pequena pausa para a UAZAPI processar a desconexão
     await new Promise(resolve => setTimeout(resolve, 800))
 
     const res = await fetch(`${API_BASE}/connect/regenerate-qr`, {
@@ -463,11 +463,11 @@ const generateQrCode = async () => {
     const qr = data?.qrcode || data?.base64 || data?.instance?.qrcode || data?.instance?.qr || data?.status?.qrcode || ''
     updateQrCodeIfAvailable(qr)
     status.value = 'connecting'
-    // Garante polling ativo por 3 minutos apÃ³s QR gerado, mesmo sem QR no response
-    // ou se poll intermediÃ¡rio retornar "disconnected" antes do scan ser detectado.
+    // Garante polling ativo por 3 minutos após QR gerado, mesmo sem QR no response
+    // ou se poll intermediário retornar "disconnected" antes do scan ser detectado.
     awaitingQrScanUntil.value = Date.now() + 180_000
     if (!qr) {
-      alert("SolicitaÃ§Ã£o enviada. Aguarde alguns segundos e clique em Atualizar QR Code.")
+      alert("Solicitação enviada. Aguarde alguns segundos e clique em Atualizar QR Code.")
     } else {
       alert("QR Code gerado. Escaneie no WhatsApp para reconectar.")
     }
@@ -492,7 +492,7 @@ const createInstance = async () => {
     })
     const data = await res.json()
     if(!res.ok) throw new Error(data.message || "Erro ao criar")
-    alert("InstÃ¢ncia criada com sucesso!")
+    alert("Instância criada com sucesso!")
     fetchStatus()
   } catch(e) {
     alert(e.message)
@@ -511,12 +511,12 @@ const disconnectWhatsApp = async () => {
       headers: { Authorization: `Bearer ${token}` }
     })
     resetWhatsappAfterDisconnect()
-    // ForÃ§a status desconectado localmente imediatamente
+    // Força status desconectado localmente imediatamente
     status.value = 'disconnected'
     qrcode.value = ''
     qrStickyUntil.value = 0
     awaitingQrScanUntil.value = 0
-    // Aguarda e busca status real da API para confirmar desconexÃ£o
+    // Aguarda e busca status real da API para confirmar desconexão
     await new Promise(resolve => setTimeout(resolve, 1000))
     await fetchStatus()
   } catch(e) {
@@ -532,7 +532,7 @@ const handlePolling = () => {
   const isAwaitingQrScan = Date.now() < awaitingQrScanUntil.value
   if (status.value === 'connecting' || isAwaitingQrScan) {
     if (!pollInterval.value) {
-      // Intervalo mais curto enquanto aguardamos conexÃ£o apÃ³s QR scan
+      // Intervalo mais curto enquanto aguardamos conexão após QR scan
       pollInterval.value = setInterval(fetchStatus, 3000)
     }
   } else {
@@ -836,7 +836,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   color: #334155;
 }
 
-/* BotÃµes */
+/* Botões */
 .btn {
   display: inline-flex;
   align-items: center;

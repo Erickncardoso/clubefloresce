@@ -14,6 +14,7 @@ type HydrationStrategies = {
 type LazyComponent<T> = DefineComponent<HydrationStrategies, {}, {}, {}, {}, {}, {}, { hydrated: () => void }> & T
 
 interface _GlobalComponents {
+  CfConfirmModal: typeof import("../../components/CfConfirmModal.vue")['default']
   GoalMiniPie: typeof import("../../components/GoalMiniPie.vue")['default']
   PatientAvatar: typeof import("../../components/PatientAvatar.vue")['default']
   PatientHeader: typeof import("../../components/PatientHeader.vue")['default']
@@ -29,6 +30,7 @@ interface _GlobalComponents {
   CheckinTypeformFlow: typeof import("../../components/checkin/CheckinTypeformFlow.vue")['default']
   CheckinFoodMoodPicker: typeof import("../../components/checkin/FoodMoodPicker.vue")['default']
   CheckinNotoEmojiLottie: typeof import("../../components/checkin/NotoEmojiLottie.client.vue")['default']
+  CommunityFeed: typeof import("../../components/community/CommunityFeed.vue")['default']
   DietaMealPlanUploadCard: typeof import("../../components/dieta/MealPlanUploadCard.vue")['default']
   DietaMealSubstitutionsModal: typeof import("../../components/dieta/MealSubstitutionsModal.vue")['default']
   HomeCurrentMealCard: typeof import("../../components/home/CurrentMealCard.vue")['default']
@@ -91,6 +93,7 @@ interface _GlobalComponents {
   Html: typeof import("../../node_modules/nuxt/dist/head/runtime/components")['Html']
   Body: typeof import("../../node_modules/nuxt/dist/head/runtime/components")['Body']
   NuxtIsland: typeof import("../../node_modules/nuxt/dist/app/components/nuxt-island")['default']
+  LazyCfConfirmModal: LazyComponent<typeof import("../../components/CfConfirmModal.vue")['default']>
   LazyGoalMiniPie: LazyComponent<typeof import("../../components/GoalMiniPie.vue")['default']>
   LazyPatientAvatar: LazyComponent<typeof import("../../components/PatientAvatar.vue")['default']>
   LazyPatientHeader: LazyComponent<typeof import("../../components/PatientHeader.vue")['default']>
@@ -106,6 +109,7 @@ interface _GlobalComponents {
   LazyCheckinTypeformFlow: LazyComponent<typeof import("../../components/checkin/CheckinTypeformFlow.vue")['default']>
   LazyCheckinFoodMoodPicker: LazyComponent<typeof import("../../components/checkin/FoodMoodPicker.vue")['default']>
   LazyCheckinNotoEmojiLottie: LazyComponent<typeof import("../../components/checkin/NotoEmojiLottie.client.vue")['default']>
+  LazyCommunityFeed: LazyComponent<typeof import("../../components/community/CommunityFeed.vue")['default']>
   LazyDietaMealPlanUploadCard: LazyComponent<typeof import("../../components/dieta/MealPlanUploadCard.vue")['default']>
   LazyDietaMealSubstitutionsModal: LazyComponent<typeof import("../../components/dieta/MealSubstitutionsModal.vue")['default']>
   LazyHomeCurrentMealCard: LazyComponent<typeof import("../../components/home/CurrentMealCard.vue")['default']>

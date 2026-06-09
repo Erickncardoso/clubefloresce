@@ -19,7 +19,7 @@
       >
     </div>
 
-    <div class="bib-chips" role="tablist" aria-label="Filtrar conteúdos">
+    <div class="bib-chips" ref="chipsRef" data-h-scroll role="tablist" aria-label="Filtrar conteúdos">
       <button
         v-for="chip in chips"
         :key="chip.id"
@@ -144,6 +144,9 @@ const loading = ref(true)
 const loadError = ref('')
 const courses = ref([])
 const ebooks = ref([])
+const chipsRef = ref(null)
+
+useVerticalWheelPassthrough(chipsRef)
 
 const chips = [
   { id: 'all', label: 'Tudo' },
@@ -296,6 +299,7 @@ onMounted(loadLibrary)
 .biblioteca-page {
   padding-top: 0;
   padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+  overflow-y: visible;
 }
 
 .bib-hero {
@@ -352,6 +356,8 @@ onMounted(loadLibrary)
   display: flex;
   gap: 0.45rem;
   overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-y: auto;
   margin-bottom: 1rem;
   padding-bottom: 0.15rem;
   scrollbar-width: none;

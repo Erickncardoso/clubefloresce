@@ -1,7 +1,17 @@
 import { CheckInRepository } from "../repositories/checkin.repository";
+import { assertPatientUser, resolveWeekStart } from "../utils/patient-access";
 import { getWeekStart } from "../utils/week-start";
 
 const checkInRepository = new CheckInRepository();
+
+export type CheckInPayload = {
+  mood: number;
+  energy: number;
+  adherence?: number | null;
+  weightKg?: number | string | null;
+  notes?: string;
+  weekStart?: string | null;
+};
 
 function clampScore(value: unknown, min = 1, max = 5): number {
   const n = Number(value);
@@ -17,11 +27,7 @@ export class CheckInService {
     return { weekStart, current, history };
   }
 
-  async submitCheckIn(
-    userId: string,
-    data: { mood: number; energy: number; adherence?: number; weightKg?: number | string | null; notes?: string }
-  ) {
-    const weekStart = getWeekStart();
+  private normalizePayload(data: CheckInPayload, weekStart: Date) {
     const mood = clampScore(data.mood);
     const energy = clampScore(data.energy);
     const adherence =
@@ -44,15 +50,28 @@ export class CheckInService {
       throw new Error("Observações muito longas (máx. 2000 caracteres).");
     }
 
-    return checkInRepository.upsert({
-      userId,
-      weekStart,
-      mood,
-      energy,
-      adherence,
-      weightKg,
-      notes,
-    });
+    return { weekStart, mood, energy, adherence, weightKg, notes };
+  }
+
+  async submitCheckIn(userId: string, data: CheckInPayload) {
+    const weekStart = getWeekStart();
+    const payload = this.normalizePayload(data, weekStart);
+    return checkInRepository.upsert({ userId, ...payload });
+  }
+
+  async getPatientCheckIns(userId: string) {
+    await assertPatientUser(userId);
+    const weekStart = getWeekStart();
+    const current = await checkInRepository.findByUserAndWeek(userId, weekStart);
+    const history = await checkInRepository.findHistoryByUser(userId, 52);
+    return { weekStart, current, history };
+  }
+
+  async upsertForPatient(userId: string, data: CheckInPayload) {
+    await assertPatientUser(userId);
+    const weekStart = resolveWeekStart(data.weekStart);
+    const payload = this.normalizePayload(data, weekStart);
+    return checkInRepository.upsert({ userId, ...payload });
   }
 
   async listForNutricionista() {

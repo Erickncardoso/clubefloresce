@@ -1294,7 +1294,7 @@ onMounted(() => {
 
 .comment-text-premium { font-size: 0.92rem; color: #4b5563; line-height: 1.6; margin: 0; }
 
-/* Sidebar Playlist (CORREÇÃO DE LAYOUT) */
+/* Sidebar Playlist (CORRE��O DE LAYOUT) */
 .playlist-sidebar-premium { 
   width: 380px; 
   min-width: 380px;

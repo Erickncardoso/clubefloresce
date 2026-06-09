@@ -15,6 +15,7 @@ import checkinRoutes from "./routes/checkin.routes";
 import bellaRoutes from "./routes/bella.routes";
 import foodDiaryRoutes from "./routes/food-diary.routes";
 import mealPlanRoutes from "./routes/meal-plan.routes";
+import patientRoutes from "./routes/patient.routes";
 import { readEnv, maskSecret } from "./utils/env";
 import { getAllowedCorsOrigins, isOriginAllowed } from "./utils/cors-origins";
 
@@ -80,6 +81,7 @@ app.use("/api/checkin", checkinRoutes);
 app.use("/api/bella", bellaRoutes);
 app.use("/api/food-diary", foodDiaryRoutes);
 app.use("/api/meal-plan", mealPlanRoutes);
+app.use("/api/patients", patientRoutes);
 
 // Basic Route for testing
 app.get("/", (req, res) => {

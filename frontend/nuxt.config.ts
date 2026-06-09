@@ -47,6 +47,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: isMobileApp ? 'Clube Florescer' : 'Florescer',
+      charset: 'utf-8',
       link: isMobileApp
         ? [
             { rel: 'icon', type: 'image/svg+xml', href: '/logoflorescer.svg' },
@@ -92,7 +93,9 @@ export default defineNuxtConfig({
     '~/assets/css/whatsapp-footer.css',
     '~/assets/css/whatsapp-modals.css',
     '~/assets/css/whatsapp-bubbles.css',
-    ...(isMobileApp ? ['~/assets/css/mobile-app.css', '~/assets/css/patient-app.css'] : []),
+    '~/assets/css/patient-app.css',
+    ...(isMobileApp ? [] : ['~/assets/css/admin-pages.css']),
+    ...(isMobileApp ? ['~/assets/css/mobile-app.css'] : []),
   ],
   runtimeConfig: {
     public: {

@@ -25,6 +25,26 @@ enum UserPlan {
   PLATINUM
 }
 
+enum RegistrationRequestStatus {
+  PENDENTE
+  APROVADO
+  RECUSADO
+}
+
+model PatientRegistrationRequest {
+  id        String                    @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  message   String?
+  status    RegistrationRequestStatus @default(PENDENTE)
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+
+  @@index([email])
+  @@index([status, createdAt])
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique

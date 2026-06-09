@@ -3,7 +3,7 @@
     <div class="quick-replies-container animate-fade-in">
       <header class="page-header flex-between">
         <div>
-          <h1 class="text-gradient">Respostas RÃ¡pidas</h1>
+          <h1 class="text-gradient">Respostas Rápidas</h1>
           <p class="subtitle">Automatize e padronize seu atendimento criando templates de respostas.</p>
         </div>
         <button class="btn btn-primary btn-glow" @click="openModal()">
@@ -29,7 +29,7 @@
 
          <div v-else-if="filteredReplies.length === 0" class="empty-state">
             <MessageSquarePlus class="icon-xl text-muted mb-2" />
-            <p>Nenhuma resposta rÃ¡pida encontrada.</p>
+            <p>Nenhuma resposta rápida encontrada.</p>
          </div>
 
          <div v-else class="replies-grid">
@@ -62,7 +62,7 @@
                         <Mic v-else-if="['audio', 'ptt', 'myaudio'].includes(reply.type)" class="icon-medium" />
                      </div>
                      <div class="media-info">
-                        <strong>MÃ­dia Anexada ({{ reply.type }})</strong>
+                        <strong>Mídia Anexada ({{ reply.type }})</strong>
                         <p class="text-muted text-sm line-clamp-1">{{ reply.text || 'Sem legenda' }}</p>
                      </div>
                   </div>
@@ -75,7 +75,7 @@
       <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
          <div class="modal-content glass-card animate-slide-up">
             <div class="modal-header flex-between mb-4">
-               <h2>{{ editingReply?.id ? 'Editar Resposta' : 'Nova Resposta RÃ¡pida' }}</h2>
+               <h2>{{ editingReply?.id ? 'Editar Resposta' : 'Nova Resposta Rápida' }}</h2>
                <button class="btn-icon" @click="showModal = false"><X class="icon-medium" /></button>
             </div>
             
@@ -94,8 +94,8 @@
                       <option value="text">Texto</option>
                       <option value="image">Imagem</option>
                       <option value="document">Documento</option>
-                      <option value="video">VÃ­deo</option>
-                      <option value="audio">Ãudio</option>
+                      <option value="video">Vídeo</option>
+                      <option value="audio">Áudio</option>
                    </select>
                  </div>
                </div>
@@ -112,7 +112,7 @@
 
                <div class="form-group mt-3">
                  <label>{{ form.type === 'text' ? 'Mensagem' : 'Legenda (opcional)' }}</label>
-                 <textarea v-model="form.text" class="form-control" rows="4" :required="form.type === 'text'" placeholder="OlÃ¡! Como posso ajudar hoje?"></textarea>
+                 <textarea v-model="form.text" class="form-control" rows="4" :required="form.type === 'text'" placeholder="Olá! Como posso ajudar hoje?"></textarea>
                </div>
 
                <div class="modal-footer mt-4 flex-end">
@@ -203,7 +203,7 @@ const submitReply = async () => {
   try {
     saving.value = true
     const payload = { ...form.value }
-    if(!payload.id) delete payload.id // CriaÃ§Ã£o nÃ£o tem ID
+    if(!payload.id) delete payload.id // Criação não tem ID
 
     const res = await fetch(`${PROXY_BASE}/quickreply/edit`, {
       method: 'POST',
@@ -223,14 +223,14 @@ const submitReply = async () => {
     }
   } catch(e) {
     console.error("Erro ao salvar", e)
-    alert("Falha na requisiÃ§Ã£o.")
+    alert("Falha na requisição.")
   } finally {
     saving.value = false
   }
 }
 
 const deleteReply = async (id) => {
-  if(!confirm("Tem certeza que deseja excluir esta resposta rÃ¡pida?")) return
+  if(!confirm("Tem certeza que deseja excluir esta resposta rápida?")) return
   try {
     await fetch(`${PROXY_BASE}/quickreply/edit`, {
       method: 'POST',
@@ -240,7 +240,7 @@ const deleteReply = async (id) => {
       },
       body: JSON.stringify({ id, delete: true })
     })
-    alert("Resposta excluÃ­da.")
+    alert("Resposta excluída.")
     loadReplies()
   } catch(e) {
     console.error("Erro ao excluir", e)

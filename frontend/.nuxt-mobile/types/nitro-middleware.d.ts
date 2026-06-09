@@ -1,4 +1,4 @@
-export type MiddlewareKey = "patient-only"
+export type MiddlewareKey = "nutri-only" | "patient-only"
 declare module 'nitropack' {
   interface NitroRouteConfig {
     appMiddleware?: MiddlewareKey | MiddlewareKey[] | Record<MiddlewareKey, boolean>

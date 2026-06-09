@@ -50,6 +50,7 @@ declare global {
   const getMealIdForTimeFromMeals: typeof import('../../utils/meal-plan-time').getMealIdForTimeFromMeals
   const getMessageAttachment: typeof import('../../utils/bella-message-format').getMessageAttachment
   const getMessageDisplayText: typeof import('../../utils/bella-message-format').getMessageDisplayText
+  const getPatientScrollRoot: typeof import('../../composables/useVerticalWheelPassthrough').getPatientScrollRoot
   const getPatientTimeZone: typeof import('../../utils/local-date').getPatientTimeZone
   const getRouteRules: typeof import('../../node_modules/nuxt/dist/app/composables/manifest').getRouteRules
   const getUserMessageImageUrl: typeof import('../../utils/bella-message-format').getUserMessageImageUrl
@@ -117,6 +118,7 @@ declare global {
   const resolveComponent: typeof import('vue').resolveComponent
   const roundMacro: typeof import('../../utils/meal-diary').roundMacro
   const scaleMealItem: typeof import('../../utils/meal-diary').scaleMealItem
+  const scrollPatientPageBy: typeof import('../../composables/useVerticalWheelPassthrough').scrollPatientPageBy
   const setInterval: typeof import('../../node_modules/nuxt/dist/app/compat/interval').setInterval
   const setPageLayout: typeof import('../../node_modules/nuxt/dist/app/composables/router').setPageLayout
   const setResponseStatus: typeof import('../../node_modules/nuxt/dist/app/composables/ssr').setResponseStatus
@@ -141,6 +143,7 @@ declare global {
   const useAppleSplashScreenPwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useAppleSplashScreenPwaIcon
   const useAsyncData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').useAsyncData
   const useAttrs: typeof import('vue').useAttrs
+  const useConfirm: typeof import('../../composables/useConfirm').useConfirm
   const useCookie: typeof import('../../node_modules/nuxt/dist/app/composables/cookie').useCookie
   const useCssModule: typeof import('vue').useCssModule
   const useCssVars: typeof import('vue').useCssVars
@@ -165,6 +168,7 @@ declare global {
   const useNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').useNuxtData
   const usePWA: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').usePWA
   const usePatientApp: typeof import('../../composables/usePatientApp').usePatientApp
+  const usePatientHorizontalWheelBridge: typeof import('../../composables/useVerticalWheelPassthrough').usePatientHorizontalWheelBridge
   const usePatientLocalTime: typeof import('../../composables/usePatientLocalTime').usePatientLocalTime
   const usePatientMealPlan: typeof import('../../composables/usePatientMealPlan').usePatientMealPlan
   const usePreviewMode: typeof import('../../node_modules/nuxt/dist/app/composables/preview').usePreviewMode
@@ -219,6 +223,7 @@ declare global {
   const useTemplateRef: typeof import('vue').useTemplateRef
   const useTransitionState: typeof import('vue').useTransitionState
   const useTransparentPwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useTransparentPwaIcon
+  const useVerticalWheelPassthrough: typeof import('../../composables/useVerticalWheelPassthrough').useVerticalWheelPassthrough
   const watch: typeof import('vue').watch
   const watchEffect: typeof import('vue').watchEffect
   const watchPostEffect: typeof import('vue').watchPostEffect
@@ -292,6 +297,7 @@ declare module 'vue' {
     readonly getMealIdForTimeFromMeals: UnwrapRef<typeof import('../../utils/meal-plan-time')['getMealIdForTimeFromMeals']>
     readonly getMessageAttachment: UnwrapRef<typeof import('../../utils/bella-message-format')['getMessageAttachment']>
     readonly getMessageDisplayText: UnwrapRef<typeof import('../../utils/bella-message-format')['getMessageDisplayText']>
+    readonly getPatientScrollRoot: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['getPatientScrollRoot']>
     readonly getPatientTimeZone: UnwrapRef<typeof import('../../utils/local-date')['getPatientTimeZone']>
     readonly getRouteRules: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/manifest')['getRouteRules']>
     readonly getUserMessageImageUrl: UnwrapRef<typeof import('../../utils/bella-message-format')['getUserMessageImageUrl']>
@@ -359,6 +365,7 @@ declare module 'vue' {
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly roundMacro: UnwrapRef<typeof import('../../utils/meal-diary')['roundMacro']>
     readonly scaleMealItem: UnwrapRef<typeof import('../../utils/meal-diary')['scaleMealItem']>
+    readonly scrollPatientPageBy: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['scrollPatientPageBy']>
     readonly setInterval: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/interval')['setInterval']>
     readonly setPageLayout: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['setPageLayout']>
     readonly setResponseStatus: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/ssr')['setResponseStatus']>
@@ -383,6 +390,7 @@ declare module 'vue' {
     readonly useAppleSplashScreenPwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useAppleSplashScreenPwaIcon']>
     readonly useAsyncData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['useAsyncData']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
+    readonly useConfirm: UnwrapRef<typeof import('../../composables/useConfirm')['useConfirm']>
     readonly useCookie: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/cookie')['useCookie']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
@@ -407,6 +415,7 @@ declare module 'vue' {
     readonly useNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['useNuxtData']>
     readonly usePWA: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['usePWA']>
     readonly usePatientApp: UnwrapRef<typeof import('../../composables/usePatientApp')['usePatientApp']>
+    readonly usePatientHorizontalWheelBridge: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['usePatientHorizontalWheelBridge']>
     readonly usePatientLocalTime: UnwrapRef<typeof import('../../composables/usePatientLocalTime')['usePatientLocalTime']>
     readonly usePatientMealPlan: UnwrapRef<typeof import('../../composables/usePatientMealPlan')['usePatientMealPlan']>
     readonly usePreviewMode: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/preview')['usePreviewMode']>
@@ -461,6 +470,7 @@ declare module 'vue' {
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
     readonly useTransitionState: UnwrapRef<typeof import('vue')['useTransitionState']>
     readonly useTransparentPwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useTransparentPwaIcon']>
+    readonly useVerticalWheelPassthrough: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['useVerticalWheelPassthrough']>
     readonly watch: UnwrapRef<typeof import('vue')['watch']>
     readonly watchEffect: UnwrapRef<typeof import('vue')['watchEffect']>
     readonly watchPostEffect: UnwrapRef<typeof import('vue')['watchPostEffect']>

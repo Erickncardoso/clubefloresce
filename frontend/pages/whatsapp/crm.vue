@@ -14,7 +14,7 @@
           <div class="card-header flex-between mb-3">
              <div class="search-box">
                 <Search class="icon-small text-muted" />
-                <input type="text" v-model="searchQuery" placeholder="Buscar por nÃºmero ou nome..." @keyup.enter="loadContacts(true)">
+                <input type="text" v-model="searchQuery" placeholder="Buscar por número ou nome..." @keyup.enter="loadContacts(true)">
              </div>
              <button class="btn-icon ml-2" @click="loadContacts(true)" title="Pesquisar">
                <RefreshCw :class="{ 'spin': loadingList }" class="icon-small text-muted" />
@@ -46,7 +46,7 @@
                   <h4>{{ contact.pushName || contact.name || contact.number || 'Desconhecido' }}</h4>
                   <p class="text-muted text-sm">{{ contact.id?.replace('@s.whatsapp.net', '') }}</p>
                 </div>
-                <!-- Exibir se for bloqueado, por exemplo, se tivesse na lista, mas como Ã© via api separada nÃ£o temos agora. -->
+                <!-- Exibir se for bloqueado, por exemplo, se tivesse na lista, mas como é via api separada não temos agora. -->
              </div>
              <div v-if="loadingList" class="text-center py-2 text-muted text-sm">Carregando mais...</div>
           </div>
@@ -77,7 +77,7 @@
                  </div>
               </div>
 
-              <!-- FormulÃ¡rio de Enriquecimento (CRM) -->
+              <!-- Formulário de Enriquecimento (CRM) -->
               <h4 class="section-title mt-4"><Database class="icon-small"/> Dados do Lead (CRM)</h4>
               <form @submit.prevent="saveLeadData" class="crm-form mt-3">
                  <div class="form-row">
@@ -86,7 +86,7 @@
                       <input type="text" v-model="leadForm.name" class="form-control" placeholder="Nome completo">
                     </div>
                     <div class="form-group flex-1">
-                      <label>Etiquetas (IDs separados por vÃ­rgula)</label>
+                      <label>Etiquetas (IDs separados por vírgula)</label>
                       <input type="text" v-model="leadForm.labels" class="form-control" placeholder="Ex: 10,20">
                     </div>
                  </div>
@@ -104,7 +104,7 @@
                  </div>
 
                  <div class="form-group mt-3">
-                   <label>ObservaÃ§Ãµes do Atendente</label>
+                   <label>Observações do Atendente</label>
                    <textarea v-model="leadForm.notes" class="form-control" rows="3" placeholder="Cliente entrou em contato sobre..."></textarea>
                  </div>
 
@@ -260,7 +260,7 @@ const saveLeadData = async () => {
     }
   } catch(e) {
     console.error("Erro", e)
-    alert("Falha na requisiÃ§Ã£o.")
+    alert("Falha na requisição.")
   } finally {
     saving.value = false
   }

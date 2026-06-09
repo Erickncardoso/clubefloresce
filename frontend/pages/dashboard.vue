@@ -1,7 +1,7 @@
 <template>
   <NuxtLayout name="dashboard">
     <div class="dashboard-page">
-      <!-- SeÃ§Ã£o Superior: Postar Novidades + Novas Aulas -->
+      <!-- Seção Superior: Postar Novidades + Novas Aulas -->
       <div class="top-grid">
         <!-- Carrossel de Novidades (Elite) -->
         <div class="news-carousel">
@@ -10,9 +10,9 @@
             <div class="slide">
               <div class="slide-content">
                 <span class="slide-tag">Boas-vindas</span>
-                <h2>Sua jornada para o bem-estar comeÃ§a aqui.</h2>
-                <p>Explore nossos mÃ³dulos e descubra como a nutriÃ§Ã£o pode transformar sua vida.</p>
-                <NuxtLink to="/cursos" class="slide-cta">ComeÃ§ar agora</NuxtLink>
+                <h2>Sua jornada para o bem-estar começa aqui.</h2>
+                <p>Explore nossos módulos e descubra como a nutrição pode transformar sua vida.</p>
+                <NuxtLink to="/cursos" class="slide-cta">Começar agora</NuxtLink>
               </div>
               <div class="slide-image">
                 <div class="image-overlay"></div>
@@ -23,9 +23,9 @@
             <!-- Slide 2: Latest Course -->
             <div class="slide" v-if="latestCourse">
               <div class="slide-content">
-                <span class="slide-tag">LanÃ§amento</span>
+                <span class="slide-tag">Lançamento</span>
                 <h2>{{ latestCourse.title }}</h2>
-                <p>{{ latestCourse.description || 'Confira o novo conteÃºdo exclusivo que preparamos para vocÃª.' }}</p>
+                <p>{{ latestCourse.description || 'Confira o novo conteúdo exclusivo que preparamos para você.' }}</p>
                 <NuxtLink :to="`/cursos`" class="slide-cta">Ver curso</NuxtLink>
               </div>
               <div class="slide-image">
@@ -38,7 +38,7 @@
             <div class="slide">
               <div class="slide-content">
                 <span class="slide-tag">Dica do Especialista</span>
-                <h2>Os benefÃ­cios dos antioxidantes naturais.</h2>
+                <h2>Os benefícios dos antioxidantes naturais.</h2>
                 <p>Saiba quais alimentos incluir na sua rotina para combater o envelhecimento celular.</p>
                 <button class="slide-cta ghost">Ler artigo</button>
               </div>
@@ -58,7 +58,7 @@
           </div>
         </div>
 
-        <!-- SeÃ§Ã£o de Novas Aulas (Card Elite) -->
+        <!-- Seção de Novas Aulas (Card Elite) -->
         <div class="new-classes-card">
           <div class="card-header">
             <div class="header-main">
@@ -76,24 +76,24 @@
               </div>
               <div class="class-info">
                 <h4>{{ course.title }}</h4>
-                <p>{{ course.modules?.length || 0 }} MÃ³dulos</p>
+                <p>{{ course.modules?.length || 0 }} Módulos</p>
               </div>
             </div>
           </div>
           <div v-else class="classes-empty">
-            <p>Ainda nÃ£o hÃ¡ aulas registradas.</p>
+            <p>Ainda não há aulas registradas.</p>
           </div>
         </div>
       </div>
 
-      <!-- SeÃ§Ã£o Inferior: NotificaÃ§Ãµes + Blog -->
+      <!-- Seção Inferior: Notificações + Blog -->
       <div class="bottom-grid">
-        <!-- NotificaÃ§Ãµes -->
+        <!-- Notificações -->
         <div class="notifications-card shadow-card">
           <div class="card-header">
             <div class="header-main">
               <Bell class="header-icon-orange" />
-              <h3>Minhas NotificaÃ§Ãµes</h3>
+              <h3>Minhas Notificações</h3>
             </div>
             <span class="notif-count" v-if="unreadCount > 0">{{ unreadCount }} novas</span>
           </div>
@@ -107,7 +107,7 @@
             </div>
           </div>
           <div v-else class="empty-state">
-            <p>Nenhuma notificaÃ§Ã£o por enquanto.</p>
+            <p>Nenhuma notificação por enquanto.</p>
           </div>
         </div>
 
@@ -127,7 +127,7 @@
               </div>
               <div class="blog-txt">
                 <h5>Como organizar sua marmita semanal</h5>
-                <p>Dicas prÃ¡ticas para manter o foco na dieta durante a correria.</p>
+                <p>Dicas práticas para manter o foco na dieta durante a correria.</p>
               </div>
             </div>
             <div class="blog-article-mini">
@@ -135,8 +135,8 @@
                 <img src="https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?q=80&w=2000&auto=format&fit=crop" />
               </div>
               <div class="blog-txt">
-                <h5>MÃºsculos e ProteÃ­na Vegetal</h5>
-                <p>Ã‰ possÃ­vel ganhar massa sendo vegano? Especialistas respondem.</p>
+                <h5>Músculos e Proteína Vegetal</h5>
+                <p>�0 possível ganhar massa sendo vegano? Especialistas respondem.</p>
               </div>
             </div>
           </div>
@@ -171,8 +171,8 @@ const slidesCount = ref(3)
 const recentCourses = ref([])
 const latestCourse = computed(() => recentCourses.value[0])
 const notifications = ref([
-  { id: 1, title: 'AtualizaÃ§Ã£o', body: 'Seu plano alimentar foi atualizado pela Nutri.', read: false, createdAt: new Date() },
-  { id: 2, title: 'Comunidade', body: 'JoÃ£o comentou no seu post: "Muito bom!"', read: true, createdAt: new Date(Date.now() - 3600000) }
+  { id: 1, title: 'Atualização', body: 'Seu plano alimentar foi atualizado pela Nutri.', read: false, createdAt: new Date() },
+  { id: 2, title: 'Comunidade', body: 'João comentou no seu post: "Muito bom!"', read: true, createdAt: new Date(Date.now() - 3600000) }
 ])
 const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
 

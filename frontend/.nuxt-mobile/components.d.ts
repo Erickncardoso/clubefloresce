@@ -14,6 +14,7 @@ type HydrationStrategies = {
 type LazyComponent<T> = DefineComponent<HydrationStrategies, {}, {}, {}, {}, {}, {}, { hydrated: () => void }> & T
 
 
+export const CfConfirmModal: typeof import("../components/CfConfirmModal.vue")['default']
 export const GoalMiniPie: typeof import("../components/GoalMiniPie.vue")['default']
 export const PatientAvatar: typeof import("../components/PatientAvatar.vue")['default']
 export const PatientHeader: typeof import("../components/PatientHeader.vue")['default']
@@ -29,6 +30,7 @@ export const BibliotecaScrollRow: typeof import("../components/biblioteca/Biblio
 export const CheckinTypeformFlow: typeof import("../components/checkin/CheckinTypeformFlow.vue")['default']
 export const CheckinFoodMoodPicker: typeof import("../components/checkin/FoodMoodPicker.vue")['default']
 export const CheckinNotoEmojiLottie: typeof import("../components/checkin/NotoEmojiLottie.client.vue")['default']
+export const CommunityFeed: typeof import("../components/community/CommunityFeed.vue")['default']
 export const DietaMealPlanUploadCard: typeof import("../components/dieta/MealPlanUploadCard.vue")['default']
 export const DietaMealSubstitutionsModal: typeof import("../components/dieta/MealSubstitutionsModal.vue")['default']
 export const HomeCurrentMealCard: typeof import("../components/home/CurrentMealCard.vue")['default']
@@ -91,6 +93,7 @@ export const Head: typeof import("../node_modules/nuxt/dist/head/runtime/compone
 export const Html: typeof import("../node_modules/nuxt/dist/head/runtime/components")['Html']
 export const Body: typeof import("../node_modules/nuxt/dist/head/runtime/components")['Body']
 export const NuxtIsland: typeof import("../node_modules/nuxt/dist/app/components/nuxt-island")['default']
+export const LazyCfConfirmModal: LazyComponent<typeof import("../components/CfConfirmModal.vue")['default']>
 export const LazyGoalMiniPie: LazyComponent<typeof import("../components/GoalMiniPie.vue")['default']>
 export const LazyPatientAvatar: LazyComponent<typeof import("../components/PatientAvatar.vue")['default']>
 export const LazyPatientHeader: LazyComponent<typeof import("../components/PatientHeader.vue")['default']>
@@ -106,6 +109,7 @@ export const LazyBibliotecaScrollRow: LazyComponent<typeof import("../components
 export const LazyCheckinTypeformFlow: LazyComponent<typeof import("../components/checkin/CheckinTypeformFlow.vue")['default']>
 export const LazyCheckinFoodMoodPicker: LazyComponent<typeof import("../components/checkin/FoodMoodPicker.vue")['default']>
 export const LazyCheckinNotoEmojiLottie: LazyComponent<typeof import("../components/checkin/NotoEmojiLottie.client.vue")['default']>
+export const LazyCommunityFeed: LazyComponent<typeof import("../components/community/CommunityFeed.vue")['default']>
 export const LazyDietaMealPlanUploadCard: LazyComponent<typeof import("../components/dieta/MealPlanUploadCard.vue")['default']>
 export const LazyDietaMealSubstitutionsModal: LazyComponent<typeof import("../components/dieta/MealSubstitutionsModal.vue")['default']>
 export const LazyHomeCurrentMealCard: LazyComponent<typeof import("../components/home/CurrentMealCard.vue")['default']>

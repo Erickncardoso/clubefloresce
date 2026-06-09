@@ -1,13 +1,16 @@
 <template>
   <div class="patient-shell">
-    <div class="patient-shell-body">
+    <div ref="scrollRootRef" class="patient-shell-body">
       <slot />
     </div>
   </div>
 </template>
 
 <script setup>
+const scrollRootRef = ref(null)
 const { hydrateProfile, syncPatientProfile } = usePatientApp()
+
+usePatientHorizontalWheelBridge(scrollRootRef)
 
 onMounted(async () => {
   hydrateProfile()

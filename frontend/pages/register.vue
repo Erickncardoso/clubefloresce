@@ -1,157 +1,312 @@
 <template>
-  <div class="auth-container">
-    <!-- Lado Esquerdo: Visual Elite (Diferente do Login para variar) -->
-    <div class="auth-visual">
-      <div class="visual-overlay"></div>
-      <img src="https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?q=80&w=2070&auto=format&fit=crop" alt="Nature Background" />
-      <div class="visual-content">
-        <div class="brand-badge">Junte-se a nós</div>
-        <h1>Plante hoje a sua melhor <br/><span>versão</span>.</h1>
-        <p>Faça parte de uma comunidade focada em resultados reais e saúde duradoura. Sua transformação começa com um clique.</p>
-      </div>
-    </div>
-
-    <!-- Lado Direito: Formulário de Cadastro -->
-    <main class="auth-main">
-      <div class="auth-card">
-        <header class="auth-header">
-          <h2>Criar sua conta</h2>
-          <p>Preencha os dados abaixo para iniciar sua jornada.</p>
+  <div class="auth-container" :class="{ 'patient-login-mode': isPatientApp }">
+    <!-- App do paciente: solicitar cadastro -->
+    <main v-if="isPatientApp" class="patient-auth">
+      <div class="patient-auth-inner">
+        <header class="patient-auth-brand">
+          <img src="/logoflorescer.svg" alt="Florescer" class="patient-auth-logo" width="120" height="36">
+          <p class="patient-auth-tagline">App do paciente</p>
         </header>
 
-        <form @submit.prevent="handleRegister" class="auth-form">
-          <div class="form-group" :class="{ 'focused': focusedField === 'name' }">
-            <label>Nome Completo</label>
-            <div class="input-wrapper">
-              <User class="input-icon" />
-              <input 
-                type="text" 
-                v-model="form.name" 
-                placeholder="Seu nome completo" 
-                required 
-                @focus="focusedField = 'name'" 
-                @blur="focusedField = ''"
-              >
-            </div>
+        <div v-if="submitted" class="patient-auth-card patient-success-card">
+          <div class="success-icon-wrap" aria-hidden="true">
+            <CheckCircle2 class="success-icon" />
           </div>
-
-          <div class="form-group" :class="{ 'focused': focusedField === 'email' }">
-            <label>E-mail</label>
-            <div class="input-wrapper">
-              <Mail class="input-icon" />
-              <input 
-                type="email" 
-                v-model="form.email" 
-                placeholder="seu@exemplo.com" 
-                required 
-                @focus="focusedField = 'email'" 
-                @blur="focusedField = ''"
-              >
-            </div>
-          </div>
-
-          <div class="form-group" :class="{ 'focused': focusedField === 'password' }">
-            <label>Senha de acesso</label>
-            <div class="input-wrapper">
-              <Lock class="input-icon" />
-              <input 
-                :type="showPassword ? 'text' : 'password'" 
-                v-model="form.password" 
-                placeholder="Mínimo 8 caracteres" 
-                required
-                @focus="focusedField = 'password'" 
-                @blur="focusedField = ''"
-              >
-              <button
-                type="button"
-                class="password-toggle-btn"
-                :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
-                @click="showPassword = !showPassword"
-              >
-                <EyeOff v-if="showPassword" class="password-toggle-icon" />
-                <Eye v-else class="password-toggle-icon" />
-              </button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Tipo de Acesso</label>
-            <div class="role-selector">
-              <button 
-                type="button" 
-                class="role-btn" 
-                :class="{ active: form.role === 'PACIENTE' }"
-                @click="form.role = 'PACIENTE'"
-              >
-                Paciente
-              </button>
-              <button 
-                type="button" 
-                class="role-btn" 
-                :class="{ active: form.role === 'NUTRICIONISTA' }"
-                @click="form.role = 'NUTRICIONISTA'"
-              >
-                Nutricionista
-              </button>
-            </div>
-          </div>
-
-          <button type="submit" :disabled="loading" class="btn-auth-submit">
-            <span v-if="loading">Criando sua conta...</span>
-            <span v-else>Cadastrar agora</span>
-          </button>
-
-          <p v-if="error" class="error-banner">
-            <AlertCircle class="error-icon" />
-            {{ error }}
+          <h2>Solicitação enviada!</h2>
+          <p>
+            Recebemos seus dados. A nutricionista vai analisar e entrar em contato
+            para liberar seu acesso ao app.
           </p>
+          <p class="success-note">Você receberá orientações no e-mail informado.</p>
+          <NuxtLink to="/" class="btn-auth-submit patient-auth-submit success-back-btn">
+            Voltar para o login
+          </NuxtLink>
+        </div>
 
-          <div class="auth-footer">
-            <p>Já possui uma conta? <NuxtLink to="/">Fazer login</NuxtLink></p>
-          </div>
-        </form>
+        <div v-else class="patient-auth-card">
+          <header class="patient-auth-header">
+            <NuxtLink to="/" class="back-link">
+              <ArrowLeft class="back-link-icon" aria-hidden="true" />
+              Voltar
+            </NuxtLink>
+            <h2>Solicitar cadastro</h2>
+            <p>Preencha seus dados. A nutricionista Isabella Jardim analisará e liberará seu acesso.</p>
+          </header>
+
+          <form class="auth-form patient-auth-form" @submit.prevent="handlePatientRequest">
+            <div class="form-group" :class="{ focused: focusedField === 'name' }">
+              <label for="req-name">Nome completo</label>
+              <div class="input-wrapper">
+                <User class="input-icon" />
+                <input
+                  id="req-name"
+                  v-model="patientForm.name"
+                  type="text"
+                  placeholder="Como você gostaria de ser chamada"
+                  autocomplete="name"
+                  required
+                  @focus="focusedField = 'name'"
+                  @blur="focusedField = ''"
+                >
+              </div>
+            </div>
+
+            <div class="form-group" :class="{ focused: focusedField === 'email' }">
+              <label for="req-email">E-mail</label>
+              <div class="input-wrapper">
+                <Mail class="input-icon" />
+                <input
+                  id="req-email"
+                  v-model="patientForm.email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  autocomplete="email"
+                  required
+                  @focus="focusedField = 'email'"
+                  @blur="focusedField = ''"
+                >
+              </div>
+            </div>
+
+            <div class="form-group" :class="{ focused: focusedField === 'phone' }">
+              <label for="req-phone">WhatsApp <span class="optional">(opcional)</span></label>
+              <div class="input-wrapper">
+                <Phone class="input-icon" />
+                <input
+                  id="req-phone"
+                  v-model="patientForm.phone"
+                  type="tel"
+                  placeholder="(11) 99999-9999"
+                  autocomplete="tel"
+                  @focus="focusedField = 'phone'"
+                  @blur="focusedField = ''"
+                >
+              </div>
+            </div>
+
+            <div class="form-group" :class="{ focused: focusedField === 'message' }">
+              <label for="req-message">Mensagem <span class="optional">(opcional)</span></label>
+              <textarea
+                id="req-message"
+                v-model="patientForm.message"
+                class="patient-textarea"
+                rows="3"
+                placeholder="Conte um pouco sobre seu objetivo ou como nos conheceu..."
+                @focus="focusedField = 'message'"
+                @blur="focusedField = ''"
+              />
+            </div>
+
+            <button type="submit" class="btn-auth-submit patient-auth-submit" :disabled="loading">
+              <span v-if="loading">Enviando...</span>
+              <span v-else>Enviar solicitação</span>
+            </button>
+
+            <p v-if="error" class="error-banner" role="alert">
+              <AlertCircle class="error-icon" />
+              {{ error }}
+            </p>
+
+            <p class="patient-auth-footer">
+              Já tem acesso?
+              <NuxtLink to="/">Entrar no app</NuxtLink>
+            </p>
+          </form>
+        </div>
+      </div>
+    </main>
+
+    <!-- Portal web (nutricionista / admin) -->
+    <template v-else>
+      <div class="auth-visual">
+        <div class="visual-overlay" />
+        <img src="https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?q=80&w=2070&auto=format&fit=crop" alt="Nature Background">
+        <div class="visual-content">
+          <div class="brand-badge">Junte-se a nós</div>
+          <h1>Plante hoje a sua melhor <br><span>versão</span>.</h1>
+          <p>Faça parte de uma comunidade focada em resultados reais e saúde duradoura.</p>
+        </div>
       </div>
 
-      <footer class="main-footer">
-        &copy; 2026 Clube Florescer. Elite Membership.
-      </footer>
-    </main>
+      <main class="auth-main">
+        <div class="auth-card">
+          <header class="auth-header">
+            <h2>Criar sua conta</h2>
+            <p>Preencha os dados abaixo para iniciar sua jornada.</p>
+          </header>
+
+          <form class="auth-form" @submit.prevent="handleWebRegister">
+            <div class="form-group" :class="{ focused: focusedField === 'name' }">
+              <label>Nome completo</label>
+              <div class="input-wrapper">
+                <User class="input-icon" />
+                <input
+                  v-model="webForm.name"
+                  type="text"
+                  placeholder="Seu nome completo"
+                  required
+                  @focus="focusedField = 'name'"
+                  @blur="focusedField = ''"
+                >
+              </div>
+            </div>
+
+            <div class="form-group" :class="{ focused: focusedField === 'email' }">
+              <label>E-mail</label>
+              <div class="input-wrapper">
+                <Mail class="input-icon" />
+                <input
+                  v-model="webForm.email"
+                  type="email"
+                  placeholder="seu@exemplo.com"
+                  required
+                  @focus="focusedField = 'email'"
+                  @blur="focusedField = ''"
+                >
+              </div>
+            </div>
+
+            <div class="form-group" :class="{ focused: focusedField === 'password' }">
+              <label>Senha de acesso</label>
+              <div class="input-wrapper">
+                <Lock class="input-icon" />
+                <input
+                  v-model="webForm.password"
+                  :type="showPassword ? 'text' : 'password'"
+                  placeholder="Mínimo 8 caracteres"
+                  required
+                  minlength="8"
+                  @focus="focusedField = 'password'"
+                  @blur="focusedField = ''"
+                >
+                <button
+                  type="button"
+                  class="password-toggle-btn"
+                  :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
+                  @click="showPassword = !showPassword"
+                >
+                  <EyeOff v-if="showPassword" class="password-toggle-icon" />
+                  <Eye v-else class="password-toggle-icon" />
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Tipo de acesso</label>
+              <div class="role-selector">
+                <button
+                  type="button"
+                  class="role-btn"
+                  :class="{ active: webForm.role === 'PACIENTE' }"
+                  @click="webForm.role = 'PACIENTE'"
+                >
+                  Paciente
+                </button>
+                <button
+                  type="button"
+                  class="role-btn"
+                  :class="{ active: webForm.role === 'NUTRICIONISTA' }"
+                  @click="webForm.role = 'NUTRICIONISTA'"
+                >
+                  Nutricionista
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-auth-submit" :disabled="loading">
+              <span v-if="loading">Criando sua conta...</span>
+              <span v-else>Cadastrar agora</span>
+            </button>
+
+            <p v-if="error" class="error-banner">
+              <AlertCircle class="error-icon" />
+              {{ error }}
+            </p>
+
+            <div class="auth-footer">
+              <p>Já possui uma conta? <NuxtLink to="/">Fazer login</NuxtLink></p>
+            </div>
+          </form>
+        </div>
+
+        <footer class="main-footer">&copy; 2026 Clube Florescer</footer>
+      </main>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { Mail, Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Phone,
+  User,
+} from 'lucide-vue-next'
 
-definePageMeta({
-  layout: false
-})
+definePageMeta({ layout: false })
 
 const config = useRuntimeConfig()
+const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const authApiBase = `${config.public.apiBase}/auth`
 
-const form = reactive({
-  name: '',
-  email: '',
-  password: '',
-  role: 'PACIENTE'
-})
 const loading = ref(false)
 const error = ref('')
+const submitted = ref(false)
 const focusedField = ref('')
 const showPassword = ref(false)
 
-const handleRegister = async () => {
+const patientForm = reactive({
+  name: '',
+  email: '',
+  phone: '',
+  message: '',
+})
+
+const webForm = reactive({
+  name: '',
+  email: '',
+  password: '',
+  role: 'NUTRICIONISTA',
+})
+
+const handlePatientRequest = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    await $fetch(`${authApiBase}/patient-registration-request`, {
+      method: 'POST',
+      body: {
+        name: patientForm.name,
+        email: patientForm.email,
+        phone: patientForm.phone || null,
+        message: patientForm.message || null,
+      },
+    })
+    submitted.value = true
+  } catch (err) {
+    error.value = err.data?.message || 'Não foi possível enviar sua solicitação. Tente novamente.'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleWebRegister = async () => {
   loading.value = true
   error.value = ''
   try {
     await $fetch(`${authApiBase}/register`, {
       method: 'POST',
-      body: form
+      body: webForm,
     })
     alert('Conta criada com sucesso! Redirecionando para o login...')
     navigateTo('/')
   } catch (err) {
-    error.value = 'Não foi possível completar o cadastro. Verifique os dados.'
+    error.value = err.data?.message || 'Não foi possível completar o cadastro. Verifique os dados.'
   } finally {
     loading.value = false
   }
@@ -166,10 +321,9 @@ const handleRegister = async () => {
   min-height: 100vh;
   width: 100%;
   background: white;
-  font-family: inherit;
+  font-family: var(--pa-font, var(--cf-font));
 }
 
-/* LADO VISUAL (LEFT) */
 .auth-visual {
   flex: 1.2;
   position: relative;
@@ -234,7 +388,6 @@ const handleRegister = async () => {
   opacity: 0.9;
 }
 
-/* LADO FORMULÁRIO (RIGHT) */
 .auth-main {
   flex: 1;
   display: flex;
@@ -263,6 +416,11 @@ const handleRegister = async () => {
 .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
 .form-group label { font-size: 0.85rem; font-weight: 700; color: #444; }
 
+.optional {
+  font-weight: 500;
+  color: #999;
+}
+
 .input-wrapper {
   display: flex;
   align-items: center;
@@ -273,7 +431,7 @@ const handleRegister = async () => {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.input-icon { width: 18px; height: 18px; color: #ccc; transition: color 0.3s; }
+.input-icon { width: 18px; height: 18px; color: #ccc; transition: color 0.3s; flex-shrink: 0; }
 
 .input-wrapper input {
   flex: 1;
@@ -285,6 +443,24 @@ const handleRegister = async () => {
   font-size: 0.95rem;
   color: #111;
   outline: none;
+}
+
+.patient-textarea {
+  width: 100%;
+  border: 1.5px solid #eee;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: #111;
+  resize: vertical;
+  min-height: 5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group.focused .patient-textarea {
+  border-color: var(--cf-pink-dark, #a06267);
+  box-shadow: 0 0 0 4px rgba(193, 123, 128, 0.08);
 }
 
 .password-toggle-btn {
@@ -299,30 +475,17 @@ const handleRegister = async () => {
   cursor: pointer;
   color: #aaa;
   border-radius: 8px;
-  transition: color 0.2s, background 0.2s;
 }
 
-.password-toggle-btn:hover {
-  color: var(--primary);
-  background: rgba(45, 90, 39, 0.06);
-}
-
-.password-toggle-icon {
-  width: 20px;
-  height: 20px;
-}
-
-.form-group.focused .password-toggle-btn {
-  color: var(--primary);
-}
+.password-toggle-icon { width: 20px; height: 20px; }
 
 .form-group.focused .input-wrapper {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(45, 90, 39, 0.05);
 }
+
 .form-group.focused .input-icon { color: var(--primary); }
 
-/* ROLE SELECTOR */
 .role-selector {
   display: flex;
   gap: 10px;
@@ -341,18 +504,16 @@ const handleRegister = async () => {
   font-weight: 700;
   color: #777;
   cursor: pointer;
-  transition: 0.3s;
 }
 
 .role-btn.active {
   background: white;
   color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .btn-auth-submit {
   width: 100%;
-  background: #2d5a27;
   background: var(--primary);
   color: #fff;
   border: none;
@@ -362,13 +523,21 @@ const handleRegister = async () => {
   font-weight: 800;
   cursor: pointer;
   transition: all 0.3s;
-  margin-top: 1rem;
+  margin-top: 0.25rem;
+  text-decoration: none;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
-.btn-auth-submit:hover:not(:disabled) {
-  background: var(--primary-light);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(45, 90, 39, 0.15);
+.patient-auth-submit {
+  background: var(--cf-pink, #c17b80);
+}
+
+.patient-auth-submit:hover:not(:disabled) {
+  background: var(--cf-pink-dark, #a06267);
 }
 
 .btn-auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -401,5 +570,78 @@ const handleRegister = async () => {
   font-size: 0.8rem;
   color: #ccc;
   font-weight: 600;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  color: var(--cf-text-muted, #525252);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.back-link-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.patient-auth-footer {
+  margin: 0;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--cf-text-muted, #525252);
+}
+
+.patient-auth-footer a {
+  color: var(--cf-pink-dark, #a06267);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.patient-success-card {
+  text-align: center;
+}
+
+.patient-success-card h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--cf-text, #141414);
+}
+
+.patient-success-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--cf-text-muted, #525252);
+}
+
+.success-note {
+  margin-top: 0.75rem !important;
+  font-size: 0.82rem !important;
+}
+
+.success-icon-wrap {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: var(--cf-green-soft, #edf3eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--cf-green-dark, #4d7348);
+}
+
+.success-back-btn {
+  margin-top: 1.25rem;
 }
 </style>

@@ -1,18 +1,17 @@
 <template>
   <NuxtLayout name="dashboard">
     <div class="ebooks-container">
-      <div class="ebooks-page">
-        <!-- Header -->
-        <div class="page-header">
+      <div class="admin-shell">
+        <header class="admin-shell-header">
           <div>
             <h1>Biblioteca Digital</h1>
-            <p>Guia prÃ¡ticos, receitas e materiais exclusivos para download.</p>
+            <p>Guias práticos, receitas e materiais exclusivos para download.</p>
           </div>
-          <button v-if="isNutri" @click="openCreateEbookModal" class="btn-primary">
+          <button v-if="isNutri" type="button" class="admin-btn-primary" @click="openCreateEbookModal">
             <Plus class="btn-icon" />
-            Adicionar Ebook
+            Adicionar ebook
           </button>
-        </div>
+        </header>
 
         <!-- Grid de Ebooks -->
         <div v-if="ebooks.length" class="ebooks-grid">
@@ -52,8 +51,8 @@
             <Book class="empty-icon" />
           </div>
           <h3>Biblioteca vazia</h3>
-          <p>Ainda nÃ£o hÃ¡ materiais disponÃ­veis para download.</p>
-          <button v-if="isNutri" @click="openCreateEbookModal" class="btn-primary mt-4">Adicionar primeiro ebook</button>
+          <p>Ainda não há materiais disponíveis para download.</p>
+          <button v-if="isNutri" type="button" class="admin-btn-primary mt-4" @click="openCreateEbookModal">Adicionar primeiro ebook</button>
         </div>
 
         <!-- Modal: Novo Ebook -->
@@ -253,7 +252,14 @@ const handleCreateEbook = async () => {
 }
 
 const handleDeleteEbook = async (id) => {
-  if (!confirm('Deseja excluir este material permanentemente?')) return
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: 'Excluir material',
+    message: 'Deseja excluir este material permanentemente? Esta ação não pode ser desfeita.',
+    confirmLabel: 'Excluir',
+    cancelLabel: 'Cancelar',
+  })
+  if (!ok) return
   try {
     const token = localStorage.getItem('auth_token')
     await $fetch(`${apiBase}/ebooks/${id}`, {

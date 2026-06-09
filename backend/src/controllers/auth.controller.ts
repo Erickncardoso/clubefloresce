@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service";
+import { RegistrationRequestService } from "../services/registration-request.service";
 import jwt from "jsonwebtoken";
 
 const authService = new AuthService();
+const registrationRequestService = new RegistrationRequestService();
 
 export class AuthController {
   async oneTimeNutritionistStatus(req: Request, res: Response): Promise<any> {
@@ -36,6 +38,19 @@ export class AuthController {
       return res.status(201).json(user);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
+    }
+  }
+
+  async requestPatientRegistration(req: Request, res: Response): Promise<any> {
+    try {
+      const request = await registrationRequestService.createPatientRequest(req.body);
+      return res.status(201).json({
+        message: "Solicitação enviada com sucesso.",
+        request,
+      });
+    } catch (error: any) {
+      const status = error.message?.includes("Faça login") ? 409 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 

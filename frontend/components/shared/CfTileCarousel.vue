@@ -3,6 +3,7 @@
     <div
       ref="trackRef"
       class="cf-tile-carousel"
+      data-h-scroll
       role="list"
       :aria-label="ariaLabel"
       @scroll="onScroll"
@@ -49,7 +50,13 @@
           </div>
         </article>
 
-        <div v-if="$slots.actions && !item.isAdd" class="cf-tile-card-actions">
+        <div
+          v-if="$slots.actions && !item.isAdd"
+          class="cf-tile-card-actions"
+          @pointerdown.stop
+          @mousedown.stop
+          @click.stop
+        >
           <slot name="actions" :item="item" />
         </div>
       </div>
@@ -83,6 +90,8 @@ const emit = defineEmits(['select'])
 const trackRef = ref(null)
 const activeIndex = ref(0)
 
+useVerticalWheelPassthrough(trackRef)
+
 function onScroll() {
   const track = trackRef.value
   if (!track) return
@@ -102,11 +111,12 @@ function onScroll() {
   display: flex;
   gap: 0.75rem;
   overflow-x: auto;
+  overflow-y: visible;
   overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   scroll-snap-type: x mandatory;
   scroll-padding-inline: v-bind(inset);
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
   scrollbar-width: none;
   margin-inline: calc(-1 * v-bind(inset));
   padding-inline: v-bind(inset);
@@ -156,9 +166,20 @@ function onScroll() {
   aspect-ratio: 3 / 4;
   box-sizing: border-box;
   overflow: hidden;
-  border: 1px solid var(--cf-border);
-  background: var(--cf-green-soft);
-  box-shadow: var(--cf-shadow-lg);
+  border: 1px solid var(--cf-border, #e4e4e0);
+  background: var(--cf-green-soft, #edf3eb);
+  box-shadow: var(--cf-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.06));
+}
+
+.cf-tile-card.cf-squircle.cf-squircle--tile {
+  --cf-squircle-r: var(--cf-radius-squircle-tile, min(3rem, 42%));
+  border-radius: var(--cf-squircle-r);
+}
+
+@supports (corner-shape: squircle) {
+  .cf-tile-card.cf-squircle.cf-squircle--tile {
+    corner-shape: squircle;
+  }
 }
 
 .cf-tile-card-cover-img {
@@ -207,8 +228,8 @@ function onScroll() {
 }
 
 .cf-tile-card-cover-empty--add {
-  background: var(--cf-surface);
-  border: 1.5px dashed var(--cf-border);
+  background: var(--cf-surface, #ffffff);
+  border: 1.5px dashed var(--cf-border, #e4e4e0);
   box-shadow: none;
 }
 
@@ -236,7 +257,7 @@ function onScroll() {
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: -0.015em;
-  color: var(--cf-text);
+  color: var(--cf-text, #141414);
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -248,7 +269,7 @@ function onScroll() {
 .cf-tile-card-meta {
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--cf-text-muted);
+  color: var(--cf-text-muted, #525252);
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
@@ -282,7 +303,8 @@ function onScroll() {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  z-index: 2;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 :deep(.cf-tile-card--add) {

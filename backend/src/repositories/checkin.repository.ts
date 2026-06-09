@@ -44,7 +44,7 @@ export class CheckInRepository {
       orderBy: { updatedAt: "desc" },
       take: limit,
       include: {
-        user: { select: { id: true, name: true, email: true, role: true } },
+        user: { select: { id: true, name: true, email: true, role: true, avatar: true } },
       },
     });
   }

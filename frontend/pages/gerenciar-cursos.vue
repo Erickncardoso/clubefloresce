@@ -23,12 +23,12 @@
         <div class="modal-card">
           <h2>Novo Curso</h2>
           <div class="form-group">
-            <label>TÃ­tulo</label>
+            <label>Título</label>
             <input v-model="newCourse.title" placeholder="Nome do curso" />
           </div>
           <div class="form-group">
-            <label>DescriÃ§Ã£o</label>
-            <textarea v-model="newCourse.description" placeholder="Breve descriÃ§Ã£o"></textarea>
+            <label>Descrição</label>
+            <textarea v-model="newCourse.description" placeholder="Breve descrição"></textarea>
           </div>
           <div class="modal-actions">
             <button @click="showCreateModal = false" class="btn-cancel">Cancelar</button>
@@ -77,7 +77,14 @@ const handleCreateCourse = async () => {
 }
 
 const handleDeleteCourse = async (id) => {
-  if (!confirm('Deseja excluir este curso?')) return
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: 'Excluir curso',
+    message: 'Deseja excluir este curso? Esta ação não pode ser desfeita.',
+    confirmLabel: 'Excluir',
+    cancelLabel: 'Cancelar',
+  })
+  if (!ok) return
   try {
     const token = localStorage.getItem('auth_token')
     await $fetch(`${apiBase}/courses/${id}`, {
@@ -90,7 +97,7 @@ const handleDeleteCourse = async (id) => {
   }
 }
 
-onMounted(fetchPosts) // Reutilizando a lÃ³gica de montagem
+onMounted(fetchPosts) // Reutilizando a lógica de montagem
 onMounted(fetchCourses)
 </script>
 

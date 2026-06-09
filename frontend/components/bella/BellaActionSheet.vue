@@ -194,11 +194,20 @@ function onKeydown(event) {
   if (event.key === 'Escape' && props.modelValue) close()
 }
 
+function setScrollLock(open) {
+  if (typeof document === 'undefined') return
+  const patientRoot = document.querySelector('.patient-shell-body')
+  if (patientRoot) {
+    patientRoot.style.overflow = open ? 'hidden' : ''
+    return
+  }
+  document.body.style.overflow = open ? 'hidden' : ''
+}
+
 watch(
   () => props.modelValue,
   (open) => {
-    if (typeof document === 'undefined') return
-    document.body.style.overflow = open ? 'hidden' : ''
+    setScrollLock(open)
     if (open) {
       sheetEntered.value = false
       resetDragState()
@@ -215,6 +224,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   removeDragListeners()
+  setScrollLock(false)
   if (typeof document !== 'undefined') document.body.style.overflow = ''
 })
 </script>

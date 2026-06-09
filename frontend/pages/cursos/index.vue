@@ -174,8 +174,9 @@
           <button v-if="isNutri" @click="openCreateCourseModal" class="btn-primary mt-4">Criar meu primeiro curso</button>
         </div>
 
+        <Teleport to="body">
         <!-- Modal: Detalhes do Curso (Aulas) - Estilo Netflix Drawer -->
-        <div v-if="showDetailsModal && selectedCourseDetails" class="modal-overlay fast-fade netflix-modal-overlay" @click.self="closeDetailsModal">
+        <div v-if="showDetailsModal && selectedCourseDetails" class="modal-overlay fast-fade netflix-modal-overlay courses-modal-overlay" @click.self="closeDetailsModal">
           <div class="modal-card wide-modal course-detail-modal netflix-theme">
             <button @click="closeDetailsModal" class="btn-close-floating dark-close"><X /></button>
             
@@ -264,7 +265,7 @@
         </div>
 
         <!-- Modal: Criar Curso -->
-        <div v-if="showCreateCourseModal" class="modal-overlay" @click.self="closeCreateCourseModal">
+        <div v-if="showCreateCourseModal" class="modal-overlay courses-modal-overlay" @click.self="closeCreateCourseModal">
           <div class="modal-card">
             <div class="modal-header">
               <h2>Novo Curso</h2>
@@ -305,7 +306,7 @@
         </div>
 
         <!-- Modal: Editar Curso -->
-        <div v-if="showEditCourseModal" class="modal-overlay" @click.self="showEditCourseModal = false">
+        <div v-if="showEditCourseModal" class="modal-overlay courses-modal-overlay" @click.self="showEditCourseModal = false">
           <div class="modal-card">
             <div class="modal-header">
               <h2>{{ isBannerEditMode ? 'Editar Banner' : 'Editar Curso' }}</h2>
@@ -382,7 +383,7 @@
         </div>
 
         <!-- Modal: Criar Módulo -->
-        <div v-if="showModuleModal" class="modal-overlay" @click.self="showModuleModal = false">
+        <div v-if="showModuleModal" class="modal-overlay courses-modal-overlay" @click.self="showModuleModal = false">
           <div class="modal-card">
             <div class="modal-header">
               <h2>Novo Módulo</h2>
@@ -406,7 +407,7 @@
           </div>
         </div>
         <!-- Modal: Editar Aula -->
-        <div v-if="showEditLessonModal" class="modal-overlay" @click.self="showEditLessonModal = false">
+        <div v-if="showEditLessonModal" class="modal-overlay courses-modal-overlay" @click.self="showEditLessonModal = false">
           <div class="modal-card modal-card--lesson">
             <div class="modal-header">
               <h2>Editar Aula</h2>
@@ -541,7 +542,7 @@
         </div>
 
         <!-- Modal: Criar Aula -->
-        <div v-if="showLessonModal" class="modal-overlay" @click.self="showLessonModal = false">
+        <div v-if="showLessonModal" class="modal-overlay courses-modal-overlay" @click.self="showLessonModal = false">
           <div class="modal-card modal-card--lesson">
             <div class="modal-header">
               <h2>Nova Aula</h2>
@@ -676,7 +677,7 @@
         </div>
 
         <!-- Modal: Novo Ebook -->
-        <div v-if="showCreateEbookModal" class="modal-overlay" @click.self="closeCreateEbookModal">
+        <div v-if="showCreateEbookModal" class="modal-overlay courses-modal-overlay" @click.self="closeCreateEbookModal">
           <div class="modal-card">
             <div class="modal-header">
               <h2>Novo Ebook</h2>
@@ -727,7 +728,7 @@
         </div>
 
         <!-- Modal: Editar Ebook -->
-        <div v-if="showEditEbookModal" class="modal-overlay" @click.self="closeEditEbookModal">
+        <div v-if="showEditEbookModal" class="modal-overlay courses-modal-overlay" @click.self="closeEditEbookModal">
           <div class="modal-card">
             <div class="modal-header">
               <h2>Editar Ebook</h2>
@@ -776,6 +777,7 @@
             </div>
           </div>
         </div>
+        </Teleport>
       </div>
     </div>
   </NuxtLayout>
@@ -819,7 +821,7 @@ const lessonThumbPreview = ref(null)
 const lessonThumbInput = ref(null)
 const lessonThumbFile = ref(null)
 
-// â”€â”€ Novos estados: Upload de VÃ­deo + Captura de Frame â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ���� Novos estados: Upload de Vídeo + Captura de Frame ����������������������
 const videoSourceTab = ref('link') // 'link' | 'upload'
 const thumbSourceTab = ref('upload') // 'upload' | 'frame' | 'youtube'
 const videoFileLocal = ref(null) // File do vídeo
@@ -1353,7 +1355,14 @@ const openCreateEbookFromCourses = () => {
 
 const handleDeleteEbookFromCourses = async (ebookId) => {
   if (!ebookId) return
-  if (!confirm('Deseja excluir este ebook?')) return
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: 'Excluir ebook',
+    message: 'Deseja excluir este ebook? Esta ação não pode ser desfeita.',
+    confirmLabel: 'Excluir',
+    cancelLabel: 'Cancelar',
+  })
+  if (!ok) return
   try {
     const token = localStorage.getItem('auth_token')
     if (!token) {
@@ -1745,7 +1754,14 @@ const handleCreateModule = async () => {
 }
 
 const handleDeleteCourse = async (id) => {
-  if (!confirm('Tem certeza que deseja excluir este curso e todos os seus módulos?')) return
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: 'Excluir curso',
+    message: 'Tem certeza que deseja excluir este curso e todos os seus módulos? Esta ação não pode ser desfeita.',
+    confirmLabel: 'Excluir curso',
+    cancelLabel: 'Cancelar',
+  })
+  if (!ok) return
   try {
     const token = localStorage.getItem('auth_token')
     await $fetch(`${apiBase}/courses/${id}`, {
@@ -1831,7 +1847,7 @@ const onFrameVideoLoaded = () => {
     const duration = frameVideoRef.value.duration || 0
     frameVideoDuration.value = duration
     
-    // Sugerir duraÃ§Ã£o automaticamente se o campo estiver vazio ou for novo vÃ­deo
+    // Sugerir duração automaticamente se o campo estiver vazio ou for novo vídeo
     const formatted = formatSecondsToDuration(duration)
     if (showEditLessonModal.value) {
       if (!editingLesson.duration || editingLesson.duration === "-- min") {
@@ -1961,7 +1977,7 @@ const handleCreateLesson = async () => {
     uploading.value = true
     const token = localStorage.getItem('auth_token')
     
-    // 1. Upload do vÃ­deo local (se necessÃ¡rio)
+    // 1. Upload do vídeo local (se necessário)
     if (videoSourceTab.value === 'upload' && videoFileLocal.value && !newLesson.videoUrl) {
       await handleVideoUpload()
     }
@@ -2015,11 +2031,11 @@ const openEditLesson = (lesson) => {
   lessonThumbPreview.value = lesson.thumbnail || null
   lessonThumbFile.value = null
   resetLessonVideoState()
-  // Se o link atual nÃ£o Ã© YouTube, mostrar como link externo
+  // Se o link atual não é YouTube, mostrar como link externo
   if (lesson.videoUrl && !isYoutube(lesson.videoUrl)) {
     videoSourceTab.value = 'link'
   }
-  // Se hÃ¡ thumbnail, mudar aba para upload
+  // Se há thumbnail, mudar aba para upload
   thumbSourceTab.value = lesson.thumbnail ? 'upload' : 'upload'
   showEditLessonModal.value = true
 }
@@ -2027,7 +2043,7 @@ const openEditLesson = (lesson) => {
 const handleUpdateLesson = async () => {
   if (!editingLesson.title) return alert('Título é obrigatório.')
   if (videoSourceTab.value === 'upload' && videoFileLocal.value) {
-    // Upload do novo vÃ­deo primeiro
+    // Upload do novo vídeo primeiro
     await handleVideoUpload()
   }
   if (!editingLesson.videoUrl) return alert('Informe o link ou faça upload de um vídeo.')
@@ -2099,7 +2115,14 @@ const isYoutube = (url) => {
 
 
 const handleDeleteLesson = async (lessonId, moduleId) => {
-  if (!confirm('Deseja excluir esta aula?')) return
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: 'Excluir aula',
+    message: 'Deseja excluir esta aula? Esta ação não pode ser desfeita.',
+    confirmLabel: 'Excluir',
+    cancelLabel: 'Cancelar',
+  })
+  if (!ok) return
   try {
     const token = localStorage.getItem('auth_token')
     await $fetch(`${apiBase}/courses/lessons/${lessonId}`, {
@@ -2116,7 +2139,14 @@ const handleDeleteLesson = async (lessonId, moduleId) => {
 }
 
 const handleDeleteModule = async (moduleId, courseId) => {
-  if (!confirm('Deseja excluir este módulo? Todas as aulas vinculadas também serão removidas.')) return
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: 'Excluir módulo',
+    message: 'Deseja excluir este módulo? Todas as aulas vinculadas também serão removidas.',
+    confirmLabel: 'Excluir módulo',
+    cancelLabel: 'Cancelar',
+  })
+  if (!ok) return
   try {
     const token = localStorage.getItem('auth_token')
     await $fetch(`${apiBase}/courses/${courseId}/modules/${moduleId}`, {
@@ -2127,6 +2157,10 @@ const handleDeleteModule = async (moduleId, courseId) => {
   } catch (err) {
     alert('Erro ao excluir módulo.')
   }
+}
+
+if (import.meta.client) {
+  isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
 }
 
 onMounted(async () => {
@@ -2156,7 +2190,7 @@ watch(
 .courses-page {
   padding: 3rem;
   width: 100%;
-  max-width: 1440px; /* Expande mais a largura, mas mantÃ©m limite para TVs 4K */
+  max-width: 1440px; /* Expande mais a largura, mas mantém limite para TVs 4K */
   margin: 0 auto;
 }
 
@@ -2248,7 +2282,7 @@ watch(
 .card-image-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 3/4; /* PÃ´ster vertical */
+  aspect-ratio: 3/4; /* Pôster vertical */
   background: #f4f6f8;
   display: flex;
   align-items: center;
@@ -2355,6 +2389,7 @@ watch(
   align-items: center !important;
   justify-content: center !important;
   overflow: hidden;
+  z-index: 5000;
 }
 
 .netflix-theme {
@@ -2674,7 +2709,8 @@ watch(
 
 
 /* Modal and Upload Styles (Same as previous but polished) */
-.modal-overlay {
+.modal-overlay,
+.courses-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
@@ -2682,7 +2718,8 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 5000;
+  padding: 1rem;
 }
 
 .modal-card {
@@ -3036,7 +3073,7 @@ watch(
   transform: scale(0.95);
 }
 
-/* â”€â”€ Modal LiÃ§Ã£o (maior para caber os controles) â”€â”€ */
+/* ���� Modal Lição (maior para caber os controles) ���� */
 .modal-card--lesson {
   max-width: 620px;
   max-height: 90vh;
@@ -3100,7 +3137,7 @@ watch(
   margin-top: 0;
 }
 
-/* â”€â”€ Ãrea de Upload de VÃ­deo â”€â”€ */
+/* ���� Área de Upload de Vídeo ���� */
 .video-upload-area {
   border: 2px dashed #d8d8d8;
   border-radius: 12px;
@@ -3311,6 +3348,7 @@ watch(
     linear-gradient(180deg, #f7f9fc 0%, #f1f5fb 100%) !important;
   min-height: 100vh;
   padding: 0;
+  overflow: visible;
 }
 
 .courses-page.patient-page {
@@ -3318,6 +3356,12 @@ watch(
   max-width: none;
   margin: 0;
   padding: 0 2.5rem 2.25rem;
+  overflow: visible;
+}
+
+.course-row-block {
+  margin-bottom: 1.35rem;
+  overflow: visible;
 }
 
 .patient-banner {
@@ -3463,10 +3507,6 @@ watch(
   opacity: 0.78;
 }
 
-.course-row-block {
-  margin-bottom: 1.35rem;
-}
-
 .course-row-title {
   margin: 0 0 0.75rem;
   font-size: 1.125rem;
@@ -3485,6 +3525,11 @@ watch(
   overflow: visible;
 }
 
+.course-row-block :deep(.cf-tile-card-actions) {
+  z-index: 6;
+  pointer-events: auto;
+}
+
 .course-row-block :deep(.cf-tile-card-actions .action-btn-circle) {
   width: 1.65rem;
   height: 1.65rem;
@@ -3497,6 +3542,7 @@ watch(
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .course-row-block :deep(.cf-tile-card-actions .action-btn-circle svg) {

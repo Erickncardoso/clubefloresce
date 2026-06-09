@@ -1,18 +1,17 @@
 <template>
   <NuxtLayout name="dashboard">
     <div class="settings-container">
-      <div class="settings-page">
-        <!-- Header -->
-        <div class="page-header">
+      <div class="admin-shell">
+        <header class="admin-shell-header">
           <div>
-            <h1>Personalizar Portal</h1>
+            <h1>Personalizar portal</h1>
             <p>Ajuste a identidade visual e as configurações globais da sua área de membros.</p>
           </div>
-          <button @click="handleSave" :disabled="saving" class="btn-primary">
+          <button type="button" class="admin-btn-primary" @click="handleSave" :disabled="saving">
             <Save class="btn-icon" />
-            {{ saving ? 'Salvando...' : 'Salvar Alterações' }}
+            {{ saving ? 'Salvando...' : 'Salvar alterações' }}
           </button>
-        </div>
+        </header>
 
         <div class="settings-grid">
           <!-- Identidade Visual -->

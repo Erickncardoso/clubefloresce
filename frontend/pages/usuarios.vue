@@ -1,135 +1,321 @@
 ﻿<template>
   <NuxtLayout name="dashboard">
     <div class="users-container">
-      <div class="users-page">
-        <!-- Header -->
-        <div class="page-header">
-          <div>
-            <h1>GestÃ£o de Alunos</h1>
-            <p>Gerencie quem tem acesso ao seu conteÃºdo e controle planos de assinatura.</p>
+      <div class="users-page admin-shell">
+        <header class="admin-shell-header">
+          <div class="page-header-copy">
+            <h1>Gestão de Alunos</h1>
+            <p>
+              {{ users.length }} {{ users.length === 1 ? 'aluna cadastrada' : 'alunas cadastradas' }}
+              <span v-if="activeCount !== users.length"> · {{ activeCount }} ativas</span>
+            </p>
           </div>
-          <div class="header-actions">
-            <div class="search-bar">
-              <Search class="search-icon" />
-              <input v-model="searchQuery" placeholder="Buscar por nome ou e-mail..." />
-            </div>
-            <button class="btn-primary">
-              <UserPlus class="btn-icon" />
-              Adicionar Aluno
-            </button>
+        </header>
+
+        <div class="users-toolbar">
+          <div class="search-bar">
+            <Search class="search-icon" />
+            <input
+              v-model="searchQuery"
+              type="search"
+              placeholder="Buscar por nome ou e-mail..."
+              aria-label="Buscar alunas"
+            >
           </div>
+          <button type="button" class="btn-primary" @click="showCreateModal = true">
+            <UserPlus class="btn-icon" />
+            Adicionar aluna
+          </button>
         </div>
 
         <!-- Users Table -->
-        <div class="users-table-card">
-          <table class="users-table">
-            <thead>
-              <tr>
-                <th>UsuÃ¡rio</th>
-                <th>Papel</th>
-                <th>Plano</th>
-                <th>Status</th>
-                <th>Membro desde</th>
-                <th class="text-right">AÃ§Ãµes</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="user in filteredUsers" :key="user.id">
-                <td>
-                  <div class="user-cell">
-                    <div class="user-avatar">{{ user.name.charAt(0) }}</div>
-                    <div class="user-details">
-                      <h4 class="user-name">{{ user.name }}</h4>
-                      <span class="user-email">{{ user.email }}</span>
+        <p v-if="loadError" class="load-error">{{ loadError }}</p>
+
+        <section v-if="registrationRequests.length" class="requests-section">
+          <div class="requests-head">
+            <h2 class="requests-title">Solicitações pendentes</h2>
+            <span class="requests-count">{{ registrationRequests.length }}</span>
+          </div>
+          <div class="requests-list">
+            <article v-for="req in registrationRequests" :key="req.id" class="request-card">
+              <PatientAvatar :name="req.name" size="sm" :ring="false" />
+              <div class="request-body">
+                <strong>{{ req.name }}</strong>
+                <p>{{ req.email }}<span v-if="req.phone"> · {{ req.phone }}</span></p>
+                <p v-if="req.message" class="request-message">{{ req.message }}</p>
+                <small>{{ formatDate(req.createdAt) }}</small>
+              </div>
+              <button type="button" class="btn-request" @click="openCreateFromRequest(req)">
+                Criar conta
+              </button>
+            </article>
+          </div>
+        </section>
+
+        <div v-if="loading" class="loading-row">
+          <span class="loading-spinner" aria-hidden="true" />
+          Carregando alunas...
+        </div>
+
+        <div v-else class="users-panel">
+          <div class="users-table-card">
+            <table v-if="filteredUsers.length" class="users-table">
+              <thead>
+                <tr>
+                  <th>Aluna</th>
+                  <th>Plano</th>
+                  <th>Status</th>
+                  <th>Membro desde</th>
+                  <th class="th-actions">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="user in filteredUsers"
+                  :key="user.id"
+                  class="user-row"
+                  @click="goToPatient(user)"
+                >
+                  <td>
+                    <div class="user-cell">
+                      <PatientAvatar :src="user.avatar" :name="user.name" size="sm" :ring="false" />
+                      <div class="user-copy">
+                        <span class="user-name">{{ user.name }}</span>
+                        <span class="user-email">{{ user.email }}</span>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <span class="role-badge" :class="user.role.toLowerCase()">
-                    {{ user.role }}
-                  </span>
-                </td>
-                <td>
-                  <span class="plan-badge">
-                    {{ user.plan || 'Free' }}
-                  </span>
-                </td>
-                <td>
-                  <div class="status-indicator" :class="user.status?.toLowerCase() || 'ativo'">
-                    <span class="dot"></span>
-                    {{ user.status || 'Ativo' }}
-                  </div>
-                </td>
-                <td class="date-cell">
-                  {{ formatDate(user.createdAt) }}
-                </td>
-                <td class="text-right">
-                  <div class="action-buttons">
-                    <button class="btn-action" title="Editar">
+                  </td>
+                  <td>
+                    <span class="user-tag user-tag--plan" :class="`user-tag--plan-${(user.plan || 'FREE').toLowerCase()}`">
+                      {{ formatPlan(user.plan) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="user-tag user-tag--status" :class="statusTagClass(user.status)">
+                      {{ formatStatus(user.status) }}
+                    </span>
+                  </td>
+                  <td class="date-cell">{{ formatDate(user.createdAt) }}</td>
+                  <td class="td-actions" @click.stop>
+                    <NuxtLink :to="`/usuarios/${user.id}`" class="icon-btn" title="Ver perfil">
                       <Edit3 class="icon-xs" />
-                    </button>
-                    <button class="btn-action danger" @click="handleDelete(user.id)" title="Deletar">
+                    </NuxtLink>
+                    <button type="button" class="icon-btn icon-btn--danger" title="Remover" @click="handleDelete(user.id)">
                       <Trash2 class="icon-xs" />
                     </button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="!filteredUsers.length">
-                <td colspan="6" class="empty-row">Nenhum aluno encontrado.</td>
-              </tr>
-            </tbody>
-          </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div v-else-if="!loadError" class="empty-state">
+              <UserPlus class="empty-icon" />
+              <h3>{{ searchQuery ? 'Nenhuma aluna encontrada' : 'Nenhuma aluna cadastrada' }}</h3>
+              <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar aluna para começar.' }}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+        <form class="modal-card" @submit.prevent="createPatient">
+          <h3>Nova paciente</h3>
+          <label>Nome</label>
+          <input v-model="createForm.name" required placeholder="Nome completo" />
+          <label>E-mail</label>
+          <input v-model="createForm.email" type="email" required placeholder="email@exemplo.com" />
+          <label>Senha inicial</label>
+          <input v-model="createForm.password" type="password" required minlength="6" placeholder="Mínimo 6 caracteres" />
+          <label>Plano</label>
+          <select v-model="createForm.plan">
+            <option value="FREE">FREE</option>
+            <option value="PREMIUM">PREMIUM</option>
+            <option value="PLATINUM">PLATINUM</option>
+          </select>
+          <p v-if="createError" class="create-error">{{ createError }}</p>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" @click="showCreateModal = false">Cancelar</button>
+            <button type="submit" class="btn-primary modal-submit" :disabled="creating">
+              {{ creating ? 'Criando...' : 'Criar paciente' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </Teleport>
   </NuxtLayout>
 </template>
 
 <script setup>
+definePageMeta({
+  layout: 'dashboard',
+  middleware: 'nutri-only',
+})
+
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase
-const whatsappApiBase = config.public.whatsappApiBase
+const apiBase = computed(() => config.public.apiBase)
 
 import { Search, UserPlus, Edit3, Trash2 } from 'lucide-vue-next'
+import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
 
 const users = ref([])
+const registrationRequests = ref([])
 const searchQuery = ref('')
+const showCreateModal = ref(false)
+const creating = ref(false)
+const createError = ref('')
+const loading = ref(true)
+const loadError = ref('')
+
+const createForm = reactive({
+  name: '',
+  email: '',
+  password: '',
+  plan: 'FREE',
+})
+
+const authHeaders = () => {
+  const token = localStorage.getItem('auth_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 const fetchUsers = async () => {
+  loading.value = true
+  loadError.value = ''
+
+  const token = localStorage.getItem('auth_token')
+  const role = localStorage.getItem('user_role')
+
+  if (!token || role !== 'NUTRICIONISTA') {
+    loading.value = false
+    loadError.value = 'Sessão expirada. Faça login novamente como nutricionista.'
+    return
+  }
+
   try {
-    const token = localStorage.getItem('auth_token')
-    const data = await $fetch(`${apiBase}/users`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    users.value = data
+    const [usersData, requestsData] = await Promise.all([
+      $fetch(`${apiBase.value}/users`, { headers: authHeaders() }),
+      $fetch(`${apiBase.value}/users/registration-requests`, { headers: authHeaders() }).catch(() => ({ requests: [] })),
+    ])
+
+    users.value = Array.isArray(usersData)
+      ? usersData.filter((u) => u.role === 'PACIENTE')
+      : []
+    registrationRequests.value = requestsData?.requests || []
   } catch (err) {
-    console.warn('Erro ao buscar usuÃ¡rios. Verifique autenticaÃ§Ã£o.')
+    users.value = []
+    registrationRequests.value = []
+
+    if (err?.statusCode === 401 || err?.statusCode === 403) {
+      loadError.value = 'Sem permissão ou sessão expirada. Faça login novamente.'
+      return
+    }
+
+    if (isApiConnectionError(err)) {
+      loadError.value = apiConnectionErrorMessage({
+        hostname: window.location.hostname,
+        dev: process.env.NODE_ENV !== 'production',
+      })
+      return
+    }
+
+    loadError.value = err.data?.error || err.data?.message || 'Não foi possível carregar os alunos.'
+  } finally {
+    loading.value = false
   }
 }
 
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return users.value
-  return users.value.filter(u => 
-    u.name.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+  return users.value.filter(u =>
+    u.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
     u.email.toLowerCase().includes(searchQuery.value.toLowerCase())
   )
 })
+
+const activeCount = computed(() =>
+  users.value.filter((u) => (u.status || 'ATIVO').toUpperCase() === 'ATIVO').length,
+)
+
+function formatPlan(plan) {
+  const key = (plan || 'FREE').toUpperCase()
+  if (key === 'PREMIUM') return 'Premium'
+  if (key === 'PLATINUM') return 'Platinum'
+  return 'Free'
+}
+
+function formatStatus(status) {
+  const key = (status || 'ATIVO').toUpperCase()
+  if (key === 'INATIVO') return 'Inativa'
+  if (key === 'PENDENTE') return 'Pendente'
+  return 'Ativa'
+}
+
+function statusTagClass(status) {
+  const key = (status || 'ATIVO').toLowerCase()
+  return `user-tag--status-${key}`
+}
+
+const goToPatient = (user) => {
+  if (user.role === 'PACIENTE') {
+    navigateTo(`/usuarios/${user.id}`)
+  }
+}
+
+const openCreateFromRequest = (req) => {
+  createForm.name = req.name
+  createForm.email = req.email
+  createForm.password = ''
+  createForm.plan = 'FREE'
+  createError.value = ''
+  showCreateModal.value = true
+}
+
+const createPatient = async () => {
+  creating.value = true
+  createError.value = ''
+  try {
+    const user = await $fetch(`${apiBase.value}/users`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: createForm,
+    })
+    showCreateModal.value = false
+    createForm.name = ''
+    createForm.email = ''
+    createForm.password = ''
+    createForm.plan = 'FREE'
+    await fetchUsers()
+    navigateTo(`/usuarios/${user.id}`)
+  } catch (err) {
+    createError.value = err.data?.error || 'Erro ao criar paciente.'
+  } finally {
+    creating.value = false
+  }
+}
 
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 const handleDelete = async (id) => {
-  if (!confirm('Deseja realmente remover este acesso?')) return
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: 'Remover acesso',
+    message: 'Deseja realmente remover o acesso desta paciente?',
+    confirmLabel: 'Remover',
+    cancelLabel: 'Cancelar',
+  })
+  if (!ok) return
   try {
-    const token = localStorage.getItem('auth_token')
-    await $fetch(`${apiBase}/users/${id}`, {
+    await $fetch(`${apiBase.value}/users/${id}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
+      headers: authHeaders(),
     })
     fetchUsers()
   } catch (err) {
-    alert('Erro ao excluir usuÃ¡rio.')
+    alert('Erro ao excluir usuário.')
   }
 }
 
@@ -138,230 +324,486 @@ onMounted(fetchUsers)
 
 <style scoped>
 .users-container {
-  min-height: 100%;
-  background-color: #fcfcfc;
+  --primary: #2d5a27;
+  --primary-light: #4c8c4a;
 }
 
-.users-page {
-  padding: 3rem;
-  width: 100%;
-  max-width: 1440px;
-  margin: 0 auto;
-}
-
-/* Header */
-.page-header {
+.users-toolbar {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 3.5rem;
-}
-
-.page-header h1 {
-  font-size: 2.2rem;
-  font-weight: 800;
-  color: #111;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.5rem;
-}
-
-.page-header p {
-  font-size: 1rem;
-  color: #666;
-}
-
-.header-actions {
-  display: flex;
-  gap: 1.5rem;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .search-bar {
   position: relative;
-  width: 320px;
+  flex: 1;
+  min-width: 0;
+  max-width: 420px;
 }
 
 .search-icon {
   position: absolute;
-  left: 1rem;
+  left: 0.95rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #aaa;
-  width: 18px;
-  height: 18px;
+  color: #9ca3af;
+  width: 17px;
+  height: 17px;
+  pointer-events: none;
 }
 
 .search-bar input {
   width: 100%;
-  padding: 0.8rem 1rem 0.8rem 3rem;
-  border: 1px solid #eee;
-  border-radius: 12px;
-  background: white;
+  padding: 0.7rem 1rem 0.7rem 2.65rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
   font-family: inherit;
   font-size: 0.9rem;
   outline: none;
-  transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .search-bar input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(45, 90, 39, 0.05);
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.1);
 }
 
 .btn-primary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
   background: var(--primary);
-  color: white;
+  color: #fff;
   border: none;
-  padding: 0.8rem 1.6rem;
-  border-radius: 12px;
+  padding: 0.65rem 1.1rem;
+  border-radius: 10px;
   cursor: pointer;
+  font-family: inherit;
   font-weight: 700;
-  transition: all 0.3s;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  line-height: 1;
+  transition: background 0.15s;
 }
 
 .btn-primary:hover {
   background: var(--primary-light);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(45, 90, 39, 0.2);
 }
 
-/* Table Card */
+.btn-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 .users-table-card {
-  background: white;
-  border-radius: 24px;
-  border: 1px solid #f0f0f0;
+  background: #fff;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .users-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .users-table th {
+  padding: 0.85rem 1.15rem;
   text-align: left;
-  padding: 1.5rem;
-  background: #fafcfb;
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: #888;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #f0f0f0;
+  color: #888;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
+}
+
+.users-table th:nth-child(1) { width: 36%; }
+.users-table th:nth-child(2) { width: 11%; }
+.users-table th:nth-child(3) { width: 11%; }
+.users-table th:nth-child(4) { width: 16%; }
+
+.th-actions,
+.td-actions {
+  width: 96px;
+  text-align: right;
 }
 
 .users-table td {
-  padding: 1.5rem;
-  border-bottom: 1px solid #f8f8f8;
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid #f3f3f3;
   vertical-align: middle;
 }
 
-.users-table tr:last-child td { border-bottom: none; }
+.users-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.user-row {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.user-row:hover td {
+  background: #fafcfb;
+}
 
 .user-cell {
   display: flex;
   align-items: center;
-  gap: 1.2rem;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
-.user-avatar {
-  width: 44px;
-  height: 44px;
-  background: #f0fdf4;
-  color: var(--primary);
-  border-radius: 14px;
+.user-copy {
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.1rem;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .user-name {
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  color: #111;
-  margin-bottom: 2px;
+  color: #141414;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-email {
-  font-size: 0.85rem;
-  color: #aaa;
+  font-size: 0.8rem;
+  color: #737373;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-tag {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.22rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.user-tag--plan-free {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.user-tag--plan-premium {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.user-tag--plan-platinum {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.user-tag--status-ativo {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.user-tag--status-inativo {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.user-tag--status-pendente {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.date-cell {
+  font-size: 0.84rem;
+  color: #737373;
   font-weight: 500;
 }
 
-/* Badges & Indicators */
-.role-badge {
-  font-size: 0.75rem;
-  font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 6px;
-  text-transform: uppercase;
+.td-actions {
+  white-space: nowrap;
 }
 
-.role-badge.nutricionista { background: #fffbeb; color: #d97706; }
-.role-badge.paciente { background: #eff6ff; color: #2563eb; }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: 0.25rem;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+  text-decoration: none;
+  vertical-align: middle;
+  transition: all 0.12s;
+}
 
-.plan-badge {
-  font-size: 0.8rem;
+.icon-btn:hover {
+  border-color: #c8dcc4;
+  color: var(--primary);
+  background: #f8fbf8;
+}
+
+.icon-btn--danger:hover {
+  border-color: #fecaca;
+  color: #dc2626;
+  background: #fff5f5;
+}
+
+.icon-xs { width: 15px; height: 15px; }
+
+.empty-state {
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 2rem;
+  height: 2rem;
+  color: #ccc;
+  margin-bottom: 0.75rem;
+}
+
+.empty-state h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #555;
-  background: #f0f0f0;
-  padding: 4px 8px;
-  border-radius: 6px;
+  color: #333;
 }
 
-.status-indicator {
+.empty-state p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #888;
+}
+
+.load-error {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.loading-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #555;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 2.5rem;
+  color: #666;
+  font-weight: 600;
 }
 
-.status-indicator .dot {
-  width: 8px;
-  height: 8px;
+.loading-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #ddd;
+  border-top-color: var(--primary);
   border-radius: 50%;
+  animation: spin 0.7s linear infinite;
 }
 
-.status-indicator.ativo .dot { background: #16a34a; box-shadow: 0 0 8px rgba(22, 163, 74, 0.4); }
-.status-indicator.inativo .dot { background: #d1d5db; }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
-.date-cell { font-size: 0.85rem; color: #888; font-weight: 600; }
+.requests-section {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #fde68a;
+}
 
-.text-right { text-align: right; }
+.requests-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
 
-.action-buttons {
+.requests-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.requests-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.request-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.request-body { min-width: 0; }
+
+.request-body strong {
+  display: block;
+  font-size: 0.88rem;
+  margin-bottom: 0.1rem;
+}
+
+.request-body p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #57534e;
+}
+
+.request-message {
+  margin-top: 0.25rem !important;
+  font-style: italic;
+  color: #78716c !important;
+}
+
+.request-body small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.74rem;
+  color: #a8a29e;
+}
+
+.btn-request {
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  background: #92400e;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  padding: 1rem;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.5rem;
+  width: min(400px, 100%);
+}
+
+.modal-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.modal-card label {
+  display: block;
+  font-weight: 600;
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.86rem;
+}
+
+.modal-card input,
+.modal-card select {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
 }
 
-.btn-action {
-  background: transparent;
-  border: 1px solid #f0f0f0;
-  color: #888;
-  padding: 8px;
-  border-radius: 10px;
+.btn-secondary {
+  background: #fff;
+  color: #444;
+  border: 1px solid #e5e7eb;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.btn-action:hover { background: #f8fbf8; color: var(--primary); border-color: var(--primary-light); }
-.btn-action.danger:hover { background: #fff5f5; color: #e63946; border-color: #ffdada; }
+.modal-submit { margin: 0; }
 
-.icon-xs { width: 16px; height: 16px; }
+.create-error {
+  color: #c53030;
+  font-size: 0.88rem;
+  margin-top: 0.75rem;
+}
 
-.empty-row {
-  text-align: center;
-  padding: 4rem !important;
-  color: #ccc;
+@media (max-width: 768px) {
+  .users-page { padding: 1.25rem 1rem 2rem; }
+
+  .users-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-bar { max-width: none; }
+
+  .users-toolbar .btn-primary {
+    justify-content: center;
+  }
+
+  .users-table-card { overflow-x: auto; }
+
+  .users-table { min-width: 640px; }
 }
 </style>
 

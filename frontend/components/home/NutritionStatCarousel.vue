@@ -3,6 +3,7 @@
     <div
       ref="trackRef"
       class="home-stat-carousel"
+      data-h-scroll
       role="list"
       aria-label="Resumo nutricional do dia"
       @scroll="onScroll"

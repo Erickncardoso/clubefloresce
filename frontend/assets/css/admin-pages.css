@@ -1,0 +1,103 @@
+/* Painel nutricionista — shell compartilhado (light) */
+.admin-shell {
+  --admin-primary: #2d5a27;
+  --admin-primary-soft: #eef8f0;
+  --admin-ink: #141414;
+  --admin-muted: #66706e;
+  --admin-border: #e8ece9;
+  --admin-surface: #ffffff;
+  --admin-max: 1200px;
+  width: 100%;
+  max-width: var(--admin-max);
+  margin: 0 auto;
+  padding: 2rem 2.5rem 3rem;
+}
+
+.admin-shell-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-shell-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--admin-ink);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.admin-shell-header p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--admin-muted);
+  line-height: 1.5;
+  max-width: 42rem;
+}
+
+.admin-shell-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.admin-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 10px;
+  padding: 0.65rem 1.1rem;
+  background: var(--admin-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.admin-btn-primary:hover:not(:disabled) {
+  background: #4c8c4a;
+}
+
+.admin-btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.admin-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 0.65rem 1.1rem;
+  background: #fff;
+  color: #444;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admin-btn-secondary:hover:not(:disabled) {
+  background: #f8faf8;
+  border-color: #c8dcc4;
+}
+
+@media (max-width: 768px) {
+  .admin-shell {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .admin-shell-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

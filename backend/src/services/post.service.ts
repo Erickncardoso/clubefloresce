@@ -3,6 +3,12 @@ import { Post, Comment } from "@prisma/client";
 
 const postRepository = new PostRepository();
 
+const COMMUNITY_ROLES = new Set(["PACIENTE", "NUTRICIONISTA"]);
+
+function canParticipateInCommunity(role: string) {
+  return COMMUNITY_ROLES.has(role);
+}
+
 export class PostService {
   async getAllPosts(userId?: string) {
     return postRepository.findAllPatientCommunity(userId);
@@ -12,8 +18,8 @@ export class PostService {
     data: { content: string; authorId: string; imageUrl?: string },
     authorRole: string
   ): Promise<Post> {
-    if (authorRole !== "PACIENTE") {
-      throw new Error("Apenas pacientes podem publicar na comunidade.");
+    if (!canParticipateInCommunity(authorRole)) {
+      throw new Error("Sem permissão para publicar na comunidade.");
     }
     const content = data.content?.trim() ?? "";
     const imageUrl = data.imageUrl?.trim() || undefined;
@@ -27,8 +33,8 @@ export class PostService {
     data: { content: string; postId: string; authorId: string },
     authorRole: string
   ): Promise<Comment> {
-    if (authorRole !== "PACIENTE") {
-      throw new Error("Apenas pacientes podem comentar na comunidade.");
+    if (!canParticipateInCommunity(authorRole)) {
+      throw new Error("Sem permissão para comentar na comunidade.");
     }
     const content = data.content?.trim();
     if (!content) throw new Error("Conteúdo obrigatório.");
@@ -49,8 +55,8 @@ export class PostService {
   }
 
   async toggleLike(postId: string, userId: string, userRole: string) {
-    if (userRole !== "PACIENTE") {
-      throw new Error("Apenas pacientes podem curtir publicações.");
+    if (!canParticipateInCommunity(userRole)) {
+      throw new Error("Sem permissão para curtir publicações.");
     }
     return postRepository.togglePostLike(userId, postId);
   }

@@ -1,15 +1,21 @@
-import { PrismaClient, Post, Comment } from "@prisma/client";
+import { PrismaClient, Post, Comment, Role } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+const COMMUNITY_AUTHOR_ROLES: Role[] = [Role.PACIENTE, Role.NUTRICIONISTA];
+
 export class PostRepository {
+  private communityAuthorFilter = {
+    role: { in: COMMUNITY_AUTHOR_ROLES },
+  };
+
   async findAllPatientCommunity(userId?: string) {
     const posts = await prisma.post.findMany({
-      where: { author: { role: "PACIENTE" } },
+      where: { author: this.communityAuthorFilter },
       include: {
         author: { select: { id: true, name: true, avatar: true, role: true } },
         comments: {
-          where: { author: { role: "PACIENTE" } },
+          where: { author: this.communityAuthorFilter },
           include: { author: { select: { id: true, name: true, avatar: true, role: true } } },
           orderBy: { createdAt: "asc" },
         },

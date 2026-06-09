@@ -51,17 +51,42 @@ html:has(.cf-tab-bar) {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   font-family: var(--cf-font);
-  overflow-x: hidden;
+  overflow: hidden;
+  height: 100%;
 }
 
 html:has(.patient-shell) body,
 html:has(.patient-login-mode) body,
 html:has(.cf-tab-bar) body {
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
+  height: 100%;
   max-width: 100%;
   background: #ffffff;
+}
+
+html:has(.patient-shell) #__nuxt,
+html:has(.cf-tab-bar) #__nuxt {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+html:has(.patient-login-mode):not(:has(.patient-shell)) {
+  overflow-y: auto;
+  height: auto;
+}
+
+html:has(.patient-login-mode):not(:has(.patient-shell)) body {
+  overflow-y: auto;
+  height: auto;
+}
+
+html:has(.patient-login-mode):not(:has(.patient-shell)) #__nuxt {
+  height: auto;
+  overflow: visible;
+  display: block;
 }
 
 .patient-shell,
@@ -78,19 +103,26 @@ html:has(.cf-tab-bar) body {
 }
 
 .patient-shell {
-  min-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background: var(--cf-bg);
-  overflow-x: clip;
+  overflow: hidden;
   width: 100%;
   max-width: 100%;
 }
 
 .patient-shell-body {
+  flex: 1;
+  min-height: 0;
   max-width: 430px;
   width: 100%;
   margin: 0 auto;
-  min-height: 100vh;
-  overflow-x: clip;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   background: #ffffff;
 }
 
@@ -109,10 +141,13 @@ html:has(.cf-tab-bar-wrap) .lesson-design-page {
   padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 0.5rem);
 }
 
-.patient-page {
+.patient-shell .patient-page,
+html:has(.cf-tab-bar) .patient-page,
+html:has(.cf-tab-bar-wrap) .patient-page {
   padding: 0 1rem 1.5rem;
   max-width: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
+  overflow-y: visible;
   box-sizing: border-box;
 }
 
@@ -157,7 +192,8 @@ html:has(.cf-tab-bar-wrap) .lesson-design-page {
   .cf-squircle,
   .cf-squircle--icon,
   .cf-squircle--attach,
-  .cf-squircle--msg-media {
+  .cf-squircle--msg-media,
+  .cf-squircle--tile {
     corner-shape: squircle;
   }
 }
@@ -489,8 +525,11 @@ html:has(.cf-tab-bar-wrap) .lesson-design-page {
   border-radius: var(--cf-radius-sm);
 }
 
-html, body {
-  overscroll-behavior: none;
+html:has(.patient-shell) body,
+html:has(.patient-login-mode) body,
+html:has(.cf-tab-bar) body,
+html:has(.cf-tab-bar-wrap) body {
+  overscroll-behavior-y: auto;
   -webkit-tap-highlight-color: transparent;
 }
 
