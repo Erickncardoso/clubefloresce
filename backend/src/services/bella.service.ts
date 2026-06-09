@@ -6,6 +6,11 @@ import { resolveTaskType } from "./bella/model-config";
 import { getTopicTaskHint, normalizeTopic, type BellaChatTopic } from "./bella/topic-config";
 import { FoodDiaryService } from "./food-diary.service";
 import { cloudinaryUpload } from "../utils/cloudinary";
+import {
+  buildMealAnalysisPreview,
+  resolveMealSlot,
+} from "./bella/meal-plan-context";
+import { inferMealLabel } from "../utils/meal-time";
 
 const bellaRepository = new BellaRepository();
 const orchestrator = new BellaOrchestratorService();
@@ -41,8 +46,11 @@ export class BellaService {
     const file = payload.file;
     const topic = normalizeTopic(payload.topic);
     const taskHint = payload.taskHint?.trim() || getTopicTaskHint(topic);
-    const mealType = payload.mealType?.trim() || "other";
-    const mealLabel = payload.mealLabel?.trim() || undefined;
+    const mealTypeInput = payload.mealType?.trim();
+    const mealLabelInput = payload.mealLabel?.trim();
+    const slot = await resolveMealSlot(userId);
+    const mealType = mealTypeInput && mealTypeInput !== "other" ? mealTypeInput : slot.mealType;
+    const mealLabel = mealLabelInput || slot.mealLabel;
 
     if (!message && !file) throw new Error("Envie uma mensagem ou anexe um arquivo.");
     if (message.length > 4000) throw new Error("Mensagem muito longa.");
@@ -81,8 +89,26 @@ export class BellaService {
         file.buffer,
         file.mimetype,
         message || userContent,
+        patientDateKey,
       );
       const dailySummary = await foodDiaryService.getDailySummary(userId, patientDateKey);
+      const resolvedLabel = mealLabel || inferMealLabel(mealType);
+      const previewReply = buildMealAnalysisPreview(
+        resolvedLabel,
+        mealDraft.items,
+        mealDraft.totals,
+        dailySummary,
+        mealDraft.notes,
+      );
+
+      const previewMsg = await bellaRepository.create(userId, "assistant", previewReply, {
+        topic: "meal",
+        metadata: {
+          topic: "meal",
+          taskType: "meal_diary",
+          pendingConfirmation: true,
+        },
+      });
 
       return {
         topic,
@@ -91,12 +117,12 @@ export class BellaService {
         mealDraft: {
           ...mealDraft,
           mealType,
-          mealLabel: mealLabel || inferMealLabel(mealType),
+          mealLabel: resolvedLabel,
           imageUrl: attachmentUrl,
           userMessageId: userMsg.id,
         },
         dailySummary,
-        message: null,
+        message: previewMsg,
         meta: {
           taskType: "image",
           topic: "meal",
@@ -105,7 +131,7 @@ export class BellaService {
       };
     }
 
-    const history = await bellaRepository.findRecentByUser(userId, topic, 20);
+    const history = await bellaRepository.findRecentByUser(userId, topic, 30);
     const prior: ChatMessage[] = history
       .slice(0, -1)
       .filter((m) => m.role === "user" || m.role === "assistant")
@@ -118,6 +144,7 @@ export class BellaService {
       userMessage: message,
       topic,
       taskHint,
+      patientDateKey,
       attachment: file
         ? {
             buffer: file.buffer,
@@ -161,16 +188,6 @@ async function uploadChatAttachment(
   }
 }
 
-function inferMealLabel(mealType: string): string {
-  const labels: Record<string, string> = {
-    breakfast: "Café da manhã",
-    snack1: "Lanche da manhã",
-    lunch: "Almoço",
-    snack2: "Lanche da tarde",
-    dinner: "Jantar",
-  };
-  return labels[mealType] || "Refeição";
-}
 
 function buildUserDisplayContent(
   message: string,
@@ -181,7 +198,7 @@ function buildUserDisplayContent(
   if (message) return message;
   if (!file) return "";
   if (taskType === "pdf") return "Analise este PDF, por favor.";
-  if (topic === "meal") return "Analise meu prato, por favor.";
+  if (topic === "meal") return "Analise meu prato para registrar no diário de hoje.";
   if (topic === "label") return "Analise este rótulo, por favor.";
   return "Analise esta imagem, por favor.";
 }

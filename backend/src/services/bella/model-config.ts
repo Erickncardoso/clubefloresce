@@ -42,19 +42,24 @@ export function resolveTaskType(input: {
     if (input.hasFile && input.mimeType?.startsWith("image/")) return "image";
     if (!input.hasFile) return "chat";
   }
-  if (topic === "label" && input.hasFile && input.mimeType?.startsWith("image/")) return "image";
-  if (topic === "meal" && input.hasFile && input.mimeType?.startsWith("image/")) return "image";
+  const mime = input.mimeType?.toLowerCase() || "";
+  const hasImage = input.hasFile && mime.startsWith("image/");
+  const hasPdf = input.hasFile && mime === "application/pdf";
+
+  if (hasImage) return "image";
+  if (hasPdf) return "pdf";
+
   if (hint === "pdf" || hint === "document") return "pdf";
   if (hint === "chat") return "chat";
 
-  const mime = input.mimeType?.toLowerCase() || "";
-  if (mime.startsWith("image/")) return "image";
-  if (mime === "application/pdf") return "pdf";
-
   const text = (input.message || "").toLowerCase();
-  if (/pdf|documento|plano alimentar|receita médica/.test(text) && input.hasFile) return "pdf";
-  if (/rótulo|rotulo|foto|imagem|tabela nutricional/.test(text) && input.hasFile) return "image";
-  if (/prato|refeição|refeicao|almoco|almoço|jantar|lanche|café da manhã|calorias do prato/.test(text) && input.hasFile) return "image";
+  const topicLocked = topic && topic !== "general" && topic !== "ask";
+
+  if (!topicLocked && input.hasFile) {
+    if (/pdf|documento|plano alimentar|receita médica/.test(text)) return "pdf";
+    if (/rótulo|rotulo|foto|imagem|tabela nutricional/.test(text)) return "image";
+    if (/prato|refeição|refeicao|almoco|almoço|jantar|lanche|café da manhã|calorias do prato/.test(text)) return "image";
+  }
 
   return "chat";
 }

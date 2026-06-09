@@ -2,6 +2,12 @@ import type { BellaToolContext, BellaToolName, OpenAIToolDefinition } from "../t
 import { checkinToolDefinition, executeCheckinTool } from "./checkin.tool";
 import { contentSearchToolDefinition, executeContentSearchTool } from "./content-search.tool";
 import { coursesToolDefinition, executeCoursesToolForUser } from "./courses.tool";
+import {
+  dailyDiaryToolDefinition,
+  executeDailyDiaryTool,
+  executeMealPlanTool,
+  mealPlanToolDefinition,
+} from "./meal-plan.tool";
 import { executeUserProfileTool, userProfileToolDefinition } from "./user-profile.tool";
 
 type ToolExecutor = (args: Record<string, unknown>, ctx: BellaToolContext) => Promise<string>;
@@ -11,6 +17,8 @@ const executors: Record<BellaToolName, ToolExecutor> = {
   list_recommended_courses: executeCoursesToolForUser,
   get_user_profile: executeUserProfileTool,
   search_educational_content: executeContentSearchTool,
+  get_patient_meal_plan: executeMealPlanTool,
+  get_daily_diary_summary: executeDailyDiaryTool,
 };
 
 export function getOpenAIToolDefinitions(): OpenAIToolDefinition[] {
@@ -19,6 +27,8 @@ export function getOpenAIToolDefinitions(): OpenAIToolDefinition[] {
     coursesToolDefinition,
     userProfileToolDefinition,
     contentSearchToolDefinition,
+    mealPlanToolDefinition,
+    dailyDiaryToolDefinition,
   ];
 }
 
@@ -29,6 +39,10 @@ export async function executeTool(
   args: Record<string, unknown>,
   ctx: BellaToolContext,
 ): Promise<string> {
+  if (!ctx.userId) {
+    return "Erro de contexto: paciente não identificado.";
+  }
+
   const executor = executors[name as BellaToolName];
   if (!executor) {
     return `Ferramenta desconhecida: ${name}`;

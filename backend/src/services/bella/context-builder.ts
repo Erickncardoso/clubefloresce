@@ -3,6 +3,7 @@ import { CourseRepository } from "../../repositories/course.repository";
 import { UserRepository } from "../../repositories/user.repository";
 import { getWeekStart } from "../../utils/week-start";
 import type { UserContextSnapshot } from "./types";
+import { buildPatientVerifiedMemory } from "./patient-memory";
 
 const checkInRepository = new CheckInRepository();
 const courseRepository = new CourseRepository();
@@ -63,15 +64,19 @@ async function buildCoursesSummary(): Promise<string> {
     .join(", ");
 }
 
-export async function buildUserContext(userId: string): Promise<UserContextSnapshot> {
+export async function buildUserContext(
+  userId: string,
+  patientDateKey?: string,
+): Promise<UserContextSnapshot> {
   const user = await userRepository.findById(userId);
   if (!user) {
     throw new Error("Usuário não encontrado.");
   }
 
-  const [checkInSummary, availableCourses] = await Promise.all([
+  const [checkInSummary, availableCourses, verifiedMemory] = await Promise.all([
     buildCheckInSummary(userId),
     buildCoursesSummary(),
+    buildPatientVerifiedMemory(userId, patientDateKey),
   ]);
 
   return {
@@ -82,6 +87,9 @@ export async function buildUserContext(userId: string): Promise<UserContextSnaps
     memberSince: formatDate(user.createdAt),
     checkInSummary,
     availableCourses,
+    verifiedMemory: verifiedMemory.promptBlock,
+    currentMealSlot: verifiedMemory.currentMealSlot,
+    hasMealPlan: verifiedMemory.hasMealPlan,
   };
 }
 

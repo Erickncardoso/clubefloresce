@@ -34,8 +34,9 @@ export function getMessageDisplayText(msg) {
 
 const AUTO_IMAGE_FALLBACKS = new Set([
   'Analise este PDF, por favor.',
-  'Analise meu prato, por favor.',
+  'Analise meu prato para registrar no diário de hoje.',
   'Analise este rótulo, por favor.',
+  'Analise este rótulo e classifique no semáforo (Verde, Amarelo ou Vermelho).',
   'Analise esta imagem, por favor.',
 ])
 
@@ -81,7 +82,11 @@ export function formatBellaMarkdown(content) {
 
     if (line.startsWith('## ')) {
       flushList()
-      parts.push(`<h3 class="bella-md-h">${inlineFormat(line.slice(3))}</h3>`)
+      const heading = line.slice(3)
+      const headingClass = heading === 'Semáforo'
+        ? 'bella-md-h bella-md-semaphore'
+        : 'bella-md-h'
+      parts.push(`<h3 class="${headingClass}">${inlineFormat(heading)}</h3>`)
       continue
     }
 

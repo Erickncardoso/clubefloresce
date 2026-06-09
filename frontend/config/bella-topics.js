@@ -23,9 +23,9 @@ export const BELLA_TOPICS = {
   },
   label: {
     title: 'Ler rótulo',
-    subtitle: 'Envie a foto do rótulo',
+    subtitle: 'Semáforo: verde, amarelo ou vermelho',
     welcome: (name) =>
-      `Olá, ${name}! 📋 Envie a foto do rótulo pelo clipe abaixo, ou descreva sua dúvida sobre o produto.`,
+      `Olá, ${name}! 📋 Envie a foto do rótulo pelo clipe. Classifico em semáforo: 🟢 liberado, 🟡 moderar ou 🔴 evitar frequente, com base em ingredientes e tabela nutricional.`,
     placeholder: 'Descreva a dúvida ou envie a foto...',
     taskHint: 'label',
     acceptPdf: false,
@@ -33,9 +33,9 @@ export const BELLA_TOPICS = {
   },
   meal: {
     title: 'Meu prato',
-    subtitle: 'Calorias e nutrientes',
+    subtitle: 'Registre no diário de hoje',
     welcome: (name) =>
-      `Olá, ${name}! 📸 Envie a foto do seu prato de cima, com boa luz. Estimo gramas, calorias e macros de cada item.`,
+      `Olá, ${name}! 📸 Envie a foto do prato de cima, com boa luz. Estimo gramas, calorias e macros de cada item; você confirma e registro no diário de hoje.`,
     placeholder: 'Opcional: descreva a refeição...',
     taskHint: 'meal',
     acceptPdf: false,
@@ -43,10 +43,10 @@ export const BELLA_TOPICS = {
   },
   restaurant: {
     title: 'Restaurante',
-    subtitle: 'Escolhas mais equilibradas',
+    subtitle: 'Melhor opção no seu plano',
     welcome: (name) =>
-      `Olá, ${name}! 🍽️ Me conte onde você está ou o tipo de restaurante. Ajudo a escolher opções mais equilibradas.`,
-    placeholder: 'Ex.: estou num rodízio japonês...',
+      `Olá, ${name}! 🍽️ Mande foto do cardápio ou as opções que você quer comer. Sugiro a melhor escolha alinhada ao seu plano alimentar (japonesa, italiana, mexicana, brasileira e mais).`,
+    placeholder: 'Ex.: estou entre salmão grelhado e yakisoba...',
     taskHint: null,
     acceptPdf: true,
     acceptImages: true,

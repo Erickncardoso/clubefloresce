@@ -6,7 +6,9 @@ export type BellaToolName =
   | "get_user_profile"
   | "get_checkin_summary"
   | "list_recommended_courses"
-  | "search_educational_content";
+  | "search_educational_content"
+  | "get_patient_meal_plan"
+  | "get_daily_diary_summary";
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
@@ -87,6 +89,7 @@ export interface OrchestratorInput {
   userMessage: string;
   topic?: string;
   taskHint?: string;
+  patientDateKey?: string;
   attachment?: {
     buffer: Buffer;
     mimeType: string;
@@ -107,4 +110,7 @@ export interface UserContextSnapshot {
   memberSince: string;
   checkInSummary: string;
   availableCourses: string;
+  verifiedMemory: string;
+  currentMealSlot: string;
+  hasMealPlan: boolean;
 }

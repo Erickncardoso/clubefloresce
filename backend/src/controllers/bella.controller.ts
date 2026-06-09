@@ -23,6 +23,8 @@ export class BellaController {
         "get_checkin_summary",
         "list_recommended_courses",
         "search_educational_content",
+        "get_patient_meal_plan",
+        "get_daily_diary_summary",
       ],
       topics: BELLA_TOPICS,
     });

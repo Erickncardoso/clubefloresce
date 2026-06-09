@@ -2,6 +2,7 @@ import {
   buildImageVisionPrompt,
   buildPdfAnalysisPrompt,
   buildSystemPromptForTopic,
+  buildVisionMemoryPrefix,
   getDefaultImageUserText,
   getImageAnalysisFailureMessage,
 } from "./prompts";
@@ -9,10 +10,22 @@ import { runInputGuardrails, sanitizeOutput } from "./guardrails";
 import { OpenAIClient, buildImageDataUrl } from "./openai.client";
 import { buildUserContext } from "./context-builder";
 import { generateFallbackReply } from "./fallback-handler";
+import { buildRestaurantAdvisorContext } from "./meal-plan-context";
+import { buildRestaurantAdvisorPrompt } from "./restaurant-guide";
+import {
+  buildConversationMemoryBlock,
+  prepareHistoryForModel,
+} from "./conversation-memory";
 import { getBellaModels, getModelForTask, resolveTaskType } from "./model-config";
 import { extractPdfText } from "./pdf-extractor";
 import { executeTool, getToolsForTopic, isKnownTool } from "./tools";
-import { getTopicTaskHint, normalizeTopic, type BellaChatTopic } from "./topic-config";
+import {
+  getTopicOfflineReply,
+  getTopicTaskHint,
+  isLikelyGreeting,
+  normalizeTopic,
+  type BellaChatTopic,
+} from "./topic-config";
 import type {
   BellaTaskType,
   BellaToolExecution,
@@ -24,7 +37,8 @@ import type {
 } from "./types";
 
 const MAX_ITERATIONS = 4;
-const MAX_HISTORY = 12;
+const MAX_HISTORY = 16;
+const MAX_IMAGE_HISTORY = 6;
 
 export class BellaOrchestratorService {
   private llm = new OpenAIClient();
@@ -61,18 +75,18 @@ export class BellaOrchestratorService {
     }
 
     if (attachment && taskType === "image") {
-      return this.runImageAnalysis(userId, userMessage, attachment, priorHistory, taskType, topic);
+      return this.runImageAnalysis(userId, userMessage, attachment, priorHistory, taskType, topic, input.patientDateKey);
     }
 
     if (attachment && taskType === "pdf") {
-      return this.runPdfAnalysis(userId, userMessage, attachment, taskType, topic);
+      return this.runPdfAnalysis(userId, userMessage, attachment, taskType, topic, input.patientDateKey);
     }
 
     if (!userMessage) {
       throw new Error("Escreva uma pergunta junto com o arquivo ou envie só texto.");
     }
 
-    return this.runChat(userId, userMessage, priorHistory, taskType, topic);
+    return this.runChat(userId, userMessage, priorHistory, taskType, topic, input.patientDateKey);
   }
 
   private async runImageAnalysis(
@@ -82,26 +96,36 @@ export class BellaOrchestratorService {
     priorHistory: ChatMessage[],
     taskType: BellaTaskType,
     topic: BellaChatTopic,
+    patientDateKey?: string,
   ): Promise<OrchestratorResult> {
-    const userContext = await buildUserContext(userId);
+    const userContext = await buildUserContext(userId, patientDateKey);
     const model = getModelForTask("image");
+    const conversationMemory = buildConversationMemoryBlock(topic, priorHistory);
 
     if (!this.llm.isEnabled()) {
       return {
-        reply:
-          "Para analisar rótulos e fotos, preciso da chave da OpenAI configurada no servidor. " +
-          "Enquanto isso, envie sua dúvida por texto que te ajudo com orientações gerais.",
+        reply: getTopicOfflineReply(topic, userContext.firstName),
         meta: this.baseMeta("image", model, [], true, topic, attachment),
       };
     }
 
+    const restaurantAdvisor =
+      topic === "restaurant"
+        ? await buildRestaurantAdvisorContext(userId, patientDateKey)
+        : undefined;
+
     const dataUrl = buildImageDataUrl(attachment.buffer, attachment.mimeType);
-    const systemPrompt = buildImageVisionPrompt(topic, userContext, userMessage);
+    const systemPrompt =
+      buildVisionMemoryPrefix(userContext, conversationMemory) +
+      buildImageVisionPrompt(topic, userContext, userMessage, restaurantAdvisor);
     const defaultUserText = getDefaultImageUserText(topic);
 
     const messages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
-      ...priorHistory.slice(-4).map((m) => ({ ...m, content: flattenHistoryContent(m.content) })),
+      ...prepareHistoryForModel(priorHistory, MAX_IMAGE_HISTORY).map((m) => ({
+        ...m,
+        content: flattenHistoryContent(m.content),
+      })),
       {
         role: "user",
         content: [
@@ -118,7 +142,7 @@ export class BellaOrchestratorService {
       messages,
       model,
       temperature: 0.35,
-      maxTokens: topic === "meal" ? 1400 : 900,
+      maxTokens: topic === "meal" ? 1400 : topic === "restaurant" ? 1200 : 900,
     });
 
     const reply =
@@ -137,8 +161,9 @@ export class BellaOrchestratorService {
     attachment: NonNullable<OrchestratorInput["attachment"]>,
     taskType: BellaTaskType,
     topic: BellaChatTopic,
+    patientDateKey?: string,
   ): Promise<OrchestratorResult> {
-    const userContext = await buildUserContext(userId);
+    const userContext = await buildUserContext(userId, patientDateKey);
     const model = getModelForTask("pdf");
 
     if (!this.llm.isEnabled()) {
@@ -162,7 +187,10 @@ export class BellaOrchestratorService {
       };
     }
 
-    const prompt = buildPdfAnalysisPrompt(
+    const prompt =
+      buildVisionMemoryPrefix(userContext) +
+      buildPdfAnalysisPrompt(
+      topic,
       userContext,
       attachment.fileName,
       pdfText,
@@ -192,12 +220,14 @@ export class BellaOrchestratorService {
     priorHistory: ChatMessage[],
     taskType: BellaTaskType,
     topic: BellaChatTopic,
+    patientDateKey?: string,
   ): Promise<OrchestratorResult> {
-    const userContext = await buildUserContext(userId);
+    const userContext = await buildUserContext(userId, patientDateKey);
     const model = getModelForTask("chat");
+    const conversationMemory = buildConversationMemoryBlock(topic, priorHistory);
 
     if (!this.llm.isEnabled()) {
-      const fallback = await generateFallbackReply(userId, userMessage, userContext.firstName);
+      const fallback = await generateFallbackReply(userId, userMessage, userContext.firstName, topic);
       return {
         reply: fallback.reply,
         meta: {
@@ -207,12 +237,30 @@ export class BellaOrchestratorService {
       };
     }
 
+    if (isLikelyGreeting(userMessage)) {
+      return {
+        reply: sanitizeOutput(getTopicOfflineReply(topic, userContext.firstName)),
+        meta: {
+          ...this.baseMeta("chat", model, [], false, topic, undefined, 0),
+          taskType: "chat",
+        },
+      };
+    }
+
     const toolsUsed: BellaToolName[] = [];
     let iterations = 0;
 
+    const topicExtra =
+      topic === "restaurant"
+        ? buildRestaurantAdvisorPrompt(await buildRestaurantAdvisorContext(userId, patientDateKey))
+        : undefined;
+
     const messages: ChatMessage[] = [
-      { role: "system", content: buildSystemPromptForTopic(topic, userContext) },
-      ...priorHistory.slice(-MAX_HISTORY),
+      {
+        role: "system",
+        content: buildSystemPromptForTopic(topic, userContext, topicExtra, conversationMemory),
+      },
+      ...prepareHistoryForModel(priorHistory, MAX_HISTORY),
       { role: "user", content: userMessage },
     ];
 
@@ -226,13 +274,13 @@ export class BellaOrchestratorService {
         messages,
         model,
         tools: toolDefinitions,
-        temperature: 0.7,
-        maxTokens: 800,
+        temperature: 0.35,
+        maxTokens: 900,
       });
 
       if (completion.toolCalls.length === 0) {
         const reply =
-          completion.content || (await this.synthesizeFallback(userId, userMessage, userContext.firstName));
+          completion.content || (await this.synthesizeFallback(userId, userMessage, userContext.firstName, topic));
         return {
           reply: sanitizeOutput(reply),
           meta: {
@@ -273,9 +321,9 @@ export class BellaOrchestratorService {
       }
     }
 
-    const final = await this.llm.complete({ messages, model, temperature: 0.5, maxTokens: 600 });
+    const final = await this.llm.complete({ messages, model, temperature: 0.35, maxTokens: 700 });
     const reply =
-      final.content || (await this.synthesizeFallback(userId, userMessage, userContext.firstName));
+      final.content || (await this.synthesizeFallback(userId, userMessage, userContext.firstName, topic));
 
     return {
       reply: sanitizeOutput(reply),
@@ -339,8 +387,13 @@ export class BellaOrchestratorService {
     };
   }
 
-  private async synthesizeFallback(userId: string, message: string, firstName: string): Promise<string> {
-    const fallback = await generateFallbackReply(userId, message, firstName);
+  private async synthesizeFallback(
+    userId: string,
+    message: string,
+    firstName: string,
+    topic: BellaChatTopic,
+  ): Promise<string> {
+    const fallback = await generateFallbackReply(userId, message, firstName, topic);
     return fallback.reply;
   }
 

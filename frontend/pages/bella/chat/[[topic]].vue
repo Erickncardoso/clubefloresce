@@ -502,9 +502,9 @@ const sendMessage = async () => {
   const fallbackText = isPdf
     ? 'Analise este PDF, por favor.'
     : chatTopic.value === 'meal'
-      ? 'Analise meu prato, por favor.'
+      ? 'Analise meu prato para registrar no diário de hoje.'
       : chatTopic.value === 'label'
-        ? 'Analise este rótulo, por favor.'
+        ? 'Analise este rótulo e classifique no semáforo (Verde, Amarelo ou Vermelho).'
         : 'Analise esta imagem, por favor.'
 
   const tempId = `temp-${Date.now()}`
@@ -567,6 +567,7 @@ const sendMessage = async () => {
     if (res.requiresMealConfirmation && res.mealDraft) {
       mealDraft.value = res.mealDraft
       if (res.dailySummary) dailySummary.value = res.dailySummary
+      if (res.message) messages.value.push(res.message)
       showMealModal.value = true
       mealConfirmError.value = ''
     } else if (res.message) {
@@ -826,6 +827,11 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: -0.01em;
   color: inherit;
+}
+
+.bella-msg-formatted :deep(h3.bella-md-semaphore) {
+  font-size: 0.95rem;
+  padding: 0.35rem 0;
 }
 
 .bella-msg-formatted :deep(h3.bella-md-h:not(:first-child)) {

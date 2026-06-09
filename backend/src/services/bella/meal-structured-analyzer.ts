@@ -1,13 +1,20 @@
 import { randomUUID } from "crypto";
 import { OpenAIClient, buildImageDataUrl } from "./openai.client";
 import { buildUserContext } from "./context-builder";
+import { BELLA_MEMORY_RULES } from "./memory-rules";
 import { getModelForTask } from "./model-config";
+import type { UserContextSnapshot } from "./types";
 import type { MealAnalysisDraft, MealItemDraft, MacroTotals } from "../../types/food-diary.types";
 
 const llm = new OpenAIClient();
 
-function buildMealJsonPrompt(firstName: string, userQuestion: string): string {
-  return `Você analisa fotos de pratos para ${firstName}, nutricionista virtual do Clube Florescer.
+function buildMealJsonPrompt(ctx: UserContextSnapshot, userQuestion: string): string {
+  return `${BELLA_MEMORY_RULES}
+
+${ctx.verifiedMemory}
+
+Você analisa fotos de pratos para ${ctx.firstName}, nutricionista virtual do Clube Florescer.
+Use a memória verificada acima. Não invente alimentos já registrados hoje nem itens do plano que não estão na foto.
 
 Retorne SOMENTE um JSON válido (sem markdown) neste formato:
 {
@@ -26,8 +33,9 @@ Retorne SOMENTE um JSON válido (sem markdown) neste formato:
 
 Regras:
 - Identifique CADA alimento visível no prato.
+- Preencha grams, caloriesKcal, carbsG, proteinG e fatG para TODOS os itens (números coerentes entre si).
 - "grams" é a porção estimada em gramas (número inteiro).
-- Calorias e macros devem ser coerentes com a porção estimada.
+- Calorias e macros devem bater com a porção estimada.
 - Não invente itens invisíveis.
 - Se a foto não mostrar comida, retorne "items": [] e explique em "notes".
 - Mínimo 1 item quando houver comida reconhecível.
@@ -109,18 +117,19 @@ export async function analyzeMealStructured(
   buffer: Buffer,
   mimeType: string,
   userQuestion: string,
+  patientDateKey?: string,
 ): Promise<MealAnalysisDraft> {
   if (!llm.isEnabled()) {
     throw new Error("Análise de prato por foto requer OpenAI configurada no servidor.");
   }
 
-  const ctx = await buildUserContext(userId);
+  const ctx = await buildUserContext(userId, patientDateKey);
   const model = getModelForTask("image");
   const dataUrl = buildImageDataUrl(buffer, mimeType);
 
   const completion = await llm.complete({
     messages: [
-      { role: "system", content: buildMealJsonPrompt(ctx.firstName, userQuestion) },
+      { role: "system", content: buildMealJsonPrompt(ctx, userQuestion) },
       {
         role: "user",
         content: [
