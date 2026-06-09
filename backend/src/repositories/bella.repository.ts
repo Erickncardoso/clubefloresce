@@ -1,6 +1,6 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import type { OrchestratorMeta } from "../services/bella/types";
-import { normalizeTopic } from "../services/bella/topic-config";
+import { normalizeTopic } from "../services/bella/topics";
 
 const prisma = new PrismaClient();
 

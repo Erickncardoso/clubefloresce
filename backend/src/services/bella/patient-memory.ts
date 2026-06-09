@@ -1,5 +1,4 @@
 import { MealPlanRepository } from "../../repositories/meal-plan.repository";
-import { FoodDiaryService } from "../food-diary.service";
 import type { ParsedMealPlan } from "../../types/meal-plan.types";
 import type { DailyDiarySummary, MealItemDraft } from "../../types/food-diary.types";
 import {
@@ -7,11 +6,11 @@ import {
   formatMealPlanForPrompt,
   resolveMealSlot,
 } from "./meal-plan-context";
-import { buildCheckInSummary, firstName, formatDate } from "./context-builder";
+import { buildCheckInSummary, firstName, formatDate } from "./patient-context-helpers";
+import { getFoodDiaryService } from "./food-diary-access";
 import { UserRepository } from "../../repositories/user.repository";
 
 const mealPlanRepository = new MealPlanRepository();
-const foodDiaryService = new FoodDiaryService();
 const userRepository = new UserRepository();
 
 function formatEntryItems(items: MealItemDraft[]): string {
@@ -61,7 +60,7 @@ export async function buildPatientVerifiedMemory(
 
   const [mealPlanRecord, dailySummary, checkInSummary, mealSlot] = await Promise.all([
     mealPlanRepository.findByUserId(userId),
-    foodDiaryService.getDailySummary(userId, patientDateKey),
+    getFoodDiaryService().then((service) => service.getDailySummary(userId, patientDateKey)),
     buildCheckInSummary(userId),
     resolveMealSlot(userId),
   ]);

@@ -16,9 +16,9 @@ import {
 import {
   userProfileToolDefinition,
 } from "./tools/user-profile.tool";
+import { BELLA_TOPICS, normalizeTopic, type BellaChatTopic } from "./topics";
 
-export const BELLA_TOPICS = ["general", "label", "meal", "restaurant", "swap", "ask", "goal"] as const;
-export type BellaChatTopic = (typeof BELLA_TOPICS)[number];
+export { BELLA_TOPICS, normalizeTopic, type BellaChatTopic };
 
 export interface TopicScopeDefinition {
   title: string;
@@ -98,14 +98,6 @@ const TOOLS_BY_TOPIC: Record<BellaChatTopic, BellaToolName[]> = {
   swap: ["search_educational_content", "get_user_profile"],
   goal: ["get_checkin_summary", "get_user_profile", "list_recommended_courses"],
 };
-
-export function normalizeTopic(raw?: string | null): BellaChatTopic {
-  const value = raw?.trim().toLowerCase();
-  if (value && BELLA_TOPICS.includes(value as BellaChatTopic)) {
-    return value as BellaChatTopic;
-  }
-  return "general";
-}
 
 export function getToolsForTopic(topic: BellaChatTopic): OpenAIToolDefinition[] {
   const allowed = new Set(TOOLS_BY_TOPIC[topic]);

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { BellaRepository } from "../repositories/bella.repository";
 import { FoodDiaryRepository } from "../repositories/food-diary.repository";
-import { sumItems } from "./bella/meal-structured-analyzer";
+import { round1, sumItems } from "./bella/meal-item-math";
 import type {
   DailyDiarySummary,
   MealItemDraft,
@@ -11,11 +11,17 @@ import type {
 
 import { entryDateFromKey, getDateKeyInTimeZone } from "../utils/patient-timezone";
 
-const foodDiaryRepository = new FoodDiaryRepository();
-const bellaRepository = new BellaRepository();
+let foodDiaryRepository: FoodDiaryRepository | null = null;
+let bellaRepository: BellaRepository | null = null;
 
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
+function getFoodDiaryRepository(): FoodDiaryRepository {
+  if (!foodDiaryRepository) foodDiaryRepository = new FoodDiaryRepository();
+  return foodDiaryRepository;
+}
+
+function getBellaRepository(): BellaRepository {
+  if (!bellaRepository) bellaRepository = new BellaRepository();
+  return bellaRepository;
 }
 
 function subtractMacros(targets: NutritionTargets, consumed: MacroTotals): MacroTotals {
@@ -80,8 +86,9 @@ export class FoodDiaryService {
   async getDailySummary(userId: string, dateKey?: string): Promise<DailyDiarySummary> {
     const key = dateKey || getDateKeyInTimeZone("UTC");
     const entryDate = entryDateFromKey(key);
-    const targetsRow = await foodDiaryRepository.getOrCreateTargets(userId);
-    const entries = await foodDiaryRepository.findEntriesByDate(userId, entryDate);
+    const repo = getFoodDiaryRepository();
+    const targetsRow = await repo.getOrCreateTargets(userId);
+    const entries = await repo.findEntriesByDate(userId, entryDate);
 
     const targets: NutritionTargets = {
       caloriesKcal: targetsRow.caloriesKcal,
@@ -155,7 +162,7 @@ export class FoodDiaryService {
     const entryDate = entryDateFromKey(key);
     const mealLabel = payload.mealLabel?.trim() || "Refeição";
 
-    const entry = await foodDiaryRepository.createEntry({
+    const entry = await getFoodDiaryRepository().createEntry({
       userId,
       entryDate,
       mealType: payload.mealType || "other",
@@ -168,7 +175,7 @@ export class FoodDiaryService {
     const dailySummary = await this.getDailySummary(userId, key);
     const reply = buildDiaryAssistantReply(mealLabel, items, totals, dailySummary);
 
-    const assistantMsg = await bellaRepository.create(userId, "assistant", reply, {
+    const assistantMsg = await getBellaRepository().create(userId, "assistant", reply, {
       topic: payload.topic || "meal",
       metadata: {
         topic: "meal",

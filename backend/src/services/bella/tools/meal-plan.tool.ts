@@ -6,9 +6,7 @@ import {
   getMealPlanForUser,
 } from "../meal-plan-context";
 import type { ParsedMealPlan } from "../../../types/meal-plan.types";
-import { FoodDiaryService } from "../../food-diary.service";
-
-const foodDiaryService = new FoodDiaryService();
+import { getFoodDiaryService } from "../food-diary-access";
 
 export const mealPlanToolDefinition: OpenAIToolDefinition = {
   type: "function",
@@ -49,6 +47,7 @@ export async function executeMealPlanTool(_args: Record<string, unknown>, ctx: {
 }
 
 export async function executeDailyDiaryTool(_args: Record<string, unknown>, ctx: { userId: string }) {
+  const foodDiaryService = await getFoodDiaryService();
   const summary = await foodDiaryService.getDailySummary(ctx.userId);
   return formatDailyDiaryForPrompt(summary);
 }

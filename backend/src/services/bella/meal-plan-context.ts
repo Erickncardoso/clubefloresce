@@ -1,10 +1,10 @@
 import { MealPlanRepository } from "../../repositories/meal-plan.repository";
-import { FoodDiaryService } from "../food-diary.service";
+import type { DailyDiarySummary } from "../../types/food-diary.types";
 import type { ParsedFoodItem, ParsedMeal, ParsedMealPlan } from "../../types/meal-plan.types";
 import { inferMealSlotFromTime } from "../../utils/meal-time";
+import { getFoodDiaryService } from "./food-diary-access";
 
 const mealPlanRepository = new MealPlanRepository();
-const foodDiaryService = new FoodDiaryService();
 
 function formatFoodItem(item: ParsedFoodItem): string {
   const amount = item.display || [item.amount, item.unit].filter(Boolean).join(" ");
@@ -26,9 +26,7 @@ export function formatMealPlanForPrompt(plan: ParsedMealPlan | null | undefined)
   return `${header}\n${meals}`;
 }
 
-export function formatDailyDiaryForPrompt(
-  summary: Awaited<ReturnType<FoodDiaryService["getDailySummary"]>>,
-): string {
+export function formatDailyDiaryForPrompt(summary: DailyDiarySummary): string {
   return (
     `Diário de hoje (${summary.date}):\n` +
     `- Meta: ${summary.targets.caloriesKcal} kcal · P ${summary.targets.proteinG} g · C ${summary.targets.carbsG} g · G ${summary.targets.fatG} g\n` +
@@ -66,7 +64,7 @@ export async function buildRestaurantAdvisorContext(
 ): Promise<RestaurantAdvisorContext> {
   const [record, dailySummary] = await Promise.all([
     mealPlanRepository.findByUserId(userId),
-    foodDiaryService.getDailySummary(userId, dateKey),
+    getFoodDiaryService().then((service) => service.getDailySummary(userId, dateKey)),
   ]);
 
   const plan = record?.plan as ParsedMealPlan | undefined;
@@ -96,7 +94,7 @@ export function buildMealAnalysisPreview(
     proteinG: number;
     fatG: number;
   },
-  dailySummary: Awaited<ReturnType<FoodDiaryService["getDailySummary"]>>,
+  dailySummary: DailyDiarySummary,
   notes?: string,
 ): string {
   const lines = items.map(
