@@ -24,8 +24,6 @@ VALUES (
 )
 ON CONFLICT ("email") DO UPDATE
 SET
-  "password" = EXCLUDED."password",
   "name" = EXCLUDED."name",
   "role" = 'NUTRICIONISTA'::"Role",
-  "status" = 'PENDENTE'::"UserStatus",
   "updatedAt" = NOW();

@@ -297,13 +297,20 @@ const handleLogin = async () => {
     navigateTo(config.public.mobileApp ? '/inicio' : '/cursos')
   } catch (err) {
     console.error('Erro completo:', err)
-    if (err.data?.message) {
+    if (isApiConnectionError(err)) {
+      error.value = apiConnectionErrorMessage({
+        dev: import.meta.dev,
+        hostname: import.meta.client ? window.location.hostname : undefined,
+      })
+    } else if (err.statusCode === 401) {
+      error.value = 'Credenciais inválidas. Verifique e-mail e senha.'
+    } else if (err.data?.message) {
       error.value = err.data.message
     } else if (err.statusCode === 500) {
       error.value = import.meta.dev
         ? 'Servidor indisponível. Rode o backend com npm run dev:backend e feche outros apps na porta 3001.'
         : 'Servidor indisponível. Tente novamente em alguns instantes.'
-    } else if (isApiConnectionError(err)) {
+    } else if (err.statusCode === 502 || err.statusCode === 503 || err.statusCode === 504) {
       error.value = apiConnectionErrorMessage({
         dev: import.meta.dev,
         hostname: import.meta.client ? window.location.hostname : undefined,

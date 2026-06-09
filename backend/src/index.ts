@@ -16,6 +16,7 @@ import bellaRoutes from "./routes/bella.routes";
 import foodDiaryRoutes from "./routes/food-diary.routes";
 import mealPlanRoutes from "./routes/meal-plan.routes";
 import { readEnv, maskSecret } from "./utils/env";
+import { getAllowedCorsOrigins, isOriginAllowed } from "./utils/cors-origins";
 
 dotenv.config();
 
@@ -29,11 +30,16 @@ if (typeof (process.stderr as any).setEncoding === "function") {
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const allowedOrigins = getAllowedCorsOrigins();
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // CORS liberado para qualquer origem para evitar bloqueios entre frontend e backend em domínios distintos.
-    callback(null, true);
+    if (isOriginAllowed(origin, allowedOrigins)) {
+      callback(null, true);
+      return;
+    }
+    console.warn("[CORS] Origem bloqueada:", origin);
+    callback(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -43,6 +49,7 @@ const corsOptions: cors.CorsOptions = {
     "X-Patient-Date",
     "X-Patient-Timezone",
   ],
+  optionsSuccessStatus: 204,
 };
 
 // Middlewares
@@ -114,6 +121,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 // App initialization
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
+  console.log(`[CORS] Origens permitidas: ${allowedOrigins.join(", ")}`);
   const openaiKey = readEnv("OPENAI_API_KEY");
   if (openaiKey) {
     console.log(`[Bella] OpenAI configurada (${maskSecret(openaiKey)}) — chat, imagem e PDF ativos.`);

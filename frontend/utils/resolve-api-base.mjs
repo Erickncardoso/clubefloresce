@@ -47,11 +47,13 @@ export function apiConnectionErrorMessage({ hostname, dev = false } = {}) {
   if (local) {
     return 'Não foi possível conectar à API. Confira se o backend está rodando com npm run dev:backend (porta 3001).'
   }
-  return 'Não foi possível conectar à API. Tente novamente em alguns instantes.'
+  return 'A API está indisponível no momento (servidor offline). Aguarde o redeploy do backend no Coolify ou tente novamente em alguns minutos.'
 }
 
 export function isApiConnectionError(err) {
   const message = String(err?.message || '')
-  return /failed to fetch|networkerror|fetch failed|ECONNREFUSED|Load failed/i.test(message)
-    || !err?.statusCode
+  const status = err?.statusCode || err?.response?.status
+  if (status === 502 || status === 503 || status === 504) return true
+  return /failed to fetch|networkerror|fetch failed|ECONNREFUSED|Load failed|no available server/i.test(message)
+    || (!err?.statusCode && !err?.data?.message)
 }
