@@ -15,6 +15,7 @@ import checkinRoutes from "./routes/checkin.routes";
 import bellaRoutes from "./routes/bella.routes";
 import foodDiaryRoutes from "./routes/food-diary.routes";
 import mealPlanRoutes from "./routes/meal-plan.routes";
+import { readEnv, maskSecret } from "./utils/env";
 
 dotenv.config();
 
@@ -73,6 +74,22 @@ app.get("/", (req, res) => {
   res.json({ message: "Clube Nutricional API is running.", version: "1.0.0" });
 });
 
+app.get("/api/health", (_req, res) => {
+  const openaiKey = readEnv("OPENAI_API_KEY");
+  res.json({
+    ok: true,
+    bella: {
+      aiEnabled: Boolean(openaiKey),
+      models: {
+        chat: readEnv("OPENAI_MODEL_CHAT") || "gpt-4o-mini",
+        vision: readEnv("OPENAI_MODEL_VISION") || "gpt-4o",
+        pdf: readEnv("OPENAI_MODEL_PDF") || "gpt-4o",
+      },
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Tratamento centralizado para erros de upload (Multer).
 app.use((err: any, req: any, res: any, next: any) => {
   if (err instanceof multer.MulterError) {
@@ -92,10 +109,11 @@ app.use((err: any, req: any, res: any, next: any) => {
 // App initialization
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
-  const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
-  if (openaiConfigured) {
-    console.log("[Bella] OpenAI configurada — chat, imagem e PDF ativos.");
+  const openaiKey = readEnv("OPENAI_API_KEY");
+  if (openaiKey) {
+    console.log(`[Bella] OpenAI configurada (${maskSecret(openaiKey)}) — chat, imagem e PDF ativos.`);
   } else {
-    console.warn("[Bella] OPENAI_API_KEY ausente no .env — Bella usará respostas locais limitadas.");
+    console.warn("[Bella] OPENAI_API_KEY ausente — Bella usará respostas locais limitadas.");
+    console.warn("[Bella] Coolify: adicione OPENAI_API_KEY no serviço do BACKEND (apiclube), não no app cliente.");
   }
 });

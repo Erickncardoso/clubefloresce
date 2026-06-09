@@ -1,4 +1,5 @@
 import type { ChatMessage, LLMCompletionResult, MessageContent, OpenAIToolDefinition } from "./types";
+import { readEnv } from "../../utils/env";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -16,7 +17,7 @@ export class OpenAIClient {
   private apiKey: string | null;
 
   constructor() {
-    this.apiKey = process.env.OPENAI_API_KEY?.trim() || null;
+    this.apiKey = readEnv("OPENAI_API_KEY");
   }
 
   isEnabled(): boolean {

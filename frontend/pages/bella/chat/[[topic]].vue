@@ -182,7 +182,8 @@
       </form>
 
       <p v-if="!chatError && !aiEnabled" class="bella-ai-hint">
-        IA offline no servidor. As respostas podem ser limitadas até o backend ser reiniciado.
+        IA desativada no servidor. No Coolify, adicione <strong>OPENAI_API_KEY</strong> no serviço do
+        <strong>backend</strong> (apiclube) e faça redeploy.
       </p>
     </div>
 
@@ -201,6 +202,7 @@
 <script setup>
 import { Camera, FileText, ImagePlus, Send, X } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
+import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
 import { getBellaTopicConfig, normalizeBellaTopic } from '~/config/bella-topics'
 import {
   formatBellaMarkdown,
@@ -263,13 +265,19 @@ const canSend = computed(() => Boolean(draft.value.trim() || selectedFile.value)
 
 function formatChatError(err) {
   const raw = err?.data?.message || err?.message || ''
-  if (raw.includes('Failed to fetch') || raw.includes('<no response>') || raw.includes('NetworkError')) {
-    return 'Não consegui conectar ao servidor. Confira se o backend está rodando na porta 3001.'
+  if (isApiConnectionError(err)) {
+    return apiConnectionErrorMessage({
+      dev: import.meta.dev,
+      hostname: import.meta.client ? window.location.hostname : undefined,
+    })
   }
   if (err?.statusCode === 401 || err?.status === 401) {
     return 'Sua sessão expirou. Faça login novamente para continuar.'
   }
-  return raw || 'Não foi possível carregar a conversa com a Bella.'
+  if (err?.statusCode === 502 || err?.status === 502) {
+    return raw || 'A OpenAI retornou erro. Verifique OPENAI_API_KEY e saldo da conta no backend (Coolify).'
+  }
+  return raw || 'Não foi possível falar com a Bella. Tente novamente.'
 }
 
 function seedWelcomeMessage() {
