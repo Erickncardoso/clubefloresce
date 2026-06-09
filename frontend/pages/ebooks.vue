@@ -566,10 +566,18 @@ onMounted(() => {
 }
 
 .btn-cancel {
-  background: transparent;
-  border: none;
-  color: #888;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  color: #555;
+  padding: 0.8rem 1.6rem;
+  border-radius: 10px;
+  font-weight: 700;
   cursor: pointer;
+}
+
+.btn-cancel:hover {
+  background: #f8faf8;
+  border-color: #d1d5db;
 }
 
 .empty-state {

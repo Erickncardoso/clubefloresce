@@ -183,9 +183,18 @@ onMounted(fetchCourses)
 }
 
 .btn-cancel {
-  background: transparent;
-  border: none;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  color: #555;
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
+}
+
+.btn-cancel:hover {
+  background: #f8faf8;
+  border-color: #d1d5db;
 }
 </style>
 
