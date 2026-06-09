@@ -19,6 +19,25 @@ const defaultApiBase = resolveApiBaseAtBuild({
 const defaultWhatsappApiBase = process.env.NUXT_PUBLIC_WHATSAPP_API_BASE
   || (isDev ? '/api/whatsapp' : PROD_WHATSAPP_API_BASE)
 
+/** Rotas do painel web — não entram no build/PWA do app paciente. */
+const patientWebOnlyRoutes = [
+  '/whatsapp/**',
+  '/dashboard/**',
+  '/usuarios/**',
+  '/financeiro/**',
+  '/ebooks/**',
+  '/personalizar/**',
+  '/gerenciar-cursos/**',
+  '/setup/**',
+]
+
+const mobileRouteRules = {
+  '/onboarding': { redirect: { to: '/inicio', statusCode: 301 } },
+}
+for (const route of patientWebOnlyRoutes) {
+  mobileRouteRules[route] = { prerender: false }
+}
+
 export default defineNuxtConfig({
   // Web (:3000) e app paciente (:3002) podem rodar ao mesmo tempo sem conflitar cache
   buildDir: isMobileApp ? '.nuxt-mobile' : '.nuxt',
@@ -93,9 +112,7 @@ export default defineNuxtConfig({
   },
   ...(isMobileApp
     ? {
-        routeRules: {
-          '/onboarding': { redirect: { to: '/inicio', statusCode: 301 } },
-        },
+        routeRules: mobileRouteRules,
         watchers: {
           chokidar: {
             ignoreInitial: true,
@@ -152,26 +169,19 @@ export default defineNuxtConfig({
             ],
           },
           workbox: {
-            navigateFallback: '/',
-            globPatterns: ['**/*.{js,css,html,png,svg,ico,webp,woff2,woff}'],
-            cleanupOutdatedCaches: true,
-            runtimeCaching: [
-              {
-                urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-                handler: 'NetworkFirst',
-                options: {
-                  cacheName: 'cf-api-cache',
-                  networkTimeoutSeconds: 10,
-                  expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 60 * 5,
-                  },
-                  cacheableResponse: {
-                    statuses: [0, 200],
-                  },
-                },
-              },
+            navigateFallback: '/index.html',
+            globPatterns: ['**/*.{js,css,png,svg,ico,webp,woff2,woff,webmanifest}'],
+            globIgnores: [
+              '**/whatsapp/**',
+              '**/dashboard/**',
+              '**/usuarios/**',
+              '**/financeiro/**',
+              '**/ebooks/**',
+              '**/personalizar/**',
+              '**/gerenciar-cursos/**',
+              '**/setup/**',
             ],
+            cleanupOutdatedCaches: true,
           },
           client: {
             installPrompt: true,
@@ -222,7 +232,12 @@ export default defineNuxtConfig({
       }
     : {}),
   nitro: isMobileApp && isGenerate
-    ? { preset: 'static' }
+    ? {
+        preset: 'static',
+        prerender: {
+          ignore: patientWebOnlyRoutes,
+        },
+      }
     : isMobileApp
       ? {
           devProxy: {
