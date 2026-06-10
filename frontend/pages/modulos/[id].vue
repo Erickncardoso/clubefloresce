@@ -1289,7 +1289,16 @@ onMounted(() => {
 .edit-input-premium:focus { border-color: #2d5a27; box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.05); }
 
 .edit-actions { display: flex; gap: 10px; justify-content: flex-end; }
-.btn-cancel-edit { font-size: 0.75rem; color: #9ca3af; font-weight: 700; background: none; border: none; cursor: pointer; }
+.btn-cancel-edit {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
 .btn-save-edit { font-size: 0.75rem; color: white; background: #2d5a27; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(45, 90, 39, 0.2); }
 
 .comment-text-premium { font-size: 0.92rem; color: #4b5563; line-height: 1.6; margin: 0; }

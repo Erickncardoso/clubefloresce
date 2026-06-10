@@ -15,7 +15,21 @@ export class EbookController {
 
   async create(req: Request, res: Response): Promise<any> {
     try {
-      const ebook = await ebookService.createEbook(req.body);
+      const { title, description, fileUrl, thumbnail } = req.body || {};
+
+      if (!String(title || "").trim()) {
+        return res.status(400).json({ message: "Título do ebook é obrigatório." });
+      }
+      if (!String(fileUrl || "").trim()) {
+        return res.status(400).json({ message: "Arquivo PDF é obrigatório." });
+      }
+
+      const ebook = await ebookService.createEbook({
+        title: String(title).trim(),
+        description: String(description || "").trim(),
+        fileUrl: String(fileUrl).trim(),
+        thumbnail: thumbnail ? String(thumbnail).trim() : null,
+      });
       return res.status(201).json(ebook);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });

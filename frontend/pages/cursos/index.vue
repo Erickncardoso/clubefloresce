@@ -58,31 +58,35 @@
                 @select="onCourseTileSelect"
               >
                 <template v-if="isNutri" #actions="{ item }">
-                  <button
-                    type="button"
-                    class="action-btn-circle"
-                    title="Adicionar Videoaula"
-                    @click.stop="openAddLessonFromCourse(item.raw)"
-                  >
-                    <Plus />
-                  </button>
-                  <button
-                    type="button"
-                    class="action-btn-circle update"
-                    style="color: #64b5f6;"
-                    title="Editar Curso"
-                    @click.stop="openEditCourseById(item.raw.id, 'card')"
-                  >
-                    <Edit2 />
-                  </button>
-                  <button
-                    type="button"
-                    class="action-btn-circle danger"
-                    title="Excluir Curso"
-                    @click.stop="handleDeleteCourse(item.raw.id)"
-                  >
-                    <Trash2 />
-                  </button>
+                  <SharedCfTileActionsMenu :menu-key="`course-${item.id}`">
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item"
+                      role="menuitem"
+                      @click="openAddLessonFromCourse(item.raw)"
+                    >
+                      <Plus />
+                      Adicionar videoaula
+                    </button>
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item cf-tile-actions-item--edit"
+                      role="menuitem"
+                      @click="openEditCourseById(item.raw.id, 'card')"
+                    >
+                      <Edit2 />
+                      Editar curso
+                    </button>
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item cf-tile-actions-item--danger"
+                      role="menuitem"
+                      @click="handleDeleteCourse(item.raw.id)"
+                    >
+                      <Trash2 />
+                      Excluir curso
+                    </button>
+                  </SharedCfTileActionsMenu>
                 </template>
               </SharedCfTileCarousel>
             </section>
@@ -95,31 +99,35 @@
                 @select="onEbookTileSelect"
               >
                 <template v-if="isNutri" #actions="{ item }">
-                  <button
-                    type="button"
-                    class="action-btn-circle"
-                    title="Adicionar PDF"
-                    @click.stop="openCreateEbookFromCourses"
-                  >
-                    <Plus />
-                  </button>
-                  <button
-                    type="button"
-                    class="action-btn-circle update"
-                    style="color: #64b5f6;"
-                    title="Editar Ebook"
-                    @click.stop="openEditEbookFromCourses(item.raw)"
-                  >
-                    <Edit2 />
-                  </button>
-                  <button
-                    type="button"
-                    class="action-btn-circle danger"
-                    title="Excluir Ebook"
-                    @click.stop="handleDeleteEbookFromCourses(item.raw.id)"
-                  >
-                    <Trash2 />
-                  </button>
+                  <SharedCfTileActionsMenu :menu-key="`ebook-${item.id}`">
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item"
+                      role="menuitem"
+                      @click="openCreateEbookFromCourses"
+                    >
+                      <Plus />
+                      Adicionar PDF
+                    </button>
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item cf-tile-actions-item--edit"
+                      role="menuitem"
+                      @click="openEditEbookFromCourses(item.raw)"
+                    >
+                      <Edit2 />
+                      Editar ebook
+                    </button>
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item cf-tile-actions-item--danger"
+                      role="menuitem"
+                      @click="handleDeleteEbookFromCourses(item.raw.id)"
+                    >
+                      <Trash2 />
+                      Excluir ebook
+                    </button>
+                  </SharedCfTileActionsMenu>
                 </template>
               </SharedCfTileCarousel>
             </section>
@@ -142,17 +150,37 @@
                   <p>{{ course.modules?.length || 0 }} módulo(s)</p>
                 </div>
 
-                <!-- Hover Actions -->
-                <div class="card-hover-actions" v-if="isNutri">
-                  <button @click.stop="openAddLessonFromCourse(course)" class="action-btn-circle" title="Adicionar Videoaula">
-                    <Plus />
-                  </button>
-                  <button @click.stop="openEditCourseById(course.id, 'card')" class="action-btn-circle update mt-2" style="color: #64b5f6;" title="Editar Curso">
-                    <Edit2 />
-                  </button>
-                  <button @click.stop="handleDeleteCourse(course.id)" class="action-btn-circle danger mt-2" title="Excluir Curso">
-                    <Trash2 />
-                  </button>
+                <!-- Ações nutri -->
+                <div class="card-hover-actions" v-if="isNutri" @click.stop>
+                  <SharedCfTileActionsMenu :menu-key="`gallery-course-${course.id}`">
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item"
+                      role="menuitem"
+                      @click="openAddLessonFromCourse(course)"
+                    >
+                      <Plus />
+                      Adicionar videoaula
+                    </button>
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item cf-tile-actions-item--edit"
+                      role="menuitem"
+                      @click="openEditCourseById(course.id, 'card')"
+                    >
+                      <Edit2 />
+                      Editar curso
+                    </button>
+                    <button
+                      type="button"
+                      class="cf-tile-actions-item cf-tile-actions-item--danger"
+                      role="menuitem"
+                      @click="handleDeleteCourse(course.id)"
+                    >
+                      <Trash2 />
+                      Excluir curso
+                    </button>
+                  </SharedCfTileActionsMenu>
                 </div>
               </div>
             </div>
@@ -174,6 +202,7 @@
           <button v-if="isNutri" @click="openCreateCourseModal" class="btn-primary mt-4">Criar meu primeiro curso</button>
         </div>
 
+        <ClientOnly>
         <Teleport to="body">
         <!-- Modal: Detalhes do Curso (Aulas) - Estilo Netflix Drawer -->
         <div v-if="showDetailsModal && selectedCourseDetails" class="modal-overlay fast-fade netflix-modal-overlay courses-modal-overlay" @click.self="closeDetailsModal">
@@ -678,42 +707,46 @@
 
         <!-- Modal: Novo Ebook -->
         <div v-if="showCreateEbookModal" class="modal-overlay courses-modal-overlay" @click.self="closeCreateEbookModal">
-          <div class="modal-card">
+          <div class="modal-card modal-card--ebook">
             <div class="modal-header">
               <h2>Novo Ebook</h2>
               <button @click="closeCreateEbookModal" class="btn-close"><X /></button>
             </div>
             <p class="modal-subtitle">Adicione capa, título, descrição e o arquivo PDF.</p>
 
-            <div class="form-group">
-              <label>Capa do Ebook (Opcional)</label>
-              <div class="upload-area" @click="triggerEbookCoverUpload" :class="{ 'has-image': ebookPreviewUrl }">
-                <img v-if="ebookPreviewUrl" :src="ebookPreviewUrl" class="upload-preview" />
-                <div v-else class="upload-placeholder">
-                  <ImageIcon class="upload-icon" />
-                  <span>Clique para selecionar a capa</span>
+            <div class="ebook-modal-grid">
+              <div class="form-group ebook-modal-cover">
+                <label>Capa do Ebook (Opcional)</label>
+                <div class="upload-area upload-area--ebook" @click="triggerEbookCoverUpload" :class="{ 'has-image': ebookPreviewUrl }">
+                  <img v-if="ebookPreviewUrl" :src="ebookPreviewUrl" class="upload-preview" />
+                  <div v-else class="upload-placeholder">
+                    <ImageIcon class="upload-icon" />
+                    <span>Selecionar capa</span>
+                  </div>
+                  <input ref="ebookFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleEbookCoverSelect" />
                 </div>
-                <input ref="ebookFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleEbookCoverSelect" />
               </div>
-            </div>
 
-            <div class="form-group floating-field">
-              <label>Título do Ebook</label>
-              <input v-model="newEbook.title" placeholder="Ex: Guia de Receitas Detox" />
-            </div>
+              <div class="ebook-modal-fields">
+                <div class="form-group floating-field">
+                  <label>Título do Ebook</label>
+                  <input v-model="newEbook.title" placeholder="Ex: Guia de Receitas Detox" />
+                </div>
 
-            <div class="form-group floating-field">
-              <label>Descrição Curta</label>
-              <textarea v-model="newEbook.description" rows="2" placeholder="Resumo do conteúdo..." />
-            </div>
+                <div class="form-group floating-field">
+                  <label>Descrição Curta</label>
+                  <textarea v-model="newEbook.description" rows="2" placeholder="Resumo do conteúdo..." />
+                </div>
 
-            <div class="form-group">
-              <label>Arquivo PDF</label>
-              <div class="pdf-upload-box" @click="triggerEbookPdfUpload" :class="{ 'has-file': selectedEbookPdfFile }">
-                <FileText class="pdf-icon-big" />
-                <span v-if="selectedEbookPdfFile">{{ selectedEbookPdfFile.name }}</span>
-                <span v-else>Clique para selecionar o PDF</span>
-                <input ref="ebookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEbookPdfSelect" />
+                <div class="form-group">
+                  <label>Arquivo PDF</label>
+                  <div class="pdf-upload-box pdf-upload-box--ebook" @click="triggerEbookPdfUpload" :class="{ 'has-file': selectedEbookPdfFile }">
+                    <FileText class="pdf-icon-big" />
+                    <span v-if="selectedEbookPdfFile">{{ selectedEbookPdfFile.name }}</span>
+                    <span v-else>Clique para selecionar o PDF</span>
+                    <input ref="ebookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEbookPdfSelect" />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -729,42 +762,46 @@
 
         <!-- Modal: Editar Ebook -->
         <div v-if="showEditEbookModal" class="modal-overlay courses-modal-overlay" @click.self="closeEditEbookModal">
-          <div class="modal-card">
+          <div class="modal-card modal-card--ebook">
             <div class="modal-header">
               <h2>Editar Ebook</h2>
               <button @click="closeEditEbookModal" class="btn-close"><X /></button>
             </div>
             <p class="modal-subtitle">Altere imagem, título, descrição e arquivo PDF se quiser.</p>
 
-            <div class="form-group">
-              <label>Capa do Ebook (Opcional)</label>
-              <div class="upload-area" @click="triggerEditEbookCoverUpload" :class="{ 'has-image': editEbookPreviewUrl }">
-                <img v-if="editEbookPreviewUrl" :src="editEbookPreviewUrl" class="upload-preview" />
-                <div v-else class="upload-placeholder">
-                  <ImageIcon class="upload-icon" />
-                  <span>Clique para selecionar uma nova capa</span>
+            <div class="ebook-modal-grid">
+              <div class="form-group ebook-modal-cover">
+                <label>Capa do Ebook (Opcional)</label>
+                <div class="upload-area upload-area--ebook" @click="triggerEditEbookCoverUpload" :class="{ 'has-image': editEbookPreviewUrl }">
+                  <img v-if="editEbookPreviewUrl" :src="editEbookPreviewUrl" class="upload-preview" />
+                  <div v-else class="upload-placeholder">
+                    <ImageIcon class="upload-icon" />
+                    <span>Nova capa</span>
+                  </div>
+                  <input ref="editEbookFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleEditEbookCoverSelect" />
                 </div>
-                <input ref="editEbookFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleEditEbookCoverSelect" />
               </div>
-            </div>
 
-            <div class="form-group floating-field">
-              <label>Título do Ebook</label>
-              <input v-model="editingEbook.title" placeholder="Ex: Guia de Receitas Detox" />
-            </div>
+              <div class="ebook-modal-fields">
+                <div class="form-group floating-field">
+                  <label>Título do Ebook</label>
+                  <input v-model="editingEbook.title" placeholder="Ex: Guia de Receitas Detox" />
+                </div>
 
-            <div class="form-group floating-field">
-              <label>Descrição Curta</label>
-              <textarea v-model="editingEbook.description" rows="2" placeholder="Resumo do conteúdo..." />
-            </div>
+                <div class="form-group floating-field">
+                  <label>Descrição Curta</label>
+                  <textarea v-model="editingEbook.description" rows="2" placeholder="Resumo do conteúdo..." />
+                </div>
 
-            <div class="form-group">
-              <label>Arquivo PDF (Opcional)</label>
-              <div class="pdf-upload-box" @click="triggerEditEbookPdfUpload" :class="{ 'has-file': selectedEditEbookPdfFile }">
-                <FileText class="pdf-icon-big" />
-                <span v-if="selectedEditEbookPdfFile">{{ selectedEditEbookPdfFile.name }}</span>
-                <span v-else>Clique para selecionar novo PDF (opcional)</span>
-                <input ref="editEbookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEditEbookPdfSelect" />
+                <div class="form-group">
+                  <label>Arquivo PDF (Opcional)</label>
+                  <div class="pdf-upload-box pdf-upload-box--ebook" @click="triggerEditEbookPdfUpload" :class="{ 'has-file': selectedEditEbookPdfFile }">
+                    <FileText class="pdf-icon-big" />
+                    <span v-if="selectedEditEbookPdfFile">{{ selectedEditEbookPdfFile.name }}</span>
+                    <span v-else>Selecionar novo PDF (opcional)</span>
+                    <input ref="editEbookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEditEbookPdfSelect" />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -778,19 +815,47 @@
           </div>
         </div>
         </Teleport>
+        </ClientOnly>
       </div>
     </div>
   </NuxtLayout>
 </template>
 
 <script setup>
+import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText } from 'lucide-vue-next'
+import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
+
 const config = useRuntimeConfig()
 const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 
-import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText } from 'lucide-vue-next'
-import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
+function isPdfFile(file) {
+  if (!file) return false
+  const name = String(file.name || '').toLowerCase()
+  const type = String(file.type || '').toLowerCase()
+  return type === 'application/pdf' || name.endsWith('.pdf')
+}
+
+async function uploadImageToCloudinary(file, token) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return $fetch(`${apiBase}/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+}
+
+async function uploadDocumentToCloudinary(file, token) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return $fetch(`${apiBase}/upload/file`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+}
 const route = useRoute()
 const courses = ref([])
 const ebooks = ref([])
@@ -1453,7 +1518,7 @@ const handleEbookCoverSelect = (e) => {
 const handleEbookPdfSelect = (e) => {
   const file = e.target.files?.[0]
   if (!file) return
-  if (file.type !== 'application/pdf') {
+  if (!isPdfFile(file)) {
     alert('Selecione um arquivo PDF válido.')
     return
   }
@@ -1472,29 +1537,22 @@ const handleCreateEbookFromCourses = async () => {
     }
 
     if (selectedEbookCoverFile.value) {
-      const coverFormData = new FormData()
-      coverFormData.append('file', selectedEbookCoverFile.value)
-      const coverUploadRes = await $fetch(`${apiBase}/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: coverFormData
-      })
+      const coverUploadRes = await uploadImageToCloudinary(selectedEbookCoverFile.value, token)
       newEbook.thumbnail = coverUploadRes.url
     }
 
-    const pdfFormData = new FormData()
-    pdfFormData.append('file', selectedEbookPdfFile.value)
-    const pdfUploadRes = await $fetch(`${apiBase}/upload/file`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: pdfFormData
-    })
+    const pdfUploadRes = await uploadDocumentToCloudinary(selectedEbookPdfFile.value, token)
     newEbook.fileUrl = pdfUploadRes.url
 
     await $fetch(`${apiBase}/ebooks`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
-      body: { ...newEbook }
+      body: {
+        title: newEbook.title.trim(),
+        description: newEbook.description?.trim() || '',
+        fileUrl: newEbook.fileUrl,
+        thumbnail: newEbook.thumbnail || null,
+      }
     })
 
     closeCreateEbookModal()
@@ -1533,7 +1591,7 @@ const handleEditEbookCoverSelect = (e) => {
 const handleEditEbookPdfSelect = (e) => {
   const file = e.target.files?.[0]
   if (!file) return
-  if (file.type !== 'application/pdf') {
+  if (!isPdfFile(file)) {
     alert('Selecione um arquivo PDF válido.')
     return
   }
@@ -1552,31 +1610,19 @@ const handleUpdateEbookFromCourses = async () => {
     }
 
     const payload = {
-      title: editingEbook.title,
-      description: editingEbook.description || '',
+      title: editingEbook.title.trim(),
+      description: editingEbook.description?.trim() || '',
       fileUrl: editingEbook.fileUrl || '',
       thumbnail: editingEbook.thumbnail || null
     }
 
     if (selectedEditEbookCoverFile.value) {
-      const coverFormData = new FormData()
-      coverFormData.append('file', selectedEditEbookCoverFile.value)
-      const coverUploadRes = await $fetch(`${apiBase}/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: coverFormData
-      })
+      const coverUploadRes = await uploadImageToCloudinary(selectedEditEbookCoverFile.value, token)
       payload.thumbnail = coverUploadRes.url
     }
 
     if (selectedEditEbookPdfFile.value) {
-      const pdfFormData = new FormData()
-      pdfFormData.append('file', selectedEditEbookPdfFile.value)
-      const pdfUploadRes = await $fetch(`${apiBase}/upload/file`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: pdfFormData
-      })
+      const pdfUploadRes = await uploadDocumentToCloudinary(selectedEditEbookPdfFile.value, token)
       payload.fileUrl = pdfUploadRes.url
     }
 
@@ -2344,41 +2390,25 @@ watch(
 
 .card-hover-actions {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: clamp(0.5rem, 3%, 1rem);
+  right: clamp(0.5rem, 3%, 1rem);
   z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
   opacity: 0;
   transform: translateX(10px);
   transition: all 0.3s ease;
+}
+
+@media (hover: none) {
+  .card-hover-actions {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .netflix-card:hover .card-hover-actions {
   opacity: 1;
   transform: translateX(0);
 }
-
-.action-btn-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  color: #333;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-  transition: all 0.2s;
-}
-
-.action-btn-circle svg { width: 18px; height: 18px; }
-.action-btn-circle:hover { background: white; transform: scale(1.1); color: var(--primary); }
-.action-btn-circle.danger { color: #e63946; }
-.action-btn-circle.danger:hover { background: #ffebeb; }
 
 /* --------- NETFLIX EXACT LIGHT MODAL STYLES --------- */
 .netflix-modal-overlay {
@@ -3084,6 +3114,107 @@ watch(
 .modal-card--lesson::-webkit-scrollbar { width: 4px; }
 .modal-card--lesson::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
 
+.modal-card--ebook {
+  max-width: 640px;
+  padding: 1.75rem 2rem;
+  overflow-y: visible;
+}
+
+.modal-card--ebook .modal-header {
+  margin-bottom: 0.75rem;
+}
+
+.modal-card--ebook .modal-subtitle {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+}
+
+.ebook-modal-grid {
+  display: grid;
+  grid-template-columns: 10.5rem minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.modal-card--ebook .form-group {
+  margin-bottom: 1rem;
+}
+
+.modal-card--ebook .ebook-modal-fields .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.modal-card--ebook .upload-area--ebook {
+  height: auto;
+  aspect-ratio: 3 / 4;
+  min-height: 0;
+}
+
+.modal-card--ebook .upload-area--ebook .upload-placeholder {
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.modal-card--ebook .upload-area--ebook .upload-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.modal-card--ebook .pdf-upload-box--ebook {
+  min-height: 4.25rem;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  text-align: left;
+}
+
+.modal-card--ebook .pdf-upload-box--ebook .pdf-icon-big {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.modal-card--ebook .pdf-upload-box--ebook span {
+  font-size: 0.85rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-card--ebook .modal-actions {
+  margin-top: 1.35rem;
+  padding-top: 1.15rem;
+}
+
+@media (max-width: 560px) {
+  .modal-card--ebook {
+    padding: 1.15rem;
+    overflow-y: auto;
+  }
+
+  .ebook-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-card--ebook .upload-area--ebook {
+    aspect-ratio: auto;
+    height: 8.5rem;
+  }
+
+  .modal-card--ebook .pdf-upload-box--ebook {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .modal-card--ebook .pdf-upload-box--ebook span {
+    white-space: normal;
+  }
+}
+
 /* â”€â”€ Tab Pills â”€â”€ */
 .tab-pills {
   display: flex;
@@ -3527,27 +3658,6 @@ watch(
 
 .course-row-block :deep(.cf-tile-card-actions) {
   z-index: 6;
-  pointer-events: auto;
-}
-
-.course-row-block :deep(.cf-tile-card-actions .action-btn-circle) {
-  width: 1.65rem;
-  height: 1.65rem;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-.course-row-block :deep(.cf-tile-card-actions .action-btn-circle svg) {
-  width: 0.85rem;
-  height: 0.85rem;
 }
 
 .course-row-title-link {

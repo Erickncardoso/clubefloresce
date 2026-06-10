@@ -5,7 +5,7 @@
   "scripts": {
     "build": "nuxt build",
     "build:paciente": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt build",
-    "dev": "nuxt dev --port 3000",
+    "dev": "cross-env NUXT_PUBLIC_MOBILE_APP=false NUXT_PUBLIC_API_BASE=/api nuxt dev --port 3000 --host 127.0.0.1",
     "dev:paciente": "node scripts/dev-paciente.mjs",
     "dev:mobile": "npm run dev:paciente",
     "generate": "nuxt generate",

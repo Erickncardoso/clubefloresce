@@ -56,9 +56,13 @@ export const uploadFile = multer({
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "application/epub+zip",
+      "application/octet-stream",
     ];
     const mimetype = allowedMimes.includes(file.mimetype) || extname;
-    if (extname || mimetype) return cb(null, true);
+    const isPdfByName = path.extname(file.originalname).toLowerCase() === ".pdf";
+    if (extname || mimetype || (file.mimetype === "application/octet-stream" && isPdfByName)) {
+      return cb(null, true);
+    }
     cb(new Error("Formato de documento não suportado. Use PDF, DOC, DOCX ou EPUB."));
   },
 });
@@ -133,6 +137,7 @@ export class UploadController {
       const cloudinaryUrl = await cloudinaryUpload(req.file.buffer, "clube-documents", {
         resourceType: "raw",
         fileSizeBytes: req.file.size,
+        originalFilename: req.file.originalname,
       });
 
       return res.json({ 

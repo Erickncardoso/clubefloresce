@@ -241,7 +241,7 @@ export default defineNuxtConfig({
           ignore: patientWebOnlyRoutes,
         },
       }
-    : isMobileApp
+    : isDev
       ? {
           devProxy: {
             '/api': {

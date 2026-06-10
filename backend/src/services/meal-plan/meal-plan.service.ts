@@ -68,6 +68,7 @@ export class MealPlanService {
       pdfUrl = await cloudinaryUpload(file.buffer, "clube-meal-plan-pdfs", {
         resourceType: "raw",
         fileSizeBytes: file.size,
+        originalFilename: file.originalname,
       });
     } catch {
       pdfUrl = null;

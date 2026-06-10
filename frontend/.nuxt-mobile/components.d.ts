@@ -39,6 +39,7 @@ export const HomeMacroBar: typeof import("../components/home/MacroBar.vue")['def
 export const HomeMacroPizzaRing: typeof import("../components/home/MacroPizzaRing.vue")['default']
 export const HomeNutritionPanel: typeof import("../components/home/NutritionPanel.vue")['default']
 export const HomeNutritionStatCarousel: typeof import("../components/home/NutritionStatCarousel.vue")['default']
+export const SharedCfTileActionsMenu: typeof import("../components/shared/CfTileActionsMenu.vue")['default']
 export const SharedCfTileCarousel: typeof import("../components/shared/CfTileCarousel.vue")['default']
 export const WhatsappBusinessProfileModal: typeof import("../components/whatsapp/BusinessProfileModal.vue")['default']
 export const WhatsappChatBody: typeof import("../components/whatsapp/ChatBody.vue")['default']
@@ -118,6 +119,7 @@ export const LazyHomeMacroBar: LazyComponent<typeof import("../components/home/M
 export const LazyHomeMacroPizzaRing: LazyComponent<typeof import("../components/home/MacroPizzaRing.vue")['default']>
 export const LazyHomeNutritionPanel: LazyComponent<typeof import("../components/home/NutritionPanel.vue")['default']>
 export const LazyHomeNutritionStatCarousel: LazyComponent<typeof import("../components/home/NutritionStatCarousel.vue")['default']>
+export const LazySharedCfTileActionsMenu: LazyComponent<typeof import("../components/shared/CfTileActionsMenu.vue")['default']>
 export const LazySharedCfTileCarousel: LazyComponent<typeof import("../components/shared/CfTileCarousel.vue")['default']>
 export const LazyWhatsappBusinessProfileModal: LazyComponent<typeof import("../components/whatsapp/BusinessProfileModal.vue")['default']>
 export const LazyWhatsappChatBody: LazyComponent<typeof import("../components/whatsapp/ChatBody.vue")['default']>

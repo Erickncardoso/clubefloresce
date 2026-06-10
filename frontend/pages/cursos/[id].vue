@@ -2098,7 +2098,6 @@ onBeforeUnmount(() => {
   margin-top: 1rem;
 }
 
-.btn-cancel,
 .btn-primary {
   border-radius: 10px;
   padding: 0.62rem 1rem;
@@ -2108,8 +2107,13 @@ onBeforeUnmount(() => {
 }
 
 .btn-cancel {
-  background: #f1f5f9;
-  color: #0f172a;
+  border-radius: 10px;
+  padding: 0.62rem 1rem;
+  cursor: pointer;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  color: #555;
 }
 
 .btn-primary {

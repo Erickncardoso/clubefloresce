@@ -251,8 +251,8 @@ import {
 definePageMeta({ layout: false })
 
 const config = useRuntimeConfig()
-const isPatientApp = computed(() => Boolean(config.public.mobileApp))
-const authApiBase = `${config.public.apiBase}/auth`
+const apiBase = useApiBase()
+const authApiBase = computed(() => `${apiBase.value}/auth`)
 
 const loading = ref(false)
 const error = ref('')
@@ -278,7 +278,7 @@ const handlePatientRequest = async () => {
   loading.value = true
   error.value = ''
   try {
-    await $fetch(`${authApiBase}/patient-registration-request`, {
+    await $fetch(`${authApiBase.value}/patient-registration-request`, {
       method: 'POST',
       body: {
         name: patientForm.name,
@@ -299,7 +299,7 @@ const handleWebRegister = async () => {
   loading.value = true
   error.value = ''
   try {
-    await $fetch(`${authApiBase}/register`, {
+    await $fetch(`${authApiBase.value}/register`, {
       method: 'POST',
       body: webForm,
     })

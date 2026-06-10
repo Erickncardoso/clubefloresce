@@ -30,6 +30,7 @@ export { requestIdleCallback, cancelIdleCallback } from '#app/compat/idle-callba
 export { setInterval } from '#app/compat/interval';
 export { definePageMeta } from '../node_modules/nuxt/dist/pages/runtime/composables';
 export { defineLazyHydrationComponent } from '#app/composables/lazy-hydration';
+export { useApiBase } from '../composables/useApiBase';
 export { useConfirm } from '../composables/useConfirm';
 export { useDietaProgress } from '../composables/useDietaProgress';
 export { useMealItemOverrides } from '../composables/useMealItemOverrides';
@@ -38,6 +39,7 @@ export { useMealSubstitutions } from '../composables/useMealSubstitutions';
 export { usePatientApp, PatientProfile } from '../composables/usePatientApp';
 export { usePatientLocalTime } from '../composables/usePatientLocalTime';
 export { usePatientMealPlan } from '../composables/usePatientMealPlan';
+export { useTileActionsMenu, closeAllTileActionMenus } from '../composables/useTileActionsMenu';
 export { getPatientScrollRoot, scrollPatientPageBy, useVerticalWheelPassthrough, usePatientHorizontalWheelBridge } from '../composables/useVerticalWheelPassthrough';
 export { PROD_API_ORIGIN, PROD_API_BASE, PROD_WHATSAPP_API_BASE } from '../utils/api-env';
 export { BELLA_ACTIONS, navigateBellaAction } from '../utils/bella-actions';

@@ -243,7 +243,8 @@ definePageMeta({
 })
 
 const config = useRuntimeConfig()
-const authApiBase = `${config.public.apiBase}/auth`
+const apiBase = useApiBase()
+const authApiBase = computed(() => `${apiBase.value}/auth`)
 const { persistSession, clearPatientSession } = usePatientApp()
 
 const form = reactive({
@@ -268,7 +269,7 @@ const handleLogin = async () => {
   loading.value = true
   error.value = ''
   try {
-    const data = await $fetch(`${authApiBase}/login`, {
+    const data = await $fetch(`${authApiBase.value}/login`, {
       method: 'POST',
       body: form
     })
@@ -339,7 +340,7 @@ const handleFirstAccessPasswordChange = async () => {
 
   firstAccessLoading.value = true
   try {
-    await $fetch(`${authApiBase}/first-access/change-password`, {
+    await $fetch(`${authApiBase.value}/first-access/change-password`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`

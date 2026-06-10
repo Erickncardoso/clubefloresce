@@ -1,3 +1,45 @@
+/* Painel nutricionista — tokens globais (páginas usam layout dashboard, não default) */
+:root {
+  --primary: #2d5a27;
+  --primary-light: #4c8c4a;
+  --secondary: #f4f7f6;
+  --text-main: #333d3b;
+  --text-muted: #66706e;
+}
+
+/* Botões secundários / cancelar em modais — visíveis em fundo branco */
+.btn-cancel,
+.modal-actions .btn-secondary,
+.modal-card .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--admin-border, #e8ece9);
+  color: #555;
+  padding: 0.65rem 1.1rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-cancel:hover:not(:disabled),
+.modal-actions .btn-secondary:hover:not(:disabled),
+.modal-card .btn-secondary:hover:not(:disabled) {
+  background: #f8faf8;
+  border-color: #c8dcc4;
+}
+
+.btn-cancel:disabled,
+.modal-actions .btn-secondary:disabled,
+.modal-card .btn-secondary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 /* Painel nutricionista — shell compartilhado (light) */
 .admin-shell {
   --admin-primary: #2d5a27;

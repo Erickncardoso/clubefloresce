@@ -115,11 +115,6 @@
 </template>
 
 <script setup>
-const config = useRuntimeConfig()
-const apiBase = config.public.apiBase
-const whatsappApiBase = config.public.whatsappApiBase
-const route = useRoute()
-
 import { 
   Book, 
   BookOpen, 
@@ -130,6 +125,38 @@ import {
   X, 
   Image as ImageIcon 
 } from 'lucide-vue-next'
+
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
+const whatsappApiBase = config.public.whatsappApiBase
+const route = useRoute()
+
+function isPdfFile(file) {
+  if (!file) return false
+  const name = String(file.name || '').toLowerCase()
+  const type = String(file.type || '').toLowerCase()
+  return type === 'application/pdf' || name.endsWith('.pdf')
+}
+
+async function uploadImageToCloudinary(file, token) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return $fetch(`${apiBase}/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+}
+
+async function uploadDocumentToCloudinary(file, token) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return $fetch(`${apiBase}/upload/file`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+}
 
 const ebooks = ref([])
 const isNutri = ref(false)
@@ -178,7 +205,7 @@ const handleImageSelect = (e) => {
 const handlePdfSelect = (e) => {
   const file = e.target.files?.[0]
   if (!file) return
-  if (file.type !== 'application/pdf') return alert('Por favor, selecione apenas arquivos PDF.')
+  if (!isPdfFile(file)) return alert('Por favor, selecione apenas arquivos PDF.')
   selectedPdfFile.value = file
 }
 
@@ -210,41 +237,31 @@ const handleCreateEbook = async () => {
   const token = localStorage.getItem('auth_token')
   
   try {
-    // 1. Upload da Capa (se houver)
     if (selectedFile.value) {
-      const formData = new FormData()
-      formData.append('file', selectedFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      })
+      const uploadRes = await uploadImageToCloudinary(selectedFile.value, token)
       newEbook.thumbnail = uploadRes.url
     }
 
-    // 2. Upload do PDF (se houver)
     if (selectedPdfFile.value) {
-      const formData = new FormData()
-      formData.append('file', selectedPdfFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload/file`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      })
+      const uploadRes = await uploadDocumentToCloudinary(selectedPdfFile.value, token)
       newEbook.fileUrl = uploadRes.url
     }
 
-    // 3. Salvar Ebook no Banco
     await $fetch(`${apiBase}/ebooks`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
-      body: { ...newEbook }
+      body: {
+        title: newEbook.title.trim(),
+        description: newEbook.description?.trim() || '',
+        fileUrl: newEbook.fileUrl,
+        thumbnail: newEbook.thumbnail || null,
+      }
     })
 
     closeCreateEbookModal()
     fetchEbooks()
   } catch (err) {
-    alert('Erro ao processar upload ou criar ebook.')
+    alert(err?.data?.message || err?.message || 'Erro ao processar upload ou criar ebook.')
     console.error(err)
   } finally {
     uploading.value = false

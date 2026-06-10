@@ -16,6 +16,7 @@ declare global {
   const clearError: typeof import('../../node_modules/nuxt/dist/app/composables/error').clearError
   const clearNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').clearNuxtData
   const clearNuxtState: typeof import('../../node_modules/nuxt/dist/app/composables/state').clearNuxtState
+  const closeAllTileActionMenus: typeof import('../../composables/useTileActionsMenu').closeAllTileActionMenus
   const computed: typeof import('vue').computed
   const countCourseLessons: typeof import('../../utils/course-tile').countCourseLessons
   const createError: typeof import('../../node_modules/nuxt/dist/app/composables/error').createError
@@ -138,6 +139,7 @@ declare global {
   const tryUseNuxtApp: typeof import('../../node_modules/nuxt/dist/app/nuxt').tryUseNuxtApp
   const unref: typeof import('vue').unref
   const updateAppConfig: typeof import('../../node_modules/nuxt/dist/app/config').updateAppConfig
+  const useApiBase: typeof import('../../composables/useApiBase').useApiBase
   const useAppConfig: typeof import('../../node_modules/nuxt/dist/app/config').useAppConfig
   const useApplePwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useApplePwaIcon
   const useAppleSplashScreenPwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useAppleSplashScreenPwaIcon
@@ -221,6 +223,7 @@ declare global {
   const useSlots: typeof import('vue').useSlots
   const useState: typeof import('../../node_modules/nuxt/dist/app/composables/state').useState
   const useTemplateRef: typeof import('vue').useTemplateRef
+  const useTileActionsMenu: typeof import('../../composables/useTileActionsMenu').useTileActionsMenu
   const useTransitionState: typeof import('vue').useTransitionState
   const useTransparentPwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useTransparentPwaIcon
   const useVerticalWheelPassthrough: typeof import('../../composables/useVerticalWheelPassthrough').useVerticalWheelPassthrough
@@ -263,6 +266,7 @@ declare module 'vue' {
     readonly clearError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['clearError']>
     readonly clearNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['clearNuxtData']>
     readonly clearNuxtState: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/state')['clearNuxtState']>
+    readonly closeAllTileActionMenus: UnwrapRef<typeof import('../../composables/useTileActionsMenu')['closeAllTileActionMenus']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly countCourseLessons: UnwrapRef<typeof import('../../utils/course-tile')['countCourseLessons']>
     readonly createError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['createError']>
@@ -385,6 +389,7 @@ declare module 'vue' {
     readonly tryUseNuxtApp: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/nuxt')['tryUseNuxtApp']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly updateAppConfig: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/config')['updateAppConfig']>
+    readonly useApiBase: UnwrapRef<typeof import('../../composables/useApiBase')['useApiBase']>
     readonly useAppConfig: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/config')['useAppConfig']>
     readonly useApplePwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useApplePwaIcon']>
     readonly useAppleSplashScreenPwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useAppleSplashScreenPwaIcon']>
@@ -468,6 +473,7 @@ declare module 'vue' {
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>
     readonly useState: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/state')['useState']>
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
+    readonly useTileActionsMenu: UnwrapRef<typeof import('../../composables/useTileActionsMenu')['useTileActionsMenu']>
     readonly useTransitionState: UnwrapRef<typeof import('vue')['useTransitionState']>
     readonly useTransparentPwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useTransparentPwaIcon']>
     readonly useVerticalWheelPassthrough: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['useVerticalWheelPassthrough']>

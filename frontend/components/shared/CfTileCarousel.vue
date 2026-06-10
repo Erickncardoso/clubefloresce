@@ -22,24 +22,36 @@
           @keydown.enter.prevent="emit('select', item)"
           @keydown.space.prevent="emit('select', item)"
         >
-          <div
-            class="cf-tile-card cf-squircle cf-squircle--tile"
-            :class="[`cf-tile-card--${item.tone || 'blue'}`, item.className]"
-          >
-            <img
-              v-if="item.cover"
-              :src="item.cover"
-              alt=""
-              class="cf-tile-card-cover-img"
-              loading="lazy"
-              decoding="async"
-            />
+          <div class="cf-tile-card-media">
             <div
-              v-else
-              class="cf-tile-card-cover-empty"
-              :class="[`cf-tile-card-cover-empty--${item.tone || 'blue'}`, { 'cf-tile-card-cover-empty--add': item.isAdd }]"
+              class="cf-tile-card cf-squircle cf-squircle--tile"
+              :class="[`cf-tile-card--${item.tone || 'blue'}`, item.className]"
             >
-              <component :is="item.icon || BookOpen" class="cf-tile-card-cover-icon" />
+              <img
+                v-if="item.cover"
+                :src="item.cover"
+                alt=""
+                class="cf-tile-card-cover-img"
+                loading="lazy"
+                decoding="async"
+              />
+              <div
+                v-else
+                class="cf-tile-card-cover-empty"
+                :class="[`cf-tile-card-cover-empty--${item.tone || 'blue'}`, { 'cf-tile-card-cover-empty--add': item.isAdd }]"
+              >
+                <component :is="item.icon || BookOpen" class="cf-tile-card-cover-icon" />
+              </div>
+            </div>
+
+            <div
+              v-if="$slots.actions && !item.isAdd"
+              class="cf-tile-card-actions"
+              @pointerdown.stop
+              @mousedown.stop
+              @click.stop
+            >
+              <slot name="actions" :item="item" />
             </div>
           </div>
 
@@ -49,16 +61,6 @@
             <span v-if="item.meta" class="cf-tile-card-meta">{{ item.meta }}</span>
           </div>
         </article>
-
-        <div
-          v-if="$slots.actions && !item.isAdd"
-          class="cf-tile-card-actions"
-          @pointerdown.stop
-          @mousedown.stop
-          @click.stop
-        >
-          <slot name="actions" :item="item" />
-        </div>
       </div>
 
       <slot name="trailing" />
@@ -172,7 +174,7 @@ function onScroll() {
 }
 
 .cf-tile-card.cf-squircle.cf-squircle--tile {
-  --cf-squircle-r: var(--cf-radius-squircle-tile, min(3rem, 42%));
+  --cf-squircle-r: var(--cf-tile-squircle-r, var(--cf-radius-squircle-tile, min(3rem, 42%)));
   border-radius: var(--cf-squircle-r);
 }
 
@@ -296,15 +298,32 @@ function onScroll() {
   transform: scale(1.15);
 }
 
+.cf-tile-card-media {
+  position: relative;
+  width: 100%;
+  /* Raio efetivo do card — compartilhado com menu ⋮ */
+  --cf-tile-squircle-r: min(3rem, calc(var(--cf-tile-card-w, 9.75rem) * 0.42));
+}
+
 .cf-tile-card-actions {
   position: absolute;
-  top: 0.35rem;
-  right: 0.35rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  top: clamp(0.3rem, 4%, 0.5rem);
+  right: clamp(0.3rem, 4%, 0.5rem);
   z-index: 5;
   pointer-events: auto;
+  --cf-radius-squircle-tile: var(--cf-tile-squircle-r);
+}
+
+@media (min-width: 768px) {
+  .cf-tile-carousel {
+    --cf-tile-card-w: 11rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .cf-tile-carousel {
+    --cf-tile-card-w: 8.75rem;
+  }
 }
 
 :deep(.cf-tile-card--add) {

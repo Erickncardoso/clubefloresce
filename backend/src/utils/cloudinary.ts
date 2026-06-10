@@ -14,6 +14,7 @@ type CloudinaryUploadResult = { secure_url?: string | null };
 type CloudinaryUploadOptions = {
   resourceType?: CloudinaryResourceType;
   fileSizeBytes?: number;
+  originalFilename?: string;
 };
 
 export const cloudinaryUpload = async (
@@ -56,12 +57,21 @@ export const cloudinaryUpload = async (
       return result.secure_url;
     }
 
+    const uploadOptions: Record<string, unknown> = {
+      folder,
+      resource_type: resourceType, // image | video | raw | auto
+    };
+
+    // PDFs/docs precisam manter extensão na URL para download/visualização corretos.
+    if (resourceType === "raw" && options?.originalFilename) {
+      uploadOptions.use_filename = true;
+      uploadOptions.unique_filename = true;
+      uploadOptions.filename_override = options.originalFilename;
+    }
+
     const result = await new Promise<CloudinaryUploadResult>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        {
-          folder,
-          resource_type: resourceType, // image | video | raw | auto
-        },
+        uploadOptions as any,
         (error: any, response: CloudinaryUploadResult | undefined) => {
           if (error) {
             reject(error);

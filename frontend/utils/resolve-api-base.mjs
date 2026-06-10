@@ -14,26 +14,34 @@ export function resolveApiBaseAtBuild({
   nodeEnv = process.env.NODE_ENV,
   isGenerate = false,
 } = {}) {
-  if (explicitBase && explicitBase !== DEV_MOBILE_API_BASE) {
-    return explicitBase
-  }
-
   const isProductionBuild = nodeEnv === 'production' || isGenerate
 
   if (mobileApp) {
+    if (explicitBase && explicitBase !== DEV_MOBILE_API_BASE && !isProductionBuild) {
+      return explicitBase
+    }
     return isProductionBuild ? PROD_API_BASE : DEV_MOBILE_API_BASE
   }
 
-  return isProductionBuild ? PROD_API_BASE : DEV_PANEL_API_BASE
+  // Painel web no dev: /api via proxy do Nuxt (mesma origem, sem CORS)
+  if (!isProductionBuild) {
+    return DEV_MOBILE_API_BASE
+  }
+
+  if (explicitBase && explicitBase !== DEV_MOBILE_API_BASE && explicitBase !== '/api') {
+    return explicitBase
+  }
+
+  return PROD_API_BASE
 }
 
 /** Ajuste no browser — corrige bundle com /api ou localhost embutidos. */
 export function resolveApiBaseAtRuntime(configBase, { mobileApp, hostname } = {}) {
-  if (!mobileApp) return configBase
-
   if (isLocalHostname(hostname)) {
     return DEV_MOBILE_API_BASE
   }
+
+  if (!mobileApp) return configBase
 
   if (!configBase || configBase === DEV_MOBILE_API_BASE || String(configBase).includes('localhost')) {
     return PROD_API_BASE
