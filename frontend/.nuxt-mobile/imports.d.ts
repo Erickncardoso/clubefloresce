@@ -51,5 +51,5 @@ export { roundMacro, createMealItemId, createMealItem, normalizeItemFromAi, appl
 export { splitMealItemDisplay } from '../utils/meal-item-display';
 export { formatMealItemLabel, formatMealItemsLabels } from '../utils/meal-plan-format';
 export { parseMealTimeToMinutes, getMealIdForTimeFromMeals } from '../utils/meal-plan-time';
-export { DEV_MOBILE_API_BASE, DEV_PANEL_API_BASE, isLocalHostname, resolveApiBaseAtBuild, resolveApiBaseAtRuntime, apiConnectionErrorMessage, isApiConnectionError } from '../utils/resolve-api-base';
+export { DEV_MOBILE_API_BASE, DEV_PANEL_API_BASE, PROD_APP_HOSTNAMES, isLocalHostname, isProdAppHostname, resolveApiBaseAtBuild, resolveApiBaseAtRuntime, apiConnectionErrorMessage, isApiConnectionError } from '../utils/resolve-api-base';
 export { usePWA, useTransparentPwaIcon, useMaskablePwaIcon, useFaviconPwaIcon, useApplePwaIcon, useAppleSplashScreenPwaIcon } from '../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index';

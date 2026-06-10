@@ -6,6 +6,7 @@ declare global {
   const DEV_PANEL_API_BASE: typeof import('../../utils/resolve-api-base').DEV_PANEL_API_BASE
   const PROD_API_BASE: typeof import('../../utils/api-env').PROD_API_BASE
   const PROD_API_ORIGIN: typeof import('../../utils/api-env').PROD_API_ORIGIN
+  const PROD_APP_HOSTNAMES: typeof import('../../utils/resolve-api-base').PROD_APP_HOSTNAMES
   const PROD_WHATSAPP_API_BASE: typeof import('../../utils/api-env').PROD_WHATSAPP_API_BASE
   const abortNavigation: typeof import('../../node_modules/nuxt/dist/app/composables/router').abortNavigation
   const addRouteMiddleware: typeof import('../../node_modules/nuxt/dist/app/composables/router').addRouteMiddleware
@@ -64,6 +65,7 @@ declare global {
   const isLocalHostname: typeof import('../../utils/resolve-api-base').isLocalHostname
   const isNuxtError: typeof import('../../node_modules/nuxt/dist/app/composables/error').isNuxtError
   const isPrerendered: typeof import('../../node_modules/nuxt/dist/app/composables/payload').isPrerendered
+  const isProdAppHostname: typeof import('../../utils/resolve-api-base').isProdAppHostname
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly
@@ -256,6 +258,7 @@ declare module 'vue' {
     readonly DEV_PANEL_API_BASE: UnwrapRef<typeof import('../../utils/resolve-api-base')['DEV_PANEL_API_BASE']>
     readonly PROD_API_BASE: UnwrapRef<typeof import('../../utils/api-env')['PROD_API_BASE']>
     readonly PROD_API_ORIGIN: UnwrapRef<typeof import('../../utils/api-env')['PROD_API_ORIGIN']>
+    readonly PROD_APP_HOSTNAMES: UnwrapRef<typeof import('../../utils/resolve-api-base')['PROD_APP_HOSTNAMES']>
     readonly PROD_WHATSAPP_API_BASE: UnwrapRef<typeof import('../../utils/api-env')['PROD_WHATSAPP_API_BASE']>
     readonly abortNavigation: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['abortNavigation']>
     readonly addRouteMiddleware: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['addRouteMiddleware']>
@@ -314,6 +317,7 @@ declare module 'vue' {
     readonly isLocalHostname: UnwrapRef<typeof import('../../utils/resolve-api-base')['isLocalHostname']>
     readonly isNuxtError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['isNuxtError']>
     readonly isPrerendered: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['isPrerendered']>
+    readonly isProdAppHostname: UnwrapRef<typeof import('../../utils/resolve-api-base')['isProdAppHostname']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>

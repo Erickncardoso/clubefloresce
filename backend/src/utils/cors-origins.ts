@@ -13,7 +13,7 @@ export function getAllowedCorsOrigins(): string[] {
     .filter(Boolean);
 
   if (fromEnv?.length) {
-    return fromEnv;
+    return [...new Set([...fromEnv, ...DEFAULT_PRODUCTION_ORIGINS])];
   }
 
   if (process.env.NODE_ENV === "production") {

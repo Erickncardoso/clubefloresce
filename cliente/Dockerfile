@@ -18,7 +18,7 @@ WORKDIR /app/frontend
 
 ENV NODE_ENV=production
 ENV NUXT_PUBLIC_MOBILE_APP=true
-ARG NUXT_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api
+ARG NUXT_PUBLIC_API_BASE=/api
 ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
 
 RUN npm run prepare:mobile && npm run generate:paciente

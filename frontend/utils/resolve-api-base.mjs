@@ -3,8 +3,17 @@ import { PROD_API_BASE } from './api-env.mjs'
 export const DEV_MOBILE_API_BASE = '/api'
 export const DEV_PANEL_API_BASE = 'http://localhost:3001/api'
 
+export const PROD_APP_HOSTNAMES = [
+  'app.nutrisabellajardim.com.br',
+  'www.app.nutrisabellajardim.com.br',
+]
+
 export function isLocalHostname(hostname) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+}
+
+export function isProdAppHostname(hostname) {
+  return PROD_APP_HOSTNAMES.includes(hostname)
 }
 
 /** Resolução no build (nuxt.config / Docker generate). */
@@ -17,10 +26,14 @@ export function resolveApiBaseAtBuild({
   const isProductionBuild = nodeEnv === 'production' || isGenerate
 
   if (mobileApp) {
-    if (explicitBase && explicitBase !== DEV_MOBILE_API_BASE && !isProductionBuild) {
-      return explicitBase
+    if (!isProductionBuild) {
+      if (explicitBase && explicitBase !== DEV_MOBILE_API_BASE) return explicitBase
+      return DEV_MOBILE_API_BASE
     }
-    return isProductionBuild ? PROD_API_BASE : DEV_MOBILE_API_BASE
+    // Produção: /api na mesma origem (nginx faz proxy → apiclube, sem CORS)
+    if (explicitBase === PROD_API_BASE) return DEV_MOBILE_API_BASE
+    if (explicitBase && explicitBase !== DEV_MOBILE_API_BASE) return explicitBase
+    return DEV_MOBILE_API_BASE
   }
 
   // Painel web no dev: /api via proxy do Nuxt (mesma origem, sem CORS)
@@ -43,8 +56,18 @@ export function resolveApiBaseAtRuntime(configBase, { mobileApp, hostname } = {}
 
   if (!mobileApp) return configBase
 
-  if (!configBase || configBase === DEV_MOBILE_API_BASE || String(configBase).includes('localhost')) {
-    return PROD_API_BASE
+  // App paciente: preferir /api (proxy nginx) — evita CORS com apiclube
+  if (isProdAppHostname(hostname) || configBase === DEV_MOBILE_API_BASE) {
+    return DEV_MOBILE_API_BASE
+  }
+
+  if (
+    !configBase
+    || configBase === PROD_API_BASE
+    || String(configBase).includes('apiclube.')
+    || String(configBase).includes('localhost')
+  ) {
+    return DEV_MOBILE_API_BASE
   }
 
   return configBase
