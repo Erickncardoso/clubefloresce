@@ -26,9 +26,11 @@ html {
 }
 
 html:has(.patient-shell),
-html:has(.cf-tab-bar) {
+html:has(.cf-tab-bar),
+html:has(.cf-tab-bar-wrap) {
   overflow: hidden;
-  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
 }
 
 body {
@@ -42,8 +44,10 @@ body {
 }
 
 html:has(.patient-shell) body,
-html:has(.cf-tab-bar) body {
-  height: 100%;
+html:has(.cf-tab-bar) body,
+html:has(.cf-tab-bar-wrap) body {
+  height: 100dvh;
+  max-height: 100dvh;
   min-height: 0;
   overflow: hidden;
 }
@@ -55,9 +59,11 @@ html:has(.cf-tab-bar) body {
 }
 
 html:has(.patient-shell) #__nuxt,
-html:has(.cf-tab-bar) #__nuxt {
+html:has(.cf-tab-bar) #__nuxt,
+html:has(.cf-tab-bar-wrap) #__nuxt {
   min-height: 0;
-  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
 }
 </style>

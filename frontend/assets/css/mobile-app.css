@@ -17,10 +17,13 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.bella-input-bar,
-.checkin-page,
-.community-page {
+.bella-input-bar {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+html:has(.cf-tab-bar-wrap) .checkin-page,
+html:has(.cf-tab-bar-wrap) .community-page {
+  padding-bottom: 0;
 }
 
 html,

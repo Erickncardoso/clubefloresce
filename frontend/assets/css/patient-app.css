@@ -15,7 +15,7 @@
   --cf-track: #e8e8e4;
   --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   --cf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
-  --cf-tab-h: 5.25rem;
+  --cf-tab-h: 4.5rem;
   --cf-fab-size: 3.25rem;
   --cf-avatar-mask: url('/icons/userAvatar.svg');
   --cf-space-1: 0.25rem;
@@ -47,26 +47,32 @@
 
 html:has(.patient-shell),
 html:has(.patient-login-mode),
-html:has(.cf-tab-bar) {
+html:has(.cf-tab-bar),
+html:has(.cf-tab-bar-wrap) {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   font-family: var(--cf-font);
   overflow: hidden;
-  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
 }
 
 html:has(.patient-shell) body,
 html:has(.patient-login-mode) body,
-html:has(.cf-tab-bar) body {
+html:has(.cf-tab-bar) body,
+html:has(.cf-tab-bar-wrap) body {
   overflow: hidden;
-  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   max-width: 100%;
   background: #ffffff;
 }
 
 html:has(.patient-shell) #__nuxt,
-html:has(.cf-tab-bar) #__nuxt {
-  height: 100%;
+html:has(.cf-tab-bar) #__nuxt,
+html:has(.cf-tab-bar-wrap) #__nuxt {
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -149,6 +155,24 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   overflow-x: hidden;
   overflow-y: visible;
   box-sizing: border-box;
+}
+
+/* Tab bar — colada na base da viewport (app cliente) */
+.cf-tab-bar-wrap {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 100;
+  margin: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--cf-surface);
+  border-top: 1px solid var(--cf-border);
+  box-sizing: border-box;
+}
+
+html:has(.patient-shell):has(.cf-tab-bar-wrap) body {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .cf-card {

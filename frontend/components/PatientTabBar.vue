@@ -1,44 +1,46 @@
 <template>
-  <div class="cf-tab-bar-wrap">
-    <nav class="cf-tab-bar" aria-label="Navegação principal">
-      <NuxtLink
-        v-for="item in sideTabs"
-        :key="item.path"
-        :to="item.path"
-        class="cf-tab"
-        :class="{ active: isActive(item.path) }"
+  <Teleport to="body">
+    <div class="cf-tab-bar-wrap">
+      <nav class="cf-tab-bar" aria-label="Navegação principal">
+        <NuxtLink
+          v-for="item in sideTabs"
+          :key="item.path"
+          :to="item.path"
+          class="cf-tab"
+          :class="{ active: isActive(item.path) }"
+        >
+          <component :is="item.icon" class="cf-tab-icon" />
+          <span>{{ item.label }}</span>
+        </NuxtLink>
+
+        <span class="cf-tab-fab-spacer" aria-hidden="true" />
+
+        <NuxtLink
+          v-for="item in rightTabs"
+          :key="item.path"
+          :to="item.path"
+          class="cf-tab"
+          :class="{ active: isActive(item.path) }"
+        >
+          <component :is="item.icon" class="cf-tab-icon" />
+          <span>{{ item.label }}</span>
+        </NuxtLink>
+      </nav>
+
+      <button
+        type="button"
+        class="cf-tab-fab"
+        :class="{ 'cf-tab-fab--open': bellaMenuOpen }"
+        :aria-label="bellaMenuOpen ? 'Fechar menu da Bella' : 'Abrir menu da Bella'"
+        :aria-expanded="bellaMenuOpen"
+        @click="bellaMenuOpen = !bellaMenuOpen"
       >
-        <component :is="item.icon" class="cf-tab-icon" />
-        <span>{{ item.label }}</span>
-      </NuxtLink>
+        <Plus class="cf-tab-fab-icon" />
+      </button>
 
-      <span class="cf-tab-fab-spacer" aria-hidden="true" />
-
-      <NuxtLink
-        v-for="item in rightTabs"
-        :key="item.path"
-        :to="item.path"
-        class="cf-tab"
-        :class="{ active: isActive(item.path) }"
-      >
-        <component :is="item.icon" class="cf-tab-icon" />
-        <span>{{ item.label }}</span>
-      </NuxtLink>
-    </nav>
-
-    <button
-      type="button"
-      class="cf-tab-fab"
-      :class="{ 'cf-tab-fab--open': bellaMenuOpen }"
-      :aria-label="bellaMenuOpen ? 'Fechar menu da Bella' : 'Abrir menu da Bella'"
-      :aria-expanded="bellaMenuOpen"
-      @click="bellaMenuOpen = !bellaMenuOpen"
-    >
-      <Plus class="cf-tab-fab-icon" />
-    </button>
-
-    <BellaActionSheet v-model="bellaMenuOpen" />
-  </div>
+      <BellaActionSheet v-model="bellaMenuOpen" />
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -74,14 +76,15 @@ watch(() => route.fullPath, () => {
 <style scoped>
 .cf-tab-bar-wrap {
   position: fixed;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   bottom: 0;
   z-index: 100;
-  width: 100%;
-  max-width: 430px;
-  margin-inline: auto;
+  margin: 0;
   padding-top: calc(var(--cf-fab-size) / 2 - 0.75rem);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--cf-surface);
+  border-top: 1px solid var(--cf-border);
+  box-sizing: border-box;
   pointer-events: none;
 }
 
@@ -90,9 +93,11 @@ watch(() => route.fullPath, () => {
   display: grid;
   grid-template-columns: 1fr 1fr var(--cf-fab-size) 1fr 1fr;
   align-items: end;
-  padding: 0.375rem 0.625rem calc(0.625rem + env(safe-area-inset-bottom, 0px));
-  background: var(--cf-surface);
-  border-top: 1px solid var(--cf-border);
+  width: 100%;
+  max-width: 430px;
+  margin-inline: auto;
+  padding: 0.3125rem 0.625rem 0;
+  background: transparent;
   box-sizing: border-box;
 }
 
@@ -100,10 +105,11 @@ watch(() => route.fullPath, () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.1875rem;
-  min-height: 3rem;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  min-height: 2.875rem;
   min-width: 2.75rem;
+  padding-bottom: 0;
   color: var(--cf-text-muted);
   text-decoration: none;
   font-size: 0.6875rem;
