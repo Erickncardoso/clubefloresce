@@ -26,9 +26,16 @@ html:has(.cf-tab-bar-wrap) .community-page {
   padding-bottom: 0;
 }
 
-html,
-body {
+html:not(:has(.cf-tab-bar-wrap)),
+html:not(:has(.cf-tab-bar-wrap)) body {
   overscroll-behavior-y: auto;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+html:has(.cf-tab-bar-wrap),
+html:has(.cf-tab-bar-wrap) body {
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
   max-width: 100%;

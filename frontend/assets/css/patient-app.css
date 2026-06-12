@@ -16,9 +16,10 @@
   --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   --cf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
   --cf-fab-size: 3.25rem;
-  --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.75rem);
-  --cf-tab-nav-h: 3.25rem;
-  --cf-tab-h: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + env(safe-area-inset-bottom, 0px));
+  --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.625rem);
+  --cf-tab-nav-h: 2.75rem;
+  --cf-tab-safe: env(safe-area-inset-bottom, 0px);
+  --cf-tab-h: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + var(--cf-tab-safe));
   --cf-avatar-mask: url('/icons/userAvatar.svg');
   --cf-space-1: 0.25rem;
   --cf-space-2: 0.5rem;
@@ -66,12 +67,13 @@ html:has(.patient-shell) body,
 html:has(.patient-login-mode) body,
 html:has(.cf-tab-bar) body,
 html:has(.cf-tab-bar-wrap) body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
   overflow: hidden;
-  height: 100%;
-  min-height: -webkit-fill-available;
-  max-height: 100dvh;
   max-width: 100%;
   background: #ffffff;
+  overscroll-behavior: none;
 }
 
 html:has(.patient-shell) #__nuxt,
@@ -91,8 +93,12 @@ html:has(.patient-login-mode):not(:has(.patient-shell)) {
 }
 
 html:has(.patient-login-mode):not(:has(.patient-shell)) body {
+  position: static;
+  inset: auto;
+  width: auto;
   overflow-y: auto;
   height: auto;
+  overscroll-behavior: auto;
 }
 
 html:has(.patient-login-mode):not(:has(.patient-shell)) #__nuxt {
@@ -167,24 +173,16 @@ html:has(.cf-tab-bar-wrap) .patient-page {
 /* Tab bar — colada na base da viewport (PWA / app cliente) */
 .cf-tab-bar-wrap {
   position: fixed;
-  inset-inline: 0;
-  bottom: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   z-index: 100;
   margin: 0;
   padding-top: var(--cf-tab-fab-rise);
-  padding-bottom: 0;
+  padding-bottom: var(--cf-tab-safe);
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
   box-sizing: border-box;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
-
-html:has(.patient-shell):has(.cf-tab-bar-wrap) body {
-  overflow: hidden;
-  overscroll-behavior: none;
 }
 
 .cf-card {

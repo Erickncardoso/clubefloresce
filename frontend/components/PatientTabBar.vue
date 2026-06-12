@@ -1,46 +1,44 @@
 <template>
-  <Teleport to="body">
-    <div class="cf-tab-bar-wrap">
-      <nav class="cf-tab-bar" aria-label="Navegação principal">
-        <NuxtLink
-          v-for="item in sideTabs"
-          :key="item.path"
-          :to="item.path"
-          class="cf-tab"
-          :class="{ active: isActive(item.path) }"
-        >
-          <component :is="item.icon" class="cf-tab-icon" />
-          <span>{{ item.label }}</span>
-        </NuxtLink>
-
-        <span class="cf-tab-fab-spacer" aria-hidden="true" />
-
-        <NuxtLink
-          v-for="item in rightTabs"
-          :key="item.path"
-          :to="item.path"
-          class="cf-tab"
-          :class="{ active: isActive(item.path) }"
-        >
-          <component :is="item.icon" class="cf-tab-icon" />
-          <span>{{ item.label }}</span>
-        </NuxtLink>
-      </nav>
-
-      <button
-        type="button"
-        class="cf-tab-fab"
-        :class="{ 'cf-tab-fab--open': bellaMenuOpen }"
-        :aria-label="bellaMenuOpen ? 'Fechar menu da Bella' : 'Abrir menu da Bella'"
-        :aria-expanded="bellaMenuOpen"
-        @click="bellaMenuOpen = !bellaMenuOpen"
+  <div class="cf-tab-bar-wrap">
+    <nav class="cf-tab-bar" aria-label="Navegação principal">
+      <NuxtLink
+        v-for="item in sideTabs"
+        :key="item.path"
+        :to="item.path"
+        class="cf-tab"
+        :class="{ active: isActive(item.path) }"
       >
-        <Plus class="cf-tab-fab-icon" />
-      </button>
+        <component :is="item.icon" class="cf-tab-icon" />
+        <span class="cf-tab-label">{{ item.label }}</span>
+      </NuxtLink>
 
-      <BellaActionSheet v-model="bellaMenuOpen" />
-    </div>
-  </Teleport>
+      <span class="cf-tab-fab-spacer" aria-hidden="true" />
+
+      <NuxtLink
+        v-for="item in rightTabs"
+        :key="item.path"
+        :to="item.path"
+        class="cf-tab"
+        :class="{ active: isActive(item.path) }"
+      >
+        <component :is="item.icon" class="cf-tab-icon" />
+        <span class="cf-tab-label">{{ item.label }}</span>
+      </NuxtLink>
+    </nav>
+
+    <button
+      type="button"
+      class="cf-tab-fab"
+      :class="{ 'cf-tab-fab--open': bellaMenuOpen }"
+      :aria-label="bellaMenuOpen ? 'Fechar menu da Bella' : 'Abrir menu da Bella'"
+      :aria-expanded="bellaMenuOpen"
+      @click="bellaMenuOpen = !bellaMenuOpen"
+    >
+      <Plus class="cf-tab-fab-icon" />
+    </button>
+
+    <BellaActionSheet v-model="bellaMenuOpen" />
+  </div>
 </template>
 
 <script setup>
@@ -76,20 +74,16 @@ watch(() => route.fullPath, () => {
 <style scoped>
 .cf-tab-bar-wrap {
   position: fixed;
-  inset-inline: 0;
-  bottom: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   z-index: 100;
-  margin: 0;
-  padding-top: var(--cf-tab-fab-rise, calc(var(--cf-fab-size) / 2 - 0.75rem));
-  padding-bottom: 0;
+  box-sizing: border-box;
+  padding-top: var(--cf-tab-fab-rise);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
-  box-sizing: border-box;
   pointer-events: none;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
 }
 
 .cf-tab-bar {
@@ -100,8 +94,7 @@ watch(() => route.fullPath, () => {
   width: 100%;
   max-width: 430px;
   margin-inline: auto;
-  padding: 0.25rem 0.625rem calc(0.375rem + env(safe-area-inset-bottom, 0px));
-  background: transparent;
+  padding: 0.125rem 0.5rem 0.25rem;
   box-sizing: border-box;
 }
 
@@ -111,15 +104,12 @@ watch(() => route.fullPath, () => {
   align-items: center;
   justify-content: flex-end;
   gap: 0.125rem;
-  min-height: 2.625rem;
-  min-width: 2.75rem;
-  padding-bottom: 0;
+  min-width: 0;
+  padding: 0;
   color: var(--cf-text-muted);
   text-decoration: none;
-  font-size: 0.6875rem;
-  font-weight: 500;
   font-family: var(--cf-font);
-  transition: color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .cf-tab:focus-visible {
@@ -132,6 +122,13 @@ watch(() => route.fullPath, () => {
   width: 1.2rem;
   height: 1.2rem;
   stroke-width: 1.75;
+  flex-shrink: 0;
+}
+
+.cf-tab-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .cf-tab.active {
@@ -140,7 +137,7 @@ watch(() => route.fullPath, () => {
 
 .cf-tab-fab-spacer {
   width: var(--cf-fab-size);
-  height: 0.125rem;
+  height: 0;
 }
 
 .cf-tab-fab {
@@ -190,7 +187,6 @@ watch(() => route.fullPath, () => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cf-tab,
   .cf-tab-fab {
     transition: none;
   }
