@@ -1,6 +1,7 @@
 import type { UserContextSnapshot } from "./types";
 import type { BellaChatTopic } from "./topic-config";
 import { getTopicOverlay, TOPIC_SCOPES } from "./topic-config";
+import { getTopicRedirectPromptBlock } from "./topic-router";
 import {
   buildLabelChatSemaphoreGuide,
   LABEL_ANALYSIS_SECTIONS,
@@ -8,7 +9,8 @@ import {
 } from "./label-semaphore";
 import { buildRestaurantAdvisorPrompt } from "./restaurant-guide";
 import type { RestaurantAdvisorContext } from "./meal-plan-context";
-import { BELLA_MEMORY_RULES } from "./memory-rules";
+import type { RestaurantIntent } from "./restaurant-intent";
+import { BELLA_MEMORY_RULES, BELLA_PERSONALIZATION_RULES } from "./memory-rules";
 
 export function buildSystemPrompt(ctx: UserContextSnapshot, conversationMemory?: string): string {
   const conversationBlock = conversationMemory
@@ -19,6 +21,8 @@ export function buildSystemPrompt(ctx: UserContextSnapshot, conversationMemory?:
 Seu tom é acolhedor, motivador e claro, como uma nutricionista parceira.
 
 ${BELLA_MEMORY_RULES}
+
+${BELLA_PERSONALIZATION_RULES}
 
 ${ctx.verifiedMemory}
 ${conversationBlock}
@@ -52,7 +56,7 @@ export function buildSystemPromptForTopic(
   conversationMemory?: string,
 ): string {
   const extra = topicExtra ? `\n\n${topicExtra}` : "";
-  return `${buildSystemPrompt(ctx, conversationMemory)}\n\n${getTopicOverlay(topic)}${extra}`;
+  return `${buildSystemPrompt(ctx, conversationMemory)}\n\n${getTopicOverlay(topic)}${extra}\n\n${getTopicRedirectPromptBlock()}`;
 }
 
 export function buildVisionMemoryPrefix(ctx: UserContextSnapshot, conversationMemory?: string): string {
@@ -63,21 +67,22 @@ export function buildVisionMemoryPrefix(ctx: UserContextSnapshot, conversationMe
 export function buildLabelVisionPrompt(ctx: UserContextSnapshot, userQuestion: string): string {
   return `Você é BELLA no chat EXCLUSIVO "Ler rótulo" do Clube Florescer, analisando um rótulo para ${ctx.firstName}.
 
-Sua função principal é avaliar o produto e dar uma recomendação por SEMÁFORO (Verde, Amarelo ou Vermelho), como um guia prático de escolha no supermercado.
+Sua função principal é avaliar o produto e dar a **Classificação do consumo** (Verde, Amarelo ou Vermelho), como um guia prático de escolha no supermercado.
 
-Responda SOMENTE sobre rótulo, tabela nutricional e ingredientes. Não analise pratos montados nem metas semanais.
+Responda SOMENTE sobre rótulo e tabela nutricional. Não analise pratos montados nem metas semanais.
 
 ${LABEL_SEMAPHORE_CRITERIA}
 
 ${LABEL_ANALYSIS_SECTIONS}
 
 Regras:
-- A seção ## Semáforo deve ser a PRIMEIRA seção da resposta.
-- Use listas com hífen (-) para nutrientes e ingredientes.
+- A seção ## Classificação do consumo deve ser a ÚNICA seção da resposta.
+- Não inclua Produto, Ingredientes nem listas de nutrientes detalhadas.
+- Se classificar 🔴 Vermelho, inclua **Alternativa melhor:** com produto ou hábito 🟢/🟡 equivalente.
 - Se algo estiver ilegível, escreva "Não legível". Não invente números.
 - Tom acolhedor, português do Brasil.
 
-Pergunta do paciente: ${userQuestion || "Analise este rótulo e classifique no semáforo."}`;
+Pergunta do paciente: ${userQuestion || "Analise este rótulo e classifique o consumo (Verde, Amarelo ou Vermelho)."}`;
 }
 
 export function buildMealVisionPrompt(ctx: UserContextSnapshot, userQuestion: string): string {
@@ -120,12 +125,26 @@ export function buildRestaurantVisionPrompt(
   ctx: UserContextSnapshot,
   userQuestion: string,
   advisor?: RestaurantAdvisorContext,
+  intent?: RestaurantIntent,
+  contextBlock?: string,
 ): string {
-  const advisorBlock = advisor ? `\n\n${buildRestaurantAdvisorPrompt(advisor)}` : "";
+  const advisorBlock = contextBlock
+    ? `\n\n${contextBlock}`
+    : advisor
+      ? `\n\n${buildRestaurantAdvisorPrompt(advisor, intent)}`
+      : "";
 
-  return `Você é BELLA no chat EXCLUSIVO "Restaurante" do Clube Florescer, ajudando ${ctx.firstName} a escolher a melhor opção ao comer fora.
+  const intentIntro =
+    intent === "free_meal"
+      ? "A paciente escolheu **refeição livre**: sugira opções flexíveis e explique com clareza o impacto no progresso."
+      : intent === "plan_fit"
+        ? "A paciente quer **encaixar no plano**: busque a melhor opção possível no cardápio, com adaptações práticas se necessário."
+        : "Sugira a escolha mais alinhada ao plano alimentar e ao diário de hoje.";
 
-Analise a imagem (cardápio, prato ou opções visíveis) e sugira a escolha mais alinhada ao plano alimentar e ao diário de hoje.
+  return `Você é BELLA no chat EXCLUSIVO "Restaurante" do Clube Florescer, ajudando ${ctx.firstName} a escolher ao comer fora.
+
+${intentIntro}
+Analise a imagem (cardápio, prato ou opções visíveis).
 Não faça análise de rótulo de supermercado nem registro de prato caseiro no diário.
 ${advisorBlock}
 
@@ -137,10 +156,13 @@ export function buildTopicImageVisionPrompt(
   ctx: UserContextSnapshot,
   userQuestion: string,
   restaurantAdvisor?: RestaurantAdvisorContext,
+  restaurantIntent?: RestaurantIntent,
 ): string {
   if (topic === "label") return buildLabelVisionPrompt(ctx, userQuestion);
   if (topic === "meal") return buildMealVisionPrompt(ctx, userQuestion);
-  if (topic === "restaurant") return buildRestaurantVisionPrompt(ctx, userQuestion, restaurantAdvisor);
+  if (topic === "restaurant") {
+    return buildRestaurantVisionPrompt(ctx, userQuestion, restaurantAdvisor, restaurantIntent);
+  }
 
   const scope = TOPIC_SCOPES[topic];
   return `Você é BELLA no chat "${scope.title}" do Clube Florescer, para ${ctx.firstName}.
@@ -157,12 +179,13 @@ export function buildImageVisionPrompt(
   ctx: UserContextSnapshot,
   userQuestion: string,
   restaurantAdvisor?: RestaurantAdvisorContext,
+  restaurantIntent?: RestaurantIntent,
 ): string {
-  return buildTopicImageVisionPrompt(topic, ctx, userQuestion, restaurantAdvisor);
+  return buildTopicImageVisionPrompt(topic, ctx, userQuestion, restaurantAdvisor, restaurantIntent);
 }
 
 export function getDefaultImageUserText(topic: BellaChatTopic): string {
-  if (topic === "label") return "Analise este rótulo e classifique no semáforo (Verde, Amarelo ou Vermelho).";
+  if (topic === "label") return "Analise este rótulo e classifique o consumo (Verde, Amarelo ou Vermelho).";
   if (topic === "meal") return "Analise meu prato e estime calorias e nutrientes de cada item.";
   if (topic === "restaurant") return "Qual a melhor opção para mim neste cardápio, alinhada ao meu plano?";
   return `Analise esta imagem no contexto de ${TOPIC_SCOPES[topic].title.toLowerCase()}.`;

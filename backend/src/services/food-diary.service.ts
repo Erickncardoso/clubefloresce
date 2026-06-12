@@ -56,18 +56,12 @@ function parseItems(raw: unknown): MealItemDraft[] {
 
 export function buildDiaryAssistantReply(
   mealLabel: string,
-  items: MealItemDraft[],
+  _items: MealItemDraft[],
   mealTotals: MacroTotals,
   dailySummary: DailyDiarySummary,
 ): string {
-  const lines = items.map(
-    (item) =>
-      `- **${item.name}**: ${item.grams} g · ${item.caloriesKcal} kcal · C ${item.carbsG} g · P ${item.proteinG} g · G ${item.fatG} g`,
-  );
-
   return (
     `Registrei seu **${mealLabel}** no diário alimentar.\n\n` +
-    `## Itens confirmados\n${lines.join("\n")}\n\n` +
     `## Total desta refeição\n` +
     `- Calorias: ${mealTotals.caloriesKcal} kcal\n` +
     `- Carboidratos: ${mealTotals.carbsG} g\n` +
@@ -78,7 +72,11 @@ export function buildDiaryAssistantReply(
     `- Proteínas: ${dailySummary.consumed.proteinG} / ${dailySummary.targets.proteinG} g\n` +
     `- Carboidratos: ${dailySummary.consumed.carbsG} / ${dailySummary.targets.carbsG} g\n` +
     `- Gorduras: ${dailySummary.consumed.fatG} / ${dailySummary.targets.fatG} g\n\n` +
-    `Faltam **${dailySummary.remaining.caloriesKcal} kcal** para a meta do dia.`
+    `## O que falta\n` +
+    `- Calorias: ${dailySummary.remaining.caloriesKcal} kcal\n` +
+    `- Proteínas: ${dailySummary.remaining.proteinG} g\n` +
+    `- Carboidratos: ${dailySummary.remaining.carbsG} g\n` +
+    `- Gorduras: ${dailySummary.remaining.fatG} g`
   );
 }
 

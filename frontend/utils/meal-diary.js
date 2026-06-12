@@ -1,4 +1,4 @@
-import { findFoodById, findFoodByName, macrosForFood } from '~/config/food-suggestions'
+import { macrosForFoodRecord } from '~/utils/food-bank'
 
 export function roundMacro(value) {
   return Math.round(Number(value) * 10) / 10
@@ -27,9 +27,8 @@ export function createMealItem(overrides = {}) {
   }
 }
 
-export function normalizeItemFromAi(item) {
+export function normalizeItemFromAi(item, matchedFood = null) {
   const name = String(item.name || '').trim()
-  const matched = findFoodByName(name)
   const base = {
     id: item.id || createMealItemId(),
     name,
@@ -38,47 +37,45 @@ export function normalizeItemFromAi(item) {
     carbsG: roundMacro(item.carbsG || 0),
     proteinG: roundMacro(item.proteinG || 0),
     fatG: roundMacro(item.fatG || 0),
-    foodId: matched?.id || null,
-    source: matched ? 'food_bank' : 'ai',
+    foodId: matchedFood?.id || item.foodId || null,
+    source: matchedFood ? 'food_bank' : item.foodId ? 'food_bank' : 'ai',
     originalName: name,
   }
 
-  if (matched) {
-    return { ...base, ...macrosForFood(matched, base.grams) }
+  if (matchedFood) {
+    return { ...base, ...macrosForFoodRecord(matchedFood, base.grams) }
   }
   return base
 }
 
-export function applyFoodMatch(item, nameInput) {
+export function applyFoodMatch(item, nameInput, matchedFood = null) {
   const name = String(nameInput || '').trim()
-  const matched = findFoodByName(name) || findFoodById(item.foodId)
   const originalName = item.originalName || (item.source === 'ai' ? item.name : null)
   const renamed = originalName && name.toLowerCase() !== String(originalName).toLowerCase()
 
   let updated = {
     ...item,
-    name: nameInput,
-    foodId: matched?.id || null,
-    source: matched ? 'food_bank' : renamed || item.source === 'manual' ? 'manual' : item.source || 'ai',
+    name,
+    foodId: matchedFood?.id || null,
+    source: matchedFood ? 'food_bank' : renamed || item.source === 'manual' ? 'manual' : item.source || 'ai',
     originalName: originalName || (renamed ? item.name : null),
   }
 
-  if (matched) {
-    updated = { ...updated, ...macrosForFood(matched, updated.grams) }
+  if (matchedFood) {
+    updated = { ...updated, ...macrosForFoodRecord(matchedFood, updated.grams) }
   }
 
   return updated
 }
 
-export function scaleMealItem(item, newGrams) {
+export function scaleMealItem(item, newGrams, matchedFood = null) {
   const grams = Math.max(1, Math.round(Number(newGrams) || 1))
-  const food = findFoodById(item.foodId) || findFoodByName(item.name)
 
-  if (food && item.source === 'food_bank') {
+  if (matchedFood && item.source === 'food_bank') {
     return {
       ...item,
       grams,
-      ...macrosForFood(food, grams),
+      ...macrosForFoodRecord(matchedFood, grams),
     }
   }
 

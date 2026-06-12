@@ -25,6 +25,7 @@ interface _GlobalComponents {
   PlayerNavigation: typeof import("../../components/PlayerNavigation.vue")['default']
   BellaActionSheet: typeof import("../../components/bella/BellaActionSheet.vue")['default']
   BellaDailyDiaryBar: typeof import("../../components/bella/DailyDiaryBar.vue")['default']
+  BellaFoodSearchPicker: typeof import("../../components/bella/FoodSearchPicker.vue")['default']
   BellaMealConfirmModal: typeof import("../../components/bella/MealConfirmModal.vue")['default']
   BibliotecaScrollRow: typeof import("../../components/biblioteca/BibliotecaScrollRow.vue")['default']
   CheckinTypeformFlow: typeof import("../../components/checkin/CheckinTypeformFlow.vue")['default']
@@ -105,6 +106,7 @@ interface _GlobalComponents {
   LazyPlayerNavigation: LazyComponent<typeof import("../../components/PlayerNavigation.vue")['default']>
   LazyBellaActionSheet: LazyComponent<typeof import("../../components/bella/BellaActionSheet.vue")['default']>
   LazyBellaDailyDiaryBar: LazyComponent<typeof import("../../components/bella/DailyDiaryBar.vue")['default']>
+  LazyBellaFoodSearchPicker: LazyComponent<typeof import("../../components/bella/FoodSearchPicker.vue")['default']>
   LazyBellaMealConfirmModal: LazyComponent<typeof import("../../components/bella/MealConfirmModal.vue")['default']>
   LazyBibliotecaScrollRow: LazyComponent<typeof import("../../components/biblioteca/BibliotecaScrollRow.vue")['default']>
   LazyCheckinTypeformFlow: LazyComponent<typeof import("../../components/checkin/CheckinTypeformFlow.vue")['default']>

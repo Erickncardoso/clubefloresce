@@ -1,12 +1,5 @@
-@import '@fontsource/metropolis/latin-300.css';
-@import '@fontsource/metropolis/latin-400.css';
-@import '@fontsource/metropolis/latin-500.css';
-@import '@fontsource/metropolis/latin-600.css';
-@import '@fontsource/metropolis/latin-700.css';
-@import '@fontsource/metropolis/latin-800.css';
-
 :root {
-  --cf-font: 'Metropolis', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cf-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   /* squircle — cantos contínuos com laterais curvadas (estilo Copilot/iOS) */
   --cf-radius-sheet: 2.75rem;
@@ -26,6 +19,10 @@
 }
 
 html,
-body {
+body,
+button,
+input,
+textarea,
+select {
   font-family: var(--cf-font);
 }

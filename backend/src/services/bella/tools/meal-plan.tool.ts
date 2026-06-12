@@ -46,9 +46,9 @@ export async function executeMealPlanTool(_args: Record<string, unknown>, ctx: {
   return formatMealPlanForPrompt(plan);
 }
 
-export async function executeDailyDiaryTool(_args: Record<string, unknown>, ctx: { userId: string }) {
+export async function executeDailyDiaryTool(_args: Record<string, unknown>, ctx: { userId: string; patientDateKey?: string }) {
   const foodDiaryService = await getFoodDiaryService();
-  const summary = await foodDiaryService.getDailySummary(ctx.userId);
+  const summary = await foodDiaryService.getDailySummary(ctx.userId, ctx.patientDateKey);
   return formatDailyDiaryForPrompt(summary);
 }
 

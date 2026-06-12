@@ -74,8 +74,10 @@ declare global {
   const isVue2: typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi').isVue2
   const isVue3: typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi').isVue3
   const loadPayload: typeof import('../../node_modules/nuxt/dist/app/composables/payload').loadPayload
+  const macrosForFoodRecord: typeof import('../../utils/food-bank').macrosForFoodRecord
   const mapCourseToTile: typeof import('../../utils/course-tile').mapCourseToTile
   const mapEbookToTile: typeof import('../../utils/course-tile').mapEbookToTile
+  const mapFoodItemFromApi: typeof import('../../utils/food-bank').mapFoodItemFromApi
   const markRaw: typeof import('vue').markRaw
   const mealTypeLabel: typeof import('../../utils/meal-diary').mealTypeLabel
   const navigateBellaAction: typeof import('../../utils/bella-actions').navigateBellaAction
@@ -155,6 +157,7 @@ declare global {
   const useError: typeof import('../../node_modules/nuxt/dist/app/composables/error').useError
   const useFaviconPwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useFaviconPwaIcon
   const useFetch: typeof import('../../node_modules/nuxt/dist/app/composables/fetch').useFetch
+  const useFoodBank: typeof import('../../composables/useFoodBank').useFoodBank
   const useHead: typeof import('../../node_modules/nuxt/dist/app/composables/head').useHead
   const useHeadSafe: typeof import('../../node_modules/nuxt/dist/app/composables/head').useHeadSafe
   const useHydration: typeof import('../../node_modules/nuxt/dist/app/composables/hydrate').useHydration
@@ -326,8 +329,10 @@ declare module 'vue' {
     readonly isVue2: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi')['isVue2']>
     readonly isVue3: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi')['isVue3']>
     readonly loadPayload: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['loadPayload']>
+    readonly macrosForFoodRecord: UnwrapRef<typeof import('../../utils/food-bank')['macrosForFoodRecord']>
     readonly mapCourseToTile: UnwrapRef<typeof import('../../utils/course-tile')['mapCourseToTile']>
     readonly mapEbookToTile: UnwrapRef<typeof import('../../utils/course-tile')['mapEbookToTile']>
+    readonly mapFoodItemFromApi: UnwrapRef<typeof import('../../utils/food-bank')['mapFoodItemFromApi']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
     readonly mealTypeLabel: UnwrapRef<typeof import('../../utils/meal-diary')['mealTypeLabel']>
     readonly navigateBellaAction: UnwrapRef<typeof import('../../utils/bella-actions')['navigateBellaAction']>
@@ -407,6 +412,7 @@ declare module 'vue' {
     readonly useError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['useError']>
     readonly useFaviconPwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useFaviconPwaIcon']>
     readonly useFetch: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/fetch')['useFetch']>
+    readonly useFoodBank: UnwrapRef<typeof import('../../composables/useFoodBank')['useFoodBank']>
     readonly useHead: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/head')['useHead']>
     readonly useHeadSafe: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/head')['useHeadSafe']>
     readonly useHydration: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/hydrate')['useHydration']>

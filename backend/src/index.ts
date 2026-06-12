@@ -14,6 +14,7 @@ import whatsappRoutes from "./routes/whatsapp.routes";
 import checkinRoutes from "./routes/checkin.routes";
 import bellaRoutes from "./routes/bella.routes";
 import foodDiaryRoutes from "./routes/food-diary.routes";
+import foodRoutes from "./routes/food.routes";
 import mealPlanRoutes from "./routes/meal-plan.routes";
 import patientRoutes from "./routes/patient.routes";
 import { readEnv, maskSecret } from "./utils/env";
@@ -80,6 +81,7 @@ app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/checkin", checkinRoutes);
 app.use("/api/bella", bellaRoutes);
 app.use("/api/food-diary", foodDiaryRoutes);
+app.use("/api/foods", foodRoutes);
 app.use("/api/meal-plan", mealPlanRoutes);
 app.use("/api/patients", patientRoutes);
 

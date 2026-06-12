@@ -23,9 +23,9 @@ export const BELLA_TOPICS = {
   },
   label: {
     title: 'Ler rótulo',
-    subtitle: 'Semáforo: verde, amarelo ou vermelho',
+    subtitle: 'Classificação do consumo',
     welcome: (name) =>
-      `Olá, ${name}! 📋 Envie a foto do rótulo pelo clipe. Classifico em semáforo: 🟢 liberado, 🟡 moderar ou 🔴 evitar frequente, com base em ingredientes e tabela nutricional.`,
+      `Olá, ${name}! 📋 Envie a foto do rótulo pelo clipe. Classifico o consumo: 🟢 liberado, 🟡 moderar ou 🔴 evitar frequente.`,
     placeholder: 'Descreva a dúvida ou envie a foto...',
     taskHint: 'label',
     acceptPdf: false,
@@ -53,13 +53,13 @@ export const BELLA_TOPICS = {
   },
   swap: {
     title: 'Substituir alimento',
-    subtitle: 'Trocas práticas na dieta',
+    subtitle: 'Trocas alinhadas ao seu plano',
     welcome: (name) =>
-      `Olá, ${name}! 🔄 Qual alimento você quer substituir? Me diga o que costuma comer e a restrição ou objetivo.`,
-    placeholder: 'Ex.: quero trocar arroz branco por...',
+      `Olá, ${name}! 🔄 Vou te ajudar a substituir um alimento do seu plano com porções equivalentes em calorias e macros.`,
+    placeholder: 'Use os botões para escolher refeição e alimento',
     taskHint: null,
-    acceptPdf: true,
-    acceptImages: true,
+    acceptPdf: false,
+    acceptImages: false,
   },
   ask: {
     title: 'Fazer pergunta',

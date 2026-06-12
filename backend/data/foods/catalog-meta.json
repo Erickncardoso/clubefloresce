@@ -1,0 +1,18 @@
+{
+  "generatedAt": "2026-06-12T02:08:00.792Z",
+  "totals": {
+    "taco": 597,
+    "tbca": 5668,
+    "all": 6265
+  },
+  "sources": {
+    "TACO": {
+      "count": 597,
+      "url": "https://raw.githubusercontent.com/brolesi/taco/main/data/processed/taco/alimentos.csv"
+    },
+    "TBCA": {
+      "count": 5668,
+      "url": "https://raw.githubusercontent.com/raul-rznd/web-scraping-tbca/main/alimentos.txt"
+    }
+  }
+}

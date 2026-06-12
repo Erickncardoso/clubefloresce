@@ -3,6 +3,7 @@ import type { DailyDiarySummary } from "../../types/food-diary.types";
 import type { ParsedFoodItem, ParsedMeal, ParsedMealPlan } from "../../types/meal-plan.types";
 import { inferMealSlotFromTime } from "../../utils/meal-time";
 import { getFoodDiaryService } from "./food-diary-access";
+import { buildPatientVerifiedMemory } from "./patient-memory";
 
 const mealPlanRepository = new MealPlanRepository();
 
@@ -42,8 +43,12 @@ export interface MealSlotContext {
 }
 
 export interface RestaurantAdvisorContext {
+  patientName: string;
+  appPlan: string;
   mealPlanText: string;
   dailyDiaryText: string;
+  todayEntriesText: string;
+  checkInSummary: string;
   currentMealSlot: MealSlotContext;
   hasMealPlan: boolean;
 }
@@ -62,19 +67,18 @@ export async function buildRestaurantAdvisorContext(
   userId: string,
   dateKey?: string,
 ): Promise<RestaurantAdvisorContext> {
-  const [record, dailySummary] = await Promise.all([
-    mealPlanRepository.findByUserId(userId),
-    getFoodDiaryService().then((service) => service.getDailySummary(userId, dateKey)),
-  ]);
-
-  const plan = record?.plan as ParsedMealPlan | undefined;
-  const currentMealSlot = inferMealSlotFromTime(new Date(), plan?.meals || []);
+  const memory = await buildPatientVerifiedMemory(userId, dateKey);
+  const currentMealSlot = await resolveMealSlot(userId);
 
   return {
-    mealPlanText: formatMealPlanForPrompt(plan),
-    dailyDiaryText: formatDailyDiaryForPrompt(dailySummary),
+    patientName: memory.firstName,
+    appPlan: memory.appPlan,
+    mealPlanText: memory.mealPlanText,
+    dailyDiaryText: memory.dailyDiaryText,
+    todayEntriesText: memory.todayEntriesText,
+    checkInSummary: memory.checkInSummary,
     currentMealSlot,
-    hasMealPlan: Boolean(plan?.meals?.length),
+    hasMealPlan: memory.hasMealPlan,
   };
 }
 

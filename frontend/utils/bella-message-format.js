@@ -7,7 +7,21 @@ function escapeHtml(text) {
 }
 
 function inlineFormat(text) {
-  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  const linkMarkers = []
+  const marked = String(text).replace(/\[\[chat:([a-z]+)\|([^\]]+)\]\]/g, (_, topic, label) => {
+    const index = linkMarkers.length
+    linkMarkers.push({ topic, label })
+    return `__BELLA_LINK_${index}__`
+  })
+
+  let html = escapeHtml(marked)
+  html = html.replace(/__BELLA_LINK_(\d+)__/g, (_, rawIndex) => {
+    const link = linkMarkers[Number(rawIndex)]
+    if (!link) return ''
+    return `<a href="/bella/chat/${link.topic}" class="bella-chat-link-inline" data-chat-topic="${link.topic}">${escapeHtml(link.label)}</a>`
+  })
+
+  return html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
 }
 
 export function getMessageAttachment(msg) {
@@ -36,7 +50,8 @@ const AUTO_IMAGE_FALLBACKS = new Set([
   'Analise este PDF, por favor.',
   'Analise meu prato para registrar no diário de hoje.',
   'Analise este rótulo, por favor.',
-  'Analise este rótulo e classifique no semáforo (Verde, Amarelo ou Vermelho).',
+  'Analise este rótulo e classifique o consumo (Verde, Amarelo ou Vermelho).',
+  'Qual a melhor opção para mim neste cardápio?',
   'Analise esta imagem, por favor.',
 ])
 
@@ -52,10 +67,33 @@ export function getUserMessageImageUrl(msg) {
   return attachment?.type === 'image' && attachment.url ? attachment.url : null
 }
 
+function normalizeLabelReply(content) {
+  let text = String(content)
+    .replace(/^##\s*Semáforo\s*$/gim, '## Classificação do consumo')
+    .replace(/^##\s*Semafoto\s*$/gim, '## Classificação do consumo')
+
+  const dropSections = [
+    'Produto',
+    'Ingredientes',
+    'Grau de processamento',
+    'Porção e calorias',
+    'Nutrientes de atenção',
+    'Pontos positivos',
+    'Pontos de atenção',
+  ]
+
+  for (const section of dropSections) {
+    const pattern = new RegExp(`^##\\s*${section}[\\s\\S]*?(?=^##\\s|$)`, 'gim')
+    text = text.replace(pattern, '')
+  }
+
+  return text.trim()
+}
+
 export function formatBellaMarkdown(content) {
   if (!content?.trim()) return ''
 
-  const normalized = content
+  const normalized = normalizeLabelReply(content)
     .replace(/\r\n/g, '\n')
     .replace(/(\d+\.\s+[A-Za-zÀ-ú])/g, '\n\n$1')
     .replace(/\s-\s(?=[A-Za-zÀ-ú])/g, '\n- ')
@@ -83,9 +121,10 @@ export function formatBellaMarkdown(content) {
     if (line.startsWith('## ')) {
       flushList()
       const heading = line.slice(3)
-      const headingClass = heading === 'Semáforo'
-        ? 'bella-md-h bella-md-semaphore'
-        : 'bella-md-h'
+      const headingClass =
+        heading === 'Classificação do consumo' || heading === 'Semáforo'
+          ? 'bella-md-h bella-md-classification'
+          : 'bella-md-h'
       parts.push(`<h3 class="${headingClass}">${inlineFormat(heading)}</h3>`)
       continue
     }

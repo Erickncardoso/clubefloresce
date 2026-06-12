@@ -1,4 +1,5 @@
 import type { BellaTaskType } from "./model-config";
+import type { RestaurantIntent } from "./restaurant-intent";
 
 export type { BellaTaskType };
 
@@ -52,6 +53,7 @@ export interface LLMCompletionResult {
 
 export interface BellaToolContext {
   userId: string;
+  patientDateKey?: string;
 }
 
 export interface BellaToolExecution {
@@ -83,6 +85,7 @@ export interface OrchestratorMeta {
   guardrail?: GuardrailResult["reason"];
   iterations: number;
   attachment?: BellaAttachmentMeta;
+  redirectTopic?: string;
 }
 
 export interface OrchestratorInput {
@@ -90,6 +93,8 @@ export interface OrchestratorInput {
   topic?: string;
   taskHint?: string;
   patientDateKey?: string;
+  restaurantIntent?: RestaurantIntent;
+  restaurantContextBlock?: string;
   attachment?: {
     buffer: Buffer;
     mimeType: string;

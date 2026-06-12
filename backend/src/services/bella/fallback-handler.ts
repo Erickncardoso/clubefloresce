@@ -6,6 +6,7 @@ import {
   normalizeTopic,
   type BellaChatTopic,
 } from "./topic-config";
+import { evaluateTopicRedirect } from "./topic-router";
 
 interface FallbackPlan {
   tools: BellaToolName[];
@@ -52,13 +53,18 @@ function detectTopicFallbackPlan(message: string, topic: BellaChatTopic): Fallba
   }
 
   if (topic === "label") {
-    const query = /ingrediente|açúcar|acucar|sódio|sodio|gordura|fibra|tabela|rotulo|rótulo/i.test(lower)
-      ? extractSearchQuery(message)
-      : "ler rótulo alimentos";
+    if (/ingrediente|açúcar|acucar|sódio|sodio|gordura|fibra|tabela|rotulo|rótulo/i.test(lower)) {
+      const query = extractSearchQuery(message);
+      return {
+        tools: ["search_educational_content"],
+        toolArgs: { search_educational_content: { query, limit: 3 } },
+        intro: "Conteúdos sobre rótulos e tabelas nutricionais:",
+      };
+    }
     return {
-      tools: ["search_educational_content"],
-      toolArgs: { search_educational_content: { query, limit: 3 } },
-      intro: "Conteúdos sobre rótulos e tabelas nutricionais:",
+      tools: [],
+      toolArgs: {},
+      intro: "",
     };
   }
 
@@ -152,7 +158,7 @@ function extractSearchQuery(message: string): string {
 
 function topicScopedDefaultReply(topic: BellaChatTopic, firstName: string, message: string): string {
   if (topic === "label") {
-    return `${firstName}, neste chat analiso rótulos com semáforo: 🟢 liberado, 🟡 moderar ou 🔴 evitar frequente. Envie a foto do rótulo (ingredientes + tabela) ou descreva o produto.`;
+    return `${firstName}, neste chat analiso rótulos com classificação do consumo: 🟢 liberado, 🟡 moderar ou 🔴 evitar frequente. Envie a foto do rótulo.`;
   }
   if (topic === "meal") {
     return `${firstName}, neste chat você envia a foto do prato, confirma os itens e registro tudo no diário de hoje com calorias e macros.`;
@@ -191,6 +197,11 @@ export async function generateFallbackReply(
 
   if (isLikelyGreeting(message)) {
     return { reply: getTopicOfflineReply(topic, firstName), toolsUsed: [] };
+  }
+
+  const redirect = evaluateTopicRedirect({ topic, message, firstName });
+  if (redirect) {
+    return { reply: redirect.reply, toolsUsed: [] };
   }
 
   const topicPlan = filterPlan(detectTopicFallbackPlan(message, topic), topic);

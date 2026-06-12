@@ -1,6 +1,7 @@
 import {
   buildImageVisionPrompt,
   buildPdfAnalysisPrompt,
+  buildRestaurantVisionPrompt,
   buildSystemPromptForTopic,
   buildVisionMemoryPrefix,
   getDefaultImageUserText,
@@ -26,6 +27,8 @@ import {
   normalizeTopic,
   type BellaChatTopic,
 } from "./topic-config";
+import { evaluateTopicRedirect } from "./topic-router";
+import type { RestaurantIntent } from "./restaurant-intent";
 import type {
   BellaTaskType,
   BellaToolExecution,
@@ -75,7 +78,17 @@ export class BellaOrchestratorService {
     }
 
     if (attachment && taskType === "image") {
-      return this.runImageAnalysis(userId, userMessage, attachment, priorHistory, taskType, topic, input.patientDateKey);
+      return this.runImageAnalysis(
+        userId,
+        userMessage,
+        attachment,
+        priorHistory,
+        taskType,
+        topic,
+        input.patientDateKey,
+        input.restaurantIntent,
+        input.restaurantContextBlock,
+      );
     }
 
     if (attachment && taskType === "pdf") {
@@ -86,7 +99,16 @@ export class BellaOrchestratorService {
       throw new Error("Escreva uma pergunta junto com o arquivo ou envie só texto.");
     }
 
-    return this.runChat(userId, userMessage, priorHistory, taskType, topic, input.patientDateKey);
+    return this.runChat(
+      userId,
+      userMessage,
+      priorHistory,
+      taskType,
+      topic,
+      input.patientDateKey,
+      input.restaurantIntent,
+      input.restaurantContextBlock,
+    );
   }
 
   private async runImageAnalysis(
@@ -97,6 +119,8 @@ export class BellaOrchestratorService {
     taskType: BellaTaskType,
     topic: BellaChatTopic,
     patientDateKey?: string,
+    restaurantIntent?: RestaurantIntent,
+    restaurantContextBlock?: string,
   ): Promise<OrchestratorResult> {
     const userContext = await buildUserContext(userId, patientDateKey);
     const model = getModelForTask("image");
@@ -114,10 +138,26 @@ export class BellaOrchestratorService {
         ? await buildRestaurantAdvisorContext(userId, patientDateKey)
         : undefined;
 
+    const restaurantBlock =
+      topic === "restaurant"
+        ? restaurantContextBlock ||
+          (restaurantAdvisor
+            ? buildRestaurantAdvisorPrompt(restaurantAdvisor, restaurantIntent)
+            : undefined)
+        : undefined;
+
     const dataUrl = buildImageDataUrl(attachment.buffer, attachment.mimeType);
     const systemPrompt =
       buildVisionMemoryPrefix(userContext, conversationMemory) +
-      buildImageVisionPrompt(topic, userContext, userMessage, restaurantAdvisor);
+      (topic === "restaurant" && restaurantBlock
+        ? buildRestaurantVisionPrompt(
+            userContext,
+            userMessage,
+            restaurantAdvisor,
+            restaurantIntent,
+            restaurantBlock,
+          )
+        : buildImageVisionPrompt(topic, userContext, userMessage, restaurantAdvisor, restaurantIntent));
     const defaultUserText = getDefaultImageUserText(topic);
 
     const messages: ChatMessage[] = [
@@ -221,6 +261,8 @@ export class BellaOrchestratorService {
     taskType: BellaTaskType,
     topic: BellaChatTopic,
     patientDateKey?: string,
+    restaurantIntent?: RestaurantIntent,
+    restaurantContextBlock?: string,
   ): Promise<OrchestratorResult> {
     const userContext = await buildUserContext(userId, patientDateKey);
     const model = getModelForTask("chat");
@@ -247,12 +289,32 @@ export class BellaOrchestratorService {
       };
     }
 
+    const redirect = evaluateTopicRedirect({
+      topic,
+      message: userMessage,
+      firstName: userContext.firstName,
+    });
+    if (redirect && !restaurantIntent) {
+      return {
+        reply: sanitizeOutput(redirect.reply),
+        meta: {
+          ...this.baseMeta("chat", model, [], false, topic, undefined, 0),
+          taskType: "chat",
+          redirectTopic: redirect.targetTopic,
+        },
+      };
+    }
+
     const toolsUsed: BellaToolName[] = [];
     let iterations = 0;
 
     const topicExtra =
       topic === "restaurant"
-        ? buildRestaurantAdvisorPrompt(await buildRestaurantAdvisorContext(userId, patientDateKey))
+        ? restaurantContextBlock ||
+          buildRestaurantAdvisorPrompt(
+            await buildRestaurantAdvisorContext(userId, patientDateKey),
+            restaurantIntent,
+          )
         : undefined;
 
     const messages: ChatMessage[] = [
@@ -265,7 +327,7 @@ export class BellaOrchestratorService {
     ];
 
     const toolDefinitions = getToolsForTopic(topic);
-    const ctx = { userId };
+    const ctx = { userId, patientDateKey };
 
     while (iterations < MAX_ITERATIONS) {
       iterations += 1;
@@ -275,7 +337,7 @@ export class BellaOrchestratorService {
         model,
         tools: toolDefinitions,
         temperature: 0.35,
-        maxTokens: 900,
+        maxTokens: topic === "restaurant" ? 1200 : 900,
       });
 
       if (completion.toolCalls.length === 0) {

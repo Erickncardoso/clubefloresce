@@ -8,7 +8,10 @@
     "test:integration": "node -r ts-node/register --test \"src/tests/**/*.integration.test.ts\"",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "foods:build-json": "node scripts/build-food-json.mjs",
+    "foods:import": "ts-node scripts/import-foods.ts",
+    "foods:seed": "npm run foods:build-json && npm run foods:import"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

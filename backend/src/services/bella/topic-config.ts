@@ -48,7 +48,7 @@ export const TOPIC_SCOPES: Record<BellaChatTopic, TopicScopeDefinition> = {
     focus: "rótulos, tabelas nutricionais, ingredientes, porções e comparação prática de produtos embalados",
     forbidden: "análise de pratos montados, metas semanais, cardápios de restaurante, substituições genéricas ou conversa geral de nutrição",
     greetingGuide: "Cumprimente e diga que está pronta para analisar rótulos: peça foto pelo clipe ou a dúvida sobre o produto",
-    redirectHint: "Se quiser analisar um prato, use o chat Meu prato; para restaurante ou substituições, use o atalho correto",
+    redirectHint: "Se quiser analisar um prato, use o chat Meu prato; para restaurante ou substituições, use o atalho correto. Para dúvidas gerais de nutrição, redirecione com [[chat:ask|Fazer pergunta]]",
   },
   meal: {
     title: "Meu prato",
@@ -90,8 +90,22 @@ const ALL_TOOLS: OpenAIToolDefinition[] = [
 ];
 
 const TOOLS_BY_TOPIC: Record<BellaChatTopic, BellaToolName[]> = {
-  general: ["get_user_profile", "get_checkin_summary", "list_recommended_courses", "search_educational_content"],
-  ask: ["get_user_profile", "get_checkin_summary", "list_recommended_courses", "search_educational_content"],
+  general: [
+    "get_user_profile",
+    "get_checkin_summary",
+    "get_patient_meal_plan",
+    "get_daily_diary_summary",
+    "list_recommended_courses",
+    "search_educational_content",
+  ],
+  ask: [
+    "get_user_profile",
+    "get_checkin_summary",
+    "get_patient_meal_plan",
+    "get_daily_diary_summary",
+    "list_recommended_courses",
+    "search_educational_content",
+  ],
   label: ["search_educational_content"],
   meal: ["search_educational_content", "get_daily_diary_summary"],
   restaurant: ["get_patient_meal_plan", "get_daily_diary_summary", "search_educational_content", "get_user_profile"],
@@ -126,17 +140,21 @@ Regras de escopo (nunca quebre):
 export function getTopicOverlay(topic: BellaChatTopic): string {
   const overlays: Record<BellaChatTopic, string> = {
     general: `## Modo: Conversa geral
-Ajude com dúvidas de nutrição, hábitos e uso do app.`,
+Ajude com dúvidas de nutrição, hábitos e uso do app.
+- Em perguntas sobre alimentos ou refeições, personalize com plano prescrito, momento do dia e saldo restante do diário.`,
     ask: `## Modo: Fazer pergunta
-Responda de forma direta e organizada. Use ferramentas quando precisar de dados do paciente ou da Biblioteca.`,
+Responda de forma direta e organizada. Use ferramentas quando precisar de dados atualizados do paciente ou da Biblioteca.
+- Em perguntas sobre alimentos, dieta, calorias ou como encaixar algo no dia: cite plano prescrito, refeição atual, meta/consumido/restante e o que já comeu hoje.
+- Nunca responda só com dicas genéricas sem usar os dados desta paciente.`,
     label: `## Modo: Ler rótulo
-Foco exclusivo em tabela nutricional, ingredientes e recomendação por SEMÁFORO.
+Foco exclusivo em classificar o consumo do produto (Verde, Amarelo ou Vermelho).
 - Use a memória verificada desta paciente. Nunca confunda com outra pessoa.
-- 🟢 Verde: liberado (minimamente processado ou processado com lista limpa e tabela boa).
-- 🟡 Amarelo: moderar (processado/ultraprocessado com ingredientes ou tabela aceitáveis).
-- 🔴 Vermelho: evitar frequente (ultraprocessado ruim, tabela desfavorável ou ingredientes nocivos).
-- Se ainda não enviou foto, peça imagem nítida do rótulo (ingredientes + tabela) pelo clipe.
-- Toda análise começa pela seção ## Semáforo com justificativa e sugestão prática.`,
+- 🟢 Verde: liberado para consumo regular.
+- 🟡 Amarelo: moderar a frequência ou porção.
+- 🔴 Vermelho: evitar ou consumir raramente.
+- Se ainda não enviou foto, peça imagem nítida do rótulo pelo clipe.
+- Responda APENAS com a seção ## Classificação do consumo (Por quê + Sugestão). Sem Produto, Ingredientes ou "Semáforo".
+- Se classificar 🔴 Vermelho, inclua **Alternativa melhor** com opção 🟢 ou 🟡 do mesmo tipo de alimento.`,
     meal: `## Modo: Foto do prato + diário
 Fluxo obrigatório:
 1. Paciente envia foto → você estima CADA item (gramas, kcal, C/P/G).
@@ -145,16 +163,19 @@ Fluxo obrigatório:
 - Preencha todos os campos nutricionais de cada item com coerência.
 - Use get_daily_diary_summary quando precisar da meta/restante do dia.`,
     restaurant: `## Modo: Restaurante + plano alimentar
-Foco exclusivo em escolher a MELHOR opção ao comer fora.
-- Aceita foto de cardápio OU lista de pratos que a paciente quer.
-- Use get_patient_meal_plan e get_daily_diary_summary antes de recomendar.
-- Alinhe com a refeição do plano (café, almoço, jantar etc.) e calorias restantes do dia.
-- Adapte a culinária: japonesa, mexicana, italiana, brasileira, árabe, fast food etc.
-- Formato: Melhor opção → Alternativas → Como montar → Alinhamento com o plano.`,
+Foco exclusivo em escolher ao comer fora (restaurante, delivery, açaí, lanche, programas sociais).
+- Aceita foto de cardápio OU lista de pratos OU pergunta sobre comer fora.
+- Antes de analisar, a paciente escolhe se quer **encaixar no plano** ou **refeição livre** (já informado no contexto quando houver).
+- **Obrigatório** usar plano prescrito, refeição atual, diário de hoje e o que já comeu. Proibido dicas genéricas sem números.
+- Use get_patient_meal_plan e get_daily_diary_summary se precisar atualizar dados.
+- Cardápios reais nem sempre têm opções ideais: seja transparente e ofereça adaptações ou flexibilidade conforme a intenção.
+- Formato: Seu momento → Plano e meta → Recomendação personalizada → Impacto no dia → Como compensar → Resumo.`,
     swap: `## Modo: Substituir alimento
-Foco exclusivo em trocas equivalentes para um alimento que o paciente quer substituir.
-- Explique por que a troca faz sentido nutricionalmente de forma simples.
-- Busque conteúdos na Biblioteca quando ajudar.`,
+Fluxo guiado por botões (refeição → alimento → opções equivalentes).
+- Use o plano alimentar prescrito e a base TACO/TBCA.
+- Calcule porções equivalentes em kcal, carboidratos, proteínas e gorduras.
+- Permita trocas dentro do mesmo **grupo nutricional**: carboidratos (cereais, tubérculos, leguminosas), proteínas, gorduras, frutas, verduras, laticínios.
+- Nunca sugira trocar fruta por peixe ou grupos claramente diferentes.`,
     goal: `## Modo: Meta semanal
 Foco exclusivo em check-ins, humor, energia, aderência e evolução recente.
 - Use get_checkin_summary para dados reais antes de responder.
@@ -170,7 +191,7 @@ export function getTopicOfflineReply(topic: BellaChatTopic, firstName: string): 
   const guides: Record<BellaChatTopic, string> = {
     general: `${firstName}, posso te ajudar com hábitos, hidratação e bem-estar geral. Como posso te apoiar?`,
     ask: `${firstName}, pode fazer sua pergunta sobre nutrição ou hábitos. Estou pronta para responder.`,
-    label: `${firstName}, envie a foto do rótulo pelo clipe. Classifico em semáforo: 🟢 liberado, 🟡 moderar ou 🔴 evitar frequente, com base em ingredientes e tabela nutricional.`,
+    label: `${firstName}, envie a foto do rótulo pelo clipe. Classifico o consumo: 🟢 liberado, 🟡 moderar ou 🔴 evitar frequente.`,
     meal: `${firstName}, envie a foto do prato de cima, com boa luz. Estimo gramas, calorias e macros de cada item; você confirma e registro no diário de hoje.`,
     restaurant: `${firstName}, mande foto do cardápio ou as opções que você está em dúvida. Sugiro a melhor escolha alinhada ao seu plano alimentar e ao que falta no diário de hoje.`,
     swap: `${firstName}, qual alimento você quer substituir? Me diga o que costuma usar e seu objetivo.`,

@@ -55,57 +55,42 @@ Use quando o produto não for recomendado para consumo frequente:
 4. Aplique contexto especial (castanhas naturais, minimamente processados ricos em gordura boa).
 5. Escolha UMA cor do semáforo e justifique em 2–4 frases objetivas.
 
-## Formato obrigatório da seção Semáforo
-Sempre inclua esta seção (com o emoji correspondente):
+## Formato obrigatório da resposta (ÚNICA seção visível ao paciente)
+Responda SOMENTE com esta seção. Não crie outras seções (sem Produto, Ingredientes, Nutrientes, etc.):
 
-## Semáforo
+## Classificação do consumo
 🟢 Verde — Liberado
 (ou 🟡 Amarelo — Consumir com moderação / 🔴 Vermelho — Evitar ou consumir raramente)
 
-**Por quê:** [justificativa clara citando ingredientes e/ou nutrientes visíveis]
-**Sugestão:** [como usar no dia a dia: frequência, porção, alternativa melhor se amarelo/vermelho]
+**Por quê:** [justificativa clara em linguagem simples, sem listar ingredientes um a um]
+**Sugestão:** [como usar no dia a dia: frequência, porção ou cuidado se amarelo/vermelho]
+
+Se a classificação for 🔴 Vermelho, inclua OBRIGATORIAMENTE também:
+**Alternativa melhor:** 🟢 ou 🟡 [opção de consumo ou produto equivalente na mesma categoria alimentar, mais saudável e prática no dia a dia. Ex.: margarina com gordura hidrogenada → manteiga ou azeite; biscoito recheado → biscoito integral simples ou fruta; refrigerante → água com limão ou chá sem açúcar]
 
 Regras finais:
-- Não invente números ou ingredientes ilegíveis; diga "Não legível" e classifique com cautela.
+- NUNCA use o título "Semáforo" na resposta. Use apenas "Classificação do consumo".
+- NUNCA inclua seções ## Produto, ## Ingredientes, ## Nutrientes de atenção ou listas de ingredientes.
+- Em 🔴 Vermelho, a **Alternativa melhor** é obrigatória e deve ser verde ou amarela, do mesmo tipo de alimento/uso.
+- Não invente números ilegíveis; diga "Não legível" e classifique com cautela.
 - Não prescreva dieta personalizada; lembre que a nutricionista do Clube Florescer orienta o plano individual.
-- Se faltar foto ou dados, peça imagem nítida do rótulo (ingredientes + tabela) antes de classificar.`;
+- Se faltar foto ou dados, peça imagem nítida do rótulo antes de classificar.`;
 
 /** Estrutura markdown esperada na resposta de análise de rótulo. */
-export const LABEL_ANALYSIS_SECTIONS = `Responda em markdown com estas seções (omitir só se não houver dados legíveis):
+export const LABEL_ANALYSIS_SECTIONS = `Responda em markdown APENAS com:
 
-## Semáforo
+## Classificação do consumo
 (Obrigatório: emoji + classificação + Por quê + Sugestão)
+(Se 🔴 Vermelho: inclua também **Alternativa melhor** com opção 🟢 ou 🟡 equivalente na mesma categoria)
 
-## Produto
-Nome do produto ou "Não visível na imagem"
-
-## Grau de processamento
-NOVA estimado (1 a 4) e breve explicação
-
-## Porção e calorias
-Porção declarada e kcal por porção
-
-## Nutrientes de atenção
-- Açúcares / açúcar adicionado: ...
-- Gordura saturada: ...
-- Gordura trans: ... (ou "Não informado")
-- Sódio: ...
-- Fibras: ... (ponto positivo se adequado)
-- Proteínas: ... (ponto positivo se adequado)
-
-## Ingredientes
-- Liste os 5 primeiros ingredientes visíveis
-- Destaque aditivos, xaropes, aromatizantes ou fibras isoladas se houver
-
-## Pontos positivos
-- O que favorece a escolha (se houver)
-
-## Pontos de atenção
-- O que limita ou exige moderação`;
+Proibido na resposta ao paciente:
+- Título "Semáforo"
+- Seções ## Produto, ## Ingredientes ou listagem de ingredientes
+- Seções extras de tabela nutricional detalhada`;
 
 export function buildLabelChatSemaphoreGuide(): string {
   return `${LABEL_SEMAPHORE_CRITERIA}
 
-Quando o paciente enviar só texto (sem foto), explique o sistema de semáforo e peça a foto do rótulo para classificar.
+Quando o paciente enviar só texto (sem foto), explique a classificação do consumo (verde, amarelo ou vermelho) e peça a foto do rótulo para analisar.
 Se descrever um produto conhecido, faça análise educativa com ressalva de que a classificação definitiva depende do rótulo real.`;
 }

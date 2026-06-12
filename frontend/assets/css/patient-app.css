@@ -1,6 +1,6 @@
 /* Clube Florescer — design system app paciente */
 :root {
-  --cf-font: 'Metropolis', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cf-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --cf-pink: #c17b80;
   --cf-pink-soft: #faecef;
   --cf-pink-dark: #a06267;

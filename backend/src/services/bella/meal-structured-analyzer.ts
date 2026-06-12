@@ -6,6 +6,7 @@ import { getModelForTask } from "./model-config";
 import type { UserContextSnapshot } from "./types";
 import type { MealAnalysisDraft, MealItemDraft } from "../../types/food-diary.types";
 import { round1, sumItems } from "./meal-item-math";
+import { enrichMealItemsWithFoodBank, recalculateMealTotals } from "./meal-food-enricher";
 
 export { sumItems, scaleItemGrams } from "./meal-item-math";
 
@@ -36,9 +37,13 @@ Retorne SOMENTE um JSON válido (sem markdown) neste formato:
 
 Regras:
 - Identifique CADA alimento visível no prato.
-- Preencha grams, caloriesKcal, carbsG, proteinG e fatG para TODOS os itens (números coerentes entre si).
-- "grams" é a porção estimada em gramas (número inteiro).
-- Calorias e macros devem bater com a porção estimada.
+- Use nomes EXATOS da TACO/TBCA quando souber, por exemplo:
+  - arroz branco cozido → "Arroz, tipo 1, cozido"
+  - arroz integral cozido → "Arroz, integral, cozido"
+  - feijão carioca cozido → "Feijão, carioca, cozido"
+  - frango grelhado → "Frango, peito, sem pele, grelhado"
+- Preencha apenas "grams" (porção estimada em gramas). Calorias e macros serão calculados pela base de alimentos quando houver correspondência.
+- Se não reconhecer o alimento, ainda assim informe name e grams; deixe caloriesKcal, carbsG, proteinG e fatG como estimativa coerente.
 - Não invente itens invisíveis.
 - Se a foto não mostrar comida, retorne "items": [] e explique em "notes".
 - Mínimo 1 item quando houver comida reconhecível.
@@ -126,5 +131,12 @@ export async function analyzeMealStructured(
     throw new Error("Não consegui analisar o prato agora. Tente outra foto.");
   }
 
-  return parseAnalysisJson(completion.content);
+  const draft = parseAnalysisJson(completion.content);
+  const enrichedItems = await enrichMealItemsWithFoodBank(draft.items);
+
+  return {
+    ...draft,
+    items: enrichedItems,
+    totals: recalculateMealTotals(enrichedItems),
+  };
 }

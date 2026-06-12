@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <NuxtLayout name="dashboard">
     <div class="manage-courses">
       <div class="page-header">

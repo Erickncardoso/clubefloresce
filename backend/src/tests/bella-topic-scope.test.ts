@@ -56,11 +56,11 @@ test("getTopicScopeRules: label proíbe prato", () => {
   assert.match(rules, /pratos montados/i);
 });
 
-test("buildImageVisionPrompt: label inclui semáforo", () => {
+test("buildImageVisionPrompt: label inclui classificação do consumo", () => {
   const prompt = buildImageVisionPrompt("label", mockCtx, "oi");
-  assert.match(prompt, /semáforo|Semáforo/i);
+  assert.match(prompt, /Classificação do consumo/i);
   assert.match(prompt, /Verde|Amarelo|Vermelho/);
-  assert.match(prompt, /NOVA/);
+  assert.match(prompt, /NUNCA inclua seções ## Produto/i);
 });
 
 test("buildImageVisionPrompt: meal não menciona rótulo", () => {

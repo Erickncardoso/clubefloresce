@@ -48,6 +48,22 @@ export class BellaController {
       const taskHint = typeof req.body.taskHint === "string" ? req.body.taskHint : undefined;
       const mealType = typeof req.body.mealType === "string" ? req.body.mealType : undefined;
       const mealLabel = typeof req.body.mealLabel === "string" ? req.body.mealLabel : undefined;
+      const restaurantIntent =
+        typeof req.body.restaurantIntent === "string" ? req.body.restaurantIntent : undefined;
+      const continueFromUserMessageId =
+        typeof req.body.continueFromUserMessageId === "string"
+          ? req.body.continueFromUserMessageId
+          : undefined;
+      const swapAction =
+        typeof req.body.swapAction === "string" ? req.body.swapAction : undefined;
+      const swapMealId =
+        typeof req.body.swapMealId === "string" ? req.body.swapMealId : undefined;
+      const swapFoodKey =
+        typeof req.body.swapFoodKey === "string" ? req.body.swapFoodKey : undefined;
+      const swapSelectionMessageId =
+        typeof req.body.swapSelectionMessageId === "string"
+          ? req.body.swapSelectionMessageId
+          : undefined;
       const file = req.file;
 
       const dateKey = resolvePatientDateKey(readPatientTimeHeaders(req));
@@ -58,6 +74,12 @@ export class BellaController {
         taskHint,
         mealType,
         mealLabel,
+        restaurantIntent,
+        continueFromUserMessageId,
+        swapAction,
+        swapMealId,
+        swapFoodKey,
+        swapSelectionMessageId,
         file,
       }, dateKey);
       return res.json(result);

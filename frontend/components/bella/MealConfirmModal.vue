@@ -15,23 +15,17 @@
 
         <p v-if="draft?.mealLabel" class="meal-modal-meal">{{ draft.mealLabel }}</p>
 
-        <datalist id="food-suggestions-list">
-          <option v-for="food in foodCatalog" :key="food.id" :value="food.name" />
-        </datalist>
-
         <ul class="meal-modal-list">
           <li v-for="(item, index) in items" :key="item.id || index" class="meal-modal-item">
             <div class="meal-modal-item-head">
               <label class="meal-modal-name-field">
                 <span>Alimento</span>
-                <input
-                  :value="item.name"
-                  type="text"
-                  list="food-suggestions-list"
+                <BellaFoodSearchPicker
+                  :model-value="item.name"
                   placeholder="Ex.: Frango grelhado"
-                  autocomplete="off"
-                  @input="updateName(index, $event.target.value)"
-                  @change="commitName(index, $event.target.value)"
+                  @update:model-value="updateName(index, $event)"
+                  @select="selectFood(index, $event)"
+                  @blur-commit="commitName(index, $event)"
                 />
               </label>
               <button
@@ -105,7 +99,6 @@
 </template>
 
 <script setup>
-import { FOOD_CATALOG } from '~/config/food-suggestions'
 import {
   applyFoodMatch,
   createMealItem,
@@ -127,13 +120,25 @@ const emit = defineEmits(['confirm', 'cancel'])
 
 const items = ref([])
 const localError = ref('')
-const foodCatalog = FOOD_CATALOG
+const foodCache = ref(new Map())
+const { matchFoodByName, getFoodById } = useFoodBank()
+
+async function hydrateItemsFromDraft(draft) {
+  const rawItems = draft?.items || []
+  const hydrated = []
+  for (const item of rawItems) {
+    const matched = item.name ? await matchFoodByName(item.name) : null
+    if (matched) foodCache.value.set(matched.id, matched)
+    hydrated.push(normalizeItemFromAi(item, matched))
+  }
+  items.value = hydrated
+}
 
 watch(
   () => props.draft,
-  (draft) => {
-    items.value = (draft?.items || []).map((item) => normalizeItemFromAi(item))
+  async (draft) => {
     localError.value = ''
+    await hydrateItemsFromDraft(draft)
   },
   { immediate: true, deep: true },
 )
@@ -151,16 +156,30 @@ function updateName(index, rawValue) {
   items.value[index] = { ...current, name: rawValue }
 }
 
-function commitName(index, rawValue) {
+function selectFood(index, food) {
   const current = items.value[index]
-  if (!current) return
-  items.value[index] = applyFoodMatch(current, rawValue)
+  if (!current || !food) return
+  foodCache.value.set(food.id, food)
+  items.value[index] = applyFoodMatch(current, food.name, food)
 }
 
-function updateGrams(index, rawValue) {
+async function commitName(index, rawValue) {
   const current = items.value[index]
   if (!current) return
-  items.value[index] = scaleMealItem(current, rawValue)
+  if (current.foodId && current.name === rawValue?.trim()) return
+  const matched = rawValue?.trim() ? await matchFoodByName(rawValue) : null
+  if (matched) foodCache.value.set(matched.id, matched)
+  items.value[index] = applyFoodMatch(current, rawValue, matched)
+}
+
+async function updateGrams(index, rawValue) {
+  const current = items.value[index]
+  if (!current) return
+  const matched = current.foodId
+    ? foodCache.value.get(current.foodId) || await getFoodById(current.foodId)
+    : null
+  if (matched) foodCache.value.set(matched.id, matched)
+  items.value[index] = scaleMealItem(current, rawValue, matched)
 }
 
 function removeItem(index) {
@@ -171,9 +190,13 @@ function addItem() {
   items.value.push(createMealItem())
 }
 
-function confirm() {
+async function confirm() {
   localError.value = ''
-  const prepared = items.value.map((item) => applyFoodMatch(item, item.name))
+  const prepared = []
+  for (const item of items.value) {
+    const matched = item.name ? await matchFoodByName(item.name) : null
+    prepared.push(applyFoodMatch(item, item.name, matched))
+  }
   const normalized = normalizeMealItemsForSave(prepared)
 
   if (!normalized.length) {
@@ -278,18 +301,6 @@ function confirm() {
   font-size: 0.72rem;
   color: var(--pa-text-muted);
   min-width: 0;
-}
-
-.meal-modal-name-field input {
-  width: 100%;
-  padding: 0.45rem 0.55rem;
-  border: 1.5px solid var(--pa-border);
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--pa-text);
-  box-sizing: border-box;
 }
 
 .meal-modal-ai-hint {
