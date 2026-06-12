@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { fixWindowsVitePaths } from './utils/fix-windows-vite-paths'
-import { PROD_API_BASE, PROD_WHATSAPP_API_BASE } from './utils/api-env.mjs'
+import { PROD_API_BASE, PROD_API_ORIGIN, PROD_WHATSAPP_API_BASE } from './utils/api-env.mjs'
 import { resolveApiBaseAtBuild } from './utils/resolve-api-base.mjs'
 
 const isMobileApp = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
@@ -138,7 +138,7 @@ export default defineNuxtConfig({
   ...(isMobileApp
     ? {
         pwa: {
-          registerType: 'autoUpdate',
+          registerType: 'prompt',
           injectRegister: 'auto',
           includeAssets: ['logoflorescer.svg', 'pwa/apple-touch-icon.png'],
           manifest: {
@@ -192,7 +192,6 @@ export default defineNuxtConfig({
               '**/setup/**',
             ],
             cleanupOutdatedCaches: true,
-            skipWaiting: true,
             clientsClaim: true,
           },
           client: {
@@ -250,14 +249,25 @@ export default defineNuxtConfig({
           ignore: patientWebOnlyRoutes,
         },
       }
-    : isDev
-      ? {
-          devProxy: {
-            '/api': {
-              target: `${devApiOrigin}/api`,
-              changeOrigin: true,
-            },
-          },
-        }
-      : undefined,
+    : {
+        ...(!isMobileApp && !isDev
+          ? {
+              routeRules: {
+                '/api/**': {
+                  proxy: `${PROD_API_ORIGIN}/api/**`,
+                },
+              },
+            }
+          : {}),
+        ...(isDev
+          ? {
+              devProxy: {
+                '/api': {
+                  target: `${devApiOrigin}/api`,
+                  changeOrigin: true,
+                },
+              },
+            }
+          : {}),
+      },
 })

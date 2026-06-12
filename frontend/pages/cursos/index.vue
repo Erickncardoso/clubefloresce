@@ -5,15 +5,18 @@
         <section
           v-if="isPacienteView"
           class="patient-banner"
-          :style="patientBannerStyle"
+          :style="patientBannerThemeStyle"
         >
+          <div class="patient-banner-bg" :style="patientBannerStyle" aria-hidden="true" />
           <button
             v-if="isNutri && featuredCourse"
+            type="button"
             class="banner-edit-btn"
-            title="Editar curso em destaque"
+            title="Editar capa do destaque"
             @click.stop="openEditCourseById(featuredCourse?.id, 'banner')"
           >
-            <Edit2 />
+            <Edit2 class="banner-edit-btn-icon" />
+            <span class="banner-edit-btn-label">Editar capa</span>
           </button>
           <div class="patient-banner-bottom-blur"></div>
           <div class="patient-banner-content">
@@ -399,6 +402,105 @@
               <div class="form-group floating-field">
                 <label>Texto do Botão (Opcional)</label>
                 <input v-model="editingCourse.bannerCtaText" placeholder="Ex: Continuar agora" />
+              </div>
+
+              <div class="form-group banner-colors-group">
+                <label>Cores da capa</label>
+                <small class="form-hint">Personalize etiqueta, textos e botões.</small>
+                <div class="banner-color-grid">
+                  <label class="banner-color-field">
+                    <span>Etiqueta — texto</span>
+                    <input v-model="editingCourse.bannerKickerColor" type="color" />
+                  </label>
+                  <label class="banner-color-field">
+                    <span>Etiqueta — fundo</span>
+                    <input v-model="editingCourse.bannerKickerBg" type="color" />
+                  </label>
+                  <label class="banner-color-field">
+                    <span>Título</span>
+                    <input v-model="editingCourse.bannerTitleColor" type="color" />
+                  </label>
+                  <label class="banner-color-field">
+                    <span>Texto</span>
+                    <input v-model="editingCourse.bannerSubtitleColor" type="color" />
+                  </label>
+                  <label class="banner-color-field">
+                    <span>Botão principal — fundo</span>
+                    <input v-model="editingCourse.bannerCtaBg" type="color" />
+                  </label>
+                  <label class="banner-color-field">
+                    <span>Botão principal — texto</span>
+                    <input v-model="editingCourse.bannerCtaColor" type="color" />
+                  </label>
+                  <label class="banner-color-field">
+                    <span>Botão secundário — fundo</span>
+                    <input v-model="editingCourse.bannerSecondaryBtnBg" type="color" />
+                  </label>
+                  <label class="banner-color-field">
+                    <span>Botão secundário — texto</span>
+                    <input v-model="editingCourse.bannerSecondaryBtnColor" type="color" />
+                  </label>
+                </div>
+              </div>
+
+              <div v-if="coursePreview" class="form-group banner-position-group">
+                <label>Posição da imagem — Desktop</label>
+                <small class="form-hint">Toque ou arraste no preview para enquadrar rostos e evitar cortes.</small>
+                <div
+                  class="banner-position-preview"
+                  :style="bannerDesktopPreviewStyle"
+                  @pointerdown.prevent="onBannerPositionDrag('desktop', $event)"
+                >
+                  <span class="banner-position-marker" :style="bannerDesktopMarkerStyle" />
+                </div>
+                <div class="banner-position-sliders">
+                  <label class="banner-position-slider">
+                    <span>Horizontal</span>
+                    <input v-model.number="bannerPosDesktop.x" type="range" min="0" max="100" />
+                  </label>
+                  <label class="banner-position-slider">
+                    <span>Vertical</span>
+                    <input v-model.number="bannerPosDesktop.y" type="range" min="0" max="100" />
+                  </label>
+                </div>
+                <div class="banner-position-presets">
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'left')">Esquerda</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'center')">Centro</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'right')">Direita</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'face')">Rosto</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'top')">Topo</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'bottom')">Base</button>
+                </div>
+              </div>
+
+              <div v-if="courseMobilePreview || coursePreview" class="form-group banner-position-group">
+                <label>Posição da imagem — Mobile</label>
+                <small class="form-hint">Ajuste separado para telas menores, se necessário.</small>
+                <div
+                  class="banner-position-preview banner-position-preview--mobile"
+                  :style="bannerMobilePreviewStyle"
+                  @pointerdown.prevent="onBannerPositionDrag('mobile', $event)"
+                >
+                  <span class="banner-position-marker" :style="bannerMobileMarkerStyle" />
+                </div>
+                <div class="banner-position-sliders">
+                  <label class="banner-position-slider">
+                    <span>Horizontal</span>
+                    <input v-model.number="bannerPosMobile.x" type="range" min="0" max="100" />
+                  </label>
+                  <label class="banner-position-slider">
+                    <span>Vertical</span>
+                    <input v-model.number="bannerPosMobile.y" type="range" min="0" max="100" />
+                  </label>
+                </div>
+                <div class="banner-position-presets">
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'left')">Esquerda</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'center')">Centro</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'right')">Direita</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'face')">Rosto</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'top')">Topo</button>
+                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'bottom')">Base</button>
+                </div>
               </div>
             </template>
             <div class="modal-actions">
@@ -872,9 +974,38 @@ const courseMobilePreview = ref(null)
 const courseMobileFileInput = ref(null)
 const courseMobileFile = ref(null)
 
-const newCourse = reactive({ title: '', description: '', thumbnail: '', thumbnailMobile: '', bannerImage: '', bannerImageMobile: '', bannerKicker: '', bannerTitle: '', bannerSubtitle: '', bannerCtaText: '' })
+const DEFAULT_BANNER_POSITION = '50% 35%'
+
+const DEFAULT_BANNER_THEME = {
+  bannerKickerColor: '#0f172a',
+  bannerKickerBg: '#ffffff',
+  bannerTitleColor: '#0f172a',
+  bannerSubtitleColor: '#334155',
+  bannerCtaBg: '#ffffff',
+  bannerCtaColor: '#111318',
+  bannerSecondaryBtnBg: '#f1f5f9',
+  bannerSecondaryBtnColor: '#0f172a',
+}
+
+const newCourse = reactive({
+  title: '', description: '', thumbnail: '', thumbnailMobile: '',
+  bannerImage: '', bannerImageMobile: '',
+  bannerImagePosition: DEFAULT_BANNER_POSITION,
+  bannerImageMobilePosition: DEFAULT_BANNER_POSITION,
+  bannerKicker: '', bannerTitle: '', bannerSubtitle: '', bannerCtaText: '',
+  ...DEFAULT_BANNER_THEME,
+})
 const showEditCourseModal = ref(false)
-const editingCourse = reactive({ id: '', title: '', description: '', thumbnail: '', thumbnailMobile: '', bannerImage: '', bannerImageMobile: '', bannerKicker: '', bannerTitle: '', bannerSubtitle: '', bannerCtaText: '' })
+const editingCourse = reactive({
+  id: '', title: '', description: '', thumbnail: '', thumbnailMobile: '',
+  bannerImage: '', bannerImageMobile: '',
+  bannerImagePosition: DEFAULT_BANNER_POSITION,
+  bannerImageMobilePosition: DEFAULT_BANNER_POSITION,
+  bannerKicker: '', bannerTitle: '', bannerSubtitle: '', bannerCtaText: '',
+  ...DEFAULT_BANNER_THEME,
+})
+const bannerPosDesktop = reactive({ x: 50, y: 35 })
+const bannerPosMobile = reactive({ x: 50, y: 35 })
 const editCourseMode = ref('card')
 const isBannerEditMode = computed(() => editCourseMode.value === 'banner')
 const isCardEditMode = computed(() => editCourseMode.value !== 'banner')
@@ -1054,6 +1185,157 @@ const getCourseBannerCover = (course, variant = 'desktop') => {
   return course.bannerImage || desktop
 }
 
+const parseBannerPosition = (value, fallback = DEFAULT_BANNER_POSITION) => {
+  const raw = String(value || fallback).trim()
+  const [xRaw, yRaw] = raw.split(/\s+/)
+  const x = Math.min(100, Math.max(0, Number.parseFloat(xRaw) || 50))
+  let y = 35
+  if (yRaw === 'top') y = 0
+  else if (yRaw === 'center') y = 50
+  else if (yRaw === 'bottom') y = 100
+  else y = Math.min(100, Math.max(0, Number.parseFloat(yRaw) || 35))
+  return { x, y }
+}
+
+const formatBannerPosition = ({ x, y }) => `${Math.round(x)}% ${Math.round(y)}%`
+
+const getCourseBannerPosition = (course, variant = 'desktop') => {
+  if (!course) return DEFAULT_BANNER_POSITION
+  if (variant === 'mobile') {
+    return course.bannerImageMobilePosition || course.bannerImagePosition || DEFAULT_BANNER_POSITION
+  }
+  return course.bannerImagePosition || DEFAULT_BANNER_POSITION
+}
+
+const syncBannerPositionFromCourse = (course) => {
+  const desktop = parseBannerPosition(course?.bannerImagePosition)
+  const mobile = parseBannerPosition(course?.bannerImageMobilePosition || course?.bannerImagePosition)
+  bannerPosDesktop.x = desktop.x
+  bannerPosDesktop.y = desktop.y
+  bannerPosMobile.x = mobile.x
+  bannerPosMobile.y = mobile.y
+  editingCourse.bannerImagePosition = formatBannerPosition(bannerPosDesktop)
+  editingCourse.bannerImageMobilePosition = formatBannerPosition(bannerPosMobile)
+}
+
+const applyBannerPreset = (variant, preset) => {
+  const target = variant === 'mobile' ? bannerPosMobile : bannerPosDesktop
+  if (preset === 'top') {
+    target.x = 50
+    target.y = 8
+  } else if (preset === 'center') {
+    target.x = 50
+    target.y = 50
+  } else if (preset === 'face') {
+    target.x = 50
+    target.y = 28
+  } else if (preset === 'bottom') {
+    target.x = 50
+    target.y = 82
+  } else if (preset === 'left') {
+    target.y = target.y || 35
+    target.x = 12
+  } else if (preset === 'right') {
+    target.y = target.y || 35
+    target.x = 88
+  }
+}
+
+const toPickerColor = (value, fallback) => {
+  if (!value || typeof value !== 'string') return fallback
+  if (value.startsWith('#') && (value.length === 7 || value.length === 4)) return value.slice(0, 7)
+  return fallback
+}
+
+const getBannerTheme = (course) => ({
+  bannerKickerColor: course?.bannerKickerColor || DEFAULT_BANNER_THEME.bannerKickerColor,
+  bannerKickerBg: course?.bannerKickerBg || DEFAULT_BANNER_THEME.bannerKickerBg,
+  bannerTitleColor: course?.bannerTitleColor || DEFAULT_BANNER_THEME.bannerTitleColor,
+  bannerSubtitleColor: course?.bannerSubtitleColor || DEFAULT_BANNER_THEME.bannerSubtitleColor,
+  bannerCtaBg: course?.bannerCtaBg || DEFAULT_BANNER_THEME.bannerCtaBg,
+  bannerCtaColor: course?.bannerCtaColor || DEFAULT_BANNER_THEME.bannerCtaColor,
+  bannerSecondaryBtnBg: course?.bannerSecondaryBtnBg || DEFAULT_BANNER_THEME.bannerSecondaryBtnBg,
+  bannerSecondaryBtnColor: course?.bannerSecondaryBtnColor || DEFAULT_BANNER_THEME.bannerSecondaryBtnColor,
+})
+
+const applyBannerThemeToForm = (course) => {
+  const theme = getBannerTheme(course)
+  editingCourse.bannerKickerColor = toPickerColor(theme.bannerKickerColor, DEFAULT_BANNER_THEME.bannerKickerColor)
+  editingCourse.bannerKickerBg = toPickerColor(theme.bannerKickerBg, DEFAULT_BANNER_THEME.bannerKickerBg)
+  editingCourse.bannerTitleColor = toPickerColor(theme.bannerTitleColor, DEFAULT_BANNER_THEME.bannerTitleColor)
+  editingCourse.bannerSubtitleColor = toPickerColor(theme.bannerSubtitleColor, DEFAULT_BANNER_THEME.bannerSubtitleColor)
+  editingCourse.bannerCtaBg = toPickerColor(theme.bannerCtaBg, DEFAULT_BANNER_THEME.bannerCtaBg)
+  editingCourse.bannerCtaColor = toPickerColor(theme.bannerCtaColor, DEFAULT_BANNER_THEME.bannerCtaColor)
+  editingCourse.bannerSecondaryBtnBg = toPickerColor(theme.bannerSecondaryBtnBg, DEFAULT_BANNER_THEME.bannerSecondaryBtnBg)
+  editingCourse.bannerSecondaryBtnColor = toPickerColor(theme.bannerSecondaryBtnColor, DEFAULT_BANNER_THEME.bannerSecondaryBtnColor)
+}
+
+const patientBannerThemeStyle = computed(() => {
+  const source = isEditingFeaturedBanner.value ? editingCourse : featuredCourse.value
+  const theme = getBannerTheme(source)
+  return {
+    '--banner-kicker-color': theme.bannerKickerColor,
+    '--banner-kicker-bg': theme.bannerKickerBg,
+    '--banner-title-color': theme.bannerTitleColor,
+    '--banner-subtitle-color': theme.bannerSubtitleColor,
+    '--banner-cta-bg': theme.bannerCtaBg,
+    '--banner-cta-color': theme.bannerCtaColor,
+    '--banner-secondary-bg': theme.bannerSecondaryBtnBg,
+    '--banner-secondary-color': theme.bannerSecondaryBtnColor,
+  }
+})
+
+const onBannerPositionDrag = (variant, event) => {
+  const el = event.currentTarget
+  if (!(el instanceof HTMLElement)) return
+
+  const update = (clientX, clientY) => {
+    const rect = el.getBoundingClientRect()
+    const x = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100))
+    const y = Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100))
+    const target = variant === 'mobile' ? bannerPosMobile : bannerPosDesktop
+    target.x = x
+    target.y = y
+  }
+
+  update(event.clientX, event.clientY)
+
+  const onMove = (moveEvent) => update(moveEvent.clientX, moveEvent.clientY)
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+  }
+
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+}
+
+watch([bannerPosDesktop, bannerPosMobile], () => {
+  if (!showEditCourseModal.value || !isBannerEditMode.value) return
+  editingCourse.bannerImagePosition = formatBannerPosition(bannerPosDesktop)
+  editingCourse.bannerImageMobilePosition = formatBannerPosition(bannerPosMobile)
+}, { deep: true })
+
+const bannerDesktopPreviewStyle = computed(() => ({
+  backgroundImage: coursePreview.value ? `url('${coursePreview.value}')` : 'none',
+  backgroundPosition: formatBannerPosition(bannerPosDesktop),
+}))
+
+const bannerMobilePreviewStyle = computed(() => ({
+  backgroundImage: (courseMobilePreview.value || coursePreview.value) ? `url('${courseMobilePreview.value || coursePreview.value}')` : 'none',
+  backgroundPosition: formatBannerPosition(bannerPosMobile),
+}))
+
+const bannerDesktopMarkerStyle = computed(() => ({
+  left: `${bannerPosDesktop.x}%`,
+  top: `${bannerPosDesktop.y}%`,
+}))
+
+const bannerMobileMarkerStyle = computed(() => ({
+  left: `${bannerPosMobile.x}%`,
+  top: `${bannerPosMobile.y}%`,
+}))
+
 const patientBannerStyle = computed(() => {
   const isEditingFeatured = Boolean(
     showEditCourseModal.value
@@ -1067,9 +1349,17 @@ const patientBannerStyle = computed(() => {
   const imageUrlMobile = isEditingFeatured
     ? (courseMobilePreview.value || coursePreview.value || getCourseBannerCover(featuredCourse.value, 'mobile'))
     : (featuredCourse.value ? getCourseBannerCover(featuredCourse.value, 'mobile') : null)
+  const desktopPos = isEditingFeatured
+    ? editingCourse.bannerImagePosition
+    : getCourseBannerPosition(featuredCourse.value, 'desktop')
+  const mobilePos = isEditingFeatured
+    ? editingCourse.bannerImageMobilePosition
+    : getCourseBannerPosition(featuredCourse.value, 'mobile')
   return {
     '--patient-banner-desktop': imageUrlDesktop ? `url('${imageUrlDesktop}')` : 'none',
     '--patient-banner-mobile': imageUrlMobile ? `url('${imageUrlMobile}')` : (imageUrlDesktop ? `url('${imageUrlDesktop}')` : 'none'),
+    '--patient-banner-pos-desktop': desktopPos || DEFAULT_BANNER_POSITION,
+    '--patient-banner-pos-mobile': mobilePos || desktopPos || DEFAULT_BANNER_POSITION,
   }
 })
 
@@ -1212,6 +1502,10 @@ const openEditCourse = (course, mode = 'card') => {
   editingCourse.bannerTitle = course.bannerTitle || course.title || 'Sua jornada de transformação continua'
   editingCourse.bannerSubtitle = course.bannerSubtitle || course.description || 'Assista às aulas e mantenha consistência no seu processo.'
   editingCourse.bannerCtaText = course.bannerCtaText || 'Continuar agora'
+  editingCourse.bannerImagePosition = course.bannerImagePosition || DEFAULT_BANNER_POSITION
+  editingCourse.bannerImageMobilePosition = course.bannerImageMobilePosition || course.bannerImagePosition || DEFAULT_BANNER_POSITION
+  applyBannerThemeToForm(course)
+  syncBannerPositionFromCourse(course)
   coursePreview.value = mode === 'banner'
     ? (course.bannerImage || null)
     : (course.thumbnail || null)
@@ -1333,10 +1627,20 @@ const buildCoursePayload = (courseData) => ({
   thumbnailMobile: courseData.thumbnailMobile || null,
   bannerImage: courseData.bannerImage || null,
   bannerImageMobile: courseData.bannerImageMobile || null,
+  bannerImagePosition: courseData.bannerImagePosition || null,
+  bannerImageMobilePosition: courseData.bannerImageMobilePosition || null,
   bannerKicker: courseData.bannerKicker || null,
   bannerTitle: courseData.bannerTitle || null,
   bannerSubtitle: courseData.bannerSubtitle || null,
-  bannerCtaText: courseData.bannerCtaText || null
+  bannerCtaText: courseData.bannerCtaText || null,
+  bannerKickerColor: courseData.bannerKickerColor || null,
+  bannerKickerBg: courseData.bannerKickerBg || null,
+  bannerTitleColor: courseData.bannerTitleColor || null,
+  bannerSubtitleColor: courseData.bannerSubtitleColor || null,
+  bannerCtaBg: courseData.bannerCtaBg || null,
+  bannerCtaColor: courseData.bannerCtaColor || null,
+  bannerSecondaryBtnBg: courseData.bannerSecondaryBtnBg || null,
+  bannerSecondaryBtnColor: courseData.bannerSecondaryBtnColor || null,
 })
 
 const buildLegacyCoursePayload = (courseData) => ({
@@ -2743,20 +3047,22 @@ watch(
   align-items: center;
   justify-content: center;
   z-index: 5000;
-  padding: 1rem;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
 }
 
 .modal-card {
   background: white;
-  padding: 2.5rem;
-  border-radius: 24px;
-  width: 100%;
-  max-width: 520px;
+  padding: 1.35rem 1.4rem;
+  border-radius: 20px;
+  width: min(100%, 26rem);
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-  max-height: calc(100vh - 2rem);
+  max-height: min(34rem, calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: #d6d6d6 transparent;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-card::-webkit-scrollbar {
@@ -2772,11 +3078,12 @@ watch(
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .modal-header h2 {
-  font-size: 1.5rem;
+  font-size: 1.125rem;
   font-weight: 800;
   color: #111;
   letter-spacing: -0.02em;
@@ -2808,14 +3115,14 @@ watch(
 }
 
 .modal-subtitle {
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
   color: #777;
-  margin-bottom: 1.5rem;
-  margin-top: -1rem;
+  margin-bottom: 1rem;
+  margin-top: -0.35rem;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .form-group label {
@@ -2887,9 +3194,10 @@ watch(
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
   border-top: 1px solid #f3f3f3;
 }
 
@@ -2945,8 +3253,8 @@ watch(
 
 .upload-area {
   border: 2px dashed #eee;
-  border-radius: 16px;
-  height: 160px;
+  border-radius: 12px;
+  height: 7.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3099,8 +3407,8 @@ watch(
 
 /* ���� Modal Lição (maior para caber os controles) ���� */
 .modal-card--lesson {
-  max-width: 620px;
-  max-height: 90vh;
+  width: min(100%, 28rem);
+  max-height: min(36rem, calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #eee transparent;
@@ -3109,9 +3417,10 @@ watch(
 .modal-card--lesson::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
 
 .modal-card--ebook {
-  max-width: 640px;
-  padding: 1.75rem 2rem;
-  overflow-y: visible;
+  width: min(100%, 28rem);
+  padding: 1.25rem 1.35rem;
+  max-height: min(34rem, calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  overflow-y: auto;
 }
 
 .modal-card--ebook .modal-header {
@@ -3495,11 +3804,18 @@ watch(
   border-radius: 10px;
   overflow: hidden;
   margin: 0 -2.5rem 2.2rem;
-  background-image: var(--patient-banner-desktop);
-  background-size: cover;
-  background-position: center center;
   border: none;
   box-shadow: none;
+}
+
+.patient-banner-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--patient-banner-desktop);
+  background-size: cover;
+  background-position: var(--patient-banner-pos-desktop, 50% 35%);
+  background-repeat: no-repeat;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, rgba(0, 0, 0, 0.78) 76%, rgba(0, 0, 0, 0.32) 90%, rgba(0, 0, 0, 0) 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 58%, rgba(0, 0, 0, 0.78) 76%, rgba(0, 0, 0, 0.32) 90%, rgba(0, 0, 0, 0) 100%);
 }
@@ -3528,36 +3844,117 @@ watch(
 
 .banner-edit-btn {
   position: absolute;
-  top: 5.2rem;
-  right: 1rem;
-  z-index: 3;
-  width: 38px;
-  height: 38px;
-  border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  background: rgba(255, 255, 255, 0.88);
-  color: #0f172a;
+  top: 1rem;
+  right: 2.5rem;
+  left: auto;
+  z-index: 20;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.97);
+  color: #0f172a;
+  font-family: var(--cf-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
   cursor: pointer;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.16);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.banner-edit-btn svg {
-  width: 16px;
-  height: 16px;
+.banner-edit-btn-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
-.patient-banner:hover .banner-edit-btn {
-  opacity: 1;
-  transform: translateY(0);
+.banner-edit-btn-label {
+  white-space: nowrap;
 }
 
 .banner-edit-btn:hover {
   background: #ffffff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+}
+
+.banner-position-group {
+  margin-top: 0.35rem;
+}
+
+.banner-position-preview {
+  position: relative;
+  width: 100%;
+  height: 7rem;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background-color: #f1f5f9;
+  background-size: cover;
+  background-repeat: no-repeat;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.banner-position-preview--mobile {
+  height: 7.75rem;
+}
+
+.banner-position-marker {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: var(--cf-pink, #c17b80);
+  box-shadow: 0 0 0 2px rgba(193, 123, 128, 0.35);
+  pointer-events: none;
+}
+
+.banner-position-sliders {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+
+.banner-position-slider {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.banner-position-slider input[type='range'] {
+  width: 100%;
+}
+
+.banner-position-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.banner-position-preset {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  background: #fff;
+  font-size: 0.72rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+.banner-position-preset:hover {
+  border-color: rgba(193, 123, 128, 0.45);
+  color: #a06267;
 }
 
 .patient-banner-content {
@@ -3567,7 +3964,6 @@ watch(
   top: 7.4rem;
   max-width: 440px;
   padding: 0;
-  color: #0f172a;
   text-shadow: none;
 }
 
@@ -3581,8 +3977,8 @@ watch(
   border-radius: 999px;
   padding: 0.35rem 0.65rem;
   border: 1px solid rgba(15, 23, 42, 0.18);
-  background: rgba(255, 255, 255, 0.78);
-  color: #0f172a;
+  background: var(--banner-kicker-bg, rgba(255, 255, 255, 0.78));
+  color: var(--banner-kicker-color, #0f172a);
 }
 
 .patient-banner h2 {
@@ -3590,11 +3986,12 @@ watch(
   line-height: 1.1;
   margin-bottom: 0.85rem;
   font-weight: 800;
+  color: var(--banner-title-color, #0f172a);
 }
 
 .patient-banner p {
   max-width: 48ch;
-  color: rgba(15, 23, 42, 0.86);
+  color: var(--banner-subtitle-color, rgba(15, 23, 42, 0.86));
   line-height: 1.52;
   font-size: 0.95rem;
   margin: 0;
@@ -3604,8 +4001,8 @@ watch(
   margin-top: 1.15rem;
   border: none;
   border-radius: 10px;
-  background: #fff;
-  color: #111318;
+  background: var(--banner-cta-bg, #fff);
+  color: var(--banner-cta-color, #111318);
   font-weight: 700;
   padding: 0.65rem 1rem;
   cursor: pointer;
@@ -3618,9 +4015,39 @@ watch(
 
 .patient-banner-btn.ghost {
   margin-left: 0.6rem;
-  background: rgba(255, 255, 255, 0.76);
-  color: #0f172a;
+  background: var(--banner-secondary-bg, rgba(255, 255, 255, 0.76));
+  color: var(--banner-secondary-color, #0f172a);
   border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.banner-colors-group {
+  margin-top: 0.25rem;
+}
+
+.banner-color-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.banner-color-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: #475569;
+}
+
+.banner-color-field input[type='color'] {
+  width: 2.25rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
 }
 
 .patient-header h1,
@@ -3677,7 +4104,11 @@ watch(
   .patient-banner {
     min-height: 500px;
     margin: 0 -1.2rem 1.5rem;
+  }
+
+  .patient-banner-bg {
     background-image: var(--patient-banner-mobile);
+    background-position: var(--patient-banner-pos-mobile, var(--patient-banner-pos-desktop, 50% 35%));
   }
 
   .patient-banner-content {
@@ -3686,40 +4117,25 @@ watch(
     top: auto;
     bottom: 1.2rem;
     max-width: 92%;
-    color: #0f172a;
     text-shadow: none;
+  }
+
+  .banner-edit-btn {
+    top: 0.85rem;
+    right: 1.2rem;
+    left: auto;
   }
 
   .patient-banner-bottom-blur {
     height: 160px;
   }
 
-  .patient-banner h2,
-  .patient-banner p {
-    color: #0f172a;
-  }
-
-  .banner-edit-btn {
-    top: 4.2rem;
-    right: 0.85rem;
-    opacity: 1;
-    transform: none;
-  }
-
-  .modal-overlay {
-    padding: 0.75rem;
-    align-items: flex-start;
+  .banner-color-grid {
+    grid-template-columns: 1fr;
   }
 
   .modal-card {
-    max-width: 100%;
-    max-height: calc(100vh - 1.5rem);
-    padding: 1.15rem;
-    border-radius: 16px;
-  }
-
-  .modal-header {
-    margin-bottom: 1rem;
+    width: min(100%, 26rem);
   }
 }
 

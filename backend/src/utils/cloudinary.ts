@@ -9,6 +9,21 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+export function isCloudinaryConfigured(): boolean {
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME
+    && process.env.CLOUDINARY_API_KEY
+    && process.env.CLOUDINARY_API_SECRET,
+  );
+}
+
+function assertCloudinaryConfigured(): void {
+  if (isCloudinaryConfigured()) return;
+  throw new Error(
+    "Cloudinary não configurado no servidor. Defina CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET no backend (Coolify/apiclube).",
+  );
+}
+
 type CloudinaryResourceType = "image" | "video" | "raw" | "auto";
 type CloudinaryUploadResult = { secure_url?: string | null };
 type CloudinaryUploadOptions = {
@@ -23,6 +38,7 @@ export const cloudinaryUpload = async (
   options?: CloudinaryUploadOptions
 ): Promise<string> => {
   try {
+    assertCloudinaryConfigured();
     const resourceType: CloudinaryResourceType = options?.resourceType || "auto";
 
     const fileSizeBytes = Number(options?.fileSizeBytes || fileBuffer?.length || 0);
@@ -90,8 +106,14 @@ export const cloudinaryUpload = async (
     }
 
     return result.secure_url as string;
-  } catch (error) {
-    console.error("Cloudinary upload error:", error);
-    throw new Error("Erro ao enviar arquivo para o Cloudinary.");
+  } catch (error: any) {
+    const detail = error?.message || error?.error?.message || String(error);
+    console.error("Cloudinary upload error:", detail);
+    if (!isCloudinaryConfigured()) {
+      throw new Error(
+        "Cloudinary não configurado no servidor. Atualize as variáveis CLOUDINARY_* no deploy do backend.",
+      );
+    }
+    throw new Error(detail || "Erro ao enviar arquivo para o Cloudinary.");
   }
 };

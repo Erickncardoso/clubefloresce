@@ -36,16 +36,16 @@ export function resolveApiBaseAtBuild({
     return DEV_MOBILE_API_BASE
   }
 
-  // Painel web no dev: /api via proxy do Nuxt (mesma origem, sem CORS)
+  // Painel web: /api via proxy do Nuxt (dev e produção — uploads grandes sem limite de body no browser→apiclube)
   if (!isProductionBuild) {
     return DEV_MOBILE_API_BASE
   }
 
-  if (explicitBase && explicitBase !== DEV_MOBILE_API_BASE && explicitBase !== '/api') {
+  if (explicitBase && explicitBase !== DEV_MOBILE_API_BASE && explicitBase !== '/api' && explicitBase !== PROD_API_BASE) {
     return explicitBase
   }
 
-  return PROD_API_BASE
+  return DEV_MOBILE_API_BASE
 }
 
 /** Ajuste no browser — corrige bundle com /api ou localhost embutidos. */
@@ -54,7 +54,15 @@ export function resolveApiBaseAtRuntime(configBase, { mobileApp, hostname } = {}
     return DEV_MOBILE_API_BASE
   }
 
-  if (!mobileApp) return configBase
+  if (!mobileApp) {
+    if (
+      configBase === PROD_API_BASE
+      || String(configBase).includes('apiclube.')
+    ) {
+      return DEV_MOBILE_API_BASE
+    }
+    return configBase
+  }
 
   // App paciente: preferir /api (proxy nginx) — evita CORS com apiclube
   if (isProdAppHostname(hostname) || configBase === DEV_MOBILE_API_BASE) {

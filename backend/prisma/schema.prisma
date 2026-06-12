@@ -188,10 +188,20 @@ model Course {
   thumbnailMobile String?
   bannerImage     String?
   bannerImageMobile String?
+  bannerImagePosition String?
+  bannerImageMobilePosition String?
   bannerKicker    String?
   bannerTitle     String?
   bannerSubtitle  String?
   bannerCtaText   String?
+  bannerKickerColor String?
+  bannerKickerBg String?
+  bannerTitleColor String?
+  bannerSubtitleColor String?
+  bannerCtaBg String?
+  bannerCtaColor String?
+  bannerSecondaryBtnBg String?
+  bannerSecondaryBtnColor String?
   authorId        String
   author          User     @relation(fields: [authorId], references: [id])
   modules         Module[]

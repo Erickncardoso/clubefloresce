@@ -19,6 +19,7 @@ import mealPlanRoutes from "./routes/meal-plan.routes";
 import patientRoutes from "./routes/patient.routes";
 import { readEnv, maskSecret } from "./utils/env";
 import { getAllowedCorsOrigins, isOriginAllowed } from "./utils/cors-origins";
+import { isCloudinaryConfigured } from "./utils/cloudinary";
 
 dotenv.config();
 
@@ -94,6 +95,10 @@ app.get("/api/health", (_req, res) => {
   const openaiKey = readEnv("OPENAI_API_KEY");
   res.json({
     ok: true,
+    uploads: {
+      cloudinary: isCloudinaryConfigured(),
+      videoMaxSizeMb: Number(process.env.VIDEO_UPLOAD_MAX_SIZE_MB || 2048),
+    },
     bella: {
       aiEnabled: Boolean(openaiKey),
       models: {
@@ -122,8 +127,10 @@ app.use((err: any, req: any, res: any, next: any) => {
   return next(err);
 });
 
+const UPLOAD_SERVER_TIMEOUT_MS = Number(process.env.UPLOAD_SERVER_TIMEOUT_MS || 30 * 60 * 1000);
+
 // App initialization
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
   console.log(`[CORS] Origens permitidas: ${allowedOrigins.join(", ")}`);
   const openaiKey = readEnv("OPENAI_API_KEY");
@@ -133,4 +140,14 @@ app.listen(PORT, () => {
     console.warn("[Bella] OPENAI_API_KEY ausente — Bella usará respostas locais limitadas.");
     console.warn("[Bella] Coolify: adicione OPENAI_API_KEY no serviço do BACKEND (apiclube), não no app cliente.");
   }
+  if (isCloudinaryConfigured()) {
+    console.log(`[Upload] Cloudinary configurado (cloud: ${process.env.CLOUDINARY_CLOUD_NAME}).`);
+  } else {
+    console.warn("[Upload] CLOUDINARY_* ausente — uploads de imagem/vídeo/PDF falharão em produção.");
+    console.warn("[Upload] Coolify: configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET no serviço apiclube.");
+  }
 });
+
+server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;
+server.headersTimeout = UPLOAD_SERVER_TIMEOUT_MS + 60_000;
+server.timeout = UPLOAD_SERVER_TIMEOUT_MS;

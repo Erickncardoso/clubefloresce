@@ -90,7 +90,7 @@ export class UploadController {
     } catch (error: any) {
       console.error("[UploadController] Falha ao enviar imagem para Cloudinary:", error);
       return res.status(503).json({
-        message: "Falha ao enviar imagem para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
+        message: error?.message || "Falha ao enviar imagem para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
       });
     }
   }
@@ -118,7 +118,7 @@ export class UploadController {
     } catch (error: any) {
       console.error("[UploadController] Falha ao enviar vídeo para Cloudinary:", error);
       return res.status(503).json({
-        message: "Falha ao enviar vídeo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
+        message: error?.message || "Falha ao enviar vídeo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
       });
     }
   }
@@ -148,7 +148,7 @@ export class UploadController {
     } catch (error: any) {
       console.error("[UploadController] Falha ao enviar documento para Cloudinary:", error);
       return res.status(503).json({
-        message: "Falha ao enviar arquivo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
+        message: error?.message || "Falha ao enviar arquivo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
       });
     }
   }
