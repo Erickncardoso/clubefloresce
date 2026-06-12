@@ -122,7 +122,7 @@ onMounted(() => {
 .pwa-prompt {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--cf-tab-h, 5.25rem) + env(safe-area-inset-bottom, 0px) + 0.65rem);
+  bottom: calc(var(--cf-tab-h, 5.25rem) + 0.65rem);
   z-index: 110;
   width: min(calc(100% - 1.5rem), 24rem);
   transform: translateX(-50%);

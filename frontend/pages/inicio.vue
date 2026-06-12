@@ -228,7 +228,7 @@ onMounted(async () => {
 .patient-page.home-page {
   padding-inline: 1.25rem;
   padding-top: 0.75rem;
-  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 0.5rem);
+  padding-bottom: calc(var(--cf-tab-h) + 0.5rem);
   box-sizing: border-box;
   background: var(--cf-bg);
 }

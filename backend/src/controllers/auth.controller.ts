@@ -87,6 +87,19 @@ export class AuthController {
     }
   }
 
+  async refresh(req: Request, res: Response): Promise<any> {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return res.status(401).json({ message: "Não autorizado" });
+
+      const token = authHeader.split(" ")[1];
+      const data = await authService.refreshSession(token);
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(401).json({ message: error.message || "Sessão expirada." });
+    }
+  }
+
   async me(req: Request, res: Response): Promise<any> {
     try {
       const authHeader = req.headers.authorization;

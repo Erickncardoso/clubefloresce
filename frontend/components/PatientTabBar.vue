@@ -78,14 +78,18 @@ watch(() => route.fullPath, () => {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   margin: 0;
-  padding-top: calc(var(--cf-fab-size) / 2 - 0.75rem);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: var(--cf-tab-fab-rise, calc(var(--cf-fab-size) / 2 - 0.75rem));
+  padding-bottom: 0;
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
   box-sizing: border-box;
   pointer-events: none;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .cf-tab-bar {
@@ -96,7 +100,7 @@ watch(() => route.fullPath, () => {
   width: 100%;
   max-width: 430px;
   margin-inline: auto;
-  padding: 0.3125rem 0.625rem 0;
+  padding: 0.25rem 0.625rem calc(0.375rem + env(safe-area-inset-bottom, 0px));
   background: transparent;
   box-sizing: border-box;
 }
@@ -107,7 +111,7 @@ watch(() => route.fullPath, () => {
   align-items: center;
   justify-content: flex-end;
   gap: 0.125rem;
-  min-height: 2.875rem;
+  min-height: 2.625rem;
   min-width: 2.75rem;
   padding-bottom: 0;
   color: var(--cf-text-muted);

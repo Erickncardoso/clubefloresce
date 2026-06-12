@@ -57,20 +57,19 @@ export function usePatientApp() {
     profile.value = { name, avatar, createdAt }
   }
 
+  const patientAuth = usePatientAuth()
+
   function clearPatientSession() {
     if (import.meta.server) return
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('user_role')
-    localStorage.removeItem('user_name')
-    localStorage.removeItem('user_id')
-    localStorage.removeItem('user_avatar')
-    localStorage.removeItem('user_created_at')
+    patientAuth.clearSession()
     profile.value = { ...DEFAULT_PROFILE }
   }
 
   async function syncPatientProfile() {
     if (import.meta.server) return
-    const token = localStorage.getItem('auth_token')
+
+    patientAuth.bootstrapToken()
+    const token = patientAuth.getToken()
     if (!token) {
       hydrateProfile()
       return
@@ -82,11 +81,16 @@ export function usePatientApp() {
         avatar?: string | null
         createdAt?: string
       }>(`${config.public.apiBase}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: patientAuth.authHeaders(),
       })
       persistSession(user)
-    } catch {
-      hydrateProfile()
+      await patientAuth.refreshSession()
+    } catch (err) {
+      if (patientAuth.isSessionExpiredError(err)) {
+        clearPatientSession()
+      } else {
+        hydrateProfile()
+      }
     }
   }
 

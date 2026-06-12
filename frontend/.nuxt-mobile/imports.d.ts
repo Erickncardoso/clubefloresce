@@ -38,6 +38,7 @@ export { useMealItemOverrides } from '../composables/useMealItemOverrides';
 export { useMealPlan } from '../composables/useMealPlan';
 export { useMealSubstitutions } from '../composables/useMealSubstitutions';
 export { usePatientApp, PatientProfile } from '../composables/usePatientApp';
+export { usePatientAuth } from '../composables/usePatientAuth';
 export { usePatientLocalTime } from '../composables/usePatientLocalTime';
 export { usePatientMealPlan } from '../composables/usePatientMealPlan';
 export { useTileActionsMenu, closeAllTileActionMenus } from '../composables/useTileActionsMenu';

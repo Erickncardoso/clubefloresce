@@ -256,7 +256,7 @@ onUnmounted(() => {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding: 0 1.25rem calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 0.85rem);
+  padding: 0 1.25rem calc(var(--cf-tab-h) + 0.85rem);
   border-radius: var(--cf-radius-xl, 1.875rem) var(--cf-radius-xl, 1.875rem) 0 0;
   background: var(--cf-surface);
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);

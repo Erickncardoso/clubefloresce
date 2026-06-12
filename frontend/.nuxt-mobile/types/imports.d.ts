@@ -175,6 +175,7 @@ declare global {
   const useNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').useNuxtData
   const usePWA: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').usePWA
   const usePatientApp: typeof import('../../composables/usePatientApp').usePatientApp
+  const usePatientAuth: typeof import('../../composables/usePatientAuth').usePatientAuth
   const usePatientHorizontalWheelBridge: typeof import('../../composables/useVerticalWheelPassthrough').usePatientHorizontalWheelBridge
   const usePatientLocalTime: typeof import('../../composables/usePatientLocalTime').usePatientLocalTime
   const usePatientMealPlan: typeof import('../../composables/usePatientMealPlan').usePatientMealPlan
@@ -430,6 +431,7 @@ declare module 'vue' {
     readonly useNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['useNuxtData']>
     readonly usePWA: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['usePWA']>
     readonly usePatientApp: UnwrapRef<typeof import('../../composables/usePatientApp')['usePatientApp']>
+    readonly usePatientAuth: UnwrapRef<typeof import('../../composables/usePatientAuth')['usePatientAuth']>
     readonly usePatientHorizontalWheelBridge: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['usePatientHorizontalWheelBridge']>
     readonly usePatientLocalTime: UnwrapRef<typeof import('../../composables/usePatientLocalTime')['usePatientLocalTime']>
     readonly usePatientMealPlan: UnwrapRef<typeof import('../../composables/usePatientMealPlan')['usePatientMealPlan']>

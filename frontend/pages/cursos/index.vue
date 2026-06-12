@@ -1298,14 +1298,14 @@ const handleCourseMobileImageSelect = async (e) => {
 const fetchCourses = async () => {
   try {
     coursesLoadError.value = ''
-    const token = localStorage.getItem('auth_token')
+    const token = patientAuth.getToken()
     if (!token) {
       coursesLoadError.value = 'Sessão expirada. Faça login novamente.'
       handleAuthTokenInvalid()
       return
     }
     const data = await $fetch(`${apiBase}/courses`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: patientAuth.authHeaders(),
     })
     if (Array.isArray(data)) {
       courses.value = data
@@ -1345,21 +1345,14 @@ const buildLegacyCoursePayload = (courseData) => ({
   thumbnail: courseData.thumbnail || null
 })
 
+const patientAuth = usePatientAuth()
+
 const handleAuthTokenInvalid = () => {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('user_role')
-  localStorage.removeItem('user_name')
-  localStorage.removeItem('user_id')
+  patientAuth.clearSession()
   navigateTo('/')
 }
 
-const isTokenInvalidError = (err) => {
-  const message = String(err?.data?.message || err?.message || '').toLowerCase()
-  return message.includes('token inválido')
-    || message.includes('token invalido')
-    || message.includes('jwt')
-    || message.includes('unauthorized')
-}
+const isTokenInvalidError = (err) => patientAuth.isSessionExpiredError(err)
 
 const shouldFallbackLegacyPayload = (err) => {
   const message = String(err?.data?.message || err?.message || '').toLowerCase()
@@ -2210,7 +2203,8 @@ if (import.meta.client) {
 }
 
 onMounted(async () => {
-  if (!localStorage.getItem('auth_token')) {
+  patientAuth.bootstrapToken()
+  if (!patientAuth.getToken()) {
     handleAuthTokenInvalid()
     return
   }

@@ -5,7 +5,42 @@ import { Role, UserStatus } from "@prisma/client";
 
 const userRepository = new UserRepository();
 
+const PATIENT_TOKEN_TTL = "90d";
+const STAFF_TOKEN_TTL = "30d";
+const REFRESH_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+
+type TokenUser = { id: string; email: string; role: Role };
+
 export class AuthService {
+  private issueToken(user: TokenUser): string {
+    const expiresIn = user.role === Role.PACIENTE ? PATIENT_TOKEN_TTL : STAFF_TOKEN_TTL;
+    return jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET!,
+      { expiresIn },
+    );
+  }
+
+  private decodeTokenAllowingGrace(currentToken: string): TokenUser {
+    try {
+      return jwt.verify(currentToken, process.env.JWT_SECRET!) as TokenUser;
+    } catch (err: any) {
+      if (err?.name !== "TokenExpiredError") {
+        throw new Error("Token inválido.");
+      }
+
+      const decoded = jwt.verify(currentToken, process.env.JWT_SECRET!, {
+        ignoreExpiration: true,
+      }) as TokenUser & { exp?: number };
+
+      const expiredAtMs = (decoded.exp ?? 0) * 1000;
+      if (!expiredAtMs || Date.now() - expiredAtMs > REFRESH_GRACE_MS) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+
+      return decoded;
+    }
+  }
   private ensureSetupKey(providedKey?: string): void {
     const requiredKey = process.env.NUTRI_SETUP_KEY;
     const isProduction = process.env.NODE_ENV === "production";
@@ -81,11 +116,7 @@ export class AuthService {
       throw new Error("Credenciais inválidas.");
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET!,
-      { expiresIn: "7d" }
-    );
+    const token = this.issueToken(user);
 
     const { password, ...userWithoutPassword } = user;
     return {
@@ -93,6 +124,19 @@ export class AuthService {
       token,
       mustChangePassword: user.status === UserStatus.PENDENTE,
     };
+  }
+
+  async refreshSession(currentToken: string): Promise<{ token: string; user: any }> {
+    const decoded = this.decodeTokenAllowingGrace(currentToken);
+    const user = await userRepository.findById(decoded.id);
+
+    if (!user) {
+      throw new Error("Sessão expirada ou usuário inválido. Faça login novamente.");
+    }
+
+    const token = this.issueToken(user);
+    const { password, ...userWithoutPassword } = user;
+    return { token, user: userWithoutPassword };
   }
 
   async findById(id: string): Promise<any> {

@@ -56,7 +56,7 @@ onMounted(() => {
 .patient-page.bella-page {
   padding-inline: 1.25rem;
   padding-top: 0;
-  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+  padding-bottom: calc(var(--cf-tab-h) + 1rem);
   box-sizing: border-box;
 }
 

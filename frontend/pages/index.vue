@@ -246,6 +246,7 @@ const config = useRuntimeConfig()
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)
 const { persistSession, clearPatientSession } = usePatientApp()
+const patientAuth = usePatientAuth()
 
 const form = reactive({
   email: '',
@@ -274,8 +275,7 @@ const handleLogin = async () => {
       body: form
     })
     
-    // Salva no localStorage como fallback ou para persistência simples
-    localStorage.setItem('auth_token', data.token)
+    patientAuth.saveToken(data.token)
     localStorage.setItem('user_role', data.user.role)
     localStorage.setItem('user_id', data.user.id)
     persistSession({
@@ -332,7 +332,7 @@ const handleFirstAccessPasswordChange = async () => {
     return
   }
 
-  const token = localStorage.getItem('auth_token')
+  const token = patientAuth.getToken()
   if (!token) {
     firstAccessError.value = 'Sessão inválida. Faça login novamente.'
     return
@@ -342,9 +342,7 @@ const handleFirstAccessPasswordChange = async () => {
   try {
     await $fetch(`${authApiBase.value}/first-access/change-password`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
+      headers: patientAuth.authHeaders(),
       body: {
         newPassword: firstAccessForm.newPassword
       }
@@ -364,6 +362,14 @@ const handleFirstAccessPasswordChange = async () => {
     firstAccessLoading.value = false
   }
 }
+
+onMounted(async () => {
+  if (!config.public.mobileApp) return
+  patientAuth.bootstrapToken()
+  if (!patientAuth.getToken()) return
+  const ok = await patientAuth.refreshSession()
+  if (ok) navigateTo('/inicio')
+})
 </script>
 
 <style scoped>

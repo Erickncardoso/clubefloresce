@@ -1,4 +1,4 @@
-/** Exige login nas rotas do app do paciente (preview web antes do Capacitor). */
+/** Exige login nas rotas do app do paciente (preview web / PWA). */
 export default defineNuxtRouteMiddleware((to) => {
   const config = useRuntimeConfig()
   if (!config.public.mobileApp) return
@@ -8,6 +8,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (import.meta.server) return
 
-  const token = localStorage.getItem('auth_token')
-  if (!token) return navigateTo('/')
+  const { getToken, bootstrapToken } = usePatientAuth()
+  bootstrapToken()
+  if (!getToken()) return navigateTo('/')
 })

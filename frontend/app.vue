@@ -29,7 +29,10 @@ html:has(.patient-shell),
 html:has(.cf-tab-bar),
 html:has(.cf-tab-bar-wrap) {
   overflow: hidden;
-  height: 100dvh;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   max-height: 100dvh;
 }
 
@@ -46,9 +49,9 @@ body {
 html:has(.patient-shell) body,
 html:has(.cf-tab-bar) body,
 html:has(.cf-tab-bar-wrap) body {
-  height: 100dvh;
+  height: 100%;
+  min-height: -webkit-fill-available;
   max-height: 100dvh;
-  min-height: 0;
   overflow: hidden;
 }
 

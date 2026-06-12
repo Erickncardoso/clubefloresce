@@ -8,6 +8,7 @@ const authController = new AuthController();
 router.post("/register", authController.register);
 router.post("/patient-registration-request", authController.requestPatientRegistration);
 router.post("/login", authController.login);
+router.post("/refresh", authController.refresh);
 router.get("/me", authController.me);
 router.get("/setup/nutricionista/status", authController.oneTimeNutritionistStatus);
 router.post("/setup/nutricionista", authController.oneTimeNutritionistRegister);
