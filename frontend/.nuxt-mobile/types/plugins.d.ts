@@ -11,6 +11,7 @@ type NuxtAppInjections =
   InjectionType<typeof import("../../node_modules/nuxt/dist/pages/runtime/plugins/router.js")> &
   InjectionType<typeof import("../../node_modules/nuxt/dist/app/plugins/browser-devtools-timing.client.js")> &
   InjectionType<typeof import("../../plugins/api-base.client.js")> &
+  InjectionType<typeof import("../../plugins/pwa-display-mode.client")> &
   InjectionType<typeof import("../../node_modules/nuxt/dist/app/plugins/dev-server-logs.js")> &
   InjectionType<typeof import("../../node_modules/nuxt/dist/app/plugins/navigation-repaint.client.js")> &
   InjectionType<typeof import("../../node_modules/nuxt/dist/app/plugins/revive-payload.server.js")> &
@@ -28,7 +29,7 @@ declare module '#app' {
   interface NuxtApp extends NuxtAppInjections { }
 
   interface NuxtAppLiterals {
-    pluginName: 'nuxt:revive-payload:client' | 'nuxt:head' | 'nuxt:router' | 'nuxt:browser-devtools-timing' | 'api-base' | 'nuxt:revive-payload:server' | 'nuxt:chunk-reload' | 'nuxt:global-components' | 'nuxt:prefetch' | 'nuxt:checkIfPageUnused' | 'vite-pwa:nuxt:pwa-icons-plugin' | 'nuxt:checkIfLayoutUsed' | 'vite-pwa:nuxt:client:plugin'
+    pluginName: 'nuxt:revive-payload:client' | 'nuxt:head' | 'nuxt:router' | 'nuxt:browser-devtools-timing' | 'api-base' | 'pwa-display-mode' | 'nuxt:revive-payload:server' | 'nuxt:chunk-reload' | 'nuxt:global-components' | 'nuxt:prefetch' | 'nuxt:checkIfPageUnused' | 'vite-pwa:nuxt:pwa-icons-plugin' | 'nuxt:checkIfLayoutUsed' | 'vite-pwa:nuxt:client:plugin'
   }
 }
 

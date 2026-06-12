@@ -38,13 +38,19 @@ body {
   font-family: var(--cf-font);
 }
 
-html:has(.patient-shell) body,
-html:has(.cf-tab-bar-wrap) body {
+html.pwa-standalone:has(.cf-tab-bar-wrap) body,
+html.pwa-standalone:has(.patient-shell) body {
   position: fixed;
   inset: 0;
   width: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+html.pwa-browser:has(.cf-tab-bar-wrap) body {
+  position: static;
+  min-height: 100dvh;
+  overflow: hidden;
 }
 
 #__nuxt {

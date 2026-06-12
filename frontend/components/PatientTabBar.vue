@@ -80,7 +80,7 @@ watch(() => route.fullPath, () => {
   z-index: 100;
   box-sizing: border-box;
   padding-top: var(--cf-tab-fab-rise);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: 0;
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
   pointer-events: none;
