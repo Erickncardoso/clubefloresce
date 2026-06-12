@@ -179,6 +179,7 @@ export default defineNuxtConfig({
           },
           workbox: {
             navigateFallback: '/index.html',
+            navigateFallbackDenylist: [/^\/api\//],
             globPatterns: ['**/*.{js,css,png,svg,ico,webp,woff2,woff,webmanifest}'],
             globIgnores: [
               '**/whatsapp/**',
@@ -191,10 +192,12 @@ export default defineNuxtConfig({
               '**/setup/**',
             ],
             cleanupOutdatedCaches: true,
+            skipWaiting: true,
+            clientsClaim: true,
           },
           client: {
             installPrompt: true,
-            periodicSyncForUpdates: 3600,
+            periodicSyncForUpdates: 300,
           },
           devOptions: {
             enabled: process.env.NUXT_PWA_DEV === 'true',

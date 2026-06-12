@@ -16,11 +16,9 @@
   --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   --cf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
   --cf-fab-size: 3.25rem;
-  --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.625rem);
-  --cf-tab-nav-h: 2.75rem;
-  /* PWA instalado: só o home indicator. Safari: sem reserva extra (toolbar é do browser). */
-  --cf-tab-safe: 0px;
-  --cf-tab-h: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + var(--cf-tab-safe));
+  --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.75rem);
+  --cf-tab-nav-h: 3rem;
+  --cf-tab-h: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + env(safe-area-inset-bottom, 0px));
   --cf-avatar-mask: url('/icons/userAvatar.svg');
   --cf-space-1: 0.25rem;
   --cf-space-2: 0.5rem;
@@ -51,58 +49,10 @@
 
 html:has(.patient-shell),
 html:has(.patient-login-mode),
-html:has(.cf-tab-bar),
 html:has(.cf-tab-bar-wrap) {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   font-family: var(--cf-font);
-  overflow: hidden;
-  height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
-  max-height: 100dvh;
-}
-
-html.pwa-standalone:has(.patient-shell) body,
-html.pwa-standalone:has(.cf-tab-bar) body,
-html.pwa-standalone:has(.cf-tab-bar-wrap) body {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  overflow: hidden;
-  max-width: 100%;
-  background: #ffffff;
-  overscroll-behavior: none;
-}
-
-html.pwa-browser:has(.patient-shell) body,
-html.pwa-browser:has(.cf-tab-bar-wrap) body {
-  position: static;
-  width: 100%;
-  overflow: hidden;
-  max-width: 100%;
-  background: #ffffff;
-  min-height: 100dvh;
-}
-
-html.pwa-standalone:has(.patient-shell) #__nuxt,
-html.pwa-standalone:has(.cf-tab-bar-wrap) #__nuxt {
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-width: 100%;
-}
-
-html.pwa-browser:has(.patient-shell) #__nuxt,
-html.pwa-browser:has(.cf-tab-bar-wrap) #__nuxt {
-  min-height: 100dvh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-width: 100%;
 }
 
 html:has(.patient-login-mode):not(:has(.patient-shell)) {
@@ -139,21 +89,12 @@ html:has(.patient-login-mode):not(:has(.patient-shell)) #__nuxt {
 }
 
 .patient-shell {
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--cf-bg);
-  overflow: hidden;
   width: 100%;
   max-width: 100%;
-}
-
-html.pwa-standalone .patient-shell {
-  height: 100%;
-  max-height: 100%;
-}
-
-html.pwa-browser .patient-shell {
-  min-height: 100dvh;
 }
 
 .patient-shell-body {
@@ -194,50 +135,24 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   box-sizing: border-box;
 }
 
-/* Tab bar — base da tela */
+/* Tab bar */
 .cf-tab-bar-wrap {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 100;
-  margin: 0;
   padding-top: var(--cf-tab-fab-rise);
-  padding-bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
   box-sizing: border-box;
 }
 
-/*
- * App instalado (PWA): sem barra inferior do Safari — só home indicator.
- * Safari no navegador: a toolbar inferior é do browser; não duplicar padding.
- */
-html.pwa-standalone {
-  --cf-tab-safe: env(safe-area-inset-bottom, 0px);
-  --cf-tab-h: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + var(--cf-tab-safe));
-}
-
-html.pwa-standalone .cf-tab-bar-wrap {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-html.pwa-standalone:has(.cf-tab-bar-wrap),
-html.pwa-standalone:has(.cf-tab-bar-wrap) body,
-html.pwa-standalone:has(.cf-tab-bar-wrap) #__nuxt,
-html.pwa-standalone .patient-shell {
-  height: 100%;
-  min-height: 100%;
-  max-height: 100%;
-}
-
-html.pwa-browser:has(.cf-tab-bar-wrap) .cf-tab-bar-wrap {
-  padding-bottom: 0.25rem;
-}
-
-html.pwa-browser {
-  --cf-tab-safe: 0px;
-  --cf-tab-h: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h));
+@media (display-mode: browser) {
+  .cf-tab-bar-wrap {
+    padding-bottom: 0;
+  }
 }
 
 .cf-card {

@@ -20,6 +20,7 @@ interface _GlobalComponents {
   PatientHeader: typeof import("../../components/PatientHeader.vue")['default']
   PatientMenuDrawer: typeof import("../../components/PatientMenuDrawer.vue")['default']
   PatientPwaPrompt: typeof import("../../components/PatientPwaPrompt.vue")['default']
+  PatientPwaUpdate: typeof import("../../components/PatientPwaUpdate.vue")['default']
   PatientTabBar: typeof import("../../components/PatientTabBar.vue")['default']
   PlayerHeader: typeof import("../../components/PlayerHeader.vue")['default']
   PlayerNavigation: typeof import("../../components/PlayerNavigation.vue")['default']
@@ -101,6 +102,7 @@ interface _GlobalComponents {
   LazyPatientHeader: LazyComponent<typeof import("../../components/PatientHeader.vue")['default']>
   LazyPatientMenuDrawer: LazyComponent<typeof import("../../components/PatientMenuDrawer.vue")['default']>
   LazyPatientPwaPrompt: LazyComponent<typeof import("../../components/PatientPwaPrompt.vue")['default']>
+  LazyPatientPwaUpdate: LazyComponent<typeof import("../../components/PatientPwaUpdate.vue")['default']>
   LazyPatientTabBar: LazyComponent<typeof import("../../components/PatientTabBar.vue")['default']>
   LazyPlayerHeader: LazyComponent<typeof import("../../components/PlayerHeader.vue")['default']>
   LazyPlayerNavigation: LazyComponent<typeof import("../../components/PlayerNavigation.vue")['default']>
