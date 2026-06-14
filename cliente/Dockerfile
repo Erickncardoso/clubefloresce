@@ -17,12 +17,12 @@ COPY cliente ./cliente
 
 WORKDIR /app/cliente
 
-ENV NODE_ENV=production
+# Não definir NODE_ENV=production aqui — o build precisa das devDependencies (cross-env, etc.)
 ENV NUXT_PUBLIC_MOBILE_APP=true
 ARG NUXT_PUBLIC_API_BASE=/api
 ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
 
-RUN npm install && npm run prepare && npm run generate
+RUN npm ci && npm run generate
 
 FROM nginx:1.27-alpine AS runner
 
