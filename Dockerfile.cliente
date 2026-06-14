@@ -8,21 +8,22 @@ COPY frontend/package*.json ./frontend/
 RUN cd frontend && npm ci
 
 COPY frontend ./frontend
-COPY cliente/nginx.conf ./cliente/nginx.conf
+COPY cliente/package*.json ./cliente/
+COPY cliente ./cliente
 
-WORKDIR /app/frontend
+WORKDIR /app/cliente
 
 ENV NODE_ENV=production
 ENV NUXT_PUBLIC_MOBILE_APP=true
-ARG NUXT_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api
+ARG NUXT_PUBLIC_API_BASE=/api
 ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
 
-RUN npm run prepare:mobile && npm run generate:paciente
+RUN npm install && npm run prepare && npm run generate
 
 FROM nginx:1.27-alpine AS runner
 
 COPY --from=builder /app/cliente/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /app/frontend/.output/public /usr/share/nginx/html
+COPY --from=builder /app/cliente/.output/public /usr/share/nginx/html
 
 EXPOSE 3000
 

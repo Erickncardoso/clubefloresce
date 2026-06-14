@@ -189,6 +189,9 @@
         <slot />
       </div>
     </main>
+
+    <AppToast />
+    <CoursesVideoUploadQueuePanel v-if="!isPatientApp" />
   </div>
 </template>
 
@@ -196,7 +199,6 @@
 import { 
   BookOpen, 
   Users, 
-  Book, 
   Settings, 
   FileText, 
   DollarSign, 
@@ -330,7 +332,6 @@ onMounted(async () => {
   const nutricionistaMenu = [
     ...commonMenu,
     { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
-    { label: 'Ebooks', path: '/ebooks', icon: Book },
     { label: 'Financeiro', path: '/financeiro', icon: DollarSign },
     { label: 'Usuários', path: '/usuarios', icon: Users },
     { label: 'Personalizar', path: '/personalizar', icon: Palette },
@@ -464,7 +465,7 @@ const handleLogout = () => {
   align-items: center;
   gap: 0.4rem;
   padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--cf-radius-sm);
   text-decoration: none;
   color: var(--nav-text-muted);
   font-weight: 700;
@@ -498,7 +499,7 @@ const handleLogout = () => {
   align-items: center;
   gap: 0.4rem;
   padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--cf-radius-sm);
   text-decoration: none;
   color: var(--nav-text-muted);
   font-weight: 700;
@@ -519,7 +520,7 @@ const handleLogout = () => {
   min-width: 240px;
   background: var(--nav-surface);
   border: 1px solid var(--nav-border);
-  border-radius: 14px;
+  border-radius: var(--cf-radius-surface);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
   padding: 0.45rem;
   display: grid;
@@ -542,7 +543,7 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   color: var(--nav-text-muted);
   text-decoration: none;
   padding: 0.62rem 0.72rem;

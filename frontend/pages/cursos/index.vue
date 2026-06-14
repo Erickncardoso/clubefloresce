@@ -1,10 +1,25 @@
 <template>
   <NuxtLayout :name="layoutName">
-    <div class="courses-container" :class="{ 'patient-view': isPacienteView }">
-      <div class="courses-page" :class="{ 'patient-page': isPacienteView }">
+    <div
+      class="courses-container"
+      :class="{
+        'patient-view': isPacienteView,
+        'admin-with-banner': showCourseBanner && !isPacienteView,
+        'streaming-layout': useStreamingLayout,
+      }"
+    >
+      <div
+        class="courses-page"
+        :class="{
+          'patient-page': isPacienteView,
+          'has-featured-banner': showCourseBanner && !isPacienteView,
+          'streaming-page': useStreamingLayout && !isPacienteView,
+        }"
+      >
         <section
-          v-if="isPacienteView"
+          v-if="showCourseBanner"
           class="patient-banner"
+          :class="{ 'patient-banner--admin': !isPacienteView }"
           :style="patientBannerThemeStyle"
         >
           <div class="patient-banner-bg" :style="patientBannerStyle" aria-hidden="true" />
@@ -34,8 +49,8 @@
           </div>
         </section>
 
-        <!-- Header -->
-        <div v-if="!isPacienteView" class="page-header" :class="{ 'patient-header': isPacienteView }">
+        <!-- Header admin (só sem capa de destaque) -->
+        <div v-if="!showCourseBanner && !isPacienteView" class="page-header">
           <div>
             <h1>Meus Cursos</h1>
             <p>Acesse suas aulas e trilhas de conhecimento.</p>
@@ -46,148 +61,93 @@
           </button>
         </div>
 
-        <!-- Lista de Cursos (Netflix Style) -->
-        <div v-if="courses.length || (isPacienteView && ebooks.length)">
-          <template v-if="isPacienteView">
-            <section
-              v-for="row in patientCourseRows"
-              :key="row.key"
-              class="course-row-block"
+        <!-- Lista de Cursos (carrossel) -->
+        <div v-if="courses.length || (useStreamingLayout && (ebooks.length || isNutri))">
+          <section
+            v-for="row in patientCourseRows"
+            :key="row.key"
+            class="course-row-block"
+          >
+            <h2 class="course-row-title">{{ row.title }}</h2>
+            <SharedCfTileCarousel
+              :items="patientCourseTiles"
+              :aria-label="row.title"
+              @select="onCourseTileSelect"
             >
-              <h2 class="course-row-title">{{ row.title }}</h2>
-              <SharedCfTileCarousel
-                :items="patientCourseTiles"
-                :aria-label="row.title"
-                @select="onCourseTileSelect"
-              >
-                <template v-if="isNutri" #actions="{ item }">
-                  <SharedCfTileActionsMenu :menu-key="`course-${item.id}`">
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item"
-                      role="menuitem"
-                      @click="openAddLessonFromCourse(item.raw)"
-                    >
-                      <Plus />
-                      Adicionar videoaula
-                    </button>
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item cf-tile-actions-item--edit"
-                      role="menuitem"
-                      @click="openEditCourseById(item.raw.id, 'card')"
-                    >
-                      <Edit2 />
-                      Editar curso
-                    </button>
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item cf-tile-actions-item--danger"
-                      role="menuitem"
-                      @click="handleDeleteCourse(item.raw.id)"
-                    >
-                      <Trash2 />
-                      Excluir curso
-                    </button>
-                  </SharedCfTileActionsMenu>
-                </template>
-              </SharedCfTileCarousel>
-            </section>
+              <template v-if="isNutri" #actions="{ item }">
+                <SharedCfTileActionsMenu :menu-key="`course-${item.id}`">
+                  <button
+                    type="button"
+                    class="cf-tile-actions-item"
+                    role="menuitem"
+                    @click="openAddLessonFromCourse(item.raw)"
+                  >
+                    <Plus />
+                    Adicionar videoaula
+                  </button>
+                  <button
+                    type="button"
+                    class="cf-tile-actions-item cf-tile-actions-item--edit"
+                    role="menuitem"
+                    @click="openEditCourseById(item.raw.id, 'card')"
+                  >
+                    <Edit2 />
+                    Editar curso
+                  </button>
+                  <button
+                    type="button"
+                    class="cf-tile-actions-item cf-tile-actions-item--danger"
+                    role="menuitem"
+                    @click="handleDeleteCourse(item.raw.id)"
+                  >
+                    <Trash2 />
+                    Excluir curso
+                  </button>
+                </SharedCfTileActionsMenu>
+              </template>
+            </SharedCfTileCarousel>
+          </section>
 
-            <section v-if="ebooks.length || isNutri" id="patient-ebooks" class="course-row-block">
-              <h2 class="course-row-title course-row-title-link" @click="openEbooksPage">Ebooks</h2>
-              <SharedCfTileCarousel
-                :items="patientEbookTiles"
-                aria-label="Ebooks"
-                @select="onEbookTileSelect"
-              >
-                <template v-if="isNutri" #actions="{ item }">
-                  <SharedCfTileActionsMenu :menu-key="`ebook-${item.id}`">
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item"
-                      role="menuitem"
-                      @click="openCreateEbookFromCourses"
-                    >
-                      <Plus />
-                      Adicionar PDF
-                    </button>
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item cf-tile-actions-item--edit"
-                      role="menuitem"
-                      @click="openEditEbookFromCourses(item.raw)"
-                    >
-                      <Edit2 />
-                      Editar ebook
-                    </button>
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item cf-tile-actions-item--danger"
-                      role="menuitem"
-                      @click="handleDeleteEbookFromCourses(item.raw.id)"
-                    >
-                      <Trash2 />
-                      Excluir ebook
-                    </button>
-                  </SharedCfTileActionsMenu>
-                </template>
-              </SharedCfTileCarousel>
-            </section>
-          </template>
-
-          <div v-else class="courses-gallery">
-            <div v-for="course in courses" :key="course.id" class="netflix-card" @click="openCourseDetails(course)">
-              <div class="card-image-wrapper">
-                <picture v-if="getCourseCover(course)">
-                  <source media="(max-width: 640px)" :srcset="getCourseCover(course, 'mobile')" />
-                  <img :src="getCourseCover(course, 'desktop')" :alt="course.title" />
-                </picture>
-                <div v-else class="card-placeholder">
-                  <BookOpen class="placeholder-icon" />
-                </div>
-                <div class="card-gradient"></div>
-
-                <div class="card-content">
-                  <h3>{{ course.title }}</h3>
-                  <p>{{ course.modules?.length || 0 }} módulo(s)</p>
-                </div>
-
-                <!-- Ações nutri -->
-                <div class="card-hover-actions" v-if="isNutri" @click.stop>
-                  <SharedCfTileActionsMenu :menu-key="`gallery-course-${course.id}`">
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item"
-                      role="menuitem"
-                      @click="openAddLessonFromCourse(course)"
-                    >
-                      <Plus />
-                      Adicionar videoaula
-                    </button>
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item cf-tile-actions-item--edit"
-                      role="menuitem"
-                      @click="openEditCourseById(course.id, 'card')"
-                    >
-                      <Edit2 />
-                      Editar curso
-                    </button>
-                    <button
-                      type="button"
-                      class="cf-tile-actions-item cf-tile-actions-item--danger"
-                      role="menuitem"
-                      @click="handleDeleteCourse(course.id)"
-                    >
-                      <Trash2 />
-                      Excluir curso
-                    </button>
-                  </SharedCfTileActionsMenu>
-                </div>
-              </div>
-            </div>
-          </div>
+          <section v-if="useStreamingLayout && (ebooks.length || isNutri)" id="patient-ebooks" class="course-row-block">
+            <h2 class="course-row-title course-row-title-link" @click="openEbooksPage">Ebooks</h2>
+            <SharedCfTileCarousel
+              :items="patientEbookTiles"
+              aria-label="Ebooks"
+              @select="onEbookTileSelect"
+            >
+              <template v-if="isNutri" #actions="{ item }">
+                <SharedCfTileActionsMenu :menu-key="`ebook-${item.id}`">
+                  <button
+                    type="button"
+                    class="cf-tile-actions-item"
+                    role="menuitem"
+                    @click="openCreateEbookFromCourses"
+                  >
+                    <Plus />
+                    Adicionar PDF
+                  </button>
+                  <button
+                    type="button"
+                    class="cf-tile-actions-item cf-tile-actions-item--edit"
+                    role="menuitem"
+                    @click="openEditEbookFromCourses(item.raw)"
+                  >
+                    <Edit2 />
+                    Editar ebook
+                  </button>
+                  <button
+                    type="button"
+                    class="cf-tile-actions-item cf-tile-actions-item--danger"
+                    role="menuitem"
+                    @click="handleDeleteEbookFromCourses(item.raw.id)"
+                  >
+                    <Trash2 />
+                    Excluir ebook
+                  </button>
+                </SharedCfTileActionsMenu>
+              </template>
+            </SharedCfTileCarousel>
+          </section>
         </div>
 
         <div v-else-if="coursesLoadError" class="empty-state">
@@ -219,7 +179,7 @@
                <div class="modal-cover-content netflix-hero-content">
                   <h2 class="netflix-serie-title">{{ selectedCourseDetails.title }}</h2>
                   <div class="netflix-hero-actions">
-                    <button class="btn-netflix-play" @click="navigateTo(`/modulos/${selectedCourseDetails.modules?.[0]?.id || ''}`)">
+                    <button class="btn-netflix-play" @click="navigateTo(buildModuleUrl(selectedCourseDetails.modules?.[0]))">
                       <Play class="play-fill" fill="currentColor"/> Assistir
                     </button>
                     <!-- Icon buttons for Nutris -->
@@ -263,9 +223,17 @@
                  </div>
                  <div v-else-if="!currentDropModule.lessons?.length" class="empty-episodes">
                     <p>Nenhuma aula neste módulo.</p>
+                    <button
+                      v-if="isNutri"
+                      type="button"
+                      class="btn-text-netflix"
+                      @click="openAddLesson(selectedModuleDropId)"
+                    >
+                      <Plus class="xs-icon" /> Adicionar primeira aula
+                    </button>
                  </div>
                  <div v-else class="episodes-list">
-                    <div v-for="(lesson, idx) in currentDropModule.lessons" :key="lesson.id" class="episode-row" @click="navigateTo(`/modulos/${selectedModuleDropId}?lessonId=${lesson.id}`)">
+                    <div v-for="(lesson, idx) in currentDropModule.lessons" :key="lesson.id" class="episode-row" @click="navigateTo(buildModuleUrl(currentDropModule, lesson, currentDropModule.lessons))">
                        <div class="episode-number">{{ idx + 1 }}</div>
                       <div class="episode-thumb">
                          <img v-if="lesson.thumbnail" :src="lesson.thumbnail" class="ep-thumb-img" />
@@ -337,177 +305,214 @@
           </div>
         </div>
 
-        <!-- Modal: Editar Curso -->
+        <!-- Modal: Editar Curso / Capa -->
         <div v-if="showEditCourseModal" class="modal-overlay courses-modal-overlay" @click.self="showEditCourseModal = false">
-          <div class="modal-card">
-            <div class="modal-header">
-              <h2>{{ isBannerEditMode ? 'Editar Banner' : 'Editar Curso' }}</h2>
-              <button @click="showEditCourseModal = false" class="btn-close"><X /></button>
+          <div class="modal-card" :class="{ 'modal-card--banner': isBannerEditMode }">
+            <div class="modal-header" :class="{ 'modal-header--banner': isBannerEditMode }">
+              <div>
+                <h2>{{ isBannerEditMode ? 'Personalizar capa' : 'Editar curso' }}</h2>
+                <p v-if="isBannerEditMode" class="modal-subtitle">Prévia ao vivo. Use as abas para ajustar cada parte.</p>
+              </div>
+              <button type="button" @click="showEditCourseModal = false" class="btn-close" aria-label="Fechar"><X /></button>
             </div>
 
-            <!-- Imagem conforme modo de edição -->
-            <div class="form-group">
-              <label>{{ isBannerEditMode ? 'Imagem do Banner (Opcional)' : 'Imagem de Capa (Opcional)' }}</label>
-              <small class="form-hint">
-                {{ isBannerEditMode ? 'Banner desktop: recomendado 1920x640 px (min. 1200x400)' : 'Capa desktop: recomendado 1080x1350 px (min. 720x900)' }}
-              </small>
-              <div class="upload-area" @click="triggerCourseUpload" :class="{ 'has-image': coursePreview }">
-                <img v-if="coursePreview" :src="coursePreview" class="upload-preview" />
-                <div v-else class="upload-placeholder">
-                  <ImageIcon class="upload-icon" />
-                  <span>{{ isBannerEditMode ? 'Clique para selecionar uma nova imagem do banner' : 'Clique para selecionar uma nova imagem de capa' }}</span>
+            <template v-if="isBannerEditMode">
+              <div class="banner-editor-preview" :style="bannerEditorThemeStyle">
+                <div class="banner-editor-preview-bg" :style="bannerEditorBgStyle" />
+                <div class="banner-editor-preview-fade" />
+                <div class="banner-editor-preview-content">
+                  <span class="banner-editor-kicker">{{ editingCourse.bannerKicker || 'Etiqueta' }}</span>
+                  <h3>{{ editingCourse.bannerTitle || 'Título do destaque' }}</h3>
+                  <p>{{ editingCourse.bannerSubtitle || 'Subtítulo do banner' }}</p>
+                  <span class="banner-editor-cta">{{ editingCourse.bannerCtaText || 'Continuar agora' }}</span>
                 </div>
-                <input ref="courseFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseImageSelect" />
               </div>
-            </div>
-            <div class="form-group">
-              <label>{{ isBannerEditMode ? 'Imagem do Banner Mobile (Opcional)' : 'Imagem de Capa Mobile (Opcional)' }}</label>
-              <small class="form-hint">
-                {{ isBannerEditMode ? 'Banner mobile: recomendado 1080x1350 px (min. 720x900)' : 'Capa mobile: recomendado 1080x1350 px (min. 720x900)' }}
-              </small>
-              <div class="upload-area" @click="triggerCourseMobileUpload" :class="{ 'has-image': courseMobilePreview }">
-                <img v-if="courseMobilePreview" :src="courseMobilePreview" class="upload-preview" />
-                <div v-else class="upload-placeholder">
-                  <ImageIcon class="upload-icon" />
-                  <span>{{ isBannerEditMode ? 'Clique para selecionar um novo banner mobile' : 'Clique para selecionar uma nova capa mobile' }}</span>
-                </div>
-                <input ref="courseMobileFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseMobileImageSelect" />
-              </div>
-            </div>
 
-            <template v-if="isCardEditMode">
-              <div class="form-group floating-field">
-                <label>Título do Curso</label>
-                <input v-model="editingCourse.title" placeholder="Ex: Nutrição para Hipertrofia" />
-              </div>
-              <div class="form-group floating-field">
-                <label>Descrição</label>
-                <textarea v-model="editingCourse.description" rows="3" placeholder="Descreva brevemente os objetivos do curso" />
+              <nav class="banner-editor-tabs" aria-label="Seções da capa">
+                <button
+                  v-for="tab in bannerEditTabs"
+                  :key="tab.id"
+                  type="button"
+                  class="banner-editor-tab"
+                  :class="{ 'banner-editor-tab--active': bannerEditTab === tab.id }"
+                  @click="bannerEditTab = tab.id"
+                >
+                  {{ tab.label }}
+                </button>
+              </nav>
+
+              <div class="banner-editor-panel">
+                <section v-show="bannerEditTab === 'imagens'" class="banner-editor-section">
+                  <div class="banner-upload-grid">
+                    <div class="banner-upload-card">
+                      <div class="banner-upload-card-head">
+                        <Monitor class="banner-upload-device-icon" aria-hidden="true" />
+                        <div>
+                          <strong>Desktop</strong>
+                          <span>1920 × 640 px</span>
+                        </div>
+                      </div>
+                      <button type="button" class="banner-upload-frame banner-upload-frame--desktop" @click="triggerCourseUpload">
+                        <img v-if="coursePreview" :src="coursePreview" alt="Prévia desktop">
+                        <span v-else class="banner-upload-empty"><ImageIcon /> Enviar imagem</span>
+                      </button>
+                      <input ref="courseFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseImageSelect">
+                    </div>
+                    <div class="banner-upload-card">
+                      <div class="banner-upload-card-head">
+                        <Smartphone class="banner-upload-device-icon" aria-hidden="true" />
+                        <div>
+                          <strong>Mobile</strong>
+                          <span>1080 × 1350 px</span>
+                        </div>
+                      </div>
+                      <button type="button" class="banner-upload-frame banner-upload-frame--mobile" @click="triggerCourseMobileUpload">
+                        <img v-if="courseMobilePreview" :src="courseMobilePreview" alt="Prévia mobile">
+                        <span v-else class="banner-upload-empty"><ImageIcon /> Enviar imagem</span>
+                      </button>
+                      <input ref="courseMobileFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseMobileImageSelect">
+                    </div>
+                  </div>
+                </section>
+
+                <section v-show="bannerEditTab === 'texto'" class="banner-editor-section">
+                  <div class="banner-field-grid">
+                    <div class="form-group">
+                      <label for="banner-kicker">Etiqueta</label>
+                      <input id="banner-kicker" v-model="editingCourse.bannerKicker" placeholder="Ex: Vídeos e ebooks">
+                    </div>
+                    <div class="form-group">
+                      <label for="banner-title">Título</label>
+                      <input id="banner-title" v-model="editingCourse.bannerTitle" placeholder="Ex: Boas-vindas">
+                    </div>
+                    <div class="form-group banner-field-full">
+                      <label for="banner-subtitle">Subtítulo</label>
+                      <textarea id="banner-subtitle" v-model="editingCourse.bannerSubtitle" rows="3" placeholder="Ex: Assista às aulas e mantenha consistência no seu processo." />
+                    </div>
+                    <div class="form-group">
+                      <label for="banner-cta">Botão principal</label>
+                      <input id="banner-cta" v-model="editingCourse.bannerCtaText" placeholder="Ex: Continuar agora">
+                    </div>
+                  </div>
+                </section>
+
+                <section v-show="bannerEditTab === 'cores'" class="banner-editor-section">
+                  <div class="banner-color-groups">
+                    <div
+                      v-for="group in bannerColorFieldGroups"
+                      :key="group.title"
+                      class="banner-color-group"
+                    >
+                      <h4>{{ group.title }}</h4>
+                      <div class="banner-color-row">
+                        <div
+                          v-for="field in group.fields"
+                          :key="field.key"
+                          class="color-field"
+                        >
+                          <span class="color-field-label">{{ field.label }}</span>
+                          <div class="color-field-controls">
+                            <label class="color-swatch-btn" :style="{ background: editingCourse[field.key] }" :title="`Escolher ${field.label.toLowerCase()}`">
+                              <input v-model="editingCourse[field.key]" type="color" :aria-label="`Cor de ${field.label}`">
+                            </label>
+                            <input
+                              class="color-hex-input"
+                              type="text"
+                              inputmode="text"
+                              maxlength="7"
+                              spellcheck="false"
+                              autocomplete="off"
+                              :value="editingCourse[field.key]"
+                              placeholder="#000000"
+                              :aria-label="`Código hex de ${field.label}`"
+                              @input="onBannerColorHexInput(field.key, $event)"
+                              @blur="onBannerColorHexBlur(field.key, $event)"
+                            >
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section v-show="bannerEditTab === 'enquadramento'" class="banner-editor-section">
+                  <div class="banner-device-toggle" role="tablist" aria-label="Dispositivo">
+                    <button type="button" role="tab" class="banner-device-btn" :class="{ active: bannerPositionVariant === 'desktop' }" :aria-selected="bannerPositionVariant === 'desktop'" @click="bannerPositionVariant = 'desktop'">
+                      <Monitor class="banner-device-btn-icon" /> Desktop
+                    </button>
+                    <button type="button" role="tab" class="banner-device-btn" :class="{ active: bannerPositionVariant === 'mobile' }" :aria-selected="bannerPositionVariant === 'mobile'" @click="bannerPositionVariant = 'mobile'">
+                      <Smartphone class="banner-device-btn-icon" /> Mobile
+                    </button>
+                  </div>
+                  <p class="banner-editor-hint">Arraste no preview ou use os controles para definir o foco da imagem.</p>
+                  <div
+                    v-if="bannerPositionVariant === 'desktop' ? coursePreview : (courseMobilePreview || coursePreview)"
+                    class="banner-position-preview"
+                    :class="{ 'banner-position-preview--mobile': bannerPositionVariant === 'mobile' }"
+                    :style="bannerPositionVariant === 'mobile' ? bannerMobilePreviewStyle : bannerDesktopPreviewStyle"
+                    @pointerdown.prevent="onActiveBannerPositionDrag"
+                  >
+                    <span class="banner-position-marker" :style="bannerPositionVariant === 'mobile' ? bannerMobileMarkerStyle : bannerDesktopMarkerStyle" />
+                  </div>
+                  <div v-else class="banner-position-empty">Envie uma imagem na aba Imagens para ajustar o enquadramento.</div>
+                  <div class="banner-position-sliders">
+                    <label class="banner-position-slider">
+                      <span>Horizontal</span>
+                      <input v-if="bannerPositionVariant === 'desktop'" v-model.number="bannerPosDesktop.x" type="range" min="0" max="100">
+                      <input v-else v-model.number="bannerPosMobile.x" type="range" min="0" max="100">
+                    </label>
+                    <label class="banner-position-slider">
+                      <span>Vertical</span>
+                      <input v-if="bannerPositionVariant === 'desktop'" v-model.number="bannerPosDesktop.y" type="range" min="0" max="100">
+                      <input v-else v-model.number="bannerPosMobile.y" type="range" min="0" max="100">
+                    </label>
+                  </div>
+                  <div class="banner-position-presets">
+                    <button v-for="preset in bannerPositionPresets" :key="preset.id" type="button" class="banner-position-preset" @click="applyActiveBannerPreset(preset.id)">{{ preset.label }}</button>
+                  </div>
+                </section>
               </div>
             </template>
 
             <template v-else>
-              <div class="form-group floating-field">
-                <label>Etiqueta do Banner (Opcional)</label>
-                <input v-model="editingCourse.bannerKicker" placeholder="Ex: Destaque da semana" />
-              </div>
-              <div class="form-group floating-field">
-                <label>Título no Banner (Opcional)</label>
-                <input v-model="editingCourse.bannerTitle" placeholder="Ex: Nutrição Avançada" />
-              </div>
-              <div class="form-group floating-field">
-                <label>Texto do Banner (Opcional)</label>
-                <textarea v-model="editingCourse.bannerSubtitle" rows="2" placeholder="Ex: Assista às aulas e mantenha consistência no seu processo." />
-              </div>
-              <div class="form-group floating-field">
-                <label>Texto do Botão (Opcional)</label>
-                <input v-model="editingCourse.bannerCtaText" placeholder="Ex: Continuar agora" />
-              </div>
-
-              <div class="form-group banner-colors-group">
-                <label>Cores da capa</label>
-                <small class="form-hint">Personalize etiqueta, textos e botões.</small>
-                <div class="banner-color-grid">
-                  <label class="banner-color-field">
-                    <span>Etiqueta — texto</span>
-                    <input v-model="editingCourse.bannerKickerColor" type="color" />
-                  </label>
-                  <label class="banner-color-field">
-                    <span>Etiqueta — fundo</span>
-                    <input v-model="editingCourse.bannerKickerBg" type="color" />
-                  </label>
-                  <label class="banner-color-field">
-                    <span>Título</span>
-                    <input v-model="editingCourse.bannerTitleColor" type="color" />
-                  </label>
-                  <label class="banner-color-field">
-                    <span>Texto</span>
-                    <input v-model="editingCourse.bannerSubtitleColor" type="color" />
-                  </label>
-                  <label class="banner-color-field">
-                    <span>Botão principal — fundo</span>
-                    <input v-model="editingCourse.bannerCtaBg" type="color" />
-                  </label>
-                  <label class="banner-color-field">
-                    <span>Botão principal — texto</span>
-                    <input v-model="editingCourse.bannerCtaColor" type="color" />
-                  </label>
-                  <label class="banner-color-field">
-                    <span>Botão secundário — fundo</span>
-                    <input v-model="editingCourse.bannerSecondaryBtnBg" type="color" />
-                  </label>
-                  <label class="banner-color-field">
-                    <span>Botão secundário — texto</span>
-                    <input v-model="editingCourse.bannerSecondaryBtnColor" type="color" />
-                  </label>
+              <div class="form-group">
+                <label>Imagem de capa (desktop)</label>
+                <small class="form-hint">Recomendado 1080 × 1350 px</small>
+                <div class="upload-area" @click="triggerCourseUpload" :class="{ 'has-image': coursePreview }">
+                  <img v-if="coursePreview" :src="coursePreview" class="upload-preview" alt="">
+                  <div v-else class="upload-placeholder">
+                    <ImageIcon class="upload-icon" />
+                    <span>Selecionar imagem</span>
+                  </div>
+                  <input ref="courseFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseImageSelect">
                 </div>
               </div>
-
-              <div v-if="coursePreview" class="form-group banner-position-group">
-                <label>Posição da imagem — Desktop</label>
-                <small class="form-hint">Toque ou arraste no preview para enquadrar rostos e evitar cortes.</small>
-                <div
-                  class="banner-position-preview"
-                  :style="bannerDesktopPreviewStyle"
-                  @pointerdown.prevent="onBannerPositionDrag('desktop', $event)"
-                >
-                  <span class="banner-position-marker" :style="bannerDesktopMarkerStyle" />
-                </div>
-                <div class="banner-position-sliders">
-                  <label class="banner-position-slider">
-                    <span>Horizontal</span>
-                    <input v-model.number="bannerPosDesktop.x" type="range" min="0" max="100" />
-                  </label>
-                  <label class="banner-position-slider">
-                    <span>Vertical</span>
-                    <input v-model.number="bannerPosDesktop.y" type="range" min="0" max="100" />
-                  </label>
-                </div>
-                <div class="banner-position-presets">
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'left')">Esquerda</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'center')">Centro</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'right')">Direita</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'face')">Rosto</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'top')">Topo</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('desktop', 'bottom')">Base</button>
+              <div class="form-group">
+                <label>Imagem de capa (mobile)</label>
+                <div class="upload-area" @click="triggerCourseMobileUpload" :class="{ 'has-image': courseMobilePreview }">
+                  <img v-if="courseMobilePreview" :src="courseMobilePreview" class="upload-preview" alt="">
+                  <div v-else class="upload-placeholder">
+                    <ImageIcon class="upload-icon" />
+                    <span>Selecionar imagem</span>
+                  </div>
+                  <input ref="courseMobileFileInput" type="file" accept="image/*" class="file-input-hidden" @change="handleCourseMobileImageSelect">
                 </div>
               </div>
-
-              <div v-if="courseMobilePreview || coursePreview" class="form-group banner-position-group">
-                <label>Posição da imagem — Mobile</label>
-                <small class="form-hint">Ajuste separado para telas menores, se necessário.</small>
-                <div
-                  class="banner-position-preview banner-position-preview--mobile"
-                  :style="bannerMobilePreviewStyle"
-                  @pointerdown.prevent="onBannerPositionDrag('mobile', $event)"
-                >
-                  <span class="banner-position-marker" :style="bannerMobileMarkerStyle" />
-                </div>
-                <div class="banner-position-sliders">
-                  <label class="banner-position-slider">
-                    <span>Horizontal</span>
-                    <input v-model.number="bannerPosMobile.x" type="range" min="0" max="100" />
-                  </label>
-                  <label class="banner-position-slider">
-                    <span>Vertical</span>
-                    <input v-model.number="bannerPosMobile.y" type="range" min="0" max="100" />
-                  </label>
-                </div>
-                <div class="banner-position-presets">
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'left')">Esquerda</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'center')">Centro</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'right')">Direita</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'face')">Rosto</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'top')">Topo</button>
-                  <button type="button" class="banner-position-preset" @click="applyBannerPreset('mobile', 'bottom')">Base</button>
-                </div>
+              <div class="form-group">
+                <label for="course-title">Título do curso</label>
+                <input id="course-title" v-model="editingCourse.title" placeholder="Ex: Nutrição para hipertrofia">
+              </div>
+              <div class="form-group">
+                <label for="course-desc">Descrição</label>
+                <textarea id="course-desc" v-model="editingCourse.description" rows="3" placeholder="Objetivos do curso" />
               </div>
             </template>
-            <div class="modal-actions">
-              <button @click="showEditCourseModal = false" class="btn-cancel">Cancelar</button>
-              <button @click="handleUpdateCourse" class="btn-primary" :disabled="uploading">
+
+            <div class="modal-actions" :class="{ 'modal-actions--banner': isBannerEditMode }">
+              <button type="button" @click="showEditCourseModal = false" class="btn-cancel">Cancelar</button>
+              <button type="button" @click="handleUpdateCourse" class="btn-primary" :disabled="uploading">
                 <span v-if="uploading">Salvando...</span>
-                <span v-else>Salvar Alterações</span>
+                <span v-else>Salvar alterações</span>
               </button>
             </div>
           </div>
@@ -537,275 +542,14 @@
             </div>
           </div>
         </div>
-        <!-- Modal: Editar Aula -->
-        <div v-if="showEditLessonModal" class="modal-overlay courses-modal-overlay" @click.self="showEditLessonModal = false">
-          <div class="modal-card modal-card--lesson">
-            <div class="modal-header">
-              <h2>Editar Aula</h2>
-              <button @click="showEditLessonModal = false" class="btn-close"><X /></button>
-            </div>
-            <p class="modal-subtitle">Editando detalhes da aula</p>
-
-            <!-- Título -->
-            <div class="form-group">
-              <label>Título da Aula</label>
-              <input v-model="editingLesson.title" placeholder="Ex: A importância das proteínas" />
-            </div>
-
-            <!-- Abas: Fonte do Vídeo -->
-            <div class="form-group">
-              <label>Vídeo</label>
-              <div class="tab-pills">
-                <button :class="['tab-pill', videoSourceTab === 'link' ? 'active' : '']" @click="videoSourceTab = 'link'">
-                  <Link class="xs-icon" /> Link Externo
-                </button>
-                <button :class="['tab-pill', videoSourceTab === 'upload' ? 'active' : '']" @click="videoSourceTab = 'upload'">
-                  <Upload class="xs-icon" /> Upload de Vídeo
-                </button>
-              </div>
-
-              <!-- Aba Link -->
-              <div v-if="videoSourceTab === 'link'" class="tab-content">
-                <input v-model="editingLesson.videoUrl" placeholder="Ex: https://youtube.com/watch?v=..." />
-              </div>
-
-              <!-- Aba Upload -->
-              <div v-if="videoSourceTab === 'upload'" class="tab-content">
-                <input ref="videoFileInput" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.avi,.mkv" class="file-input-hidden" @change="handleVideoFileSelect" />
-                <div
-                  v-if="!videoFileLocal && !editingLesson.videoUrl"
-                  class="video-upload-area"
-                  @click="triggerVideoUpload"
-                  @dragover.prevent
-                  @drop.prevent="handleVideoDrop"
-                >
-                  <Film class="upload-icon" />
-                  <span>Clique ou arraste um vídeo (mp4, mov, webm)</span>
-                  <span class="upload-hint">Máximo: 2GB</span>
-                </div>
-                <div v-else class="video-selected-info">
-                  <Film class="xs-icon" />
-                  <span v-if="videoFileLocal">{{ videoFileLocal.name }}</span>
-                  <span v-else class="video-url-preview">Vídeo atual salvo</span>
-                  <button class="btn-mini" @click="triggerVideoUpload">Trocar</button>
-                </div>
-                <!-- Barra de progresso -->
-                <div v-if="videoUploadStatus === 'uploading'" class="upload-progress-bar">
-                  <div class="progress-fill" :style="{ width: videoUploadProgress + '%' }"></div>
-                  <span>{{ videoUploadProgress }}%</span>
-                </div>
-                <div v-if="videoUploadStatus === 'done'" class="upload-done">✓ Upload concluído</div>
-                <div v-if="videoUploadStatus === 'error'" class="upload-error">✗ Erro no upload. Tente novamente.</div>
-              </div>
-            </div>
-
-            <!-- Duração -->
-            <div class="form-group">
-              <label>Duração (opcional)</label>
-              <input v-model="editingLesson.duration" placeholder="Ex: 44min ou 1h 20min" />
-            </div>
-
-            <!-- Abas: Miniatura -->
-            <div class="form-group">
-              <label>Miniatura da Aula</label>
-              <div class="tab-pills">
-                <button :class="['tab-pill', thumbSourceTab === 'upload' ? 'active' : '']" @click="thumbSourceTab = 'upload'">
-                  <ImageIcon class="xs-icon" /> Upload de Imagem
-                </button>
-                <button :class="['tab-pill', thumbSourceTab === 'frame' ? 'active' : '']" @click="thumbSourceTab = 'frame'" :disabled="!frameVideoObjectUrl">
-                  <Camera class="xs-icon" /> Frame do Vídeo
-                </button>
-                <button v-if="isYoutube(editingLesson.videoUrl)" :class="['tab-pill', thumbSourceTab === 'youtube' ? 'active' : '']" @click="thumbSourceTab = 'youtube'; applyYoutubeThumb()">
-                  <Play class="xs-icon" /> Capa YouTube
-                </button>
-              </div>
-
-              <!-- Aba Upload de Imagem -->
-              <div v-if="thumbSourceTab === 'upload'" class="tab-content">
-                <input ref="lessonThumbInput" type="file" accept="image/*" class="file-input-hidden" @change="handleLessonThumbSelect" />
-                <div class="lesson-upload-area" @click="triggerLessonThumbUpload" :class="{ 'has-image': lessonThumbPreview }">
-                  <img v-if="lessonThumbPreview" :src="lessonThumbPreview" class="upload-preview" />
-                  <div v-else class="upload-placeholder">
-                    <ImageIcon class="upload-icon" />
-                    <span>Clique para escolher uma imagem</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Aba Frame do Vídeo -->
-              <div v-if="thumbSourceTab === 'frame'" class="tab-content">
-                <div v-if="frameVideoObjectUrl" class="frame-capture-area">
-                  <video ref="frameVideoRef" :src="frameVideoObjectUrl" class="frame-video-preview" preload="metadata" @loadedmetadata="onFrameVideoLoaded" muted></video>
-                  <div class="frame-controls">
-                    <input type="range" min="0" :max="frameVideoDuration" step="0.1" :value="frameSeekTime" @input="onFrameSeekInput" class="frame-slider" />
-                    <button @click.stop="captureVideoFrame" class="btn-capture">
-                      <Camera class="xs-icon" /> Capturar este Frame
-                    </button>
-                  </div>
-                  <div v-if="lessonThumbPreview && thumbSourceTab === 'frame'" class="frame-preview-box">
-                    <span>Preview do frame capturado:</span>
-                    <img :src="lessonThumbPreview" class="upload-preview" />
-                  </div>
-                </div>
-                <div v-else class="upload-placeholder">
-                  <Camera class="upload-icon" />
-                  <span>Faça upload de um vídeo na aba ao lado para capturar um frame</span>
-                </div>
-              </div>
-
-              <!-- Aba Capa YouTube -->
-              <div v-if="thumbSourceTab === 'youtube'" class="tab-content">
-                <div class="lesson-upload-area has-image" v-if="lessonThumbPreview">
-                  <img :src="lessonThumbPreview" class="upload-preview" />
-                </div>
-                <p class="thumb-hint">Capa extraída automaticamente do YouTube</p>
-              </div>
-            </div>
-
-            <div class="modal-actions">
-              <button @click="showEditLessonModal = false" class="btn-cancel">Cancelar</button>
-              <button @click="handleUpdateLesson" class="btn-primary" :disabled="uploading">
-                <span v-if="uploading">Salvando...</span>
-                <span v-else>Salvar Alterações</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal: Criar Aula -->
-        <div v-if="showLessonModal" class="modal-overlay courses-modal-overlay" @click.self="showLessonModal = false">
-          <div class="modal-card modal-card--lesson">
-            <div class="modal-header">
-              <h2>Nova Aula</h2>
-              <button @click="showLessonModal = false" class="btn-close"><X /></button>
-            </div>
-            <p class="modal-subtitle">Adicionando aula neste módulo</p>
-
-            <!-- Título -->
-            <div class="form-group">
-              <label>Título da Aula</label>
-              <input v-model="newLesson.title" placeholder="Ex: A importância das proteínas" />
-            </div>
-
-            <!-- Abas: Fonte do Vídeo -->
-            <div class="form-group">
-              <label>Vídeo</label>
-              <div class="tab-pills">
-                <button :class="['tab-pill', videoSourceTab === 'link' ? 'active' : '']" @click="videoSourceTab = 'link'">
-                  <Link class="xs-icon" /> Link Externo
-                </button>
-                <button :class="['tab-pill', videoSourceTab === 'upload' ? 'active' : '']" @click="videoSourceTab = 'upload'">
-                  <Upload class="xs-icon" /> Upload de Vídeo
-                </button>
-              </div>
-
-              <!-- Aba Link -->
-              <div v-if="videoSourceTab === 'link'" class="tab-content">
-                <input v-model="newLesson.videoUrl" placeholder="Ex: https://youtube.com/watch?v=..." />
-              </div>
-
-              <!-- Aba Upload -->
-              <div v-if="videoSourceTab === 'upload'" class="tab-content">
-                <input ref="videoFileInput" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.avi,.mkv" class="file-input-hidden" @change="handleVideoFileSelect" />
-                <div
-                  v-if="!videoFileLocal"
-                  class="video-upload-area"
-                  @click="triggerVideoUpload"
-                  @dragover.prevent
-                  @drop.prevent="handleVideoDrop"
-                >
-                  <Film class="upload-icon" />
-                  <span>Clique ou arraste um vídeo (mp4, mov, webm)</span>
-                  <span class="upload-hint">Máximo: 2GB</span>
-                </div>
-                <div v-else class="video-selected-info">
-                  <Film class="xs-icon" />
-                  <span>{{ videoFileLocal.name }}</span>
-                  <button class="btn-mini" @click="triggerVideoUpload">Trocar</button>
-                </div>
-                <!-- Barra de progresso -->
-                <div v-if="videoUploadStatus === 'uploading'" class="upload-progress-bar">
-                  <div class="progress-fill" :style="{ width: videoUploadProgress + '%' }"></div>
-                  <span>{{ videoUploadProgress }}%</span>
-                </div>
-                <div v-if="videoUploadStatus === 'done'" class="upload-done">✓ Upload concluído</div>
-                <div v-if="videoUploadStatus === 'error'" class="upload-error">✗ Erro no upload. Tente novamente.</div>
-              </div>
-            </div>
-
-            <!-- Duração -->
-            <div class="form-group">
-              <label>Duração (opcional)</label>
-              <input v-model="newLesson.duration" placeholder="Ex: 44min ou 1h 20min" />
-            </div>
-
-            <!-- Abas: Miniatura -->
-            <div class="form-group">
-              <label>Miniatura da Aula</label>
-              <div class="tab-pills">
-                <button :class="['tab-pill', thumbSourceTab === 'upload' ? 'active' : '']" @click="thumbSourceTab = 'upload'">
-                  <ImageIcon class="xs-icon" /> Upload de Imagem
-                </button>
-                <button :class="['tab-pill', thumbSourceTab === 'frame' ? 'active' : '']" @click="thumbSourceTab = 'frame'" :disabled="!frameVideoObjectUrl">
-                  <Camera class="xs-icon" /> Frame do Vídeo
-                </button>
-                <button v-if="isYoutube(newLesson.videoUrl)" :class="['tab-pill', thumbSourceTab === 'youtube' ? 'active' : '']" @click="thumbSourceTab = 'youtube'; applyYoutubeThumb()">
-                  <Play class="xs-icon" /> Capa YouTube
-                </button>
-              </div>
-
-              <!-- Aba Upload de Imagem -->
-              <div v-if="thumbSourceTab === 'upload'" class="tab-content">
-                <input ref="lessonThumbInput" type="file" accept="image/*" class="file-input-hidden" @change="handleLessonThumbSelect" />
-                <div class="lesson-upload-area" @click="triggerLessonThumbUpload" :class="{ 'has-image': lessonThumbPreview }">
-                  <img v-if="lessonThumbPreview" :src="lessonThumbPreview" class="upload-preview" />
-                  <div v-else class="upload-placeholder">
-                    <ImageIcon class="upload-icon" />
-                    <span>Clique para escolher uma imagem</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Aba Frame do Vídeo -->
-              <div v-if="thumbSourceTab === 'frame'" class="tab-content">
-                <div v-if="frameVideoObjectUrl" class="frame-capture-area">
-                  <video ref="frameVideoRef" :src="frameVideoObjectUrl" class="frame-video-preview" preload="metadata" @loadedmetadata="onFrameVideoLoaded" muted></video>
-                  <div class="frame-controls">
-                    <input type="range" min="0" :max="frameVideoDuration" step="0.1" :value="frameSeekTime" @input="onFrameSeekInput" class="frame-slider" />
-                    <button @click.stop="captureVideoFrame" class="btn-capture">
-                      <Camera class="xs-icon" /> Capturar este Frame
-                    </button>
-                  </div>
-                  <div v-if="lessonThumbPreview && thumbSourceTab === 'frame'" class="frame-preview-box">
-                    <span>Preview do frame capturado:</span>
-                    <img :src="lessonThumbPreview" class="upload-preview" />
-                  </div>
-                </div>
-                <div v-else class="upload-placeholder">
-                  <Camera class="upload-icon" />
-                  <span>Faça upload de um vídeo na aba ao lado para capturar um frame</span>
-                </div>
-              </div>
-
-              <!-- Aba Capa YouTube -->
-              <div v-if="thumbSourceTab === 'youtube'" class="tab-content">
-                <div class="lesson-upload-area has-image" v-if="lessonThumbPreview">
-                  <img :src="lessonThumbPreview" class="upload-preview" />
-                </div>
-                <p class="thumb-hint">Capa extraída automaticamente do YouTube</p>
-              </div>
-            </div>
-
-            <div class="modal-actions">
-              <button @click="showLessonModal = false" class="btn-cancel">Cancelar</button>
-              <button @click="handleCreateLesson" class="btn-primary" :disabled="uploading">
-                <span v-if="uploading && videoUploadStatus === 'uploading'">Enviando vídeo... {{ videoUploadProgress }}%</span>
-                <span v-else-if="uploading">Salvando...</span>
-                <span v-else>Criar Aula</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <CoursesLessonFormModal
+          v-model:open="lessonModalOpen"
+          :mode="lessonModalMode"
+          :module-id="currentModuleIdForLesson || ''"
+          :lesson="lessonModalLesson"
+          :context="lessonFormContext"
+          @saved="onLessonSaved"
+        />
 
         <!-- Modal: Novo Ebook -->
         <div v-if="showCreateEbookModal" class="modal-overlay courses-modal-overlay" @click.self="closeCreateEbookModal">
@@ -854,8 +598,14 @@
 
             <div class="modal-actions">
               <button @click="closeCreateEbookModal" class="btn-cancel">Cancelar</button>
-              <button @click="handleCreateEbookFromCourses" class="btn-primary" :disabled="ebookUploading">
-                <span v-if="ebookUploading">Enviando...</span>
+              <button
+                @click="handleCreateEbookFromCourses"
+                class="btn-primary"
+                :disabled="ebookUploading"
+                :aria-busy="ebookUploading"
+                :aria-label="ebookUploading ? 'Enviando ebook' : undefined"
+              >
+                <span v-if="ebookUploading" class="btn-spinner" aria-hidden="true" />
                 <span v-else>Salvar Ebook</span>
               </button>
             </div>
@@ -909,8 +659,14 @@
 
             <div class="modal-actions">
               <button @click="closeEditEbookModal" class="btn-cancel">Cancelar</button>
-              <button @click="handleUpdateEbookFromCourses" class="btn-primary" :disabled="ebookUploading">
-                <span v-if="ebookUploading">Salvando...</span>
+              <button
+                @click="handleUpdateEbookFromCourses"
+                class="btn-primary"
+                :disabled="ebookUploading"
+                :aria-busy="ebookUploading"
+                :aria-label="ebookUploading ? 'Salvando alterações' : undefined"
+              >
+                <span v-if="ebookUploading" class="btn-spinner" aria-hidden="true" />
                 <span v-else>Salvar Alterações</span>
               </button>
             </div>
@@ -924,11 +680,12 @@
 </template>
 
 <script setup>
-import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText } from 'lucide-vue-next'
+import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText, Monitor, Smartphone } from 'lucide-vue-next'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
+import { buildModuleUrl } from '~/utils/course-slug'
 
 const config = useRuntimeConfig()
-const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
+const layoutName = computed(() => 'dashboard')
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 
@@ -1009,28 +766,53 @@ const bannerPosMobile = reactive({ x: 50, y: 35 })
 const editCourseMode = ref('card')
 const isBannerEditMode = computed(() => editCourseMode.value === 'banner')
 const isCardEditMode = computed(() => editCourseMode.value !== 'banner')
+const bannerEditTab = ref('imagens')
+const bannerPositionVariant = ref('desktop')
+const bannerEditTabs = [
+  { id: 'imagens', label: 'Imagens' },
+  { id: 'texto', label: 'Textos' },
+  { id: 'cores', label: 'Cores' },
+  { id: 'enquadramento', label: 'Enquadramento' },
+]
+const bannerPositionPresets = [
+  { id: 'left', label: 'Esquerda' },
+  { id: 'center', label: 'Centro' },
+  { id: 'right', label: 'Direita' },
+  { id: 'face', label: 'Rosto' },
+  { id: 'top', label: 'Topo' },
+  { id: 'bottom', label: 'Base' },
+]
+const bannerColorFieldGroups = [
+  {
+    title: 'Etiqueta',
+    fields: [
+      { key: 'bannerKickerColor', label: 'Texto' },
+      { key: 'bannerKickerBg', label: 'Fundo' },
+    ],
+  },
+  {
+    title: 'Textos',
+    fields: [
+      { key: 'bannerTitleColor', label: 'Título' },
+      { key: 'bannerSubtitleColor', label: 'Subtítulo' },
+    ],
+  },
+  {
+    title: 'Botões',
+    fields: [
+      { key: 'bannerCtaBg', label: 'Principal' },
+      { key: 'bannerCtaColor', label: 'Texto principal' },
+      { key: 'bannerSecondaryBtnBg', label: 'Secundário' },
+      { key: 'bannerSecondaryBtnColor', label: 'Texto secundário' },
+    ],
+  },
+]
 const newModule = reactive({ title: '', description: '' })
-const newLesson = reactive({ title: '', videoUrl: '', duration: '', thumbnail: '' })
-const showEditLessonModal = ref(false)
-const editingLesson = reactive({ id: '', title: '', videoUrl: '', duration: '', thumbnail: '' })
-const lessonThumbPreview = ref(null)
-const lessonThumbInput = ref(null)
-const lessonThumbFile = ref(null)
-
-// ���� Novos estados: Upload de Vídeo + Captura de Frame ����������������������
-const videoSourceTab = ref('link') // 'link' | 'upload'
-const thumbSourceTab = ref('upload') // 'upload' | 'frame' | 'youtube'
-const videoFileLocal = ref(null) // File do vídeo
-const videoUploadProgress = ref(0)
-const videoUploadStatus = ref('') // '', 'uploading', 'done', 'error'
-const frameVideoRef = ref(null) // ref do <video> para frame
-const frameSeekTime = ref(0)
-const frameVideoDuration = ref(0)
-const frameVideoObjectUrl = ref(null)
-const videoFileInput = ref(null)
 
 const showDetailsModal = ref(false)
-const showLessonModal = ref(false)
+const lessonModalOpen = ref(false)
+const lessonModalMode = ref('create')
+const lessonModalLesson = ref(null)
 const currentModuleIdForLesson = ref(null)
 const showCreateEbookModal = ref(false)
 const showEditEbookModal = ref(false)
@@ -1066,7 +848,27 @@ const currentDropModule = computed(() => {
   if (!selectedCourseDetails.value || !selectedModuleDropId.value) return null
   return selectedCourseDetails.value.modules?.find(m => m.id === selectedModuleDropId.value)
 })
-const isPacienteView = computed(() => true)
+
+const lessonFormContext = computed(() => {
+  const ctx = { courseTitle: '', moduleTitle: '', lessonCount: 0 }
+  const moduleId = currentModuleIdForLesson.value || selectedModuleDropId.value
+  if (!moduleId) return ctx
+
+  const course = selectedCourseDetails.value
+    || courses.value.find((c) => c.modules?.some((m) => m.id === moduleId))
+  const mod = course?.modules?.find((m) => m.id === moduleId)
+  if (course) ctx.courseTitle = course.title
+  if (mod) {
+    ctx.moduleTitle = mod.title
+    ctx.lessonCount = mod.lessons?.length || 0
+  }
+  return ctx
+})
+const isPacienteView = computed(() => false)
+/** Capa de destaque no painel admin — sempre ativa nesta página. */
+const showCourseBanner = computed(() => true)
+/** Carrossel de tiles (Cursos + Ebooks) — sempre ativo no admin. */
+const useStreamingLayout = computed(() => true)
 const inferCourseRowName = (course) => {
   const explicitCategory = String(course?.category || course?.categoryName || '').trim()
   if (explicitCategory) return explicitCategory
@@ -1242,9 +1044,35 @@ const applyBannerPreset = (variant, preset) => {
 }
 
 const toPickerColor = (value, fallback) => {
-  if (!value || typeof value !== 'string') return fallback
-  if (value.startsWith('#') && (value.length === 7 || value.length === 4)) return value.slice(0, 7)
+  return normalizeHexColor(value, fallback)
+}
+
+function normalizeHexColor(raw, fallback = '#000000') {
+  let value = String(raw || '').trim()
+  if (!value) return fallback
+  if (!value.startsWith('#')) value = `#${value}`
+  if (/^#[0-9a-fA-F]{6}$/.test(value)) return value.toLowerCase()
+  if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+    const [, r, g, b] = value
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase()
+  }
   return fallback
+}
+
+function onBannerColorHexInput(key, event) {
+  let value = String(event.target.value || '').replace(/[^#0-9a-fA-F]/g, '')
+  if (value && !value.startsWith('#')) value = `#${value}`
+  if (value.length > 7) value = value.slice(0, 7)
+  event.target.value = value
+  if (/^#[0-9a-fA-F]{6}$/i.test(value)) {
+    editingCourse[key] = value.toLowerCase()
+  }
+}
+
+function onBannerColorHexBlur(key, event) {
+  const normalized = normalizeHexColor(event.target.value, editingCourse[key])
+  editingCourse[key] = normalized
+  event.target.value = normalized
 }
 
 const getBannerTheme = (course) => ({
@@ -1272,6 +1100,17 @@ const applyBannerThemeToForm = (course) => {
 
 const patientBannerThemeStyle = computed(() => {
   const source = isEditingFeaturedBanner.value ? editingCourse : featuredCourse.value
+  return buildBannerThemeStyle(source)
+})
+
+const bannerEditorThemeStyle = computed(() => buildBannerThemeStyle(editingCourse))
+
+const bannerEditorBgStyle = computed(() => ({
+  backgroundImage: coursePreview.value ? `url('${coursePreview.value}')` : 'none',
+  backgroundPosition: formatBannerPosition(bannerPosDesktop),
+}))
+
+function buildBannerThemeStyle(source) {
   const theme = getBannerTheme(source)
   return {
     '--banner-kicker-color': theme.bannerKickerColor,
@@ -1283,7 +1122,15 @@ const patientBannerThemeStyle = computed(() => {
     '--banner-secondary-bg': theme.bannerSecondaryBtnBg,
     '--banner-secondary-color': theme.bannerSecondaryBtnColor,
   }
-})
+}
+
+function onActiveBannerPositionDrag(event) {
+  onBannerPositionDrag(bannerPositionVariant.value, event)
+}
+
+function applyActiveBannerPreset(preset) {
+  applyBannerPreset(bannerPositionVariant.value, preset)
+}
 
 const onBannerPositionDrag = (variant, event) => {
   const el = event.currentTarget
@@ -1416,7 +1263,7 @@ const openCoursePlayerPage = (course) => {
   const firstModuleWithLesson = (course.modules || []).find((module) => module?.lessons?.length)
   const firstLesson = firstModuleWithLesson?.lessons?.[0]
   if (firstModuleWithLesson?.id && firstLesson?.id) {
-    navigateTo(`/modulos/${firstModuleWithLesson.id}?lessonId=${firstLesson.id}`)
+    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons))
   }
 }
 
@@ -1512,6 +1359,10 @@ const openEditCourse = (course, mode = 'card') => {
   courseMobilePreview.value = mode === 'banner'
     ? (course.bannerImageMobile || null)
     : (course.thumbnailMobile || null)
+  if (mode === 'banner') {
+    bannerEditTab.value = 'imagens'
+    bannerPositionVariant.value = 'desktop'
+  }
   showEditCourseModal.value = true
 }
 
@@ -2118,344 +1969,26 @@ const handleDeleteCourse = async (id) => {
   }
 }
 
-const triggerLessonThumbUpload = () => {
-  lessonThumbInput.value?.click()
-}
-
-const handleLessonThumbSelect = (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
-  lessonThumbFile.value = file
-  lessonThumbPreview.value = URL.createObjectURL(file)
-}
-
-const triggerVideoUpload = () => {
-  videoFileInput.value?.click()
-}
-
-const inferLessonTitleFromFileName = (fileName) => {
-  const baseName = String(fileName || '')
-    .replace(/\.[^.]+$/, '')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  if (!baseName) return ''
-  return baseName.charAt(0).toUpperCase() + baseName.slice(1)
-}
-
-const applySelectedVideoFile = (file) => {
-  if (!file) return
-  // Garantir que a UI fique no modo correto ao selecionar arquivo.
-  videoSourceTab.value = 'upload'
-  videoFileLocal.value = file
-  // Criar URL para preview e frame capture
-  if (frameVideoObjectUrl.value) URL.revokeObjectURL(frameVideoObjectUrl.value)
-  frameVideoObjectUrl.value = URL.createObjectURL(file)
-  frameSeekTime.value = 0
-  frameVideoDuration.value = 0
-  // Auto-mudar aba de thumbnail para 'frame' quando tem vídeo local
-  thumbSourceTab.value = 'frame'
-
-  const inferredTitle = inferLessonTitleFromFileName(file.name)
-  if (showEditLessonModal.value) {
-    if (!editingLesson.title?.trim() && inferredTitle) {
-      editingLesson.title = inferredTitle
-    }
-  } else if (!newLesson.title?.trim() && inferredTitle) {
-    newLesson.title = inferredTitle
-  }
-}
-
-const handleVideoFileSelect = (e) => {
-  const file = e.target.files?.[0]
-  applySelectedVideoFile(file)
-}
-
-const handleVideoDrop = (e) => {
-  const file = e.dataTransfer?.files?.[0]
-  applySelectedVideoFile(file)
-}
-
-const formatSecondsToDuration = (totalSeconds) => {
-  if (!totalSeconds) return ""
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = Math.floor(totalSeconds % 60)
-  const formattedSeconds = seconds < 10 ? `0${seconds}` : seconds
-  return `${minutes}:${formattedSeconds} min`
-}
-
-const onFrameVideoLoaded = () => {
-  if (frameVideoRef.value) {
-    const duration = frameVideoRef.value.duration || 0
-    frameVideoDuration.value = duration
-    
-    // Sugerir duração automaticamente se o campo estiver vazio ou for novo vídeo
-    const formatted = formatSecondsToDuration(duration)
-    if (showEditLessonModal.value) {
-      if (!editingLesson.duration || editingLesson.duration === "-- min") {
-        editingLesson.duration = formatted
-      }
-    } else {
-      if (!newLesson.duration) {
-        newLesson.duration = formatted
-      }
-    }
-  }
-}
-
-const onFrameSeekInput = (e) => {
-  const time = parseFloat(e.target.value)
-  frameSeekTime.value = time
-  if (frameVideoRef.value) {
-    frameVideoRef.value.currentTime = time
-  }
-}
-
-const captureVideoFrame = () => {
-  const video = frameVideoRef.value
-  if (!video) return
-  const canvas = document.createElement('canvas')
-  canvas.width = video.videoWidth || 640
-  canvas.height = video.videoHeight || 360
-  const ctx = canvas.getContext('2d')
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-  canvas.toBlob((blob) => {
-    if (!blob) return
-    const file = new File([blob], 'frame_capture.jpg', { type: 'image/jpeg' })
-    lessonThumbFile.value = file
-    lessonThumbPreview.value = URL.createObjectURL(blob)
-  }, 'image/jpeg', 0.92)
-}
-
-const handleVideoUpload = async () => {
-  if (!videoFileLocal.value) return
-  const token = localStorage.getItem('auth_token')
-  videoUploadStatus.value = 'uploading'
-  videoUploadProgress.value = 0
-
-  return new Promise((resolve, reject) => {
-    const formData = new FormData()
-    formData.append('file', videoFileLocal.value)
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', `${apiBase}/upload/video`)
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-    // Upload de vídeo grande pode demorar no Cloudinary (upload_large).
-    xhr.timeout = 1000 * 60 * 30 // 30min
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        videoUploadProgress.value = Math.round((e.loaded / e.total) * 100)
-      }
-    })
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const data = JSON.parse(xhr.responseText || '{}')
-        if (!data?.url) {
-          videoUploadStatus.value = 'error'
-          reject(new Error('Upload concluído, mas não retornou URL do Cloudinary.'))
-          return
-        }
-        videoUploadStatus.value = 'done'
-        if (showEditLessonModal.value) {
-          editingLesson.videoUrl = data.url
-        } else {
-          newLesson.videoUrl = data.url
-        }
-        resolve(data.url)
-      } else {
-        videoUploadStatus.value = 'error'
-        let message = 'Erro no upload do vídeo.'
-        try {
-          const errData = JSON.parse(xhr.responseText || '{}')
-          message = errData?.message || message
-        } catch {}
-        reject(new Error(message))
-      }
-    }
-    xhr.onerror = () => {
-      videoUploadStatus.value = 'error'
-      reject(new Error('Erro de rede no upload'))
-    }
-    xhr.ontimeout = () => {
-      videoUploadStatus.value = 'error'
-      reject(new Error('Timeout no upload do vídeo. Tente novamente.'))
-    }
-    xhr.send(formData)
-  })
-}
-
-const resetLessonVideoState = () => {
-  videoSourceTab.value = 'link'
-  thumbSourceTab.value = 'upload'
-  videoFileLocal.value = null
-  videoUploadProgress.value = 0
-  videoUploadStatus.value = ''
-  frameSeekTime.value = 0
-  frameVideoDuration.value = 0
-  if (frameVideoObjectUrl.value) {
-    URL.revokeObjectURL(frameVideoObjectUrl.value)
-    frameVideoObjectUrl.value = null
-  }
-}
-
 const openAddLesson = (moduleId) => {
   currentModuleIdForLesson.value = moduleId
-  newLesson.title = ''
-  newLesson.videoUrl = ''
-  newLesson.duration = ''
-  newLesson.thumbnail = ''
-  lessonThumbPreview.value = null
-  lessonThumbFile.value = null
-  resetLessonVideoState()
-  showLessonModal.value = true
-}
-
-
-const handleCreateLesson = async () => {
-  // Se fonte é upload de vídeo, o videoUrl precisa ser preenchido pelo upload
-  if (!newLesson.title) return alert('Título é obrigatório.')
-  if (videoSourceTab.value === 'link' && !newLesson.videoUrl) return alert('Informe o link do vídeo.')
-  if (videoSourceTab.value === 'upload' && !videoFileLocal.value && !newLesson.videoUrl) return alert('Selecione um vídeo para fazer upload.')
-  try {
-    uploading.value = true
-    const token = localStorage.getItem('auth_token')
-    
-    // 1. Upload do vídeo local (se necessário)
-    if (videoSourceTab.value === 'upload' && videoFileLocal.value && !newLesson.videoUrl) {
-      await handleVideoUpload()
-    }
-    if (!newLesson.videoUrl) throw new Error('Não foi possível obter URL do vídeo (Cloudinary).')
-
-    // 2. Upload da miniatura (se existir arquivo)
-    let finalThumbnail = newLesson.thumbnail
-    if (lessonThumbFile.value) {
-      const formData = new FormData()
-      formData.append('file', lessonThumbFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      })
-      finalThumbnail = uploadRes.url
-    }
-
-    await $fetch(`${apiBase}/courses/lessons`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: {
-        title: newLesson.title,
-        videoUrl: newLesson.videoUrl,
-        duration: newLesson.duration,
-        thumbnail: finalThumbnail,
-        moduleId: currentModuleIdForLesson.value,
-        order: 0
-      }
-    })
-    showLessonModal.value = false
-    uploading.value = false
-    resetLessonVideoState()
-    await fetchCourses()
-    if (selectedCourseDetails.value) {
-      selectedCourseDetails.value = courses.value.find(c => c.id === selectedCourseDetails.value.id)
-    }
-  } catch (err) {
-    uploading.value = false
-    console.error(err)
-    alert('Erro ao criar aula: ' + (err?.data?.message || err?.message || 'Tente novamente.'))
-  }
+  lessonModalMode.value = 'create'
+  lessonModalLesson.value = null
+  lessonModalOpen.value = true
 }
 
 const openEditLesson = (lesson) => {
-  editingLesson.id = lesson.id
-  editingLesson.title = lesson.title
-  editingLesson.videoUrl = lesson.videoUrl
-  editingLesson.duration = lesson.duration || ''
-  editingLesson.thumbnail = lesson.thumbnail || ''
-  lessonThumbPreview.value = lesson.thumbnail || null
-  lessonThumbFile.value = null
-  resetLessonVideoState()
-  // Se o link atual não é YouTube, mostrar como link externo
-  if (lesson.videoUrl && !isYoutube(lesson.videoUrl)) {
-    videoSourceTab.value = 'link'
-  }
-  // Se há thumbnail, mudar aba para upload
-  thumbSourceTab.value = lesson.thumbnail ? 'upload' : 'upload'
-  showEditLessonModal.value = true
+  currentModuleIdForLesson.value = lesson.moduleId || selectedModuleDropId.value
+  lessonModalMode.value = 'edit'
+  lessonModalLesson.value = { ...lesson }
+  lessonModalOpen.value = true
 }
 
-const handleUpdateLesson = async () => {
-  if (!editingLesson.title) return alert('Título é obrigatório.')
-  if (videoSourceTab.value === 'upload' && videoFileLocal.value) {
-    // Upload do novo vídeo primeiro
-    await handleVideoUpload()
-  }
-  if (!editingLesson.videoUrl) return alert('Informe o link ou faça upload de um vídeo.')
-  try {
-    uploading.value = true
-    const token = localStorage.getItem('auth_token')
-
-    let finalThumbnail = editingLesson.thumbnail
-    if (lessonThumbFile.value) {
-      const formData = new FormData()
-      formData.append('file', lessonThumbFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      })
-      finalThumbnail = uploadRes.url
-    }
-
-    await $fetch(`${apiBase}/courses/lessons/${editingLesson.id}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
-      body: {
-        title: editingLesson.title,
-        videoUrl: editingLesson.videoUrl,
-        duration: editingLesson.duration,
-        thumbnail: finalThumbnail,
-        order: 0
-      }
-    })
-    showEditLessonModal.value = false
-    uploading.value = false
-    resetLessonVideoState()
-    await fetchCourses()
-    if (selectedCourseDetails.value) {
-      selectedCourseDetails.value = courses.value.find(c => c.id === selectedCourseDetails.value.id)
-    }
-  } catch (err) {
-    uploading.value = false
-    alert('Erro ao atualizar aula.')
+const onLessonSaved = async () => {
+  await fetchCourses()
+  if (selectedCourseDetails.value) {
+    selectedCourseDetails.value = courses.value.find((c) => c.id === selectedCourseDetails.value.id)
   }
 }
-
-const applyYoutubeThumb = () => {
-  const url = showEditLessonModal.value ? editingLesson.videoUrl : newLesson.videoUrl
-  let videoId = ''
-  if (url.includes('v=')) {
-    videoId = url.split('v=')[1].split('&')[0]
-  } else if (url.includes('youtu.be/')) {
-    videoId = url.split('youtu.be/')[1].split('?')[0]
-  }
-  
-  if (videoId) {
-    const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
-    lessonThumbPreview.value = thumbUrl
-    if (showEditLessonModal.value) {
-      editingLesson.thumbnail = thumbUrl
-    } else {
-      newLesson.thumbnail = thumbUrl
-    }
-    lessonThumbFile.value = null 
-  }
-}
-
-const isYoutube = (url) => {
-  if (!url) return false
-  return url.includes('youtube.com') || url.includes('youtu.be')
-}
-
 
 const handleDeleteLesson = async (lessonId, moduleId) => {
   const { confirm } = useConfirm()
@@ -2568,7 +2101,7 @@ watch(
   color: white;
   border: none;
   padding: 0.8rem 1.6rem;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-pill);
   cursor: pointer;
   font-weight: 700;
   font-size: 1rem;
@@ -2610,7 +2143,7 @@ watch(
 .netflix-card {
   position: relative;
   width: 100%;
-  border-radius: 20px;
+  border-radius: var(--cf-radius-surface);
   overflow: hidden;
   cursor: pointer;
   background: white;
@@ -2631,7 +2164,7 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 20px;
+  border-radius: var(--cf-radius-surface);
   overflow: hidden;
 }
 
@@ -2723,7 +2256,7 @@ watch(
 .netflix-theme {
   background: #ffffff !important;
   color: #111 !important;
-  border-radius: 12px !important;
+  border-radius: var(--cf-radius-control) !important;
   overflow: hidden;
   max-width: 850px !important;
   max-height: 90vh; /* Limitar altura do modal */
@@ -2748,7 +2281,7 @@ watch(
 }
 .netflix-modal-body::-webkit-scrollbar-thumb {
   background: #ddd;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
 }
 .btn-close-floating {
   position: absolute;
@@ -2951,7 +2484,7 @@ watch(
 
 .episodes-list::-webkit-scrollbar-thumb {
   background: #ddd;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
 }
 
 .episode-row {
@@ -2961,7 +2494,7 @@ watch(
   border-bottom: 1px solid #eee;
   transition: background 0.2s;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--cf-radius-sm);
   width: 100%;
 }
 .episode-row:hover { background: #f2f2f2; }
@@ -3053,7 +2586,7 @@ watch(
 .modal-card {
   background: white;
   padding: 1.35rem 1.4rem;
-  border-radius: 20px;
+  border-radius: var(--cf-radius-surface);
   width: min(100%, 26rem);
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
   max-height: min(34rem, calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
@@ -3072,6 +2605,403 @@ watch(
 .modal-card::-webkit-scrollbar-thumb {
   background: #d6d6d6;
   border-radius: 999px;
+}
+
+.modal-card--banner {
+  width: min(100%, 42rem);
+  max-height: min(92dvh, 52rem);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header--banner {
+  padding: 1.2rem 1.35rem 0;
+  margin-bottom: 0;
+  align-items: flex-start;
+}
+
+.modal-header--banner .modal-subtitle {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+}
+
+.banner-editor-preview {
+  position: relative;
+  margin: 0.85rem 1.35rem 0;
+  border-radius: var(--cf-radius-control);
+  overflow: hidden;
+  min-height: 9.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+}
+
+.banner-editor-preview-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-color: #e8edf2;
+}
+
+.banner-editor-preview-fade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.55) 38%, rgba(255, 255, 255, 0.08) 62%);
+  pointer-events: none;
+}
+
+.banner-editor-preview-content {
+  position: relative;
+  z-index: 1;
+  padding: 1.35rem 1.25rem;
+  max-width: 62%;
+}
+
+.banner-editor-kicker {
+  display: inline-flex;
+  margin-bottom: 0.55rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border-radius: var(--cf-radius-control);
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: var(--banner-kicker-bg, #fff);
+  color: var(--banner-kicker-color, #0f172a);
+}
+
+.banner-editor-preview-content h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--banner-title-color, #0f172a);
+}
+
+.banner-editor-preview-content p {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--banner-subtitle-color, #334155);
+}
+
+.banner-editor-cta {
+  display: inline-flex;
+  padding: 0.42rem 0.85rem;
+  border-radius: var(--cf-radius-control);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--banner-cta-bg, #fff);
+  color: var(--banner-cta-color, #0f172a);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.banner-editor-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.85rem 1.35rem 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.banner-editor-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.banner-editor-tab {
+  flex-shrink: 0;
+  border: none;
+  background: #f1f5f4;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--cf-radius-control);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.banner-editor-tab--active {
+  background: var(--primary, #2d5a27);
+  color: #fff;
+}
+
+.banner-editor-panel {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0.85rem 1.35rem 0.5rem;
+  overscroll-behavior: contain;
+}
+
+.banner-editor-section {
+  animation: bannerEditorFade 0.2s ease;
+}
+
+@keyframes bannerEditorFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-editor-section {
+    animation: none;
+  }
+}
+
+.banner-upload-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.banner-upload-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.banner-upload-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.banner-upload-card-head strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #0f172a;
+}
+
+.banner-upload-card-head span {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.banner-upload-device-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--primary, #2d5a27);
+}
+
+.banner-upload-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: var(--cf-radius-control);
+  background: #f8fafc;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.banner-upload-frame:hover {
+  border-color: var(--primary, #2d5a27);
+  background: #f3f7f2;
+}
+
+.banner-upload-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.banner-upload-frame--desktop {
+  aspect-ratio: 3 / 1;
+}
+
+.banner-upload-frame--mobile {
+  aspect-ratio: 4 / 5;
+  width: 7.5rem;
+}
+
+.banner-upload-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+}
+
+.banner-upload-empty svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.banner-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem 0.75rem;
+}
+
+.banner-field-full {
+  grid-column: 1 / -1;
+}
+
+.banner-editor-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.banner-color-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.banner-color-group h4 {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #334155;
+  letter-spacing: 0.02em;
+}
+
+.banner-color-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.55rem;
+}
+
+.color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: var(--cf-radius-control);
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.color-field-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.color-field-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.color-swatch-btn {
+  position: relative;
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--cf-radius-sm);
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.color-swatch-btn input[type='color'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.color-hex-input {
+  flex: 1;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--cf-radius-sm);
+  background: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.color-hex-input:hover {
+  border-color: #cbd5e1;
+  background: #fff;
+}
+
+.color-hex-input:focus {
+  border-color: var(--primary, #2d5a27);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.1);
+}
+
+.banner-device-toggle {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: var(--cf-radius-control);
+  background: #f1f5f4;
+  margin-bottom: 0.65rem;
+}
+
+.banner-device-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--cf-radius-sm);
+  cursor: pointer;
+}
+
+.banner-device-btn.active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.banner-device-btn-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.banner-position-empty {
+  padding: 1.25rem;
+  border-radius: var(--cf-radius-control);
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  font-size: 0.8rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.modal-actions--banner {
+  margin-top: 0;
+  padding: 0.85rem 1.35rem 1.15rem;
+  background: #fafafa;
+  border-top: 1px solid #eef2f6;
 }
 
 .modal-header {
@@ -3094,7 +3024,7 @@ watch(
   height: 36px;
   background: #f5f5f5;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3168,7 +3098,7 @@ watch(
   width: 100%;
   padding: 0.85rem 1rem;
   border: 1.5px solid #eee;
-  border-radius: 12px;
+  border-radius: var(--cf-radius-control);
   font-family: inherit;
   font-size: 0.95rem;
   color: #111;
@@ -3206,7 +3136,7 @@ watch(
   border: 1.5px solid #eee;
   color: #666;
   padding: 0.75rem 1.5rem;
-  border-radius: 14px;
+  border-radius: var(--cf-radius-pill);
   cursor: pointer;
   font-weight: 700;
   font-size: 0.95rem;
@@ -3224,7 +3154,7 @@ watch(
   color: white;
   border: none;
   padding: 0.75rem 2rem;
-  border-radius: 14px;
+  border-radius: var(--cf-radius-pill);
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
@@ -3251,9 +3181,22 @@ watch(
   filter: grayscale(0.5);
 }
 
+.btn-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
 .upload-area {
   border: 2px dashed #eee;
-  border-radius: 12px;
+  border-radius: var(--cf-radius-control);
   height: 7.25rem;
   display: flex;
   align-items: center;
@@ -3291,7 +3234,7 @@ watch(
 
 .pdf-upload-box {
   border: 2px dashed #dfe3e8;
-  border-radius: 12px;
+  border-radius: var(--cf-radius-control);
   min-height: 110px;
   padding: 1rem;
   display: flex;
@@ -3326,7 +3269,7 @@ watch(
   text-align: center;
   padding: 6rem 2rem;
   background: #fff;
-  border-radius: 24px;
+  border-radius: var(--cf-radius-surface);
   border: 1px solid #eee;
 }
 
@@ -3357,7 +3300,7 @@ watch(
   height: 140px;
   background: #f8f9fa;
   border: 2px dashed #e0e0e0;
-  border-radius: 12px;
+  border-radius: var(--cf-radius-control);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3385,7 +3328,7 @@ watch(
 .btn-mini-netflix {
   background: #f0f0f0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--cf-radius-sm);
   padding: 0.4rem 0.8rem;
   font-size: 0.75rem;
   font-weight: 700;
@@ -3524,7 +3467,7 @@ watch(
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   background: #f5f5f5;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   padding: 4px;
 }
 
@@ -3536,7 +3479,7 @@ watch(
   gap: 6px;
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--cf-radius-sm);
   font-size: 0.82rem;
   font-weight: 700;
   font-family: inherit;
@@ -3574,7 +3517,7 @@ watch(
 /* ���� Área de Upload de Vídeo ���� */
 .video-upload-area {
   border: 2px dashed #d8d8d8;
-  border-radius: 12px;
+  border-radius: var(--cf-radius-control);
   padding: 2rem;
   display: flex;
   flex-direction: column;
@@ -3606,7 +3549,7 @@ watch(
   padding: 0.75rem 1rem;
   background: #f0f9f0;
   border: 1.5px solid #c8e6c9;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   font-size: 0.85rem;
   color: #2e7d32;
   font-weight: 600;
@@ -3627,7 +3570,7 @@ watch(
 .btn-mini {
   background: white;
   border: 1.5px solid #ddd;
-  border-radius: 6px;
+  border-radius: var(--cf-radius-sm);
   padding: 0.3rem 0.7rem;
   font-size: 0.75rem;
   font-weight: 700;
@@ -3646,7 +3589,7 @@ watch(
 /* â”€â”€ Barra de Progresso de Upload â”€â”€ */
 .upload-progress-bar {
   margin-top: 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--cf-radius-sm);
   background: #eee;
   height: 8px;
   overflow: hidden;
@@ -3667,7 +3610,7 @@ watch(
 .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--primary), #6ab04c);
-  border-radius: 8px;
+  border-radius: var(--cf-radius-sm);
   transition: width 0.3s ease;
 }
 
@@ -3697,7 +3640,7 @@ watch(
 
 .frame-video-preview {
   width: 100%;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   max-height: 200px;
   object-fit: cover;
   background: #111;
@@ -3725,7 +3668,7 @@ watch(
   background: #111;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--cf-radius-sm);
   font-size: 0.85rem;
   font-weight: 700;
   font-family: inherit;
@@ -3758,7 +3701,7 @@ watch(
 
 .frame-preview-box .upload-preview {
   height: 100px;
-  border-radius: 8px;
+  border-radius: var(--cf-radius-sm);
   object-fit: cover;
 }
 
@@ -3798,10 +3741,58 @@ watch(
   overflow: visible;
 }
 
+/* Admin: capa em largura total (compensa padding do layout dashboard) */
+.courses-container.admin-with-banner {
+  margin-left: -2rem;
+  margin-right: -2rem;
+  width: auto;
+}
+
+.courses-page.has-featured-banner {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.courses-page.has-featured-banner > :not(.patient-banner) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 3rem;
+  padding-right: 3rem;
+}
+
+.courses-page.streaming-page {
+  padding-bottom: 2.5rem;
+}
+
+.courses-page.streaming-page .course-row-block {
+  margin-bottom: 1.75rem;
+}
+
+.courses-page.streaming-page .course-row-block :deep(.cf-tile-carousel) {
+  scroll-padding-inline: 3rem;
+  margin-inline: -3rem;
+  padding-inline: 3rem;
+}
+
+.patient-banner--admin {
+  width: 100%;
+  margin: 0 0 2.2rem;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.patient-banner--admin .banner-edit-btn {
+  right: 2rem;
+}
+
 .patient-banner {
   position: relative;
   min-height: 640px;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   overflow: hidden;
   margin: 0 -2.5rem 2.2rem;
   border: none;
@@ -3853,7 +3844,7 @@ watch(
   gap: 0.35rem;
   margin: 0;
   padding: 0.45rem 0.8rem;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-control);
   border: 1px solid rgba(15, 23, 42, 0.14);
   background: rgba(255, 255, 255, 0.97);
   color: #0f172a;
@@ -3889,8 +3880,9 @@ watch(
 .banner-position-preview {
   position: relative;
   width: 100%;
-  height: 7rem;
-  border-radius: 12px;
+  aspect-ratio: 3 / 1;
+  max-height: 10rem;
+  border-radius: var(--cf-radius-control);
   overflow: hidden;
   border: 1px solid rgba(15, 23, 42, 0.12);
   background-color: #f1f5f9;
@@ -3901,7 +3893,9 @@ watch(
 }
 
 .banner-position-preview--mobile {
-  height: 7.75rem;
+  aspect-ratio: 4 / 5;
+  max-height: 14rem;
+  max-width: 11rem;
 }
 
 .banner-position-marker {
@@ -3944,7 +3938,7 @@ watch(
 
 .banner-position-preset {
   border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-control);
   padding: 0.28rem 0.65rem;
   background: #fff;
   font-size: 0.72rem;
@@ -3974,7 +3968,7 @@ watch(
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-control);
   padding: 0.35rem 0.65rem;
   border: 1px solid rgba(15, 23, 42, 0.18);
   background: var(--banner-kicker-bg, rgba(255, 255, 255, 0.78));
@@ -4000,7 +3994,7 @@ watch(
 .patient-banner-btn {
   margin-top: 1.15rem;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   background: var(--banner-cta-bg, #fff);
   color: var(--banner-cta-color, #111318);
   font-weight: 700;
@@ -4045,7 +4039,7 @@ watch(
   height: 1.75rem;
   padding: 0;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 6px;
+  border-radius: var(--cf-radius-sm);
   background: transparent;
   cursor: pointer;
 }
@@ -4091,6 +4085,26 @@ watch(
 }
 
 @media (max-width: 640px) {
+  .courses-container.admin-with-banner {
+    margin-left: -1rem;
+    margin-right: -1rem;
+  }
+
+  .courses-page.has-featured-banner > :not(.patient-banner) {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .courses-page.streaming-page .course-row-block :deep(.cf-tile-carousel) {
+    scroll-padding-inline: 1rem;
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+  }
+
+  .patient-banner--admin .banner-edit-btn {
+    right: 1rem;
+  }
+
   .courses-page.patient-page {
     padding: 0 1.2rem 1.2rem;
   }
@@ -4132,6 +4146,29 @@ watch(
 
   .banner-color-grid {
     grid-template-columns: 1fr;
+  }
+
+  .banner-upload-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .banner-upload-frame--mobile {
+    width: 100%;
+    max-width: 9rem;
+  }
+
+  .banner-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .banner-editor-preview-content {
+    max-width: 78%;
+  }
+
+  .modal-card--banner {
+    width: min(100%, 100%);
+    max-height: calc(100dvh - 1rem);
+    border-radius: var(--cf-radius-control);
   }
 
   .modal-card {

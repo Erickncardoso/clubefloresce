@@ -1,7 +1,6 @@
 <template>
-  <div class="auth-container" :class="{ 'patient-login-mode': isPatientApp }">
-    <!-- App do paciente: solicitar cadastro -->
-    <main v-if="isPatientApp" class="patient-auth">
+  <div class="auth-container patient-login-mode">
+    <main class="patient-auth">
       <div class="patient-auth-inner">
         <header class="patient-auth-brand">
           <img src="/logoflorescer.svg" alt="Florescer" class="patient-auth-logo" width="120" height="36">
@@ -115,123 +114,6 @@
         </div>
       </div>
     </main>
-
-    <!-- Portal web (nutricionista / admin) -->
-    <template v-else>
-      <div class="auth-visual">
-        <div class="visual-overlay" />
-        <img src="https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?q=80&w=2070&auto=format&fit=crop" alt="Nature Background">
-        <div class="visual-content">
-          <div class="brand-badge">Junte-se a nós</div>
-          <h1>Plante hoje a sua melhor <br><span>versão</span>.</h1>
-          <p>Faça parte de uma comunidade focada em resultados reais e saúde duradoura.</p>
-        </div>
-      </div>
-
-      <main class="auth-main">
-        <div class="auth-card">
-          <header class="auth-header">
-            <h2>Criar sua conta</h2>
-            <p>Preencha os dados abaixo para iniciar sua jornada.</p>
-          </header>
-
-          <form class="auth-form" @submit.prevent="handleWebRegister">
-            <div class="form-group" :class="{ focused: focusedField === 'name' }">
-              <label>Nome completo</label>
-              <div class="input-wrapper">
-                <User class="input-icon" />
-                <input
-                  v-model="webForm.name"
-                  type="text"
-                  placeholder="Seu nome completo"
-                  required
-                  @focus="focusedField = 'name'"
-                  @blur="focusedField = ''"
-                >
-              </div>
-            </div>
-
-            <div class="form-group" :class="{ focused: focusedField === 'email' }">
-              <label>E-mail</label>
-              <div class="input-wrapper">
-                <Mail class="input-icon" />
-                <input
-                  v-model="webForm.email"
-                  type="email"
-                  placeholder="seu@exemplo.com"
-                  required
-                  @focus="focusedField = 'email'"
-                  @blur="focusedField = ''"
-                >
-              </div>
-            </div>
-
-            <div class="form-group" :class="{ focused: focusedField === 'password' }">
-              <label>Senha de acesso</label>
-              <div class="input-wrapper">
-                <Lock class="input-icon" />
-                <input
-                  v-model="webForm.password"
-                  :type="showPassword ? 'text' : 'password'"
-                  placeholder="Mínimo 8 caracteres"
-                  required
-                  minlength="8"
-                  @focus="focusedField = 'password'"
-                  @blur="focusedField = ''"
-                >
-                <button
-                  type="button"
-                  class="password-toggle-btn"
-                  :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
-                  @click="showPassword = !showPassword"
-                >
-                  <EyeOff v-if="showPassword" class="password-toggle-icon" />
-                  <Eye v-else class="password-toggle-icon" />
-                </button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>Tipo de acesso</label>
-              <div class="role-selector">
-                <button
-                  type="button"
-                  class="role-btn"
-                  :class="{ active: webForm.role === 'PACIENTE' }"
-                  @click="webForm.role = 'PACIENTE'"
-                >
-                  Paciente
-                </button>
-                <button
-                  type="button"
-                  class="role-btn"
-                  :class="{ active: webForm.role === 'NUTRICIONISTA' }"
-                  @click="webForm.role = 'NUTRICIONISTA'"
-                >
-                  Nutricionista
-                </button>
-              </div>
-            </div>
-
-            <button type="submit" class="btn-auth-submit" :disabled="loading">
-              <span v-if="loading">Criando sua conta...</span>
-              <span v-else>Cadastrar agora</span>
-            </button>
-
-            <p v-if="error" class="error-banner">
-              <AlertCircle class="error-icon" />
-              {{ error }}
-            </p>
-
-            <div class="auth-footer">
-              <p>Já possui uma conta? <NuxtLink to="/">Fazer login</NuxtLink></p>
-            </div>
-          </form>
-        </div>
-
-        <footer class="main-footer">&copy; 2026 Clube Florescer</footer>
-      </main>
-    </template>
   </div>
 </template>
 
@@ -240,9 +122,6 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
-  Eye,
-  EyeOff,
-  Lock,
   Mail,
   Phone,
   User,
@@ -250,7 +129,6 @@ import {
 
 definePageMeta({ layout: false })
 
-const config = useRuntimeConfig()
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)
 
@@ -258,20 +136,12 @@ const loading = ref(false)
 const error = ref('')
 const submitted = ref(false)
 const focusedField = ref('')
-const showPassword = ref(false)
 
 const patientForm = reactive({
   name: '',
   email: '',
   phone: '',
   message: '',
-})
-
-const webForm = reactive({
-  name: '',
-  email: '',
-  password: '',
-  role: 'NUTRICIONISTA',
 })
 
 const handlePatientRequest = async () => {
@@ -290,23 +160,6 @@ const handlePatientRequest = async () => {
     submitted.value = true
   } catch (err) {
     error.value = err.data?.message || 'Não foi possível enviar sua solicitação. Tente novamente.'
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleWebRegister = async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    await $fetch(`${authApiBase.value}/register`, {
-      method: 'POST',
-      body: webForm,
-    })
-    alert('Conta criada com sucesso! Redirecionando para o login...')
-    navigateTo('/')
-  } catch (err) {
-    error.value = err.data?.message || 'Não foi possível completar o cadastro. Verifique os dados.'
   } finally {
     loading.value = false
   }

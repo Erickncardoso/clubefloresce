@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-const UAZAPI_URL = process.env.UAZAPI_SERVER_URL || "https://erickcardoso.uazapi.com";
+const UAZAPI_URL = process.env.UAZAPI_SERVER_URL || "";
 // Em muitas documentações da UazAPI/Evolution, o header correto é 'apikey' e não 'admintoken'.
 const API_KEY = process.env.UAZAPI_ADMIN_TOKEN || process.env.UAZAPI_API_KEY || "";
 
@@ -73,7 +73,7 @@ export class WhatsappService {
       i.instanceName === `instancia_${userId}` ||
       i.instance?.name === `instancia_${userId}`
     );
-    return byName || (instances.length > 0 ? instances[0] : null);
+    return byName ?? null;
   }
 
   async getInstanceInfo(userId: string): Promise<{ token: string, name: string } | null> {

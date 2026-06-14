@@ -16,6 +16,30 @@ export function isProdAppHostname(hostname) {
   return PROD_APP_HOSTNAMES.includes(hostname)
 }
 
+/** Em dev, chama o backend direto (porta 3001) e evita timeout/reset do proxy do Nuxt. */
+export function resolveDirectApiUrl(path, apiBase = DEV_MOBILE_API_BASE) {
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  if (typeof window !== 'undefined' && isLocalHostname(window.location.hostname)) {
+    return `${DEV_PANEL_API_BASE}${normalized}`
+  }
+  const base = String(apiBase || DEV_MOBILE_API_BASE).replace(/\/$/, '')
+  return `${base}${normalized}`
+}
+
+export function normalizeUploadError(error) {
+  const raw = error?.data?.message || error?.message || String(error || '')
+  if (/ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT|socket hang up|aborted/i.test(raw)) {
+    return 'Conexão interrompida durante o envio. Confira se o backend está rodando (porta 3001) e tente novamente.'
+  }
+  if (/file size too large|104857600|too large/i.test(raw)) {
+    return 'Vídeo muito grande (limite 100 MB no Cloudinary). O servidor vai comprimir automaticamente — tente novamente.'
+  }
+  if (/failed to fetch|networkerror|load failed|fetch failed/i.test(raw)) {
+    return 'Falha de rede ao enviar o vídeo. Tente novamente.'
+  }
+  return raw || 'Erro no upload do vídeo.'
+}
+
 /** Resolução no build (nuxt.config / Docker generate). */
 export function resolveApiBaseAtBuild({
   mobileApp = false,

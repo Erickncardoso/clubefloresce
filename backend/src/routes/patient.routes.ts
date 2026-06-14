@@ -11,7 +11,8 @@ const pdfUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const isPdf =
-      file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf");
+      file.mimetype === "application/pdf" &&
+      file.originalname.toLowerCase().endsWith(".pdf");
     if (isPdf) return cb(null, true);
     cb(new Error("Envie apenas arquivos PDF."));
   },

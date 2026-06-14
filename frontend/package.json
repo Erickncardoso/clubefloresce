@@ -3,20 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "nuxt build",
-    "build:paciente": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt build",
-    "dev": "cross-env NUXT_PUBLIC_MOBILE_APP=false NUXT_PUBLIC_API_BASE=/api nuxt dev --port 3000 --host 127.0.0.1",
-    "dev:paciente": "node scripts/dev-paciente.mjs",
-    "dev:mobile": "npm run dev:paciente",
+    "build": "cross-env NUXT_PUBLIC_API_BASE=/api nuxt build",
+    "dev": "cross-env NUXT_PUBLIC_API_BASE=/api nuxt dev --port 3000 --host 127.0.0.1",
     "generate": "nuxt generate",
-    "generate:paciente": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt generate",
-    "generate:mobile": "npm run generate:paciente",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "preview": "nuxt preview",
-    "preview:paciente": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt preview",
     "test": "node --test \"tests/**/*.test.js\"",
-    "postinstall": "nuxt prepare",
-    "prepare:mobile": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt prepare"
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -24,6 +17,7 @@
     "@lottiefiles/dotlottie-vue": "^0.11.15",
     "@pinia/nuxt": "^0.5.0",
     "emoji-mart": "^5.6.0",
+    "hls.js": "^1.6.16",
     "lucide-vue-next": "^1.0.0",
     "nuxt": "^3.12.0",
     "pdfjs-dist": "^5.6.205",

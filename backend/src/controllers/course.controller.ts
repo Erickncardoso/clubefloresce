@@ -49,79 +49,124 @@ export class CourseController {
 
   async update(req: Request, res: Response): Promise<any> {
     try {
-      const course = await courseService.updateCourse(req.params.id, req.body);
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      const course = await courseService.updateCourse(req.params.id, userId, req.body);
       return res.json(course);
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 
   async delete(req: Request, res: Response): Promise<any> {
     try {
-      await courseService.deleteCourse(req.params.id);
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      await courseService.deleteCourse(req.params.id, userId);
       return res.status(204).send();
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 
   async addModule(req: Request, res: Response): Promise<any> {
     try {
-      const module = await courseService.addModule({
-        ...req.body,
-        courseId: req.params.id,
-      });
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      const module = await courseService.addModule(req.params.id, userId, req.body);
       return res.status(201).json(module);
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 
   async ensureFirstModule(req: Request, res: Response): Promise<any> {
     try {
-      const module = await courseService.ensureFirstModule(req.params.id);
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      const module = await courseService.ensureFirstModule(req.params.id, userId);
       return res.status(200).json(module);
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 
   async addLesson(req: Request, res: Response): Promise<any> {
     try {
-      const lesson = await courseService.addLesson({
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      const lesson = await courseService.addLesson(userId, {
         ...req.body,
-        moduleId: req.body.moduleId, // Enviado no payload
+        moduleId: req.body.moduleId,
       });
       return res.status(201).json(lesson);
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 
   async deleteModule(req: Request, res: Response): Promise<any> {
     try {
-      await courseService.deleteModule(req.params.moduleId);
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      await courseService.deleteModule(req.params.moduleId, userId);
       return res.status(204).send();
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async syncLessonTranscription(req: Request, res: Response): Promise<any> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      const result = await courseService.syncLessonTranscription(req.params.lessonId, userId);
+      return res.json(result);
+    } catch (error: any) {
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async generateLessonSummary(req: Request, res: Response): Promise<any> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      const result = await courseService.generateLessonSummary(req.params.lessonId, userId);
+      return res.json(result);
+    } catch (error: any) {
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 
   async updateLesson(req: Request, res: Response): Promise<any> {
     try {
-      const lesson = await courseService.updateLesson(req.params.lessonId, req.body);
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      const lesson = await courseService.updateLesson(req.params.lessonId, userId, req.body);
       return res.json(lesson);
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 
   async deleteLesson(req: Request, res: Response): Promise<any> {
     try {
-      await courseService.deleteLesson(req.params.lessonId);
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      await courseService.deleteLesson(req.params.lessonId, userId);
       return res.status(204).send();
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Acesso negado." ? 403 : 400;
+      return res.status(status).json({ message: error.message });
     }
   }
 

@@ -1,98 +1,52 @@
 <template>
-  <div v-if="isPatientApp" class="patient-page checkin-page checkin-page--typeform">
-    <CheckinTypeformFlow
-      :saving="saving"
-      :error="formError"
-      :show-history-link="history.length > 0"
-      @submit="submitPatientCheckIn"
-    />
-  </div>
-
-  <NuxtLayout v-else name="dashboard">
-    <div class="checkin-page admin-shell">
+  <NuxtLayout name="dashboard">
+    <div class="checkin-admin admin-shell">
       <header class="admin-shell-header">
         <div>
-          <h1>{{ isNutri ? 'Check-ins dos pacientes' : 'Check-in semanal' }}</h1>
-          <p v-if="isNutri">Acompanhe o humor, energia e evolução reportados pelos pacientes.</p>
-          <p v-else>Registre como você está nesta semana. Um check-in por semana.</p>
+          <h1>Check-ins</h1>
+          <p>Crie tipos de check-in personalizados e acompanhe as respostas das alunas.</p>
         </div>
-        <span v-if="!isNutri && weekLabel" class="week-badge">{{ weekLabel }}</span>
       </header>
 
-      <section v-if="!isNutri" class="checkin-form-card">
-        <form @submit.prevent="submitCheckIn">
-          <div class="score-grid">
-            <div class="score-field">
-              <label>Humor (1–5)</label>
-              <input v-model.number="form.mood" type="range" min="1" max="5" step="1" />
-              <span class="score-value">{{ form.mood }}</span>
-            </div>
-            <div class="score-field">
-              <label>Energia (1–5)</label>
-              <input v-model.number="form.energy" type="range" min="1" max="5" step="1" />
-              <span class="score-value">{{ form.energy }}</span>
-            </div>
-            <div class="score-field">
-              <label>Aderência ao plano (1–5)</label>
-              <input v-model.number="form.adherence" type="range" min="1" max="5" step="1" />
-              <span class="score-value">{{ form.adherence }}</span>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Peso (kg) — opcional</label>
-            <input v-model="form.weightKg" type="number" step="0.1" min="20" max="500" placeholder="Ex: 68.5" />
-          </div>
-          <div class="form-row">
-            <label>Como foi sua semana?</label>
-            <textarea v-model="form.notes" rows="4" placeholder="Conquistas, dificuldades, sono, treinos..." />
-          </div>
-          <button type="submit" class="btn-primary" :disabled="saving">
-            {{ saving ? 'Salvando...' : (current ? 'Atualizar check-in' : 'Enviar check-in da semana') }}
-          </button>
-          <p v-if="formError" class="error-text">{{ formError }}</p>
-          <p v-if="formSuccess" class="success-text">{{ formSuccess }}</p>
-        </form>
-      </section>
+      <nav class="checkin-tabs" aria-label="Seções de check-in">
+        <button
+          type="button"
+          class="checkin-tab"
+          :class="{ 'checkin-tab--active': activeTab === 'responses' }"
+          @click="activeTab = 'responses'"
+        >
+          Respostas
+        </button>
+        <button
+          type="button"
+          class="checkin-tab"
+          :class="{ 'checkin-tab--active': activeTab === 'templates' }"
+          @click="activeTab = 'templates'"
+        >
+          Tipos de check-in
+        </button>
+      </nav>
 
-      <section v-if="!isNutri && history.length" class="history-section">
-        <h2>Semanas anteriores</h2>
-        <div class="history-list">
-          <article v-for="item in history" :key="item.id" class="history-item">
-            <span class="history-week">{{ formatWeek(item.weekStart) }}</span>
-            <span>Humor {{ item.mood }}</span>
-            <span>Energia {{ item.energy }}</span>
-            <span v-if="item.adherence">Plano {{ item.adherence }}</span>
-            <span v-if="item.weightKg">{{ item.weightKg }} kg</span>
-          </article>
-        </div>
-      </section>
-
-      <section v-if="isNutri" class="nutri-list">
-        <div v-if="patientCheckIns.length" class="nutri-toolbar">
+      <!-- Respostas -->
+      <section v-if="activeTab === 'responses'" class="checkin-section">
+        <div class="nutri-toolbar">
           <div class="nutri-search">
             <Search class="nutri-search-icon" />
             <input
-              v-model="nutriSearch"
+              v-model="responseSearch"
               type="search"
-              placeholder="Buscar paciente..."
-              aria-label="Buscar paciente"
+              placeholder="Buscar aluna ou check-in..."
+              aria-label="Buscar respostas"
             >
           </div>
-          <label class="nutri-filter">
-            <input v-model="onlyAttention" type="checkbox">
-            Só atenção
-          </label>
-          <span class="nutri-count">{{ filteredCheckIns.length }} check-in{{ filteredCheckIns.length === 1 ? '' : 's' }}</span>
+          <span class="nutri-count">{{ filteredResponses.length }} resposta{{ filteredResponses.length === 1 ? '' : 's' }}</span>
         </div>
 
-        <div v-if="!patientCheckIns.length" class="nutri-empty admin-shell-card">
-          <p>Nenhum check-in registrado ainda.</p>
-          <span>Quando as alunas responderem o check-in semanal, os dados aparecem aqui.</span>
-        </div>
+        <div v-if="loadingResponses" class="loading-row">Carregando respostas...</div>
 
-        <div v-else-if="!filteredCheckIns.length" class="nutri-empty admin-shell-card">
-          <p>{{ emptyFilterMessage }}</p>
-          <span>Tente outro filtro ou termo de busca.</span>
+        <div v-else-if="!filteredResponses.length" class="nutri-empty admin-shell-card">
+          <p>Nenhuma resposta ainda.</p>
+          <span>Quando as alunas responderem os check-ins, os dados aparecem aqui.</span>
         </div>
 
         <div v-else class="checkin-table-card admin-shell-card">
@@ -100,23 +54,20 @@
             <table class="checkin-table">
               <thead>
                 <tr>
-                  <th>Paciente</th>
-                  <th>Semana</th>
-                  <th>Humor</th>
-                  <th>Energia</th>
-                  <th>Aderência</th>
-                  <th>Água</th>
-                  <th>Exercício</th>
+                  <th>Aluna</th>
+                  <th>Check-in</th>
+                  <th>Período</th>
+                  <th>Resumo</th>
+                  <th>Atualizado</th>
                   <th class="th-actions" aria-label="Ações" />
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="item in filteredCheckIns"
+                  v-for="item in filteredResponses"
                   :key="item.id"
                   class="checkin-row"
-                  :class="{ 'checkin-row--alert': needsAttention(item) }"
-                  @click="goToPatient(item)"
+                  @click="goToPatient(item.user?.id)"
                 >
                   <td>
                     <div class="checkin-patient">
@@ -126,24 +77,13 @@
                         size="sm"
                         :ring="false"
                       />
-                      <div class="checkin-patient-copy">
-                        <span class="checkin-name">{{ item.user?.name || 'Aluna' }}</span>
-                        <span v-if="item.extras.freeText" class="checkin-has-note" title="Tem observação">Observação</span>
-                      </div>
+                      <span class="checkin-name">{{ item.user?.name || 'Aluna' }}</span>
                     </div>
                   </td>
-                  <td class="checkin-date">{{ formatWeek(item.weekStart) }}</td>
-                  <td class="checkin-score" :class="scoreTone(item.mood)">{{ item.mood }}/5</td>
-                  <td class="checkin-score" :class="scoreTone(item.energy)">{{ item.energy }}/5</td>
-                  <td class="checkin-score" :class="scoreTone(item.adherence)">
-                    {{ item.adherence != null ? `${item.adherence}/5` : '—' }}
-                  </td>
-                  <td class="checkin-meta">
-                    {{ item.extras.water != null ? `${item.extras.water} copos` : '—' }}
-                  </td>
-                  <td class="checkin-meta">
-                    {{ item.extras.exercise != null ? (item.extras.exercise ? 'Sim' : 'Não') : '—' }}
-                  </td>
+                  <td>{{ item.template?.title || '—' }}</td>
+                  <td class="checkin-date">{{ formatPeriod(item.periodKey, item.template?.frequency) }}</td>
+                  <td class="checkin-summary">{{ summarizeAnswers(item.answers) }}</td>
+                  <td class="checkin-date">{{ formatDate(item.updatedAt) }}</td>
                   <td class="td-actions" @click.stop>
                     <NuxtLink
                       v-if="item.user?.id"
@@ -159,338 +99,496 @@
           </div>
         </div>
       </section>
+
+      <!-- Tipos de check-in -->
+      <section v-else class="checkin-section">
+        <div class="templates-toolbar">
+          <p class="templates-hint">{{ templates.length }} tipo{{ templates.length === 1 ? '' : 's' }} cadastrado{{ templates.length === 1 ? '' : 's' }}</p>
+          <button type="button" class="btn-primary" @click="openCreateTemplate">
+            <Plus class="btn-icon" />
+            Novo check-in
+          </button>
+        </div>
+
+        <div v-if="loadingTemplates" class="loading-row">Carregando tipos...</div>
+
+        <div v-else-if="!templates.length" class="nutri-empty admin-shell-card">
+          <p>Nenhum tipo de check-in.</p>
+          <span>Crie o primeiro para suas alunas responderem.</span>
+        </div>
+
+        <div v-else class="templates-grid">
+          <article
+            v-for="tpl in templates"
+            :key="tpl.id"
+            class="template-card admin-shell-card"
+          >
+            <div class="template-card-head">
+              <div>
+                <h3>{{ tpl.title }}</h3>
+                <p v-if="tpl.description">{{ tpl.description }}</p>
+              </div>
+              <span class="template-badge" :class="{ 'template-badge--off': !tpl.active }">
+                {{ tpl.active ? 'Ativo' : 'Inativo' }}
+              </span>
+            </div>
+            <ul class="template-meta">
+              <li>{{ frequencyLabel(tpl.frequency) }}</li>
+              <li>{{ Array.isArray(tpl.steps) ? tpl.steps.length : 0 }} pergunta{{ (tpl.steps?.length || 0) === 1 ? '' : 's' }}</li>
+              <li>{{ tpl._count?.responses || 0 }} resposta{{ (tpl._count?.responses || 0) === 1 ? '' : 's' }}</li>
+            </ul>
+            <div class="template-actions">
+              <button type="button" class="btn-ghost" @click="openEditTemplate(tpl)">Editar</button>
+              <button
+                type="button"
+                class="btn-ghost"
+                @click="toggleTemplateActive(tpl)"
+              >
+                {{ tpl.active ? 'Desativar' : 'Ativar' }}
+              </button>
+              <button
+                v-if="!tpl.isDefault"
+                type="button"
+                class="btn-danger-ghost"
+                @click="deleteTemplate(tpl)"
+              >
+                Excluir
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Modal editor -->
+      <div v-if="editorOpen" class="modal-overlay" @click.self="closeEditor">
+        <div class="modal-card" role="dialog" aria-modal="true" :aria-label="editorMode === 'create' ? 'Novo check-in' : 'Editar check-in'">
+          <header class="modal-head">
+            <h2>{{ editorMode === 'create' ? 'Novo check-in' : 'Editar check-in' }}</h2>
+            <button type="button" class="modal-close" aria-label="Fechar" @click="closeEditor">×</button>
+          </header>
+
+          <form class="modal-body" @submit.prevent="saveTemplate">
+            <div class="form-row">
+              <label for="tpl-title">Título</label>
+              <input id="tpl-title" v-model="editor.title" type="text" required maxlength="120" placeholder="Ex: Check-in semanal">
+            </div>
+            <div class="form-row">
+              <label for="tpl-desc">Descrição (opcional)</label>
+              <textarea id="tpl-desc" v-model="editor.description" rows="2" maxlength="300" placeholder="Breve explicação para a aluna" />
+            </div>
+            <div class="form-row-inline">
+              <div class="form-row">
+                <label for="tpl-freq">Frequência</label>
+                <select id="tpl-freq" v-model="editor.frequency">
+                  <option value="weekly">Semanal</option>
+                  <option value="daily">Diário</option>
+                  <option value="monthly">Mensal</option>
+                </select>
+              </div>
+              <label class="form-check">
+                <input v-model="editor.active" type="checkbox">
+                Ativo para alunas
+              </label>
+            </div>
+
+            <div class="steps-block">
+              <div class="steps-head">
+                <h3>Perguntas</h3>
+                <button type="button" class="btn-ghost btn-sm" @click="addStep">+ Pergunta</button>
+              </div>
+
+              <div v-for="(step, index) in editor.steps" :key="step._key" class="step-card">
+                <div class="step-card-head">
+                  <strong>Pergunta {{ index + 1 }}</strong>
+                  <button
+                    v-if="editor.steps.length > 1"
+                    type="button"
+                    class="btn-danger-ghost btn-sm"
+                    @click="removeStep(index)"
+                  >
+                    Remover
+                  </button>
+                </div>
+                <div class="form-row-inline">
+                  <div class="form-row">
+                    <label>Tipo</label>
+                    <select v-model="step.type" @change="onStepTypeChange(step)">
+                      <option value="food">Alimentação (rostos)</option>
+                      <option value="water">Água (copos)</option>
+                      <option value="exercise">Sim/Não exercício</option>
+                      <option value="scale">Escala 1–5 (estrelas)</option>
+                      <option value="choice">Escolha única</option>
+                      <option value="text">Texto livre</option>
+                    </select>
+                  </div>
+                  <div class="form-row">
+                    <label>Rótulo curto</label>
+                    <input v-model="step.label" type="text" maxlength="40" placeholder="Ex: Sono">
+                  </div>
+                </div>
+                <div class="form-row">
+                  <label>Pergunta</label>
+                  <input v-model="step.question" type="text" required maxlength="200" placeholder="Texto exibido para a aluna">
+                </div>
+                <div class="form-row">
+                  <label>Dica (opcional)</label>
+                  <input v-model="step.hint" type="text" maxlength="200" placeholder="Texto de apoio">
+                </div>
+                <div v-if="step.type === 'choice'" class="form-row">
+                  <label>Opções (uma por linha)</label>
+                  <textarea
+                    v-model="step.optionsText"
+                    rows="3"
+                    placeholder="Ótimo&#10;Regular&#10;Ruim"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p v-if="editorError" class="error-text">{{ editorError }}</p>
+
+            <footer class="modal-foot">
+              <button type="button" class="btn-ghost" @click="closeEditor">Cancelar</button>
+              <button type="submit" class="btn-primary" :disabled="savingTemplate">
+                {{ savingTemplate ? 'Salvando...' : 'Salvar' }}
+              </button>
+            </footer>
+          </form>
+        </div>
+      </div>
     </div>
   </NuxtLayout>
 </template>
 
 <script setup>
-import { Search } from 'lucide-vue-next'
-
-const isPatientAppBuild = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
+import { Plus, Search } from 'lucide-vue-next'
 
 definePageMeta({
-  layout: isPatientAppBuild ? 'patient' : 'dashboard',
-  ...(isPatientAppBuild ? { middleware: 'patient-only' } : {}),
+  layout: false,
+  middleware: 'nutri-only',
 })
 
 const config = useRuntimeConfig()
-const isPatientApp = computed(() => Boolean(config.public.mobileApp))
-const { patientTimeHeaders } = usePatientLocalTime()
-
 const apiBase = config.public.apiBase
-const isNutri = ref(false)
-const saving = ref(false)
-const formError = ref('')
-const formSuccess = ref('')
-const current = ref(null)
-const history = ref([])
-const patientCheckIns = ref([])
-const nutriSearch = ref('')
-const onlyAttention = ref(false)
-const weekLabel = ref('')
 
-const filteredCheckIns = computed(() => {
-  let list = patientCheckIns.value
-  if (onlyAttention.value) {
-    list = list.filter((item) => needsAttention(item))
-  }
-  const query = nutriSearch.value.trim().toLowerCase()
-  if (!query) return list
-  return list.filter((item) => item.user?.name?.toLowerCase().includes(query))
+const activeTab = ref('responses')
+const loadingResponses = ref(false)
+const loadingTemplates = ref(false)
+const responses = ref([])
+const templates = ref([])
+const responseSearch = ref('')
+
+const editorOpen = ref(false)
+const editorMode = ref('create')
+const editorId = ref(null)
+const editorError = ref('')
+const savingTemplate = ref(false)
+
+const defaultStep = () => ({
+  _key: crypto.randomUUID(),
+  id: `step_${Date.now()}`,
+  type: 'scale',
+  label: 'Pergunta',
+  question: '',
+  hint: '',
+  optionsText: '',
 })
 
-const emptyFilterMessage = computed(() => {
-  if (onlyAttention.value && nutriSearch.value.trim()) {
-    return 'Nenhum check-in com atenção para essa busca.'
-  }
-  if (onlyAttention.value) return 'Nenhum check-in precisa de atenção no momento.'
-  return `Nenhum resultado para "${nutriSearch.value}".`
+const editor = reactive({
+  title: '',
+  description: '',
+  frequency: 'weekly',
+  active: true,
+  steps: [defaultStep()],
 })
 
-function scoreTone(value) {
-  const score = Number(value)
-  if (Number.isNaN(score)) return ''
-  if (score <= 2) return 'checkin-score--low'
-  if (score === 3) return 'checkin-score--mid'
-  return ''
+const authHeaders = () => {
+  const token = import.meta.client ? localStorage.getItem('auth_token') : null
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-function needsAttention(item) {
-  return [item.mood, item.energy, item.adherence].some(
-    (score) => score != null && Number(score) <= 2,
-  )
-}
-
-function goToPatient(item) {
-  if (item.user?.id) navigateTo(`/usuarios/${item.user.id}`)
-}
-
-const form = reactive({
-  mood: 3,
-  energy: 3,
-  adherence: 3,
-  weightKg: '',
-  notes: '',
-})
-
-const waterToEnergy = (glasses) => {
-  if (glasses <= 2) return 1
-  if (glasses <= 4) return 2
-  if (glasses <= 6) return 3
-  if (glasses <= 8) return 4
-  return 5
-}
-
-const formatWeek = (dateStr) => {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-const AUTO_NOTES_RE = /^[\s\S]*?Água:\s*\d+\s*copos?\.?\s*Exercícios?:\s*(Sim|Não)\.?\s*$/i
-
-function parseCheckInNotes(notes) {
-  const text = String(notes || '').trim()
-  if (!text) {
-    return { water: null, exercise: null, freeText: null }
-  }
-
-  const waterMatch = text.match(/Água:\s*(\d+)\s*copos?/i)
-  const exerciseMatch = text.match(/Exercícios?:\s*(Sim|Não)/i)
-
-  const water = waterMatch ? Number(waterMatch[1]) : null
-  const exercise = exerciseMatch
-    ? exerciseMatch[1].toLowerCase() === 'sim'
-    : null
-
-  const stripped = text
-    .replace(/Água:\s*\d+\s*copos?\.?\s*/gi, '')
-    .replace(/Exercícios?:\s*(Sim|Não)\.?\s*/gi, '')
-    .trim()
-
-  const freeText = stripped || (AUTO_NOTES_RE.test(text) ? null : text)
-
-  return { water, exercise, freeText: freeText || null }
-}
-
-const loadPatientData = async () => {
-  const data = await $fetch(`${apiBase}/checkin/me`, { headers: patientTimeHeaders() })
-  current.value = data.current
-  history.value = data.history || []
-  if (data.weekStart) weekLabel.value = `Semana de ${formatWeek(data.weekStart)}`
-  if (data.current) {
-    form.mood = data.current.mood
-    form.energy = data.current.energy
-    form.adherence = data.current.adherence ?? 3
-    form.weightKg = data.current.weightKg ?? ''
-    form.notes = data.current.notes ?? ''
-  }
-}
-
-const loadNutriData = async () => {
-  const list = await $fetch(`${apiBase}/checkin/patients`, {
-    headers: patientTimeHeaders(),
+const filteredResponses = computed(() => {
+  const q = responseSearch.value.trim().toLowerCase()
+  if (!q) return responses.value
+  return responses.value.filter((item) => {
+    const name = item.user?.name?.toLowerCase() || ''
+    const title = item.template?.title?.toLowerCase() || ''
+    const summary = summarizeAnswers(item.answers).toLowerCase()
+    return name.includes(q) || title.includes(q) || summary.includes(q)
   })
-  patientCheckIns.value = (Array.isArray(list) ? list : []).map((item) => ({
-    ...item,
-    extras: parseCheckInNotes(item.notes),
-  }))
+})
+
+function frequencyLabel(freq) {
+  if (freq === 'daily') return 'Diário'
+  if (freq === 'monthly') return 'Mensal'
+  return 'Semanal'
 }
 
-const submitPatientCheckIn = async (typeformData) => {
-  formError.value = ''
-  saving.value = true
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatPeriod(periodKey, frequency) {
+  if (!periodKey) return '—'
+  if (frequency === 'daily') {
+    const [y, m, d] = periodKey.slice(0, 10).split('-')
+    return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+  }
+  if (frequency === 'monthly') return periodKey
+  return new Date(periodKey).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function summarizeAnswers(answers) {
+  if (!answers || typeof answers !== 'object') return '—'
+  const parts = Object.entries(answers).slice(0, 3).map(([key, val]) => {
+    if (val === true) return `${key}: Sim`
+    if (val === false) return `${key}: Não`
+    return `${key}: ${val}`
+  })
+  return parts.join(' · ') || '—'
+}
+
+function goToPatient(userId) {
+  if (userId) navigateTo(`/usuarios/${userId}`)
+}
+
+async function loadResponses() {
+  loadingResponses.value = true
   try {
-    await $fetch(`${apiBase}/checkin`, {
-      method: 'POST',
-      headers: patientTimeHeaders(),
-      body: {
-        mood: typeformData.sleep || 3,
-        energy: waterToEnergy(typeformData.water),
-        adherence: typeformData.food || 3,
-        weightKg: null,
-        notes: `Água: ${typeformData.water} copos. Exercício: ${typeformData.exercise ? 'Sim' : 'Não'}.`,
-      },
-    })
-    navigateTo('/check-in/concluido')
+    const data = await $fetch(`${apiBase}/checkin/responses`, { headers: authHeaders() })
+    responses.value = data.responses || []
   } catch (err) {
-    formError.value = err.data?.message || 'Erro ao salvar check-in.'
+    console.error(err)
   } finally {
-    saving.value = false
+    loadingResponses.value = false
   }
 }
 
-const submitCheckIn = async () => {
-  formError.value = ''
-  formSuccess.value = ''
-  saving.value = true
+async function loadTemplates() {
+  loadingTemplates.value = true
   try {
-    await $fetch(`${apiBase}/checkin`, {
-      method: 'POST',
-      headers: patientTimeHeaders(),
-      body: {
-        mood: form.mood,
-        energy: form.energy,
-        adherence: form.adherence,
-        weightKg: form.weightKg || null,
-        notes: form.notes,
-      },
-    })
-
-    formSuccess.value = 'Check-in salvo com sucesso!'
-    await loadPatientData()
+    const data = await $fetch(`${apiBase}/checkin/templates`, { headers: authHeaders() })
+    templates.value = data.templates || []
   } catch (err) {
-    formError.value = err.data?.message || 'Erro ao salvar check-in.'
+    console.error(err)
   } finally {
-    saving.value = false
+    loadingTemplates.value = false
+  }
+}
+
+function resetEditor() {
+  editor.title = ''
+  editor.description = ''
+  editor.frequency = 'weekly'
+  editor.active = true
+  editor.steps = [defaultStep()]
+  editorError.value = ''
+  editorId.value = null
+}
+
+function openCreateTemplate() {
+  editorMode.value = 'create'
+  resetEditor()
+  editorOpen.value = true
+}
+
+function openEditTemplate(tpl) {
+  editorMode.value = 'edit'
+  editorId.value = tpl.id
+  editor.title = tpl.title
+  editor.description = tpl.description || ''
+  editor.frequency = tpl.frequency || 'weekly'
+  editor.active = tpl.active !== false
+  editor.steps = (Array.isArray(tpl.steps) ? tpl.steps : []).map((step) => ({
+    _key: crypto.randomUUID(),
+    id: step.id,
+    type: step.type || 'text',
+    label: step.label || '',
+    question: step.question || '',
+    hint: step.hint || '',
+    optionsText: Array.isArray(step.options)
+      ? step.options.map((o) => (typeof o === 'string' ? o : o.label || o.value)).join('\n')
+      : '',
+  }))
+  if (!editor.steps.length) editor.steps = [defaultStep()]
+  editorError.value = ''
+  editorOpen.value = true
+}
+
+function closeEditor() {
+  editorOpen.value = false
+}
+
+function addStep() {
+  if (editor.steps.length >= 20) {
+    editorError.value = 'Máximo de 20 perguntas.'
+    return
+  }
+  const step = defaultStep()
+  step.id = `step_${editor.steps.length + 1}`
+  editor.steps.push(step)
+}
+
+function removeStep(index) {
+  editor.steps.splice(index, 1)
+}
+
+function onStepTypeChange(step) {
+  if (step.type === 'choice' && !step.optionsText) {
+    step.optionsText = 'Sim\nNão'
+  }
+}
+
+function buildStepsPayload() {
+  return editor.steps.map((step, index) => {
+    const payload = {
+      id: String(step.id || `step_${index + 1}`).trim(),
+      type: step.type,
+      label: String(step.label || `Pergunta ${index + 1}`).trim(),
+      question: String(step.question || '').trim(),
+      hint: step.hint ? String(step.hint).trim() : '',
+    }
+    if (step.type === 'scale') {
+      payload.min = 1
+      payload.max = 5
+    }
+    if (step.type === 'choice') {
+      const options = String(step.optionsText || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+      if (options.length < 2) throw new Error(`Pergunta ${index + 1}: adicione pelo menos 2 opções.`)
+      payload.options = options
+    }
+    if (!payload.question) throw new Error(`Pergunta ${index + 1}: texto obrigatório.`)
+    return payload
+  })
+}
+
+async function saveTemplate() {
+  editorError.value = ''
+  savingTemplate.value = true
+  try {
+    const body = {
+      title: editor.title.trim(),
+      description: editor.description.trim() || null,
+      frequency: editor.frequency,
+      active: editor.active,
+      steps: buildStepsPayload(),
+    }
+    if (!body.title) throw new Error('Título obrigatório.')
+
+    if (editorMode.value === 'create') {
+      await $fetch(`${apiBase}/checkin/templates`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body,
+      })
+    } else {
+      await $fetch(`${apiBase}/checkin/templates/${editorId.value}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body,
+      })
+    }
+    closeEditor()
+    await loadTemplates()
+  } catch (err) {
+    editorError.value = err.data?.message || err.message || 'Erro ao salvar.'
+  } finally {
+    savingTemplate.value = false
+  }
+}
+
+async function toggleTemplateActive(tpl) {
+  try {
+    await $fetch(`${apiBase}/checkin/templates/${tpl.id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: { active: !tpl.active },
+    })
+    await loadTemplates()
+  } catch (err) {
+    alert(err.data?.message || 'Erro ao atualizar.')
+  }
+}
+
+async function deleteTemplate(tpl) {
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: 'Excluir check-in',
+    message: `Excluir "${tpl.title}"? As respostas anteriores também serão removidas.`,
+    confirmLabel: 'Excluir',
+    cancelLabel: 'Cancelar',
+  })
+  if (!ok) return
+  try {
+    await $fetch(`${apiBase}/checkin/templates/${tpl.id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    await loadTemplates()
+  } catch (err) {
+    alert(err.data?.message || 'Erro ao excluir.')
   }
 }
 
 onMounted(async () => {
-  isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
-  try {
-    if (isNutri.value) await loadNutriData()
-    else await loadPatientData()
-  } catch (err) {
-    console.error(err)
-  }
+  await Promise.all([loadResponses(), loadTemplates()])
 })
 </script>
 
 <style scoped>
-.patient-page.checkin-page--typeform {
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
-  padding: 0;
-  padding-bottom: calc(var(--cf-tab-h) + 1.25rem);
-  box-sizing: border-box;
-  background: var(--cf-bg);
-}
-
-/* Portal web / nutri */
-.checkin-page.admin-shell {
+.checkin-admin {
   --primary: #2d5a27;
 }
 
-.week-badge {
-  background: #eef8f0;
-  padding: 0.45rem 0.85rem;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--primary);
-  white-space: nowrap;
-}
-
-.checkin-form-card {
-  background: #fff;
-  border-radius: 14px;
-  padding: 1.75rem;
-  border: 1px solid var(--admin-border, #e8ece9);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-}
-
-.score-grid {
-  display: grid;
-  gap: 1.25rem;
+.checkin-tabs {
+  display: flex;
+  gap: 0.35rem;
   margin-bottom: 1.25rem;
+  padding: 0.25rem;
+  background: #f3f5f4;
+  border-radius: 12px;
+  width: fit-content;
 }
 
-@media (min-width: 640px) {
-  .score-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.score-field label {
-  display: block;
-  font-weight: 600;
-  font-size: 0.88rem;
-  margin-bottom: 0.45rem;
-  color: #444;
-}
-
-.score-value {
-  display: inline-block;
-  margin-top: 0.35rem;
-  font-weight: 800;
-  color: var(--primary);
-}
-
-.form-row {
-  margin-bottom: 1.1rem;
-}
-
-.form-row label {
-  display: block;
-  font-weight: 600;
-  font-size: 0.88rem;
-  margin-bottom: 0.45rem;
-  color: #444;
-}
-
-.form-row input,
-.form-row textarea {
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0.75rem 0.85rem;
-  font-family: inherit;
-  font-size: 0.92rem;
-  box-sizing: border-box;
-}
-
-.btn-primary {
-  width: 100%;
-  padding: 0.85rem 1rem;
-  background: var(--primary);
-  color: #fff;
+.checkin-tab {
   border: none;
-  border-radius: 10px;
-  font-weight: 700;
+  background: transparent;
+  padding: 0.55rem 1rem;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #666;
   cursor: pointer;
 }
 
-.history-section {
-  margin-top: 2rem;
-}
-
-.history-section h2 {
-  margin: 0 0 0.85rem;
-  font-size: 1rem;
-  font-weight: 800;
-  color: #141414;
-}
-
-.history-item {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem 1rem;
-  align-items: center;
+.checkin-tab--active {
   background: #fff;
-  border: 1px solid var(--admin-border, #e8ece9);
-  border-radius: 12px;
-  padding: 0.85rem 1rem;
-  margin-bottom: 0.65rem;
-  font-size: 0.88rem;
-  color: #555;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.history-week {
-  font-weight: 700;
-  color: #141414;
-}
-
-.nutri-list {
-  margin-top: 0.25rem;
-}
-
-.nutri-toolbar {
+.nutri-toolbar,
+.templates-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem 1rem;
   margin-bottom: 1rem;
+}
+
+.templates-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #666;
 }
 
 .nutri-search {
@@ -519,28 +617,7 @@ onMounted(async () => {
   background: #fff;
   font-family: inherit;
   font-size: 0.88rem;
-  outline: none;
   box-sizing: border-box;
-}
-
-.nutri-search input:focus {
-  border-color: #b8d4b4;
-  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
-}
-
-.nutri-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: #555;
-  cursor: pointer;
-  user-select: none;
-}
-
-.nutri-filter input {
-  accent-color: var(--primary);
 }
 
 .nutri-count {
@@ -548,7 +625,27 @@ onMounted(async () => {
   font-size: 0.82rem;
   font-weight: 600;
   color: #888;
-  white-space: nowrap;
+}
+
+.loading-row {
+  padding: 2rem;
+  text-align: center;
+  color: #888;
+}
+
+.nutri-empty {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.nutri-empty p {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+
+.nutri-empty span {
+  font-size: 0.88rem;
+  color: #888;
 }
 
 .checkin-table-card {
@@ -562,8 +659,7 @@ onMounted(async () => {
 .checkin-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-  min-width: 760px;
+  min-width: 720px;
 }
 
 .checkin-table th {
@@ -578,100 +674,48 @@ onMounted(async () => {
   border-bottom: 1px solid #eee;
 }
 
-.checkin-table th:nth-child(1) { width: 24%; }
-.checkin-table th:nth-child(2) { width: 14%; }
-.checkin-table th:nth-child(3),
-.checkin-table th:nth-child(4),
-.checkin-table th:nth-child(5) { width: 9%; }
-.checkin-table th:nth-child(6),
-.checkin-table th:nth-child(7) { width: 11%; }
-
 .checkin-table td {
   padding: 0.65rem 0.85rem;
   border-bottom: 1px solid #f3f3f3;
-  vertical-align: middle;
   font-size: 0.86rem;
   color: #444;
-}
-
-.checkin-table tbody tr:last-child td {
-  border-bottom: none;
+  vertical-align: middle;
 }
 
 .checkin-row {
   cursor: pointer;
-  transition: background 0.12s;
 }
 
 .checkin-row:hover td {
   background: #fafcfb;
 }
 
-.checkin-row--alert td {
-  background: #fffcfc;
-}
-
-.checkin-row--alert:hover td {
-  background: #fff5f5;
-}
-
 .checkin-patient {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  min-width: 0;
-}
-
-.checkin-patient-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
 }
 
 .checkin-name {
-  font-size: 0.88rem;
   font-weight: 700;
   color: #141414;
+}
+
+.checkin-date,
+.checkin-summary {
+  font-size: 0.82rem;
+  color: #666;
+}
+
+.checkin-summary {
+  max-width: 220px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.checkin-has-note {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #888;
-}
-
-.checkin-date {
-  font-size: 0.82rem;
-  color: #666;
-  white-space: nowrap;
-}
-
-.checkin-score {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.checkin-score--low {
-  color: #b91c1c;
-}
-
-.checkin-score--mid {
-  color: #a16207;
-}
-
-.checkin-meta {
-  font-weight: 600;
-  color: #444;
-  white-space: nowrap;
-}
-
 .th-actions,
 .td-actions {
-  width: 64px;
   text-align: right;
 }
 
@@ -682,39 +726,250 @@ onMounted(async () => {
   text-decoration: none;
 }
 
-.checkin-link-btn:hover {
-  text-decoration: underline;
+.templates-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
-.nutri-empty {
-  padding: 2.5rem 1.5rem;
-  text-align: center;
+.template-card {
+  padding: 1.1rem 1.15rem;
 }
 
-.nutri-empty p {
-  margin: 0 0 0.35rem;
+.template-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.template-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.template-card p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #666;
+}
+
+.template-badge {
+  flex-shrink: 0;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: #141414;
+  background: #eef8f0;
+  color: var(--primary);
 }
 
-.nutri-empty span {
-  font-size: 0.88rem;
+.template-badge--off {
+  background: #f3f4f6;
   color: #888;
 }
 
-@media (max-width: 768px) {
-  .nutri-count {
-    margin-left: 0;
-    width: 100%;
-    text-align: right;
-  }
-
-  .nutri-search {
-    max-width: none;
-    width: 100%;
-  }
+.template-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: #888;
 }
 
-.error-text { color: #c53030; margin-top: 0.75rem; }
-.success-text { color: #2d5a27; margin-top: 0.75rem; }
+.template-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1rem;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.btn-ghost {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-sm {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+.btn-danger-ghost {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff;
+  color: #b91c1c;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal-card {
+  width: min(100%, 640px);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-close {
+  border: none;
+  background: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #888;
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid #eee;
+}
+
+.form-row {
+  margin-bottom: 0.9rem;
+}
+
+.form-row label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.form-row input,
+.form-row textarea,
+.form-row select {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.form-row-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+}
+
+.form-row-inline .form-row {
+  flex: 1;
+  min-width: 140px;
+}
+
+.form-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #444;
+  padding-bottom: 0.9rem;
+}
+
+.steps-block {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.steps-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.steps-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.step-card {
+  padding: 0.85rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #e8ece9;
+  border-radius: 12px;
+  background: #fafcfb;
+}
+
+.step-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.error-text {
+  color: #c53030;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
 </style>

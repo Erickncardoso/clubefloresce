@@ -102,6 +102,17 @@ export class UserMgmtController {
   updateStatus = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const existing = await this.userMgmtRepo.getUserById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      if (existing.role !== Role.PACIENTE) {
+        return res.status(400).json({ error: "Somente pacientes podem ter o status alterado aqui." });
+      }
+      if (req.user?.id === id) {
+        return res.status(400).json({ error: "Não é possível alterar o próprio status." });
+      }
+
       const { status } = req.body;
       const user = await this.userMgmtRepo.updateUserStatus(id, status);
       res.json(user);
@@ -113,6 +124,18 @@ export class UserMgmtController {
   delete = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      if (req.user?.id === id) {
+        return res.status(400).json({ error: "Não é possível excluir a própria conta." });
+      }
+
+      const existing = await this.userMgmtRepo.getUserById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      if (existing.role !== Role.PACIENTE) {
+        return res.status(400).json({ error: "Somente pacientes podem ser excluídos aqui." });
+      }
+
       await this.userMgmtRepo.deleteUser(id);
       res.status(204).send();
     } catch {

@@ -207,6 +207,18 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   border-radius: var(--cf-squircle-r);
 }
 
+.cf-squircle--control {
+  --cf-squircle-r: var(--cf-radius-control, var(--cf-radius));
+  border-radius: var(--cf-squircle-r);
+  overflow: hidden;
+}
+
+@supports (corner-shape: squircle) {
+  .cf-squircle--control {
+    corner-shape: squircle;
+  }
+}
+
 .cf-card.cf-squircle,
 .cf-squircle.cf-card {
   border-radius: var(--cf-squircle-r, var(--cf-radius-sheet, 2.75rem));

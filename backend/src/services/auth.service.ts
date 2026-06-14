@@ -2,12 +2,14 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository";
 import { Role, UserStatus } from "@prisma/client";
+import { getJwtSecret } from "../utils/jwt";
 
 const userRepository = new UserRepository();
 
 const PATIENT_TOKEN_TTL = "90d";
 const STAFF_TOKEN_TTL = "30d";
 const REFRESH_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 8;
 
 type TokenUser = { id: string; email: string; role: Role };
 
@@ -16,20 +18,20 @@ export class AuthService {
     const expiresIn = user.role === Role.PACIENTE ? PATIENT_TOKEN_TTL : STAFF_TOKEN_TTL;
     return jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET!,
+      getJwtSecret(),
       { expiresIn },
     );
   }
 
   private decodeTokenAllowingGrace(currentToken: string): TokenUser {
     try {
-      return jwt.verify(currentToken, process.env.JWT_SECRET!) as TokenUser;
+      return jwt.verify(currentToken, getJwtSecret()) as TokenUser;
     } catch (err: any) {
       if (err?.name !== "TokenExpiredError") {
         throw new Error("Token inválido.");
       }
 
-      const decoded = jwt.verify(currentToken, process.env.JWT_SECRET!, {
+      const decoded = jwt.verify(currentToken, getJwtSecret(), {
         ignoreExpiration: true,
       }) as TokenUser & { exp?: number };
 
@@ -41,6 +43,7 @@ export class AuthService {
       return decoded;
     }
   }
+
   private ensureSetupKey(providedKey?: string): void {
     const requiredKey = process.env.NUTRI_SETUP_KEY;
     const isProduction = process.env.NODE_ENV === "production";
@@ -55,6 +58,12 @@ export class AuthService {
 
     if (!providedKey || providedKey !== requiredKey) {
       throw new Error("Chave de setup inválida.");
+    }
+  }
+
+  private validatePassword(password: string): void {
+    if (!password || password.length < MIN_PASSWORD_LENGTH) {
+      throw new Error(`A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`);
     }
   }
 
@@ -80,16 +89,39 @@ export class AuthService {
       throw new Error("Nome, e-mail e senha são obrigatórios.");
     }
 
-    return this.register({
-      name: data.name,
-      email: data.email,
+    return this.createUser({
+      name: String(data.name).trim(),
+      email: String(data.email).trim().toLowerCase(),
       password: data.password,
       role: Role.NUTRICIONISTA,
       status: UserStatus.PENDENTE,
     });
   }
 
+  /** Cadastro público — apenas pacientes; role/status ignorados do body. */
   async register(data: any): Promise<any> {
+    if (!data?.name || !data?.email || !data?.password) {
+      throw new Error("Nome, e-mail e senha são obrigatórios.");
+    }
+
+    this.validatePassword(data.password);
+
+    return this.createUser({
+      name: String(data.name).trim(),
+      email: String(data.email).trim().toLowerCase(),
+      password: data.password,
+      role: Role.PACIENTE,
+      status: UserStatus.PENDENTE,
+    });
+  }
+
+  private async createUser(data: {
+    name: string;
+    email: string;
+    password: string;
+    role: Role;
+    status: UserStatus;
+  }): Promise<any> {
     const existingUser = await userRepository.findByEmail(data.email);
     if (existingUser) {
       throw new Error("Usuário já cadastrado.");
@@ -97,8 +129,11 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const user = await userRepository.create({
-      ...data,
+      name: data.name,
+      email: data.email,
       password: hashedPassword,
+      role: data.role,
+      status: data.status,
     });
 
     const { password, ...userWithoutPassword } = user;
@@ -106,9 +141,14 @@ export class AuthService {
   }
 
   async login(email: string, passwordText: string): Promise<any> {
-    const user = await userRepository.findByEmail(email);
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const user = await userRepository.findByEmail(normalizedEmail);
     if (!user) {
       throw new Error("Credenciais inválidas.");
+    }
+
+    if (user.status === UserStatus.INATIVO) {
+      throw new Error("Conta desativada. Entre em contato com o suporte.");
     }
 
     const isMatch = await bcrypt.compare(passwordText, user.password);
@@ -134,6 +174,10 @@ export class AuthService {
       throw new Error("Sessão expirada ou usuário inválido. Faça login novamente.");
     }
 
+    if (user.status === UserStatus.INATIVO) {
+      throw new Error("Conta desativada. Entre em contato com o suporte.");
+    }
+
     const token = this.issueToken(user);
     const { password, ...userWithoutPassword } = user;
     return { token, user: userWithoutPassword };
@@ -144,9 +188,7 @@ export class AuthService {
   }
 
   async changePasswordOnFirstAccess(userId: string, newPassword: string): Promise<any> {
-    if (!newPassword || newPassword.length < 6) {
-      throw new Error("A nova senha deve ter pelo menos 6 caracteres.");
-    }
+    this.validatePassword(newPassword);
 
     const user = await userRepository.findById(userId);
     if (!user) {

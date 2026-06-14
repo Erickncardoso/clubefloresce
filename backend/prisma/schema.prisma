@@ -71,6 +71,8 @@ model User {
   whatsappContactDirectory WhatsappContactDirectory?
   whatsappGroupObservedSenders WhatsappGroupObservedSenders[]
   weeklyCheckIns WeeklyCheckIn[]
+  checkInTemplates CheckInTemplate[] @relation("CheckInTemplateAuthor")
+  checkInResponses CheckInResponse[]
   bellaMessages  BellaMessage[]
   nutritionTarget NutritionTarget?
   foodDiaryEntries FoodDiaryEntry[]
@@ -107,6 +109,41 @@ model WeeklyCheckIn {
 
   @@unique([userId, weekStart])
   @@index([weekStart])
+}
+
+model CheckInTemplate {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  frequency   String   @default("weekly")
+  active      Boolean  @default(true)
+  steps       Json
+  sortOrder   Int      @default(0)
+  isDefault   Boolean  @default(false)
+  authorId    String
+  author      User     @relation("CheckInTemplateAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  responses   CheckInResponse[]
+
+  @@index([active, sortOrder])
+  @@index([authorId])
+}
+
+model CheckInResponse {
+  id         String          @id @default(uuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId String
+  template   CheckInTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  periodKey  String
+  answers    Json
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([userId, templateId, periodKey])
+  @@index([templateId, periodKey])
+  @@index([userId])
 }
 
 model BellaMessage {

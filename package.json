@@ -9,6 +9,8 @@
     "dev:mobile": "npm run dev --prefix cliente",
     "generate:cliente": "npm run generate --prefix cliente",
     "generate:paciente": "npm run generate --prefix cliente",
-    "build:paciente": "npm run build --prefix cliente"
+    "build:paciente": "npm run generate --prefix cliente",
+    "ag-kit:status": "npx @vudovn/ag-kit status",
+    "ag-kit:update": "npx @vudovn/ag-kit update"
   }
 }

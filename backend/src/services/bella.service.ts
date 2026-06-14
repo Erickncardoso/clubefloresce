@@ -525,7 +525,7 @@ export class BellaService {
       })
       .map((m) => ({
         role: m.role as "user" | "assistant",
-        content: m.content,
+      content: m.content,
       }));
 
     const intentNote = createChoiceMessage

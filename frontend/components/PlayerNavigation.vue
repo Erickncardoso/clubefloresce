@@ -105,10 +105,10 @@ const menuItems = [
 /* Floating Sidebar (Popout Style) */
 .nav-sidebar {
   position: absolute;
-  top: 80px; /* Below Header */
-  left: 24px;
-  width: 340px;
-  max-height: calc(100vh - 120px);
+  top: 16px;
+  left: 16px;
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);

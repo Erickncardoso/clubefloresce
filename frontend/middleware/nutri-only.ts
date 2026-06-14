@@ -1,8 +1,7 @@
-/** Rotas exclusivas da nutricionista no painel web. */
-export default defineNuxtRouteMiddleware((to) => {
+/** Rotas exclusivas da nutricionista no painel admin. */
+export default defineNuxtRouteMiddleware(() => {
   const config = useRuntimeConfig()
   if (config.public.mobileApp) return
-
   if (import.meta.server) return
 
   const token = localStorage.getItem('auth_token')

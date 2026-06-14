@@ -1,5 +1,6 @@
 <template>
   <div class="patient-shell">
+    <AppToast />
     <div ref="scrollRootRef" class="patient-shell-body">
       <slot />
     </div>

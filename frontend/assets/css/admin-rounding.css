@@ -1,0 +1,154 @@
+/**
+ * Painel nutricionista — arredondamento global (tokens --cf-radius-*).
+ * Inputs: cantos generosos (--cf-radius-control). Botões: pill (--cf-radius-pill).
+ */
+
+/* ── Botões pill ── */
+.admin-shell :is(
+  .btn-primary,
+  .btn-cancel,
+  .btn-secondary,
+  .btn-ghost,
+  .admin-btn-primary,
+  .admin-btn-secondary
+) {
+  border-radius: var(--cf-radius-pill) !important;
+}
+
+.dashboard-layout :is(
+  .btn-primary,
+  .btn-cancel,
+  .btn-secondary,
+  .btn-ghost,
+  .admin-btn-primary,
+  .admin-btn-secondary,
+  .lesson-modal-foot button,
+  .banner-editor-tab,
+  .banner-edit-btn,
+  .banner-position-preset,
+  .banner-editor-kicker,
+  .banner-editor-cta,
+  .courses-view-toggle button,
+  .module-chip,
+  .row-action-btn,
+  .btn-mark-watched-premium,
+  .btn-nav-control,
+  .btn-theater-mode,
+  .btn-side-list-toggle
+),
+.courses-modal-overlay :is(
+  .btn-primary,
+  .btn-cancel,
+  .btn-secondary
+),
+.lesson-modal-overlay .lesson-modal-foot :is(button) {
+  border-radius: var(--cf-radius-pill) !important;
+}
+
+/* ── Inputs e superfícies de formulário ── */
+.admin-shell :is(
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+.dashboard-layout :is(
+  .form-group input,
+  .form-group textarea,
+  .form-group select,
+  .floating-field input,
+  .floating-field textarea,
+  .field input,
+  .field textarea,
+  .field select,
+  .field--float input,
+  .field--float textarea,
+  .upload-area,
+  .pdf-upload-box
+),
+.courses-modal-overlay :is(
+  .form-group input,
+  .form-group textarea,
+  .floating-field input,
+  .floating-field textarea,
+  .upload-area,
+  .pdf-upload-box
+),
+.lesson-modal-overlay :is(
+  .field input,
+  .field textarea,
+  .field select,
+  .upload-zone,
+  .video-drop,
+  .cover-drop
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+/* Cards e modais */
+.admin-shell :is(
+  .admin-shell-card,
+  .checkin-table-card,
+  .template-card,
+  .nutri-empty,
+  .modal-card
+),
+.dashboard-layout .admin-shell-card,
+.courses-modal-overlay .modal-card,
+.modal-overlay .modal-card,
+.lesson-modal-overlay .lesson-modal,
+.modal-card--ebook,
+.modal-card--lesson,
+.modal-card--banner .banner-editor-preview {
+  border-radius: var(--cf-radius-surface) !important;
+}
+
+/* Nav e fechar — compacto */
+.dashboard-layout :is(
+  .top-nav-menu a,
+  .top-nav-mega-trigger,
+  .top-nav-mega-item,
+  .mobile-nav-toggle,
+  .mobile-nav-drawer a,
+  .top-nav-mega-dropdown,
+  .btn-close,
+  .lesson-modal-close,
+  .lesson-step
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+@supports (corner-shape: squircle) {
+  .dashboard-layout :is(
+    .form-group input,
+    .form-group textarea,
+    .floating-field input,
+    .floating-field textarea,
+    .upload-area,
+    .pdf-upload-box,
+    .admin-shell-card,
+    .top-nav-mega-dropdown
+  ),
+  .courses-modal-overlay :is(
+    .modal-card,
+    .form-group input,
+    .form-group textarea,
+    .upload-area,
+    .pdf-upload-box
+  ),
+  .lesson-modal-overlay :is(
+    .lesson-modal,
+    .field input,
+    .field textarea,
+    .upload-zone
+  ),
+  .admin-shell :is(
+    .admin-shell-card,
+    input,
+    textarea
+  ) {
+    corner-shape: squircle;
+  }
+}

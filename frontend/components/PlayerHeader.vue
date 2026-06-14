@@ -262,4 +262,19 @@ const toggleMenu = () => {
 .icon-md { width: 24px; height: 24px; }
 .icon-sm { width: 18px; height: 18px; }
 .icon-xs { width: 14px; height: 14px; color: #999; }
+
+@media (max-width: 960px) {
+  .nav-sidebar {
+    top: 16px;
+    left: 16px;
+    width: min(340px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+  }
+}
+
+@media (min-width: 961px) {
+  .premium-header {
+    display: none;
+  }
+}
 </style>

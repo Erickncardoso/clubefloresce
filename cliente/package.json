@@ -3,10 +3,29 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run dev:paciente --prefix ../frontend",
-    "build": "npm run build:paciente --prefix ../frontend",
-    "generate": "npm run generate:paciente --prefix ../frontend",
-    "preview": "npm run preview:paciente --prefix ../frontend",
-    "prepare": "npm run prepare:mobile --prefix ../frontend"
+    "dev": "node scripts/dev-paciente.mjs",
+    "build": "cross-env NUXT_PUBLIC_MOBILE_APP=true node ../frontend/node_modules/nuxt/bin/nuxt.mjs build",
+    "generate": "cross-env NUXT_PUBLIC_MOBILE_APP=true node ../frontend/node_modules/nuxt/bin/nuxt.mjs generate",
+    "preview": "cross-env NUXT_PUBLIC_MOBILE_APP=true node ../frontend/node_modules/nuxt/bin/nuxt.mjs preview",
+    "prepare": "cross-env NUXT_PUBLIC_MOBILE_APP=true node ../frontend/node_modules/nuxt/bin/nuxt.mjs prepare"
+  },
+  "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@fontsource/inter": "^5.2.8",
+    "@lottiefiles/dotlottie-vue": "^0.11.15",
+    "@pinia/nuxt": "^0.5.0",
+    "emoji-mart": "^5.6.0",
+    "lucide-vue-next": "^1.0.0",
+    "nuxt": "3.21.2",
+    "pdfjs-dist": "^5.6.205",
+    "pinia": "^2.1.0",
+    "plyr": "^3.8.4",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@vite-pwa/nuxt": "^1.1.1",
+    "cross-env": "^7.0.3",
+    "sharp": "^0.34.5"
   }
 }

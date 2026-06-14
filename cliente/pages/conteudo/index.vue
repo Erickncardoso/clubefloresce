@@ -132,6 +132,7 @@ import {
   Utensils,
 } from 'lucide-vue-next'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
+import { buildModuleUrl } from '~/utils/course-slug'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
@@ -250,7 +251,7 @@ function openCourse(course) {
   const firstModuleWithLesson = (course.modules || []).find((module) => module?.lessons?.length)
   const firstLesson = firstModuleWithLesson?.lessons?.[0]
   if (firstModuleWithLesson?.id && firstLesson?.id) {
-    navigateTo(`/modulos/${firstModuleWithLesson.id}?lessonId=${firstLesson.id}`)
+    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons))
     return
   }
   navigateTo(`/cursos/${course.id}`)

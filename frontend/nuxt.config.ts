@@ -1,6 +1,6 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
+// Nuxt compartilhado — admin (:3000) ou paciente via cliente/ (:3002) com NUXT_PUBLIC_MOBILE_APP=true
 import { fixWindowsVitePaths } from './utils/fix-windows-vite-paths'
-import { PROD_API_BASE, PROD_API_ORIGIN, PROD_WHATSAPP_API_BASE } from './utils/api-env.mjs'
+import { PROD_API_ORIGIN, PROD_WHATSAPP_API_BASE } from './utils/api-env.mjs'
 import { resolveApiBaseAtBuild } from './utils/resolve-api-base.mjs'
 
 const isMobileApp = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
@@ -9,8 +9,8 @@ const isGenerate =
   process.env.npm_lifecycle_event?.includes('generate')
 const isDev = process.env.NODE_ENV !== 'production' && !isGenerate
 const devHost = process.env.NUXT_HOST || '127.0.0.1'
-const devPort = Number(process.env.NUXT_PORT || 3002)
-const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
+const devPort = Number(process.env.NUXT_PORT || (isMobileApp ? 3002 : 3000))
+const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://localhost:3001'
 const defaultApiBase = resolveApiBaseAtBuild({
   mobileApp: isMobileApp,
   explicitBase: process.env.NUXT_PUBLIC_API_BASE,
@@ -19,30 +19,9 @@ const defaultApiBase = resolveApiBaseAtBuild({
 const defaultWhatsappApiBase = process.env.NUXT_PUBLIC_WHATSAPP_API_BASE
   || (isDev ? '/api/whatsapp' : PROD_WHATSAPP_API_BASE)
 
-/** Rotas do painel web — não entram no build/PWA do app paciente. */
-const patientWebOnlyRoutes = [
-  '/whatsapp/**',
-  '/dashboard/**',
-  '/usuarios/**',
-  '/financeiro/**',
-  '/ebooks/**',
-  '/personalizar/**',
-  '/gerenciar-cursos/**',
-  '/setup/**',
-]
-
-const mobileRouteRules = {
-  '/onboarding': { redirect: { to: '/inicio', statusCode: 301 } },
-}
-for (const route of patientWebOnlyRoutes) {
-  mobileRouteRules[route] = { prerender: false }
-}
-
 export default defineNuxtConfig({
-  // Web (:3000) e app paciente (:3002) podem rodar ao mesmo tempo sem conflitar cache
   buildDir: isMobileApp ? '.nuxt-mobile' : '.nuxt',
   modules: isMobileApp ? ['@vite-pwa/nuxt'] : [],
-  // App paciente é SPA (evita crash do worker Nitro com localStorage/API no SSR).
   ssr: !isMobileApp,
   app: {
     head: {
@@ -100,7 +79,9 @@ export default defineNuxtConfig({
     '~/assets/css/whatsapp-modals.css',
     '~/assets/css/whatsapp-bubbles.css',
     '~/assets/css/patient-app.css',
-    ...(isMobileApp ? [] : ['~/assets/css/admin-pages.css']),
+    '~/assets/css/course-video-player.css',
+    '~/assets/css/lesson-player-page.css',
+    ...(isMobileApp ? [] : ['~/assets/css/admin-pages.css', '~/assets/css/admin-rounding.css']),
     ...(isMobileApp ? ['~/assets/css/mobile-app.css'] : []),
   ],
   runtimeConfig: {
@@ -121,22 +102,9 @@ export default defineNuxtConfig({
   },
   ...(isMobileApp
     ? {
-        routeRules: mobileRouteRules,
-        watchers: {
-          chokidar: {
-            ignoreInitial: true,
-            ignored: [
-              '**/.nuxt/**',
-              '**/.nuxt-mobile/dist/**',
-              '**/.output/**',
-              '**/node_modules/**',
-            ],
-          },
+        routeRules: {
+          '/onboarding': { redirect: { to: '/inicio', statusCode: 301 } },
         },
-      }
-    : {}),
-  ...(isMobileApp
-    ? {
         pwa: {
           registerType: 'prompt',
           injectRegister: 'auto',
@@ -147,50 +115,21 @@ export default defineNuxtConfig({
             short_name: 'Florescer',
             description: 'App do paciente Clube Florescer — cursos, dieta, Bella IA e check-in.',
             lang: 'pt-BR',
-            dir: 'ltr',
             theme_color: '#c17b80',
             background_color: '#ffffff',
             display: 'standalone',
-            display_override: ['standalone', 'minimal-ui'],
-            orientation: 'portrait',
             scope: '/',
             start_url: '/?source=pwa',
-            categories: ['health', 'lifestyle', 'medical'],
             icons: [
-              {
-                src: '/pwa/icon-192.png',
-                sizes: '192x192',
-                type: 'image/png',
-                purpose: 'any',
-              },
-              {
-                src: '/pwa/icon-512.png',
-                sizes: '512x512',
-                type: 'image/png',
-                purpose: 'any',
-              },
-              {
-                src: '/pwa/icon-512-maskable.png',
-                sizes: '512x512',
-                type: 'image/png',
-                purpose: 'maskable',
-              },
+              { src: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+              { src: '/pwa/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+              { src: '/pwa/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
             ],
           },
           workbox: {
             navigateFallback: '/index.html',
             navigateFallbackDenylist: [/^\/api\//],
             globPatterns: ['**/*.{js,css,png,svg,ico,webp,woff2,woff,webmanifest}'],
-            globIgnores: [
-              '**/whatsapp/**',
-              '**/dashboard/**',
-              '**/usuarios/**',
-              '**/financeiro/**',
-              '**/ebooks/**',
-              '**/personalizar/**',
-              '**/gerenciar-cursos/**',
-              '**/setup/**',
-            ],
             cleanupOutdatedCaches: true,
             clientsClaim: true,
           },
@@ -205,49 +144,40 @@ export default defineNuxtConfig({
             type: 'module',
           },
         },
-      }
-    : {}),
-  ...(isMobileApp
-    ? {
-        devServer: {
-          port: devPort,
-          strictPort: true,
-          host: devHost,
-        },
         features: {
           inlineStyles: true,
         },
-        vite: {
-          plugins: [fixWindowsVitePaths()],
-          server: {
+      }
+    : {}),
+  devServer: {
+    port: devPort,
+    strictPort: true,
+    host: devHost,
+  },
+  vite: {
+    ...(isMobileApp ? { plugins: [fixWindowsVitePaths()] } : {}),
+    server: {
+      ...(isMobileApp
+        ? {
             origin: `http://${devHost === '0.0.0.0' ? '127.0.0.1' : devHost}:${devPort}`,
             strictPort: true,
             hmr: devHost === '0.0.0.0' ? { host: '127.0.0.1', port: devPort } : undefined,
-            watch: {
-              ignored: [
-                '**/.output/**',
-                '**/.nuxt/**',
-                '**/.nuxt-mobile/dist/**',
-                '**/.nuxt-mobile/dev-sw-dist/**',
-                '**/dist/**',
-              ],
-            },
-            proxy: {
-              '/api': {
-                target: devApiOrigin,
-                changeOrigin: true,
-              },
-            },
-          },
+          }
+        : {}),
+      proxy: {
+        '/api': {
+          target: devApiOrigin,
+          changeOrigin: true,
+          timeout: 30 * 60 * 1000,
+          proxyTimeout: 30 * 60 * 1000,
         },
-      }
-    : {}),
+      },
+    },
+  },
   nitro: isMobileApp && isGenerate
     ? {
         preset: 'static',
-        prerender: {
-          ignore: patientWebOnlyRoutes,
-        },
+        prerender: { crawlLinks: true },
       }
     : {
         ...(!isMobileApp && !isDev
@@ -265,6 +195,8 @@ export default defineNuxtConfig({
                 '/api': {
                   target: `${devApiOrigin}/api`,
                   changeOrigin: true,
+                  timeout: 30 * 60 * 1000,
+                  proxyTimeout: 30 * 60 * 1000,
                 },
               },
             }

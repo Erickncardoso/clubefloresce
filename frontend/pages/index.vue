@@ -1,7 +1,7 @@
 <template>
-  <div class="auth-container" :class="{ 'patient-login-mode': config.public.mobileApp }">
-    <!-- Lado Esquerdo: Visual Elite (somente web) -->
-    <div v-if="!config.public.mobileApp" class="auth-visual">
+  <div class="auth-container">
+    <!-- Lado Esquerdo: Visual Elite (painel admin) -->
+    <div class="auth-visual">
       <div class="visual-overlay"></div>
       <img src="https://images.unsplash.com/photo-1543362906-acfc16c623a2?q=80&w=1974&auto=format&fit=crop" alt="Botanical Background" />
       <div class="visual-content">
@@ -11,88 +11,8 @@
       </div>
     </div>
 
-    <!-- App do paciente -->
-    <main v-if="config.public.mobileApp" class="patient-auth">
-      <div class="patient-auth-inner">
-        <header class="patient-auth-brand">
-          <img src="/logoflorescer.svg" alt="Florescer" class="patient-auth-logo" width="120" height="36">
-          <p class="patient-auth-tagline">App do paciente</p>
-        </header>
-
-        <div class="patient-auth-card">
-          <header class="patient-auth-header">
-            <h2>Entrar</h2>
-            <p>Use o e-mail e a senha enviados pela sua nutricionista.</p>
-          </header>
-
-          <form @submit.prevent="handleLogin" class="auth-form patient-auth-form">
-            <div class="form-group" :class="{ focused: focusedField === 'email' }">
-              <label for="patient-email">E-mail</label>
-              <div class="input-wrapper">
-                <Mail class="input-icon" />
-                <input
-                  id="patient-email"
-                  type="email"
-                  v-model="form.email"
-                  placeholder="seu@email.com"
-                  autocomplete="email"
-                  required
-                  @focus="focusedField = 'email'"
-                  @blur="focusedField = ''"
-                >
-              </div>
-            </div>
-
-            <div class="form-group" :class="{ focused: focusedField === 'password' }">
-              <div class="label-row">
-                <label for="patient-password">Senha</label>
-                <button type="button" class="forgot-link forgot-link-btn">Esqueci a senha</button>
-              </div>
-              <div class="input-wrapper">
-                <Lock class="input-icon" />
-                <input
-                  id="patient-password"
-                  :type="showPassword ? 'text' : 'password'"
-                  v-model="form.password"
-                  placeholder="Sua senha de acesso"
-                  autocomplete="current-password"
-                  required
-                  @focus="focusedField = 'password'"
-                  @blur="focusedField = ''"
-                >
-                <button
-                  type="button"
-                  class="password-toggle-btn"
-                  :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
-                  @click="showPassword = !showPassword"
-                >
-                  <EyeOff v-if="showPassword" class="password-toggle-icon" />
-                  <Eye v-else class="password-toggle-icon" />
-                </button>
-              </div>
-            </div>
-
-            <button type="submit" :disabled="loading" class="btn-auth-submit patient-auth-submit">
-              <span v-if="loading">Validando...</span>
-              <span v-else>Entrar</span>
-            </button>
-
-            <p v-if="error" class="error-banner" role="alert">
-              <AlertCircle class="error-icon" />
-              {{ error }}
-            </p>
-
-            <p class="patient-auth-footer">
-              Primeiro acesso?
-              <NuxtLink to="/register">Solicitar cadastro</NuxtLink>
-            </p>
-          </form>
-        </div>
-      </div>
-    </main>
-
     <!-- Portal web (nutricionista) -->
-    <main v-else class="auth-main">
+    <main class="auth-main">
       <div class="auth-card">
         <header class="auth-header">
           <h2>Bem-vindo de volta</h2>
@@ -153,7 +73,7 @@
           </p>
 
           <div class="auth-footer">
-            <p>Ainda não é membro? <NuxtLink to="/register">Solicitar acesso</NuxtLink></p>
+            <p>Primeiro acesso? <NuxtLink to="/setup/nutricionista">Configurar painel</NuxtLink></p>
           </div>
         </form>
       </div>
@@ -242,11 +162,8 @@ definePageMeta({
   layout: false
 })
 
-const config = useRuntimeConfig()
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)
-const { persistSession, clearPatientSession } = usePatientApp()
-const patientAuth = usePatientAuth()
 
 const form = reactive({
   email: '',
@@ -275,27 +192,21 @@ const handleLogin = async () => {
       body: form
     })
     
-    patientAuth.saveToken(data.token)
-    localStorage.setItem('user_role', data.user.role)
-    localStorage.setItem('user_id', data.user.id)
-    persistSession({
-      name: data.user.name,
-      avatar: data.user.avatar,
-      createdAt: data.user.createdAt,
-    })
-
-    if (config.public.mobileApp && data.user.role === 'NUTRICIONISTA') {
-      clearPatientSession()
-      error.value = 'Esta versão é exclusiva para pacientes. Nutricionistas devem usar a versão web.'
+    if (data.user.role !== 'NUTRICIONISTA') {
+      error.value = 'Acesso exclusivo para nutricionistas. Pacientes devem usar o app Clube Florescer.'
       return
     }
+
+    localStorage.setItem('auth_token', data.token)
+    localStorage.setItem('user_role', data.user.role)
+    localStorage.setItem('user_id', data.user.id)
 
     if (data.mustChangePassword) {
       showFirstAccessModal.value = true
       return
     }
 
-    navigateTo(config.public.mobileApp ? '/inicio' : '/cursos')
+    navigateTo('/cursos')
   } catch (err) {
     console.error('Erro completo:', err)
     if (isApiConnectionError(err)) {
@@ -332,7 +243,7 @@ const handleFirstAccessPasswordChange = async () => {
     return
   }
 
-  const token = patientAuth.getToken()
+  const token = localStorage.getItem('auth_token')
   if (!token) {
     firstAccessError.value = 'Sessão inválida. Faça login novamente.'
     return
@@ -342,7 +253,7 @@ const handleFirstAccessPasswordChange = async () => {
   try {
     await $fetch(`${authApiBase.value}/first-access/change-password`, {
       method: 'POST',
-      headers: patientAuth.authHeaders(),
+      headers: { Authorization: `Bearer ${token}` },
       body: {
         newPassword: firstAccessForm.newPassword
       }
@@ -351,7 +262,7 @@ const handleFirstAccessPasswordChange = async () => {
     showFirstAccessModal.value = false
     firstAccessForm.newPassword = ''
     firstAccessForm.confirmPassword = ''
-    navigateTo(config.public.mobileApp ? '/inicio' : '/cursos')
+    navigateTo('/cursos')
   } catch (err) {
     if (err.data && err.data.message) {
       firstAccessError.value = err.data.message
@@ -362,14 +273,6 @@ const handleFirstAccessPasswordChange = async () => {
     firstAccessLoading.value = false
   }
 }
-
-onMounted(async () => {
-  if (!config.public.mobileApp) return
-  patientAuth.bootstrapToken()
-  if (!patientAuth.getToken()) return
-  const ok = await patientAuth.refreshSession()
-  if (ok) navigateTo('/inicio')
-})
 </script>
 
 <style scoped>

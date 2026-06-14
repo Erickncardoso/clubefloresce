@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "foods:build-json": "node scripts/build-food-json.mjs",
     "foods:import": "ts-node scripts/import-foods.ts",
-    "foods:seed": "npm run foods:build-json && npm run foods:import"
+    "foods:seed": "npm run foods:build-json && npm run foods:import",
+    "patient:dev": "ts-node src/scripts/ensure-patient-dev.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -20,6 +21,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.5.2",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
+    "helmet": "^8.2.0",
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.1",
     "multer": "^1.4.5-lts.1",

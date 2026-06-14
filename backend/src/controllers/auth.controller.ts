@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service";
 import { RegistrationRequestService } from "../services/registration-request.service";
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from "../utils/jwt";
+import { UserStatus } from "@prisma/client";
 
 const authService = new AuthService();
 const registrationRequestService = new RegistrationRequestService();
@@ -106,10 +108,13 @@ export class AuthController {
       if (!authHeader) return res.status(401).json({ message: "Não autorizado" });
       
       const token = authHeader.split(" ")[1];
-      const payload: any = jwt.verify(token, process.env.JWT_SECRET!);
+      const payload: any = jwt.verify(token, getJwtSecret());
       const user = await authService.findById(payload.id);
-      
+
       if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
+      if (user.status === UserStatus.INATIVO) {
+        return res.status(403).json({ message: "Conta desativada." });
+      }
       
       const { password, ...userWithoutPassword } = user;
       return res.json(userWithoutPassword);

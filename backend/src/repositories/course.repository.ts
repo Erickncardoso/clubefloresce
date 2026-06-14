@@ -1,6 +1,24 @@
 import { PrismaClient, Course, Module, Lesson } from "@prisma/client";
+import { isUuid, slugify } from "../utils/slug";
 
 const prisma = new PrismaClient();
+
+const moduleInclude = (userId?: string) => ({
+  lessons: {
+    orderBy: { order: "asc" as const },
+    include: {
+      progress: userId ? { where: { userId } } : false,
+    },
+  },
+  course: {
+    include: {
+      modules: {
+        select: { id: true, title: true, order: true },
+        orderBy: { order: "asc" as const },
+      },
+    },
+  },
+});
 
 export class CourseRepository {
   async findAll(): Promise<Course[]> {
@@ -16,26 +34,37 @@ export class CourseRepository {
     });
   }
 
-  async findModuleById(id: string, userId?: string): Promise<any | null> {
-    return prisma.module.findUnique({
-      where: { id },
-      include: { 
-        lessons: { 
-          orderBy: { order: 'asc' },
-          include: {
-            progress: userId ? { where: { userId } } : false
-          }
-        },
-        course: { 
-          include: {
-            modules: {
-              select: { id: true, title: true, order: true },
-              orderBy: { order: 'asc' }
-            }
-          }
-        } 
-      },
+  async getCourseAuthorIdByModuleId(moduleId: string): Promise<string | null> {
+    const module = await prisma.module.findUnique({
+      where: { id: moduleId },
+      select: { course: { select: { authorId: true } } },
     });
+    return module?.course?.authorId ?? null;
+  }
+
+  async getCourseAuthorIdByLessonId(lessonId: string): Promise<string | null> {
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { module: { select: { course: { select: { authorId: true } } } } },
+    });
+    return lesson?.module?.course?.authorId ?? null;
+  }
+
+  async findModuleById(id: string, userId?: string): Promise<any | null> {
+    if (isUuid(id)) {
+      return prisma.module.findUnique({
+        where: { id },
+        include: moduleInclude(userId),
+      });
+    }
+
+    const modules = await prisma.module.findMany({
+      include: moduleInclude(userId),
+      orderBy: [{ courseId: "asc" }, { order: "asc" }],
+    });
+
+    const matches = modules.filter((module) => slugify(module.title) === id);
+    return matches[0] ?? null;
   }
 
   async updateLessonProgress(userId: string, lessonId: string, data: { watched?: boolean, liked?: boolean, disliked?: boolean, favorited?: boolean }): Promise<any> {
@@ -151,6 +180,10 @@ export class CourseRepository {
     });
   }
 
+  async findLessonById(id: string): Promise<Lesson | null> {
+    return prisma.lesson.findUnique({ where: { id } });
+  }
+
   // Lessons
   async createLesson(data: any): Promise<Lesson> {
     console.log('[CourseRepository] Criando aula:', JSON.stringify(data, null, 2));
@@ -169,15 +202,19 @@ export class CourseRepository {
   // Update Lesson
   async updateLesson(id: string, data: any): Promise<Lesson> {
     console.log(`[CourseRepository] Atualizando aula ${id}:`, JSON.stringify(data, null, 2));
+    const patch: Record<string, unknown> = {};
+    if (data.title !== undefined) patch.title = data.title;
+    if (data.videoUrl !== undefined) patch.videoUrl = data.videoUrl;
+    if (data.content !== undefined) patch.content = data.content;
+    if (data.duration !== undefined) patch.duration = data.duration;
+    if (data.thumbnail !== undefined) patch.thumbnail = data.thumbnail;
+    if (data.order !== undefined) patch.order = data.order;
+    if (data.transcription !== undefined) patch.transcription = data.transcription;
+    if (data.materials !== undefined) patch.materials = data.materials;
+
     return prisma.lesson.update({
       where: { id },
-      data: {
-        title: data.title,
-        videoUrl: data.videoUrl,
-        duration: data.duration,
-        thumbnail: data.thumbnail,
-        order: data.order
-      }
+      data: patch,
     });
   }
 

@@ -12,6 +12,8 @@ router.get("/:id", authenticate, courseController.getById);
 
 // Rotas de progresso e interações
 router.post("/lessons/:lessonId/progress", authenticate, courseController.updateLessonProgress);
+router.post("/lessons/:lessonId/sync-transcription", authenticate, authorize(["NUTRICIONISTA"]), courseController.syncLessonTranscription);
+router.post("/lessons/:lessonId/generate-summary", authenticate, authorize(["NUTRICIONISTA"]), courseController.generateLessonSummary);
 router.get("/lessons/:lessonId/comments", authenticate, courseController.getLessonComments);
 router.post("/lessons/:lessonId/comments", authenticate, courseController.addLessonComment);
 router.put("/comments/:id", authenticate, courseController.updateComment);

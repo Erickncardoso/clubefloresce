@@ -1,0 +1,39 @@
+---
+description: Protocolo AG Kit — roteamento de agentes e skills antes de cada tarefa
+alwaysApply: true
+---
+
+# AG Kit — Protocolo de Agentes e Skills
+
+## Antes de codificar ou alterar UI
+
+1. Leia `.agents/rules/GEMINI.md` quando a tarefa for complexa ou ambígua.
+2. Siga `.agents/skills/intelligent-routing/SKILL.md` para escolher o agente.
+3. Abra `.agents/agent/{agente}.md` e carregue os `skills:` do frontmatter.
+4. Leia apenas o `SKILL.md` necessário (progressive disclosure — não leia pastas inteiras).
+5. Para este repo, aplique também `.cursor/rules/clubeflorescer-routing.mdc`.
+
+## Prioridade de regras
+
+P0: regras do usuário e do Cursor → P1: agente ativo → P2: skills → P3: código existente do projeto.
+
+## Quando usar workflows
+
+| Situação | Workflow |
+|----------|----------|
+| Feature nova grande | `.agents/workflows/create.md` ou `/plan` |
+| Bug / produção quebrada | `.agents/workflows/debug.md` |
+| Deploy / Coolify | `.agents/workflows/deploy.md` |
+| Melhorar código existente | `.agents/workflows/enhance.md` |
+| Validar antes de entregar | `.agents/workflows/verify.md` |
+| Várias frentes em paralelo | `.agents/workflows/coordinate.md` |
+
+## Skills sempre relevantes
+
+- `clean-code` — todo código
+- `verify-changes` — após mudanças, rodar o que for aplicável (build, lint, teste manual)
+- `powershell-windows` — comandos no Windows deste ambiente
+
+## Memória
+
+No início de sessões longas, consulte `.agents/memory/MEMORY.md` e convenções do Clube Florescer.

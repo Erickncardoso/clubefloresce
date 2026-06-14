@@ -1,6 +1,33 @@
 <template>
   <div v-if="isPatientApp" class="patient-page checkin-page checkin-page--typeform">
+    <PatientHeader v-if="view === 'list'" title="Check-ins" />
+
+    <div v-if="loadingTemplates" class="checkin-loading">Carregando check-ins...</div>
+
+    <div v-else-if="view === 'list'" class="checkin-picker">
+      <p v-if="!activeTemplates.length" class="checkin-empty">
+        Nenhum check-in disponível no momento.
+      </p>
+      <button
+        v-for="tpl in activeTemplates"
+        :key="tpl.id"
+        type="button"
+        class="checkin-picker-card"
+        @click="startTemplate(tpl)"
+      >
+        <strong>{{ tpl.title }}</strong>
+        <span v-if="tpl.description">{{ tpl.description }}</span>
+        <small>{{ frequencyLabel(tpl.frequency) }}</small>
+        <span v-if="tpl.completedThisPeriod" class="checkin-done-badge">Respondido</span>
+      </button>
+      <NuxtLink v-if="history.length" to="/check-in/historico" class="checkin-history-link">
+        Ver histórico
+      </NuxtLink>
+    </div>
+
     <CheckinTypeformFlow
+      v-else-if="selectedTemplate"
+      :steps="selectedTemplate.steps"
       :saving="saving"
       :error="formError"
       :show-history-link="history.length > 0"
@@ -177,6 +204,7 @@ const config = useRuntimeConfig()
 const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const { patientTimeHeaders } = usePatientLocalTime()
 
+const route = useRoute()
 const apiBase = config.public.apiBase
 const isNutri = ref(false)
 const saving = ref(false)
@@ -188,6 +216,10 @@ const patientCheckIns = ref([])
 const nutriSearch = ref('')
 const onlyAttention = ref(false)
 const weekLabel = ref('')
+const loadingTemplates = ref(false)
+const activeTemplates = ref([])
+const selectedTemplate = ref(null)
+const view = ref('list')
 
 const filteredCheckIns = computed(() => {
   let list = patientCheckIns.value
@@ -272,6 +304,57 @@ function parseCheckInNotes(notes) {
   return { water, exercise, freeText: freeText || null }
 }
 
+function frequencyLabel(freq) {
+  if (freq === 'daily') return 'Diário'
+  if (freq === 'monthly') return 'Mensal'
+  return 'Semanal'
+}
+
+const loadPatientTemplates = async () => {
+  loadingTemplates.value = true
+  try {
+    const data = await $fetch(`${apiBase}/checkin/templates/active`, { headers: patientTimeHeaders() })
+    const templates = data.templates || []
+    const allHistory = []
+    const enriched = await Promise.all(
+      templates.map(async (tpl) => {
+        try {
+          const ctx = await $fetch(`${apiBase}/checkin/templates/${tpl.id}/context`, {
+            headers: patientTimeHeaders(),
+          })
+          if (Array.isArray(ctx.history)) allHistory.push(...ctx.history)
+          return {
+            ...tpl,
+            completedThisPeriod: Boolean(ctx.current),
+          }
+        } catch {
+          return { ...tpl, completedThisPeriod: false }
+        }
+      }),
+    )
+    activeTemplates.value = enriched
+    history.value = allHistory
+
+    const queryId = route.query.template
+    if (queryId) {
+      const match = enriched.find((t) => t.id === queryId)
+      if (match) startTemplate(match)
+      return
+    }
+    if (enriched.length === 1 && !enriched[0].completedThisPeriod) {
+      startTemplate(enriched[0])
+    }
+  } finally {
+    loadingTemplates.value = false
+  }
+}
+
+const startTemplate = (tpl) => {
+  selectedTemplate.value = tpl
+  view.value = 'flow'
+  formError.value = ''
+}
+
 const loadPatientData = async () => {
   const data = await $fetch(`${apiBase}/checkin/me`, { headers: patientTimeHeaders() })
   current.value = data.current
@@ -296,19 +379,17 @@ const loadNutriData = async () => {
   }))
 }
 
-const submitPatientCheckIn = async (typeformData) => {
+const submitPatientCheckIn = async (answers) => {
+  if (!selectedTemplate.value) return
   formError.value = ''
   saving.value = true
   try {
-    await $fetch(`${apiBase}/checkin`, {
+    await $fetch(`${apiBase}/checkin/responses`, {
       method: 'POST',
       headers: patientTimeHeaders(),
       body: {
-        mood: typeformData.sleep || 3,
-        energy: waterToEnergy(typeformData.water),
-        adherence: typeformData.food || 3,
-        weightKg: null,
-        notes: `Água: ${typeformData.water} copos. Exercício: ${typeformData.exercise ? 'Sim' : 'Não'}.`,
+        templateId: selectedTemplate.value.id,
+        answers,
       },
     })
     navigateTo('/check-in/concluido')
@@ -349,7 +430,7 @@ onMounted(async () => {
   isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
   try {
     if (isNutri.value) await loadNutriData()
-    else await loadPatientData()
+    else await loadPatientTemplates()
   } catch (err) {
     console.error(err)
   }
@@ -365,6 +446,73 @@ onMounted(async () => {
   padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 1.25rem);
   box-sizing: border-box;
   background: var(--cf-bg);
+}
+
+.checkin-loading,
+.checkin-empty {
+  padding: 2rem 1.25rem;
+  text-align: center;
+  color: var(--cf-text-muted);
+}
+
+.checkin-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.checkin-picker-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border: 1.5px solid var(--cf-border);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.checkin-picker-card strong {
+  font-size: 1rem;
+  color: var(--cf-text);
+}
+
+.checkin-picker-card span {
+  font-size: 0.88rem;
+  color: var(--cf-text-muted);
+}
+
+.checkin-picker-card small {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cf-pink-dark);
+}
+
+.checkin-done-badge {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--cf-track);
+  font-size: 0.7rem !important;
+  font-weight: 700;
+  color: var(--cf-text-muted) !important;
+}
+
+.checkin-history-link {
+  margin-top: 0.5rem;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cf-pink-dark);
+  text-decoration: none;
 }
 
 /* Portal web / nutri */

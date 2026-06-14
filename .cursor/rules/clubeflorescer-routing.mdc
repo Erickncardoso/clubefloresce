@@ -1,0 +1,21 @@
+---
+description: Roteamento de agentes/skills para o stack Clube Florescer (Nuxt, Express, PWA)
+alwaysApply: true
+---
+
+# Clube Florescer — Roteamento de Agentes
+
+## Separação de apps
+
+| App | Pasta | Conteúdo |
+|-----|-------|----------|
+| **Admin** | `frontend/pages/` | Só painel nutri — nunca copiar páginas daqui para cliente |
+| **Paciente PWA** | `cliente/pages/` | **Fonte de verdade** do design/UI do paciente — não sobrescrever com frontend |
+| **Compartilhado** | `frontend/components`, `composables`, `assets` | Layer Nuxt usado pelo cliente |
+
+## Regras críticas
+
+- **NUNCA** copiar `frontend/pages` → `cliente/pages` para “sincronizar”
+- Editar paciente = **só** `cliente/pages/`
+- Editar admin = **só** `frontend/pages/`
+- `cliente/nuxt.config.ts` usa `srcDir: '.'` (páginas do cliente, não do frontend)

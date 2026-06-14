@@ -641,30 +641,6 @@ const _inlineRuntimeConfig = {
           "to": "/inicio",
           "statusCode": 301
         }
-      },
-      "/whatsapp/**": {
-        "prerender": false
-      },
-      "/dashboard/**": {
-        "prerender": false
-      },
-      "/usuarios/**": {
-        "prerender": false
-      },
-      "/financeiro/**": {
-        "prerender": false
-      },
-      "/ebooks/**": {
-        "prerender": false
-      },
-      "/personalizar/**": {
-        "prerender": false
-      },
-      "/gerenciar-cursos/**": {
-        "prerender": false
-      },
-      "/setup/**": {
-        "prerender": false
       }
     }
   },

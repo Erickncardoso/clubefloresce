@@ -16,6 +16,9 @@
   --cf-radius-msg-media: 1.25rem;
   --cf-radius-pill: 999px;
   --cf-radius-full: 50%;
+  /* controles admin / formulários — cantos generosos como os tiles */
+  --cf-radius-control: var(--cf-radius);
+  --cf-radius-surface: var(--cf-radius-xl);
 }
 
 html,

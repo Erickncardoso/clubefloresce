@@ -8,7 +8,6 @@ declare module 'nuxt/app' {
   interface NuxtLayouts {
     dashboard: ComponentProps<typeof import("C:/Users/erick/Desktop/clubeflorescer/frontend/layouts/dashboard.vue").default>,
     default: ComponentProps<typeof import("C:/Users/erick/Desktop/clubeflorescer/frontend/layouts/default.vue").default>,
-    patient: ComponentProps<typeof import("C:/Users/erick/Desktop/clubeflorescer/frontend/layouts/patient.vue").default>,
 }
   export type LayoutKey = keyof NuxtLayouts extends never ? string : keyof NuxtLayouts
   interface PageMeta {

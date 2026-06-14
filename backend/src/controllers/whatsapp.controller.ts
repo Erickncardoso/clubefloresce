@@ -11,7 +11,7 @@ const whatsappChatSyncService = new WhatsappChatSyncService();
 const whatsappContactStateRepository = new WhatsappContactStateRepository();
 const whatsappContactDirectoryRepository = new WhatsappContactDirectoryRepository();
 const whatsappGroupObservedSendersRepository = new WhatsappGroupObservedSendersRepository();
-const UAZAPI_BASE_URL = process.env.UAZAPI_SERVER_URL || "https://erickcardoso.uazapi.com";
+const UAZAPI_BASE_URL = process.env.UAZAPI_SERVER_URL || "";
 
 export class WhatsappController {
   async create(req: Request, res: Response): Promise<any> {
@@ -29,7 +29,15 @@ export class WhatsappController {
 
   async deleteInstance(req: Request, res: Response): Promise<any> {
     try {
+      const user = (req as any).user;
+      if (!user) return res.status(401).json({ message: "Não autorizado" });
+
       const { name } = req.params;
+      const ownedName = `instancia_${user.id}`;
+      if (name !== ownedName) {
+        return res.status(403).json({ message: "Não autorizado a deletar esta instância." });
+      }
+
       console.log(`[Controller] Deletando instância: ${name}`);
       const result = await whatsappService.deleteInstance(name);
       if (!result.success) {
@@ -439,7 +447,16 @@ export class WhatsappController {
   }
 
   async webhook(req: Request, res: Response): Promise<any> {
-    // Retorna 200 imediatamente para evitar retry da UAZAPI
+    const webhookSecret = process.env.WHATSAPP_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const provided =
+        (req.headers["x-webhook-secret"] as string | undefined) ||
+        (req.headers["authorization"] as string | undefined)?.replace(/^Bearer\s+/i, "");
+      if (provided !== webhookSecret) {
+        return res.status(401).json({ message: "Webhook não autorizado." });
+      }
+    }
+
     res.status(200).json({ received: true });
 
     try {
@@ -469,6 +486,10 @@ export class WhatsappController {
     try {
       const user = (req as any).user;
       if (!user) return res.status(401).json({ message: "Não autorizado" });
+
+      if (!UAZAPI_BASE_URL) {
+        return res.status(503).json({ message: "UAZAPI_SERVER_URL não configurada." });
+      }
 
       const endpoint = "/" + req.params[0];
       const instanceToken = await whatsappService.getInstanceToken(user.id);

@@ -4,6 +4,13 @@ import { authenticate, authorize } from "../middleware/auth.middleware";
 
 const router = Router();
 const uploadController = new UploadController();
+const VIDEO_UPLOAD_TIMEOUT_MS = Number(process.env.UPLOAD_SERVER_TIMEOUT_MS || 30 * 60 * 1000);
+
+function extendVideoUploadTimeout(req: Request, res: Response, next: NextFunction) {
+  req.setTimeout(VIDEO_UPLOAD_TIMEOUT_MS);
+  res.setTimeout(VIDEO_UPLOAD_TIMEOUT_MS);
+  next();
+}
 
 function handleMulterUpload(middleware: any) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -39,11 +46,20 @@ router.post(
   (req, res) => uploadController.handleUpload(req, res)
 );
 
-// Upload de VÍDEO (aulas)
+// Assinatura para upload direto de vídeo no Cloudinary (browser → Cloudinary)
+router.get(
+  "/video/signature",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  (req, res) => uploadController.getVideoUploadSignature(req, res),
+);
+
+// Upload de VÍDEO (aulas) — fallback via servidor
 router.post(
   "/video",
   authenticate,
   authorize(["NUTRICIONISTA"]),
+  extendVideoUploadTimeout,
   handleMulterUpload(uploadVideo.single("file")),
   (req, res) => uploadController.handleVideoUpload(req, res)
 );

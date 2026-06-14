@@ -195,7 +195,7 @@
                 <p>{{ project.content || 'Projeto prático para consolidar o aprendizado do módulo.' }}</p>
                 <span class="project-module">{{ project.moduleTitle }}</span>
               </div>
-              <button class="project-action" @click="navigateTo(`/modulos/${project.moduleId}?lessonId=${project.id}`)">
+              <button class="project-action" @click="openProjectLesson(project)">
                 Abrir projeto
                 <ChevronRight class="i-xs" />
               </button>
@@ -433,6 +433,7 @@ import {
   Code2,
   CircleHelp
 } from 'lucide-vue-next'
+import { buildModuleUrl } from '~/utils/course-slug'
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -593,7 +594,13 @@ const educatorList = computed(() => {
 
 const openLessonPlayer = (module, lesson) => {
   if (!module?.id || !lesson?.id) return
-  navigateTo(`/modulos/${module.id}?lessonId=${lesson.id}`)
+  navigateTo(buildModuleUrl(module, lesson, module.lessons))
+}
+
+const openProjectLesson = (project) => {
+  const module = modules.value.find((item) => item.id === project.moduleId)
+  if (!module) return
+  navigateTo(buildModuleUrl(module, project, module.lessons))
 }
 
 const isModuleExpanded = (moduleId) => expandedModuleIds.value.has(moduleId)

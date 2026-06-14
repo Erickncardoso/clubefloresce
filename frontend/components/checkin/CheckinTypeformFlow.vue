@@ -21,7 +21,7 @@
         <ChevronUp aria-hidden="true" />
       </button>
       <span v-else class="typeform-back-spacer" aria-hidden="true" />
-      <span class="typeform-counter">{{ stepIndex + 1 }} / {{ steps.length }}</span>
+      <span class="typeform-counter">{{ stepIndex + 1 }} / {{ flowSteps.length }}</span>
     </header>
 
     <main class="typeform-main">
@@ -33,73 +33,95 @@
 
           <div class="typeform-answer">
             <CheckinFoodMoodPicker
-              v-if="currentStep.id === 'food'"
-              :model-value="form.food"
-              @update:model-value="selectFood"
+              v-if="stepType === 'food'"
+              :model-value="form[currentStep.id]"
+              @update:model-value="(v) => selectValue(currentStep.id, v, true)"
             />
 
-            <div v-else-if="currentStep.id === 'water'" class="typeform-water">
+            <div v-else-if="stepType === 'water'" class="typeform-water">
               <div class="typeform-water-control">
                 <button
                   type="button"
                   class="typeform-water-btn"
                   aria-label="Remover um copo"
-                  @click="form.water = Math.max(0, form.water - 1)"
+                  @click="form[currentStep.id] = Math.max(0, (form[currentStep.id] || 0) - 1)"
                 >
                   −
                 </button>
                 <div class="typeform-water-value">
-                  <strong>{{ form.water }}</strong>
-                  <span>{{ form.water === 1 ? 'copo' : 'copos' }}</span>
+                  <strong>{{ form[currentStep.id] ?? 0 }}</strong>
+                  <span>{{ (form[currentStep.id] ?? 0) === 1 ? 'copo' : 'copos' }}</span>
                 </div>
                 <button
                   type="button"
                   class="typeform-water-btn"
                   aria-label="Adicionar um copo"
-                  @click="form.water = Math.min(12, form.water + 1)"
+                  @click="form[currentStep.id] = Math.min(12, (form[currentStep.id] || 0) + 1)"
                 >
                   +
                 </button>
               </div>
             </div>
 
-            <div v-else-if="currentStep.id === 'exercise'" class="typeform-choices">
+            <div v-else-if="stepType === 'exercise'" class="typeform-choices">
               <button
                 type="button"
                 class="typeform-choice"
-                :class="{ 'typeform-choice--selected': form.exercise === true }"
-                @click="selectExercise(true)"
+                :class="{ 'typeform-choice--selected': form[currentStep.id] === true }"
+                @click="selectValue(currentStep.id, true, true)"
               >
                 <span class="typeform-choice-label">Sim, pratiquei hoje</span>
               </button>
               <button
                 type="button"
                 class="typeform-choice"
-                :class="{ 'typeform-choice--selected': form.exercise === false }"
-                @click="selectExercise(false)"
+                :class="{ 'typeform-choice--selected': form[currentStep.id] === false }"
+                @click="selectValue(currentStep.id, false, true)"
               >
                 <span class="typeform-choice-label">Não pratiquei hoje</span>
               </button>
             </div>
 
             <div
-              v-else-if="currentStep.id === 'sleep'"
+              v-else-if="stepType === 'scale'"
               class="typeform-stars"
               role="group"
-              aria-label="Avaliação do sono"
+              :aria-label="currentStep.label"
             >
               <button
-                v-for="n in 5"
+                v-for="n in scaleMax"
                 :key="n"
                 type="button"
                 class="typeform-star"
-                :class="{ 'typeform-star--filled': form.sleep >= n }"
+                :class="{ 'typeform-star--filled': (form[currentStep.id] || 0) >= n }"
                 :aria-label="`${n} ${n === 1 ? 'estrela' : 'estrelas'}`"
-                :aria-pressed="form.sleep >= n"
-                @click="selectSleep(n)"
+                :aria-pressed="(form[currentStep.id] || 0) >= n"
+                @click="selectScale(n)"
               >
                 ★
               </button>
+            </div>
+
+            <div v-else-if="stepType === 'choice'" class="typeform-choices">
+              <button
+                v-for="option in choiceOptions"
+                :key="option.value"
+                type="button"
+                class="typeform-choice"
+                :class="{ 'typeform-choice--selected': form[currentStep.id] === option.value }"
+                @click="selectValue(currentStep.id, option.value, true)"
+              >
+                <span class="typeform-choice-label">{{ option.label }}</span>
+              </button>
+            </div>
+
+            <div v-else class="typeform-text">
+              <textarea
+                v-model="form[currentStep.id]"
+                rows="4"
+                class="typeform-textarea"
+                :placeholder="currentStep.hint || 'Digite sua resposta...'"
+              />
             </div>
           </div>
         </section>
@@ -122,15 +144,17 @@
 
     <p v-if="error" class="typeform-error">{{ error }}</p>
     <NuxtLink v-if="showHistoryLink && stepIndex === 0" to="/check-in/historico" class="typeform-history-link">
-      Ver semanas anteriores
+      Ver histórico
     </NuxtLink>
   </div>
 </template>
 
 <script setup>
 import { ArrowRight, Check, ChevronUp } from 'lucide-vue-next'
+import { CHECKIN_DEFAULT_STEPS } from '~/utils/checkin-default-steps'
 
 const props = defineProps({
+  steps: { type: Array, default: () => CHECKIN_DEFAULT_STEPS },
   saving: { type: Boolean, default: false },
   error: { type: String, default: '' },
   showHistoryLink: { type: Boolean, default: false },
@@ -138,53 +162,50 @@ const props = defineProps({
 
 const emit = defineEmits(['submit'])
 
-const form = reactive({
-  food: null,
-  water: 6,
-  exercise: null,
-  sleep: null,
+const form = reactive({})
+const stepIndex = ref(0)
+
+const flowSteps = computed(() => {
+  const list = props.steps?.length ? props.steps : CHECKIN_DEFAULT_STEPS
+  return list.map((step, index) => ({
+    id: step.id || `step_${index + 1}`,
+    type: step.type || step.id || 'text',
+    label: step.label || `Pergunta ${index + 1}`,
+    question: step.question || '',
+    hint: step.hint || '',
+    min: step.min ?? 1,
+    max: step.max ?? 5,
+    options: step.options,
+  }))
 })
 
-const steps = [
-  {
-    id: 'food',
-    label: 'Alimentação',
-    question: 'Como foi sua alimentação hoje?',
-    hint: 'Toque no rosto que mais combina com o seu dia.',
-  },
-  {
-    id: 'water',
-    label: 'Água',
-    question: 'Quantos copos de água você bebeu?',
-    hint: 'Conte apenas copos padrão, de cerca de 200 ml.',
-  },
-  {
-    id: 'exercise',
-    label: 'Exercício',
-    question: 'Você praticou atividade física hoje?',
-    hint: 'Caminhada, musculação, yoga ou qualquer movimento conta.',
-  },
-  {
-    id: 'sleep',
-    label: 'Sono',
-    question: 'Como você dormiu?',
-    hint: 'Toque nas estrelas de 1 (péssimo) a 5 (excelente).',
-  },
-]
+const currentStep = computed(() => flowSteps.value[stepIndex.value] || flowSteps.value[0])
+const stepType = computed(() => currentStep.value.type)
+const isLastStep = computed(() => stepIndex.value === flowSteps.value.length - 1)
+const progressPct = computed(() => Math.round(((stepIndex.value + 1) / flowSteps.value.length) * 100))
+const scaleMax = computed(() => Math.max(1, Number(currentStep.value.max) || 5))
 
-const stepIndex = ref(0)
-const currentStep = computed(() => steps[stepIndex.value])
-const isLastStep = computed(() => stepIndex.value === steps.length - 1)
-const progressPct = computed(() => Math.round(((stepIndex.value + 1) / steps.length) * 100))
+const choiceOptions = computed(() => {
+  const raw = currentStep.value.options
+  if (!Array.isArray(raw)) return []
+  return raw.map((item, index) => {
+    if (typeof item === 'string') return { value: item, label: item }
+    const value = item?.value ?? item?.label ?? `opt_${index}`
+    return { value, label: item?.label ?? String(value) }
+  })
+})
 
-const showOkButton = computed(() => currentStep.value.id === 'water')
+const showOkButton = computed(() => stepType.value === 'water' || stepType.value === 'text')
 
 const canAdvance = computed(() => {
   const id = currentStep.value.id
-  if (id === 'food') return form.food != null
-  if (id === 'water') return form.water >= 0
-  if (id === 'exercise') return form.exercise != null
-  if (id === 'sleep') return form.sleep != null
+  const type = stepType.value
+  const value = form[id]
+  if (type === 'food' || type === 'exercise' || type === 'scale' || type === 'choice') {
+    return value != null
+  }
+  if (type === 'water') return Number(value) >= 0
+  if (type === 'text') return String(value || '').trim().length > 0
   return false
 })
 
@@ -194,24 +215,44 @@ const okLabel = computed(() => {
   return 'Continuar'
 })
 
-const okHint = computed(() => {
-  if (props.saving) return 'Salvando...'
-  return 'continuar'
-})
+const okHint = computed(() => (props.saving ? 'Salvando...' : 'continuar'))
+
+function initForm() {
+  for (const key of Object.keys(form)) delete form[key]
+  for (const step of flowSteps.value) {
+    form[step.id] = step.type === 'water' ? 6 : null
+  }
+  stepIndex.value = 0
+}
+
+watch(flowSteps, initForm, { immediate: true, deep: true })
+
+function buildPayload() {
+  const payload = {}
+  for (const step of flowSteps.value) {
+    payload[step.id] = form[step.id]
+  }
+  return payload
+}
 
 function prevStep() {
   if (stepIndex.value > 0) stepIndex.value -= 1
 }
 
 function nextStep() {
-  if (!canAdvance.value || stepIndex.value >= steps.length - 1) return
+  if (!canAdvance.value || stepIndex.value >= flowSteps.value.length - 1) return
   stepIndex.value += 1
+}
+
+function submitNow() {
+  if (props.saving) return
+  emit('submit', buildPayload())
 }
 
 function handleOk() {
   if (!canAdvance.value || props.saving) return
   if (isLastStep.value) {
-    emit('submit', { ...form })
+    submitNow()
     return
   }
   nextStep()
@@ -224,27 +265,27 @@ function autoAdvance() {
   }, 320)
 }
 
-function selectFood(value) {
-  form.food = value
-  autoAdvance()
+function selectValue(id, value, advance = false) {
+  form[id] = value
+  if (isLastStep.value) {
+    window.setTimeout(submitNow, 320)
+    return
+  }
+  if (advance) autoAdvance()
 }
 
-function selectExercise(value) {
-  form.exercise = value
+function selectScale(value) {
+  form[currentStep.value.id] = value
+  if (isLastStep.value) {
+    window.setTimeout(submitNow, 320)
+    return
+  }
   autoAdvance()
-}
-
-function selectSleep(value) {
-  form.sleep = value
-  window.setTimeout(() => {
-    if (props.saving) return
-    emit('submit', { ...form, sleep: value })
-  }, 320)
 }
 
 function onKeydown(event) {
   if (event.key !== 'Enter') return
-  if (currentStep.value.id !== 'water') return
+  if (!showOkButton.value) return
   event.preventDefault()
   handleOk()
 }
@@ -484,6 +525,21 @@ onUnmounted(() => {
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--cf-text-muted);
+}
+
+.typeform-textarea {
+  width: 100%;
+  min-height: 7rem;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid var(--cf-border);
+  border-radius: 8px;
+  background: var(--cf-surface);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--cf-text);
+  resize: vertical;
+  box-sizing: border-box;
 }
 
 .typeform-foot {

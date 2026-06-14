@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import path from "path";
 import multer from "multer";
@@ -20,8 +21,10 @@ import patientRoutes from "./routes/patient.routes";
 import { readEnv, maskSecret } from "./utils/env";
 import { getAllowedCorsOrigins, isOriginAllowed } from "./utils/cors-origins";
 import { isCloudinaryConfigured } from "./utils/cloudinary";
+import { assertJwtSecretOnBoot } from "./utils/jwt";
 
 dotenv.config();
+assertJwtSecretOnBoot();
 
 // UTF-8 encoding para console no Windows, quando o stream suporta leitura.
 if (typeof (process.stdout as any).setEncoding === "function") {
@@ -32,6 +35,7 @@ if (typeof (process.stderr as any).setEncoding === "function") {
 }
 
 const app = express();
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3001;
 const allowedOrigins = getAllowedCorsOrigins();
 
@@ -56,14 +60,17 @@ const corsOptions: cors.CorsOptions = {
 };
 
 // Middlewares
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Middleware para diagnosticar requests (Logs)
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  const safePath = req.path;
+  console.log(`[${new Date().toISOString()}] ${req.method} ${safePath}`);
   next();
 });
 
@@ -92,21 +99,8 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (_req, res) => {
-  const openaiKey = readEnv("OPENAI_API_KEY");
   res.json({
     ok: true,
-    uploads: {
-      cloudinary: isCloudinaryConfigured(),
-      videoMaxSizeMb: Number(process.env.VIDEO_UPLOAD_MAX_SIZE_MB || 2048),
-    },
-    bella: {
-      aiEnabled: Boolean(openaiKey),
-      models: {
-        chat: readEnv("OPENAI_MODEL_CHAT") || "gpt-4o-mini",
-        vision: readEnv("OPENAI_MODEL_VISION") || "gpt-4o",
-        pdf: readEnv("OPENAI_MODEL_PDF") || "gpt-4o",
-      },
-    },
     timestamp: new Date().toISOString(),
   });
 });

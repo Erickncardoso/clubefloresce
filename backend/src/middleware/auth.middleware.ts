@@ -1,9 +1,19 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role, UserStatus } from "@prisma/client";
+import { getJwtSecret } from "../utils/jwt";
 
 const prisma = new PrismaClient();
+
+const PENDING_NUTRI_ALLOWED_PREFIXES = [
+  "/api/auth/me",
+  "/api/auth/refresh",
+  "/api/auth/first-access",
+];
+
+function isPendingNutriAllowedPath(path: string): boolean {
+  return PENDING_NUTRI_ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
 
 export const authenticate = async (
   req: Request,
@@ -17,21 +27,40 @@ export const authenticate = async (
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    
-    // Validar se o usuário realmente ainda existe no banco (Prevenção de Foreign Key Error)
-    const userExists = await prisma.user.findUnique({ where: { id: decoded.id } });
-    if (!userExists) {
+    const decoded = jwt.verify(token, getJwtSecret()) as { id: string };
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, email: true, role: true, status: true },
+    });
+
+    if (!user) {
       return res.status(401).json({ message: "Sessão expirada ou usuário inválido. Faça login novamente." });
     }
 
-    req.user = decoded; // Adiciona o usuário logado ao objeto da requisição
+    if (user.status === UserStatus.INATIVO) {
+      return res.status(403).json({ message: "Conta desativada. Entre em contato com o suporte." });
+    }
+
+    if (
+      user.role === Role.NUTRICIONISTA &&
+      user.status === UserStatus.PENDENTE &&
+      !isPendingNutriAllowedPath(req.path)
+    ) {
+      return res.status(403).json({ message: "Altere sua senha de primeiro acesso para continuar." });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+    };
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ message: "Token inválido." });
   }
 };
-
 
 export const authorize = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): any => {
@@ -49,6 +78,7 @@ declare global {
         id: string;
         email: string;
         role: string;
+        status?: string;
       };
     }
   }

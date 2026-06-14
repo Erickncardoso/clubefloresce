@@ -1,47 +1,18 @@
 <template>
-  <div v-if="isPatientApp" class="patient-page comm-page">
-    <PatientHeader title="Comunidade" :has-notifications="true">
-      <template #actions>
-        <button type="button" class="comm-header-btn" aria-label="Buscar">
-          <Search class="comm-header-icon" />
-        </button>
-      </template>
-    </PatientHeader>
-
-    <CommunityFeed
-      v-model:active-tab="activeTab"
-      v-model:active-post-type="activePostType"
-      v-model:new-post-content="newPostContent"
-      :is-nutri="isNutri"
-      :posts="posts"
-      :loading="loading"
-      :post-image-preview-url="postImagePreviewUrl"
-      :expanded-comments="expandedComments"
-      :open-menu-post-id="openMenuPostId"
-      :liking-post-id="likingPostId"
-      :user-initial="userInitial"
-      :user-id="userId"
-      :format-distance="formatDistance"
-      @create-post="handleCreatePost"
-      @post-image-select="handlePostImageSelect"
-      @clear-post-image="clearPostImage"
-      @toggle-like="handleToggleLike"
-      @toggle-comments="toggleComments"
-      @add-comment="handleAddComment"
-      @delete-post="handleDeletePost"
-      @toggle-post-menu="togglePostMenu"
-      @copy-post="copyPostContent"
-      @open-lightbox="openImageLightbox"
-    />
-  </div>
-
-  <NuxtLayout v-else name="dashboard">
+  <NuxtLayout name="dashboard">
     <div class="comm-web-shell admin-shell">
+      <header class="admin-shell-header">
+        <div>
+          <h1>Comunidade</h1>
+          <p>Compartilhe novidades, conquistas e interaja com as alunas.</p>
+        </div>
+      </header>
+
       <CommunityFeed
         v-model:active-tab="activeTab"
         v-model:active-post-type="activePostType"
         v-model:new-post-content="newPostContent"
-        :is-nutri="isNutri"
+        :is-nutri="true"
         :posts="posts"
         :loading="loading"
         :post-image-preview-url="postImagePreviewUrl"
@@ -63,30 +34,34 @@
         @open-lightbox="openImageLightbox"
       />
     </div>
-  </NuxtLayout>
 
-  <Teleport to="body">
-    <div
-      v-if="lightboxImageUrl"
-      class="comm-image-lightbox"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Visualização da imagem"
-      @click.self="closeImageLightbox"
-    >
-      <button type="button" class="comm-image-lightbox-close" aria-label="Fechar" @click="closeImageLightbox">
-        <X class="comm-image-lightbox-close-icon" />
-      </button>
-      <img :src="lightboxImageUrl" alt="Imagem ampliada" class="comm-image-lightbox-img" />
-    </div>
-  </Teleport>
+    <Teleport to="body">
+      <div
+        v-if="lightboxImageUrl"
+        class="comm-image-lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Visualização da imagem"
+        @click.self="closeImageLightbox"
+      >
+        <button type="button" class="comm-image-lightbox-close" aria-label="Fechar" @click="closeImageLightbox">
+          <X class="comm-image-lightbox-close-icon" />
+        </button>
+        <img :src="lightboxImageUrl" alt="Imagem ampliada" class="comm-image-lightbox-img" />
+      </div>
+    </Teleport>
+  </NuxtLayout>
 </template>
 
 <script setup>
-import { Search, X } from 'lucide-vue-next'
+import { X } from 'lucide-vue-next'
+
+definePageMeta({
+  layout: false,
+  middleware: 'nutri-only',
+})
 
 const config = useRuntimeConfig()
-const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const apiBase = config.public.apiBase
 
 const posts = ref([])
@@ -95,7 +70,6 @@ const loading = ref(false)
 const expandedComments = ref([])
 const openMenuPostId = ref(null)
 const likingPostId = ref(null)
-const isNutri = ref(false)
 const userId = ref('')
 const activeTab = ref('feed')
 const activePostType = ref('achievement')
@@ -103,8 +77,10 @@ const selectedPostImageFile = ref(null)
 const postImagePreviewUrl = ref('')
 const lightboxImageUrl = ref('')
 
-const { userInitials } = usePatientApp()
-const userInitial = computed(() => userInitials().charAt(0))
+const userInitial = computed(() => {
+  const name = import.meta.client ? localStorage.getItem('user_name') || '' : ''
+  return (name.trim().charAt(0) || 'N').toUpperCase()
+})
 
 const authHeaders = () => {
   if (import.meta.server) return {}
@@ -115,9 +91,7 @@ const authHeaders = () => {
 const fetchPosts = async () => {
   if (import.meta.server) return
   try {
-    const data = await $fetch(`${apiBase}/posts`, {
-      headers: authHeaders(),
-    })
+    const data = await $fetch(`${apiBase}/posts`, { headers: authHeaders() })
     posts.value = data.map((p) => ({
       ...p,
       likes: p.likes ?? p.likesCount ?? 0,
@@ -162,7 +136,7 @@ const handleCreatePost = async () => {
     })
     newPostContent.value = ''
     clearPostImage()
-    fetchPosts()
+    await fetchPosts()
   } catch (err) {
     alert(err.data?.message || 'Erro ao publicar post.')
   } finally {
@@ -173,23 +147,17 @@ const handleCreatePost = async () => {
 const handlePostImageSelect = (event) => {
   const file = event.target.files?.[0]
   if (!file) return
-
   if (!file.type.startsWith('image/')) {
     alert('Selecione uma imagem (JPG, PNG, WEBP ou GIF).')
     event.target.value = ''
     return
   }
-
   if (file.size > 8 * 1024 * 1024) {
     alert('A imagem deve ter no máximo 8MB.')
     event.target.value = ''
     return
   }
-
-  if (postImagePreviewUrl.value) {
-    URL.revokeObjectURL(postImagePreviewUrl.value)
-  }
-
+  if (postImagePreviewUrl.value) URL.revokeObjectURL(postImagePreviewUrl.value)
   selectedPostImageFile.value = file
   postImagePreviewUrl.value = URL.createObjectURL(file)
 }
@@ -211,9 +179,7 @@ const handleAddComment = async (post) => {
       body: { content: post.newComment },
     })
     post.newComment = ''
-    if (!expandedComments.value.includes(post.id)) {
-      expandedComments.value.push(post.id)
-    }
+    if (!expandedComments.value.includes(post.id)) expandedComments.value.push(post.id)
     await fetchPosts()
   } catch (err) {
     alert(err.data?.message || 'Erro ao adicionar comentário.')
@@ -231,10 +197,7 @@ const handleDeletePost = async (id) => {
   })
   if (!ok) return
   try {
-    await $fetch(`${apiBase}/posts/${id}`, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    })
+    await $fetch(`${apiBase}/posts/${id}`, { method: 'DELETE', headers: authHeaders() })
     expandedComments.value = expandedComments.value.filter((postId) => postId !== id)
     await fetchPosts()
   } catch (err) {
@@ -268,9 +231,7 @@ const toggleComments = async (id) => {
   }
   expandedComments.value.push(id)
   await nextTick()
-  if (import.meta.client) {
-    document.getElementById(`comment-input-${id}`)?.focus()
-  }
+  if (import.meta.client) document.getElementById(`comment-input-${id}`)?.focus()
 }
 
 const formatDistance = (date) => {
@@ -288,16 +249,12 @@ const formatDistance = (date) => {
 const openImageLightbox = (url) => {
   if (!url) return
   lightboxImageUrl.value = url
-  if (import.meta.client) {
-    document.body.style.overflow = 'hidden'
-  }
+  if (import.meta.client) document.body.style.overflow = 'hidden'
 }
 
 const closeImageLightbox = () => {
   lightboxImageUrl.value = ''
-  if (import.meta.client) {
-    document.body.style.overflow = ''
-  }
+  if (import.meta.client) document.body.style.overflow = ''
 }
 
 const handleLightboxKeydown = (event) => {
@@ -306,10 +263,7 @@ const handleLightboxKeydown = (event) => {
 
 onMounted(() => {
   if (import.meta.client) {
-    isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
     userId.value = localStorage.getItem('user_id') || ''
-    const { hydrateProfile } = usePatientApp()
-    hydrateProfile()
     document.addEventListener('click', closePostMenu)
     document.addEventListener('keydown', handleLightboxKeydown)
   }
@@ -327,30 +281,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.comm-page {
-  padding-top: 0;
-  padding-inline: 1.25rem;
-  padding-bottom: calc(var(--cf-tab-h) + 0.5rem);
-}
-
-.comm-header-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-}
-
-.comm-header-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: var(--cf-text);
-}
-
 .comm-web-shell {
   width: 100%;
   max-width: 720px;
@@ -394,22 +324,5 @@ onUnmounted(() => {
   max-height: calc(100vh - 2.5rem);
   object-fit: contain;
   border-radius: 8px;
-  user-select: none;
-}
-
-@media (max-width: 768px) {
-  .comm-web-shell.admin-shell {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-}
-
-@media (min-width: 769px) {
-  .comm-web-shell :deep(.comm-tabs) {
-    margin-left: 0;
-    margin-right: 0;
-    padding-left: 0;
-    padding-right: 0;
-  }
 }
 </style>

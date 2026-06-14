@@ -102,8 +102,14 @@
 
             <div class="modal-actions">
               <button @click="closeCreateEbookModal" class="btn-cancel">Cancelar</button>
-              <button @click="handleCreateEbook" class="btn-primary" :disabled="uploading">
-                <span v-if="uploading">Enviando...</span>
+              <button
+                @click="handleCreateEbook"
+                class="btn-primary"
+                :disabled="uploading"
+                :aria-busy="uploading"
+                :aria-label="uploading ? 'Enviando ebook' : undefined"
+              >
+                <span v-if="uploading" class="btn-spinner" aria-hidden="true" />
                 <span v-else>Salvar Ebook</span>
               </button>
             </div>
@@ -291,10 +297,6 @@ const handleDeleteEbook = async (id) => {
 
 onMounted(() => {
   isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
-  if (config.public.mobileApp) {
-    navigateTo('/cursos#ebooks', { replace: true })
-    return
-  }
   fetchEbooks()
   if (isNutri.value && route.query.action === 'create') {
     openCreateEbookModal()
@@ -349,7 +351,7 @@ onMounted(() => {
 
 .card-inner {
   background: white;
-  border-radius: 20px;
+  border-radius: var(--cf-radius-surface);
   overflow: hidden;
   border: 1px solid #eee;
   transition: all 0.3s ease;
@@ -498,17 +500,35 @@ onMounted(() => {
   color: white;
   border: none;
   padding: 0.8rem 1.6rem;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-pill);
   cursor: pointer;
   font-weight: 700;
   font-size: 1rem;
   transition: all 0.3s;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: var(--primary-light);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(45, 90, 39, 0.2);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
 }
 
 .modal-overlay {
@@ -525,7 +545,7 @@ onMounted(() => {
 .modal-card {
   background: white;
   padding: 2.5rem;
-  border-radius: 24px;
+  border-radius: var(--cf-radius-surface);
   width: 100%;
   max-width: 500px;
 }
@@ -546,7 +566,7 @@ onMounted(() => {
   width: 100%;
   padding: 0.8rem 1rem;
   border: 1px solid #eee;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   font-family: inherit;
   outline: none;
 }
@@ -563,7 +583,7 @@ onMounted(() => {
 
 .upload-area {
   border: 2px dashed #eee;
-  border-radius: 16px;
+  border-radius: var(--cf-radius-control);
   height: 140px;
   background: #fafafa;
   display: flex;
@@ -573,7 +593,7 @@ onMounted(() => {
 }
 
 .upload-area.has-image { border: none; }
-.upload-preview { width: 100%; height: 100%; object-fit: cover; border-radius: 16px; }
+.upload-preview { width: 100%; height: 100%; object-fit: cover; border-radius: var(--cf-radius-control); }
 
 .modal-actions {
   display: flex;
@@ -587,7 +607,7 @@ onMounted(() => {
   border: 1px solid #e5e7eb;
   color: #555;
   padding: 0.8rem 1.6rem;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-pill);
   font-weight: 700;
   cursor: pointer;
 }
