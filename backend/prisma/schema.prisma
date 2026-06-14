@@ -54,6 +54,7 @@ model User {
   avatar        String?
   status        UserStatus @default(ATIVO)
   plan          UserPlan   @default(FREE)
+  accessExpiresAt DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 

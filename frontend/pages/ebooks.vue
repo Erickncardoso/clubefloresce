@@ -131,6 +131,7 @@ import {
   X, 
   Image as ImageIcon 
 } from 'lucide-vue-next'
+import { resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
@@ -147,7 +148,7 @@ function isPdfFile(file) {
 async function uploadImageToCloudinary(file, token) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(`${apiBase}/upload`, {
+  return $fetch(resolveDirectApiUrl('/upload', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -157,7 +158,7 @@ async function uploadImageToCloudinary(file, token) {
 async function uploadDocumentToCloudinary(file, token) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(`${apiBase}/upload/file`, {
+  return $fetch(resolveDirectApiUrl('/upload/file', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,

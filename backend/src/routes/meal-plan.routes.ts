@@ -1,22 +1,11 @@
 import { Router } from "express";
-import multer from "multer";
 import { MealPlanController } from "../controllers/meal-plan.controller";
 import { authenticate, authorize } from "../middleware/auth.middleware";
+import { createPdfUpload } from "../utils/pdf-upload";
 
 const router = Router();
 const controller = new MealPlanController();
-
-const pdfUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const isPdf =
-      file.mimetype === "application/pdf" &&
-      file.originalname.toLowerCase().endsWith(".pdf");
-    if (isPdf) return cb(null, true);
-    cb(new Error("Envie apenas arquivos PDF."));
-  },
-});
+const pdfUpload = createPdfUpload({ fileSizeMb: 20 });
 
 router.get("/me", authenticate, authorize(["PACIENTE"]), controller.getMine.bind(controller));
 router.post(

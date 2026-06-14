@@ -31,11 +31,28 @@ export function getAllowedCorsOrigins(): string[] {
   ];
 }
 
+export function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+export function isPrivateLanHostname(hostname: string): boolean {
+  if (!hostname) return false;
+  return /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname);
+}
+
+export function isDevBackendDirectHostname(hostname: string): boolean {
+  return isLocalHostname(hostname) || isPrivateLanHostname(hostname);
+}
+
+const DEV_LAN_ORIGIN_PATTERN =
+  /^https?:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+
 export function isOriginAllowed(origin: string | undefined, allowed: string[]): boolean {
   if (!origin) return true;
   if (allowed.includes(origin)) return true;
   if (process.env.NODE_ENV !== "production") {
-    return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;
+    if (DEV_LAN_ORIGIN_PATTERN.test(origin)) return true;
   }
   return false;
 }

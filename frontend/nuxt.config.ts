@@ -8,7 +8,7 @@ const isGenerate =
   process.argv.some((arg) => arg.includes('generate')) ||
   process.env.npm_lifecycle_event?.includes('generate')
 const isDev = process.env.NODE_ENV !== 'production' && !isGenerate
-const devHost = process.env.NUXT_HOST || '127.0.0.1'
+const devHost = process.env.NUXT_HOST || '0.0.0.0'
 const devPort = Number(process.env.NUXT_PORT || (isMobileApp ? 3002 : 3000))
 const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://localhost:3001'
 const defaultApiBase = resolveApiBaseAtBuild({

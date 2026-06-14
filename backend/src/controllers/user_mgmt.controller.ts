@@ -4,6 +4,7 @@ import { Role, UserPlan, UserStatus } from "@prisma/client";
 import { UserMgmtRepository } from "../repositories/user_mgmt.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { RegistrationRequestService } from "../services/registration-request.service";
+import { parseAccessExpiresAt } from "../utils/access-expires";
 
 const userRepo = new UserRepository();
 const registrationRequestService = new RegistrationRequestService();
@@ -46,10 +47,19 @@ export class UserMgmtController {
 
   createPatient = async (req: Request, res: Response) => {
     try {
-      const { name, email, password, plan, status } = req.body;
+      const { name, email, password, plan, status, accessExpiresAt } = req.body;
 
       if (!name?.trim() || !email?.trim() || !password?.trim()) {
         return res.status(400).json({ error: "Nome, e-mail e senha são obrigatórios." });
+      }
+
+      let parsedAccessExpiresAt: Date | null = null;
+      if (accessExpiresAt !== undefined && accessExpiresAt !== null && String(accessExpiresAt).trim() !== "") {
+        try {
+          parsedAccessExpiresAt = parseAccessExpiresAt(accessExpiresAt);
+        } catch (error: any) {
+          return res.status(400).json({ error: error.message || "Data de acesso inválida." });
+        }
       }
 
       const existing = await userRepo.findByEmail(String(email).trim().toLowerCase());
@@ -65,6 +75,7 @@ export class UserMgmtController {
         password: hashedPassword,
         plan: plan as UserPlan | undefined,
         status: status as UserStatus | undefined,
+        accessExpiresAt: parsedAccessExpiresAt,
       });
 
       await registrationRequestService.approveByEmail(normalizedEmail).catch(() => {});
@@ -86,11 +97,26 @@ export class UserMgmtController {
         return res.status(400).json({ error: "Somente pacientes podem ser editados aqui." });
       }
 
-      const { name, status, plan } = req.body;
+      const { name, status, plan, accessExpiresAt } = req.body;
+
+      let parsedAccessExpiresAt: Date | null | undefined;
+      if (accessExpiresAt !== undefined) {
+        if (accessExpiresAt === null || String(accessExpiresAt).trim() === "") {
+          parsedAccessExpiresAt = null;
+        } else {
+          try {
+            parsedAccessExpiresAt = parseAccessExpiresAt(accessExpiresAt);
+          } catch (error: any) {
+            return res.status(400).json({ error: error.message || "Data de acesso inválida." });
+          }
+        }
+      }
+
       const user = await this.userMgmtRepo.updatePatient(id, {
         ...(name ? { name: String(name).trim() } : {}),
         ...(status ? { status } : {}),
         ...(plan ? { plan } : {}),
+        ...(parsedAccessExpiresAt !== undefined ? { accessExpiresAt: parsedAccessExpiresAt } : {}),
       });
 
       return res.json(user);

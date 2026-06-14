@@ -4,6 +4,7 @@ import { RegistrationRequestService } from "../services/registration-request.ser
 import jwt from "jsonwebtoken";
 import { getJwtSecret } from "../utils/jwt";
 import { UserStatus } from "@prisma/client";
+import { isPatientAccessExpired } from "../utils/access-expires";
 
 const authService = new AuthService();
 const registrationRequestService = new RegistrationRequestService();
@@ -114,6 +115,10 @@ export class AuthController {
       if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
       if (user.status === UserStatus.INATIVO) {
         return res.status(403).json({ message: "Conta desativada." });
+      }
+
+      if (isPatientAccessExpired(user.accessExpiresAt)) {
+        return res.status(403).json({ message: "Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista." });
       }
       
       const { password, ...userWithoutPassword } = user;

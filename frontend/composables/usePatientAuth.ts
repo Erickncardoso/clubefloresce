@@ -92,6 +92,7 @@ export function usePatientAuth() {
       || message.includes('sessão')
       || message.includes('sessao')
       || message.includes('expirad')
+      || message.includes('expirou')
       || message.includes('autenticad')
       || message.includes('não autorizado')
       || message.includes('nao autorizado')

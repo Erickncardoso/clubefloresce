@@ -30,6 +30,7 @@
                     {{ formatStatusLabel(overview.patient.status) }}
                   </span>
                   <span class="muted">Desde {{ formatDate(overview.patient.createdAt) }}</span>
+                  <span class="muted">Acesso até {{ formatAccessDate(overview.patient.accessExpiresAt) }}</span>
                 </div>
               </div>
             </div>
@@ -228,20 +229,38 @@
         <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
           <form class="modal-card" @submit.prevent="savePatient">
             <h3>Editar cadastro</h3>
-            <label>Nome</label>
-            <input v-model="editForm.name" required />
-            <label>Plano</label>
-            <select v-model="editForm.plan">
-              <option value="FREE">FREE</option>
-              <option value="PREMIUM">PREMIUM</option>
-              <option value="PLATINUM">PLATINUM</option>
-            </select>
-            <label>Status</label>
-            <select v-model="editForm.status">
-              <option value="ATIVO">ATIVO</option>
-              <option value="INATIVO">INATIVO</option>
-              <option value="PENDENTE">PENDENTE</option>
-            </select>
+
+            <div class="modal-fields">
+              <div class="field field--float">
+                <label for="edit-name">Nome</label>
+                <input id="edit-name" v-model="editForm.name" required />
+              </div>
+
+              <div class="field field--float">
+                <label for="edit-plan">Plano</label>
+                <select id="edit-plan" v-model="editForm.plan">
+                  <option value="FREE">FREE</option>
+                  <option value="PREMIUM">PREMIUM</option>
+                  <option value="PLATINUM">PLATINUM</option>
+                </select>
+              </div>
+
+              <div class="field field--float">
+                <label for="edit-status">Status</label>
+                <select id="edit-status" v-model="editForm.status">
+                  <option value="ATIVO">ATIVO</option>
+                  <option value="INATIVO">INATIVO</option>
+                  <option value="PENDENTE">PENDENTE</option>
+                </select>
+              </div>
+
+              <div class="field field--float">
+                <label for="edit-access-expires">Acesso válido até</label>
+                <input id="edit-access-expires" v-model="editForm.accessExpiresAt" type="date" />
+              </div>
+            </div>
+
+            <p class="field-hint">Deixe em branco para acesso sem data limite.</p>
             <div class="modal-actions">
               <button type="button" class="btn-secondary" @click="showEditModal = false">Cancelar</button>
               <button type="submit" class="btn-primary" :disabled="savingPatient">Salvar</button>
@@ -254,6 +273,8 @@
 </template>
 
 <script setup>
+import { resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+
 definePageMeta({
   layout: 'dashboard',
   middleware: 'nutri-only',
@@ -302,6 +323,7 @@ const editForm = reactive({
   name: '',
   plan: 'FREE',
   status: 'ATIVO',
+  accessExpiresAt: '',
 })
 
 const authHeaders = () => ({
@@ -340,6 +362,20 @@ const formatStatusLabel = (status) => {
 const formatDate = (date) =>
   new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 
+const formatAccessDate = (date) => {
+  if (!date) return 'Sem limite'
+  return formatDate(date)
+}
+
+const toDateInputValue = (value) => {
+  if (!value) return ''
+  const d = new Date(value)
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const formatDateTime = (date) =>
   new Date(date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -361,6 +397,7 @@ const loadOverview = async () => {
   editForm.name = overview.value.patient.name
   editForm.plan = overview.value.patient.plan || 'FREE'
   editForm.status = overview.value.patient.status || 'ATIVO'
+  editForm.accessExpiresAt = toDateInputValue(overview.value.patient.accessExpiresAt)
   mealPlan.value = overview.value.mealPlan
     ? { ...overview.value.mealPlan, plan: overview.value.mealPlan.plan }
     : null
@@ -444,7 +481,7 @@ const uploadMealPlan = async () => {
   try {
     const formData = new FormData()
     formData.append('file', planFile.value)
-    await $fetch(`${apiBase.value}/patients/${patientId.value}/meal-plan/upload`, {
+    await $fetch(resolveDirectApiUrl(`/patients/${patientId.value}/meal-plan/upload`, apiBase.value), {
       method: 'POST',
       headers: authHeaders(),
       body: formData,
@@ -470,6 +507,7 @@ const savePatient = async () => {
         name: editForm.name,
         plan: editForm.plan,
         status: editForm.status,
+        accessExpiresAt: editForm.accessExpiresAt || null,
       },
     })
     showEditModal.value = false
@@ -834,8 +872,8 @@ onMounted(loadAll)
   margin: 0.75rem 0 0.35rem;
 }
 
-.modal-card input,
-.modal-card select {
+.modal-card input:not(.field input),
+.modal-card select:not(.field select) {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #eee;
@@ -847,6 +885,12 @@ onMounted(loadAll)
   justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 1.25rem;
+}
+
+.field-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #9ca3af;
 }
 
 @media (max-width: 900px) {

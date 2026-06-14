@@ -1,15 +1,12 @@
-import { DEV_PANEL_API_BASE } from './resolve-api-base.mjs'
+import { resolveDevBackendApiBase, isDevBackendDirectHostname, isDevEnvironment } from './resolve-api-base.mjs'
 
 /**
  * Upload de vídeo vai direto ao backend em dev para evitar limite/timeout do proxy do Vite
- * em arquivos grandes (100MB+).
+ * e falhas de upload no Safari (iPad/Mac em rede local).
  */
 export function resolveVideoUploadEndpoint(apiBase) {
-  if (import.meta.client) {
-    const host = window.location.hostname
-    if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]') {
-      return `${DEV_PANEL_API_BASE}/upload/video`
-    }
+  if (typeof window !== 'undefined' && isDevEnvironment() && isDevBackendDirectHostname(window.location.hostname)) {
+    return `${resolveDevBackendApiBase()}/upload/video`
   }
 
   return `${apiBase}/upload/video`

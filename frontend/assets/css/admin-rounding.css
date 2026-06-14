@@ -76,6 +76,11 @@
   .upload-area,
   .pdf-upload-box
 ),
+.modal-overlay :is(
+  .field input,
+  .field textarea,
+  .field select
+),
 .lesson-modal-overlay :is(
   .field input,
   .field textarea,
@@ -96,8 +101,8 @@
   .modal-card
 ),
 .dashboard-layout .admin-shell-card,
-.courses-modal-overlay .modal-card,
 .modal-overlay .modal-card,
+.courses-modal-overlay .modal-card,
 .lesson-modal-overlay .lesson-modal,
 .modal-card--ebook,
 .modal-card--lesson,
@@ -137,6 +142,12 @@
     .form-group textarea,
     .upload-area,
     .pdf-upload-box
+  ),
+  .modal-overlay :is(
+    .modal-card,
+    .field input,
+    .field textarea,
+    .field select
   ),
   .lesson-modal-overlay :is(
     .lesson-modal,

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { PrismaClient, Role, UserStatus } from "@prisma/client";
 import { getJwtSecret } from "../utils/jwt";
+import { isPatientAccessExpired } from "../utils/access-expires";
 
 const prisma = new PrismaClient();
 
@@ -31,7 +32,7 @@ export const authenticate = async (
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, role: true, status: true },
+      select: { id: true, email: true, role: true, status: true, accessExpiresAt: true },
     });
 
     if (!user) {
@@ -40,6 +41,10 @@ export const authenticate = async (
 
     if (user.status === UserStatus.INATIVO) {
       return res.status(403).json({ message: "Conta desativada. Entre em contato com o suporte." });
+    }
+
+    if (user.role === Role.PACIENTE && isPatientAccessExpired(user.accessExpiresAt)) {
+      return res.status(403).json({ message: "Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista." });
     }
 
     if (

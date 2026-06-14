@@ -12,6 +12,7 @@ export class UserMgmtRepository {
         role: true,
         status: true,
         plan: true,
+        accessExpiresAt: true,
         avatar: true,
         createdAt: true,
       },
@@ -29,6 +30,7 @@ export class UserMgmtRepository {
         role: true,
         status: true,
         plan: true,
+        accessExpiresAt: true,
         avatar: true,
         createdAt: true,
         updatedAt: true,
@@ -42,6 +44,7 @@ export class UserMgmtRepository {
     password: string;
     plan?: UserPlan;
     status?: UserStatus;
+    accessExpiresAt?: Date | null;
   }) {
     return prisma.user.create({
       data: {
@@ -51,6 +54,7 @@ export class UserMgmtRepository {
         role: Role.PACIENTE,
         plan: data.plan || UserPlan.FREE,
         status: data.status || UserStatus.ATIVO,
+        accessExpiresAt: data.accessExpiresAt ?? null,
       },
       select: {
         id: true,
@@ -59,6 +63,7 @@ export class UserMgmtRepository {
         role: true,
         status: true,
         plan: true,
+        accessExpiresAt: true,
         createdAt: true,
       },
     });
@@ -66,7 +71,7 @@ export class UserMgmtRepository {
 
   async updatePatient(
     id: string,
-    data: { name?: string; status?: UserStatus; plan?: UserPlan },
+    data: { name?: string; status?: UserStatus; plan?: UserPlan; accessExpiresAt?: Date | null },
   ) {
     return prisma.user.update({
       where: { id },
@@ -78,6 +83,7 @@ export class UserMgmtRepository {
         role: true,
         status: true,
         plan: true,
+        accessExpiresAt: true,
         createdAt: true,
         updatedAt: true,
       },

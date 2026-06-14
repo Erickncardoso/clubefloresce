@@ -124,8 +124,8 @@ app.use((err: any, req: any, res: any, next: any) => {
 const UPLOAD_SERVER_TIMEOUT_MS = Number(process.env.UPLOAD_SERVER_TIMEOUT_MS || 30 * 60 * 1000);
 
 // App initialization
-const server = app.listen(PORT, () => {
-  console.log(`Server is running at http://localhost:${PORT}`);
+const server = app.listen(Number(PORT), "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT} (0.0.0.0)`);
   console.log(`[CORS] Origens permitidas: ${allowedOrigins.join(", ")}`);
   const openaiKey = readEnv("OPENAI_API_KEY");
   if (openaiKey) {

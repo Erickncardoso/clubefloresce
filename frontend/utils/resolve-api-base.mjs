@@ -12,15 +12,45 @@ export function isLocalHostname(hostname) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
 }
 
+export function isPrivateLanHostname(hostname) {
+  if (!hostname) return false
+  return /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname)
+}
+
+export function isDevBackendDirectHostname(hostname) {
+  return isLocalHostname(hostname) || isPrivateLanHostname(hostname)
+}
+
+/** Evita import.meta.dev em .mjs — o vite:client-inject quebra o parse e derruba o worker Nitro. */
+export function isDevEnvironment() {
+  if (typeof window === 'undefined') {
+    return process.env.NODE_ENV !== 'production'
+  }
+
+  const { hostname, port } = window.location
+  if (!isDevBackendDirectHostname(hostname)) return false
+  return port === '3000' || port === '3002' || port === ''
+}
+
+/** Base da API do backend em dev — direto na porta 3001 (evita proxy do Nuxt/Safari). */
+export function resolveDevBackendApiBase() {
+  if (typeof window === 'undefined') return DEV_PANEL_API_BASE
+  const hostname = window.location.hostname
+  const protocol = window.location.protocol
+  if (isLocalHostname(hostname)) return DEV_PANEL_API_BASE
+  if (isPrivateLanHostname(hostname)) return `${protocol}//${hostname}:3001/api`
+  return DEV_PANEL_API_BASE
+}
+
 export function isProdAppHostname(hostname) {
   return PROD_APP_HOSTNAMES.includes(hostname)
 }
 
-/** Em dev, chama o backend direto (porta 3001) e evita timeout/reset do proxy do Nuxt. */
+/** Em dev, chama o backend direto (porta 3001) e evita timeout/reset do proxy do Nuxt/Safari. */
 export function resolveDirectApiUrl(path, apiBase = DEV_MOBILE_API_BASE) {
   const normalized = path.startsWith('/') ? path : `/${path}`
-  if (typeof window !== 'undefined' && isLocalHostname(window.location.hostname)) {
-    return `${DEV_PANEL_API_BASE}${normalized}`
+  if (typeof window !== 'undefined' && isDevEnvironment() && isDevBackendDirectHostname(window.location.hostname)) {
+    return `${resolveDevBackendApiBase()}${normalized}`
   }
   const base = String(apiBase || DEV_MOBILE_API_BASE).replace(/\/$/, '')
   return `${base}${normalized}`
@@ -34,8 +64,8 @@ export function normalizeUploadError(error) {
   if (/file size too large|104857600|too large/i.test(raw)) {
     return 'Vídeo muito grande (limite 100 MB no Cloudinary). O servidor vai comprimir automaticamente — tente novamente.'
   }
-  if (/failed to fetch|networkerror|load failed|fetch failed/i.test(raw)) {
-    return 'Falha de rede ao enviar o vídeo. Tente novamente.'
+  if (/failed to fetch|networkerror|load failed|fetch failed|network error|cors/i.test(raw)) {
+    return 'Falha de rede ao enviar o arquivo. No iPad/Mac, use o mesmo Wi‑Fi do computador e tente novamente.'
   }
   return raw || 'Erro no upload do vídeo.'
 }
@@ -106,9 +136,9 @@ export function resolveApiBaseAtRuntime(configBase, { mobileApp, hostname } = {}
 }
 
 export function apiConnectionErrorMessage({ hostname, dev = false } = {}) {
-  const local = dev || isLocalHostname(hostname)
+  const local = dev || isLocalHostname(hostname) || isPrivateLanHostname(hostname)
   if (local) {
-    return 'Não foi possível conectar à API. Confira se o backend está rodando com npm run dev:backend (porta 3001).'
+    return 'Não foi possível conectar à API. Confira se o backend está rodando com npm run dev:backend (porta 3001) e se o iPad/Mac está no mesmo Wi‑Fi.'
   }
   return 'A API está indisponível no momento (servidor offline). Aguarde o redeploy do backend no Coolify ou tente novamente em alguns minutos.'
 }

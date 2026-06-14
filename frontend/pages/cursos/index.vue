@@ -683,6 +683,7 @@
 import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText, Monitor, Smartphone } from 'lucide-vue-next'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { buildModuleUrl } from '~/utils/course-slug'
+import { resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const config = useRuntimeConfig()
 const layoutName = computed(() => 'dashboard')
@@ -699,7 +700,7 @@ function isPdfFile(file) {
 async function uploadImageToCloudinary(file, token) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(`${apiBase}/upload`, {
+  return $fetch(resolveDirectApiUrl('/upload', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -709,7 +710,7 @@ async function uploadImageToCloudinary(file, token) {
 async function uploadDocumentToCloudinary(file, token) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(`${apiBase}/upload/file`, {
+  return $fetch(resolveDirectApiUrl('/upload/file', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -1800,7 +1801,7 @@ const handleCreateCourse = async () => {
       const formData = new FormData()
       formData.append('file', courseFile.value)
       try {
-        const uploadRes = await $fetch(`${apiBase}/upload`, {
+        const uploadRes = await $fetch(resolveDirectApiUrl('/upload', apiBase), {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData
@@ -1861,7 +1862,7 @@ const handleUpdateCourse = async () => {
     if (courseFile.value) {
       const formData = new FormData()
       formData.append('file', courseFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
+      const uploadRes = await $fetch(resolveDirectApiUrl('/upload', apiBase), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -1879,7 +1880,7 @@ const handleUpdateCourse = async () => {
     if (courseMobileFile.value) {
       const formData = new FormData()
       formData.append('file', courseMobileFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
+      const uploadRes = await $fetch(resolveDirectApiUrl('/upload', apiBase), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData

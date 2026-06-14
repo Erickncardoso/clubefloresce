@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository";
 import { Role, UserStatus } from "@prisma/client";
 import { getJwtSecret } from "../utils/jwt";
+import { isPatientAccessExpired } from "../utils/access-expires";
 
 const userRepository = new UserRepository();
 
@@ -151,6 +152,10 @@ export class AuthService {
       throw new Error("Conta desativada. Entre em contato com o suporte.");
     }
 
+    if (user.role === Role.PACIENTE && isPatientAccessExpired(user.accessExpiresAt)) {
+      throw new Error("Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista.");
+    }
+
     const isMatch = await bcrypt.compare(passwordText, user.password);
     if (!isMatch) {
       throw new Error("Credenciais inválidas.");
@@ -176,6 +181,10 @@ export class AuthService {
 
     if (user.status === UserStatus.INATIVO) {
       throw new Error("Conta desativada. Entre em contato com o suporte.");
+    }
+
+    if (user.role === Role.PACIENTE && isPatientAccessExpired(user.accessExpiresAt)) {
+      throw new Error("Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista.");
     }
 
     const token = this.issueToken(user);

@@ -22,7 +22,7 @@
               aria-label="Buscar alunas"
             >
           </div>
-          <button type="button" class="btn-primary" @click="showCreateModal = true">
+          <button type="button" class="btn-primary" @click="openCreateModal">
             <UserPlus class="btn-icon" />
             Adicionar aluna
           </button>
@@ -66,6 +66,7 @@
                   <th>Plano</th>
                   <th>Status</th>
                   <th>Membro desde</th>
+                  <th>Acesso até</th>
                   <th class="th-actions">Ações</th>
                 </tr>
               </thead>
@@ -96,6 +97,7 @@
                     </span>
                   </td>
                   <td class="date-cell">{{ formatDate(user.createdAt) }}</td>
+                  <td class="date-cell">{{ formatAccessDate(user.accessExpiresAt) }}</td>
                   <td class="td-actions" @click.stop>
                     <NuxtLink :to="`/usuarios/${user.id}`" class="icon-btn" title="Ver perfil">
                       <Edit3 class="icon-xs" />
@@ -121,24 +123,64 @@
     <Teleport to="body">
       <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
         <form class="modal-card" @submit.prevent="createPatient">
-          <h3>Nova paciente</h3>
-          <label>Nome</label>
-          <input v-model="createForm.name" required placeholder="Nome completo" />
-          <label>E-mail</label>
-          <input v-model="createForm.email" type="email" required placeholder="email@exemplo.com" />
-          <label>Senha inicial</label>
-          <input v-model="createForm.password" type="password" required minlength="6" placeholder="Mínimo 6 caracteres" />
-          <label>Plano</label>
-          <select v-model="createForm.plan">
-            <option value="FREE">FREE</option>
-            <option value="PREMIUM">PREMIUM</option>
-            <option value="PLATINUM">PLATINUM</option>
-          </select>
+          <h3>{{ creatingFromRequest ? 'Aprovar solicitação' : 'Nova paciente' }}</h3>
+          <p v-if="creatingFromRequest" class="modal-hint">
+            Defina até quando a aluna terá acesso, conforme o plano presencial contratado.
+          </p>
+
+          <div class="modal-fields">
+            <div class="field field--float">
+              <label for="create-name">Nome</label>
+              <input id="create-name" v-model="createForm.name" required placeholder="Nome completo" />
+            </div>
+
+            <div class="field field--float">
+              <label for="create-email">E-mail</label>
+              <input id="create-email" v-model="createForm.email" type="email" required placeholder="email@exemplo.com" />
+            </div>
+
+            <div class="field field--float">
+              <label for="create-password">Senha inicial</label>
+              <input
+                id="create-password"
+                v-model="createForm.password"
+                type="password"
+                required
+                minlength="6"
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+
+            <div class="field field--float">
+              <label for="create-plan">Plano</label>
+              <select id="create-plan" v-model="createForm.plan">
+                <option value="FREE">FREE</option>
+                <option value="PREMIUM">PREMIUM</option>
+                <option value="PLATINUM">PLATINUM</option>
+              </select>
+            </div>
+
+            <div class="field field--float">
+              <label for="create-access-expires">
+                Acesso válido até
+                <span v-if="creatingFromRequest" class="label-required">*</span>
+              </label>
+              <input
+                id="create-access-expires"
+                v-model="createForm.accessExpiresAt"
+                type="date"
+                :required="creatingFromRequest"
+                :min="minAccessDate"
+              />
+            </div>
+          </div>
+
+          <p v-if="!creatingFromRequest" class="field-hint">Opcional. Deixe em branco para acesso sem data limite.</p>
           <p v-if="createError" class="create-error">{{ createError }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="showCreateModal = false">Cancelar</button>
             <button type="submit" class="btn-primary modal-submit" :disabled="creating">
-              {{ creating ? 'Criando...' : 'Criar paciente' }}
+              {{ creating ? 'Salvando...' : (creatingFromRequest ? 'Aprovar e criar conta' : 'Criar paciente') }}
             </button>
           </div>
         </form>
@@ -163,6 +205,7 @@ const users = ref([])
 const registrationRequests = ref([])
 const searchQuery = ref('')
 const showCreateModal = ref(false)
+const creatingFromRequest = ref(false)
 const creating = ref(false)
 const createError = ref('')
 const loading = ref(true)
@@ -173,6 +216,15 @@ const createForm = reactive({
   email: '',
   password: '',
   plan: 'FREE',
+  accessExpiresAt: '',
+})
+
+const minAccessDate = computed(() => {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 })
 
 const authHeaders = () => {
@@ -263,11 +315,24 @@ const goToPatient = (user) => {
   }
 }
 
+const openCreateModal = () => {
+  creatingFromRequest.value = false
+  createForm.name = ''
+  createForm.email = ''
+  createForm.password = ''
+  createForm.plan = 'FREE'
+  createForm.accessExpiresAt = ''
+  createError.value = ''
+  showCreateModal.value = true
+}
+
 const openCreateFromRequest = (req) => {
+  creatingFromRequest.value = true
   createForm.name = req.name
   createForm.email = req.email
   createForm.password = ''
   createForm.plan = 'FREE'
+  createForm.accessExpiresAt = ''
   createError.value = ''
   showCreateModal.value = true
 }
@@ -275,17 +340,32 @@ const openCreateFromRequest = (req) => {
 const createPatient = async () => {
   creating.value = true
   createError.value = ''
+
+  if (creatingFromRequest.value && !createForm.accessExpiresAt) {
+    createError.value = 'Informe até quando a aluna terá acesso.'
+    creating.value = false
+    return
+  }
+
   try {
     const user = await $fetch(`${apiBase.value}/users`, {
       method: 'POST',
       headers: authHeaders(),
-      body: createForm,
+      body: {
+        name: createForm.name,
+        email: createForm.email,
+        password: createForm.password,
+        plan: createForm.plan,
+        accessExpiresAt: createForm.accessExpiresAt || null,
+      },
     })
     showCreateModal.value = false
+    creatingFromRequest.value = false
     createForm.name = ''
     createForm.email = ''
     createForm.password = ''
     createForm.plan = 'FREE'
+    createForm.accessExpiresAt = ''
     await fetchUsers()
     navigateTo(`/usuarios/${user.id}`)
   } catch (err) {
@@ -297,6 +377,11 @@ const createPatient = async () => {
 
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+const formatAccessDate = (date) => {
+  if (!date) return 'Sem limite'
+  return formatDate(date)
 }
 
 const handleDelete = async (id) => {
@@ -427,10 +512,11 @@ onMounted(fetchUsers)
   border-bottom: 1px solid #eee;
 }
 
-.users-table th:nth-child(1) { width: 36%; }
-.users-table th:nth-child(2) { width: 11%; }
-.users-table th:nth-child(3) { width: 11%; }
-.users-table th:nth-child(4) { width: 16%; }
+.users-table th:nth-child(1) { width: 30%; }
+.users-table th:nth-child(2) { width: 10%; }
+.users-table th:nth-child(3) { width: 10%; }
+.users-table th:nth-child(4) { width: 14%; }
+.users-table th:nth-child(5) { width: 14%; }
 
 .th-actions,
 .td-actions {
@@ -734,32 +820,15 @@ onMounted(fetchUsers)
 
 .modal-card {
   background: #fff;
-  border-radius: 14px;
+  border-radius: var(--cf-radius-surface);
   padding: 1.5rem;
-  width: min(400px, 100%);
+  width: min(420px, 100%);
 }
 
 .modal-card h3 {
   margin: 0 0 0.25rem;
   font-size: 1.1rem;
   font-weight: 800;
-}
-
-.modal-card label {
-  display: block;
-  font-weight: 600;
-  margin: 0.75rem 0 0.35rem;
-  font-size: 0.86rem;
-}
-
-.modal-card input,
-.modal-card select {
-  width: 100%;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-family: inherit;
-  box-sizing: border-box;
 }
 
 .modal-actions {
@@ -785,6 +854,23 @@ onMounted(fetchUsers)
   color: #c53030;
   font-size: 0.88rem;
   margin-top: 0.75rem;
+}
+
+.modal-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.84rem;
+  color: #78716c;
+  line-height: 1.45;
+}
+
+.field-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.label-required {
+  color: #c2410c;
 }
 
 @media (max-width: 768px) {

@@ -62,7 +62,7 @@ function uploadVideoThroughBackend(file, apiBase, onProgress) {
 
     xhr.onerror = () => {
       reject(new Error(
-        'Falha ao enviar o vídeo ao servidor. Confira se o backend está rodando (porta 3001) e tente novamente.',
+        'Falha ao enviar o vídeo. No iPad/Mac use o mesmo Wi‑Fi do PC e confira se o backend está na porta 3001.',
       ))
     }
     xhr.ontimeout = () => reject(new Error('Upload excedeu o tempo limite. Aguarde e tente novamente.'))

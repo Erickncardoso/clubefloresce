@@ -13,6 +13,7 @@ export async function assertPatientUser(userId: string) {
       role: true,
       status: true,
       plan: true,
+      accessExpiresAt: true,
       avatar: true,
       createdAt: true,
       updatedAt: true,

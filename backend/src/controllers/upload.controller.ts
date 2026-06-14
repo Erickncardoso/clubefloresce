@@ -47,19 +47,20 @@ const DOC_MIMES = new Set([
   "application/epub+zip",
 ]);
 
-function hasAllowedExtension(filename: string, pattern: RegExp): boolean {
-  return pattern.test(path.extname(filename).toLowerCase());
-}
+import {
+  acceptByExtensionOrMime,
+  hasAllowedExtension,
+} from "../utils/upload-file-filter";
 
 // ── Multer para IMAGENS ──────────────────────────────────────────
 export const upload = multer({
   storage,
   limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowedTypes = /\.(jpe?g|png|webp|gif)$/i;
+    const allowedTypes = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
     const extname = hasAllowedExtension(file.originalname, allowedTypes);
-    const mimetype = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
-    if (extname && mimetype) return cb(null, true);
+    const mimetype = /^(image\/(jpeg|png|webp|gif|heic|heif)|application\/octet-stream)$/i.test(file.mimetype || "");
+    if (extname && (mimetype || !file.mimetype)) return cb(null, true);
     cb(new Error("Apenas imagens são permitidas (jpeg, jpg, png, webp, gif)"));
   },
 });
@@ -69,9 +70,13 @@ export const uploadVideo = multer({
   storage: videoDiskStorage,
   limits: { fileSize: VIDEO_UPLOAD_MAX_SIZE_BYTES },
   fileFilter: (_req, file, cb) => {
-    const extname = hasAllowedExtension(file.originalname, VIDEO_EXTENSIONS);
-    const mimetype = VIDEO_MIMES.has(file.mimetype);
-    if (extname && mimetype) return cb(null, true);
+    if (acceptByExtensionOrMime(file, {
+      extensionPattern: VIDEO_EXTENSIONS,
+      allowedMimes: VIDEO_MIMES,
+      allowMimePrefix: "video/",
+    })) {
+      return cb(null, true);
+    }
     cb(new Error("Formato de vídeo não suportado. Use mp4, mov, webm, avi ou mkv."));
   },
 });
@@ -81,9 +86,12 @@ export const uploadFile = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const extname = hasAllowedExtension(file.originalname, DOC_EXTENSIONS);
-    const mimetype = DOC_MIMES.has(file.mimetype);
-    if (extname && mimetype) return cb(null, true);
+    if (acceptByExtensionOrMime(file, {
+      extensionPattern: DOC_EXTENSIONS,
+      allowedMimes: DOC_MIMES,
+    })) {
+      return cb(null, true);
+    }
     cb(new Error("Formato de documento não suportado. Use PDF, DOC, DOCX ou EPUB."));
   },
 });
