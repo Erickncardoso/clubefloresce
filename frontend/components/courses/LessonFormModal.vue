@@ -271,7 +271,7 @@
             Continuar
           </button>
           <button
-            v-else-if="currentStep === 2 && mode === 'create'"
+            v-if="currentStep === 2 && mode === 'create'"
             type="button"
             class="btn-ghost"
             :disabled="saving"
@@ -374,7 +374,7 @@ function resetState() {
   form.duration = ''
   form.videoUrl = ''
   form.thumbnail = ''
-  videoSourceTab.value = 'link'
+  videoSourceTab.value = 'upload'
   thumbSourceTab.value = 'upload'
   videoFileLocal.value = null
   videoUploadStatus.value = ''
@@ -450,7 +450,9 @@ function goToStep(step) {
     formError.value = ''
     return
   }
-  if (!validateStep(currentStep.value)) return
+  for (let s = currentStep.value; s < step; s += 1) {
+    if (!validateStep(s)) return
+  }
   currentStep.value = step
   formError.value = ''
 }
