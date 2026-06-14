@@ -8,6 +8,11 @@ const VIDEO_MIMES = new Set([
   'video/m4v',
 ])
 
+/** Limite de envio de PDF para ebooks — alinhado ao Cloudinary Advanced (40 MB). */
+export const EBOOK_PDF_MAX_BYTES = 40 * 1024 * 1024
+export const EBOOK_PDF_MAX_LABEL = '40 MB'
+export const EBOOK_PDF_UPLOAD_HINT = `Tamanho máximo: ${EBOOK_PDF_MAX_LABEL}`
+
 const PDF_EXTENSIONS = /\.pdf$/i
 
 export function isPdfFile(file) {

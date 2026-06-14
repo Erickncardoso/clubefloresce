@@ -590,6 +590,7 @@
                     <FileText class="pdf-icon-big" />
                     <span v-if="selectedEbookPdfFile">{{ selectedEbookPdfFile.name }}</span>
                     <span v-else>Clique para selecionar o PDF</span>
+                    <small v-if="!selectedEbookPdfFile" class="pdf-upload-hint">{{ EBOOK_PDF_UPLOAD_HINT }}</small>
                     <input ref="ebookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEbookPdfSelect" />
                   </div>
                 </div>
@@ -651,6 +652,7 @@
                     <FileText class="pdf-icon-big" />
                     <span v-if="selectedEditEbookPdfFile">{{ selectedEditEbookPdfFile.name }}</span>
                     <span v-else>Selecionar novo PDF (opcional)</span>
+                    <small v-if="!selectedEditEbookPdfFile" class="pdf-upload-hint">{{ EBOOK_PDF_UPLOAD_HINT }}</small>
                     <input ref="editEbookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEditEbookPdfSelect" />
                   </div>
                 </div>
@@ -683,7 +685,7 @@
 import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText, Monitor, Smartphone } from 'lucide-vue-next'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { buildModuleUrl } from '~/utils/course-slug'
-import { isPdfFile } from '~/utils/upload-file-kind'
+import { EBOOK_PDF_MAX_BYTES, EBOOK_PDF_MAX_LABEL, EBOOK_PDF_UPLOAD_HINT, isPdfFile } from '~/utils/upload-file-kind'
 import { normalizeFileUploadError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const config = useRuntimeConfig()
@@ -1665,6 +1667,10 @@ const handleEbookPdfSelect = (e) => {
     alert('Selecione um arquivo PDF válido.')
     return
   }
+  if (file.size > EBOOK_PDF_MAX_BYTES) {
+    alert(`O PDF deve ter no máximo ${EBOOK_PDF_MAX_LABEL}.`)
+    return
+  }
   selectedEbookPdfFile.value = file
 }
 
@@ -1736,6 +1742,10 @@ const handleEditEbookPdfSelect = (e) => {
   if (!file) return
   if (!isPdfFile(file)) {
     alert('Selecione um arquivo PDF válido.')
+    return
+  }
+  if (file.size > EBOOK_PDF_MAX_BYTES) {
+    alert(`O PDF deve ter no máximo ${EBOOK_PDF_MAX_LABEL}.`)
     return
   }
   selectedEditEbookPdfFile.value = file
@@ -3424,6 +3434,18 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pdf-upload-hint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+.modal-card--ebook .pdf-upload-hint {
+  white-space: normal;
+  text-align: center;
 }
 
 .modal-card--ebook .modal-actions {

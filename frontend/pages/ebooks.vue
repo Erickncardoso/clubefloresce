@@ -96,6 +96,7 @@
                   <span>{{ selectedPdfFile.name }}</span>
                 </div>
                 <span v-if="!selectedPdfFile">Clique para selecionar o PDF</span>
+                <small v-if="!selectedPdfFile" class="pdf-upload-hint">{{ EBOOK_PDF_UPLOAD_HINT }}</small>
                 <input ref="pdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handlePdfSelect" />
               </div>
             </div>
@@ -131,7 +132,7 @@ import {
   X, 
   Image as ImageIcon 
 } from 'lucide-vue-next'
-import { isPdfFile } from '~/utils/upload-file-kind'
+import { EBOOK_PDF_MAX_BYTES, EBOOK_PDF_MAX_LABEL, EBOOK_PDF_UPLOAD_HINT, isPdfFile } from '~/utils/upload-file-kind'
 import { normalizeFileUploadError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const config = useRuntimeConfig()
@@ -207,6 +208,7 @@ const handlePdfSelect = (e) => {
   const file = e.target.files?.[0]
   if (!file) return
   if (!isPdfFile(file)) return alert('Por favor, selecione apenas arquivos PDF.')
+  if (file.size > EBOOK_PDF_MAX_BYTES) return alert(`O PDF deve ter no máximo ${EBOOK_PDF_MAX_LABEL}.`)
   selectedPdfFile.value = file
 }
 
@@ -676,6 +678,13 @@ onMounted(() => {
 }
 
 .pdf-upload-box span { font-size: 0.8rem; font-weight: 600; }
+
+.pdf-upload-hint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #94a3b8;
+  line-height: 1.3;
+}
 
 .file-input-hidden { display: none; }
 </style>

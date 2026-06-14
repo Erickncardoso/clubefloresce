@@ -1,7 +1,9 @@
 import fs from "fs";
-import { createReadStream } from "fs";
+import os from "os";
+import path from "path";
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
+import { isPdfFilename, preparePdfForUpload } from "./pdf-compress";
 
 dotenv.config();
 
@@ -34,12 +36,9 @@ type CloudinaryUploadResult = {
   secure_url?: string | null;
   public_id?: string;
   version?: number;
-  info?: {
-    raw_convert?: {
-      google_speech?: { status?: string };
-    };
-  };
+  done?: boolean;
 };
+
 type CloudinaryUploadOptions = {
   resourceType?: CloudinaryResourceType;
   fileSizeBytes?: number;
@@ -65,18 +64,24 @@ export type CloudinaryVideoUploadSignature = {
 
 export const VIDEO_UPLOAD_FOLDER = "clube-video-lessons";
 const LARGE_VIDEO_BYTES = 100 * 1024 * 1024;
+/** Margem abaixo do limite típico do Cloudinary Plus (20 MB). */
+export const CLOUDINARY_DOC_TARGET_MAX_BYTES = Number(
+  process.env.CLOUDINARY_DOC_TARGET_MAX_BYTES || 18 * 1024 * 1024,
+);
+const LARGE_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 function formatCloudinaryError(error: any, kind: "video" | "document" | "image" = "image"): string {
   const message = error?.message || error?.error?.message || String(error || "");
+  console.error("[Cloudinary] Erro bruto:", message);
   if (/ECONNRESET|ECONNREFUSED|EPIPE|socket hang up/i.test(message)) {
     return "Conexão com o Cloudinary interrompida. Tente novamente em alguns segundos.";
   }
-  if (/413|too large|file size|payload/i.test(message)) {
+  if (/413|too large|file size|payload|maximum.*size/i.test(message)) {
     if (kind === "video") {
       return "Vídeo muito grande para o plano Cloudinary atual. Reduza o tamanho ou aumente o limite na conta.";
     }
     if (kind === "document") {
-      return "Documento muito grande. Reduza o tamanho ou tente novamente.";
+      return "Documento muito grande para o plano Cloudinary. O servidor tentará comprimir automaticamente — tente novamente.";
     }
     return "Arquivo muito grande. Reduza o tamanho ou tente novamente.";
   }
@@ -102,6 +107,11 @@ async function withCloudinaryRetry<T>(operation: () => Promise<T>, attempts = 3)
   throw lastError;
 }
 
+async function removeTempFile(filePath?: string | null): Promise<void> {
+  if (!filePath) return;
+  await fs.promises.unlink(filePath).catch(() => undefined);
+}
+
 export function createVideoUploadSignature(
   folder: string = VIDEO_UPLOAD_FOLDER,
 ): CloudinaryVideoUploadSignature {
@@ -124,37 +134,48 @@ export function createVideoUploadSignature(
   };
 }
 
-function uploadLargeVideoFromPath(filePath: string, folder: string): Promise<string> {
+function uploadLargeFromPath(
+  filePath: string,
+  options: Record<string, unknown>,
+): Promise<CloudinaryUploadResult> {
   return withCloudinaryRetry(() => new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_chunked_stream(
+    cloudinary.uploader.upload_large(
+      filePath,
       {
-        resource_type: "video",
-        folder,
-        chunk_size: 20 * 1024 * 1024,
+        chunk_size: 6 * 1024 * 1024,
         timeout: CLOUDINARY_API_TIMEOUT_MS,
+        ...options,
       } as any,
       (error: any, result: CloudinaryUploadResult | undefined) => {
         if (error) {
           reject(error);
           return;
         }
-        if (!result?.secure_url) {
-          reject(new Error("Cloudinary não retornou secure_url para o vídeo."));
+        if (!result?.secure_url && result?.done === false) {
           return;
         }
-        resolve(result.secure_url);
+        resolve(result || {});
       },
     );
-
-    uploadStream.on("error", reject);
-    createReadStream(filePath).on("error", reject).pipe(uploadStream);
   }));
+}
+
+function uploadLargeVideoFromPath(filePath: string, folder: string): Promise<string> {
+  return uploadLargeFromPath(filePath, {
+    resource_type: "video",
+    folder,
+  }).then((result) => {
+    if (!result?.secure_url) {
+      throw new Error("Cloudinary não retornou secure_url para o vídeo.");
+    }
+    return result.secure_url as string;
+  });
 }
 
 export const cloudinaryUpload = async (
   fileBuffer: Buffer,
   folder: string = "clube-nutricional",
-  options?: CloudinaryUploadOptions
+  options?: CloudinaryUploadOptions,
 ): Promise<string> => {
   try {
     assertCloudinaryConfigured();
@@ -162,10 +183,9 @@ export const cloudinaryUpload = async (
 
     const uploadOptions: Record<string, unknown> = {
       folder,
-      resource_type: resourceType, // image | video | raw | auto
+      resource_type: resourceType,
     };
 
-    // PDFs/docs precisam manter extensão na URL para download/visualização corretos.
     if (resourceType === "raw" && options?.originalFilename) {
       uploadOptions.use_filename = true;
       uploadOptions.unique_filename = true;
@@ -181,7 +201,7 @@ export const cloudinaryUpload = async (
             return;
           }
           resolve(response || {});
-        }
+        },
       );
 
       stream.on("error", reject);
@@ -208,6 +228,71 @@ export const cloudinaryUpload = async (
     throw new Error(detail);
   }
 };
+
+export async function cloudinaryDocumentUpload(
+  fileBuffer: Buffer,
+  folder: string = "clube-documents",
+  originalFilename: string,
+): Promise<{ url: string; compressed: boolean }> {
+  assertCloudinaryConfigured();
+
+  const safeName = originalFilename.replace(/[^\w.\-]+/g, "_");
+  const inputPath = path.join(os.tmpdir(), `clube-doc-${Date.now()}-${safeName}`);
+  const cleanupPaths: string[] = [inputPath];
+  let uploadPath = inputPath;
+  let compressed = false;
+
+  try {
+    await fs.promises.writeFile(inputPath, fileBuffer);
+
+    if (isPdfFilename(originalFilename)) {
+      const prepared = await preparePdfForUpload(inputPath, CLOUDINARY_DOC_TARGET_MAX_BYTES);
+      uploadPath = prepared.uploadPath;
+      compressed = prepared.compressed;
+      cleanupPaths.push(...prepared.cleanupPaths);
+    }
+
+    const stats = await fs.promises.stat(uploadPath);
+    const isPdf = isPdfFilename(originalFilename);
+    const resourceType: CloudinaryResourceType = isPdf ? "image" : "raw";
+
+    const uploadOptions: Record<string, unknown> = {
+      folder,
+      resource_type: resourceType,
+      use_filename: true,
+      unique_filename: true,
+      filename_override: originalFilename,
+    };
+
+    const result = stats.size > LARGE_DOCUMENT_BYTES
+      ? await uploadLargeFromPath(uploadPath, uploadOptions)
+      : await withCloudinaryRetry(() => new Promise<CloudinaryUploadResult>((resolve, reject) => {
+        cloudinary.uploader.upload(
+          uploadPath,
+          {
+            ...uploadOptions,
+            timeout: CLOUDINARY_API_TIMEOUT_MS,
+          } as any,
+          (error: any, response: CloudinaryUploadResult | undefined) => {
+            if (error) reject(error);
+            else resolve(response || {});
+          },
+        );
+      }));
+
+    if (!result?.secure_url) {
+      throw new Error("Cloudinary não retornou secure_url para o documento.");
+    }
+
+    return { url: result.secure_url as string, compressed };
+  } catch (error: any) {
+    const detail = formatCloudinaryError(error, "document");
+    console.error("Cloudinary document upload error:", detail);
+    throw new Error(detail);
+  } finally {
+    await Promise.all(cleanupPaths.map((filePath) => removeTempFile(filePath)));
+  }
+}
 
 export const cloudinaryVideoUploadFromPath = async (
   filePath: string,
@@ -248,6 +333,7 @@ export const cloudinaryVideoUpload = async (
   const url = await cloudinaryUpload(fileBuffer, folder, {
     ...options,
     resourceType: "video",
+    errorKind: "video",
   });
 
   const ref = parseCloudinaryVideoUrl(url);

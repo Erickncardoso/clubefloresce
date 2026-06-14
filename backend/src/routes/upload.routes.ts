@@ -26,7 +26,7 @@ function handleMulterUpload(middleware: any) {
         const message = isVideo
           ? "Arquivo de vídeo muito grande."
           : isDocument
-            ? "Documento muito grande. Limite de 50MB."
+            ? "Documento muito grande. Limite de 40MB."
             : "Arquivo muito grande. Limite de 100MB para imagens.";
         res.status(413).json({ message });
         return;

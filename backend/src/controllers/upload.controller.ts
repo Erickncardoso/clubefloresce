@@ -5,6 +5,7 @@ import os from "os";
 import path from "path";
 import {
   cloudinaryUpload,
+  cloudinaryDocumentUpload,
   cloudinaryVideoUploadFromPath,
   createVideoUploadSignature,
   isCloudinaryConfigured,
@@ -84,7 +85,7 @@ export const uploadVideo = multer({
 // ── Multer para DOCUMENTOS (PDF, etc) ──────────────────────────────────────────
 export const uploadFile = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 40 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (acceptByExtensionOrMime(file, {
       extensionPattern: DOC_EXTENSIONS,
@@ -230,17 +231,17 @@ export class UploadController {
       const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
       console.log(`[UploadController] Iniciando upload de documento para Cloudinary: ${req.file.originalname} (${fileSizeMB}MB)`);
 
-      const cloudinaryUrl = await cloudinaryUpload(req.file.buffer, "clube-documents", {
-        resourceType: "raw",
-        fileSizeBytes: req.file.size,
-        originalFilename: req.file.originalname,
-        errorKind: "document",
-      });
+      const { url: cloudinaryUrl, compressed } = await cloudinaryDocumentUpload(
+        req.file.buffer,
+        "clube-documents",
+        req.file.originalname,
+      );
 
       return res.json({
         url: cloudinaryUrl,
         fileName: req.file.originalname,
         sizeMB: fileSizeMB,
+        compressed,
       });
     } catch (error: any) {
       console.error("[UploadController] Falha ao enviar documento para Cloudinary:", error);

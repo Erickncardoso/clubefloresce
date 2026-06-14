@@ -2,7 +2,7 @@ FROM node:20-bullseye-slim AS builder
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && apt-get install -y --no-install-recommends openssl ca-certificates ghostscript \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
@@ -21,7 +21,7 @@ ENV NODE_ENV=production
 ENV PORT=3001
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && apt-get install -y --no-install-recommends openssl ca-certificates ghostscript \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
