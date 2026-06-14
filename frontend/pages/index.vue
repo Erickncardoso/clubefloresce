@@ -220,7 +220,7 @@ const handleLogin = async () => {
       error.value = err.data.message
     } else if (err.statusCode === 500) {
       error.value = import.meta.dev
-        ? 'Servidor indisponível. Rode o backend com npm run dev:backend e feche outros apps na porta 3001.'
+        ? 'Servidor indisponível. Verifique se o backend está rodando e tente novamente.'
         : 'Servidor indisponível. Tente novamente em alguns instantes.'
     } else if (err.statusCode === 502 || err.statusCode === 503 || err.statusCode === 504) {
       error.value = apiConnectionErrorMessage({

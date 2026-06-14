@@ -683,7 +683,7 @@
 import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText, Monitor, Smartphone } from 'lucide-vue-next'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { buildModuleUrl } from '~/utils/course-slug'
-import { resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+import { normalizeFileUploadError, resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const config = useRuntimeConfig()
 const layoutName = computed(() => 'dashboard')
@@ -1707,7 +1707,7 @@ const handleCreateEbookFromCourses = async () => {
     closeCreateEbookModal()
     await fetchEbooks()
   } catch (err) {
-    alert(err?.data?.message || err?.message || 'Erro ao criar ebook.')
+    alert(normalizeFileUploadError(err))
   } finally {
     ebookUploading.value = false
   }
@@ -1784,7 +1784,7 @@ const handleUpdateEbookFromCourses = async () => {
     closeEditEbookModal()
     await fetchEbooks()
   } catch (err) {
-    alert(err?.data?.message || err?.message || 'Erro ao atualizar ebook.')
+    alert(normalizeFileUploadError(err))
   } finally {
     ebookUploading.value = false
   }
@@ -1841,7 +1841,7 @@ const handleCreateCourse = async () => {
     let msg = 'Erro desconhecido ao criar curso.'
     
     if (err.message?.includes('Failed to fetch')) {
-      msg = 'Não foi possível conectar ao servidor. O backend (porta 3001) está rodando?'
+      msg = 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.'
     } else {
       msg = err?.data?.message || err?.message || msg
     }

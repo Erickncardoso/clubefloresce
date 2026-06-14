@@ -1626,7 +1626,7 @@ const handleCreateCourse = async () => {
     let msg = 'Erro desconhecido ao criar curso.'
     
     if (err.message?.includes('Failed to fetch')) {
-      msg = 'Não foi possível conectar ao servidor. O backend (porta 3001) está rodando?'
+      msg = 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.'
     } else {
       msg = err?.data?.message || err?.message || msg
     }

@@ -1,6 +1,6 @@
 import { uploadVideoToCloudinaryWithRetry } from '~/utils/cloudinary-video-upload'
 import { isCloudinarySizeError, needsServerCompression } from '~/utils/video-upload-limits'
-import { normalizeUploadError } from '~/utils/resolve-api-base.mjs'
+import { normalizeVideoUploadError } from '~/utils/resolve-api-base.mjs'
 import { resolveVideoUploadEndpoint } from '~/utils/video-upload-endpoint'
 import { captureVideoThumbnail, revokeThumbnailUrl } from '~/utils/video-thumbnail'
 
@@ -8,10 +8,10 @@ function createJobId() {
   return `upload-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function parseUploadErrorMessage(xhr, fallback = 'Erro no upload do vídeo.') {
+function parseUploadErrorMessage(xhr, fallback = 'Não foi possível enviar o vídeo. Tente novamente.') {
   try {
     const data = JSON.parse(xhr?.responseText || '{}')
-    return normalizeUploadError({ message: data?.error?.message || data?.message || fallback })
+    return normalizeVideoUploadError({ message: data?.error?.message || data?.message || fallback })
   } catch {
     return fallback
   }
@@ -61,9 +61,7 @@ function uploadVideoThroughBackend(file, apiBase, onProgress) {
     }
 
     xhr.onerror = () => {
-      reject(new Error(
-        'Falha ao enviar o vídeo. No iPad/Mac use o mesmo Wi‑Fi do PC e confira se o backend está na porta 3001.',
-      ))
+      reject(new Error('Não foi possível enviar o vídeo. Verifique sua conexão e tente novamente.'))
     }
     xhr.ontimeout = () => reject(new Error('Upload excedeu o tempo limite. Aguarde e tente novamente.'))
     xhr.send(formData)
@@ -79,7 +77,7 @@ async function runVideoUpload(file, apiBase, onProgress) {
     try {
       return await uploadVideoThroughBackend(file, apiBase, onProgress)
     } catch (backendError) {
-      throw new Error(normalizeUploadError(backendError))
+      throw new Error(normalizeVideoUploadError(backendError))
     }
   }
 
@@ -93,11 +91,11 @@ async function runVideoUpload(file, apiBase, onProgress) {
       try {
         return await uploadVideoThroughBackend(file, apiBase, onProgress)
       } catch (backendError) {
-        throw new Error(normalizeUploadError(backendError))
+        throw new Error(normalizeVideoUploadError(backendError))
       }
     }
 
-    throw new Error(normalizeUploadError(directError))
+    throw new Error(normalizeVideoUploadError(directError))
   }
 }
 
@@ -174,7 +172,7 @@ export function useVideoUploadQueue() {
         return result.url
       })
       .catch((error) => {
-        const message = normalizeUploadError(error)
+        const message = normalizeVideoUploadError(error)
         updateJob(id, { status: 'error', error: message })
         throw new Error(message)
       })
@@ -195,7 +193,7 @@ export function useVideoUploadQueue() {
   function failUploadJob(id, error, label) {
     updateJob(id, {
       status: 'error',
-      error: normalizeUploadError({ message: error }),
+      error: normalizeVideoUploadError({ message: error }),
       label: label || undefined,
     })
   }

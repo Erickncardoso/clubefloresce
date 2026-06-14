@@ -306,7 +306,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import { buildLessonLocationPath, formatCloudinaryVideoPath } from '~/utils/video-upload-path'
-import { normalizeUploadError, resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+import { normalizeFileUploadError, normalizeVideoUploadError, resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -573,7 +573,7 @@ function startQueuedUpload(file) {
     })
     .catch((error) => {
       if (currentUploadJobId.value !== id) return
-      const message = normalizeUploadError(error)
+      const message = normalizeVideoUploadError(error)
       videoUploadStatus.value = 'error'
       formError.value = message
       showToast({ type: 'error', title: 'Erro no upload do vídeo.', message })
@@ -771,7 +771,7 @@ async function saveLessonInBackground(snapshot) {
 
     emit('saved', { title: body.title, videoUrl: body.videoUrl, path: locationPath })
   } catch (err) {
-    const message = normalizeUploadError(err)
+    const message = normalizeFileUploadError(err)
     if (jobId) failUploadJob(jobId, message, snapshot.title)
     showToast({ type: 'error', title: 'Erro ao salvar aula.', message })
   }
@@ -838,7 +838,7 @@ async function submit(skipThumb = false) {
     emit('saved', { title: body.title, videoUrl: body.videoUrl, path: locationPath })
     emit('update:open', false)
   } catch (err) {
-    const message = normalizeUploadError(err)
+    const message = normalizeFileUploadError(err)
     formError.value = message
     showToast({ type: 'error', title: 'Erro ao salvar aula.', message })
   } finally {

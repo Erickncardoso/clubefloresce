@@ -131,7 +131,7 @@ import {
   X, 
   Image as ImageIcon 
 } from 'lucide-vue-next'
-import { resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+import { normalizeFileUploadError, resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
@@ -268,7 +268,7 @@ const handleCreateEbook = async () => {
     closeCreateEbookModal()
     fetchEbooks()
   } catch (err) {
-    alert(err?.data?.message || err?.message || 'Erro ao processar upload ou criar ebook.')
+    alert(normalizeFileUploadError(err))
     console.error(err)
   } finally {
     uploading.value = false

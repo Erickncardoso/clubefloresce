@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "cross-env NUXT_PUBLIC_API_BASE=/api nuxt build",
-    "dev": "cross-env NUXT_PUBLIC_API_BASE=/api nuxt dev --port 3000 --host 127.0.0.1",
+    "dev": "cross-env NUXT_PUBLIC_API_BASE=/api nuxt dev --port 3000 --host 0.0.0.0",
     "generate": "nuxt generate",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "preview": "nuxt preview",
