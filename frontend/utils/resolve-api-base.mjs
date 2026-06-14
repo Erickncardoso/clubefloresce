@@ -51,6 +51,13 @@ export function normalizeVideoUploadError(error) {
 }
 
 export function normalizeFileUploadError(error) {
+  const raw = error?.data?.message || error?.data?.error || error?.message || String(error || '')
+  if (/arquivo de vídeo|upload do vídeo|enviar o vídeo|vídeo muito grande/i.test(raw)) {
+    if (/muito grande|too large|file size/i.test(raw)) {
+      return 'Arquivo muito grande. Reduza o tamanho ou tente novamente.'
+    }
+    return 'Não foi possível enviar o arquivo. Tente novamente.'
+  }
   return normalizeUploadError(error, { fallback: 'Não foi possível enviar o arquivo. Tente novamente.' })
 }
 

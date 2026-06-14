@@ -22,8 +22,8 @@ function wait(ms) {
 }
 
 export async function fetchVideoUploadSignature(apiBase, token) {
-  const { resolveDirectApiUrl } = await import('./resolve-api-base.mjs')
-  const url = resolveDirectApiUrl('/upload/video/signature', apiBase)
+  const { resolveUploadApiUrl } = await import('./resolve-api-base.mjs')
+  const url = resolveUploadApiUrl('/upload/video/signature', apiBase)
 
   let lastError = null
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {

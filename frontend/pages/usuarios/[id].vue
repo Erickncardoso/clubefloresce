@@ -273,7 +273,7 @@
 </template>
 
 <script setup>
-import { resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+import { resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
 definePageMeta({
   layout: 'dashboard',
@@ -481,7 +481,7 @@ const uploadMealPlan = async () => {
   try {
     const formData = new FormData()
     formData.append('file', planFile.value)
-    await $fetch(resolveDirectApiUrl(`/patients/${patientId.value}/meal-plan/upload`, apiBase.value), {
+    await $fetch(resolveUploadApiUrl(`/patients/${patientId.value}/meal-plan/upload`, apiBase.value), {
       method: 'POST',
       headers: authHeaders(),
       body: formData,

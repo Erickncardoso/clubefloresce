@@ -130,6 +130,7 @@ export class UploadController {
       const cloudinaryUrl = await cloudinaryUpload(req.file.buffer, "clube-image-uploads", {
         resourceType: "image",
         fileSizeBytes: req.file.size,
+        errorKind: "image",
       });
 
       return res.json({
@@ -233,6 +234,7 @@ export class UploadController {
         resourceType: "raw",
         fileSizeBytes: req.file.size,
         originalFilename: req.file.originalname,
+        errorKind: "document",
       });
 
       return res.json({

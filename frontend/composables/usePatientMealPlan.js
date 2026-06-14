@@ -1,4 +1,4 @@
-import { apiConnectionErrorMessage, isApiConnectionError, resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+import { apiConnectionErrorMessage, isApiConnectionError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
 export function usePatientMealPlan() {
   const config = useRuntimeConfig()
@@ -65,7 +65,7 @@ export function usePatientMealPlan() {
     formData.append('file', file)
 
     try {
-      const res = await $fetch(resolveDirectApiUrl('/meal-plan/upload', config.public.apiBase), {
+      const res = await $fetch(resolveUploadApiUrl('/meal-plan/upload', config.public.apiBase), {
         method: 'POST',
         headers: authHeaders(),
         body: formData,

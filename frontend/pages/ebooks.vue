@@ -131,24 +131,18 @@ import {
   X, 
   Image as ImageIcon 
 } from 'lucide-vue-next'
-import { normalizeFileUploadError, resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+import { isPdfFile } from '~/utils/upload-file-kind'
+import { normalizeFileUploadError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 const route = useRoute()
 
-function isPdfFile(file) {
-  if (!file) return false
-  const name = String(file.name || '').toLowerCase()
-  const type = String(file.type || '').toLowerCase()
-  return type === 'application/pdf' || name.endsWith('.pdf')
-}
-
 async function uploadImageToCloudinary(file, token) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(resolveDirectApiUrl('/upload', apiBase), {
+  return $fetch(resolveUploadApiUrl('/upload', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -158,7 +152,7 @@ async function uploadImageToCloudinary(file, token) {
 async function uploadDocumentToCloudinary(file, token) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(resolveDirectApiUrl('/upload/file', apiBase), {
+  return $fetch(resolveUploadApiUrl('/upload/file', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,

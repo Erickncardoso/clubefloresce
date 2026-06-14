@@ -191,7 +191,7 @@
     </main>
 
     <AppToast />
-    <CoursesVideoUploadQueuePanel v-if="!isPatientApp" />
+    <CoursesVideoUploadQueuePanel v-if="!isPatientApp && showVideoUploadPanel" />
   </div>
 </template>
 
@@ -217,6 +217,7 @@ const role = ref('')
 const menuItems = ref([])
 const route = useRoute()
 const isPacienteCoursesPage = computed(() => route.path.startsWith('/cursos'))
+const showVideoUploadPanel = computed(() => /^\/(modulos|cursos)(\/|$)/.test(route.path || ''))
 const config = useRuntimeConfig()
 const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const { hydrateProfile, persistSession, profile: sessionProfile } = usePatientApp()

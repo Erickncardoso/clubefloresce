@@ -44,6 +44,7 @@ type CloudinaryUploadOptions = {
   resourceType?: CloudinaryResourceType;
   fileSizeBytes?: number;
   originalFilename?: string;
+  errorKind?: "video" | "document" | "image";
 };
 
 export type CloudinaryVideoUploadResult = {
@@ -65,13 +66,19 @@ export type CloudinaryVideoUploadSignature = {
 export const VIDEO_UPLOAD_FOLDER = "clube-video-lessons";
 const LARGE_VIDEO_BYTES = 100 * 1024 * 1024;
 
-function formatCloudinaryError(error: any): string {
+function formatCloudinaryError(error: any, kind: "video" | "document" | "image" = "image"): string {
   const message = error?.message || error?.error?.message || String(error || "");
   if (/ECONNRESET|ECONNREFUSED|EPIPE|socket hang up/i.test(message)) {
     return "Conexão com o Cloudinary interrompida. Tente novamente em alguns segundos.";
   }
   if (/413|too large|file size|payload/i.test(message)) {
-    return "Arquivo de vídeo muito grande para o plano Cloudinary atual. Reduza o tamanho ou aumente o limite na conta.";
+    if (kind === "video") {
+      return "Vídeo muito grande para o plano Cloudinary atual. Reduza o tamanho ou aumente o limite na conta.";
+    }
+    if (kind === "document") {
+      return "Documento muito grande. Reduza o tamanho ou tente novamente.";
+    }
+    return "Arquivo muito grande. Reduza o tamanho ou tente novamente.";
   }
   if (/timeout|timed out/i.test(message)) {
     return "O upload excedeu o tempo limite. Tente novamente com uma conexão mais estável.";
@@ -187,7 +194,11 @@ export const cloudinaryUpload = async (
 
     return result.secure_url as string;
   } catch (error: any) {
-    const detail = formatCloudinaryError(error);
+    const detail = formatCloudinaryError(error, options?.errorKind || (
+      options?.resourceType === "video" ? "video"
+        : options?.resourceType === "raw" ? "document"
+          : "image"
+    ));
     console.error("Cloudinary upload error:", detail);
     if (!isCloudinaryConfigured()) {
       throw new Error(
@@ -212,6 +223,7 @@ export const cloudinaryVideoUploadFromPath = async (
       : await cloudinaryUpload(await fs.promises.readFile(filePath), folder, {
           resourceType: "video",
           fileSizeBytes,
+          errorKind: "video",
         });
 
     const ref = parseCloudinaryVideoUrl(url);
@@ -222,7 +234,7 @@ export const cloudinaryVideoUploadFromPath = async (
       transcriptionStatus: "disabled",
     };
   } catch (error: any) {
-    const detail = formatCloudinaryError(error);
+    const detail = formatCloudinaryError(error, "video");
     console.error("Cloudinary video upload error:", detail);
     throw new Error(detail);
   }

@@ -683,24 +683,18 @@
 import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText, Monitor, Smartphone } from 'lucide-vue-next'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { buildModuleUrl } from '~/utils/course-slug'
-import { normalizeFileUploadError, resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+import { isPdfFile } from '~/utils/upload-file-kind'
+import { normalizeFileUploadError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const config = useRuntimeConfig()
 const layoutName = computed(() => 'dashboard')
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 
-function isPdfFile(file) {
-  if (!file) return false
-  const name = String(file.name || '').toLowerCase()
-  const type = String(file.type || '').toLowerCase()
-  return type === 'application/pdf' || name.endsWith('.pdf')
-}
-
 async function uploadImageToCloudinary(file, token) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(resolveDirectApiUrl('/upload', apiBase), {
+  return $fetch(resolveUploadApiUrl('/upload', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -710,7 +704,7 @@ async function uploadImageToCloudinary(file, token) {
 async function uploadDocumentToCloudinary(file, token) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(resolveDirectApiUrl('/upload/file', apiBase), {
+  return $fetch(resolveUploadApiUrl('/upload/file', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -1801,7 +1795,7 @@ const handleCreateCourse = async () => {
       const formData = new FormData()
       formData.append('file', courseFile.value)
       try {
-        const uploadRes = await $fetch(resolveDirectApiUrl('/upload', apiBase), {
+        const uploadRes = await $fetch(resolveUploadApiUrl('/upload', apiBase), {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData
@@ -1862,7 +1856,7 @@ const handleUpdateCourse = async () => {
     if (courseFile.value) {
       const formData = new FormData()
       formData.append('file', courseFile.value)
-      const uploadRes = await $fetch(resolveDirectApiUrl('/upload', apiBase), {
+      const uploadRes = await $fetch(resolveUploadApiUrl('/upload', apiBase), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -1880,7 +1874,7 @@ const handleUpdateCourse = async () => {
     if (courseMobileFile.value) {
       const formData = new FormData()
       formData.append('file', courseMobileFile.value)
-      const uploadRes = await $fetch(resolveDirectApiUrl('/upload', apiBase), {
+      const uploadRes = await $fetch(resolveUploadApiUrl('/upload', apiBase), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData

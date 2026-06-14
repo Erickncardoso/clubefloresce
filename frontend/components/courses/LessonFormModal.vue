@@ -306,7 +306,8 @@ import {
   X,
 } from 'lucide-vue-next'
 import { buildLessonLocationPath, formatCloudinaryVideoPath } from '~/utils/video-upload-path'
-import { normalizeFileUploadError, normalizeVideoUploadError, resolveDirectApiUrl } from '~/utils/resolve-api-base.mjs'
+import { isVideoFile } from '~/utils/upload-file-kind'
+import { normalizeFileUploadError, normalizeVideoUploadError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -528,6 +529,11 @@ function inferTitleFromFileName(fileName) {
 
 function applyVideoFile(file) {
   if (!file) return
+  if (!isVideoFile(file)) {
+    formError.value = 'Selecione um arquivo de vídeo (MP4, MOV ou WEBM). PDF e outros documentos não são aceitos aqui.'
+    showToast({ type: 'error', title: 'Arquivo inválido', message: formError.value })
+    return
+  }
   videoSourceTab.value = 'upload'
   videoFileLocal.value = file
   if (frameVideoObjectUrl.value) URL.revokeObjectURL(frameVideoObjectUrl.value)
@@ -675,7 +681,7 @@ async function uploadThumbFile(thumbFile, token) {
   if (!thumbFile) return null
   const formData = new FormData()
   formData.append('file', thumbFile)
-  const uploadRes = await $fetch(resolveDirectApiUrl('/upload', apiBase), {
+  const uploadRes = await $fetch(resolveUploadApiUrl('/upload', apiBase), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -743,7 +749,7 @@ async function saveLessonInBackground(snapshot) {
       thumbnail,
     }
 
-    await $fetch(resolveDirectApiUrl('/courses/lessons', apiBase), {
+    await $fetch(resolveUploadApiUrl('/courses/lessons', apiBase), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: {
@@ -815,7 +821,7 @@ async function submit(skipThumb = false) {
       thumbnail,
     }
 
-    await $fetch(resolveDirectApiUrl(`/courses/lessons/${form.id}`, apiBase), {
+    await $fetch(resolveUploadApiUrl(`/courses/lessons/${form.id}`, apiBase), {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` },
       body,
