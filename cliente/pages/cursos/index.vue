@@ -1,6 +1,7 @@
 <template>
   <NuxtLayout :name="layoutName">
-    <div class="courses-container patient-view streaming-layout">
+    <PatientPageSkeleton v-if="pageLoading && isPatientApp" layout="courses" class="patient-page streaming-page-skeleton" />
+    <div v-else class="courses-container patient-view streaming-layout">
       <div class="courses-page patient-page streaming-page">
         <section
           class="patient-banner"
@@ -765,6 +766,8 @@ import { buildModuleUrl } from '~/utils/course-slug'
 
 const config = useRuntimeConfig()
 const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
+const isPatientApp = computed(() => Boolean(config.public.mobileApp))
+const pageLoading = ref(true)
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 const { documentMaxBytes, documentMaxLabel, documentUploadHint } = useDocumentUploadLimits()
@@ -2152,11 +2155,17 @@ if (import.meta.client) {
 onMounted(async () => {
   if (!localStorage.getItem('auth_token')) {
     handleAuthTokenInvalid()
+    pageLoading.value = false
     return
   }
   isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
-  await Promise.all([fetchCourses(), fetchEbooks()])
-  if (route.hash === '#ebooks') scrollToPatientEbooks()
+  pageLoading.value = true
+  try {
+    await Promise.all([fetchCourses(), fetchEbooks()])
+    if (route.hash === '#ebooks') scrollToPatientEbooks()
+  } finally {
+    pageLoading.value = false
+  }
 })
 
 watch(

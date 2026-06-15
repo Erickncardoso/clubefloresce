@@ -65,7 +65,9 @@
                   :class="{ 'is-done': isLessonWatched(activeLesson.id) }"
                   @click="toggleProgress(activeLesson.id, 'watched')"
                 >
-                  <FlorescerPlayerIcons :name="isLessonWatched(activeLesson.id) ? 'check' : 'check-limpo'" />
+                  <span class="btn-concluida__icon" aria-hidden="true">
+                    <FlorescerPlayerIcons name="check" />
+                  </span>
                   {{ isLessonWatched(activeLesson.id) ? 'Concluída' : 'Marcar concluída' }}
                 </button>
                 <button
@@ -436,6 +438,7 @@ import { useRoute, useRouter, navigateTo } from '#app'
 import { getVideoCaptionUrl } from '~/utils/video-provider'
 import { isCloudinaryVideoUrl, parseTranscriptionTimeToSeconds } from '~/utils/cloudinary-video'
 import { buildModuleUrl, findLessonBySlug } from '~/utils/course-slug'
+import FlorescerPlayerIcons from '~/components/courses/FlorescerPlayerIcons.vue'
 const route = useRoute()
 const router = useRouter()
 const moduleParam = computed(() => decodeURIComponent(String(route.params.id || '')))

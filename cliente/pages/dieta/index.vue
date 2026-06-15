@@ -4,7 +4,7 @@
 
     <BellaDailyDiaryBar v-if="dailySummary" :summary="dailySummary" class="dieta-diary-bar" />
 
-    <p v-if="planLoading" class="dieta-plan-loading">Carregando seu plano alimentar...</p>
+    <PatientPageSkeleton v-if="planLoading" layout="plan" />
 
     <DietaMealPlanUploadCard v-else-if="!hasPlan" @uploaded="onPlanUploaded" />
 

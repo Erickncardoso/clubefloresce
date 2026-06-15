@@ -8,6 +8,9 @@
       </template>
     </PatientHeader>
 
+    <PatientPageSkeleton v-if="pageLoading" layout="profile" />
+
+    <template v-else>
     <section class="perfil-hero">
       <div class="perfil-avatar-wrap">
         <PatientAvatar
@@ -83,6 +86,7 @@
         <span>Sair</span>
       </button>
     </nav>
+    </template>
   </div>
 </template>
 
@@ -115,15 +119,19 @@ const memberSince = computed(() => memberSinceLabel())
 const checkInWeeks = ref(0)
 const flowers = ref(24)
 const level = ref('Girassol')
+const pageLoading = ref(true)
 
 onMounted(async () => {
+  pageLoading.value = true
   flowers.value = 12 + Math.floor(Math.random() * 20)
   const headers = { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
   try {
     const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers })
     checkInWeeks.value = (data.history?.length || 0) + (data.current ? 1 : 0)
     flowers.value = Math.max(flowers.value, checkInWeeks.value * 2)
-  } catch { /* ignore */ }
+  } catch { /* ignore */ } finally {
+    pageLoading.value = false
+  }
 })
 
 function logout() {

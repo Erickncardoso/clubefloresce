@@ -134,6 +134,17 @@
   transition: all 0.2s ease;
 }
 
+.btn-concluida__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.btn-concluida__icon :deep(svg) {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 .btn-concluida:hover {
   border-color: var(--aula-accent-muted);
   background: #f8faf8;

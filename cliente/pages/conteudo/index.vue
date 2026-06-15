@@ -34,11 +34,7 @@
       </button>
     </div>
 
-    <div v-if="loading" class="bib-loading" aria-live="polite" aria-busy="true">
-      <div class="bib-skeleton bib-skeleton--featured" />
-      <div class="bib-skeleton bib-skeleton--row" />
-      <div class="bib-skeleton bib-skeleton--row" />
-    </div>
+    <PatientPageSkeleton v-if="loading" layout="library" />
 
     <template v-else>
       <p v-if="loadError" class="bib-error">{{ loadError }}</p>

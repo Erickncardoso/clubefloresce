@@ -17,7 +17,7 @@
             para liberar seu acesso ao app.
           </p>
           <p class="success-note">Você receberá orientações no e-mail informado.</p>
-          <NuxtLink to="/" class="btn-auth-submit patient-auth-submit success-back-btn">
+          <NuxtLink to="/" class="btn-auth-submit patient-auth-submit cf-squircle--control success-back-btn">
             Voltar para o login
           </NuxtLink>
         </div>
@@ -96,7 +96,7 @@
               />
             </div>
 
-            <button type="submit" class="btn-auth-submit patient-auth-submit" :disabled="loading">
+            <button type="submit" class="btn-auth-submit patient-auth-submit cf-squircle--control" :disabled="loading">
               <span v-if="loading">Enviando...</span>
               <span v-else>Enviar solicitação</span>
             </button>
@@ -127,7 +127,7 @@ import {
   User,
 } from 'lucide-vue-next'
 
-definePageMeta({ layout: false })
+definePageMeta({ layout: false, pageTransition: false })
 
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)

@@ -2,21 +2,16 @@
   <div class="auth-container patient-login-mode">
     <main class="patient-auth">
       <div class="patient-auth-inner">
-        <header class="patient-auth-brand">
-          <img src="/logoflorescer.svg" alt="Florescer" class="patient-auth-logo" width="120" height="36">
-          <p class="patient-auth-tagline">App do paciente</p>
-        </header>
-
         <div class="patient-auth-card">
-          <header class="patient-auth-header">
+          <header class="patient-auth-header patient-auth-header--login">
+            <img src="/logoflorescer.svg" alt="Florescer" class="patient-auth-logo" width="120" height="36">
             <h2>Entrar</h2>
-            <p>Use o e-mail e a senha enviados pela sua nutricionista.</p>
           </header>
 
           <form @submit.prevent="handleLogin" class="auth-form patient-auth-form">
-            <div class="form-group" :class="{ focused: focusedField === 'email' }">
+            <div class="form-group field--float" :class="{ focused: focusedField === 'email' }">
               <label for="patient-email">E-mail</label>
-              <div class="input-wrapper">
+              <div class="input-wrapper cf-squircle--control">
                 <Mail class="input-icon" />
                 <input
                   id="patient-email"
@@ -31,12 +26,9 @@
               </div>
             </div>
 
-            <div class="form-group" :class="{ focused: focusedField === 'password' }">
-              <div class="label-row">
-                <label for="patient-password">Senha</label>
-                <button type="button" class="forgot-link forgot-link-btn">Esqueci a senha</button>
-              </div>
-              <div class="input-wrapper">
+            <div class="form-group field--float field--float-password" :class="{ focused: focusedField === 'password' }">
+              <label for="patient-password">Senha</label>
+              <div class="input-wrapper cf-squircle--control">
                 <Lock class="input-icon" />
                 <input
                   id="patient-password"
@@ -58,9 +50,10 @@
                   <Eye v-else class="password-toggle-icon" />
                 </button>
               </div>
+              <button type="button" class="forgot-link forgot-link-btn">Esqueci a senha</button>
             </div>
 
-            <button type="submit" :disabled="loading" class="btn-auth-submit patient-auth-submit">
+            <button type="submit" :disabled="loading" class="btn-auth-submit patient-auth-submit cf-squircle--control">
               <span v-if="loading">Validando...</span>
               <span v-else>Entrar</span>
             </button>
@@ -85,11 +78,12 @@
         <p>Por segurança, você precisa criar uma nova senha para continuar.</p>
 
         <form class="modal-form" @submit.prevent="handleFirstAccessPasswordChange">
-          <div class="form-group" :class="{ focused: focusedField === 'newPassword' }">
-            <label>Nova senha</label>
-            <div class="input-wrapper">
+          <div class="form-group field--float" :class="{ focused: focusedField === 'newPassword' }">
+            <label for="first-access-new">Nova senha</label>
+            <div class="input-wrapper cf-squircle--control">
               <Lock class="input-icon" />
               <input
+                id="first-access-new"
                 :type="showNewPassword ? 'text' : 'password'"
                 v-model="firstAccessForm.newPassword"
                 placeholder="Mínimo 6 caracteres"
@@ -101,11 +95,12 @@
             </div>
           </div>
 
-          <div class="form-group" :class="{ focused: focusedField === 'confirmPassword' }">
-            <label>Confirmar nova senha</label>
-            <div class="input-wrapper">
+          <div class="form-group field--float" :class="{ focused: focusedField === 'confirmPassword' }">
+            <label for="first-access-confirm">Confirmar nova senha</label>
+            <div class="input-wrapper cf-squircle--control">
               <Lock class="input-icon" />
               <input
+                id="first-access-confirm"
                 :type="showConfirmPassword ? 'text' : 'password'"
                 v-model="firstAccessForm.confirmPassword"
                 placeholder="Repita a nova senha"
@@ -117,7 +112,7 @@
             </div>
           </div>
 
-          <button type="submit" :disabled="firstAccessLoading" class="btn-auth-submit patient-auth-submit">
+          <button type="submit" :disabled="firstAccessLoading" class="btn-auth-submit patient-auth-submit cf-squircle--control">
             <span v-if="firstAccessLoading">Atualizando senha...</span>
             <span v-else>Salvar nova senha</span>
           </button>
@@ -136,7 +131,7 @@
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
 
-definePageMeta({ layout: false })
+definePageMeta({ layout: false, pageTransition: false })
 
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)
@@ -239,8 +234,11 @@ const handleFirstAccessPasswordChange = async () => {
 <style scoped>
 .auth-container {
   display: flex;
-  min-height: 100vh;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   width: 100%;
+  overflow: hidden;
   background: var(--pa-bg, #ffffff);
   font-family: var(--pa-font, var(--cf-font));
   justify-content: center;
@@ -249,55 +247,132 @@ const handleFirstAccessPasswordChange = async () => {
 .patient-auth {
   flex: 1;
   width: 100%;
-  min-height: 100vh;
+  min-height: 0;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: calc(1.5rem + env(safe-area-inset-top)) 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  overflow: hidden;
+  padding: calc(1rem + env(safe-area-inset-top)) 1.25rem calc(1rem + env(safe-area-inset-bottom));
 }
 
-.patient-auth-inner { width: 100%; max-width: 380px; }
-.patient-auth-brand { text-align: center; margin-bottom: 1.5rem; }
-.patient-auth-logo { display: block; margin: 0 auto 0.5rem; object-fit: contain; }
-.patient-auth-tagline { margin: 0; font-size: 0.82rem; color: var(--pa-text-muted, #66706e); }
+.patient-auth-inner {
+  width: 100%;
+  max-width: 380px;
+}
+
+.patient-auth-header--login {
+  text-align: center;
+  margin-bottom: 1.35rem;
+}
+
+.patient-auth-header--login .patient-auth-logo {
+  display: block;
+  margin: 0 auto 0.85rem;
+  object-fit: contain;
+}
+
+.patient-auth-header--login h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--pa-text, #333d3b);
+}
+
 .patient-auth-card {
   background: var(--pa-surface, #fff);
   border: 1px solid var(--pa-border, #e0e0e0);
-  border-radius: var(--pa-radius, 12px);
+  border-radius: var(--cf-radius-surface, var(--pa-radius));
   padding: 1.35rem;
 }
-.patient-auth-header { margin-bottom: 1.25rem; }
-.patient-auth-header h2 { margin: 0 0 0.35rem; font-size: 1.25rem; font-weight: 700; color: var(--pa-text, #333d3b); }
-.patient-auth-header p { margin: 0; font-size: 0.88rem; color: var(--pa-text-muted, #66706e); }
-.auth-form { display: flex; flex-direction: column; gap: 1.1rem; }
-.form-group { display: flex; flex-direction: column; gap: 0.6rem; }
-.label-row { display: flex; justify-content: space-between; align-items: center; }
-.form-group label { font-size: 0.85rem; font-weight: 600; color: var(--pa-text, #333d3b); }
-.input-wrapper {
-  display: flex; align-items: center; background: var(--pa-surface, #fff);
-  border: 1.5px solid var(--pa-border, #e0e0e0); border-radius: var(--pa-radius, 12px); padding: 0 1rem;
+
+.auth-form { display: flex; flex-direction: column; gap: 1.35rem; }
+
+.form-group.field--float {
+  position: relative;
+  margin-top: 0.35rem;
 }
-.input-icon { width: 20px; height: 20px; color: #ccc; }
-.input-wrapper input {
-  flex: 1; min-width: 0; border: none; background: transparent; padding: 1.1rem 0.8rem;
-  font-family: inherit; font-size: 1rem; color: var(--pa-text, #333d3b); outline: none;
+
+.field--float-password .forgot-link {
+  display: block;
+  width: 100%;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  text-align: right;
 }
-.form-group.focused .input-wrapper { border-color: var(--cf-pink, #c9898e); box-shadow: 0 0 0 3px rgba(201, 137, 142, 0.15); }
-.form-group.focused .input-icon { color: var(--cf-pink, #c9898e); }
-.forgot-link { font-size: 0.8rem; font-weight: 700; color: var(--cf-pink, #c9898e); text-decoration: none; }
-.forgot-link-btn { border: none; background: transparent; padding: 0; cursor: pointer; font: inherit; }
-.password-toggle-btn { border: none; background: transparent; padding: 0.25rem; cursor: pointer; color: #aaa; }
+
+.input-icon {
+  width: 18px;
+  height: 18px;
+  color: #b8c0bd;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.form-group.focused .input-icon {
+  color: var(--cf-pink, #c9898e);
+}
+
+.input-wrapper input::placeholder {
+  color: #b0b8b5;
+}
+
+.forgot-link {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--cf-pink, #c9898e);
+  text-decoration: none;
+}
+
+.forgot-link-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.password-toggle-btn {
+  border: none;
+  background: transparent;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.password-toggle-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .btn-auth-submit {
-  width: 100%; border: none; padding: 1.1rem; font-size: 1rem; font-weight: 600; cursor: pointer;
+  width: 100%;
+  border: none;
+  padding: 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
 }
+
 .patient-auth-submit {
-  background: var(--cf-green, #8baa87); border-radius: var(--pa-radius, 12px); min-height: 3rem; color: #fff;
+  background: var(--cf-green, #8baa87);
+  min-height: 3rem;
+  color: #fff;
 }
 .patient-auth-submit:hover:not(:disabled) { background: var(--cf-green-dark, #739a6f); }
 .btn-auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 .error-banner {
-  background: #fff5f5; border: 1px solid #fed7d7; color: #c53030; padding: 1rem; border-radius: 10px;
-  font-size: 0.9rem; display: flex; align-items: center; gap: 10px; font-weight: 600;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  color: #c53030;
+  padding: 1rem;
+  border-radius: var(--cf-radius-control);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
 }
 .error-icon { width: 18px; height: 18px; }
 .patient-auth-footer { margin: 0.5rem 0 0; text-align: center; font-size: 0.88rem; color: var(--pa-text-muted, #66706e); }
@@ -306,6 +381,18 @@ const handleFirstAccessPasswordChange = async () => {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
   display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 1000;
 }
-.modal-card { width: 100%; max-width: 440px; background: #fff; border-radius: 14px; padding: 22px; }
-.modal-form { display: flex; flex-direction: column; gap: 14px; }
+.modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: var(--cf-radius-surface, var(--pa-radius));
+  padding: 1.35rem;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  margin-top: 0.5rem;
+}
 </style>

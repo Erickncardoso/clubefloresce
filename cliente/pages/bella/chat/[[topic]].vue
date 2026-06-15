@@ -1,22 +1,24 @@
 <template>
   <div class="bella-chat-page">
-    <PatientHeader
-      :title="topicConfig.title"
-      :subtitle="topicConfig.subtitle"
-      show-back
-      back-to="/bella"
-      :show-bell="false"
-    />
+    <div class="bella-chat-sticky">
+      <PatientHeader
+        :title="topicConfig.title"
+        :subtitle="topicConfig.subtitle"
+        show-back
+        back-to="/bella"
+        :show-bell="false"
+      />
 
-    <BellaDailyDiaryBar v-if="chatTopic === 'meal' && dailySummary" :summary="dailySummary" />
+      <BellaDailyDiaryBar
+        v-if="chatTopic === 'meal' && dailySummary"
+        :summary="dailySummary"
+        collapsible
+        class="bella-diary-bar"
+      />
+    </div>
 
     <div ref="messagesEl" class="bella-messages">
-      <div v-if="loadingMessages" class="bella-loading" aria-live="polite">
-        <div class="bella-loading-dots" aria-hidden="true">
-          <span /><span /><span />
-        </div>
-        <p>Carregando conversa...</p>
-      </div>
+      <PatientPageSkeleton v-if="loadingMessages" layout="chat" />
 
       <template v-else>
         <div
@@ -75,7 +77,7 @@
                 v-html="formatMessageContent(msg.content)"
               />
               <BellaSwapButtons
-                v-if="isActiveSwapMessage(msg)"
+                v-if="chatTopic === 'swap' && shouldShowSwapButtons(msg)"
                 :message="msg"
                 :disabled="sending"
                 @select="(option) => handleSwapSelection(msg, option)"
@@ -85,18 +87,24 @@
           </div>
         </div>
 
-      </template>
-
-      <div v-if="typingDotsVisible" class="bella-bubble-wrap bella-bubble-wrap--bot">
-        <div class="bella-bot-avatar" aria-hidden="true">
-          <img src="/falecomabella.webp" alt="" width="32" height="32" />
-        </div>
-        <div class="bella-bubble bella-bubble--bot bella-bubble--typing" aria-label="Bella está digitando">
-          <div class="bella-typing-dots" aria-hidden="true">
-            <span /><span /><span />
+      <div
+        class="bella-typing-anchor"
+        :class="{ 'bella-typing-anchor--reserved': sending }"
+        :aria-hidden="!typingDotsVisible"
+      >
+        <div v-if="typingDotsVisible" class="bella-bubble-wrap bella-bubble-wrap--bot">
+          <div class="bella-bot-avatar" aria-hidden="true">
+            <img src="/falecomabella.webp" alt="" width="32" height="32" />
+          </div>
+          <div class="bella-bubble bella-bubble--bot bella-bubble--typing" aria-label="Bella está digitando">
+            <div class="bella-typing-dots" aria-hidden="true">
+              <span /><span /><span />
+            </div>
           </div>
         </div>
       </div>
+      <div ref="bottomAnchor" class="bella-scroll-anchor" aria-hidden="true" />
+      </template>
     </div>
 
     <div class="bella-composer">
@@ -227,7 +235,12 @@ import {
   hasActiveSwapSelection,
 } from '~/utils/bella-swap'
 
-definePageMeta({ layout: 'patient', middleware: 'patient-only' })
+definePageMeta({ layout: 'patient', middleware: 'patient-only', pageTransition: false })
+
+useHead({
+  htmlAttrs: { class: 'bella-chat-active' },
+  bodyAttrs: { class: 'bella-chat-active' },
+})
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -248,6 +261,7 @@ const loadingMessages = ref(false)
 const chatError = ref('')
 const aiEnabled = ref(true)
 const messagesEl = ref(null)
+const bottomAnchor = ref(null)
 const fileInputEl = ref(null)
 const cameraInputEl = ref(null)
 const taskHint = ref('')
@@ -259,6 +273,7 @@ const showMealModal = ref(false)
 const mealDraft = ref(null)
 const confirmingMeal = ref(false)
 const mealConfirmError = ref('')
+const pinningToBottom = ref(false)
 
 const { patientTimeHeaders } = usePatientLocalTime()
 
@@ -305,6 +320,30 @@ function isActiveSwapMessage(msg) {
   )
 }
 
+function shouldShowSwapButtons(msg) {
+  if (chatTopic.value !== 'swap' || msg?.role !== 'assistant') return false
+  return isActiveSwapMessage(msg)
+}
+
+function normalizeMessageMetadata(metadata) {
+  if (!metadata) return null
+  if (typeof metadata === 'string') {
+    try {
+      return JSON.parse(metadata)
+    } catch {
+      return null
+    }
+  }
+  return metadata
+}
+
+function normalizeLoadedMessages(list) {
+  return (list || []).map((msg) => ({
+    ...msg,
+    metadata: normalizeMessageMetadata(msg.metadata),
+  }))
+}
+
 function formatChatError(err) {
   const raw = err?.data?.message || err?.message || ''
   if (isApiConnectionError(err)) {
@@ -348,6 +387,92 @@ const TYPING_DOTS_MIN_MS = 1200
 
 let typingDotsTimer = null
 let typingDotsShownAt = 0
+let scrollRaf = null
+let scrollRetryTimers = []
+let messagesResizeObserver = null
+
+function clearScrollRetryTimers() {
+  scrollRetryTimers.forEach((id) => clearTimeout(id))
+  scrollRetryTimers = []
+}
+
+function scheduleScrollRetries() {
+  clearScrollRetryTimers()
+  for (const delay of [0, 50, 120, 250, 450, 700]) {
+    scrollRetryTimers.push(setTimeout(() => scrollToBottom(true), delay))
+  }
+}
+
+function getMessagesMaxScroll() {
+  const el = messagesEl.value
+  if (!el) return 0
+  return Math.max(0, el.scrollHeight - el.clientHeight)
+}
+
+const scrollToBottom = (force = false) => {
+  if (!import.meta.client) return
+  if (scrollRaf) cancelAnimationFrame(scrollRaf)
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = null
+      const el = messagesEl.value
+      if (!el) return
+      const maxScroll = getMessagesMaxScroll()
+      const shouldForce = force || sending.value || pinningToBottom.value
+      if (!shouldForce && el.scrollTop < maxScroll - 96) return
+      el.scrollTop = maxScroll
+    })
+  })
+}
+
+async function stickScrollToBottom() {
+  pinningToBottom.value = true
+  await scrollToBottomAfterLayout()
+}
+
+async function scrollToBottomAfterLayout() {
+  await nextTick()
+  scrollToBottom(true)
+  await nextTick()
+  scrollToBottom(true)
+  scheduleScrollRetries()
+
+  const el = messagesEl.value
+  if (!el) return
+
+  const images = el.querySelectorAll('img')
+  const pending = [...images].filter((img) => !img.complete)
+  if (!pending.length) return
+
+  await Promise.all(
+    pending.map(
+      (img) =>
+        new Promise((resolve) => {
+          img.addEventListener('load', resolve, { once: true })
+          img.addEventListener('error', resolve, { once: true })
+        }),
+    ),
+  )
+  scrollToBottom(true)
+  scheduleScrollRetries()
+}
+
+function startPinningToBottom() {
+  pinningToBottom.value = true
+  if (!import.meta.client) return
+  messagesResizeObserver?.disconnect()
+  messagesResizeObserver = new ResizeObserver(() => {
+    if (pinningToBottom.value) scrollToBottom(true)
+  })
+  if (messagesEl.value) messagesResizeObserver.observe(messagesEl.value)
+}
+
+function stopPinningToBottom() {
+  pinningToBottom.value = false
+  messagesResizeObserver?.disconnect()
+  messagesResizeObserver = null
+  clearScrollRetryTimers()
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -364,26 +489,18 @@ function startTypingIndicator() {
   clearTypingDotsTimer()
   typingDotsVisible.value = false
   typingDotsShownAt = 0
-  typingDotsTimer = setTimeout(async () => {
+  typingDotsTimer = setTimeout(() => {
     typingDotsVisible.value = true
     typingDotsShownAt = Date.now()
     typingDotsTimer = null
-    await scrollToBottom()
+    scrollToBottom(true)
   }, TYPING_DOTS_DELAY_MS)
 }
 
-async function finishTypingIndicator(startedAt) {
+async function finishTypingIndicator() {
   clearTypingDotsTimer()
 
-  if (!typingDotsVisible.value) {
-    const elapsed = Date.now() - startedAt
-    const wait = Math.max(0, TYPING_DOTS_DELAY_MS - elapsed)
-    if (wait) await sleep(wait)
-    typingDotsVisible.value = true
-    typingDotsShownAt = Date.now()
-    await nextTick()
-    await scrollToBottom()
-  }
+  if (!typingDotsVisible.value) return
 
   const visibleFor = Date.now() - (typingDotsShownAt || Date.now())
   const remaining = Math.max(0, TYPING_DOTS_MIN_MS - visibleFor)
@@ -455,42 +572,6 @@ function applyRouteContext() {
   }
 }
 
-const scrollToBottom = async () => {
-  await nextTick()
-  await new Promise((resolve) => requestAnimationFrame(resolve))
-  await new Promise((resolve) => requestAnimationFrame(resolve))
-  const el = messagesEl.value
-  if (!el) return
-
-  const bubbles = el.querySelectorAll('.bella-bubble-wrap')
-  const last = bubbles[bubbles.length - 1]
-  if (last) {
-    last.scrollIntoView({ block: 'end', behavior: 'auto' })
-  }
-  el.scrollTop = el.scrollHeight
-}
-
-async function scrollToBottomAfterLayout() {
-  await scrollToBottom()
-  const el = messagesEl.value
-  if (!el) return
-
-  const images = el.querySelectorAll('img')
-  const pending = [...images].filter((img) => !img.complete)
-  if (!pending.length) return
-
-  await Promise.all(
-    pending.map(
-      (img) =>
-        new Promise((resolve) => {
-          img.addEventListener('load', resolve, { once: true })
-          img.addEventListener('error', resolve, { once: true })
-        }),
-    ),
-  )
-  await scrollToBottom()
-}
-
 const loadMessages = async () => {
   chatError.value = ''
   loadingMessages.value = true
@@ -499,22 +580,22 @@ const loadMessages = async () => {
       headers: patientTimeHeaders(),
       query: { topic: chatTopic.value },
     })
-    messages.value = data.messages || []
+    messages.value = normalizeLoadedMessages(data.messages)
     aiEnabled.value = data.aiEnabled !== false
     if (data.dailySummary) dailySummary.value = data.dailySummary
     if (!messages.value.length && chatTopic.value !== 'swap') seedWelcomeMessage()
-    if (chatTopic.value === 'swap') await ensureSwapFlowStarted()
   } finally {
     loadingMessages.value = false
   }
 
+  if (chatTopic.value === 'swap') await ensureSwapFlowStarted()
   await scrollToBottomAfterLayout()
 }
 
 async function postSwapChat(body, userLabel = '') {
   chatError.value = ''
   sending.value = true
-  const startedAt = Date.now()
+  pinningToBottom.value = true
   startTypingIndicator()
 
   const tempId = `temp-${Date.now()}`
@@ -525,7 +606,8 @@ async function postSwapChat(body, userLabel = '') {
       content: userLabel,
       metadata: { topic: 'swap' },
     })
-    await scrollToBottom()
+    await nextTick()
+    await stickScrollToBottom()
   }
 
   try {
@@ -543,7 +625,7 @@ async function postSwapChat(body, userLabel = '') {
       }
     }
 
-    await applyChatResponse(res, startedAt)
+    await applyChatResponse(res)
     return res
   } catch (err) {
     if (userLabel) messages.value = messages.value.filter((m) => m.id !== tempId)
@@ -551,25 +633,33 @@ async function postSwapChat(body, userLabel = '') {
     throw err
   } finally {
     stopTypingIndicator()
+    await stickScrollToBottom()
     sending.value = false
-    await scrollToBottom()
+    setTimeout(() => {
+      if (!loadingMessages.value) pinningToBottom.value = false
+    }, 500)
   }
 }
 
-async function applyChatResponse(res, startedAt) {
+async function applyChatResponse(res) {
   if (res.requiresMealConfirmation && res.mealDraft) {
     mealDraft.value = res.mealDraft
     if (res.dailySummary) dailySummary.value = res.dailySummary
-    await finishTypingIndicator(startedAt)
+    await finishTypingIndicator()
+    stopTypingIndicator()
     if (res.message) messages.value.push(res.message)
     showMealModal.value = true
     mealConfirmError.value = ''
+    await stickScrollToBottom()
     return
   }
 
   if (res.message) {
-    await finishTypingIndicator(startedAt)
-    messages.value.push(res.message)
+    await finishTypingIndicator()
+    stopTypingIndicator()
+    const [assistantMessage] = normalizeLoadedMessages([res.message])
+    if (assistantMessage) messages.value.push(assistantMessage)
+    await stickScrollToBottom()
   }
 }
 
@@ -583,6 +673,17 @@ async function handleSwapSelection(assistantMsg, option) {
   if (!assistantMsg?.id || !option?.id || sending.value) return
   const meta = assistantMsg.metadata || {}
   const step = meta.swapStep
+
+  if (step === 'suggestion') {
+    await postSwapChat({
+      swapAction: 'custom_food',
+      message: option.label,
+      swapMealId: meta.swapMealId,
+      swapFoodKey: meta.swapFoodKey,
+      swapSelectionMessageId: assistantMsg.id,
+    }, option.label)
+    return
+  }
 
   if (step === 'food') {
     await postSwapChat({
@@ -723,7 +824,7 @@ const confirmMeal = async (items) => {
     if (res.message) messages.value.push(res.message)
     if (res.dailySummary) dailySummary.value = res.dailySummary
     cancelMealConfirm()
-    await scrollToBottom()
+    await scrollToBottomAfterLayout()
   } catch (err) {
     mealConfirmError.value = err.data?.message || 'Não foi possível registrar a refeição.'
   } finally {
@@ -756,7 +857,7 @@ const sendMessage = async () => {
 
   chatError.value = ''
   sending.value = true
-  const startedAt = Date.now()
+  pinningToBottom.value = true
   startTypingIndicator()
   draft.value = ''
   const hint = taskHint.value || undefined
@@ -790,7 +891,7 @@ const sendMessage = async () => {
   })
 
   clearComposerFields()
-  await scrollToBottom()
+  await stickScrollToBottom()
 
   try {
     let res
@@ -826,17 +927,7 @@ const sendMessage = async () => {
       revokeBlobUrl(localPreviewUrl)
     }
 
-    if (res.requiresMealConfirmation && res.mealDraft) {
-      mealDraft.value = res.mealDraft
-      if (res.dailySummary) dailySummary.value = res.dailySummary
-      await finishTypingIndicator(startedAt)
-      if (res.message) messages.value.push(res.message)
-      showMealModal.value = true
-      mealConfirmError.value = ''
-    } else if (res.message) {
-      await finishTypingIndicator(startedAt)
-      messages.value.push(res.message)
-    }
+    await applyChatResponse(res)
   } catch (err) {
     chatError.value = formatChatError(err)
     messages.value = messages.value.filter((m) => m.id !== tempId)
@@ -852,12 +943,16 @@ const sendMessage = async () => {
     }
   } finally {
     stopTypingIndicator()
+    await stickScrollToBottom()
     sending.value = false
-    await scrollToBottom()
+    setTimeout(() => {
+      if (!loadingMessages.value) pinningToBottom.value = false
+    }, 500)
   }
 }
 
 async function bootstrapChat() {
+  stopPinningToBottom()
   resetComposer()
   applyRouteContext()
   messages.value = []
@@ -872,10 +967,14 @@ async function bootstrapChat() {
     return
   }
 
+  startPinningToBottom()
+
   try {
     await loadMessages()
     await loadDailySummary()
     await scrollToBottomAfterLayout()
+    await sleep(120)
+    scrollToBottom(true)
     if (pendingCameraOpen.value && topicConfig.value.acceptImages) {
       pendingCameraOpen.value = false
       await nextTick()
@@ -884,11 +983,19 @@ async function bootstrapChat() {
   } catch (err) {
     if (chatTopic.value !== 'swap') seedWelcomeMessage()
     chatError.value = formatChatError(err)
+  } finally {
+    setTimeout(() => stopPinningToBottom(), 800)
   }
 }
 
 watch(chatTopic, () => {
   bootstrapChat()
+})
+
+watch(loadingMessages, async (loading) => {
+  if (!loading && pinningToBottom.value) {
+    await scrollToBottomAfterLayout()
+  }
 })
 
 onMounted(() => {
@@ -897,42 +1004,84 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopTypingIndicator()
+  stopPinningToBottom()
+  if (scrollRaf) cancelAnimationFrame(scrollRaf)
   revokeBlobUrl(attachmentPreview.value?.url)
 })
 </script>
 
 <style scoped>
 .bella-chat-page {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
   display: flex;
   flex-direction: column;
-  flex: 1;
   width: 100%;
   max-width: 430px;
-  min-height: 0;
-  height: 100%;
-  margin: 0 auto;
-  padding-bottom: var(--cf-tab-h);
+  margin: 0;
   background: var(--cf-bg);
   overflow: hidden;
   box-sizing: border-box;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.bella-chat-page :deep(.diary-bar) {
-  margin: 0.5rem 1.25rem 0;
+.bella-chat-sticky {
   flex-shrink: 0;
+  z-index: 2;
+  background: var(--cf-bg);
+  border-bottom: 1px solid var(--cf-border);
+}
+
+.bella-chat-sticky :deep(.cf-header) {
+  border-bottom: none;
+}
+
+.bella-diary-bar {
+  margin: 0 1rem 0.65rem;
 }
 
 .bella-messages {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 0.85rem 1.25rem 1rem;
+  padding: 0.85rem 1.25rem 2.75rem;
+  scroll-padding-bottom: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  scroll-behavior: auto;
+  overflow-anchor: none;
+}
+
+.bella-typing-anchor {
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.bella-typing-anchor--reserved {
+  min-height: 2.9rem;
+}
+
+.bella-scroll-anchor {
+  flex-shrink: 0;
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
+.bella-composer {
+  flex-shrink: 0;
+  background: var(--cf-surface);
+  border-top: 1px solid var(--cf-border);
+  padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
 }
 
 .bella-loading {
@@ -1145,12 +1294,15 @@ onBeforeUnmount(() => {
 .bella-bubble--typing {
   display: flex;
   align-items: center;
+  min-height: 2.5rem;
   padding: 0.85rem 1rem;
+  box-sizing: border-box;
 }
 
 .bella-typing-dots {
   display: flex;
   gap: 4px;
+  min-height: 7px;
 }
 
 .bella-typing-dots span {
@@ -1159,11 +1311,16 @@ onBeforeUnmount(() => {
   border-radius: var(--cf-radius-full);
   background: var(--cf-pink);
   opacity: 0.55;
-  animation: bella-pulse 1.2s infinite;
+  animation: bella-typing-pulse 1.2s infinite;
 }
 
 .bella-typing-dots span:nth-child(2) { animation-delay: 0.15s; }
 .bella-typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes bella-typing-pulse {
+  0%, 80%, 100% { opacity: 0.35; }
+  40% { opacity: 1; }
+}
 
 .bella-msg-formatted :deep(.bella-chat-link-inline) {
   display: inline-flex;
@@ -1181,13 +1338,6 @@ onBeforeUnmount(() => {
 
 .bella-msg-formatted :deep(.bella-chat-link-inline:hover) {
   background: #fce8eb;
-}
-
-.bella-composer {
-  flex-shrink: 0;
-  background: var(--cf-surface);
-  border-top: 1px solid var(--cf-border);
-  padding-bottom: 0.65rem;
 }
 
 .bella-composer-shell {

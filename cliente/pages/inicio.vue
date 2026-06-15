@@ -2,6 +2,9 @@
   <div class="patient-page home-page">
     <PatientHeader :has-notifications="true" />
 
+    <PatientPageSkeleton v-if="pageLoading" layout="home" />
+
+    <template v-else>
     <header class="home-hero">
       <NuxtLink to="/perfil" class="home-hero-row">
         <PatientAvatar
@@ -67,17 +70,17 @@
     </section>
 
     <div class="home-bella-overflow">
+      <div class="home-bella-figure" aria-hidden="true">
+        <img
+          src="/falecomabella.webp"
+          alt=""
+          class="home-bella-avatar"
+          width="88"
+          height="120"
+          loading="lazy"
+        />
+      </div>
       <NuxtLink to="/bella/chat/general" class="home-bella cf-squircle">
-        <div class="home-bella-avatar-slot" aria-hidden="true">
-          <img
-            src="/falecomabella.webp"
-            alt=""
-            class="home-bella-avatar"
-            width="88"
-            height="120"
-            loading="lazy"
-          />
-        </div>
         <div class="home-bella-copy">
           <h3>Fale com a Bella</h3>
           <p>Sua nutricionista IA para dúvidas do dia a dia.</p>
@@ -104,6 +107,7 @@
         </span>
       </div>
     </button>
+    </template>
   </div>
 </template>
 
@@ -124,6 +128,7 @@ const { hasPlan: hasMealPlan } = useMealPlan()
 
 const config = useRuntimeConfig()
 const { userName, userFullName, userAvatar } = usePatientApp()
+const pageLoading = ref(true)
 
 const firstName = computed(() => userName())
 const fullName = computed(() => userFullName())
@@ -198,28 +203,33 @@ const openBellaTeach = () => {
 }
 
 onMounted(async () => {
-  await fetchPlan()
+  pageLoading.value = true
   try {
-    const courses = await $fetch(`${config.public.apiBase}/courses`, { headers: patientTimeHeaders() })
-    featuredCourse.value = courses?.[0] || null
-  } catch {
-    featuredCourse.value = null
-  }
-  try {
-    dailySummary.value = await $fetch(`${config.public.apiBase}/food-diary/today`, { headers: patientTimeHeaders() })
-  } catch {
-    dailySummary.value = null
-  }
-  try {
-    const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: patientTimeHeaders() })
-    if (data.current) {
-      metrics.value[1].value = Math.min(100, (data.current.adherence || 3) * 20)
-      metrics.value[2].value = Math.min(100, (data.current.energy || 3) * 20)
-      metrics.value[3].value = Math.min(100, (data.current.mood || 3) * 20)
+    await fetchPlan()
+    try {
+      const courses = await $fetch(`${config.public.apiBase}/courses`, { headers: patientTimeHeaders() })
+      featuredCourse.value = courses?.[0] || null
+    } catch {
+      featuredCourse.value = null
     }
-    streakDays.value = Math.max(1, (data.history?.length || 0) + (data.current ? 1 : 0))
-  } catch {
-    /* defaults */
+    try {
+      dailySummary.value = await $fetch(`${config.public.apiBase}/food-diary/today`, { headers: patientTimeHeaders() })
+    } catch {
+      dailySummary.value = null
+    }
+    try {
+      const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: patientTimeHeaders() })
+      if (data.current) {
+        metrics.value[1].value = Math.min(100, (data.current.adherence || 3) * 20)
+        metrics.value[2].value = Math.min(100, (data.current.energy || 3) * 20)
+        metrics.value[3].value = Math.min(100, (data.current.mood || 3) * 20)
+      }
+      streakDays.value = Math.max(1, (data.history?.length || 0) + (data.current ? 1 : 0))
+    } catch {
+      /* defaults */
+    }
+  } finally {
+    pageLoading.value = false
   }
 })
 </script>
@@ -404,6 +414,33 @@ onMounted(async () => {
   overflow: visible;
 }
 
+.home-bella-figure {
+  position: absolute;
+  left: 0.15rem;
+  top: -2.5rem;
+  bottom: 0;
+  z-index: 2;
+  width: 5.5rem;
+  overflow: hidden;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.home-bella-avatar {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 5.15rem;
+  height: auto;
+  min-height: 6.85rem;
+  max-width: none;
+  display: block;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+}
+
 .home-bella {
   position: relative;
   z-index: 1;
@@ -425,12 +462,8 @@ onMounted(async () => {
   font-family: inherit;
   touch-action: manipulation;
   -webkit-tap-highlight-color: rgba(255, 255, 255, 0.12);
-  overflow: visible;
+  overflow: hidden;
   transition: background 0.15s ease, transform 0.15s ease;
-}
-
-.home-bella.cf-squircle {
-  overflow: visible;
 }
 
 .home-bella:active {
@@ -441,30 +474,6 @@ onMounted(async () => {
 .home-bella:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
-}
-
-.home-bella-avatar-slot {
-  position: absolute;
-  left: 0.15rem;
-  bottom: 0;
-  width: 5.25rem;
-  height: 0;
-  overflow: visible;
-  line-height: 0;
-}
-
-.home-bella-avatar {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: auto;
-  height: 6.75rem;
-  max-width: none;
-  display: block;
-  object-fit: contain;
-  object-position: bottom center;
-  pointer-events: none;
 }
 
 .home-bella-copy {

@@ -2,7 +2,9 @@
   <div v-if="isPatientApp" class="patient-page checkin-page checkin-page--typeform">
     <PatientHeader v-if="view === 'list'" title="Check-ins" />
 
-    <div v-if="loadingTemplates" class="checkin-loading">Carregando check-ins...</div>
+    <div v-if="loadingTemplates" class="checkin-loading">
+      <PatientPageSkeleton layout="checkin" />
+    </div>
 
     <div v-else-if="view === 'list'" class="checkin-picker">
       <p v-if="!activeTemplates.length" class="checkin-empty">
@@ -216,7 +218,7 @@ const patientCheckIns = ref([])
 const nutriSearch = ref('')
 const onlyAttention = ref(false)
 const weekLabel = ref('')
-const loadingTemplates = ref(false)
+const loadingTemplates = ref(true)
 const activeTemplates = ref([])
 const selectedTemplate = ref(null)
 const view = ref('list')
@@ -448,7 +450,10 @@ onMounted(async () => {
   background: var(--cf-bg);
 }
 
-.checkin-loading,
+.checkin-loading {
+  padding: 0.25rem 0;
+}
+
 .checkin-empty {
   padding: 2rem 1.25rem;
   text-align: center;

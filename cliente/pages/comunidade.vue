@@ -8,7 +8,10 @@
       </template>
     </PatientHeader>
 
+    <PatientPageSkeleton v-if="pageLoading" layout="feed" />
+
     <CommunityFeed
+      v-else
       v-model:active-tab="activeTab"
       v-model:active-post-type="activePostType"
       v-model:new-post-content="newPostContent"
@@ -92,6 +95,7 @@ const apiBase = config.public.apiBase
 const posts = ref([])
 const newPostContent = ref('')
 const loading = ref(false)
+const pageLoading = ref(true)
 const expandedComments = ref([])
 const openMenuPostId = ref(null)
 const likingPostId = ref(null)
@@ -126,6 +130,8 @@ const fetchPosts = async () => {
     }))
   } catch (err) {
     console.error('Erro ao carregar posts:', err)
+  } finally {
+    pageLoading.value = false
   }
 }
 

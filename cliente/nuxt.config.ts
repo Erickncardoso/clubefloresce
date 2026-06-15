@@ -42,6 +42,7 @@ export default defineNuxtConfig({
   plugins: [
     join(frontendRoot, 'plugins/api-base.client.js'),
     join(frontendRoot, 'plugins/patient-session.client.ts'),
+    join(frontendRoot, 'plugins/patient-route.client.ts'),
   ],
 
   dir: {
@@ -52,6 +53,7 @@ export default defineNuxtConfig({
   ssr: false,
 
   app: {
+    pageTransition: { name: 'patient-page', mode: 'out-in' },
     head: {
       title: 'Clube Florescer',
       charset: 'utf-8',

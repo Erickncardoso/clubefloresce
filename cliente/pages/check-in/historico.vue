@@ -2,6 +2,9 @@
   <div class="patient-page historico-page">
     <PatientHeader title="Histórico" show-back back-to="/check-in" />
 
+    <PatientPageSkeleton v-if="pageLoading" layout="checkin" />
+
+    <template v-else>
     <div class="historico-chips">
       <button
         v-for="chip in filters"
@@ -41,6 +44,7 @@
       </article>
       <p v-if="!filteredHistory.length" class="historico-empty">Nenhum registro neste período.</p>
     </section>
+    </template>
   </div>
 </template>
 
@@ -50,6 +54,7 @@ definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 const config = useRuntimeConfig()
 const history = ref([])
 const activeFilter = ref('all')
+const pageLoading = ref(true)
 
 const filters = [
   { id: 'all', label: 'Todas as semanas' },
@@ -114,11 +119,14 @@ const statusClass = (item) => {
 }
 
 onMounted(async () => {
+  pageLoading.value = true
   try {
     const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: authHeaders() })
     history.value = [...(data.history || []), ...(data.current ? [data.current] : [])]
   } catch {
     history.value = []
+  } finally {
+    pageLoading.value = false
   }
 })
 </script>
