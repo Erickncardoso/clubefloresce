@@ -1,4 +1,4 @@
-export type SwapFlowStep = "meal" | "food" | "mode";
+export type SwapFlowStep = "meal" | "food" | "mode" | "suggestion";
 
 export interface SwapButtonOption {
   id: string;

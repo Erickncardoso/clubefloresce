@@ -433,7 +433,14 @@ function formatCustomSwapReply(ctx: SwapOriginalContext, replacement: SwapSugges
   );
 }
 
-export function formatSwapSuggestionsReply(analysis: SwapAnalysisResult): string {
+export function buildSuggestionButtonOptions(suggestions: SwapSuggestion[]): SwapButtonOption[] {
+  return suggestions.map((option, index) => ({
+    id: `suggestion-${index}`,
+    label: formatFoodTitle(option.display),
+  }));
+}
+
+export function formatSwapSuggestionsIntro(analysis: SwapAnalysisResult): string {
   const { original, suggestions, categoryBlocked } = analysis;
 
   if (categoryBlocked) {
@@ -442,6 +449,19 @@ export function formatSwapSuggestionsReply(analysis: SwapAnalysisResult): string
 
   if (!suggestions.length) {
     return `Não encontrei substitutos equivalentes para **${original.display}** (${getSwapGroupLabel(analysis.originalSwapGroup)}).`;
+  }
+
+  return (
+    `**${original.display}**\n${formatMacrosShort(original.macros)}\n\n` +
+    `**Opções equivalentes** — escolha uma opção abaixo:`
+  );
+}
+
+export function formatSwapSuggestionsReply(analysis: SwapAnalysisResult): string {
+  const { original, suggestions, categoryBlocked } = analysis;
+
+  if (categoryBlocked || !suggestions.length) {
+    return formatSwapSuggestionsIntro(analysis);
   }
 
   const lines = suggestions.map(

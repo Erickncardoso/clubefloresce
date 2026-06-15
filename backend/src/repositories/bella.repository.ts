@@ -7,11 +7,12 @@ const prisma = new PrismaClient();
 export class BellaRepository {
   async findRecentByUser(userId: string, topic?: string, limit = 40) {
     const normalizedTopic = normalizeTopic(topic);
-    return prisma.bellaMessage.findMany({
+    const rows = await prisma.bellaMessage.findMany({
       where: { userId, topic: normalizedTopic },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: limit,
     });
+    return rows.reverse();
   }
 
   async findById(id: string) {

@@ -51,6 +51,7 @@ const ariaLabel = computed(() => {
   const step = getSwapMessageMeta(props.message)?.swapStep
   if (step === 'food') return 'Alimentos da refeição'
   if (step === 'meal') return 'Refeições do plano'
+  if (step === 'suggestion') return 'Sugestões equivalentes'
   return 'Opções de substituição'
 })
 </script>

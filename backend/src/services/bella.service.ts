@@ -16,6 +16,8 @@ import { inferMealLabel } from "../utils/meal-time";
 import {
   buildCustomSwap,
   buildSwapSuggestions,
+  buildSuggestionButtonOptions,
+  formatSwapSuggestionsIntro,
   formatSwapSuggestionsReply,
   getSwapFoodOptions,
   getSwapMealOptions,
@@ -66,7 +68,7 @@ type StoredAttachmentMeta = {
 export class BellaService {
   async getMessages(userId: string, topicRaw?: string, patientDateKey?: string) {
     const topic = normalizeTopic(topicRaw);
-    const messages = await bellaRepository.findRecentByUser(userId, topic, 50);
+    const messages = await bellaRepository.findRecentByUser(userId, topic, 100);
     const models = orchestrator.getModels();
     const dailySummary =
       topic === "meal" ? await foodDiaryService.getDailySummary(userId, patientDateKey) : undefined;
@@ -291,13 +293,24 @@ export class BellaService {
         metadata: { topic: "swap", swapMealId, swapFoodKey },
       });
 
+      const suggestionOptions = buildSuggestionButtonOptions(analysis.suggestions);
+      const hasSuggestionButtons = suggestionOptions.length > 0 && !analysis.categoryBlocked;
+
       const assistantMsg = await bellaRepository.create(
         userId,
         "assistant",
-        formatSwapSuggestionsReply(analysis),
+        hasSuggestionButtons
+          ? formatSwapSuggestionsIntro(analysis)
+          : formatSwapSuggestionsReply(analysis),
         {
           topic: "swap",
-          metadata: { topic: "swap", taskType: "chat", swapMealId, swapFoodKey },
+          metadata: hasSuggestionButtons
+            ? {
+                ...buildSwapSelectionMetadata("suggestion", suggestionOptions),
+                swapMealId,
+                swapFoodKey,
+              }
+            : { topic: "swap", taskType: "chat", swapMealId, swapFoodKey },
         },
       );
 
@@ -307,7 +320,7 @@ export class BellaService {
         message: assistantMsg,
         requiresMealConfirmation: false,
         requiresRestaurantIntent: false,
-        requiresSwapSelection: false,
+        requiresSwapSelection: hasSuggestionButtons,
       };
     }
 
