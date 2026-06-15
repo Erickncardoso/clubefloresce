@@ -15,7 +15,6 @@ const hideTabBarPaths = ['/', '/register']
 const showTabBar = computed(() => {
   if (hideTabBarPaths.includes(route.path)) return false
   if (route.path.startsWith('/modulos/')) return false
-  if (route.path.startsWith('/bella/chat')) return false
   return true
 })
 </script>

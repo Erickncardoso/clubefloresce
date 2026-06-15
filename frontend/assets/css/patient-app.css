@@ -18,8 +18,10 @@
   --cf-fab-size: 3.25rem;
   --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.75rem);
   --cf-tab-nav-h: 3rem;
-  --cf-tab-struct: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h));
-  --cf-tab-h: calc(var(--cf-tab-struct) + env(safe-area-inset-bottom, 0px));
+  --cf-tab-nav-pad-y: 0.625rem;
+  --cf-tab-safe-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  --cf-tab-struct: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + var(--cf-tab-nav-pad-y));
+  --cf-tab-h: calc(var(--cf-tab-struct) + var(--cf-tab-safe-bottom));
   --cf-tab-clearance: calc(var(--cf-tab-h) + 0.75rem);
   --cf-avatar-mask: url('/icons/userAvatar.svg');
   --cf-space-1: 0.25rem;
@@ -153,12 +155,13 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   right: 0;
   bottom: 0;
   z-index: 100;
-  min-height: var(--cf-tab-struct);
+  min-height: var(--cf-tab-h);
   padding-top: var(--cf-tab-fab-rise);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--cf-tab-safe-bottom);
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
   box-sizing: border-box;
+  overflow: visible;
 }
 
 .patient-page--with-tab {

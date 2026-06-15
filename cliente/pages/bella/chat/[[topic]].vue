@@ -23,40 +23,39 @@
           v-for="msg in messages"
           :key="msg.id"
           class="bella-bubble-wrap"
-          :class="msg.role === 'user' ? 'bella-bubble-wrap--user' : 'bella-bubble-wrap--bot'"
+          :class="{
+            'bella-bubble-wrap--user': msg.role === 'user',
+            'bella-bubble-wrap--bot': msg.role === 'assistant',
+            'bella-bubble-wrap--user-with-media': msg.role === 'user' && userMessageImage(msg),
+          }"
         >
           <div v-if="msg.role === 'assistant'" class="bella-bot-avatar" aria-hidden="true">
             <img src="/falecomabella.webp" alt="" width="32" height="32" />
           </div>
+
           <div
+            v-if="msg.role === 'user' && userMessageImage(msg)"
+            class="bella-msg-thumb cf-squircle cf-squircle--msg-media"
+          >
+            <img
+              :src="userMessageImage(msg)"
+              alt="Imagem enviada"
+              class="bella-msg-image"
+              loading="lazy"
+            />
+          </div>
+
+          <div
+            v-if="userMessageShowsBubble(msg)"
             class="bella-bubble"
-            :class="[
-              msg.role === 'user' ? 'bella-bubble--user' : 'bella-bubble--bot',
-              msg.role === 'user' && userMessageImage(msg) ? 'bella-bubble--user-media' : '',
-            ]"
+            :class="msg.role === 'user' ? 'bella-bubble--user' : 'bella-bubble--bot'"
           >
             <template v-if="msg.role === 'user'">
-              <div
-                class="bella-user-payload"
-                :class="{ 'bella-user-payload--media': userMessageImage(msg) }"
-              >
-                <div
-                  v-if="userMessageImage(msg)"
-                  class="bella-msg-media cf-squircle cf-squircle--msg-media"
-                >
-                  <img
-                    :src="userMessageImage(msg)"
-                    alt="Imagem enviada"
-                    class="bella-msg-image"
-                    loading="lazy"
-                  />
-                </div>
-                <div v-else-if="messageAttachment(msg)?.type === 'pdf'" class="bella-msg-pdf">
-                  <FileText class="bella-msg-pdf-icon" />
-                  <span>{{ messageAttachment(msg).fileName }}</span>
-                </div>
-                <p v-if="shouldShowUserText(msg)" class="bella-msg-caption">{{ messageDisplayText(msg) }}</p>
+              <div v-if="messageAttachment(msg)?.type === 'pdf'" class="bella-msg-pdf">
+                <FileText class="bella-msg-pdf-icon" />
+                <span>{{ messageAttachment(msg).fileName }}</span>
               </div>
+              <p v-if="shouldShowUserText(msg)" class="bella-msg-plain">{{ messageDisplayText(msg) }}</p>
             </template>
             <template v-else>
               <img
@@ -337,6 +336,11 @@ const messageAttachment = (msg) => getMessageAttachment(msg)
 const messageDisplayText = (msg) => getMessageDisplayText(msg)
 const userMessageImage = (msg) => getUserMessageImageUrl(msg)
 const shouldShowUserText = (msg) => shouldShowUserMessageText(msg)
+const userMessageShowsBubble = (msg) => {
+  if (msg.role === 'assistant') return true
+  if (!userMessageImage(msg)) return true
+  return shouldShowUserText(msg) || messageAttachment(msg)?.type === 'pdf'
+}
 const formatMessageContent = (content) => formatBellaMarkdown(content)
 
 const TYPING_DOTS_DELAY_MS = 2000
@@ -907,6 +911,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   height: 100%;
   margin: 0 auto;
+  padding-bottom: var(--cf-tab-h);
   background: var(--cf-bg);
   overflow: hidden;
   box-sizing: border-box;
@@ -976,8 +981,30 @@ onBeforeUnmount(() => {
   max-width: min(88%, 18.5rem);
 }
 
-.bella-bubble-wrap--user:has(.bella-bubble--user-media) {
-  max-width: min(92%, 19.5rem);
+.bella-bubble-wrap--user-with-media {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  max-width: min(78%, 11.5rem);
+}
+
+.bella-msg-thumb {
+  overflow: hidden;
+  line-height: 0;
+  width: 9.25rem;
+  max-width: 100%;
+  border: 1px solid var(--cf-border);
+  border-radius: var(--cf-radius-msg-media, 1.25rem);
+  background: var(--cf-surface);
+  box-shadow: var(--cf-shadow);
+}
+
+.bella-msg-thumb .bella-msg-image {
+  width: 100%;
+  max-height: 8rem;
+  object-fit: cover;
+  object-position: center;
+  border: none;
 }
 
 .bella-bubble-wrap--bot {
@@ -1011,57 +1038,21 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
-.bella-bubble--user-media {
-  padding: 0.5rem;
-  border-radius: var(--cf-radius-msg-bubble, 1.625rem);
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.bella-user-payload {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.bella-user-payload--media {
-  gap: 0;
-}
-
-.bella-msg-media {
-  overflow: hidden;
-  line-height: 0;
-  width: 100%;
-  background: rgba(255, 255, 255, 0.14);
-}
-
 .bella-msg-image {
   display: block;
   width: 100%;
   max-width: 100%;
-  max-height: 17.5rem;
   height: auto;
   object-fit: contain;
   object-position: center;
 }
 
-.bella-msg-caption {
+.bella-msg-plain {
   margin: 0;
-  padding: 0.45rem 0.5rem 0.2rem;
-  font-size: 0.9375rem;
-  font-weight: 400;
-  line-height: 1.4;
-  color: #fff;
-  text-align: left;
 }
 
-.bella-bubble--user-media .bella-msg-pdf {
+.bella-bubble--user .bella-msg-pdf {
   margin-bottom: 0;
-  padding: 0.15rem 0.35rem 0;
-}
-
-.bella-bubble--user .bella-msg-image {
-  border: none;
 }
 
 .bella-bubble--bot .bella-msg-image {
@@ -1082,10 +1073,6 @@ onBeforeUnmount(() => {
   width: 1rem;
   height: 1rem;
   flex-shrink: 0;
-}
-
-.bella-msg-plain {
-  margin: 0;
 }
 
 .bella-msg-formatted :deep(h3.bella-md-h) {
@@ -1141,10 +1128,6 @@ onBeforeUnmount(() => {
   background: var(--cf-pink);
   color: #fff;
   border-bottom-right-radius: 0.375rem;
-}
-
-.bella-bubble--user.bella-bubble--user-media {
-  border-radius: var(--cf-radius-msg-bubble, 1.625rem);
 }
 
 .bella-bubble--bot {
@@ -1204,7 +1187,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
-  padding-bottom: max(0.65rem, env(safe-area-inset-bottom, 0px));
+  padding-bottom: 0.65rem;
 }
 
 .bella-composer-shell {

@@ -81,6 +81,7 @@ watch(() => route.fullPath, () => {
   margin-inline: auto;
   padding: 0.25rem 0.625rem 0.375rem;
   box-sizing: border-box;
+  min-height: calc(var(--cf-tab-nav-h) + var(--cf-tab-nav-pad-y));
 }
 
 .cf-tab {
