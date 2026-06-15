@@ -14,8 +14,13 @@
   --aula-muted: #6b7280;
   --aula-sidebar-w: 340px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--aula-bg);
   color: var(--aula-text);
+}
+
+.aula-page--mobile {
+  background: #fff;
 }
 
 .section-aula {
@@ -546,7 +551,74 @@
   opacity: 0.35;
 }
 
-/* Materiais / links */
+/* Links da aula — lista light */
+.aula-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.aula-link-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #e8ece9;
+  border-radius: 0.9rem;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.aula-link-item:hover {
+  background: #fafcfb;
+  border-color: #d4e4d2;
+  box-shadow: 0 4px 14px rgba(45, 90, 39, 0.06);
+}
+
+.aula-link-item__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.7rem;
+  background: #f3f6f8;
+  color: #5b6b7c;
+  flex-shrink: 0;
+  transform: rotate(-35deg);
+}
+
+.aula-link-item__icon :deep(svg) {
+  transform: rotate(35deg);
+}
+
+.aula-link-item__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.aula-link-item__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.aula-link-item__url {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #9ca3af;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* legado — manter compat se algo ainda usar */
 .aula-links-grid {
   display: grid;
   gap: 0.65rem;
@@ -865,8 +937,8 @@
 
 .aula-mobile-bar__menu,
 .aula-mobile-bar__back {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -875,6 +947,7 @@
   background: var(--aula-surface);
   cursor: pointer;
   flex-shrink: 0;
+  touch-action: manipulation;
 }
 
 .aula-mobile-bar__thumb {
@@ -989,16 +1062,37 @@
 
   .aula-mobile-bar {
     display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    align-items: center;
+    gap: 0.65rem;
+    padding:
+      max(0.55rem, env(safe-area-inset-top, 0px))
+      0
+      0.75rem;
+    min-width: 0;
+    background: var(--aula-bg);
+  }
+
+  .aula-page--mobile .aula-mobile-bar {
+    background: #fff;
   }
 
   .coluna-principal .player {
     border-radius: 1rem;
     margin: 0;
     width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: min(52dvh, 56vw);
   }
 
   .section-aula {
-    padding: 0 0.85rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    padding:
+      0
+      max(0.85rem, env(safe-area-inset-right, 0px))
+      calc(1.25rem + env(safe-area-inset-bottom, 0px))
+      max(0.85rem, env(safe-area-inset-left, 0px));
   }
 
   .cabecalho-aula {

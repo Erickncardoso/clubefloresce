@@ -6,6 +6,27 @@ import {
   isBunnyStreamUrl,
   parseBunnyStreamVideoId,
 } from "./bunny-config";
+import { cacheService } from "../../services/cache.service";
+
+const BUNNY_METADATA_CACHE_PREFIX = "bunny:video-metadata:";
+const DEFAULT_METADATA_CACHE_TTL_SECONDS = Number(
+  process.env.BUNNY_METADATA_CACHE_TTL_SECONDS || 6 * 60 * 60,
+);
+
+function bunnyMetadataCacheKey(videoId: string): string {
+  return `${BUNNY_METADATA_CACHE_PREFIX}${videoId}`;
+}
+
+function getBunnyMetadataCacheTtlSeconds(): number {
+  const ttl = DEFAULT_METADATA_CACHE_TTL_SECONDS;
+  return Number.isFinite(ttl) && ttl > 0 ? ttl : 6 * 60 * 60;
+}
+
+export async function invalidateBunnyVideoPlayMetadataCache(videoId: string): Promise<void> {
+  const normalized = String(videoId || "").trim();
+  if (!normalized || !cacheService.isReady()) return;
+  await cacheService.del(bunnyMetadataCacheKey(normalized));
+}
 
 export type BunnyPlayChapter = {
   title: string;
@@ -124,6 +145,23 @@ export async function fetchBunnyVideoPlayMetadata(
   const videoId = parseBunnyStreamVideoId(videoUrl);
   if (!videoId) return null;
 
+  const cacheKey = bunnyMetadataCacheKey(videoId);
+  const cached = await cacheService.getJson<BunnyVideoPlayMetadata>(cacheKey);
+  if (cached?.videoId === videoId) {
+    return cached;
+  }
+
+  const metadata = await fetchBunnyVideoPlayMetadataFromApi(videoId);
+  if (metadata) {
+    await cacheService.setJson(cacheKey, metadata, getBunnyMetadataCacheTtlSeconds());
+  }
+
+  return metadata;
+}
+
+async function fetchBunnyVideoPlayMetadataFromApi(
+  videoId: string,
+): Promise<BunnyVideoPlayMetadata | null> {
   const video = await fetchBunnyVideoMetadata(videoId);
   const playData = await fetchBunnyVideoPlayData(videoId);
   const playVideo = playData?.video || video;

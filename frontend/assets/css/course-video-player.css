@@ -242,7 +242,9 @@
 }
 
 .florescerPlayer.configAberta .controles {
+  opacity: 0;
   pointer-events: none;
+  transform: translateY(8px);
 }
 
 /* Barra de progresso */
@@ -994,11 +996,27 @@
 }
 
 .painel-config--mobile {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  padding:
+    max(0.75rem, env(safe-area-inset-top, 0px))
+    max(0.75rem, env(safe-area-inset-right, 0px))
+    max(0.75rem, env(safe-area-inset-bottom, 0px))
+    max(0.75rem, env(safe-area-inset-left, 0px));
   border-radius: 0;
+}
+
+.painel-config--mobile .painel-config__card {
+  width: min(100%, 360px);
+  max-height: min(78dvh, 520px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 @media (max-width: 640px) {
   .overlayPlay {
+    top: 44%;
     width: 68px;
     height: 68px;
     box-shadow: 0 8px 24px var(--player-accent-glow);
@@ -1019,12 +1037,8 @@
     height: 26px;
   }
 
-  /* Barra sempre visível no mobile (Florescer Player) */
   .florescerPlayer .controles {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-    padding: 0 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    padding: 0 10px 10px;
     background: linear-gradient(
       180deg,
       transparent 0%,

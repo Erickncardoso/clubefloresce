@@ -2,7 +2,8 @@ import { CourseRepository } from "../repositories/course.repository";
 import { Course, Module, Lesson } from "@prisma/client";
 import { lessonSummaryService, shouldScheduleLessonTranscriptionSync } from "./lesson-summary.service";
 import { lessonTranscriptionService } from "./lesson-transcription.service";
-import { fetchBunnyVideoPlayMetadata } from "../utils/media/bunny-play-data";
+import { fetchBunnyVideoPlayMetadata, invalidateBunnyVideoPlayMetadataCache } from "../utils/media/bunny-play-data";
+import { parseBunnyStreamVideoId } from "../utils/media/bunny-config";
 
 const courseRepository = new CourseRepository();
 
@@ -118,6 +119,14 @@ export class CourseService {
     }
     const lesson = await courseRepository.updateLesson(lessonId, patch);
     const videoUrl = data.videoUrl ?? lesson.videoUrl;
+    if (data.videoUrl !== undefined && videoUrl !== previous?.videoUrl) {
+      const previousVideoId = parseBunnyStreamVideoId(String(previous?.videoUrl || ""));
+      const nextVideoId = parseBunnyStreamVideoId(String(videoUrl || ""));
+      await Promise.all([
+        previousVideoId ? invalidateBunnyVideoPlayMetadataCache(previousVideoId) : Promise.resolve(),
+        nextVideoId ? invalidateBunnyVideoPlayMetadataCache(nextVideoId) : Promise.resolve(),
+      ]);
+    }
     if (
       shouldScheduleLessonTranscriptionSync(videoUrl)
       && videoUrl !== previous?.videoUrl

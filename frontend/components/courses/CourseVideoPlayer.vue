@@ -24,7 +24,9 @@
         :key="`vid-${videoUrl}`"
         @mousemove="onMouseMove"
         @mouseleave="onMouseLeave"
-        @touchstart.passive="onMouseMove"
+        @touchstart.passive="onTouchStart"
+        @touchend.passive="onTouchEnd"
+        @touchcancel.passive="onTouchEnd"
       >
         <div
           class="florescerPlayer"
@@ -520,13 +522,9 @@ const settingsMobileOverlay = computed(() => isMobilePlayer.value && settingsOpe
 
 const settingsPanelStyle = computed(() => {
   if (!settingsMobileOverlay.value) return undefined
-  const rect = settingsPanelRect.value
   return {
     position: 'fixed',
-    top: `${rect.top}px`,
-    left: `${rect.left}px`,
-    width: `${rect.width}px`,
-    height: `${rect.height}px`,
+    inset: '0',
     zIndex: 99999,
   }
 })
@@ -678,24 +676,39 @@ function showRipple(x, y) {
 
 function scheduleHideControls() {
   clearTimeout(hideControlsTimer)
-  if (!isPlaying.value) {
+  if (!isPlaying.value || settingsOpen.value) {
     controlsVisible.value = true
     return
   }
+  const delay = isMobilePlayer.value ? 3200 : 2500
   hideControlsTimer = setTimeout(() => {
     if (isPlaying.value && !isHovering.value && !settingsOpen.value) {
       controlsVisible.value = false
     }
-  }, 2500)
+  }, delay)
 }
 
 function onMouseMove() {
+  if (isMobilePlayer.value) return
   isHovering.value = true
   controlsVisible.value = true
   scheduleHideControls()
 }
 
 function onMouseLeave() {
+  if (isMobilePlayer.value) return
+  isHovering.value = false
+  scheduleHideControls()
+}
+
+function onTouchStart() {
+  if (!isMobilePlayer.value) return
+  controlsVisible.value = true
+  scheduleHideControls()
+}
+
+function onTouchEnd() {
+  if (!isMobilePlayer.value) return
   isHovering.value = false
   scheduleHideControls()
 }

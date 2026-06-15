@@ -170,6 +170,13 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   if (!isCloudinaryConfigured()) {
     console.warn("[Upload] CLOUDINARY_* ausente — uploads de imagem (capas/thumbs) falharão.");
   }
+
+  if (process.env.REDIS_URL) {
+    const ttlHours = (Number(process.env.BUNNY_METADATA_CACHE_TTL_SECONDS || 6 * 60 * 60) / 3600).toFixed(1);
+    console.log(`[Cache] Redis configurado — metadados Bunny Stream em cache (~${ttlHours}h).`);
+  } else if (getVideoUploadProvider() === "bunny") {
+    console.log("[Cache] REDIS_URL ausente — metadados Bunny Stream buscados na API a cada requisição.");
+  }
 });
 
 server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;

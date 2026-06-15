@@ -19,8 +19,8 @@
             v-else
             class="app-toast__icon app-toast__icon--error"
             viewBox="0 0 24 24"
-            width="20"
-            height="20"
+            width="16"
+            height="16"
             fill="none"
             stroke="currentColor"
             stroke-width="2.25"
@@ -71,11 +71,14 @@ const secondaryText = computed(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  min-height: 44px;
-  padding: 0.65rem 1.25rem;
+  gap: 0.05rem;
+  min-height: 34px;
+  padding: 0.38rem 1rem;
+  padding-top: max(0.38rem, env(safe-area-inset-top));
   text-align: center;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.1);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 .app-toast--success {
@@ -92,7 +95,7 @@ const secondaryText = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
+  gap: 0.4rem;
   max-width: min(960px, 100%);
 }
 
@@ -102,29 +105,31 @@ const secondaryText = computed(() => {
 }
 
 .app-toast__icon :deep(svg) {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 
 .app-toast__icon--error {
+  width: 16px;
+  height: 16px;
   opacity: 0.95;
 }
 
 .app-toast__text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.25;
   letter-spacing: -0.01em;
 }
 
 .app-toast__sub {
   margin: 0;
   max-width: min(960px, 100%);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.3;
   opacity: 0.88;
   word-break: break-word;
 }
@@ -133,14 +138,25 @@ const secondaryText = computed(() => {
   opacity: 0.92;
 }
 
-.app-toast-enter-active,
-.app-toast-leave-active {
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+.app-toast-enter-active {
+  transition:
+    transform 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.38s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.app-toast-enter-from,
+.app-toast-leave-active {
+  transition:
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.32s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.app-toast-enter-from {
+  opacity: 0;
+  transform: translate3d(0, -100%, 0);
+}
+
 .app-toast-leave-to {
   opacity: 0;
-  transform: translateY(-100%);
+  transform: translate3d(0, -100%, 0);
 }
 </style>

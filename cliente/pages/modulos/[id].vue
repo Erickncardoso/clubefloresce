@@ -132,13 +132,6 @@
                       />
                     </template>
 
-                    <template v-else-if="activeTab === 'quiz'">
-                      <div class="conteudoAba__vazio">
-                        <ClipboardList class="conteudoAba__vazio-icon" />
-                        <p>O quiz desta aula será liberado em breve.</p>
-                </div>
-                    </template>
-
                     <template v-else-if="activeTab === 'anotacoes'">
                       <CoursesLessonNotesPanel
                         :key="`notes-${activeLesson.id}`"
@@ -200,29 +193,28 @@
                     </template>
 
                     <template v-else-if="activeTab === 'links'">
-                      <div v-if="activeLesson.materials?.length" class="aula-links-grid">
+                      <div v-if="lessonLinks.length" class="aula-links-list">
                         <a
-                          v-for="(file, idx) in activeLesson.materials"
-                          :key="idx"
-                          :href="file.url"
+                          v-for="(item, idx) in lessonLinks"
+                          :key="`${item.url}-${idx}`"
+                          :href="item.url"
                           target="_blank"
-                          rel="noopener"
-                          class="aula-link-card"
+                          rel="noopener noreferrer"
+                          class="aula-link-item"
                         >
-                          <span class="aula-link-card__icon">
-                            <FileText :size="18" />
+                          <span class="aula-link-item__icon" aria-hidden="true">
+                            <Link :size="18" />
                           </span>
-                          <div>
-                            <div class="aula-link-card__nome">{{ file.name }}</div>
-                            <div class="aula-link-card__meta">{{ file.size || 'Download' }}</div>
-                </div>
-                          <Download :size="16" />
-                      </a>
-                    </div>
+                          <span class="aula-link-item__body">
+                            <span class="aula-link-item__title">{{ item.name }}</span>
+                            <span class="aula-link-item__url">{{ formatLessonLinkUrl(item.url) }}</span>
+                          </span>
+                        </a>
+                      </div>
                       <div v-else class="conteudoAba__vazio">
                         <Link class="conteudoAba__vazio-icon" />
-                        <p>Não existem links ou materiais para esta aula.</p>
-                  </div>
+                        <p>Não existem links para esta aula.</p>
+                      </div>
                     </template>
                   </div>
                 </Transition>
@@ -397,14 +389,11 @@ import {
   CheckCircle2, 
   ArrowRight,
   MessageSquare,
-  Download,
   Clock,
   Info,
-  FileText,
   Pencil,
   Trash2,
   Heart,
-  ClipboardList,
   Captions,
   Link,
   StickyNote,
@@ -436,10 +425,34 @@ const showTheaterAlert = ref(false)
 const videoPlayerRef = ref(null)
 const videoCurrentTime = ref(0)
 
+function normalizeLessonMaterials(materials) {
+  if (!Array.isArray(materials)) return []
+  return materials
+    .map((item) => ({
+      name: String(item?.name || item?.title || '').trim(),
+      url: String(item?.url || '').trim(),
+    }))
+    .filter((item) => item.name && item.url)
+}
+
+const lessonLinks = computed(() => normalizeLessonMaterials(activeLesson.value?.materials))
+
+function formatLessonLinkUrl(url) {
+  const value = String(url || '').trim()
+  if (!value) return ''
+  try {
+    const parsed = new URL(value)
+    const path = parsed.pathname === '/' ? '' : parsed.pathname
+    const full = `${parsed.hostname}${path}${parsed.search}`
+    return full.length > 64 ? `${full.slice(0, 64)}…` : full
+  } catch {
+    return value.length > 64 ? `${value.slice(0, 64)}…` : value
+  }
+}
+
 const tabs = [
   { id: 'resumo', label: 'Resumo', icon: Info },
   { id: 'transcricao', label: 'Transcrição', icon: Captions },
-  { id: 'quiz', label: 'Quiz', icon: ClipboardList },
   { id: 'anotacoes', label: 'Anotações', icon: StickyNote },
   { id: 'links', label: 'Links', icon: Link },
   { id: 'aulas', label: 'Aulas', florescerIcon: 'quadros' },

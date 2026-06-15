@@ -34,6 +34,15 @@ class CacheService {
     if (!this.redis || !this.enabled) return;
     await this.redis.set(key, JSON.stringify(value), "EX", ttlSeconds);
   }
+
+  async del(key: string): Promise<void> {
+    if (!this.redis || !this.enabled) return;
+    await this.redis.del(key);
+  }
+
+  isReady(): boolean {
+    return Boolean(this.redis && this.enabled);
+  }
 }
 
 export const cacheService = new CacheService();

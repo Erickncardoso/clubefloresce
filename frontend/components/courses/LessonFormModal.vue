@@ -252,6 +252,48 @@
               />
             </div>
             <p class="field-hint">O resumo aparece para a aluna na aba Resumo enquanto assiste à aula.</p>
+
+            <div class="field lesson-links-field">
+              <div class="lesson-links-head">
+                <label>Links da aula <span class="field-optional">(opcional)</span></label>
+                <button type="button" class="lesson-links-add" @click="addLessonLink">
+                  <Plus class="icon-xs" /> Adicionar link
+                </button>
+              </div>
+              <p class="field-hint">Aparecem na aba Links do player — Figma, PDFs externos, planilhas, etc.</p>
+
+              <div v-if="lessonLinks.length" class="lesson-links-list">
+                <div
+                  v-for="(link, index) in lessonLinks"
+                  :key="`lesson-link-${index}`"
+                  class="lesson-link-row"
+                >
+                  <div class="lesson-link-row__fields">
+                    <input
+                      v-model="link.name"
+                      type="text"
+                      placeholder="Título (ex: Figma da Aula 3)"
+                      maxlength="120"
+                    >
+                    <input
+                      v-model="link.url"
+                      type="url"
+                      placeholder="https://..."
+                    >
+                  </div>
+                  <button
+                    type="button"
+                    class="lesson-link-row__remove"
+                    aria-label="Remover link"
+                    @click="removeLessonLink(index)"
+                  >
+                    <Trash2 class="icon-xs" />
+                  </button>
+                </div>
+              </div>
+
+              <p v-else class="lesson-links-empty">Nenhum link adicionado.</p>
+            </div>
           </section>
 
           <p v-if="formError" class="form-error" role="alert">{{ formError }}</p>
@@ -302,6 +344,8 @@ import {
   Image as ImageIcon,
   Link,
   Play,
+  Plus,
+  Trash2,
   Upload,
   X,
 } from 'lucide-vue-next'
@@ -364,6 +408,34 @@ const thumbFileInput = ref(null)
 const durationFromVideo = ref(false)
 const durationManualEdit = ref(false)
 const detectedDurationSeconds = ref(0)
+const lessonLinks = ref([])
+
+function normalizeLessonLinksInput(materials) {
+  if (!Array.isArray(materials)) return []
+  return materials
+    .map((item) => ({
+      name: String(item?.name || item?.title || '').trim(),
+      url: String(item?.url || '').trim(),
+    }))
+    .filter((item) => item.name || item.url)
+}
+
+function serializeLessonLinks() {
+  return lessonLinks.value
+    .map((item) => ({
+      name: String(item.name || '').trim(),
+      url: String(item.url || '').trim(),
+    }))
+    .filter((item) => item.name && item.url)
+}
+
+function addLessonLink() {
+  lessonLinks.value.push({ name: '', url: '' })
+}
+
+function removeLessonLink(index) {
+  lessonLinks.value.splice(index, 1)
+}
 
 function resetState() {
   currentStep.value = 1
@@ -388,6 +460,7 @@ function resetState() {
   durationFromVideo.value = false
   durationManualEdit.value = false
   detectedDurationSeconds.value = 0
+  lessonLinks.value = []
   if (frameVideoObjectUrl.value) {
     URL.revokeObjectURL(frameVideoObjectUrl.value)
     frameVideoObjectUrl.value = null
@@ -408,6 +481,7 @@ function populateFromLesson(lesson) {
   thumbSourceTab.value = lesson.thumbnail ? 'upload' : 'upload'
   durationFromVideo.value = false
   durationManualEdit.value = Boolean(lesson.duration)
+  lessonLinks.value = normalizeLessonLinksInput(lesson.materials)
 }
 
 watch(
@@ -698,6 +772,7 @@ function buildSubmitSnapshot(skipThumb) {
     duration: form.duration?.trim() || null,
     videoUrl: form.videoUrl.trim(),
     thumbnail: skipThumb ? null : (form.thumbnail || null),
+    materials: serializeLessonLinks(),
     thumbFile: skipThumb ? null : thumbFile.value,
     videoSourceTab: videoSourceTab.value,
     videoFileLocal: videoFileLocal.value,
@@ -747,6 +822,7 @@ async function saveLessonInBackground(snapshot) {
       videoUrl: videoUrl.trim(),
       duration: snapshot.duration,
       thumbnail,
+      materials: snapshot.materials || [],
     }
 
     await $fetch(resolveUploadApiUrl('/courses/lessons', apiBase), {
@@ -819,6 +895,7 @@ async function submit(skipThumb = false) {
       videoUrl: form.videoUrl.trim(),
       duration: form.duration?.trim() || null,
       thumbnail,
+      materials: serializeLessonLinks(),
     }
 
     await $fetch(resolveUploadApiUrl(`/courses/lessons/${form.id}`, apiBase), {
@@ -1315,6 +1392,104 @@ async function submit(skipThumb = false) {
   font-size: 0.8rem;
   font-weight: 600;
   color: #c62828;
+}
+
+.lesson-links-field {
+  margin-top: 0.35rem;
+}
+
+.lesson-links-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lesson-links-head label {
+  margin: 0;
+}
+
+.lesson-links-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--cf-radius-pill);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #374151;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.lesson-links-add:hover {
+  background: #f8faf9;
+  border-color: #d1d5db;
+}
+
+.lesson-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+
+.lesson-link-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.lesson-link-row__fields {
+  flex: 1;
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.lesson-link-row__fields input {
+  width: 100%;
+  padding: 0.62rem 0.75rem;
+  border: 1.5px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: #141414;
+  background: #fff;
+}
+
+.lesson-link-row__fields input:focus {
+  outline: none;
+  border-color: #9ab89a;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+}
+
+.lesson-link-row__remove {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #fecaca;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.lesson-link-row__remove:hover {
+  background: #fef2f2;
+}
+
+.lesson-links-empty {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  color: #9ca3af;
 }
 
 .lesson-modal-foot {
