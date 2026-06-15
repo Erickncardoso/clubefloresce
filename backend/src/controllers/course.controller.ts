@@ -146,6 +146,17 @@ export class CourseController {
     }
   }
 
+  async getLessonVideoMetadata(req: Request, res: Response): Promise<any> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Usuário não autenticado." });
+      const result = await courseService.getLessonVideoMetadata(req.params.lessonId);
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   async updateLesson(req: Request, res: Response): Promise<any> {
     try {
       const userId = req.user?.id;

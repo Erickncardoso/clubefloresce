@@ -96,7 +96,7 @@
                   <span>{{ selectedPdfFile.name }}</span>
                 </div>
                 <span v-if="!selectedPdfFile">Clique para selecionar o PDF</span>
-                <small v-if="!selectedPdfFile" class="pdf-upload-hint">{{ EBOOK_PDF_UPLOAD_HINT }}</small>
+                <small v-if="!selectedPdfFile" class="pdf-upload-hint">{{ documentUploadHint }}</small>
                 <input ref="pdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handlePdfSelect" />
               </div>
             </div>
@@ -126,12 +126,14 @@ import {
   X, 
   Image as ImageIcon 
 } from 'lucide-vue-next'
-import { EBOOK_PDF_MAX_BYTES, EBOOK_PDF_MAX_LABEL, EBOOK_PDF_UPLOAD_HINT, isPdfFile } from '~/utils/upload-file-kind'
+import { isPdfFile } from '~/utils/upload-file-kind'
+import { useDocumentUploadLimits } from '~/composables/useUploadConfig'
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 const route = useRoute()
+const { documentMaxBytes, documentMaxLabel, documentUploadHint } = useDocumentUploadLimits()
 
 async function uploadImageToCloudinary(file, token) {
   const formData = new FormData()
@@ -201,7 +203,7 @@ const handlePdfSelect = (e) => {
   const file = e.target.files?.[0]
   if (!file) return
   if (!isPdfFile(file)) return alert('Por favor, selecione apenas arquivos PDF.')
-  if (file.size > EBOOK_PDF_MAX_BYTES) return alert(`O PDF deve ter no máximo ${EBOOK_PDF_MAX_LABEL}.`)
+  if (file.size > documentMaxBytes.value) return alert(`O PDF deve ter no máximo ${documentMaxLabel.value}.`)
   selectedPdfFile.value = file
 }
 

@@ -44,6 +44,9 @@ export async function fetchVideoUploadSignature(apiBase, token) {
       }
 
       const data = await response.json()
+      if (data?.provider === 'bunny') {
+        return data
+      }
       if (!data?.uploadUrl || !data?.signature) {
         throw new Error('Resposta inválida ao preparar upload.')
       }

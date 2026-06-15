@@ -3,6 +3,7 @@ import { isCloudinarySizeError, needsServerCompression } from '~/utils/video-upl
 import { normalizeVideoUploadError } from '~/utils/resolve-api-base.mjs'
 import { resolveVideoUploadEndpoint } from '~/utils/video-upload-endpoint'
 import { captureVideoThumbnail, revokeThumbnailUrl } from '~/utils/video-thumbnail'
+import { shouldUseBackendVideoUpload } from '~/utils/video-provider'
 
 function createJobId() {
   return `upload-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -70,6 +71,24 @@ function uploadVideoThroughBackend(file, apiBase, onProgress) {
 
 async function runVideoUpload(file, apiBase, onProgress) {
   const token = localStorage.getItem('auth_token')
+  const { fetchVideoUploadSignature } = await import('~/utils/cloudinary-video-upload')
+  let preparation = null
+
+  try {
+    preparation = await fetchVideoUploadSignature(apiBase, token)
+  } catch (error) {
+    console.warn('[upload] não foi possível preparar upload direto, usando backend', error)
+  }
+
+  if (shouldUseBackendVideoUpload(preparation)) {
+    onProgress?.(0, 'uploading')
+    try {
+      return await uploadVideoThroughBackend(file, apiBase, onProgress)
+    } catch (backendError) {
+      throw new Error(normalizeVideoUploadError(backendError))
+    }
+  }
+
   const useServer = needsServerCompression(file)
 
   if (useServer) {

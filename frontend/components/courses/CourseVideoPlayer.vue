@@ -42,8 +42,8 @@
             ref="videoEl"
             playsinline
             preload="auto"
-            crossorigin="anonymous"
-            :poster="poster || undefined"
+            :crossorigin="isHlsSource ? 'anonymous' : undefined"
+            :poster="resolvedPoster || undefined"
             @error="onVideoError"
             @loadedmetadata="onTracksReady"
             @play="onPlay"
@@ -56,14 +56,24 @@
             @click="onVideoClick"
           >
             <track
-              v-if="resolvedCaptionUrl"
+              v-if="captionSrc"
+              :key="captionSrc"
               ref="captionTrackEl"
               kind="subtitles"
               srclang="pt"
               label="Português"
-              :src="resolvedCaptionUrl"
+              :src="captionSrc"
+              @load="onCaptionTrackLoad"
             />
           </video>
+
+          <div
+            v-if="captionsEnabled && activeCaptionText"
+            class="florescerPlayer__captions"
+            aria-live="polite"
+          >
+            {{ activeCaptionText }}
+          </div>
 
           <Transition name="ripple">
             <div
@@ -126,13 +136,50 @@
                   <span class="thumb"><span class="pulso" /></span>
                 </div>
               </div>
+              <div
+                v-if="videoChapters.length && chapterDuration"
+                class="chapterMarks"
+                aria-hidden="true"
+              >
+                <button
+                  v-for="(chapter, index) in videoChapters"
+                  :key="`chapter-${chapter.start}-${index}`"
+                  type="button"
+                  class="chapterMark"
+                  :style="{ left: `${(chapter.start / chapterDuration) * 100}%` }"
+                  :title="chapter.title"
+                  @mousedown.stop
+                  @click.stop="seekToSeconds(chapter.start)"
+                />
+              </div>
               <Transition name="thumb-hover">
                 <div
                   v-if="barHover"
-                  class="tooltipTempo"
+                  class="barPreview"
                   :style="{ left: `${barHover.x}px` }"
                 >
-                  {{ formatTime(barHover.time) }}
+                  <div
+                    v-if="barHover.thumbnailStyle"
+                    class="barPreview__thumb"
+                    :style="{
+                      width: barHover.thumbnailStyle.width,
+                      height: barHover.thumbnailStyle.height,
+                    }"
+                  >
+                    <img
+                      :src="barHover.thumbnail?.spriteUrl"
+                      :style="barHover.thumbnailImageStyle"
+                      class="barPreview__thumb-img"
+                      alt=""
+                      @error="onPreviewThumbError"
+                    />
+                  </div>
+                  <div class="barPreview__body">
+                    <p v-if="barHover.chapterTitle" class="barPreview__chapter">
+                      {{ barHover.chapterTitle }}
+                    </p>
+                    <p class="barPreview__time">{{ formatTime(barHover.time) }}</p>
+                  </div>
                 </div>
               </Transition>
             </div>
@@ -200,12 +247,13 @@
 
               <div class="direita">
                 <button
-                  v-if="resolvedCaptionUrl"
+                  v-if="hasCaptionSource || captionsAvailable"
                   type="button"
                   class="iconBtn cc"
                   :class="{ ativa: captionsEnabled }"
                   :aria-label="captionsEnabled ? 'Desativar legendas' : 'Ativar legendas'"
-                  @click="toggleCaptions"
+                  :disabled="captionsLoading"
+                  @click.stop="toggleCaptions"
                 >
                   <FlorescerPlayerIcons name="cc" />
                 </button>
@@ -262,7 +310,7 @@
                     <button
                       type="button"
                       class="painel-config__row"
-                      :disabled="!isCloudinarySource"
+                      :disabled="!isHlsSource"
                       @click="openSettingsSubmenu('quality')"
                     >
                       <span class="painel-config__row-left">
@@ -290,7 +338,7 @@
                     <button
                       type="button"
                       class="painel-config__row"
-                      :disabled="!resolvedCaptionUrl"
+                      :disabled="!hasCaptionSource && !captionsAvailable"
                       @click="openSettingsSubmenu('captions')"
                     >
                       <span class="painel-config__row-left">
@@ -382,12 +430,20 @@ import { Check, ChevronLeft, ChevronRight, Clock, SlidersHorizontal } from 'luci
 import {
   applyCloudinaryVideoQuality,
   getBaseCloudinaryVideoUrl,
-  getCloudinaryCaptionUrl,
   getCloudinaryHlsUrl,
   getQualityTargetHeight,
   heightToQualityLabel,
   isCloudinaryVideoUrl,
 } from '~/utils/cloudinary-video'
+import { getBunnyStreamHlsUrl, getBunnyStreamMp4Url, isBunnyStreamVideoUrl } from '~/utils/bunny-video'
+import {
+  buildSeekThumbnailImageStyle,
+  buildSeekThumbnailStyle,
+  getChapterAtTime,
+  getSeekThumbnailAtTime,
+} from '~/utils/bunny-seek-thumbnails'
+import { getVideoCaptionCandidates } from '~/utils/video-provider'
+import { getActiveCaptionCue, parseVttToCaptionCues, transcriptionToCaptionCues } from '~/utils/transcription'
 import FlorescerPlayerIcons from './FlorescerPlayerIcons.vue'
 
 const props = defineProps({
@@ -395,7 +451,12 @@ const props = defineProps({
   youtubeId: { type: String, default: '' },
   poster: { type: String, default: '' },
   captionUrl: { type: String, default: '' },
+  lessonId: { type: [String, Number], default: '' },
+  transcription: { type: Array, default: () => [] },
 })
+
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase
 
 const emit = defineEmits(['ended', 'timeupdate'])
 
@@ -433,6 +494,12 @@ const actionIndicator = ref(null)
 const barHover = ref(null)
 const isDraggingBar = ref(false)
 const captionsEnabled = ref(false)
+const captionSrc = ref('')
+const captionsAvailable = ref(false)
+const captionCues = ref([])
+const captionsLoading = ref(false)
+const hlsQualityOptions = ref([])
+const bunnyPlayMetadata = ref(null)
 const videoLoadError = ref(false)
 const useHlsPlayback = ref(false)
 const playbackReady = ref(false)
@@ -474,12 +541,23 @@ const settingsSubmenuTitle = computed(() => {
 const hasSource = computed(() => Boolean(props.youtubeId || props.videoUrl))
 
 const isCloudinarySource = computed(() => isCloudinaryVideoUrl(props.videoUrl))
+const isBunnySource = computed(() => isBunnyStreamVideoUrl(props.videoUrl))
+const isHlsSource = computed(() => isCloudinarySource.value || isBunnySource.value)
 
 const playbackVideoUrl = computed(() => {
   if (!props.videoUrl || props.youtubeId) return props.videoUrl
   if (videoLoadError.value) return props.videoUrl
+  if (isBunnySource.value) {
+    if (useHlsPlayback.value) return getBunnyStreamHlsUrl(props.videoUrl)
+    return getBunnyStreamMp4Url(props.videoUrl)
+  }
   return applyCloudinaryVideoQuality(props.videoUrl, videoQuality.value)
 })
+
+function getProgressivePlaybackUrl() {
+  if (isBunnySource.value) return getBunnyStreamMp4Url(props.videoUrl)
+  return playbackVideoUrl.value
+}
 
 const qualitySummaryLabel = computed(() => {
   if (videoQuality.value === 'auto') return 'Automática'
@@ -499,23 +577,54 @@ const captionsSummaryLabel = computed(() => (
   captionsEnabled.value ? 'Ativadas' : 'Desativadas'
 ))
 
-const availableQualityOptions = computed(() => {
-  if (!isCloudinarySource.value) {
-    return [{ id: 'auto', label: 'Automática', badge: null }]
-  }
-  const autoBadge = heightToQualityLabel(detectedVideoHeight.value)
-  return [
-    { id: 'auto', label: 'Automática', badge: autoBadge },
-    { id: '480p', label: '480p', badge: '480p' },
-    { id: '720p', label: '720p', badge: '720p' },
-    { id: '1080p', label: '1080p', badge: '1080p' },
-  ]
+const hasCaptionSource = computed(() => (
+  Boolean(props.captionUrl?.trim())
+  || getVideoCaptionCandidates(props.videoUrl).length > 0
+  || (Array.isArray(props.transcription) && props.transcription.length > 0)
+))
+
+const videoChapters = computed(() => {
+  const chapters = bunnyPlayMetadata.value?.chapters
+  return Array.isArray(chapters) ? chapters : []
 })
 
-const resolvedCaptionUrl = computed(() => {
-  if (props.captionUrl) return props.captionUrl
-  if (!props.videoUrl) return ''
-  return getCloudinaryCaptionUrl(props.videoUrl)
+const chapterDuration = computed(() => (
+  duration.value || Number(bunnyPlayMetadata.value?.length) || 0
+))
+
+const activeCaptionText = computed(() => {
+  if (!captionsEnabled.value) return ''
+  const cue = getActiveCaptionCue(captionCues.value, currentTime.value)
+  return cue?.text || ''
+})
+
+const resolvedPoster = computed(() => {
+  if (props.poster) return props.poster
+  return bunnyPlayMetadata.value?.thumbnailUrl || ''
+})
+
+const availableQualityOptions = computed(() => {
+  if (useHlsPlayback.value && hlsQualityOptions.value.length) {
+    const autoBadge = heightToQualityLabel(detectedVideoHeight.value)
+    return [
+      { id: 'auto', label: 'Automática', badge: autoBadge },
+      ...hlsQualityOptions.value,
+    ]
+  }
+  if (isCloudinarySource.value) {
+    const autoBadge = heightToQualityLabel(detectedVideoHeight.value)
+    return [
+      { id: 'auto', label: 'Automática', badge: autoBadge },
+      { id: '480p', label: '480p', badge: '480p' },
+      { id: '720p', label: '720p', badge: '720p' },
+      { id: '1080p', label: '1080p', badge: '1080p' },
+    ]
+  }
+  if (isHlsSource.value) {
+    const autoBadge = heightToQualityLabel(detectedVideoHeight.value)
+    return [{ id: 'auto', label: 'Automática', badge: autoBadge }]
+  }
+  return [{ id: 'auto', label: 'Automática', badge: null }]
 })
 
 const progressPercent = computed(() => {
@@ -748,6 +857,13 @@ function onVideoError() {
     return
   }
 
+  if (!videoLoadError.value && props.videoUrl && isBunnySource.value && useHlsPlayback.value) {
+    videoLoadError.value = true
+    destroyHls()
+    swapVideoSource(getBunnyStreamMp4Url(props.videoUrl))
+    return
+  }
+
   if (!videoLoadError.value && props.videoUrl) {
     videoLoadError.value = true
     swapVideoSource(props.videoUrl)
@@ -755,20 +871,143 @@ function onVideoError() {
 }
 
 function applyCaptionsState() {
+  const trackEl = captionTrackEl.value
+  const nativeTrack = trackEl?.track
+  if (nativeTrack) {
+    nativeTrack.mode = captionsEnabled.value ? 'showing' : 'hidden'
+  }
+
   const video = videoEl.value
-  if (!video?.textTracks?.length) return
-  for (const track of video.textTracks) {
-    if (track.kind === 'subtitles' || track.kind === 'captions') {
-      track.mode = captionsEnabled.value ? 'showing' : 'hidden'
+  if (video?.textTracks?.length) {
+    for (const track of video.textTracks) {
+      if (track.kind === 'subtitles' || track.kind === 'captions') {
+        track.mode = captionsEnabled.value ? 'showing' : 'hidden'
+      }
     }
   }
 }
 
-function toggleCaptions() {
-  captionsEnabled.value = !captionsEnabled.value
+function applyTranscriptionAsCaptions() {
+  const cues = transcriptionToCaptionCues(props.transcription)
+  if (!cues.length) return false
+  captionCues.value = cues
+  captionsAvailable.value = true
+  return true
+}
+
+async function loadCaptionCues(url) {
+  if (!url || !import.meta.client) return false
+
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return false
+    const vtt = await response.text()
+    const cues = parseVttToCaptionCues(vtt)
+    if (!cues.length) return false
+    captionCues.value = cues
+    captionSrc.value = url
+    captionsAvailable.value = true
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function ensureCaptionsReady() {
+  if (captionCues.value.length) return true
+
+  if (captionSrc.value && await loadCaptionCues(captionSrc.value)) {
+    await nextTick()
+    syncCaptionTrack()
+    applyCaptionsState()
+    return true
+  }
+
+  const resolved = await resolveCaptionSource()
+  if (resolved) return true
+
+  return applyTranscriptionAsCaptions()
+}
+
+async function resolveCaptionSource() {
+  if (!props.videoUrl && !props.captionUrl) return false
+
+  const explicit = props.captionUrl?.trim()
+  const candidates = explicit
+    ? [explicit, ...getVideoCaptionCandidates(props.videoUrl).filter((url) => url !== explicit)]
+    : getVideoCaptionCandidates(props.videoUrl)
+
+  for (const url of candidates) {
+    if (!url) continue
+    if (await loadCaptionCues(url)) {
+      await nextTick()
+      syncCaptionTrack()
+      return true
+    }
+  }
+
+  return false
+}
+
+function syncCaptionTrack() {
+  const trackEl = captionTrackEl.value
+  if (!trackEl || !captionSrc.value) return
+  if (trackEl.getAttribute('src') !== captionSrc.value) {
+    trackEl.src = captionSrc.value
+  }
   applyCaptionsState()
-  controlsVisible.value = true
-  scheduleHideControls()
+}
+
+function onCaptionTrackLoad() {
+  captionsAvailable.value = true
+  if (captionSrc.value && !captionCues.value.length) {
+    void loadCaptionCues(captionSrc.value)
+  }
+  applyCaptionsState()
+}
+
+async function loadBunnyPlayMetadata() {
+  bunnyPlayMetadata.value = null
+
+  if (!props.lessonId || !isBunnySource.value || !import.meta.client) return
+
+  try {
+    const token = localStorage.getItem('auth_token')
+    const result = await $fetch(`${apiBase}/courses/lessons/${props.lessonId}/video-metadata`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+
+    if (result?.available && result?.metadata) {
+      bunnyPlayMetadata.value = result.metadata
+    }
+  } catch {
+    bunnyPlayMetadata.value = null
+  }
+}
+
+async function toggleCaptions() {
+  if (captionsLoading.value) return
+
+  const next = !captionsEnabled.value
+  if (!next) {
+    captionsEnabled.value = false
+    applyCaptionsState()
+    controlsVisible.value = true
+    scheduleHideControls()
+    return
+  }
+
+  captionsLoading.value = true
+  try {
+    const ready = await ensureCaptionsReady()
+    if (!ready) return
+    captionsEnabled.value = true
+    applyCaptionsState()
+    controlsVisible.value = true
+    scheduleHideControls()
+  } finally {
+    captionsLoading.value = false
+  }
 }
 
 function seekToRatio(ratio) {
@@ -805,15 +1044,44 @@ function seekFromBarEvent(event) {
 
 function onBarHover(event) {
   const bar = barraRef.value
-  if (!bar || !duration.value) return
+  const totalDuration = chapterDuration.value
+  if (!bar || !totalDuration) return
   const rect = bar.getBoundingClientRect()
   const x = event.clientX - rect.left
   const ratio = Math.max(0, Math.min(1, x / rect.width))
-  barHover.value = { x, time: ratio * duration.value }
+  const time = ratio * totalDuration
+
+  const hover = { x, time }
+
+  if (bunnyPlayMetadata.value?.thumbnailCount || bunnyPlayMetadata.value?.length) {
+    const thumbnail = getSeekThumbnailAtTime(time, bunnyPlayMetadata.value)
+    const thumbnailStyle = buildSeekThumbnailStyle(thumbnail)
+    const thumbnailImageStyle = buildSeekThumbnailImageStyle(thumbnail)
+    if (thumbnailStyle) {
+      hover.thumbnail = thumbnail
+      hover.thumbnailStyle = thumbnailStyle
+      hover.thumbnailImageStyle = thumbnailImageStyle
+    }
+  }
+
+  const chapter = getChapterAtTime(videoChapters.value, time)
+  if (chapter?.title) {
+    hover.chapterTitle = chapter.title
+  }
+
+  barHover.value = hover
 }
 
 function onBarLeave() {
   barHover.value = null
+}
+
+function onPreviewThumbError(event) {
+  const img = event?.target
+  const fallback = barHover.value?.thumbnail?.fallbackUrl
+  if (!img || !fallback || img.dataset.fallbackApplied === '1') return
+  img.dataset.fallbackApplied = '1'
+  img.src = fallback
 }
 
 function seekRelative(delta, showIndicator = false) {
@@ -898,7 +1166,11 @@ function setSpeed(rate) {
   video.playbackRate = rate
 }
 
-function setCaptions(enabled) {
+async function setCaptions(enabled) {
+  if (enabled) {
+    const ready = await ensureCaptionsReady()
+    if (!ready) return
+  }
   captionsEnabled.value = enabled
   applyCaptionsState()
 }
@@ -935,11 +1207,42 @@ function findHlsLevelIndex(levels, targetHeight) {
   return bestIdx
 }
 
+function updateHlsQualityOptions() {
+  if (!hlsInstance?.levels?.length) {
+    hlsQualityOptions.value = []
+    return
+  }
+
+  const seen = new Set()
+  const options = []
+  const levels = hlsInstance.levels
+    .map((level, index) => ({ height: level.height || 0, index }))
+    .filter((item) => item.height > 0)
+    .sort((a, b) => b.height - a.height)
+
+  for (const item of levels) {
+    const label = heightToQualityLabel(item.height)
+    if (seen.has(label)) continue
+    seen.add(label)
+    options.push({ id: label, label, badge: label, levelIndex: item.index })
+  }
+
+  hlsQualityOptions.value = options
+}
+
 function applyHlsQuality(quality) {
   if (!hlsInstance || !useHlsPlayback.value) return
 
   if (quality === 'auto') {
     hlsInstance.currentLevel = -1
+    return
+  }
+
+  const option = hlsQualityOptions.value.find((item) => item.id === quality)
+  if (option && option.levelIndex >= 0) {
+    hlsInstance.currentLevel = option.levelIndex
+    const level = hlsInstance.levels[option.levelIndex]
+    if (level?.height) detectedVideoHeight.value = level.height
     return
   }
 
@@ -954,9 +1257,11 @@ function applyHlsQuality(quality) {
 
 async function initHlsPlayback() {
   const video = videoEl.value
-  if (!video || !isCloudinarySource.value || !props.videoUrl) return false
+  if (!video || !isHlsSource.value || !props.videoUrl) return false
 
-  const hlsUrl = getCloudinaryHlsUrl(props.videoUrl)
+  const hlsUrl = isBunnySource.value
+    ? getBunnyStreamHlsUrl(props.videoUrl)
+    : getCloudinaryHlsUrl(props.videoUrl)
   if (!hlsUrl) return false
 
   destroyHls()
@@ -967,6 +1272,19 @@ async function initHlsPlayback() {
     return new Promise((resolve) => {
       const savedTime = video.currentTime || 0
       const shouldResume = pendingPlay.value || !video.paused
+      let settled = false
+
+      const finish = (value) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeoutId)
+        resolve(value)
+      }
+
+      const timeoutId = setTimeout(() => {
+        cleanup()
+        finish(false)
+      }, 12000)
 
       hlsInstance = new Hls({
         enableWorker: true,
@@ -975,7 +1293,7 @@ async function initHlsPlayback() {
 
       const onFatal = () => {
         cleanup()
-        resolve(false)
+        finish(false)
       }
 
       const cleanup = () => {
@@ -987,9 +1305,14 @@ async function initHlsPlayback() {
 
       const onParsed = () => {
         useHlsPlayback.value = true
+        updateHlsQualityOptions()
         applyHlsQuality(videoQuality.value)
+        void resolveCaptionSource()
         if (savedTime > 0 && Number.isFinite(savedTime)) {
           video.currentTime = savedTime
+        }
+        if (Number.isFinite(video.duration) && video.duration > 0) {
+          duration.value = video.duration
         }
         markPlaybackReady()
         if (shouldResume) {
@@ -997,7 +1320,7 @@ async function initHlsPlayback() {
             pendingPlay.value = true
           })
         }
-        resolve(true)
+        finish(true)
       }
 
       const onError = (_event, data) => {
@@ -1020,6 +1343,10 @@ async function initHlsPlayback() {
   if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = hlsUrl
     useHlsPlayback.value = true
+    video.addEventListener('loadedmetadata', () => {
+      duration.value = video.duration || duration.value
+      markPlaybackReady()
+    }, { once: true })
     return true
   }
 
@@ -1038,9 +1365,10 @@ async function setupVideoPlayback() {
   playbackReady.value = false
   pendingPlay.value = false
 
-  const progressiveUrl = normalizeVideoSrc(playbackVideoUrl.value)
+  const progressiveUrl = normalizeVideoSrc(getProgressivePlaybackUrl())
   const hlsReady = await initHlsPlayback()
   if (!hlsReady) {
+    destroyHls()
     swapVideoSource(progressiveUrl)
   }
 }
@@ -1103,7 +1431,6 @@ function swapVideoSource(url) {
 }
 
 function setQuality(quality) {
-  if (!isCloudinarySource.value && quality !== 'auto') return
   videoQuality.value = quality
   if (useHlsPlayback.value) {
     applyHlsQuality(quality)
@@ -1156,6 +1483,13 @@ function resetNativeState() {
   isSwitchingQuality.value = false
   playbackReady.value = false
   pendingPlay.value = false
+  captionSrc.value = ''
+  captionsAvailable.value = false
+  captionCues.value = []
+  captionsEnabled.value = false
+  captionsLoading.value = false
+  hlsQualityOptions.value = []
+  bunnyPlayMetadata.value = null
   destroyHls()
   closeSettings()
   isBuffering.value = false
@@ -1247,6 +1581,36 @@ async function initYoutube() {
   })
   youtubePlayer.on('ended', () => emit('ended'))
 }
+
+watch(
+  () => [props.videoUrl, props.captionUrl, props.transcription],
+  async () => {
+    if (!props.videoUrl && !props.captionUrl && !props.transcription?.length) return
+
+    const wasEnabled = captionsEnabled.value
+    captionCues.value = []
+    captionSrc.value = ''
+    captionsAvailable.value = false
+
+    const resolved = await resolveCaptionSource()
+    if (!resolved) {
+      applyTranscriptionAsCaptions()
+    }
+
+    if (wasEnabled && captionCues.value.length) {
+      applyCaptionsState()
+    }
+  },
+  { immediate: true, deep: true },
+)
+
+watch(
+  () => [props.lessonId, props.videoUrl],
+  () => {
+    void loadBunnyPlayMetadata()
+  },
+  { immediate: true },
+)
 
 watch(
   () => [props.videoUrl, props.youtubeId],

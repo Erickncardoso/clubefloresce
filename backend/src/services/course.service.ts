@@ -1,7 +1,8 @@
 import { CourseRepository } from "../repositories/course.repository";
 import { Course, Module, Lesson } from "@prisma/client";
-import { lessonSummaryService } from "./lesson-summary.service";
+import { lessonSummaryService, shouldScheduleLessonTranscriptionSync } from "./lesson-summary.service";
 import { lessonTranscriptionService } from "./lesson-transcription.service";
+import { fetchBunnyVideoPlayMetadata } from "../utils/media/bunny-play-data";
 
 const courseRepository = new CourseRepository();
 
@@ -92,7 +93,7 @@ export class CourseService {
       ...data,
       videoUrl: normalizeLessonVideoUrl(data.videoUrl),
     });
-    if (lesson.videoUrl?.includes("res.cloudinary.com")) {
+    if (shouldScheduleLessonTranscriptionSync(lesson.videoUrl)) {
       lessonTranscriptionService.scheduleLessonTranscriptionSync(lesson.id, lesson.videoUrl);
     }
     return lesson;
@@ -118,7 +119,7 @@ export class CourseService {
     const lesson = await courseRepository.updateLesson(lessonId, patch);
     const videoUrl = data.videoUrl ?? lesson.videoUrl;
     if (
-      videoUrl?.includes("res.cloudinary.com")
+      shouldScheduleLessonTranscriptionSync(videoUrl)
       && videoUrl !== previous?.videoUrl
     ) {
       lessonTranscriptionService.scheduleLessonTranscriptionSync(lessonId, videoUrl);
@@ -134,6 +135,23 @@ export class CourseService {
   async generateLessonSummary(lessonId: string, userId: string) {
     await this.assertLessonOwner(lessonId, userId);
     return lessonSummaryService.generateSummary(lessonId);
+  }
+
+  async getLessonVideoMetadata(lessonId: string) {
+    const lesson = await courseRepository.findLessonById(lessonId);
+    if (!lesson?.videoUrl) {
+      return { available: false };
+    }
+
+    const metadata = await fetchBunnyVideoPlayMetadata(String(lesson.videoUrl));
+    if (!metadata) {
+      return { available: false };
+    }
+
+    return {
+      available: true,
+      metadata,
+    };
   }
 
   async deleteLesson(lessonId: string, userId: string): Promise<Lesson> {

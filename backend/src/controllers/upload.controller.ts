@@ -2,19 +2,28 @@ import { Request, Response } from "express";
 import fs from "fs";
 import multer from "multer";
 import os from "os";
-import path from "path";
-import {
-  cloudinaryUpload,
-  cloudinaryDocumentUpload,
-  cloudinaryVideoUploadFromPath,
-  createVideoUploadSignature,
-  isCloudinaryConfigured,
-} from "../utils/cloudinary";
 import {
   compressVideoToMaxSize,
   isVideoCompressionAvailable,
   VIDEO_TARGET_MAX_BYTES,
 } from "../utils/video-compress";
+import { uploadDocumentFromBuffer } from "../utils/media/document-upload.service";
+import {
+  getDocumentUploadMaxBytes,
+  getDocumentUploadProvider,
+  getVideoUploadProvider,
+} from "../utils/media/media-config";
+import {
+  getVideoUploadPreparation,
+  uploadLessonVideoFromPath,
+} from "../utils/media/video-upload.service";
+import { cloudinaryUpload, isCloudinaryConfigured } from "../utils/cloudinary";
+import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "../utils/media/bunny-config";
+import {
+  resolveDocumentDeliveryUrl,
+  verifyDocumentAccessToken,
+} from "../utils/media/bunny-document-delivery";
+import { downloadBunnyStorageFile } from "../utils/media/bunny-storage";
 
 const MB = 1024 * 1024;
 const VIDEO_UPLOAD_MAX_SIZE_MB = Number(process.env.VIDEO_UPLOAD_MAX_SIZE_MB || 2048);
@@ -85,7 +94,7 @@ export const uploadVideo = multer({
 // ── Multer para DOCUMENTOS (PDF, etc) ──────────────────────────────────────────
 export const uploadFile = multer({
   storage,
-  limits: { fileSize: 40 * 1024 * 1024 },
+  limits: { fileSize: getDocumentUploadMaxBytes() },
   fileFilter: (_req, file, cb) => {
     if (acceptByExtensionOrMime(file, {
       extensionPattern: DOC_EXTENSIONS,
@@ -102,18 +111,32 @@ async function removeTempFile(filePath?: string | null): Promise<void> {
   await fs.promises.unlink(filePath).catch(() => undefined);
 }
 
+function providerLabel(provider: string): string {
+  return provider === "bunny" ? "Bunny" : "Cloudinary";
+}
+
 export class UploadController {
+  async getUploadConfig(_req: Request, res: Response): Promise<any> {
+    const videoProvider = getVideoUploadProvider();
+    const documentProvider = getDocumentUploadProvider();
+
+    return res.json({
+      videoProvider,
+      documentProvider,
+      imageProvider: "cloudinary",
+      videoDirectUpload: videoProvider === "cloudinary",
+      documentMaxBytes: getDocumentUploadMaxBytes(),
+      videoReady: videoProvider === "bunny" ? isBunnyStreamConfigured() : isCloudinaryConfigured(),
+      documentReady: documentProvider === "bunny" ? isBunnyStorageConfigured() : isCloudinaryConfigured(),
+    });
+  }
+
   async getVideoUploadSignature(_req: Request, res: Response): Promise<any> {
     try {
-      if (!isCloudinaryConfigured()) {
-        return res.status(503).json({
-          message: "Cloudinary não configurado no servidor. Verifique as variáveis CLOUDINARY_*.",
-        });
-      }
-
-      return res.json(createVideoUploadSignature());
+      const payload = await getVideoUploadPreparation();
+      return res.json(payload);
     } catch (error: any) {
-      console.error("[UploadController] Falha ao gerar assinatura de vídeo:", error);
+      console.error("[UploadController] Falha ao preparar upload de vídeo:", error);
       return res.status(503).json({
         message: error?.message || "Não foi possível preparar o upload de vídeo.",
       });
@@ -137,6 +160,7 @@ export class UploadController {
       return res.json({
         url: cloudinaryUrl,
         fileName: req.file.originalname,
+        provider: "cloudinary",
       });
     } catch (error: any) {
       console.error("[UploadController] Falha ao enviar imagem para Cloudinary:", error);
@@ -149,6 +173,7 @@ export class UploadController {
   async handleVideoUpload(req: Request, res: Response): Promise<any> {
     const tempFilePath = req.file?.path || null;
     let compressedFilePath: string | null = null;
+    const videoProvider = getVideoUploadProvider();
 
     try {
       if (!req.file) {
@@ -157,14 +182,14 @@ export class UploadController {
 
       const originalSizeMB = (req.file.size / MB).toFixed(2);
       console.log(
-        `[UploadController] Vídeo recebido: ${req.file.originalname} (${originalSizeMB}MB)`,
+        `[UploadController] Vídeo recebido (${providerLabel(videoProvider)}): ${req.file.originalname} (${originalSizeMB}MB)`,
       );
 
       let uploadPath = tempFilePath as string;
       let compressed = false;
       let finalBytes = req.file.size;
 
-      if (req.file.size > VIDEO_TARGET_MAX_BYTES) {
+      if (videoProvider === "cloudinary" && req.file.size > VIDEO_TARGET_MAX_BYTES) {
         if (!isVideoCompressionAvailable()) {
           return res.status(503).json({
             message:
@@ -191,10 +216,10 @@ export class UploadController {
 
       const finalSizeMB = (finalBytes / MB).toFixed(2);
       console.log(
-        `[UploadController] Enviando vídeo para Cloudinary (${finalSizeMB}MB)…`,
+        `[UploadController] Enviando vídeo para ${providerLabel(videoProvider)} (${finalSizeMB}MB)…`,
       );
 
-      const uploadResult = await cloudinaryVideoUploadFromPath(uploadPath);
+      const uploadResult = await uploadLessonVideoFromPath(uploadPath, req.file.originalname);
 
       console.log(`[UploadController] Vídeo enviado com sucesso (${finalSizeMB}MB).`);
 
@@ -203,16 +228,22 @@ export class UploadController {
         publicId: uploadResult.publicId,
         version: uploadResult.version,
         transcriptionStatus: uploadResult.transcriptionStatus,
+        provider: uploadResult.provider,
+        videoId: uploadResult.videoId,
+        encodeProgress: uploadResult.encodeProgress,
+        status: uploadResult.status,
         fileName: req.file.originalname,
         sizeMB: finalSizeMB,
         originalSizeMB,
         compressed,
-        targetMaxSizeMB: (VIDEO_TARGET_MAX_BYTES / MB).toFixed(0),
+        targetMaxSizeMB: videoProvider === "cloudinary"
+          ? (VIDEO_TARGET_MAX_BYTES / MB).toFixed(0)
+          : null,
       });
     } catch (error: any) {
-      console.error("[UploadController] Falha ao enviar vídeo para Cloudinary:", error);
+      console.error(`[UploadController] Falha ao enviar vídeo para ${providerLabel(videoProvider)}:`, error);
       return res.status(503).json({
-        message: error?.message || "Falha ao enviar vídeo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
+        message: error?.message || `Falha ao enviar vídeo para ${providerLabel(videoProvider)}.`,
       });
     } finally {
       await removeTempFile(tempFilePath);
@@ -223,30 +254,64 @@ export class UploadController {
   }
 
   async handleFileUpload(req: Request, res: Response): Promise<any> {
+    const documentProvider = getDocumentUploadProvider();
+
     try {
       if (!req.file) {
         return res.status(400).json({ message: "Nenhum arquivo enviado." });
       }
 
       const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
-      console.log(`[UploadController] Iniciando upload de documento para Cloudinary: ${req.file.originalname} (${fileSizeMB}MB)`);
+      console.log(
+        `[UploadController] Iniciando upload de documento (${providerLabel(documentProvider)}): ${req.file.originalname} (${fileSizeMB}MB)`,
+      );
 
-      const { url: cloudinaryUrl, compressed } = await cloudinaryDocumentUpload(
+      const uploadResult = await uploadDocumentFromBuffer(
         req.file.buffer,
-        "clube-documents",
         req.file.originalname,
       );
 
+      const deliveryUrl = resolveDocumentDeliveryUrl(
+        uploadResult.url,
+        req.user?.id,
+      );
+
       return res.json({
-        url: cloudinaryUrl,
+        url: deliveryUrl,
+        storagePath: "storagePath" in uploadResult ? uploadResult.storagePath : null,
         fileName: req.file.originalname,
         sizeMB: fileSizeMB,
-        compressed,
+        compressed: uploadResult.compressed,
+        provider: uploadResult.provider,
       });
     } catch (error: any) {
-      console.error("[UploadController] Falha ao enviar documento para Cloudinary:", error);
+      console.error(`[UploadController] Falha ao enviar documento para ${providerLabel(documentProvider)}:`, error);
       return res.status(503).json({
-        message: error?.message || "Falha ao enviar arquivo para o Cloudinary. Verifique as variáveis CLOUDINARY_* no ambiente.",
+        message: error?.message || `Falha ao enviar arquivo para ${providerLabel(documentProvider)}.`,
+      });
+    }
+  }
+
+  async streamDocument(req: Request, res: Response): Promise<any> {
+    try {
+      const token = String(req.query.token || "").trim();
+      const payload = verifyDocumentAccessToken(token);
+      if (!payload?.path) {
+        return res.status(401).json({ message: "Link de documento inválido ou expirado." });
+      }
+
+      const { body, contentType } = await downloadBunnyStorageFile(payload.path);
+      const fileName = payload.path.split("/").pop() || "documento.pdf";
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Length", String(body.length));
+      res.setHeader("Content-Disposition", `inline; filename="${fileName.replace(/"/g, "")}"`);
+      res.setHeader("Cache-Control", "private, max-age=300");
+      return res.send(body);
+    } catch (error: any) {
+      const status = /não encontrado/i.test(String(error?.message || "")) ? 404 : 500;
+      return res.status(status).json({
+        message: error?.message || "Não foi possível abrir o documento.",
       });
     }
   }

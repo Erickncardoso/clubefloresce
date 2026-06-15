@@ -21,6 +21,11 @@ import patientRoutes from "./routes/patient.routes";
 import { readEnv, maskSecret } from "./utils/env";
 import { getAllowedCorsOrigins, isOriginAllowed } from "./utils/cors-origins";
 import { isCloudinaryConfigured } from "./utils/cloudinary";
+import {
+  getDocumentUploadProvider,
+  getVideoUploadProvider,
+} from "./utils/media/media-config";
+import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "./utils/media/bunny-config";
 import { assertJwtSecretOnBoot } from "./utils/jwt";
 
 dotenv.config();
@@ -134,11 +139,36 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
     console.warn("[Bella] OPENAI_API_KEY ausente — Bella usará respostas locais limitadas.");
     console.warn("[Bella] Coolify: adicione OPENAI_API_KEY no serviço do BACKEND (apiclube), não no app cliente.");
   }
-  if (isCloudinaryConfigured()) {
-    console.log(`[Upload] Cloudinary configurado (cloud: ${process.env.CLOUDINARY_CLOUD_NAME}).`);
+  const videoProvider = getVideoUploadProvider();
+  const documentProvider = getDocumentUploadProvider();
+
+  if (videoProvider === "bunny") {
+    if (isBunnyStreamConfigured()) {
+      console.log(`[Upload] Vídeo via Bunny Stream (CDN: ${process.env.BUNNY_STREAM_CDN_HOSTNAME}).`);
+    } else {
+      console.warn("[Upload] MEDIA_VIDEO_PROVIDER=bunny, mas BUNNY_STREAM_* está incompleto.");
+    }
+  } else if (isCloudinaryConfigured()) {
+    console.log(`[Upload] Vídeo via Cloudinary (cloud: ${process.env.CLOUDINARY_CLOUD_NAME}).`);
   } else {
-    console.warn("[Upload] CLOUDINARY_* ausente — uploads de imagem/vídeo/PDF falharão em produção.");
-    console.warn("[Upload] Coolify: configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET no serviço apiclube.");
+    console.warn("[Upload] Vídeo indisponível — configure Cloudinary ou Bunny Stream.");
+  }
+
+  if (documentProvider === "bunny") {
+    if (isBunnyStorageConfigured()) {
+      const deliveryMode = process.env.BUNNY_STORAGE_USE_CDN === "true" ? "CDN" : "proxy assinado via API";
+      console.log(`[Upload] Documentos via Bunny Storage (${deliveryMode}).`);
+    } else {
+      console.warn("[Upload] MEDIA_DOCUMENT_PROVIDER=bunny, mas BUNNY_STORAGE_* está incompleto.");
+    }
+  } else if (isCloudinaryConfigured()) {
+    console.log(`[Upload] Documentos via Cloudinary (cloud: ${process.env.CLOUDINARY_CLOUD_NAME}).`);
+  } else {
+    console.warn("[Upload] Documentos indisponíveis — configure Cloudinary ou Bunny Storage.");
+  }
+
+  if (!isCloudinaryConfigured()) {
+    console.warn("[Upload] CLOUDINARY_* ausente — uploads de imagem (capas/thumbs) falharão.");
   }
 });
 

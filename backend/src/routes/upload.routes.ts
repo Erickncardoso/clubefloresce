@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { UploadController, upload, uploadVideo, uploadFile } from "../controllers/upload.controller";
 import { authenticate, authorize } from "../middleware/auth.middleware";
+import { getDocumentUploadMaxBytes } from "../utils/media/media-config";
 
 const router = Router();
 const uploadController = new UploadController();
@@ -23,10 +24,11 @@ function handleMulterUpload(middleware: any) {
       if (err.code === "LIMIT_FILE_SIZE") {
         const isVideo = String(req.originalUrl || "").includes("/video");
         const isDocument = String(req.originalUrl || "").includes("/file");
+        const docLimitMb = Math.round(getDocumentUploadMaxBytes() / (1024 * 1024));
         const message = isVideo
           ? "Arquivo de vídeo muito grande."
           : isDocument
-            ? "Documento muito grande. Limite de 40MB."
+            ? `Documento muito grande. Limite de ${docLimitMb}MB.`
             : "Arquivo muito grande. Limite de 100MB para imagens.";
         res.status(413).json({ message });
         return;
@@ -36,6 +38,14 @@ function handleMulterUpload(middleware: any) {
     });
   };
 }
+
+// Configuração de providers de mídia (Cloudinary/Bunny)
+router.get(
+  "/config",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  (req, res) => uploadController.getUploadConfig(req, res),
+);
 
 // Upload de IMAGEM (thumbnail, capa, etc.)
 router.post(
@@ -71,6 +81,12 @@ router.post(
   authorize(["NUTRICIONISTA"]),
   handleMulterUpload(uploadFile.single("file")),
   (req, res) => uploadController.handleFileUpload(req, res)
+);
+
+// Entrega de PDF/documento do Bunny Storage via URL assinada
+router.get(
+  "/document",
+  (req, res) => uploadController.streamDocument(req, res),
 );
 
 export default router;

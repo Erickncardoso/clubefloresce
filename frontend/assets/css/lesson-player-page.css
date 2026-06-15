@@ -249,6 +249,22 @@
   background: var(--aula-accent);
 }
 
+.conteudoAba--transcricao {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.conteudoAba--transcricao > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .conteudoAba,
 .painel-aula {
   padding: 1.25rem 1.35rem 1.75rem;
@@ -394,6 +410,120 @@
   margin: 0;
   font-size: 0.72rem;
   color: var(--aula-muted);
+}
+
+.resumo-editor__preview {
+  background: linear-gradient(180deg, #fafcf9 0%, #ffffff 100%);
+  border: 1px solid var(--aula-border);
+  border-radius: 1rem;
+  padding: 1.25rem 1.35rem;
+}
+
+.resumo-editor__edit-link {
+  margin-top: 0.85rem;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--aula-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.resumo-prose {
+  color: #374151;
+  font-size: 0.96rem;
+  line-height: 1.75;
+}
+
+.resumo-prose--compact {
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.resumo-prose__heading {
+  margin: 0 0 0.85rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--aula-accent, #2d5a27);
+  letter-spacing: -0.02em;
+}
+
+.resumo-prose__subheading {
+  margin: 1.15rem 0 0.65rem;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #1f2937;
+  letter-spacing: -0.01em;
+}
+
+.resumo-prose__p {
+  margin: 0 0 0.9rem;
+}
+
+.resumo-prose__p:last-child {
+  margin-bottom: 0;
+}
+
+.resumo-prose__list {
+  margin: 0.35rem 0 1rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.resumo-prose__list li {
+  position: relative;
+  padding-left: 1.35rem;
+  color: #4b5563;
+}
+
+.resumo-prose__list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--aula-accent, #2d5a27);
+  opacity: 0.85;
+}
+
+.resumo-prose__list--numbered {
+  counter-reset: resumo-item;
+}
+
+.resumo-prose__list--numbered li {
+  counter-increment: resumo-item;
+  padding-left: 1.85rem;
+}
+
+.resumo-prose__list--numbered li::before {
+  content: counter(resumo-item);
+  top: 0;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--aula-accent, #2d5a27);
+}
+
+.resumo-prose strong {
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.resumo-prose__empty {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.92rem;
 }
 
 .conteudoAba__vazio,

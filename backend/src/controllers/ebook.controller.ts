@@ -6,7 +6,8 @@ const ebookService = new EbookService();
 export class EbookController {
   async getAll(req: Request, res: Response): Promise<any> {
     try {
-      const ebooks = await ebookService.getAllEbooks();
+      const userId = req.user?.id;
+      const ebooks = await ebookService.getAllEbooks(userId);
       return res.json(ebooks);
     } catch (error: any) {
       return res.status(500).json({ message: error.message });
@@ -15,6 +16,7 @@ export class EbookController {
 
   async create(req: Request, res: Response): Promise<any> {
     try {
+      const userId = req.user?.id;
       const { title, description, fileUrl, thumbnail } = req.body || {};
 
       if (!String(title || "").trim()) {
@@ -29,7 +31,7 @@ export class EbookController {
         description: String(description || "").trim(),
         fileUrl: String(fileUrl).trim(),
         thumbnail: thumbnail ? String(thumbnail).trim() : null,
-      });
+      }, userId);
       return res.status(201).json(ebook);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
@@ -38,7 +40,8 @@ export class EbookController {
 
   async update(req: Request, res: Response): Promise<any> {
     try {
-      const ebook = await ebookService.updateEbook(req.params.id, req.body);
+      const userId = req.user?.id;
+      const ebook = await ebookService.updateEbook(req.params.id, req.body, userId);
       return res.json(ebook);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });

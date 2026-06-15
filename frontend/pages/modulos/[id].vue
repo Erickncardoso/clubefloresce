@@ -35,6 +35,8 @@
                 :youtube-id="activeYoutubeId || ''"
                 :poster="activeLesson.thumbnail || activeLesson.cover || ''"
                 :caption-url="activeCaptionUrl"
+                :lesson-id="activeLesson.id"
+                :transcription="activeLesson.transcription || []"
                 @ended="handleVideoEnded"
                 @timeupdate="videoCurrentTime = $event"
               >
@@ -81,7 +83,7 @@
               </div>
             </header>
 
-            <div v-if="activeLesson" class="abas">
+            <div v-if="activeLesson" class="abas" :class="{ 'abas--transcricao': activeTab === 'transcricao' }">
               <nav class="abas-aula" aria-label="Conteúdo da aula">
                 <button
                   v-for="tab in tabs"
@@ -104,7 +106,13 @@
                 </button>
               </nav>
 
-              <div class="conteudoAba" :class="{ 'conteudoAba--aulas': activeTab === 'aulas' }">
+              <div
+                class="conteudoAba"
+                :class="{
+                  'conteudoAba--aulas': activeTab === 'aulas',
+                  'conteudoAba--transcricao': activeTab === 'transcricao',
+                }"
+              >
                 <Transition name="fade-tab" mode="out-in">
                   <div :key="activeTab">
                     <template v-if="activeTab === 'resumo'">
@@ -118,9 +126,23 @@
                         :transcription="activeLesson.transcription || []"
                         @saved="onLessonSummarySaved"
                       />
-                      <p v-else class="conteudoAba__texto">
-                        {{ activeLesson.content || 'Nenhuma descrição disponível para esta aula.' }}
-                      </p>
+                      <CoursesLessonSummaryContent
+                        v-else
+                        :content="activeLesson.content || ''"
+                      />
+                    </template>
+
+                    <template v-else-if="activeTab === 'transcricao'">
+                      <CoursesLessonTranscriptionPanel
+                        :key="`transcription-${activeLesson.id}`"
+                        :lesson-id="activeLesson.id"
+                        :video-url="activeVideoUrl"
+                        :transcription="activeLesson.transcription || []"
+                        :current-time="videoCurrentTime"
+                        :can-sync="!isPatientApp"
+                        @seek="seekToTranscriptionLine({ seconds: $event })"
+                        @updated="onLessonTranscriptionUpdated"
+                      />
                     </template>
 
                     <template v-else-if="activeTab === 'quiz'">
@@ -131,17 +153,6 @@
                     </template>
 
                     <template v-else-if="activeTab === 'anotacoes'">
-                      <CoursesLessonSummaryPanel
-                        v-if="!isPatientApp"
-                        :key="`summary-compact-${activeLesson.id}`"
-                        compact
-                        :lesson-id="activeLesson.id"
-                        :lesson-title="activeLesson.title"
-                        :video-url="activeVideoUrl"
-                        :content="activeLesson.content || ''"
-                        :transcription="activeLesson.transcription || []"
-                        @saved="onLessonSummarySaved"
-                      />
                       <CoursesLessonNotesPanel
                         :key="`notes-${activeLesson.id}`"
                         :lesson-id="activeLesson.id"
@@ -427,12 +438,14 @@ import {
   Trash2,
   Heart,
   ClipboardList,
+  Captions,
   Link,
   StickyNote,
 } from 'lucide-vue-next'
 import { ref, onMounted, computed, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter, navigateTo } from '#app'
-import { getCloudinaryCaptionUrl, isCloudinaryVideoUrl, parseTranscriptionTimeToSeconds } from '~/utils/cloudinary-video'
+import { getVideoCaptionUrl } from '~/utils/video-provider'
+import { isCloudinaryVideoUrl, parseTranscriptionTimeToSeconds } from '~/utils/cloudinary-video'
 import { buildModuleUrl, findLessonBySlug } from '~/utils/course-slug'
 const route = useRoute()
 const router = useRouter()
@@ -458,6 +471,7 @@ const videoCurrentTime = ref(0)
 
 const tabs = [
   { id: 'resumo', label: 'Resumo', icon: Info },
+  { id: 'transcricao', label: 'Transcrição', icon: Captions },
   { id: 'quiz', label: 'Quiz', icon: ClipboardList },
   { id: 'anotacoes', label: 'Anotações', icon: StickyNote },
   { id: 'links', label: 'Links', icon: Link },
@@ -606,7 +620,7 @@ const activeVideoUrl = computed(() => getLessonVideoUrl(activeLesson.value))
 const activeYoutubeId = computed(() => extractYoutubeId(activeVideoUrl.value))
 const activeCaptionUrl = computed(() => {
   if (!activeVideoUrl.value || activeYoutubeId.value) return ''
-  return getCloudinaryCaptionUrl(activeVideoUrl.value)
+  return getVideoCaptionUrl(activeVideoUrl.value)
 })
 
 const activeVideoDebugLabel = computed(() => {
@@ -640,6 +654,16 @@ const handleVideoEnded = () => {
 const seekToTranscriptionLine = (line) => {
   const seconds = Number(line?.seconds ?? parseTranscriptionTimeToSeconds(line?.time))
   videoPlayerRef.value?.seekToSeconds?.(seconds)
+}
+
+const onLessonTranscriptionUpdated = (payload) => {
+  const transcription = payload?.transcription
+  if (!Array.isArray(transcription) || !moduleData.value?.lessons || !activeLesson.value) return
+  const idx = moduleData.value.lessons.findIndex((l) => l.id === activeLesson.value.id)
+  if (idx === -1) return
+  const updated = { ...moduleData.value.lessons[idx], transcription }
+  moduleData.value.lessons[idx] = updated
+  activeLesson.value = updated
 }
 
 const onLessonSummarySaved = (lesson) => {

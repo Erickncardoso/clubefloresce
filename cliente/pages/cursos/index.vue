@@ -677,7 +677,7 @@
                     <FileText class="pdf-icon-big" />
                     <span v-if="selectedEbookPdfFile">{{ selectedEbookPdfFile.name }}</span>
                     <span v-else>Clique para selecionar o PDF</span>
-                    <small v-if="!selectedEbookPdfFile" class="pdf-upload-hint">{{ EBOOK_PDF_UPLOAD_HINT }}</small>
+                    <small v-if="!selectedEbookPdfFile" class="pdf-upload-hint">{{ documentUploadHint }}</small>
                     <input ref="ebookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEbookPdfSelect" />
                   </div>
                 </div>
@@ -733,7 +733,7 @@
                     <FileText class="pdf-icon-big" />
                     <span v-if="selectedEditEbookPdfFile">{{ selectedEditEbookPdfFile.name }}</span>
                     <span v-else>Selecionar novo PDF (opcional)</span>
-                    <small v-if="!selectedEditEbookPdfFile" class="pdf-upload-hint">{{ EBOOK_PDF_UPLOAD_HINT }}</small>
+                    <small v-if="!selectedEditEbookPdfFile" class="pdf-upload-hint">{{ documentUploadHint }}</small>
                     <input ref="editEbookPdfInput" type="file" accept="application/pdf" class="file-input-hidden" @change="handleEditEbookPdfSelect" />
                   </div>
                 </div>
@@ -758,7 +758,8 @@
 
 <script setup>
 import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText } from 'lucide-vue-next'
-import { EBOOK_PDF_MAX_BYTES, EBOOK_PDF_MAX_LABEL, EBOOK_PDF_UPLOAD_HINT, isPdfFile } from '~/utils/upload-file-kind'
+import { isPdfFile } from '~/utils/upload-file-kind'
+import { useDocumentUploadLimits } from '~/composables/useUploadConfig'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { buildModuleUrl } from '~/utils/course-slug'
 
@@ -766,6 +767,7 @@ const config = useRuntimeConfig()
 const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
 const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
+const { documentMaxBytes, documentMaxLabel, documentUploadHint } = useDocumentUploadLimits()
 
 async function uploadImageToCloudinary(file, token) {
   const formData = new FormData()
@@ -1452,8 +1454,8 @@ const handleEbookPdfSelect = (e) => {
     alert('Selecione um arquivo PDF válido.')
     return
   }
-  if (file.size > EBOOK_PDF_MAX_BYTES) {
-    alert(`O PDF deve ter no máximo ${EBOOK_PDF_MAX_LABEL}.`)
+  if (file.size > documentMaxBytes.value) {
+    alert(`O PDF deve ter no máximo ${documentMaxLabel.value}.`)
     return
   }
   selectedEbookPdfFile.value = file
@@ -1529,8 +1531,8 @@ const handleEditEbookPdfSelect = (e) => {
     alert('Selecione um arquivo PDF válido.')
     return
   }
-  if (file.size > EBOOK_PDF_MAX_BYTES) {
-    alert(`O PDF deve ter no máximo ${EBOOK_PDF_MAX_LABEL}.`)
+  if (file.size > documentMaxBytes.value) {
+    alert(`O PDF deve ter no máximo ${documentMaxLabel.value}.`)
     return
   }
   selectedEditEbookPdfFile.value = file
