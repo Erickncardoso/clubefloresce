@@ -1014,7 +1014,7 @@ onBeforeUnmount(() => {
 .bella-chat-page {
   position: fixed;
   top: 0;
-  bottom: 0;
+  bottom: var(--cf-tab-h);
   left: 50%;
   transform: translateX(-50%);
   z-index: 40;
@@ -1026,7 +1026,6 @@ onBeforeUnmount(() => {
   background: var(--cf-bg);
   overflow: hidden;
   box-sizing: border-box;
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .bella-chat-sticky {
@@ -1081,7 +1080,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
-  padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
 }
 
 .bella-loading {
