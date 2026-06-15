@@ -18,7 +18,9 @@
   --cf-fab-size: 3.25rem;
   --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.75rem);
   --cf-tab-nav-h: 3rem;
-  --cf-tab-h: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + env(safe-area-inset-bottom, 0px));
+  --cf-tab-struct: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h));
+  --cf-tab-h: calc(var(--cf-tab-struct) + env(safe-area-inset-bottom, 0px));
+  --cf-tab-clearance: calc(var(--cf-tab-h) + 0.75rem);
   --cf-avatar-mask: url('/icons/userAvatar.svg');
   --cf-space-1: 0.25rem;
   --cf-space-2: 0.5rem;
@@ -110,19 +112,28 @@ html:has(.patient-login-mode):not(:has(.patient-shell)) #__nuxt {
   background: #ffffff;
 }
 
-html:has(.cf-tab-bar) .patient-shell-body,
-html:has(.cf-tab-bar-wrap) .patient-shell-body,
-html:has(.cf-tab-bar) .patient-page,
-html:has(.cf-tab-bar-wrap) .patient-page,
-html:has(.cf-tab-bar) .onboarding-page,
-html:has(.cf-tab-bar-wrap) .onboarding-page,
-html:has(.cf-tab-bar) .bella-chat-page,
-html:has(.cf-tab-bar-wrap) .bella-chat-page,
-html:has(.cf-tab-bar) .player-wrapper,
-html:has(.cf-tab-bar-wrap) .player-wrapper,
-html:has(.cf-tab-bar) .lesson-design-page,
-html:has(.cf-tab-bar-wrap) .lesson-design-page {
-  padding-bottom: calc(var(--cf-tab-h) + 0.5rem);
+html:has(.cf-tab-bar-wrap) .patient-shell-body {
+  scroll-padding-bottom: var(--cf-tab-clearance);
+}
+
+html:has(.bella-chat-page) .patient-shell,
+html:has(.bella-chat-page) .patient-shell-body {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+html:has(.bella-chat-page) .patient-shell-body {
+  display: flex;
+  flex-direction: column;
+}
+
+html:has(.cf-tab-bar-wrap) .lesson-design-page,
+html:has(.cf-tab-bar-wrap) .onboarding-page {
+  padding-bottom: var(--cf-tab-clearance);
+  box-sizing: border-box;
 }
 
 .patient-shell .patient-page,
@@ -142,6 +153,7 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   right: 0;
   bottom: 0;
   z-index: 100;
+  min-height: var(--cf-tab-struct);
   padding-top: var(--cf-tab-fab-rise);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--cf-surface);
@@ -149,10 +161,13 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   box-sizing: border-box;
 }
 
-@media (display-mode: browser) {
-  .cf-tab-bar-wrap {
-    padding-bottom: 0;
-  }
+.patient-page--with-tab {
+  padding-bottom: var(--cf-tab-clearance);
+  box-sizing: border-box;
+}
+
+.patient-shell .patient-page.patient-page--with-tab {
+  padding-bottom: var(--cf-tab-clearance);
 }
 
 .cf-card {

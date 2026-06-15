@@ -1,8 +1,4 @@
 /* Ajustes do app paciente — safe areas */
-.bella-input-bar {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
 html,
 body {
   -webkit-tap-highlight-color: transparent;

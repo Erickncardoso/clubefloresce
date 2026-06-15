@@ -137,22 +137,22 @@
                 <div class="progresso" :style="{ width: `${progressPercent}%` }">
                   <span class="thumb"><span class="pulso" /></span>
                 </div>
-              </div>
-              <div
-                v-if="videoChapters.length && chapterDuration"
-                class="chapterMarks"
-                aria-hidden="true"
-              >
-                <button
-                  v-for="(chapter, index) in videoChapters"
-                  :key="`chapter-${chapter.start}-${index}`"
-                  type="button"
-                  class="chapterMark"
-                  :style="{ left: `${(chapter.start / chapterDuration) * 100}%` }"
-                  :title="chapter.title"
-                  @mousedown.stop
-                  @click.stop="seekToSeconds(chapter.start)"
-                />
+                <div
+                  v-if="videoChapters.length && chapterDuration"
+                  class="chapterMarks"
+                  aria-hidden="true"
+                >
+                  <button
+                    v-for="(chapter, index) in videoChapters"
+                    :key="`chapter-${chapter.start}-${index}`"
+                    type="button"
+                    class="chapterMark"
+                    :style="{ left: `${(chapter.start / chapterDuration) * 100}%` }"
+                    :title="chapter.title"
+                    @mousedown.stop
+                    @click.stop="seekToSeconds(chapter.start)"
+                  />
+                </div>
               </div>
               <Transition name="thumb-hover">
                 <div

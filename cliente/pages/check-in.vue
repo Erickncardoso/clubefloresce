@@ -443,7 +443,7 @@ onMounted(async () => {
   flex-direction: column;
   min-height: 100dvh;
   padding: 0;
-  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 1.25rem);
+  padding-bottom: calc(var(--cf-tab-clearance) + 0.5rem);
   box-sizing: border-box;
   background: var(--cf-bg);
 }

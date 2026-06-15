@@ -299,7 +299,7 @@ onMounted(loadLibrary)
 <style scoped>
 .biblioteca-page {
   padding-top: 0;
-  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+  padding-bottom: var(--cf-tab-clearance);
   overflow-y: visible;
 }
 

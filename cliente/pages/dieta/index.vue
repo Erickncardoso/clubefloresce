@@ -304,7 +304,7 @@ watch(
 .patient-page.dieta-page {
   padding-inline: 1.25rem;
   padding-top: 0;
-  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+  padding-bottom: calc(var(--cf-tab-clearance) + 0.25rem);
   box-sizing: border-box;
 }
 

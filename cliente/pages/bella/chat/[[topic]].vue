@@ -75,6 +75,13 @@
                 @click="onMessageContentClick"
                 v-html="formatMessageContent(msg.content)"
               />
+              <BellaSwapButtons
+                v-if="isActiveSwapMessage(msg)"
+                :message="msg"
+                :disabled="sending"
+                @select="(option) => handleSwapSelection(msg, option)"
+                @mode="(action) => handleSwapModeAction(msg, action)"
+              />
             </template>
           </div>
         </div>
@@ -172,8 +179,8 @@
             <input
               v-model="draft"
               type="text"
-              :placeholder="topicConfig.placeholder"
-              :disabled="sending"
+              :placeholder="composerPlaceholder"
+              :disabled="sending || swapSelectionLocked"
               maxlength="4000"
               autocomplete="off"
             />
@@ -215,6 +222,11 @@ import {
   shouldShowUserMessageText,
 } from '~/utils/bella-message-format'
 import { normalizeMealItemsForSave } from '~/utils/meal-diary'
+import {
+  findActiveSwapMessage,
+  hasActiveSwapMode,
+  hasActiveSwapSelection,
+} from '~/utils/bella-swap'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
@@ -265,7 +277,34 @@ const fileAccept = computed(() => {
   return parts.join(',')
 })
 
-const canSend = computed(() => Boolean(draft.value.trim() || selectedFile.value))
+const canSend = computed(() => {
+  if (swapSelectionLocked.value) return false
+  return Boolean(draft.value.trim() || selectedFile.value)
+})
+
+const activeSwapMessage = computed(() => (
+  chatTopic.value === 'swap' ? findActiveSwapMessage(messages.value) : null
+))
+
+const swapSelectionLocked = computed(() => (
+  Boolean(activeSwapMessage.value && hasActiveSwapSelection(activeSwapMessage.value))
+))
+
+const composerPlaceholder = computed(() => {
+  if (swapSelectionLocked.value) return 'Use os botões acima para escolher'
+  if (activeSwapMessage.value && hasActiveSwapMode(activeSwapMessage.value)) {
+    return 'Digite o alimento que quer incluir...'
+  }
+  return topicConfig.value.placeholder
+})
+
+function isActiveSwapMessage(msg) {
+  return Boolean(
+    chatTopic.value === 'swap'
+    && activeSwapMessage.value
+    && msg?.id === activeSwapMessage.value.id,
+  )
+}
 
 function formatChatError(err) {
   const raw = err?.data?.message || err?.message || ''
@@ -459,7 +498,8 @@ const loadMessages = async () => {
     messages.value = data.messages || []
     aiEnabled.value = data.aiEnabled !== false
     if (data.dailySummary) dailySummary.value = data.dailySummary
-    if (!messages.value.length) seedWelcomeMessage()
+    if (!messages.value.length && chatTopic.value !== 'swap') seedWelcomeMessage()
+    if (chatTopic.value === 'swap') await ensureSwapFlowStarted()
   } finally {
     loadingMessages.value = false
   }
@@ -467,12 +507,114 @@ const loadMessages = async () => {
   await scrollToBottomAfterLayout()
 }
 
+async function postSwapChat(body, userLabel = '') {
+  chatError.value = ''
+  sending.value = true
+  const startedAt = Date.now()
+  startTypingIndicator()
+
+  const tempId = `temp-${Date.now()}`
+  if (userLabel) {
+    messages.value.push({
+      id: tempId,
+      role: 'user',
+      content: userLabel,
+      metadata: { topic: 'swap' },
+    })
+    await scrollToBottom()
+  }
+
+  try {
+    const res = await $fetch(`${apiBase}/bella/chat`, {
+      method: 'POST',
+      headers: patientTimeHeaders(),
+      body: { topic: 'swap', ...body },
+    })
+
+    if (userLabel) {
+      const tempIndex = messages.value.findIndex((m) => m.id === tempId)
+      if (tempIndex >= 0) {
+        if (res.userMessage) messages.value[tempIndex] = res.userMessage
+        else messages.value.splice(tempIndex, 1)
+      }
+    }
+
+    await applyChatResponse(res, startedAt)
+    return res
+  } catch (err) {
+    if (userLabel) messages.value = messages.value.filter((m) => m.id !== tempId)
+    chatError.value = formatChatError(err)
+    throw err
+  } finally {
+    stopTypingIndicator()
+    sending.value = false
+    await scrollToBottom()
+  }
+}
+
+async function applyChatResponse(res, startedAt) {
+  if (res.requiresMealConfirmation && res.mealDraft) {
+    mealDraft.value = res.mealDraft
+    if (res.dailySummary) dailySummary.value = res.dailySummary
+    await finishTypingIndicator(startedAt)
+    if (res.message) messages.value.push(res.message)
+    showMealModal.value = true
+    mealConfirmError.value = ''
+    return
+  }
+
+  if (res.message) {
+    await finishTypingIndicator(startedAt)
+    messages.value.push(res.message)
+  }
+}
+
+async function ensureSwapFlowStarted() {
+  if (findActiveSwapMessage(messages.value)) return
+  if (messages.value.some((m) => m.role === 'assistant')) return
+  await postSwapChat({ swapAction: 'init' })
+}
+
+async function handleSwapSelection(assistantMsg, option) {
+  if (!assistantMsg?.id || !option?.id || sending.value) return
+  const meta = assistantMsg.metadata || {}
+  const step = meta.swapStep
+
+  if (step === 'food') {
+    await postSwapChat({
+      swapAction: 'select_food',
+      swapMealId: meta.swapMealId,
+      swapFoodKey: option.id,
+      swapSelectionMessageId: assistantMsg.id,
+    }, option.label)
+    return
+  }
+
+  await postSwapChat({
+    swapAction: 'select_meal',
+    swapMealId: option.id,
+    swapSelectionMessageId: assistantMsg.id,
+  }, option.label)
+}
+
+async function handleSwapModeAction(assistantMsg, action) {
+  if (!assistantMsg?.id || sending.value) return
+  const meta = assistantMsg.metadata || {}
+
+  await postSwapChat({
+    swapAction: action,
+    swapMealId: meta.swapMealId,
+    swapFoodKey: meta.swapFoodKey,
+    swapSelectionMessageId: assistantMsg.id,
+  }, action === 'show_suggestions' ? 'Ver sugestões' : '')
+}
+
 const retryLoad = async () => {
   try {
     await loadMessages()
     await loadDailySummary()
   } catch (err) {
-    seedWelcomeMessage()
+    if (chatTopic.value !== 'swap') seedWelcomeMessage()
     chatError.value = formatChatError(err)
   }
 }
@@ -589,6 +731,24 @@ const sendMessage = async () => {
   const text = draft.value.trim()
   const file = selectedFile.value
   if ((!text && !file) || sending.value) return
+
+  if (chatTopic.value === 'swap') {
+    const activeSwap = activeSwapMessage.value
+    if (activeSwap && hasActiveSwapMode(activeSwap)) {
+      if (!text) return
+      const meta = activeSwap.metadata || {}
+      draft.value = ''
+      await postSwapChat({
+        swapAction: 'custom_food',
+        message: text,
+        swapMealId: meta.swapMealId,
+        swapFoodKey: meta.swapFoodKey,
+        swapSelectionMessageId: activeSwap.id,
+      }, text)
+      return
+    }
+    if (swapSelectionLocked.value) return
+  }
 
   chatError.value = ''
   sending.value = true
@@ -718,7 +878,7 @@ async function bootstrapChat() {
       openCamera()
     }
   } catch (err) {
-    seedWelcomeMessage()
+    if (chatTopic.value !== 'swap') seedWelcomeMessage()
     chatError.value = formatChatError(err)
   }
 }
@@ -741,11 +901,15 @@ onBeforeUnmount(() => {
 .bella-chat-page {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - var(--cf-tab-h) - env(safe-area-inset-top, 0px));
+  flex: 1;
+  width: 100%;
   max-width: 430px;
+  min-height: 0;
+  height: 100%;
   margin: 0 auto;
   background: var(--cf-bg);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .bella-chat-page :deep(.diary-bar) {
@@ -991,6 +1155,10 @@ onBeforeUnmount(() => {
   box-shadow: var(--cf-shadow);
 }
 
+.bella-bubble--bot:has(.bella-swap-actions) {
+  width: min(100%, 18.5rem);
+}
+
 .bella-bubble--typing {
   display: flex;
   align-items: center;
@@ -1036,7 +1204,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: max(0.65rem, env(safe-area-inset-bottom, 0px));
 }
 
 .bella-composer-shell {
@@ -1163,7 +1331,7 @@ onBeforeUnmount(() => {
 }
 
 .bella-input-bar {
-  padding: 0.65rem 1.25rem 0.75rem;
+  padding: 0.65rem 1.25rem 0.5rem;
 }
 
 .bella-file-input {

@@ -330,7 +330,7 @@ onUnmounted(() => {
 .comm-page {
   padding-top: 0;
   padding-inline: 1.25rem;
-  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 0.5rem);
+  padding-bottom: var(--cf-tab-clearance);
 }
 
 .comm-header-btn {

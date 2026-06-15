@@ -1,5 +1,5 @@
 <template>
-  <div class="patient-page bella-page">
+  <div class="patient-page bella-page patient-page--with-tab">
     <PatientHeader show-back back-to="/inicio" :show-bell="false" />
 
     <header class="bella-hero">
@@ -56,7 +56,7 @@ onMounted(() => {
 .patient-page.bella-page {
   padding-inline: 1.25rem;
   padding-top: 0;
-  padding-bottom: calc(var(--cf-tab-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+  min-height: 100%;
   box-sizing: border-box;
 }
 
@@ -183,6 +183,7 @@ onMounted(() => {
 .bella-chat-link {
   text-decoration: none;
   margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

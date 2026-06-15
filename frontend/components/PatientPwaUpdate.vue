@@ -141,7 +141,7 @@ onUnmounted(() => {
 .pwa-update-fab {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--cf-tab-h, 4.5rem) + 0.75rem + env(safe-area-inset-bottom, 0px));
+  bottom: var(--cf-tab-clearance);
   z-index: 450;
   display: inline-flex;
   align-items: center;

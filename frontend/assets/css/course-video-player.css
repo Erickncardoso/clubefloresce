@@ -339,15 +339,15 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: 14px;
-  bottom: 10px;
+  top: 50%;
   z-index: 3;
+  height: 0;
   pointer-events: none;
 }
 
 .florescerPlayer .chapterMark {
   position: absolute;
-  top: 50%;
+  top: 0;
   width: 7px;
   height: 7px;
   min-width: 7px;
