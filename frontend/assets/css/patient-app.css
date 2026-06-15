@@ -19,7 +19,7 @@
   --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.75rem);
   --cf-tab-nav-h: 3rem;
   --cf-tab-nav-pad-y: 0.625rem;
-  --cf-tab-safe-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  --cf-tab-safe-bottom: env(safe-area-inset-bottom, 0px);
   --cf-tab-struct: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + var(--cf-tab-nav-pad-y));
   --cf-tab-h: calc(var(--cf-tab-struct) + var(--cf-tab-safe-bottom));
   --cf-tab-clearance: calc(var(--cf-tab-h) + 0.75rem);
@@ -132,11 +132,22 @@ html.bella-chat-active .patient-shell-body {
   padding-bottom: 0;
 }
 
+html:has(.bella-chat-page):has(.cf-tab-bar-wrap) .patient-shell,
+html.bella-chat-active:has(.cf-tab-bar-wrap) .patient-shell,
+html:has(.bella-chat-page):has(.cf-tab-bar-wrap) .patient-shell-body,
+html.bella-chat-active:has(.cf-tab-bar-wrap) .patient-shell-body {
+  height: calc(100svh - var(--cf-tab-h));
+  max-height: calc(100svh - var(--cf-tab-h));
+  min-height: calc(100svh - var(--cf-tab-h));
+}
+
 html.bella-chat-active,
-html.bella-chat-active body {
+html.bella-chat-active body,
+html.bella-chat-active #__nuxt {
   overflow: hidden !important;
-  height: 100%;
   height: 100svh;
+  max-height: 100svh;
+  min-height: 100svh;
   overscroll-behavior: none;
 }
 
@@ -170,6 +181,15 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   box-sizing: border-box;
 }
 
+html:has(.cf-tab-bar-wrap) .patient-shell .patient-page,
+html:has(.cf-tab-bar-wrap) .patient-page {
+  padding-bottom: var(--cf-tab-clearance);
+}
+
+html:has(.cf-tab-bar-wrap) .bella-composer {
+  padding-bottom: 0.65rem;
+}
+
 /* Tab bar */
 .cf-tab-bar-wrap {
   position: fixed;
@@ -177,6 +197,7 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   right: 0;
   bottom: 0;
   z-index: 100;
+  height: var(--cf-tab-h);
   min-height: var(--cf-tab-h);
   padding-top: var(--cf-tab-fab-rise);
   padding-bottom: var(--cf-tab-safe-bottom);
@@ -252,8 +273,18 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   overflow: hidden;
 }
 
+.cf-squircle--surface {
+  --cf-squircle-r: var(--cf-radius-surface, var(--cf-radius-xl));
+  border-radius: var(--cf-squircle-r);
+  overflow: hidden;
+}
+
 @supports (corner-shape: squircle) {
   .cf-squircle--control {
+    corner-shape: squircle;
+  }
+
+  .cf-squircle--surface {
     corner-shape: squircle;
   }
 }
@@ -602,6 +633,33 @@ html:has(.cf-tab-bar-wrap) body {
   font-family: var(--cf-font);
 }
 
+.patient-login-mode--scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.patient-auth--register {
+  align-items: flex-start;
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  padding-top: calc(0.75rem + env(safe-area-inset-top));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+
+.patient-auth--register .patient-auth-inner {
+  padding-bottom: 0.5rem;
+}
+
+.patient-auth--register .patient-auth-header {
+  margin-bottom: 0.15rem;
+}
+
+.patient-auth--register .patient-auth-form {
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
 .patient-auth {
   flex: 1;
   width: 100%;
@@ -643,6 +701,10 @@ html:has(.cf-tab-bar-wrap) body {
   border-radius: var(--cf-radius-surface);
   padding: 1.35rem;
   box-shadow: var(--cf-shadow);
+}
+
+.patient-login-mode .patient-auth-card.cf-squircle--surface {
+  border-radius: var(--cf-squircle-r, var(--cf-radius-surface));
 }
 
 .patient-auth-header h2 {
@@ -708,6 +770,10 @@ html:has(.cf-tab-bar-wrap) body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.patient-login-mode .input-wrapper.cf-squircle--control {
+  border-radius: var(--cf-squircle-r, var(--cf-radius-control));
+}
+
 @supports (corner-shape: squircle) {
   .patient-login-mode .input-wrapper {
     corner-shape: squircle;
@@ -716,6 +782,7 @@ html:has(.cf-tab-bar-wrap) body {
 
 .patient-login-mode .input-wrapper input {
   flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   padding: 0.95rem 0 0.85rem;
@@ -723,6 +790,89 @@ html:has(.cf-tab-bar-wrap) body {
   font-size: 0.95rem;
   color: var(--cf-text);
   outline: none;
+}
+
+.patient-login-mode .input-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #b8c0bd;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.patient-login-mode .form-group.focused .input-icon {
+  color: var(--cf-pink);
+}
+
+.patient-login-mode .password-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0.25rem;
+  margin-left: 0.15rem;
+  cursor: pointer;
+  color: #b0b8b5;
+  flex-shrink: 0;
+}
+
+.patient-login-mode .password-toggle-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.patient-login-mode .form-group--textarea label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+  color: var(--cf-text);
+}
+
+.patient-login-mode .patient-textarea {
+  width: 100%;
+  border: 1.5px solid #e8ece9;
+  padding: 0.85rem 1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--cf-text);
+  resize: vertical;
+  min-height: 4.75rem;
+  background: var(--cf-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.patient-login-mode .form-group--textarea.focused .patient-textarea {
+  border-color: #d4a8ac;
+  box-shadow: 0 0 0 3px rgba(201, 137, 142, 0.1);
+}
+
+.patient-login-mode .field-hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.74rem;
+  color: var(--cf-text-muted);
+  line-height: 1.35;
+}
+
+.patient-login-mode .cf-phone-field.field--float > label {
+  z-index: 3;
+}
+
+.patient-login-mode .cf-phone-field.focused > label {
+  color: var(--cf-pink);
+}
+
+@supports (corner-shape: squircle) {
+  .patient-login-mode .cf-phone-input.cf-squircle--control {
+    corner-shape: squircle;
+  }
+}
+
+@supports (corner-shape: squircle) {
+  .patient-login-mode .patient-textarea.cf-squircle--control {
+    corner-shape: squircle;
+  }
 }
 
 .patient-login-mode .form-group.focused .input-wrapper {
@@ -735,13 +885,23 @@ html:has(.cf-tab-bar-wrap) body {
   min-height: 3rem;
   border: none;
   border-radius: var(--cf-radius-control);
-  background: var(--cf-green);
+  background: var(--cf-pink);
   color: #fff;
   font-family: inherit;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s ease;
+  margin-top: 0.25rem;
+}
+
+.patient-auth-submit:hover:not(:disabled) {
+  background: var(--cf-pink-dark);
+}
+
+.patient-auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @supports (corner-shape: squircle) {
@@ -761,6 +921,74 @@ html:has(.cf-tab-bar-wrap) body {
   color: var(--cf-pink);
   font-weight: 600;
   text-decoration: none;
+}
+
+.patient-login-mode .modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(20, 20, 20, 0.42);
+}
+
+.patient-login-mode .modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-border);
+  border-radius: var(--cf-radius-surface);
+  padding: 1.35rem;
+  box-shadow: var(--cf-shadow-lg);
+}
+
+@supports (corner-shape: squircle) {
+  .patient-login-mode .modal-card.cf-squircle--surface,
+  .patient-login-mode .patient-auth-card.cf-squircle--surface {
+    corner-shape: squircle;
+  }
+}
+
+.patient-login-mode .modal-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cf-text);
+}
+
+.patient-login-mode .modal-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--cf-text-muted);
+}
+
+.patient-login-mode .modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  margin-top: 0.85rem;
+}
+
+.patient-login-mode .error-banner {
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  color: #c53030;
+  padding: 1rem;
+  border-radius: var(--cf-radius-control);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 600;
+}
+
+@supports (corner-shape: squircle) {
+  .patient-login-mode .error-banner.cf-squircle--control {
+    corner-shape: squircle;
+  }
 }
 
 /* Transição suave entre páginas do app paciente */

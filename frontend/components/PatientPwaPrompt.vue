@@ -1,5 +1,11 @@
 <script setup>
 import { X } from 'lucide-vue-next'
+import {
+  hasInstalledPwa,
+  isPwaUpdating,
+  isStandalonePwa,
+  markPwaInstalled,
+} from '~/utils/pwa-standalone'
 
 const config = useRuntimeConfig()
 const nuxtApp = useNuxtApp()
@@ -12,11 +18,19 @@ const dismissedKey = 'cf-pwa-prompt-dismissed'
 /** @type {import('vue').Ref<BeforeInstallPromptEvent | null>} */
 const deferredPrompt = ref(null)
 
-function isStandaloneMode() {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia('(display-mode: standalone)').matches
-    || window.matchMedia('(display-mode: fullscreen)').matches
-    || Boolean(window.navigator.standalone)
+function shouldSkipPrompt() {
+  if (!config.public.mobileApp) return true
+  if (isPwaUpdating()) return true
+  if (hasInstalledPwa()) return true
+  if (nuxtApp.$pwa?.isPWAInstalled?.value) {
+    markPwaInstalled()
+    return true
+  }
+  if (isStandalonePwa()) {
+    markPwaInstalled()
+    return true
+  }
+  return false
 }
 
 function dismiss() {
@@ -63,12 +77,19 @@ function syncFromModule() {
 }
 
 onMounted(() => {
-  if (!config.public.mobileApp || isStandaloneMode()) return
+  if (shouldSkipPrompt()) return
 
   const ua = window.navigator.userAgent || ''
   isIos.value = /iPad|iPhone|iPod/.test(ua) && !window.MSStream
 
   if (sessionStorage.getItem(dismissedKey)) return
+
+  watch(
+    () => isPwaUpdating(),
+    (updating) => {
+      if (updating) visible.value = false
+    },
+  )
 
   if (isIos.value) {
     visible.value = true

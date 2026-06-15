@@ -1,8 +1,7 @@
 import { PrismaClient, Prisma } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import type { OrchestratorMeta } from "../services/bella/types";
 import { normalizeTopic } from "../services/bella/topics";
-
-const prisma = new PrismaClient();
 
 export class BellaRepository {
   async findRecentByUser(userId: string, topic?: string, limit = 40) {

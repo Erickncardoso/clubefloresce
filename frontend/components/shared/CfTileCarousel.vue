@@ -106,7 +106,7 @@ function onScroll() {
 
 <style scoped>
 .cf-tile-carousel-wrap {
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.5rem;
 }
 
 .cf-tile-carousel {
@@ -122,7 +122,7 @@ function onScroll() {
   scrollbar-width: none;
   margin-inline: calc(-1 * v-bind(inset));
   padding-inline: v-bind(inset);
-  padding-bottom: 0.15rem;
+  padding-bottom: 0.35rem;
   --cf-tile-card-w: 9.75rem;
 }
 

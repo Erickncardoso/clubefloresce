@@ -1,8 +1,15 @@
 <script setup>
 import { RefreshCw } from 'lucide-vue-next'
+import {
+  clearPwaUpdating,
+  isPwaUpdating,
+  markPwaUpdating,
+  reloadPwaInPlace,
+} from '~/utils/pwa-standalone'
 
 const IDLE_MS = 45_000
 const CHECK_MS = 5_000
+const IOS_RELOAD_FALLBACK_MS = 1_200
 
 const { $pwa } = useNuxtApp()
 const visible = ref(false)
@@ -12,6 +19,7 @@ const lastActivity = ref(Date.now())
 
 let idleTimer = null
 let checkTimer = null
+let reloadFallbackTimer = null
 
 function getNeedRefresh() {
   return Boolean($pwa?.needRefresh?.value ?? $pwa?.needRefresh)
@@ -27,12 +35,40 @@ function touchActivity() {
   lastActivity.value = Date.now()
 }
 
-function applyUpdate() {
+function clearReloadFallback() {
+  if (reloadFallbackTimer !== null) {
+    clearTimeout(reloadFallbackTimer)
+    reloadFallbackTimer = null
+  }
+}
+
+function scheduleReloadFallback() {
+  clearReloadFallback()
+  reloadFallbackTimer = window.setTimeout(() => {
+    if (!isPwaUpdating()) return
+    clearPwaUpdating()
+    reloadPwaInPlace()
+  }, IOS_RELOAD_FALLBACK_MS)
+}
+
+async function applyUpdate() {
   if (updating.value || !pendingUpdate.value) return
   updating.value = true
   visible.value = false
   stopWatchers()
-  $pwa?.updateServiceWorker(true)
+  markPwaUpdating()
+
+  try {
+    // false = only activate the waiting worker; we control the reload ourselves.
+    await $pwa?.updateServiceWorker?.(false)
+  } catch {
+    clearPwaUpdating()
+    reloadPwaInPlace()
+    return
+  }
+
+  // Safari/iOS often never fires controllerchange after skipWaiting.
+  scheduleReloadFallback()
 }
 
 function tryAutoUpdate() {
@@ -82,11 +118,14 @@ function stopWatchers() {
     clearInterval(checkTimer)
     checkTimer = null
   }
+  clearReloadFallback()
 }
 
 const activityEvents = ['touchstart', 'touchmove', 'scroll', 'keydown', 'pointerdown', 'click']
 
 onMounted(() => {
+  clearPwaUpdating()
+
   if (import.meta.dev) return
 
   for (const event of activityEvents) {

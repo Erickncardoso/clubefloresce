@@ -86,7 +86,7 @@ export function usePatientApp() {
       persistSession(user)
       await patientAuth.refreshSession()
     } catch (err) {
-      if (patientAuth.isSessionExpiredError(err)) {
+      if (patientAuth.isSessionExpiredError(err) || patientAuth.isPatientAccessRevokedError(err)) {
         clearPatientSession()
       } else {
         hydrateProfile()

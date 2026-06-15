@@ -1,5 +1,11 @@
 /** Sessão persistente do app paciente (PWA). */
 
+import {
+  getFetchErrorMessage,
+  isPatientAccessBlockedError,
+  isPatientAccessBlockedMessage,
+} from '~/utils/patient-access'
+
 const TOKEN_KEY = 'auth_token'
 const TOKEN_BACKUP_KEY = 'auth_token_backup'
 
@@ -82,12 +88,10 @@ export function usePatientAuth() {
   }
 
   function isSessionExpiredError(err: unknown): boolean {
+    if (isPatientAccessBlockedError(err)) return true
+
     if (!isUnauthorizedError(err)) return false
-    const message = String(
-      (err as { data?: { message?: string }; message?: string })?.data?.message
-      || (err as { message?: string })?.message
-      || '',
-    ).toLowerCase()
+    const message = getFetchErrorMessage(err).toLowerCase()
     return message.includes('token')
       || message.includes('sessão')
       || message.includes('sessao')
@@ -97,6 +101,11 @@ export function usePatientAuth() {
       || message.includes('não autorizado')
       || message.includes('nao autorizado')
       || message.includes('acesso expirado')
+  }
+
+  function isPatientAccessRevokedError(err: unknown): boolean {
+    return isPatientAccessBlockedError(err)
+      || isPatientAccessBlockedMessage(getFetchErrorMessage(err))
   }
 
   async function refreshSession(): Promise<boolean> {
@@ -122,7 +131,7 @@ export function usePatientAuth() {
       }
       return false
     } catch (err) {
-      if (isSessionExpiredError(err)) {
+      if (isSessionExpiredError(err) || isPatientAccessRevokedError(err)) {
         clearSession()
       }
       return false
@@ -147,6 +156,7 @@ export function usePatientAuth() {
     authHeaders,
     isUnauthorizedError,
     isSessionExpiredError,
+    isPatientAccessRevokedError,
     refreshSession,
     ensureSession,
   }

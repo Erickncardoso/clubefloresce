@@ -1012,17 +1012,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .bella-chat-page {
-  position: fixed;
-  top: 0;
-  bottom: var(--cf-tab-h);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: 430px;
-  margin: 0;
+  margin: 0 auto;
   background: var(--cf-bg);
   overflow: hidden;
   box-sizing: border-box;
@@ -1080,7 +1077,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   background: var(--cf-surface);
   border-top: 1px solid var(--cf-border);
-  padding-bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 0.65rem;
 }
 
 .bella-loading {

@@ -1,47 +1,41 @@
 <template>
-  <div class="auth-container patient-login-mode">
-    <main class="patient-auth">
+  <div class="auth-container patient-login-mode patient-login-mode--scroll">
+    <main class="patient-auth patient-auth--register">
       <div class="patient-auth-inner">
-        <header class="patient-auth-brand">
-          <img src="/logoflorescer.svg" alt="Florescer" class="patient-auth-logo" width="120" height="36">
-          <p class="patient-auth-tagline">App do paciente</p>
-        </header>
-
-        <div v-if="submitted" class="patient-auth-card patient-success-card">
+        <div v-if="submitted" class="patient-auth-card cf-squircle cf-squircle--surface patient-success-card">
           <div class="success-icon-wrap" aria-hidden="true">
             <CheckCircle2 class="success-icon" />
           </div>
           <h2>Solicitação enviada!</h2>
           <p>
-            Recebemos seus dados. A nutricionista vai analisar e entrar em contato
-            para liberar seu acesso ao app.
+            Recebemos seus dados. Quando a nutricionista aprovar seu acesso,
+            você já poderá entrar com o e-mail e a senha que escolheu.
           </p>
-          <p class="success-note">Você receberá orientações no e-mail informado.</p>
+          <p class="success-note">Avisaremos você por e-mail assim que estiver tudo pronto.</p>
           <NuxtLink to="/" class="btn-auth-submit patient-auth-submit cf-squircle--control success-back-btn">
             Voltar para o login
           </NuxtLink>
         </div>
 
-        <div v-else class="patient-auth-card">
+        <div v-else class="patient-auth-card cf-squircle cf-squircle--surface">
           <header class="patient-auth-header">
             <NuxtLink to="/" class="back-link">
               <ArrowLeft class="back-link-icon" aria-hidden="true" />
               Voltar
             </NuxtLink>
             <h2>Solicitar cadastro</h2>
-            <p>Preencha seus dados. A nutricionista Isabella Jardim analisará e liberará seu acesso.</p>
+            <p>Crie sua senha e envie seus dados. A nutricionista analisará e liberará seu acesso.</p>
           </header>
 
           <form class="auth-form patient-auth-form" @submit.prevent="handlePatientRequest">
-            <div class="form-group" :class="{ focused: focusedField === 'name' }">
+            <div class="form-group field--float" :class="{ focused: focusedField === 'name' }">
               <label for="req-name">Nome completo</label>
-              <div class="input-wrapper">
+              <div class="input-wrapper cf-squircle--control">
                 <User class="input-icon" />
                 <input
                   id="req-name"
                   v-model="patientForm.name"
                   type="text"
-                  placeholder="Como você gostaria de ser chamada"
                   autocomplete="name"
                   required
                   @focus="focusedField = 'name'"
@@ -50,15 +44,14 @@
               </div>
             </div>
 
-            <div class="form-group" :class="{ focused: focusedField === 'email' }">
+            <div class="form-group field--float" :class="{ focused: focusedField === 'email' }">
               <label for="req-email">E-mail</label>
-              <div class="input-wrapper">
+              <div class="input-wrapper cf-squircle--control">
                 <Mail class="input-icon" />
                 <input
                   id="req-email"
                   v-model="patientForm.email"
                   type="email"
-                  placeholder="seu@email.com"
                   autocomplete="email"
                   required
                   @focus="focusedField = 'email'"
@@ -67,33 +60,80 @@
               </div>
             </div>
 
-            <div class="form-group" :class="{ focused: focusedField === 'phone' }">
-              <label for="req-phone">WhatsApp <span class="optional">(opcional)</span></label>
-              <div class="input-wrapper">
-                <Phone class="input-icon" />
+            <div class="form-group field--float field--float-password" :class="{ focused: focusedField === 'password' }">
+              <label for="req-password">Senha</label>
+              <div class="input-wrapper cf-squircle--control">
+                <Lock class="input-icon" />
                 <input
-                  id="req-phone"
-                  v-model="patientForm.phone"
-                  type="tel"
-                  placeholder="(11) 99999-9999"
-                  autocomplete="tel"
-                  @focus="focusedField = 'phone'"
+                  id="req-password"
+                  v-model="patientForm.password"
+                  :type="showPassword ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  required
+                  minlength="8"
+                  @focus="focusedField = 'password'"
                   @blur="focusedField = ''"
                 >
+                <button
+                  type="button"
+                  class="password-toggle-btn"
+                  :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
+                  @click="showPassword = !showPassword"
+                >
+                  <EyeOff v-if="showPassword" class="password-toggle-icon" />
+                  <Eye v-else class="password-toggle-icon" />
+                </button>
+              </div>
+              <p class="field-hint">Mínimo 8 caracteres</p>
+            </div>
+
+            <div class="form-group field--float" :class="{ focused: focusedField === 'passwordConfirm' }">
+              <label for="req-password-confirm">Confirmar senha</label>
+              <div class="input-wrapper cf-squircle--control">
+                <Lock class="input-icon" />
+                <input
+                  id="req-password-confirm"
+                  v-model="patientForm.passwordConfirm"
+                  :type="showPasswordConfirm ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  required
+                  minlength="8"
+                  @focus="focusedField = 'passwordConfirm'"
+                  @blur="focusedField = ''"
+                >
+                <button
+                  type="button"
+                  class="password-toggle-btn"
+                  :aria-label="showPasswordConfirm ? 'Ocultar senha' : 'Mostrar senha'"
+                  @click="showPasswordConfirm = !showPasswordConfirm"
+                >
+                  <EyeOff v-if="showPasswordConfirm" class="password-toggle-icon" />
+                  <Eye v-else class="password-toggle-icon" />
+                </button>
               </div>
             </div>
 
-            <div class="form-group" :class="{ focused: focusedField === 'message' }">
-              <label for="req-message">Mensagem <span class="optional">(opcional)</span></label>
+            <SharedCfPhoneInput
+              v-model="patientForm.phone"
+              input-id="req-phone"
+              label="WhatsApp"
+              hint="Opcional"
+              :focused="focusedField === 'phone'"
+              @focus="focusedField = 'phone'"
+              @blur="focusedField = ''"
+            />
+
+            <div class="form-group form-group--textarea" :class="{ focused: focusedField === 'message' }">
+              <label for="req-message">Mensagem</label>
               <textarea
                 id="req-message"
                 v-model="patientForm.message"
-                class="patient-textarea"
+                class="patient-textarea cf-squircle--control"
                 rows="3"
-                placeholder="Conte um pouco sobre seu objetivo ou como nos conheceu..."
                 @focus="focusedField = 'message'"
                 @blur="focusedField = ''"
               />
+              <p class="field-hint">Opcional — conte seu objetivo ou como nos conheceu</p>
             </div>
 
             <button type="submit" class="btn-auth-submit patient-auth-submit cf-squircle--control" :disabled="loading">
@@ -101,7 +141,7 @@
               <span v-else>Enviar solicitação</span>
             </button>
 
-            <p v-if="error" class="error-banner" role="alert">
+            <p v-if="error" class="error-banner cf-squircle cf-squircle--control" role="alert">
               <AlertCircle class="error-icon" />
               {{ error }}
             </p>
@@ -122,8 +162,10 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  Eye,
+  EyeOff,
+  Lock,
   Mail,
-  Phone,
   User,
 } from 'lucide-vue-next'
 
@@ -136,23 +178,40 @@ const loading = ref(false)
 const error = ref('')
 const submitted = ref(false)
 const focusedField = ref('')
+const showPassword = ref(false)
+const showPasswordConfirm = ref(false)
 
 const patientForm = reactive({
   name: '',
   email: '',
+  password: '',
+  passwordConfirm: '',
   phone: '',
   message: '',
 })
 
 const handlePatientRequest = async () => {
-  loading.value = true
   error.value = ''
+
+  if (patientForm.password.length < 8) {
+    error.value = 'A senha deve ter pelo menos 8 caracteres.'
+    return
+  }
+
+  if (patientForm.password !== patientForm.passwordConfirm) {
+    error.value = 'As senhas não coincidem.'
+    return
+  }
+
+  loading.value = true
   try {
     await $fetch(`${authApiBase.value}/patient-registration-request`, {
       method: 'POST',
       body: {
         name: patientForm.name,
         email: patientForm.email,
+        password: patientForm.password,
+        passwordConfirm: patientForm.passwordConfirm,
         phone: patientForm.phone || null,
         message: patientForm.message || null,
       },
@@ -167,269 +226,11 @@ const handlePatientRequest = async () => {
 </script>
 
 <style scoped>
-.auth-container {
-  --primary: #2d5a27;
-  --primary-light: #4c8c4a;
-  display: flex;
-  min-height: 100vh;
-  width: 100%;
-  background: white;
-  font-family: var(--pa-font, var(--cf-font));
-}
-
-.auth-visual {
-  flex: 1.2;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  padding: 5rem;
-}
-
-@media (max-width: 1024px) {
-  .auth-visual { display: none; }
-}
-
-.auth-visual img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 1;
-}
-
-.visual-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(45, 90, 39, 0.9) 0%, rgba(20, 40, 18, 0.7) 100%);
-  z-index: 2;
-}
-
-.visual-content {
-  position: relative;
-  z-index: 3;
-  color: white;
-  max-width: 500px;
-}
-
-.brand-badge {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  padding: 0.6rem 1.2rem;
-  border-radius: 50px;
-  display: inline-block;
-  font-weight: 700;
-  font-size: 0.9rem;
-  margin-bottom: 2.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.visual-content h1 {
-  font-size: 3.5rem;
-  line-height: 1.1;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  margin-bottom: 2rem;
-}
-
-.visual-content h1 span { color: #a8d5a2; }
-
-.visual-content p {
-  font-size: 1.15rem;
-  line-height: 1.6;
-  opacity: 0.9;
-}
-
-.auth-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 4rem;
-  background: #fcfcfc;
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 420px;
-}
-
-.auth-header { margin-bottom: 2.5rem; }
-.auth-header h2 { font-size: 2rem; font-weight: 800; color: #111; margin-bottom: 0.5rem; }
-.auth-header p { color: #777; font-size: 1rem; }
-
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.4rem;
-}
-
-.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
-.form-group label { font-size: 0.85rem; font-weight: 700; color: #444; }
-
-.optional {
-  font-weight: 500;
-  color: #999;
-}
-
-.input-wrapper {
-  display: flex;
-  align-items: center;
-  background: white;
-  border: 1.5px solid #eee;
-  border-radius: 12px;
-  padding: 0 1rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.input-icon { width: 18px; height: 18px; color: #ccc; transition: color 0.3s; flex-shrink: 0; }
-
-.input-wrapper input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  padding: 0.9rem 0.8rem;
-  font-family: inherit;
-  font-size: 0.95rem;
-  color: #111;
-  outline: none;
-}
-
-.patient-textarea {
-  width: 100%;
-  border: 1.5px solid #eee;
-  border-radius: 12px;
-  padding: 0.85rem 1rem;
-  font-family: inherit;
-  font-size: 0.95rem;
-  color: #111;
-  resize: vertical;
-  min-height: 5rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-group.focused .patient-textarea {
-  border-color: var(--cf-pink-dark, #a06267);
-  box-shadow: 0 0 0 4px rgba(193, 123, 128, 0.08);
-}
-
-.password-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  padding: 0.25rem;
-  margin-left: 0.25rem;
-  cursor: pointer;
-  color: #aaa;
-  border-radius: 8px;
-}
-
-.password-toggle-icon { width: 20px; height: 20px; }
-
-.form-group.focused .input-wrapper {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(45, 90, 39, 0.05);
-}
-
-.form-group.focused .input-icon { color: var(--primary); }
-
-.role-selector {
-  display: flex;
-  gap: 10px;
-  background: #f0f0f0;
-  padding: 4px;
-  border-radius: 12px;
-}
-
-.role-btn {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 0.6rem;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #777;
-  cursor: pointer;
-}
-
-.role-btn.active {
-  background: white;
-  color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.btn-auth-submit {
-  width: 100%;
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  padding: 1.1rem;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all 0.3s;
-  margin-top: 0.25rem;
-  text-decoration: none;
-  text-align: center;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-}
-
-.patient-auth-submit {
-  background: var(--cf-pink, #c17b80);
-}
-
-.patient-auth-submit:hover:not(:disabled) {
-  background: var(--cf-pink-dark, #a06267);
-}
-
-.btn-auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.error-banner {
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
-  color: #c53030;
-  padding: 1rem;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-}
-
-.auth-footer {
-  margin-top: 1.5rem;
-  text-align: center;
-  padding-top: 1.5rem;
-  border-top: 1px solid #f0f0f0;
-}
-
-.auth-footer p { font-size: 0.95rem; color: #888; }
-.auth-footer a { color: var(--primary); text-decoration: none; font-weight: 800; }
-
-.main-footer {
-  margin-top: 3rem;
-  font-size: 0.8rem;
-  color: #ccc;
-  font-weight: 600;
-}
-
 .back-link {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.85rem;
   color: var(--cf-text-muted, #525252);
   text-decoration: none;
   font-size: 0.85rem;
@@ -439,19 +240,6 @@ const handlePatientRequest = async () => {
 .back-link-icon {
   width: 1rem;
   height: 1rem;
-}
-
-.patient-auth-footer {
-  margin: 0;
-  text-align: center;
-  font-size: 0.88rem;
-  color: var(--cf-text-muted, #525252);
-}
-
-.patient-auth-footer a {
-  color: var(--cf-pink-dark, #a06267);
-  font-weight: 700;
-  text-decoration: none;
 }
 
 .patient-success-card {
@@ -496,5 +284,6 @@ const handlePatientRequest = async () => {
 
 .success-back-btn {
   margin-top: 1.25rem;
+  text-decoration: none;
 }
 </style>

@@ -1,7 +1,6 @@
 import { PrismaClient, Prisma } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import type { MealItemDraft } from "../types/food-diary.types";
-
-const prisma = new PrismaClient();
 
 export class FoodDiaryRepository {
   async getOrCreateTargets(userId: string) {

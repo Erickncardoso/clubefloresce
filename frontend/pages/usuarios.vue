@@ -8,6 +8,7 @@
             <p>
               {{ users.length }} {{ users.length === 1 ? 'aluna cadastrada' : 'alunas cadastradas' }}
               <span v-if="activeCount !== users.length"> · {{ activeCount }} ativas</span>
+              <span v-if="registrationRequests.length"> · {{ registrationRequests.length }} solicitação(ões) pendente(s)</span>
             </p>
           </div>
         </header>
@@ -28,15 +29,16 @@
           </button>
         </div>
 
-        <!-- Users Table -->
-        <p v-if="loadError" class="load-error">{{ loadError }}</p>
-
-        <section v-if="registrationRequests.length" class="requests-section">
+        <section v-if="requestsLoading || registrationRequests.length || requestsError" class="requests-section">
           <div class="requests-head">
             <h2 class="requests-title">Solicitações pendentes</h2>
-            <span class="requests-count">{{ registrationRequests.length }}</span>
+            <span v-if="registrationRequests.length" class="requests-count">{{ registrationRequests.length }}</span>
           </div>
-          <div class="requests-list">
+
+          <p v-if="requestsLoading" class="requests-loading">Carregando solicitações...</p>
+          <p v-else-if="requestsError" class="load-error requests-error">{{ requestsError }}</p>
+
+          <div v-else-if="registrationRequests.length" class="requests-list">
             <article v-for="req in registrationRequests" :key="req.id" class="request-card">
               <PatientAvatar :name="req.name" size="sm" :ring="false" />
               <div class="request-body">
@@ -46,13 +48,15 @@
                 <small>{{ formatDate(req.createdAt) }}</small>
               </div>
               <button type="button" class="btn-request" @click="openCreateFromRequest(req)">
-                Criar conta
+                Aprovar acesso
               </button>
             </article>
           </div>
         </section>
 
-        <div v-if="loading" class="loading-row">
+        <p v-if="usersError" class="load-error">{{ usersError }}</p>
+
+        <div v-if="usersLoading" class="loading-row">
           <span class="loading-spinner" aria-hidden="true" />
           Carregando alunas...
         </div>
@@ -97,11 +101,19 @@
                     </span>
                   </td>
                   <td class="date-cell">{{ formatDate(user.createdAt) }}</td>
-                  <td class="date-cell">{{ formatAccessDate(user.accessExpiresAt) }}</td>
+                  <td class="date-cell">
+                    <span
+                      v-if="isPatientAccessExpired(user.accessExpiresAt)"
+                      class="user-tag user-tag--access-expired"
+                    >
+                      Expirado
+                    </span>
+                    <template v-else>{{ formatAccessDate(user.accessExpiresAt) }}</template>
+                  </td>
                   <td class="td-actions" @click.stop>
-                    <NuxtLink :to="`/usuarios/${user.id}`" class="icon-btn" title="Ver perfil">
+                    <button type="button" class="icon-btn" title="Editar" @click="openEditModal(user)">
                       <Edit3 class="icon-xs" />
-                    </NuxtLink>
+                    </button>
                     <button type="button" class="icon-btn icon-btn--danger" title="Remover" @click="handleDelete(user.id)">
                       <Trash2 class="icon-xs" />
                     </button>
@@ -110,7 +122,7 @@
               </tbody>
             </table>
 
-            <div v-else-if="!loadError" class="empty-state">
+            <div v-else-if="!usersError" class="empty-state">
               <UserPlus class="empty-icon" />
               <h3>{{ searchQuery ? 'Nenhuma aluna encontrada' : 'Nenhuma aluna cadastrada' }}</h3>
               <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar aluna para começar.' }}</p>
@@ -125,7 +137,7 @@
         <form class="modal-card" @submit.prevent="createPatient">
           <h3>{{ creatingFromRequest ? 'Aprovar solicitação' : 'Nova paciente' }}</h3>
           <p v-if="creatingFromRequest" class="modal-hint">
-            Defina até quando a aluna terá acesso, conforme o plano presencial contratado.
+            A senha já foi definida pela aluna. Informe o plano e até quando ela terá acesso.
           </p>
 
           <div class="modal-fields">
@@ -139,25 +151,29 @@
               <input id="create-email" v-model="createForm.email" type="email" required placeholder="email@exemplo.com" />
             </div>
 
-            <div class="field field--float">
+            <div v-if="!creatingFromRequest" class="field field--float">
               <label for="create-password">Senha inicial</label>
               <input
                 id="create-password"
                 v-model="createForm.password"
                 type="password"
                 required
-                minlength="6"
-                placeholder="Mínimo 6 caracteres"
+                minlength="8"
+                placeholder="Mínimo 8 caracteres"
               />
             </div>
 
+            <p v-else class="field-hint field-hint--password">
+              A aluna já escolheu a senha no app. Após aprovar, ela entra direto com e-mail e senha.
+            </p>
+
             <div class="field field--float">
               <label for="create-plan">Plano</label>
-              <select id="create-plan" v-model="createForm.plan">
-                <option value="FREE">FREE</option>
-                <option value="PREMIUM">PREMIUM</option>
-                <option value="PLATINUM">PLATINUM</option>
-              </select>
+              <SharedCfSelect
+                id="create-plan"
+                v-model="createForm.plan"
+                :options="planOptions"
+              />
             </div>
 
             <div class="field field--float">
@@ -165,12 +181,11 @@
                 Acesso válido até
                 <span v-if="creatingFromRequest" class="label-required">*</span>
               </label>
-              <input
+              <SharedCfDateInput
                 id="create-access-expires"
                 v-model="createForm.accessExpiresAt"
-                type="date"
-                :required="creatingFromRequest"
                 :min="minAccessDate"
+                :required="creatingFromRequest"
               />
             </div>
           </div>
@@ -180,7 +195,59 @@
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="showCreateModal = false">Cancelar</button>
             <button type="submit" class="btn-primary modal-submit" :disabled="creating">
-              {{ creating ? 'Salvando...' : (creatingFromRequest ? 'Aprovar e criar conta' : 'Criar paciente') }}
+              {{ creating ? 'Salvando...' : (creatingFromRequest ? 'Aprovar e liberar acesso' : 'Criar paciente') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
+        <form class="modal-card" @submit.prevent="saveEdit">
+          <h3>Editar aluna</h3>
+          <p class="modal-hint">{{ editForm.email }}</p>
+
+          <div class="modal-fields">
+            <div class="field field--float">
+              <label for="edit-name">Nome</label>
+              <input id="edit-name" v-model="editForm.name" required placeholder="Nome completo" />
+            </div>
+
+            <div class="field field--float">
+              <label for="edit-plan">Plano</label>
+              <SharedCfSelect
+                id="edit-plan"
+                v-model="editForm.plan"
+                :options="planOptions"
+              />
+            </div>
+
+            <div class="field field--float">
+              <label for="edit-status">Status</label>
+              <SharedCfSelect
+                id="edit-status"
+                v-model="editForm.status"
+                :options="statusOptions"
+              />
+            </div>
+
+            <div class="field field--float">
+              <label for="edit-access-expires">Acesso válido até</label>
+              <SharedCfDateInput
+                id="edit-access-expires"
+                v-model="editForm.accessExpiresAt"
+                :min="minAccessDate"
+              />
+            </div>
+          </div>
+
+          <p class="field-hint">Deixe em branco para acesso sem data limite.</p>
+          <p v-if="editError" class="create-error">{{ editError }}</p>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" @click="showEditModal = false">Cancelar</button>
+            <button type="submit" class="btn-primary modal-submit" :disabled="savingEdit">
+              {{ savingEdit ? 'Salvando...' : 'Salvar alterações' }}
             </button>
           </div>
         </form>
@@ -196,20 +263,28 @@ definePageMeta({
 })
 
 const config = useRuntimeConfig()
-const apiBase = computed(() => config.public.apiBase)
+const apiBase = useApiBase()
 
 import { Search, UserPlus, Edit3, Trash2 } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
+import { isPatientAccessExpired } from '~/utils/patient-access'
 
 const users = ref([])
 const registrationRequests = ref([])
 const searchQuery = ref('')
 const showCreateModal = ref(false)
+const showEditModal = ref(false)
+const editingUserId = ref('')
 const creatingFromRequest = ref(false)
+const approvingRequestId = ref('')
 const creating = ref(false)
+const savingEdit = ref(false)
 const createError = ref('')
-const loading = ref(true)
-const loadError = ref('')
+const editError = ref('')
+const usersLoading = ref(true)
+const requestsLoading = ref(true)
+const usersError = ref('')
+const requestsError = ref('')
 
 const createForm = reactive({
   name: '',
@@ -218,6 +293,26 @@ const createForm = reactive({
   plan: 'FREE',
   accessExpiresAt: '',
 })
+
+const editForm = reactive({
+  name: '',
+  email: '',
+  plan: 'FREE',
+  status: 'ATIVO',
+  accessExpiresAt: '',
+})
+
+const planOptions = [
+  { value: 'FREE', label: 'Gratuito' },
+  { value: 'PREMIUM', label: 'Premium' },
+  { value: 'PLATINUM', label: 'Platinum' },
+]
+
+const statusOptions = [
+  { value: 'ATIVO', label: 'Ativa' },
+  { value: 'INATIVO', label: 'Inativa' },
+  { value: 'PENDENTE', label: 'Pendente' },
+]
 
 const minAccessDate = computed(() => {
   const now = new Date()
@@ -232,50 +327,71 @@ const authHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-const fetchUsers = async () => {
-  loading.value = true
-  loadError.value = ''
+function resolveFetchError(err, fallback) {
+  const status = err?.statusCode || err?.status || err?.response?.status
 
+  if (status === 401 || status === 403) {
+    return 'Sem permissão ou sessão expirada. Faça login novamente.'
+  }
+
+  if (isApiConnectionError(err)) {
+    return apiConnectionErrorMessage({
+      hostname: window.location.hostname,
+      dev: process.env.NODE_ENV !== 'production',
+    })
+  }
+
+  return err?.data?.error || err?.data?.message || fallback
+}
+
+const fetchRegistrationRequests = async () => {
+  requestsLoading.value = true
+  requestsError.value = ''
+
+  try {
+    const data = await $fetch(`${apiBase.value}/registration-requests`, {
+      headers: authHeaders(),
+    })
+    registrationRequests.value = data?.requests || []
+  } catch (err) {
+    registrationRequests.value = []
+    requestsError.value = resolveFetchError(err, 'Não foi possível carregar as solicitações.')
+  } finally {
+    requestsLoading.value = false
+  }
+}
+
+const fetchPatients = async () => {
+  usersLoading.value = true
+  usersError.value = ''
+
+  try {
+    const usersData = await $fetch(`${apiBase.value}/users`, { headers: authHeaders() })
+    users.value = Array.isArray(usersData)
+      ? usersData.filter((u) => u.role === 'PACIENTE')
+      : []
+  } catch (err) {
+    users.value = []
+    usersError.value = resolveFetchError(err, 'Não foi possível carregar os alunos.')
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+const fetchUsers = async () => {
   const token = localStorage.getItem('auth_token')
   const role = localStorage.getItem('user_role')
 
   if (!token || role !== 'NUTRICIONISTA') {
-    loading.value = false
-    loadError.value = 'Sessão expirada. Faça login novamente como nutricionista.'
+    usersLoading.value = false
+    requestsLoading.value = false
+    const sessionError = 'Sessão expirada. Faça login novamente como nutricionista.'
+    usersError.value = sessionError
+    requestsError.value = sessionError
     return
   }
 
-  try {
-    const [usersData, requestsData] = await Promise.all([
-      $fetch(`${apiBase.value}/users`, { headers: authHeaders() }),
-      $fetch(`${apiBase.value}/users/registration-requests`, { headers: authHeaders() }).catch(() => ({ requests: [] })),
-    ])
-
-    users.value = Array.isArray(usersData)
-      ? usersData.filter((u) => u.role === 'PACIENTE')
-      : []
-    registrationRequests.value = requestsData?.requests || []
-  } catch (err) {
-    users.value = []
-    registrationRequests.value = []
-
-    if (err?.statusCode === 401 || err?.statusCode === 403) {
-      loadError.value = 'Sem permissão ou sessão expirada. Faça login novamente.'
-      return
-    }
-
-    if (isApiConnectionError(err)) {
-      loadError.value = apiConnectionErrorMessage({
-        hostname: window.location.hostname,
-        dev: process.env.NODE_ENV !== 'production',
-      })
-      return
-    }
-
-    loadError.value = err.data?.error || err.data?.message || 'Não foi possível carregar os alunos.'
-  } finally {
-    loading.value = false
-  }
+  await Promise.all([fetchPatients(), fetchRegistrationRequests()])
 }
 
 const filteredUsers = computed(() => {
@@ -294,7 +410,7 @@ function formatPlan(plan) {
   const key = (plan || 'FREE').toUpperCase()
   if (key === 'PREMIUM') return 'Premium'
   if (key === 'PLATINUM') return 'Platinum'
-  return 'Free'
+  return 'Gratuito'
 }
 
 function formatStatus(status) {
@@ -317,6 +433,7 @@ const goToPatient = (user) => {
 
 const openCreateModal = () => {
   creatingFromRequest.value = false
+  approvingRequestId.value = ''
   createForm.name = ''
   createForm.email = ''
   createForm.password = ''
@@ -328,6 +445,7 @@ const openCreateModal = () => {
 
 const openCreateFromRequest = (req) => {
   creatingFromRequest.value = true
+  approvingRequestId.value = req.id
   createForm.name = req.name
   createForm.email = req.email
   createForm.password = ''
@@ -348,19 +466,27 @@ const createPatient = async () => {
   }
 
   try {
+    const body = {
+      name: createForm.name,
+      email: createForm.email,
+      plan: createForm.plan,
+      accessExpiresAt: createForm.accessExpiresAt || null,
+    }
+
+    if (creatingFromRequest.value) {
+      body.registrationRequestId = approvingRequestId.value
+    } else {
+      body.password = createForm.password
+    }
+
     const user = await $fetch(`${apiBase.value}/users`, {
       method: 'POST',
       headers: authHeaders(),
-      body: {
-        name: createForm.name,
-        email: createForm.email,
-        password: createForm.password,
-        plan: createForm.plan,
-        accessExpiresAt: createForm.accessExpiresAt || null,
-      },
+      body,
     })
     showCreateModal.value = false
     creatingFromRequest.value = false
+    approvingRequestId.value = ''
     createForm.name = ''
     createForm.email = ''
     createForm.password = ''
@@ -379,9 +505,60 @@ const formatDate = (date) => {
   return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function toDateInputValue(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const formatAccessDate = (date) => {
   if (!date) return 'Sem limite'
   return formatDate(date)
+}
+
+const openEditModal = (user) => {
+  editingUserId.value = user.id
+  editForm.name = user.name
+  editForm.email = user.email
+  editForm.plan = user.plan || 'FREE'
+  editForm.status = user.status || 'ATIVO'
+  editForm.accessExpiresAt = toDateInputValue(user.accessExpiresAt)
+  editError.value = ''
+  showEditModal.value = true
+}
+
+const saveEdit = async () => {
+  if (!editingUserId.value) return
+  savingEdit.value = true
+  editError.value = ''
+
+  try {
+    const updated = await $fetch(`${apiBase.value}/users/${editingUserId.value}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: {
+        name: editForm.name,
+        plan: editForm.plan,
+        status: editForm.status,
+        accessExpiresAt: editForm.accessExpiresAt || null,
+      },
+    })
+
+    const index = users.value.findIndex((user) => user.id === editingUserId.value)
+    if (index !== -1) {
+      users.value[index] = { ...users.value[index], ...updated }
+    }
+
+    showEditModal.value = false
+    editingUserId.value = ''
+  } catch (err) {
+    editError.value = err.data?.error || 'Erro ao salvar alterações.'
+  } finally {
+    savingEdit.value = false
+  }
 }
 
 const handleDelete = async (id) => {
@@ -615,6 +792,11 @@ onMounted(fetchUsers)
   color: #c2410c;
 }
 
+.user-tag--access-expired {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .date-cell {
   font-size: 0.84rem;
   color: #737373;
@@ -749,6 +931,17 @@ onMounted(fetchUsers)
   color: #b45309;
   font-size: 0.7rem;
   font-weight: 800;
+}
+
+.requests-loading,
+.requests-empty {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #78716c;
+}
+
+.requests-error {
+  margin: 0;
 }
 
 .requests-list {

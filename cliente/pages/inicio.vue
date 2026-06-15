@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page home-page">
-    <PatientHeader :has-notifications="true" />
+    <PatientHeader />
 
     <PatientPageSkeleton v-if="pageLoading" layout="home" />
 

@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { PrismaClient, Role, UserStatus } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
-
-const prisma = new PrismaClient();
 
 const PENDING_NUTRI_ALLOWED_PREFIXES = [
   "/api/auth/me",

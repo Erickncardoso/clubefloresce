@@ -1,7 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import type { ParsedMealPlan } from "../types/meal-plan.types";
-
-const prisma = new PrismaClient();
 
 export class MealPlanRepository {
   async findByUserId(userId: string) {

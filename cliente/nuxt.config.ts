@@ -43,6 +43,7 @@ export default defineNuxtConfig({
     join(frontendRoot, 'plugins/api-base.client.js'),
     join(frontendRoot, 'plugins/patient-session.client.ts'),
     join(frontendRoot, 'plugins/patient-route.client.ts'),
+    join(frontendRoot, 'plugins/pwa-standalone.client.ts'),
   ],
 
   dir: {
@@ -132,6 +133,7 @@ export default defineNuxtConfig({
       theme_color: '#c17b80',
       background_color: '#ffffff',
       display: 'standalone',
+      display_override: ['standalone', 'fullscreen'],
       scope: '/',
       start_url: '/?source=pwa',
       icons: [

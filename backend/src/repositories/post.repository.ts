@@ -1,7 +1,5 @@
-import { PrismaClient, Post, Comment, Role } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
+import { Post, Comment, Role } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 const COMMUNITY_AUTHOR_ROLES: Role[] = [Role.PACIENTE, Role.NUTRICIONISTA];
 
 export class PostRepository {

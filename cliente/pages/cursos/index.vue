@@ -2,7 +2,7 @@
   <NuxtLayout :name="layoutName">
     <PatientPageSkeleton v-if="pageLoading && isPatientApp" layout="courses" class="patient-page streaming-page-skeleton" />
     <div v-else class="courses-container patient-view streaming-layout">
-      <div class="courses-page patient-page streaming-page">
+      <div class="courses-page patient-page streaming-page patient-page--with-tab">
         <section
           class="patient-banner"
         >

@@ -1,5 +1,5 @@
 <template>
-  <div class="patient-page biblioteca-page">
+  <div class="patient-page biblioteca-page patient-page--with-tab">
     <PatientHeader title="Biblioteca" :show-bell="false" />
 
     <header class="bib-hero">
@@ -295,7 +295,6 @@ onMounted(loadLibrary)
 <style scoped>
 .biblioteca-page {
   padding-top: 0;
-  padding-bottom: var(--cf-tab-clearance);
   overflow-y: visible;
 }
 

@@ -19,7 +19,8 @@ export class UserMgmtController {
     try {
       const users = await this.userMgmtRepo.getAllUsers();
       res.json(users);
-    } catch {
+    } catch (error: any) {
+      console.error("[users] getAll:", error?.message || error);
       res.status(500).json({ error: "Erro ao buscar usuários" });
     }
   };
@@ -28,7 +29,8 @@ export class UserMgmtController {
     try {
       const requests = await registrationRequestService.listPendingRequests();
       res.json({ requests });
-    } catch {
+    } catch (error: any) {
+      console.error("[users] listRegistrationRequests:", error?.message || error);
       res.status(500).json({ error: "Erro ao buscar solicitações de cadastro" });
     }
   };
@@ -47,10 +49,48 @@ export class UserMgmtController {
 
   createPatient = async (req: Request, res: Response) => {
     try {
-      const { name, email, password, plan, status, accessExpiresAt } = req.body;
+      const {
+        name,
+        email,
+        password,
+        plan,
+        status,
+        accessExpiresAt,
+        registrationRequestId,
+      } = req.body;
 
-      if (!name?.trim() || !email?.trim() || !password?.trim()) {
-        return res.status(400).json({ error: "Nome, e-mail e senha são obrigatórios." });
+      if (!name?.trim() || !email?.trim()) {
+        return res.status(400).json({ error: "Nome e e-mail são obrigatórios." });
+      }
+
+      const normalizedEmail = String(email).trim().toLowerCase();
+      let hashedPassword: string;
+
+      if (registrationRequestId) {
+        const request = await registrationRequestService.getRequestForApproval(
+          String(registrationRequestId),
+        );
+
+        if (!request) {
+          return res.status(400).json({ error: "Solicitação inválida ou já processada." });
+        }
+
+        if (request.email !== normalizedEmail) {
+          return res.status(400).json({ error: "O e-mail não corresponde à solicitação selecionada." });
+        }
+
+        if (!request.passwordHash) {
+          return res.status(400).json({
+            error: "Esta solicitação não possui senha definida. Peça para a aluna enviar novamente.",
+          });
+        }
+
+        hashedPassword = request.passwordHash;
+      } else {
+        if (!password?.trim()) {
+          return res.status(400).json({ error: "Nome, e-mail e senha são obrigatórios." });
+        }
+        hashedPassword = await bcrypt.hash(password, 10);
       }
 
       let parsedAccessExpiresAt: Date | null = null;
@@ -62,19 +102,17 @@ export class UserMgmtController {
         }
       }
 
-      const existing = await userRepo.findByEmail(String(email).trim().toLowerCase());
+      const existing = await userRepo.findByEmail(normalizedEmail);
       if (existing) {
         return res.status(400).json({ error: "E-mail já cadastrado." });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const normalizedEmail = String(email).trim().toLowerCase();
       const user = await this.userMgmtRepo.createPatient({
         name: String(name).trim(),
         email: normalizedEmail,
         password: hashedPassword,
         plan: plan as UserPlan | undefined,
-        status: status as UserStatus | undefined,
+        status: (status as UserStatus | undefined) || UserStatus.ATIVO,
         accessExpiresAt: parsedAccessExpiresAt,
       });
 

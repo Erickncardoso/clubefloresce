@@ -18,6 +18,9 @@ import foodDiaryRoutes from "./routes/food-diary.routes";
 import foodRoutes from "./routes/food.routes";
 import mealPlanRoutes from "./routes/meal-plan.routes";
 import patientRoutes from "./routes/patient.routes";
+import notificationRoutes from "./routes/notification.routes";
+import registrationRequestRoutes from "./routes/registration-request.routes";
+import { prisma } from "./lib/prisma";
 import { readEnv, maskSecret } from "./utils/env";
 import { getAllowedCorsOrigins, isOriginAllowed } from "./utils/cors-origins";
 import { isCloudinaryConfigured } from "./utils/cloudinary";
@@ -97,6 +100,8 @@ app.use("/api/food-diary", foodDiaryRoutes);
 app.use("/api/foods", foodRoutes);
 app.use("/api/meal-plan", mealPlanRoutes);
 app.use("/api/patients", patientRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/registration-requests", registrationRequestRoutes);
 
 // Basic Route for testing
 app.get("/", (req, res) => {
@@ -182,3 +187,12 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
 server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;
 server.headersTimeout = UPLOAD_SERVER_TIMEOUT_MS + 60_000;
 server.timeout = UPLOAD_SERVER_TIMEOUT_MS;
+
+async function shutdown(signal: string) {
+  console.log(`[Server] Encerrando (${signal})...`);
+  await prisma.$disconnect();
+  server.close(() => process.exit(0));
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));

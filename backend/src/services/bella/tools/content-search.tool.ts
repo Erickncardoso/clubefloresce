@@ -1,7 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { prisma } from "../../../lib/prisma";
 import type { BellaToolContext } from "../types";
-
-const prisma = new PrismaClient();
 
 export const contentSearchToolDefinition = {
   type: "function" as const,

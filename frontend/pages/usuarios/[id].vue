@@ -30,7 +30,13 @@
                     {{ formatStatusLabel(overview.patient.status) }}
                   </span>
                   <span class="muted">Desde {{ formatDate(overview.patient.createdAt) }}</span>
-                  <span class="muted">Acesso até {{ formatAccessDate(overview.patient.accessExpiresAt) }}</span>
+                  <span
+                    v-if="isPatientAccessExpired(overview.patient.accessExpiresAt)"
+                    class="user-tag user-tag--access-expired"
+                  >
+                    Acesso expirado
+                  </span>
+                  <span v-else class="muted">Acesso até {{ formatAccessDate(overview.patient.accessExpiresAt) }}</span>
                 </div>
               </div>
             </div>
@@ -106,13 +112,12 @@
             <form class="checkin-form-card" @submit.prevent="saveCheckIn">
               <h3>{{ editingCheckIn ? 'Editar check-in' : 'Registrar check-in' }}</h3>
 
-              <label>Semana</label>
-              <select v-model="checkInForm.weekStart">
-                <option :value="currentWeekStart">Semana atual</option>
-                <option v-for="w in historyWeekOptions" :key="w" :value="w">
-                  {{ formatWeek(w) }}
-                </option>
-              </select>
+              <label for="checkin-week">Semana</label>
+              <SharedCfSelect
+                id="checkin-week"
+                v-model="checkInForm.weekStart"
+                :options="weekSelectOptions"
+              />
 
               <div class="score-grid">
                 <div class="score-field">
@@ -238,25 +243,29 @@
 
               <div class="field field--float">
                 <label for="edit-plan">Plano</label>
-                <select id="edit-plan" v-model="editForm.plan">
-                  <option value="FREE">FREE</option>
-                  <option value="PREMIUM">PREMIUM</option>
-                  <option value="PLATINUM">PLATINUM</option>
-                </select>
+                <SharedCfSelect
+                  id="edit-plan"
+                  v-model="editForm.plan"
+                  :options="planOptions"
+                />
               </div>
 
               <div class="field field--float">
                 <label for="edit-status">Status</label>
-                <select id="edit-status" v-model="editForm.status">
-                  <option value="ATIVO">ATIVO</option>
-                  <option value="INATIVO">INATIVO</option>
-                  <option value="PENDENTE">PENDENTE</option>
-                </select>
+                <SharedCfSelect
+                  id="edit-status"
+                  v-model="editForm.status"
+                  :options="statusOptions"
+                />
               </div>
 
               <div class="field field--float">
                 <label for="edit-access-expires">Acesso válido até</label>
-                <input id="edit-access-expires" v-model="editForm.accessExpiresAt" type="date" />
+                <SharedCfDateInput
+                  id="edit-access-expires"
+                  v-model="editForm.accessExpiresAt"
+                  :min="minAccessDate"
+                />
               </div>
             </div>
 
@@ -274,6 +283,7 @@
 
 <script setup>
 import { resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
+import { isPatientAccessExpired } from '~/utils/patient-access'
 
 definePageMeta({
   layout: 'dashboard',
@@ -326,6 +336,26 @@ const editForm = reactive({
   accessExpiresAt: '',
 })
 
+const planOptions = [
+  { value: 'FREE', label: 'Gratuito' },
+  { value: 'PREMIUM', label: 'Premium' },
+  { value: 'PLATINUM', label: 'Platinum' },
+]
+
+const statusOptions = [
+  { value: 'ATIVO', label: 'Ativa' },
+  { value: 'INATIVO', label: 'Inativa' },
+  { value: 'PENDENTE', label: 'Pendente' },
+]
+
+const minAccessDate = computed(() => {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+})
+
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
 })
@@ -345,11 +375,23 @@ const historyWeekOptions = computed(() =>
     .filter((w) => w !== currentWeekStart.value),
 )
 
+const weekSelectOptions = computed(() => {
+  const options = [
+    { value: currentWeekStart.value, label: 'Semana atual' },
+  ]
+
+  for (const week of historyWeekOptions.value) {
+    options.push({ value: week, label: formatWeek(week) })
+  }
+
+  return options.filter((option) => option.value)
+})
+
 const formatPlanLabel = (plan) => {
   const key = (plan || 'FREE').toUpperCase()
   if (key === 'PREMIUM') return 'Premium'
   if (key === 'PLATINUM') return 'Platinum'
-  return 'Free'
+  return 'Gratuito'
 }
 
 const formatStatusLabel = (status) => {
@@ -500,7 +542,7 @@ const uploadMealPlan = async () => {
 const savePatient = async () => {
   savingPatient.value = true
   try {
-    await $fetch(`${apiBase.value}/users/${patientId.value}`, {
+    const updated = await $fetch(`${apiBase.value}/users/${patientId.value}`, {
       method: 'PATCH',
       headers: authHeaders(),
       body: {
@@ -511,13 +553,28 @@ const savePatient = async () => {
       },
     })
     showEditModal.value = false
-    await loadOverview()
+    if (overview.value?.patient) {
+      overview.value.patient = { ...overview.value.patient, ...updated }
+    }
+    editForm.name = updated.name
+    editForm.plan = updated.plan || 'FREE'
+    editForm.status = updated.status || 'ATIVO'
+    editForm.accessExpiresAt = toDateInputValue(updated.accessExpiresAt)
   } catch (err) {
     alert(err.data?.error || 'Erro ao salvar cadastro.')
   } finally {
     savingPatient.value = false
   }
 }
+
+watch(showEditModal, (open) => {
+  if (!open || !overview.value?.patient) return
+  const patient = overview.value.patient
+  editForm.name = patient.name
+  editForm.plan = patient.plan || 'FREE'
+  editForm.status = patient.status || 'ATIVO'
+  editForm.accessExpiresAt = toDateInputValue(patient.accessExpiresAt)
+})
 
 watch(activeTab, async (tab) => {
   if (tab === 'plano' && !mealPlan.value?.plan?.meals) {
@@ -615,6 +672,11 @@ onMounted(loadAll)
 .user-tag--status-pendente {
   background: #fff7ed;
   color: #c2410c;
+}
+
+.user-tag--access-expired {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .muted { color: #888; font-size: 0.9rem; }
@@ -730,20 +792,31 @@ onMounted(loadAll)
   padding: 1.5rem;
 }
 
+.checkin-form-card input:not(.cf-date-input-field),
+.checkin-form-card textarea {
+  width: 100%;
+  border: 1.5px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  padding: 0.75rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.checkin-form-card input:not(.cf-date-input-field):focus,
+.checkin-form-card textarea:focus {
+  outline: none;
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+}
+
 .checkin-form-card label {
   display: block;
   font-weight: 600;
   margin: 0.75rem 0 0.35rem;
-}
-
-.checkin-form-card input,
-.checkin-form-card select,
-.checkin-form-card textarea {
-  width: 100%;
-  border: 1px solid #eee;
-  border-radius: 10px;
-  padding: 0.75rem;
-  font-family: inherit;
+  font-size: 0.85rem;
+  color: #444;
 }
 
 .score-grid {

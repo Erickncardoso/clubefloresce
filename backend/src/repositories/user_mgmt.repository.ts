@@ -1,7 +1,5 @@
-import { PrismaClient, Role, UserPlan, UserStatus } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
+import { Role, UserPlan, UserStatus } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 export class UserMgmtRepository {
   async getAllUsers() {
     return prisma.user.findMany({

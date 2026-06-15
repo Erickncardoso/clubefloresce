@@ -1,6 +1,15 @@
-import { PrismaClient, RegistrationRequestStatus } from "@prisma/client";
+import { RegistrationRequestStatus } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 
-const prisma = new PrismaClient();
+const publicRequestSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  message: true,
+  status: true,
+  createdAt: true,
+} as const;
 
 export class RegistrationRequestRepository {
   async findPendingByEmail(email: string) {
@@ -17,6 +26,7 @@ export class RegistrationRequestRepository {
       where: { status: RegistrationRequestStatus.PENDENTE },
       orderBy: { createdAt: "desc" },
       take: limit,
+      select: publicRequestSelect,
     });
   }
 
@@ -36,6 +46,7 @@ export class RegistrationRequestRepository {
     email: string;
     phone?: string | null;
     message?: string | null;
+    passwordHash: string;
   }) {
     return prisma.patientRegistrationRequest.create({
       data: {
@@ -43,14 +54,9 @@ export class RegistrationRequestRepository {
         email: data.email,
         phone: data.phone || null,
         message: data.message || null,
+        passwordHash: data.passwordHash,
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-        createdAt: true,
-      },
+      select: publicRequestSelect,
     });
   }
 }

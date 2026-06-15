@@ -1,4 +1,5 @@
 import { Prisma, FoodSource, PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import type { FoodItemDto } from "../types/food.types";
 import {
   getCategoriesForSwapGroup,
@@ -13,8 +14,6 @@ import {
   scoreFoodSearchResult,
   tokenizeFoodQuery,
 } from "../utils/food-search";
-
-const prisma = new PrismaClient();
 
 function mapFood(item: {
   id: string;

@@ -1,7 +1,5 @@
-import { PrismaClient, WhatsappChat } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
+import { WhatsappChat } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 export type UpsertWhatsappChatInput = {
   chatJid: string;
   name?: string;

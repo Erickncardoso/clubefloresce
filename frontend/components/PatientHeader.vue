@@ -24,7 +24,7 @@
         @click="navigateTo('/perfil/notificacoes')"
       >
         <Bell class="cf-header-icon" />
-        <span v-if="hasNotifications" class="cf-header-dot" />
+        <span v-if="showNotificationDot" class="cf-header-dot" />
       </button>
       <button
         v-if="showBack"
@@ -55,6 +55,9 @@ const props = defineProps({
 
 const router = useRouter()
 const menuOpen = ref(false)
+const { hasUnread } = usePatientNotifications()
+
+const showNotificationDot = computed(() => props.hasNotifications || hasUnread.value)
 
 function goBack() {
   if (props.backTo) {
@@ -69,7 +72,7 @@ function goBack() {
 <style scoped>
 .cf-header {
   display: grid;
-  grid-template-columns: 2.75rem 1fr 2.75rem;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.5rem;
   padding: calc(0.5rem + env(safe-area-inset-top)) 1rem 0.75rem;
@@ -112,6 +115,7 @@ function goBack() {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
+  min-width: 0;
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.025em;
@@ -126,12 +130,17 @@ function goBack() {
 .cf-header-title {
   font-size: 0.95rem;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cf-header-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 0.15rem;
+  flex-shrink: 0;
 }
 
 .cf-header-dot {

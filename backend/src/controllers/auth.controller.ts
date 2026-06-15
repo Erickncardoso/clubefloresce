@@ -52,9 +52,35 @@ export class AuthController {
         request,
       });
     } catch (error: any) {
-      const status = error.message?.includes("Faça login") ? 409 : 400;
-      return res.status(status).json({ message: error.message });
+      console.error("[auth] requestPatientRegistration:", error?.message || error);
+      const message = String(error?.message || "");
+
+      if (message.includes("connection pool") || error?.code === "P2024") {
+        return res.status(503).json({
+          message: "Servidor ocupado. Aguarde alguns segundos e tente novamente.",
+        });
+      }
+
+      if (message.includes("Faça login")) {
+        return res.status(409).json({ message });
+      }
+
+      if (message && !message.includes("prisma") && !message.includes("Invalid `")) {
+        return res.status(400).json({ message });
+      }
+
+      return res.status(400).json({ message: "Não foi possível enviar sua solicitação. Tente novamente." });
     }
+  }
+
+  private authFailureStatus(message: string): number {
+    if (
+      message.includes("expirou")
+      || message.includes("desativada")
+    ) {
+      return 403;
+    }
+    return 401;
   }
 
   async login(req: Request, res: Response): Promise<any> {
@@ -63,7 +89,8 @@ export class AuthController {
       const data = await authService.login(email, password);
       return res.json(data);
     } catch (error: any) {
-      return res.status(401).json({ message: error.message });
+      const message = error.message || "Credenciais inválidas.";
+      return res.status(this.authFailureStatus(message)).json({ message });
     }
   }
 
@@ -99,7 +126,8 @@ export class AuthController {
       const data = await authService.refreshSession(token);
       return res.json(data);
     } catch (error: any) {
-      return res.status(401).json({ message: error.message || "Sessão expirada." });
+      const message = error.message || "Sessão expirada.";
+      return res.status(this.authFailureStatus(message)).json({ message });
     }
   }
 

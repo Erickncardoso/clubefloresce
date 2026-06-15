@@ -1,14 +1,29 @@
 <template>
   <div class="patient-page notif-page">
-    <PatientHeader title="Notificações" show-back back-to="/perfil">
-      <template #actions>
-        <button type="button" class="notif-mark-all" @click="markAllRead">Marcar todas como lidas</button>
-      </template>
-    </PatientHeader>
+    <PatientHeader title="Notificações" show-back back-to="/perfil" />
+
+    <div v-if="hasUnread" class="notif-toolbar">
+      <button type="button" class="notif-mark-all" :disabled="markingAll" @click="handleMarkAllRead">
+        Marcar todas como lidas
+      </button>
+    </div>
+
+    <PatientPageSkeleton v-if="loading && !items.length" layout="feed" />
+
+    <p v-else-if="error" class="notif-empty">{{ error }}</p>
+
+    <p v-else-if="!grouped.length" class="notif-empty">Nenhuma notificação por enquanto.</p>
 
     <section v-for="group in grouped" :key="group.label" class="notif-group">
       <h2>{{ group.label }}</h2>
-      <article v-for="n in group.items" :key="n.id" class="notif-item" :class="{ unread: !n.read }">
+      <button
+        v-for="n in group.items"
+        :key="n.id"
+        type="button"
+        class="notif-item"
+        :class="{ unread: !n.read }"
+        @click="openNotification(n)"
+      >
         <div class="notif-icon-wrap" :class="`notif-icon-wrap--${n.type}`">
           <component :is="n.icon" class="notif-icon" />
         </div>
@@ -18,34 +33,39 @@
           <span>{{ n.time }}</span>
         </div>
         <span v-if="!n.read" class="notif-dot" />
-      </article>
+      </button>
     </section>
   </div>
 </template>
 
 <script setup>
-import { CalendarCheck, Sparkles, Users, BookOpen } from 'lucide-vue-next'
-
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
-const notifications = ref([
-  { id: 1, type: 'bella', icon: Sparkles, title: 'BELLA', text: 'Nova dica personalizada para você!', time: 'Há 2h', read: false, group: 'HOJE' },
-  { id: 2, type: 'checkin', icon: CalendarCheck, title: 'Check-in', text: 'Não esqueça de completar seu check-in semanal.', time: 'Há 5h', read: false, group: 'HOJE' },
-  { id: 3, type: 'community', icon: Users, title: 'Comunidade', text: 'Alguém comentou na sua publicação.', time: 'Ontem', read: true, group: 'ONTEM' },
-  { id: 4, type: 'content', icon: BookOpen, title: 'Novo conteúdo', text: 'Novo curso disponível para você.', time: 'Ontem', read: true, group: 'ONTEM' },
-  { id: 5, type: 'checkin', icon: CalendarCheck, title: 'Check-in', text: 'Parabéns! Você completou 4 semanas seguidas.', time: '3 dias', read: true, group: 'ESTA SEMANA' },
-])
+const {
+  items,
+  grouped,
+  hasUnread,
+  loading,
+  error,
+  fetchNotifications,
+  markAllRead,
+  openNotification,
+} = usePatientNotifications()
 
-const grouped = computed(() => {
-  const labels = ['HOJE', 'ONTEM', 'ESTA SEMANA']
-  return labels.map((label) => ({
-    label,
-    items: notifications.value.filter((n) => n.group === label),
-  })).filter((g) => g.items.length)
+const markingAll = ref(false)
+
+onMounted(() => {
+  fetchNotifications()
 })
 
-function markAllRead() {
-  notifications.value.forEach((n) => { n.read = true })
+async function handleMarkAllRead() {
+  if (markingAll.value || !hasUnread.value) return
+  markingAll.value = true
+  try {
+    await markAllRead()
+  } finally {
+    markingAll.value = false
+  }
 }
 </script>
 
@@ -54,15 +74,33 @@ function markAllRead() {
   padding-top: 0;
 }
 
+.notif-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 0.5rem;
+}
+
 .notif-mark-all {
   border: none;
   background: transparent;
   color: var(--pa-green);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  white-space: nowrap;
+  padding: 0.25rem 0;
+}
+
+.notif-mark-all:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.notif-empty {
+  margin: 1.5rem 0;
+  text-align: center;
+  color: var(--pa-text-muted);
+  font-size: 0.88rem;
 }
 
 .notif-group {
@@ -81,9 +119,20 @@ function markAllRead() {
   display: flex;
   align-items: flex-start;
   gap: 0.85rem;
+  width: 100%;
   padding: 0.85rem 0;
+  border: none;
   border-bottom: 1px solid var(--pa-border);
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
   position: relative;
+}
+
+.notif-item:focus-visible {
+  outline: 2px solid var(--pa-green);
+  outline-offset: 2px;
 }
 
 .notif-icon-wrap {
@@ -100,6 +149,7 @@ function markAllRead() {
 .notif-icon-wrap--checkin { background: #eff6ff; color: #2563eb; }
 .notif-icon-wrap--community { background: #fdf4ff; color: #9333ea; }
 .notif-icon-wrap--content { background: #fff7ed; color: #ea580c; }
+.notif-icon-wrap--general { background: #f3f4f6; color: #4b5563; }
 
 .notif-icon {
   width: 1.15rem;
@@ -109,6 +159,7 @@ function markAllRead() {
 .notif-body strong {
   display: block;
   font-size: 0.88rem;
+  color: var(--pa-text);
 }
 
 .notif-body p {
@@ -119,8 +170,9 @@ function markAllRead() {
 }
 
 .notif-body span {
-  font-size: 0.72rem;
-  color: #9ca3af;
+  font-size: 0.74rem;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .notif-dot {

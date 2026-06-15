@@ -1,7 +1,5 @@
-import { PrismaClient, Ebook } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
+import { Ebook } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 export class EbookRepository {
   async findAll(): Promise<Ebook[]> {
     return prisma.ebook.findMany();

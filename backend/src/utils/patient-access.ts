@@ -1,7 +1,6 @@
 import { PrismaClient, Role } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { getWeekStart } from "./week-start";
-
-const prisma = new PrismaClient();
 
 export async function assertPatientUser(userId: string) {
   const user = await prisma.user.findUnique({

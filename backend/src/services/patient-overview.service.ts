@@ -1,11 +1,10 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { assertPatientUser } from "../utils/patient-access";
 import { getWeekStart } from "../utils/week-start";
 import { MealPlanService } from "./meal-plan/meal-plan.service";
 import { FoodDiaryService } from "./food-diary.service";
 import { getDateKeyInTimeZone } from "../utils/patient-timezone";
 
-const prisma = new PrismaClient();
 const mealPlanService = new MealPlanService();
 
 export class PatientOverviewService {

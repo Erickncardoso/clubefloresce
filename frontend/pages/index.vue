@@ -1,53 +1,60 @@
 <template>
   <div class="auth-container">
-    <!-- Lado Esquerdo: Visual Elite (painel admin) -->
-    <div class="auth-visual">
-      <div class="visual-overlay"></div>
-      <img src="https://images.unsplash.com/photo-1543362906-acfc16c623a2?q=80&w=1974&auto=format&fit=crop" alt="Botanical Background" />
-      <div class="visual-content">
-        <div class="brand-badge">Florescer</div>
-        <h1>Nutrição que <br/><span>Floresce</span> de dentro <br/>para fora.</h1>
-        <p>Acesse sua plataforma exclusiva de acompanhamento nutricional e conteúdo premium.</p>
+    <aside class="auth-visual" aria-hidden="true">
+      <div class="auth-visual-bg">
+        <div class="auth-visual-orb auth-visual-orb--one" />
+        <div class="auth-visual-orb auth-visual-orb--two" />
+        <div class="auth-visual-orb auth-visual-orb--three" />
       </div>
-    </div>
+      <div class="visual-content">
+        <span class="brand-badge">Portal nutricionista</span>
+        <h1>
+          Nutrição que
+          <span>floresce</span>
+          de dentro para fora.
+        </h1>
+        <p>Acompanhe pacientes, conteúdos e jornadas em um só lugar.</p>
+      </div>
+    </aside>
 
-    <!-- Portal web (nutricionista) -->
     <main class="auth-main">
-      <div class="auth-card">
+      <div class="auth-card cf-squircle cf-squircle--surface">
         <header class="auth-header">
+          <img src="/logoflorescer.svg" alt="Florescer" class="auth-logo" width="128" height="38">
           <h2>Bem-vindo de volta</h2>
           <p>Insira suas credenciais para acessar o portal.</p>
         </header>
 
         <form @submit.prevent="handleLogin" class="auth-form">
-          <div class="form-group" :class="{ 'focused': focusedField === 'email' }">
-            <label>E-mail</label>
-            <div class="input-wrapper">
+          <div class="form-group field--float" :class="{ focused: focusedField === 'email' }">
+            <label for="portal-email">E-mail</label>
+            <div class="input-wrapper cf-squircle cf-squircle--control">
               <Mail class="input-icon" />
-              <input 
-                type="email" 
-                v-model="form.email" 
-                placeholder="exemplo@florescer.com" 
-                required 
-                @focus="focusedField = 'email'" 
+              <input
+                id="portal-email"
+                type="email"
+                v-model="form.email"
+                placeholder="exemplo@florescer.com"
+                autocomplete="email"
+                required
+                @focus="focusedField = 'email'"
                 @blur="focusedField = ''"
               >
             </div>
           </div>
 
-          <div class="form-group" :class="{ 'focused': focusedField === 'password' }">
-            <div class="label-row">
-              <label>Senha</label>
-              <a href="#" class="forgot-link">Esqueci a senha</a>
-            </div>
-            <div class="input-wrapper">
+          <div class="form-group field--float field--password" :class="{ focused: focusedField === 'password' }">
+            <label for="portal-password">Senha</label>
+            <div class="input-wrapper cf-squircle cf-squircle--control">
               <Lock class="input-icon" />
-              <input 
-                :type="showPassword ? 'text' : 'password'" 
-                v-model="form.password" 
-                placeholder="••••••••" 
+              <input
+                id="portal-password"
+                :type="showPassword ? 'text' : 'password'"
+                v-model="form.password"
+                placeholder="Sua senha de acesso"
+                autocomplete="current-password"
                 required
-                @focus="focusedField = 'password'" 
+                @focus="focusedField = 'password'"
                 @blur="focusedField = ''"
               >
               <button
@@ -60,14 +67,15 @@
                 <Eye v-else class="password-toggle-icon" />
               </button>
             </div>
+            <a href="#" class="forgot-link">Esqueci a senha</a>
           </div>
 
-          <button type="submit" :disabled="loading" class="btn-auth-submit">
+          <button type="submit" :disabled="loading" class="btn-auth-submit cf-squircle cf-squircle--control">
             <span v-if="loading">Validando...</span>
             <span v-else>Entrar na plataforma</span>
           </button>
 
-          <p v-if="error" class="error-banner">
+          <p v-if="error" class="error-banner cf-squircle cf-squircle--control" role="alert">
             <AlertCircle class="error-icon" />
             {{ error }}
           </p>
@@ -84,16 +92,17 @@
     </main>
 
     <div v-if="showFirstAccessModal" class="modal-overlay">
-      <div class="modal-card">
+      <div class="modal-card cf-squircle cf-squircle--surface">
         <h3>Primeiro acesso: altere sua senha</h3>
         <p>Por segurança, você precisa criar uma nova senha para continuar.</p>
 
         <form class="modal-form" @submit.prevent="handleFirstAccessPasswordChange">
-          <div class="form-group" :class="{ focused: focusedField === 'newPassword' }">
-            <label>Nova senha</label>
-            <div class="input-wrapper">
+          <div class="form-group field--float" :class="{ focused: focusedField === 'newPassword' }">
+            <label for="first-access-new">Nova senha</label>
+            <div class="input-wrapper cf-squircle cf-squircle--control">
               <Lock class="input-icon" />
               <input
+                id="first-access-new"
                 :type="showNewPassword ? 'text' : 'password'"
                 v-model="firstAccessForm.newPassword"
                 placeholder="Mínimo 6 caracteres"
@@ -114,11 +123,12 @@
             </div>
           </div>
 
-          <div class="form-group" :class="{ focused: focusedField === 'confirmPassword' }">
-            <label>Confirmar nova senha</label>
-            <div class="input-wrapper">
+          <div class="form-group field--float" :class="{ focused: focusedField === 'confirmPassword' }">
+            <label for="first-access-confirm">Confirmar nova senha</label>
+            <div class="input-wrapper cf-squircle cf-squircle--control">
               <Lock class="input-icon" />
               <input
+                id="first-access-confirm"
                 :type="showConfirmPassword ? 'text' : 'password'"
                 v-model="firstAccessForm.confirmPassword"
                 placeholder="Repita a nova senha"
@@ -139,13 +149,13 @@
             </div>
           </div>
 
-          <button type="submit" :disabled="firstAccessLoading" class="btn-auth-submit">
+          <button type="submit" :disabled="firstAccessLoading" class="btn-auth-submit cf-squircle cf-squircle--control">
             <span v-if="firstAccessLoading">Atualizando senha...</span>
             <span v-else>Salvar nova senha</span>
           </button>
         </form>
 
-        <p v-if="firstAccessError" class="error-banner">
+        <p v-if="firstAccessError" class="error-banner cf-squircle cf-squircle--control">
           <AlertCircle class="error-icon" />
           {{ firstAccessError }}
         </p>
@@ -277,173 +287,223 @@ const handleFirstAccessPasswordChange = async () => {
 
 <style scoped>
 .auth-container {
-  --primary: #2d5a27;
-  --primary-light: #4c8c4a;
+  --auth-green: #2d5a27;
+  --auth-green-light: #4c8c4a;
+  --auth-green-soft: #e8f2e6;
+  --auth-green-glow: #8ec487;
+  --auth-text: #1a2e24;
+  --auth-muted: #5c6b64;
+  --auth-border: #e2e8e4;
+  --auth-surface: #ffffff;
+
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
-  background: white;
-  font-family: var(--pa-font, var(--cf-font));
+  font-family: var(--cf-font);
+  color: var(--auth-text);
+  background: #f4f7f5;
 }
 
-/* LADO VISUAL (LEFT) */
+/* Painel esquerdo */
 .auth-visual {
-  flex: 1.2;
   position: relative;
-  overflow: hidden;
+  flex: 1.05;
   display: flex;
   align-items: center;
-  padding: 5rem;
+  padding: clamp(2.5rem, 5vw, 4.5rem);
+  overflow: hidden;
+  background: linear-gradient(145deg, #1f3d1b 0%, #2d5a27 42%, #3d7040 100%);
 }
 
 @media (max-width: 1024px) {
-  .auth-visual { display: none; }
+  .auth-visual {
+    display: none;
+  }
 }
 
-.auth-visual img {
+.auth-visual-bg {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 1;
+  pointer-events: none;
 }
 
-.visual-overlay {
+.auth-visual-orb {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(45, 90, 39, 0.9) 0%, rgba(20, 40, 18, 0.7) 100%);
-  z-index: 2;
+  border-radius: 50%;
+  filter: blur(0.5px);
+}
+
+.auth-visual-orb--one {
+  top: -12%;
+  right: -8%;
+  width: min(28rem, 55vw);
+  height: min(28rem, 55vw);
+  background: radial-gradient(circle, rgba(168, 213, 162, 0.35) 0%, transparent 68%);
+}
+
+.auth-visual-orb--two {
+  bottom: -18%;
+  left: -10%;
+  width: min(22rem, 45vw);
+  height: min(22rem, 45vw);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+}
+
+.auth-visual-orb--three {
+  top: 42%;
+  left: 38%;
+  width: 9rem;
+  height: 9rem;
+  background: radial-gradient(circle, rgba(142, 196, 135, 0.22) 0%, transparent 72%);
 }
 
 .visual-content {
   position: relative;
-  z-index: 3;
-  color: white;
-  max-width: 500px;
+  z-index: 1;
+  max-width: 32rem;
+  color: #fff;
 }
 
 .brand-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 1.75rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--cf-radius-pill);
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
-  padding: 0.6rem 1.2rem;
-  border-radius: 50px;
-  display: inline-block;
-  font-weight: 700;
-  font-size: 0.9rem;
-  margin-bottom: 2.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .visual-content h1 {
-  font-size: 3.5rem;
-  line-height: 1.1;
-  font-weight: 800;
+  margin: 0 0 1.15rem;
+  font-size: clamp(2rem, 3.4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.12;
   letter-spacing: -0.03em;
-  margin-bottom: 2rem;
+  text-wrap: balance;
 }
 
 .visual-content h1 span {
-  color: #a8d5a2;
+  color: var(--auth-green-glow);
 }
 
 .visual-content p {
-  font-size: 1.15rem;
+  margin: 0;
+  max-width: 28rem;
+  font-size: 1.02rem;
   line-height: 1.6;
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.86);
 }
 
-/* LADO FORMULÁRIO (RIGHT) */
+/* Formulário */
 .auth-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  padding: 4rem;
-  background: #fcfcfc;
+  justify-content: center;
+  padding: clamp(1.5rem, 4vw, 3rem);
 }
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 26rem;
+  padding: clamp(1.5rem, 3vw, 2rem);
+  background: var(--auth-surface);
+  border: 1px solid var(--auth-border);
+  box-shadow:
+    0 1px 2px rgba(26, 46, 36, 0.04),
+    0 12px 36px rgba(26, 46, 36, 0.06);
 }
 
 .auth-header {
-  margin-bottom: 3rem;
+  margin-bottom: 1.65rem;
+  text-align: center;
 }
 
-.patient-app-badge {
-  display: inline-block;
-  margin-bottom: 0.75rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  background: rgba(45, 90, 39, 0.1);
-  color: #2d5a27;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.auth-logo {
+  display: block;
+  margin: 0 auto 1rem;
+  object-fit: contain;
 }
 
 .auth-header h2 {
-  font-size: 2rem;
-  font-weight: 800;
-  color: #111;
-  margin-bottom: 0.8rem;
+  margin: 0 0 0.4rem;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--auth-text);
 }
 
 .auth-header p {
-  color: #777;
-  font-size: 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--auth-muted);
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 1.8rem;
+  gap: 1.35rem;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+.form-group.field--float {
+  position: relative;
+  margin-top: 0.35rem;
 }
 
-.label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.form-group label {
-  font-size: 0.85rem;
+.form-group.field--float > label {
+  position: absolute;
+  top: -0.58rem;
+  left: 0.78rem;
+  z-index: 2;
+  margin: 0;
+  padding: 0 0.4rem;
+  background: var(--auth-surface);
+  font-size: 0.76rem;
   font-weight: 700;
-  color: #444;
+  line-height: 1;
+  color: var(--auth-text);
+  pointer-events: none;
 }
 
-.forgot-link {
-  font-size: 0.8rem;
+.form-group.field--float.focused > label {
+  color: var(--auth-green);
+}
+
+.field--password .forgot-link {
+  display: block;
+  margin: 0.45rem 0 0;
+  text-align: right;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--auth-green);
   text-decoration: none;
 }
 
 .input-wrapper {
   display: flex;
   align-items: center;
-  background: white;
-  border: 1.5px solid #eee;
-  border-radius: 12px;
-  padding: 0 1rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 0.5rem;
+  border: 1.5px solid var(--auth-border);
+  padding: 0 0.9rem;
+  background: var(--auth-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input-icon {
-  width: 20px;
-  height: 20px;
-  color: #ccc;
-  transition: color 0.3s;
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  color: #b0bab5;
+  transition: color 0.15s ease;
 }
 
 .input-wrapper input {
@@ -451,11 +511,15 @@ const handleFirstAccessPasswordChange = async () => {
   min-width: 0;
   border: none;
   background: transparent;
-  padding: 1.1rem 0.8rem;
+  padding: 0.95rem 0 0.85rem;
   font-family: inherit;
-  font-size: 1rem;
-  color: #111;
+  font-size: 0.95rem;
+  color: var(--auth-text);
   outline: none;
+}
+
+.input-wrapper input::placeholder {
+  color: #b0bab5;
 }
 
 .password-toggle-btn {
@@ -466,55 +530,45 @@ const handleFirstAccessPasswordChange = async () => {
   border: none;
   background: transparent;
   padding: 0.25rem;
-  margin-left: 0.25rem;
   cursor: pointer;
-  color: #aaa;
-  border-radius: 8px;
-  transition: color 0.2s, background 0.2s;
-}
-
-.password-toggle-btn:hover {
-  color: var(--primary);
-  background: rgba(45, 90, 39, 0.06);
+  color: #a8b0ac;
 }
 
 .password-toggle-icon {
-  width: 20px;
-  height: 20px;
-}
-
-.form-group.focused .password-toggle-btn {
-  color: var(--primary);
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 .form-group.focused .input-wrapper {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(45, 90, 39, 0.05);
+  border-color: #9fc499;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.1);
 }
 
-.form-group.focused .input-icon {
-  color: var(--primary);
+.form-group.focused .input-icon,
+.form-group.focused .password-toggle-btn {
+  color: var(--auth-green);
 }
 
 .btn-auth-submit {
   width: 100%;
-  background: #2d5a27;
-  background: var(--primary);
-  color: #fff;
+  min-height: 3rem;
+  margin-top: 0.15rem;
   border: none;
-  padding: 1.1rem;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 800;
+  background: var(--auth-green);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
-  margin-top: 0.5rem;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .btn-auth-submit:hover:not(:disabled) {
-  background: var(--primary-light);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(45, 90, 39, 0.15);
+  background: var(--auth-green-light);
+}
+
+.btn-auth-submit:active:not(:disabled) {
+  transform: scale(0.99);
 }
 
 .btn-auth-submit:disabled {
@@ -523,207 +577,103 @@ const handleFirstAccessPasswordChange = async () => {
 }
 
 .error-banner {
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
-  color: #c53030;
-  padding: 1rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #fed7d7;
+  background: #fff5f5;
+  color: #c53030;
+  font-size: 0.88rem;
   font-weight: 600;
 }
 
-.error-icon { width: 18px; height: 18px; }
+.error-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+}
 
 .auth-footer {
-  margin-top: 2rem;
+  margin-top: 0.25rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid #eef2ef;
   text-align: center;
-  padding-top: 2rem;
-  border-top: 1px solid #f0f0f0;
 }
 
 .auth-footer p {
-  font-size: 0.95rem;
-  color: #888;
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--auth-muted);
 }
 
 .auth-footer a {
-  color: var(--primary);
+  color: var(--auth-green);
+  font-weight: 700;
   text-decoration: none;
-  font-weight: 800;
 }
 
 .main-footer {
-  margin-top: 4rem;
-  font-size: 0.8rem;
-  color: #ccc;
-  font-weight: 600;
+  margin-top: 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #9aa8a2;
 }
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  z-index: 1000;
+  padding: 1rem;
+  background: rgba(20, 30, 24, 0.45);
 }
 
 .modal-card {
   width: 100%;
-  max-width: 440px;
-  background: #fff;
-  border-radius: 14px;
-  padding: 22px;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+  max-width: 28rem;
+  padding: 1.5rem;
+  background: var(--auth-surface);
+  border: 1px solid var(--auth-border);
+  box-shadow: 0 18px 45px rgba(26, 46, 36, 0.18);
 }
 
 .modal-card h3 {
-  margin: 0 0 8px;
-  font-size: 1.2rem;
-  color: #12231a;
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--auth-text);
 }
 
 .modal-card p {
-  margin: 0 0 16px;
-  color: #46574f;
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--auth-muted);
 }
 
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 1.35rem;
+  margin-top: 0.85rem;
 }
 
-.patient-login-mode {
-  background: var(--pa-bg, #ffffff);
-  justify-content: center;
+@supports (corner-shape: squircle) {
+  .auth-card.cf-squircle--surface,
+  .modal-card.cf-squircle--surface,
+  .input-wrapper.cf-squircle--control,
+  .btn-auth-submit.cf-squircle--control,
+  .error-banner.cf-squircle--control {
+    corner-shape: squircle;
+  }
 }
 
-.patient-auth {
-  flex: 1;
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: calc(1.5rem + env(safe-area-inset-top)) 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
-  background: var(--pa-bg, #ffffff);
-}
-
-.patient-auth-inner {
-  width: 100%;
-  max-width: 380px;
-}
-
-.patient-auth-brand {
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-
-.patient-auth-logo {
-  display: block;
-  margin: 0 auto 0.5rem;
-  object-fit: contain;
-}
-
-.patient-auth-tagline {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--pa-text-muted, #66706e);
-}
-
-.patient-auth-card {
-  background: var(--pa-surface, #fff);
-  border: 1px solid var(--pa-border, #e0e0e0);
-  border-radius: var(--pa-radius, 12px);
-  padding: 1.35rem;
-}
-
-.patient-auth-header {
-  margin-bottom: 1.25rem;
-}
-
-.patient-auth-header h2 {
-  margin: 0 0 0.35rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--pa-text, #333d3b);
-}
-
-.patient-auth-header p {
-  margin: 0;
-  font-size: 0.88rem;
-  color: var(--pa-text-muted, #66706e);
-}
-
-.patient-auth-form {
-  gap: 1.1rem;
-}
-
-.patient-login-mode .form-group label {
-  font-weight: 600;
-  color: var(--pa-text, #333d3b);
-}
-
-.patient-login-mode .input-wrapper {
-  border-color: var(--pa-border, #e0e0e0);
-  border-radius: var(--pa-radius, 12px);
-  background: var(--pa-surface, #fff);
-}
-
-.patient-login-mode .form-group.focused .input-wrapper {
-  border-color: var(--cf-pink, #c9898e);
-  box-shadow: 0 0 0 3px rgba(201, 137, 142, 0.15);
-}
-
-.patient-login-mode .form-group.focused .input-icon {
-  color: var(--cf-pink, #c9898e);
-}
-
-.patient-login-mode .forgot-link {
-  color: var(--cf-pink, #c9898e);
-}
-
-.forgot-link-btn {
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  font: inherit;
-}
-
-.patient-auth-submit {
-  background: var(--cf-green, #8baa87);
-  border-radius: var(--pa-radius, 12px);
-  min-height: 3rem;
-  margin-top: 0.15rem;
-  font-weight: 600;
-}
-
-.patient-auth-submit:hover:not(:disabled) {
-  background: var(--cf-green-dark, #739a6f);
-}
-
-.patient-auth-footer {
-  margin: 0.5rem 0 0;
-  text-align: center;
-  font-size: 0.88rem;
-  color: var(--pa-text-muted, #66706e);
-}
-
-.patient-auth-footer a {
-  color: var(--cf-pink, #c9898e);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.patient-login-mode .input-wrapper input {
-  font-family: inherit;
-  color: var(--pa-text, #333d3b);
+@media (prefers-reduced-motion: reduce) {
+  .btn-auth-submit:active:not(:disabled) {
+    transform: none;
+  }
 }
 </style>

@@ -2,7 +2,7 @@
   <div class="auth-container patient-login-mode">
     <main class="patient-auth">
       <div class="patient-auth-inner">
-        <div class="patient-auth-card">
+        <div class="patient-auth-card cf-squircle cf-squircle--surface">
           <header class="patient-auth-header patient-auth-header--login">
             <img src="/logoflorescer.svg" alt="Florescer" class="patient-auth-logo" width="120" height="36">
             <h2>Entrar</h2>
@@ -58,7 +58,7 @@
               <span v-else>Entrar</span>
             </button>
 
-            <p v-if="error" class="error-banner" role="alert">
+            <p v-if="error" class="error-banner cf-squircle cf-squircle--control" role="alert">
               <AlertCircle class="error-icon" />
               {{ error }}
             </p>
@@ -73,7 +73,7 @@
     </main>
 
     <div v-if="showFirstAccessModal" class="modal-overlay">
-      <div class="modal-card">
+      <div class="modal-card cf-squircle cf-squircle--surface">
         <h3>Primeiro acesso: altere sua senha</h3>
         <p>Por segurança, você precisa criar uma nova senha para continuar.</p>
 
@@ -118,7 +118,7 @@
           </button>
         </form>
 
-        <p v-if="firstAccessError" class="error-banner">
+        <p v-if="firstAccessError" class="error-banner cf-squircle cf-squircle--control">
           <AlertCircle class="error-icon" />
           {{ firstAccessError }}
         </p>
@@ -130,6 +130,7 @@
 <script setup>
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
+import { PATIENT_ACCESS_EXPIRED_MESSAGE } from '~/utils/patient-access'
 
 definePageMeta({ layout: false, pageTransition: false })
 
@@ -148,6 +149,14 @@ const showFirstAccessModal = ref(false)
 const firstAccessLoading = ref(false)
 const firstAccessError = ref('')
 const firstAccessForm = reactive({ newPassword: '', confirmPassword: '' })
+
+const route = useRoute()
+
+onMounted(() => {
+  if (route.query.access === 'expired') {
+    error.value = PATIENT_ACCESS_EXPIRED_MESSAGE
+  }
+})
 
 const handleLogin = async () => {
   loading.value = true
@@ -185,12 +194,11 @@ const handleLogin = async () => {
         dev: import.meta.dev,
         hostname: import.meta.client ? window.location.hostname : undefined,
       })
+    } else if (err.data?.message) {
+      error.value = err.data.message
     } else if (err.statusCode === 401) {
       error.value = 'Credenciais inválidas. Verifique e-mail e senha.'
     } else if (err.statusCode === 500) {
-      error.value = 'Erro no servidor ao entrar. Confira se o backend está rodando (npm run dev:backend) e reinicie o app paciente.'
-    } else if (err.data?.message) {
-      error.value = err.data.message
     } else {
       error.value = 'Não foi possível entrar. Verifique e-mail e senha.'
     }
@@ -232,35 +240,6 @@ const handleFirstAccessPasswordChange = async () => {
 </script>
 
 <style scoped>
-.auth-container {
-  display: flex;
-  height: 100%;
-  height: 100dvh;
-  max-height: 100dvh;
-  width: 100%;
-  overflow: hidden;
-  background: var(--pa-bg, #ffffff);
-  font-family: var(--pa-font, var(--cf-font));
-  justify-content: center;
-}
-
-.patient-auth {
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: calc(1rem + env(safe-area-inset-top)) 1.25rem calc(1rem + env(safe-area-inset-bottom));
-}
-
-.patient-auth-inner {
-  width: 100%;
-  max-width: 380px;
-}
-
 .patient-auth-header--login {
   text-align: center;
   margin-bottom: 1.35rem;
@@ -276,21 +255,7 @@ const handleFirstAccessPasswordChange = async () => {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--pa-text, #333d3b);
-}
-
-.patient-auth-card {
-  background: var(--pa-surface, #fff);
-  border: 1px solid var(--pa-border, #e0e0e0);
-  border-radius: var(--cf-radius-surface, var(--pa-radius));
-  padding: 1.35rem;
-}
-
-.auth-form { display: flex; flex-direction: column; gap: 1.35rem; }
-
-.form-group.field--float {
-  position: relative;
-  margin-top: 0.35rem;
+  color: var(--cf-text);
 }
 
 .field--float-password .forgot-link {
@@ -302,15 +267,15 @@ const handleFirstAccessPasswordChange = async () => {
 }
 
 .input-icon {
-  width: 18px;
-  height: 18px;
+  width: 1.125rem;
+  height: 1.125rem;
   color: #b8c0bd;
   flex-shrink: 0;
   transition: color 0.15s ease;
 }
 
 .form-group.focused .input-icon {
-  color: var(--cf-pink, #c9898e);
+  color: var(--cf-pink);
 }
 
 .input-wrapper input::placeholder {
@@ -320,14 +285,13 @@ const handleFirstAccessPasswordChange = async () => {
 .forgot-link {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--cf-pink, #c9898e);
+  color: var(--cf-pink);
   text-decoration: none;
 }
 
 .forgot-link-btn {
   border: none;
   background: transparent;
-  padding: 0;
   cursor: pointer;
   font: inherit;
 }
@@ -342,57 +306,13 @@ const handleFirstAccessPasswordChange = async () => {
 }
 
 .password-toggle-icon {
-  width: 18px;
-  height: 18px;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
-.btn-auth-submit {
-  width: 100%;
-  border: none;
-  padding: 1rem;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.patient-auth-submit {
-  background: var(--cf-green, #8baa87);
-  min-height: 3rem;
-  color: #fff;
-}
-.patient-auth-submit:hover:not(:disabled) { background: var(--cf-green-dark, #739a6f); }
-.btn-auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-.error-banner {
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
-  color: #c53030;
-  padding: 1rem;
-  border-radius: var(--cf-radius-control);
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-}
-.error-icon { width: 18px; height: 18px; }
-.patient-auth-footer { margin: 0.5rem 0 0; text-align: center; font-size: 0.88rem; color: var(--pa-text-muted, #66706e); }
-.patient-auth-footer a { color: var(--cf-pink, #c9898e); font-weight: 600; text-decoration: none; }
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
-  display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 1000;
-}
-.modal-card {
-  width: 100%;
-  max-width: 440px;
-  background: #fff;
-  border-radius: var(--cf-radius-surface, var(--pa-radius));
-  padding: 1.35rem;
-}
-
-.modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.35rem;
-  margin-top: 0.5rem;
+.error-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
 }
 </style>

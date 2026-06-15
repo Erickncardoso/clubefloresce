@@ -172,8 +172,8 @@
 }
 
 .modal-card .field input,
-.modal-card .field select,
-.modal-card .field textarea {
+.modal-card .field textarea,
+.modal-card .field select:not(.cf-select-trigger) {
   width: 100%;
   padding: 0.85rem 0.9rem;
   border: 1.5px solid #e8ece9;
@@ -186,16 +186,21 @@
 }
 
 .modal-card .field input:focus,
-.modal-card .field select:focus,
-.modal-card .field textarea:focus {
+.modal-card .field textarea:focus,
+.modal-card .field select:not(.cf-select-trigger):focus {
   outline: none;
   border-color: #b8d4b4;
   box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
 }
 
 .modal-card .field--float input,
-.modal-card .field--float select {
+.modal-card .field--float select:not(.cf-select-trigger) {
   padding-top: 0.95rem;
+}
+
+.modal-card .field--float .cf-select,
+.modal-card .field--float .cf-date-input {
+  width: 100%;
 }
 
 .modal-card .label-required {

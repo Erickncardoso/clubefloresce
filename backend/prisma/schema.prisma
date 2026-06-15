@@ -32,14 +32,15 @@ enum RegistrationRequestStatus {
 }
 
 model PatientRegistrationRequest {
-  id        String                    @id @default(uuid())
-  name      String
-  email     String
-  phone     String?
-  message   String?
-  status    RegistrationRequestStatus @default(PENDENTE)
-  createdAt DateTime                  @default(now())
-  updatedAt DateTime                  @updatedAt
+  id           String                    @id @default(uuid())
+  name         String
+  email        String
+  phone        String?
+  message      String?
+  passwordHash String?
+  status       RegistrationRequestStatus @default(PENDENTE)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
 
   @@index([email])
   @@index([status, createdAt])
@@ -326,13 +327,19 @@ model Comment {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  title     String
-  body      String
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   @default("general")
+  title      String
+  body       String
+  actionPath String?
+  sourceKey  String?
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, sourceKey])
+  @@index([userId, read, createdAt])
 }
 
 model Transaction {

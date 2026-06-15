@@ -1,7 +1,6 @@
 import { PrismaClient, Course, Module, Lesson } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { isUuid, slugify } from "../utils/slug";
-
-const prisma = new PrismaClient();
 
 const moduleInclude = (userId?: string) => ({
   lessons: {
