@@ -1,7 +1,9 @@
 <template>
   <div class="patient-app-shell">
     <NuxtPwaManifest />
-    <NuxtPage />
+    <div class="patient-app-shell__main">
+      <NuxtPage />
+    </div>
     <PatientTabBar v-if="showTabBar" />
     <PatientPwaUpdate />
     <PatientPwaPrompt />
