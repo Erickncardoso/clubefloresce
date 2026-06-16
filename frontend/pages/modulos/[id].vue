@@ -189,9 +189,9 @@
                             <img :src="moduleData.course.thumbnail" alt="" />
                           </div>
                           <div>
-                            <p class="coluna-lateral__curso-nome">{{ moduleData.course?.title || moduleData.title }}</p>
+                            <p class="coluna-lateral__curso-nome">{{ moduleData.title }}</p>
                             <p class="coluna-lateral__curso-meta">
-                              {{ moduleData.lessons?.length || 0 }} aulas · {{ totalDuration }}
+                              {{ moduleData.course?.title }} · {{ moduleData.lessons?.length || 0 }} aulas · {{ totalDuration }}
                             </p>
                           </div>
                         </div>
@@ -234,7 +234,7 @@
                           </div>
                         </div>
                         <div v-if="nextModule" class="aula-lista-mobile__footer">
-                          <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule))">
+                          <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule, null, null, moduleData.course?.id))">
                             <PlayCircle :size="16" />
                             <span>Próximo: {{ nextModule.title }}</span>
                             <ArrowRight :size="14" />
@@ -280,9 +280,9 @@
                   <img :src="moduleData.course.thumbnail" alt="" />
                 </div>
                 <div>
-                  <p class="coluna-lateral__curso-nome">{{ moduleData.course?.title || moduleData.title }}</p>
+                  <p class="coluna-lateral__curso-nome">{{ moduleData.title }}</p>
                   <p class="coluna-lateral__curso-meta">
-                    {{ moduleData.lessons?.length || 0 }} aulas · {{ totalDuration }}
+                    {{ moduleData.course?.title }} · {{ moduleData.lessons?.length || 0 }} aulas · {{ totalDuration }}
                   </p>
                 </div>
               </div>
@@ -327,7 +327,7 @@
               </div>
 
               <div v-if="nextModule" class="coluna-lateral__footer">
-                <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule))">
+                <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule, null, null, moduleData.course?.id))">
                   <PlayCircle :size="16" />
                   <span>Próximo: {{ nextModule.title }}</span>
                   <ArrowRight :size="14" />
@@ -702,7 +702,8 @@ const onLessonSummarySaved = (lesson) => {
 const syncLessonUrl = (lesson, replace = true) => {
   if (!import.meta.client || !moduleData.value || !lesson) return
   nextTick(() => {
-    const nextUrl = buildModuleUrl(moduleData.value, lesson, moduleData.value.lessons)
+    const courseRef = moduleData.value.course?.id || route.query.curso
+    const nextUrl = buildModuleUrl(moduleData.value, lesson, moduleData.value.lessons, courseRef)
     if (route.fullPath !== nextUrl) {
       router[replace ? 'replace' : 'push'](nextUrl)
     }
@@ -872,9 +873,13 @@ const fetchModule = async () => {
     loadError.value = ''
     const token = localStorage.getItem('auth_token')
     const courseId = route.query.curso ? String(route.query.curso) : undefined
+    const lessonSlug = route.query.aula ? String(route.query.aula) : undefined
     const data = await $fetch(`${apiBase}/courses/modules/${encodeURIComponent(moduleParam.value)}`, {
       headers: { Authorization: `Bearer ${token}` },
-      query: courseId ? { courseId } : undefined,
+      query: {
+        ...(courseId ? { courseId } : {}),
+        ...(lessonSlug ? { aula: lessonSlug } : {}),
+      },
     })
     moduleData.value = data
     applyLessonFromRoute(data)

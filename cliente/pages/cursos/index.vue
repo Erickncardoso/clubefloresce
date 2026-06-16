@@ -150,7 +150,7 @@
                <div class="modal-cover-content netflix-hero-content">
                   <h2 class="netflix-serie-title">{{ selectedCourseDetails.title }}</h2>
                   <div class="netflix-hero-actions">
-                    <button class="btn-netflix-play" @click="navigateTo(buildModuleUrl(selectedCourseDetails.modules?.[0], null, null, selectedCourseDetails.modules))">
+                    <button class="btn-netflix-play" @click="navigateTo(buildModuleUrl(selectedCourseDetails.modules?.[0], null, null, selectedCourseDetails.id))">
                       <Play class="play-fill" fill="currentColor"/> Assistir
                     </button>
                     <!-- Icon buttons for Nutris -->
@@ -196,7 +196,7 @@
                     <p>Nenhuma aula neste módulo.</p>
                  </div>
                  <div v-else class="episodes-list">
-                    <div v-for="(lesson, idx) in currentDropModule.lessons" :key="lesson.id" class="episode-row" @click="navigateTo(buildModuleUrl(currentDropModule, lesson, currentDropModule.lessons, selectedCourseDetails.modules))">
+                    <div v-for="(lesson, idx) in currentDropModule.lessons" :key="lesson.id" class="episode-row" @click="navigateTo(buildModuleUrl(currentDropModule, lesson, currentDropModule.lessons, selectedCourseDetails.id))">
                        <div class="episode-number">{{ idx + 1 }}</div>
                       <div class="episode-thumb">
                          <img v-if="lesson.thumbnail" :src="lesson.thumbnail" class="ep-thumb-img" />
@@ -1061,7 +1061,7 @@ const openCoursePlayerPage = (course) => {
   const firstModuleWithLesson = (course.modules || []).find((module) => module?.lessons?.length)
   const firstLesson = firstModuleWithLesson?.lessons?.[0]
   if (firstModuleWithLesson?.id && firstLesson?.id) {
-    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons, course.modules))
+    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons, course.id))
   }
 }
 

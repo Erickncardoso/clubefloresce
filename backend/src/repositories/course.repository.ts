@@ -1,7 +1,7 @@
 import { PrismaClient, Course, Module, Lesson } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { isUuid, slugify } from "../utils/slug";
-import { findModuleBySlug } from "../utils/module-slug";
+import { findModuleBySlug, findLessonBySlug } from "../utils/module-slug";
 
 const moduleInclude = (userId?: string) => ({
   lessons: {
@@ -92,6 +92,25 @@ export class CourseRepository {
 
     const legacyMatches = modules.filter((module) => slugify(module.title || "") === param);
     return legacyMatches[0] ?? null;
+  }
+
+  async findModuleByLessonSlug(lessonSlug: string, userId?: string): Promise<any | null> {
+    const param = String(lessonSlug || "").trim();
+    if (!param) return null;
+
+    const modules = await prisma.module.findMany({
+      include: moduleInclude(userId),
+      orderBy: [{ courseId: "asc" }, { order: "asc" }],
+    });
+
+    for (const module of modules) {
+      const lessons = module.lessons || [];
+      if (findLessonBySlug(lessons, param)) {
+        return module;
+      }
+    }
+
+    return null;
   }
 
   async updateLessonProgress(userId: string, lessonId: string, data: { watched?: boolean, liked?: boolean, disliked?: boolean, favorited?: boolean }): Promise<any> {

@@ -26,8 +26,18 @@ export class CourseController {
   async getModuleById(req: Request, res: Response): Promise<any> {
     try {
       const userId = req.user?.id;
-      const courseId = typeof req.query.courseId === "string" ? req.query.courseId : undefined;
-      const moduleData = await courseService.getModuleById(req.params.moduleId, userId, courseId);
+      const courseId = typeof req.query.courseId === "string"
+        ? req.query.courseId
+        : typeof req.query.curso === "string"
+          ? req.query.curso
+          : undefined;
+      const lessonSlug = typeof req.query.aula === "string" ? req.query.aula : undefined;
+      const moduleData = await courseService.getModuleById(
+        req.params.moduleId,
+        userId,
+        courseId,
+        lessonSlug,
+      );
       if (!moduleData) return res.status(404).json({ message: "Módulo não encontrado." });
       return res.json(moduleData);
     } catch (error: any) {

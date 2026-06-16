@@ -610,13 +610,13 @@ const educatorList = computed(() => {
 
 const openLessonPlayer = (module, lesson) => {
   if (!module?.id || !lesson?.id) return
-  navigateTo(buildModuleUrl(module, lesson, module.lessons, modules.value))
+  navigateTo(buildModuleUrl(module, lesson, module.lessons, course.value?.id))
 }
 
 const openProjectLesson = (project) => {
   const module = modules.value.find((item) => item.id === project.moduleId)
   if (!module) return
-  navigateTo(buildModuleUrl(module, project, module.lessons, modules.value))
+  navigateTo(buildModuleUrl(module, project, module.lessons, course.value?.id))
 }
 
 const isModuleExpanded = (moduleId) => expandedModuleIds.value.has(moduleId)

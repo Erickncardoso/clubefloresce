@@ -247,7 +247,7 @@ function openCourse(course) {
   const firstModuleWithLesson = (course.modules || []).find((module) => module?.lessons?.length)
   const firstLesson = firstModuleWithLesson?.lessons?.[0]
   if (firstModuleWithLesson?.id && firstLesson?.id) {
-    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons, course.modules))
+    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons, course.id))
     return
   }
   navigateTo(`/cursos/${course.id}`)

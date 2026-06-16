@@ -14,7 +14,7 @@ export function slugify(value: string): string {
     .slice(0, 80)
 }
 
-type SluggableItem = { id: string; title?: string | null; order?: number }
+type SluggableItem = { id: string; title?: string | null; order?: number; courseId?: string }
 
 export function assignSlugs<T extends SluggableItem>(items: T[]): Map<string, string> {
   const used = new Map<string, number>()
@@ -30,7 +30,6 @@ export function assignSlugs<T extends SluggableItem>(items: T[]): Map<string, st
   return result
 }
 
-/** Sempre usa o ID do módulo na URL — evita colisão de slug entre cursos. */
 export function getModuleSlug(module: SluggableItem, _modules?: SluggableItem[]): string {
   return module?.id || ''
 }
@@ -39,6 +38,13 @@ export function findModuleBySlug<T extends SluggableItem>(modules: T[], slug: st
   if (!slug || !modules?.length) return null
   if (isUuid(slug)) {
     return modules.find((module) => module.id === slug) ?? null
+  }
+
+  const orderMatch = /^modulo-(\d+)$/.exec(slug)
+  if (orderMatch) {
+    const index = Number(orderMatch[1]) - 1
+    const sorted = [...modules].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    if (index >= 0 && index < sorted.length) return sorted[index]
   }
 
   const slugs = assignSlugs(modules)
@@ -64,6 +70,16 @@ export function findLessonBySlug<T extends SluggableItem>(lessons: T[], slug: st
     return lessons.find((lesson) => lesson.id === slug) ?? null
   }
 
+  return lessons.find((lesson) => slugify(lesson.title || '') === slug) ?? null
+}
+
+function resolveCourseId(
+  module?: SluggableItem | null,
+  course?: { id?: string } | string | null,
+): string | null {
+  if (typeof course === 'string') return course
+  if (course?.id) return course.id
+  if (module?.courseId) return module.courseId
   return null
 }
 
@@ -71,16 +87,20 @@ export function buildModuleUrl(
   module: SluggableItem | null | undefined,
   lesson?: SluggableItem | null,
   lessons?: SluggableItem[],
-  _courseModules?: SluggableItem[],
+  course?: { id?: string } | string | null,
 ): string {
   if (!module?.id) return '/modulos'
 
-  let url = `/modulos/${encodeURIComponent(module.id)}`
+  const params = new URLSearchParams()
+  const courseId = resolveCourseId(module, course)
+  if (courseId) params.set('curso', courseId)
 
   if (lesson && lessons?.length) {
-    const lessonSlug = getLessonSlug(lesson, lessons)
-    url += `?aula=${encodeURIComponent(lessonSlug)}`
+    params.set('aula', getLessonSlug(lesson, lessons))
   }
 
+  let url = `/modulos/${encodeURIComponent(module.id)}`
+  const qs = params.toString()
+  if (qs) url += `?${qs}`
   return url
 }

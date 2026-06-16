@@ -58,7 +58,17 @@ export class CourseService {
     return courseRepository.findById(id);
   }
 
-  async getModuleById(id: string, userId?: string, courseId?: string): Promise<any | null> {
+  async getModuleById(
+    id: string,
+    userId?: string,
+    courseId?: string,
+    lessonSlug?: string,
+  ): Promise<any | null> {
+    if (lessonSlug) {
+      const byLesson = await courseRepository.findModuleByLessonSlug(lessonSlug, userId);
+      if (byLesson) return byLesson;
+    }
+
     return courseRepository.findModuleById(id, userId, courseId);
   }
 
