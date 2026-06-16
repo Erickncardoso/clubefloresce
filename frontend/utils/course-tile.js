@@ -1,4 +1,5 @@
 import { BookOpen, FileText } from 'lucide-vue-next'
+import { resolveTileCoverUrl } from './media-cover'
 
 const TOPIC_TONES = {
   nutrition: 'pink',
@@ -52,7 +53,7 @@ export function mapCourseToTile(course, { getCover, topic } = {}) {
     label: 'Curso',
     value: course.title,
     meta: metaParts.join(' · '),
-    cover: getCover ? getCover(course, 'desktop') : '',
+    cover: resolveTileCoverUrl(getCover ? getCover(course, 'desktop') : ''),
     icon: BookOpen,
     ariaLabel: `Abrir curso ${course.title}`,
     raw: course,
@@ -70,7 +71,7 @@ export function mapEbookToTile(ebook, { topic } = {}) {
     label: 'E-book',
     value: ebook.title,
     meta: ebook.description ? 'Material para leitura' : 'Leitura',
-    cover: ebook.thumbnail || '',
+    cover: resolveTileCoverUrl(ebook.thumbnail || ''),
     icon: FileText,
     ariaLabel: `Abrir ebook ${ebook.title}`,
     raw: ebook,

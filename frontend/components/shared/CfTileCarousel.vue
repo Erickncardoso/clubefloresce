@@ -27,14 +27,26 @@
               class="cf-tile-card cf-squircle cf-squircle--tile"
               :class="[`cf-tile-card--${item.tone || 'blue'}`, item.className]"
             >
-              <img
-                v-if="item.cover"
-                :src="item.cover"
-                alt=""
-                class="cf-tile-card-cover-img"
-                loading="lazy"
-                decoding="async"
-              />
+              <template v-if="item.cover && !isCoverFailed(item.id)">
+                <div
+                  v-if="!isCoverLoaded(item.id)"
+                  class="cf-tile-card-cover-skeleton"
+                  aria-hidden="true"
+                />
+                <img
+                  :key="coverSrc(item)"
+                  :ref="(el) => syncCoverImageState(el, item)"
+                  :src="coverSrc(item)"
+                  alt=""
+                  class="cf-tile-card-cover-img"
+                  :class="{ 'cf-tile-card-cover-img--ready': isCoverLoaded(item.id) }"
+                  loading="eager"
+                  decoding="async"
+                  fetchpriority="low"
+                  @load="markCoverLoaded(item.id)"
+                  @error="markCoverFailed(item.id)"
+                />
+              </template>
               <div
                 v-else
                 class="cf-tile-card-cover-empty"
@@ -79,8 +91,9 @@
 
 <script setup>
 import { BookOpen } from 'lucide-vue-next'
+import { resolveTileCoverUrl } from '~/utils/media-cover'
 
-defineProps({
+const props = defineProps({
   items: { type: Array, default: () => [] },
   ariaLabel: { type: String, default: 'Carrossel de conteúdos' },
   showDots: { type: Boolean, default: true },
@@ -91,8 +104,52 @@ const emit = defineEmits(['select'])
 
 const trackRef = ref(null)
 const activeIndex = ref(0)
+const coverLoaded = ref({})
+const coverFailed = ref({})
 
 useVerticalWheelPassthrough(trackRef)
+
+function coverSrc(item) {
+  return resolveTileCoverUrl(item?.cover)
+}
+
+function isCoverLoaded(id) {
+  return Boolean(coverLoaded.value[id])
+}
+
+function isCoverFailed(id) {
+  return Boolean(coverFailed.value[id])
+}
+
+function markCoverLoaded(id) {
+  if (!id) return
+  coverLoaded.value = { ...coverLoaded.value, [id]: true }
+}
+
+function markCoverFailed(id) {
+  if (!id) return
+  coverFailed.value = { ...coverFailed.value, [id]: true }
+}
+
+function syncCoverImageState(el, item) {
+  if (!el || !item?.id || isCoverFailed(item.id)) return
+
+  if (el.complete) {
+    if (el.naturalWidth > 0) {
+      markCoverLoaded(item.id)
+    } else {
+      markCoverFailed(item.id)
+    }
+  }
+}
+
+watch(
+  () => props.items.map((item) => `${item.id}:${item.cover || ''}`).join('|'),
+  () => {
+    coverLoaded.value = {}
+    coverFailed.value = {}
+  },
+)
 
 function onScroll() {
   const track = trackRef.value
@@ -164,6 +221,7 @@ function onScroll() {
 }
 
 .cf-tile-card {
+  position: relative;
   width: 100%;
   aspect-ratio: 3 / 4;
   box-sizing: border-box;
@@ -184,11 +242,32 @@ function onScroll() {
   }
 }
 
+.cf-tile-card-cover-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, #ecefee 8%, #f8f9f8 18%, #ecefee 33%);
+  background-size: 200% 100%;
+  animation: cf-tile-cover-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes cf-tile-cover-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
 .cf-tile-card-cover-img {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.cf-tile-card-cover-img--ready {
+  opacity: 1;
 }
 
 .cf-tile-card-cover-empty {
@@ -333,8 +412,18 @@ function onScroll() {
 
 @media (prefers-reduced-motion: reduce) {
   .cf-tile-card-entry,
-  .cf-tile-carousel-dot {
+  .cf-tile-carousel-dot,
+  .cf-tile-card-cover-img {
     transition: none;
+  }
+
+  .cf-tile-card-cover-skeleton {
+    animation: none;
+    background: var(--cf-track, #ecefee);
+  }
+
+  .cf-tile-card-cover-img {
+    opacity: 1;
   }
 
   .cf-tile-card-entry:active {
