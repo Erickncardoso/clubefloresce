@@ -2,6 +2,7 @@
   <NuxtLayout :name="layoutName">
     <div
       v-if="moduleData"
+      :key="moduleParam"
       class="aula-page"
       :class="{ 'aula-page--mobile': isPatientApp }"
     >
@@ -185,7 +186,7 @@
                           </div>
                         </div>
                         <div v-if="nextModule" class="aula-lista-mobile__footer">
-                          <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule))">
+                          <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule, null, null, moduleData.course?.modules))">
                             <PlayCircle :size="16" />
                             <span>Próximo: {{ nextModule.title }}</span>
                             <ArrowRight :size="14" />
@@ -293,7 +294,7 @@
         </div>
 
               <div v-if="nextModule" class="coluna-lateral__footer">
-                <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule))">
+                <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule, null, null, moduleData.course?.modules))">
                   <PlayCircle :size="16" />
                   <span>Próximo: {{ nextModule.title }}</span>
                   <ArrowRight :size="14" />
@@ -401,7 +402,7 @@ import {
   Link,
   StickyNote,
 } from 'lucide-vue-next'
-import { ref, onMounted, computed, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter, navigateTo } from '#app'
 import { getVideoCaptionUrl } from '~/utils/video-provider'
 import { parseTranscriptionTimeToSeconds } from '~/utils/cloudinary-video'
@@ -644,7 +645,8 @@ const seekToTranscriptionLine = (line) => {
 const syncLessonUrl = (lesson, replace = true) => {
   if (!import.meta.client || !moduleData.value || !lesson) return
   nextTick(() => {
-    const nextUrl = buildModuleUrl(moduleData.value, lesson, moduleData.value.lessons)
+    const courseModules = moduleData.value.course?.modules || []
+    const nextUrl = buildModuleUrl(moduleData.value, lesson, moduleData.value.lessons, courseModules)
     if (route.fullPath !== nextUrl) {
       router[replace ? 'replace' : 'push'](nextUrl)
     }
@@ -767,9 +769,16 @@ const deleteComment = async (commentId) => {
 
 const fetchModule = async () => {
   try {
+    loading.value = true
     const token = localStorage.getItem('auth_token')
-    const data = await $fetch(`${apiBase}/courses/modules/${encodeURIComponent(moduleParam.value)}`, { headers: { Authorization: `Bearer ${token}` } })
+    const courseId = route.query.curso ? String(route.query.curso) : undefined
+    const data = await $fetch(`${apiBase}/courses/modules/${encodeURIComponent(moduleParam.value)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      query: courseId ? { courseId } : undefined,
+    })
     moduleData.value = data
+    activeLesson.value = null
+    activeLessonComments.value = []
     if (data.lessons?.length > 0) {
       const queryAula = String(route.query.aula || '')
       const queryLessonId = String(route.query.lessonId || '')
@@ -805,6 +814,13 @@ onMounted(() => {
   fetchModule()
   fetchCurrentUser()
 })
+
+watch(
+  () => [moduleParam.value, route.query.aula, route.query.lessonId, route.query.curso],
+  () => {
+    fetchModule()
+  },
+)
 </script>
 
 <style scoped>

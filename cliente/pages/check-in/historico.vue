@@ -5,53 +5,61 @@
     <PatientPageSkeleton v-if="pageLoading" layout="checkin" />
 
     <template v-else>
-    <div class="historico-chips">
-      <button
-        v-for="chip in filters"
-        :key="chip.id"
-        type="button"
-        class="patient-chip"
-        :class="{ active: activeFilter === chip.id }"
-        @click="activeFilter = chip.id"
-      >
-        {{ chip.label }}
-      </button>
-    </div>
-
-    <section class="patient-card historico-chart">
-      <h2>Seu progresso de check-ins</h2>
-      <div class="historico-bars">
-        <div
-          v-for="(item, i) in chartItems"
-          :key="item.id"
-          class="historico-bar-wrap"
+      <div class="historico-chips">
+        <button
+          v-for="chip in filters"
+          :key="chip.id"
+          type="button"
+          class="patient-chip"
+          :class="{ active: activeFilter === chip.id }"
+          @click="activeFilter = chip.id"
         >
-          <div class="historico-bar" :style="{ height: `${item.pct}%` }" />
-          <span>S{{ chartItems.length - i }}</span>
-        </div>
+          {{ chip.label }}
+        </button>
       </div>
-    </section>
 
-    <section class="historico-list">
-      <article v-for="item in filteredHistory" :key="item.id" class="historico-row">
-        <div>
-          <strong>{{ formatWeekTitle(item) }}</strong>
-          <p>{{ formatWeekRange(item.weekStart) }}</p>
+      <section class="patient-card historico-chart">
+        <h2>Seu progresso de check-ins</h2>
+        <div class="historico-bars">
+          <div
+            v-for="(item, i) in chartItems"
+            :key="item.id"
+            class="historico-bar-wrap"
+          >
+            <div class="historico-bar" :style="{ height: `${item.pct}%` }" />
+            <span>S{{ chartItems.length - i }}</span>
+          </div>
         </div>
-        <span class="historico-status" :class="statusClass(item)">
-          {{ statusLabel(item) }}
-        </span>
-      </article>
-      <p v-if="!filteredHistory.length" class="historico-empty">Nenhum registro neste período.</p>
-    </section>
+      </section>
+
+      <section class="historico-list">
+        <article v-for="(item, index) in filteredHistory" :key="item.id" class="historico-row">
+          <div>
+            <strong>{{ formatEntryTitle(item, index) }}</strong>
+            <p>{{ formatCheckinPeriod(item.periodKey, item.template?.frequency) }}</p>
+            <p class="historico-summary">{{ summarizeCheckinAnswers(item.template?.steps, item.answers) }}</p>
+          </div>
+          <span class="historico-status" :class="statusClass(item)">
+            {{ statusLabel(item) }}
+          </span>
+        </article>
+        <p v-if="!filteredHistory.length" class="historico-empty">Nenhum registro neste período.</p>
+      </section>
     </template>
   </div>
 </template>
 
 <script setup>
+import {
+  formatCheckinPeriod,
+  scoreFromTemplateAnswers,
+  summarizeCheckinAnswers,
+} from '~/utils/checkin-answers'
+
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const config = useRuntimeConfig()
+const { patientTimeHeaders } = usePatientLocalTime()
 const history = ref([])
 const activeFilter = ref('all')
 const pageLoading = ref(true)
@@ -62,15 +70,7 @@ const filters = [
   { id: 'quarter', label: 'Últimos 3 meses' },
 ]
 
-const authHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-})
-
-const pct = (item) => {
-  const vals = [item.adherence, item.energy, item.mood].filter(Boolean)
-  if (!vals.length) return 50
-  return Math.round((vals.reduce((a, b) => a + b, 0) / (vals.length * 5)) * 100)
-}
+const pct = (item) => scoreFromTemplateAnswers(item.answers) ?? 0
 
 const chartItems = computed(() =>
   [...history.value].slice(0, 8).reverse().map((item) => ({ ...item, pct: pct(item) })),
@@ -79,7 +79,7 @@ const chartItems = computed(() =>
 const filteredHistory = computed(() => {
   const now = new Date()
   return history.value.filter((item) => {
-    const d = new Date(item.weekStart)
+    const d = new Date(item.updatedAt || item.createdAt)
     if (activeFilter.value === 'month') {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     }
@@ -91,38 +91,32 @@ const filteredHistory = computed(() => {
   })
 })
 
-const formatWeekRange = (dateStr) => {
-  const start = new Date(dateStr)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 6)
-  const fmt = (d) => d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
-  return `${fmt(start)} a ${fmt(end)}`
-}
-
-const formatWeekTitle = (item) => {
-  const idx = history.value.indexOf(item)
-  return `Semana ${history.value.length - idx}`
+const formatEntryTitle = (item, index) => {
+  const title = item.template?.title || 'Check-in'
+  return `${title} #${history.value.length - index}`
 }
 
 const statusLabel = (item) => {
-  const p = pct(item)
-  if (p >= 80) return '✓ Concluído'
-  if (p >= 50) return '◐ Parcial'
-  return '— Não respondido'
+  const value = pct(item)
+  if (value >= 80) return '✓ Concluído'
+  if (value >= 50) return '◐ Parcial'
+  return '— Fraco'
 }
 
 const statusClass = (item) => {
-  const p = pct(item)
-  if (p >= 80) return 'historico-status--ok'
-  if (p >= 50) return 'historico-status--warn'
+  const value = pct(item)
+  if (value >= 80) return 'historico-status--ok'
+  if (value >= 50) return 'historico-status--warn'
   return 'historico-status--muted'
 }
 
 onMounted(async () => {
   pageLoading.value = true
   try {
-    const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: authHeaders() })
-    history.value = [...(data.history || []), ...(data.current ? [data.current] : [])]
+    const data = await $fetch(`${config.public.apiBase}/checkin/me/responses`, {
+      headers: patientTimeHeaders(),
+    })
+    history.value = data.responses || []
   } catch {
     history.value = []
   } finally {
@@ -187,6 +181,7 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   padding: 1rem 0;
   border-bottom: 1px solid var(--pa-border);
 }
@@ -202,9 +197,15 @@ onMounted(async () => {
   color: var(--pa-text-muted);
 }
 
+.historico-summary {
+  margin-top: 0.35rem !important;
+  color: var(--pa-text) !important;
+}
+
 .historico-status {
   font-size: 0.78rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .historico-status--ok { color: var(--pa-green); }

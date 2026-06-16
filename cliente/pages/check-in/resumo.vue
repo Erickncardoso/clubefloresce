@@ -2,44 +2,60 @@
   <div class="patient-page resumo-page">
     <PatientHeader title="Resumo da Semana" :subtitle="weekRange" show-back back-to="/check-in" />
 
-    <div class="resumo-ring-wrap">
-      <div class="resumo-ring">
-        <svg viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" stroke-width="10" />
-          <circle
-            cx="50" cy="50" r="42" fill="none"
-            stroke="#006437" stroke-width="10"
-            stroke-linecap="round"
-            :stroke-dasharray="`${score * 2.64} 264`"
-            transform="rotate(-90 50 50)"
-          />
-        </svg>
-        <div class="resumo-ring-text">
-          <strong>{{ score }}%</strong>
-          <span>{{ scoreLabel }}</span>
-        </div>
-      </div>
+    <div v-if="loading" class="resumo-loading">
+      <PatientPageSkeleton layout="checkin" />
     </div>
 
-    <p class="resumo-message">{{ summaryMessage }}</p>
+    <template v-else-if="current">
+      <div class="resumo-ring-wrap">
+        <div class="resumo-ring">
+          <svg viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" stroke-width="10" />
+            <circle
+              cx="50" cy="50" r="42" fill="none"
+              stroke="#006437" stroke-width="10"
+              stroke-linecap="round"
+              :stroke-dasharray="`${score} 264`"
+              transform="rotate(-90 50 50)"
+            />
+          </svg>
+          <div class="resumo-ring-text">
+            <strong>{{ score }}%</strong>
+            <span>{{ scoreLabel }}</span>
+          </div>
+        </div>
+      </div>
 
-    <ul class="resumo-list">
-      <li v-for="item in summaryItems" :key="item.label">
-        <span>{{ item.label }}</span>
-        <span class="patient-tag" :class="item.tagClass">{{ item.value }}</span>
-      </li>
-    </ul>
+      <p class="resumo-message">{{ summaryMessage }}</p>
+
+      <ul class="resumo-list">
+        <li v-for="item in summaryItems" :key="item.label">
+          <span>{{ item.label }}</span>
+          <span class="patient-tag" :class="item.tagClass">{{ item.value }}</span>
+        </li>
+      </ul>
+    </template>
+
+    <p v-else class="resumo-empty">Você ainda não respondeu o check-in desta semana.</p>
 
     <NuxtLink to="/check-in/historico" class="patient-btn">Ver histórico completo</NuxtLink>
   </div>
 </template>
 
 <script setup>
+import {
+  buildAnswerRows,
+  formatCheckinPeriod,
+  scoreFromTemplateAnswers,
+} from '~/utils/checkin-answers'
+
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const config = useRuntimeConfig()
+const { patientTimeHeaders } = usePatientLocalTime()
 const current = ref(null)
 const weekRange = ref('')
+const loading = ref(true)
 
 const scoreLabels = [
   { min: 80, label: 'Muito bom!', msg: 'Você teve uma semana incrível! Pequenas escolhas diárias geram grandes transformações.' },
@@ -48,55 +64,58 @@ const scoreLabels = [
 ]
 
 const score = computed(() => {
-  if (!current.value) return 72
-  const vals = [current.value.adherence, current.value.energy, current.value.mood].filter(Boolean)
-  if (!vals.length) return 72
-  return Math.round((vals.reduce((a, b) => a + b, 0) / (vals.length * 5)) * 100)
+  const value = scoreFromTemplateAnswers(current.value?.answers)
+  return value ?? 0
 })
 
 const scoreLabel = computed(() => scoreLabels.find((s) => score.value >= s.min)?.label || 'Bom!')
 const summaryMessage = computed(() => scoreLabels.find((s) => score.value >= s.min)?.msg || '')
 
-const labelFromScore = (v) => {
-  if (v >= 5) return { value: 'Excelente', tagClass: 'patient-tag--ok' }
-  if (v >= 4) return { value: 'Boa', tagClass: 'patient-tag--ok' }
-  if (v >= 3) return { value: 'Regular', tagClass: 'patient-tag--warn' }
-  return { value: 'Atenção', tagClass: 'patient-tag--bad' }
+const tagFromText = (text) => {
+  const value = String(text || '')
+  if (value.includes('Excelente') || value.includes('Boa') || value.includes('Sim')) {
+    return 'patient-tag--ok'
+  }
+  if (value.includes('Regular') || value.includes('copos')) {
+    return 'patient-tag--warn'
+  }
+  if (value.includes('Ruim') || value.includes('Péssimo') || value.includes('Não')) {
+    return 'patient-tag--bad'
+  }
+  return ''
 }
 
 const summaryItems = computed(() => {
-  const c = current.value
-  if (!c) {
-    return [
-      { label: 'Alimentação', value: '—', tagClass: '' },
-      { label: 'Atividade física', value: '—', tagClass: '' },
-      { label: 'Hidratação', value: '—', tagClass: '' },
-      { label: 'Sono', value: '—', tagClass: '' },
-    ]
-  }
-  return [
-    { label: 'Alimentação', ...labelFromScore(c.adherence || 3) },
-    { label: 'Atividade física', ...labelFromScore(c.mood || 3) },
-    { label: 'Hidratação', ...labelFromScore(c.energy || 3) },
-    { label: 'Sono', ...labelFromScore(c.mood || 3) },
-  ]
+  const steps = current.value?.template?.steps
+  const answers = current.value?.answers
+  if (!steps || !answers) return []
+
+  return buildAnswerRows(steps, answers).map((row) => ({
+    label: row.label,
+    value: row.value,
+    tagClass: tagFromText(row.value),
+  }))
 })
 
 onMounted(async () => {
+  loading.value = true
   try {
-    const data = await $fetch(`${config.public.apiBase}/checkin/me`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+    const data = await $fetch(`${config.public.apiBase}/checkin/me/responses`, {
+      headers: patientTimeHeaders(),
     })
-    current.value = data.current
-    if (data.current?.weekStart) {
-      const start = new Date(data.current.weekStart)
-      const end = new Date(start)
-      end.setDate(end.getDate() + 6)
-      const fmt = (d) => d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
-      weekRange.value = `${fmt(start)} a ${fmt(end)}`
+    const responses = data.responses || []
+    current.value = responses[0] || null
+
+    if (current.value) {
+      weekRange.value = formatCheckinPeriod(
+        current.value.periodKey,
+        current.value.template?.frequency,
+      )
     }
   } catch {
-    navigateTo('/check-in/responder')
+    navigateTo('/check-in')
+  } finally {
+    loading.value = false
   }
 })
 </script>
@@ -104,6 +123,16 @@ onMounted(async () => {
 <style scoped>
 .resumo-page {
   padding-top: 0;
+}
+
+.resumo-loading {
+  margin: 1rem 0;
+}
+
+.resumo-empty {
+  text-align: center;
+  color: var(--pa-text-muted);
+  margin: 2rem 0;
 }
 
 .resumo-ring-wrap {

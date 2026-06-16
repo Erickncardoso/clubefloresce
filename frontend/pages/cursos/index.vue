@@ -179,7 +179,7 @@
                <div class="modal-cover-content netflix-hero-content">
                   <h2 class="netflix-serie-title">{{ selectedCourseDetails.title }}</h2>
                   <div class="netflix-hero-actions">
-                    <button class="btn-netflix-play" @click="navigateTo(buildModuleUrl(selectedCourseDetails.modules?.[0]))">
+                    <button class="btn-netflix-play" @click="navigateTo(buildModuleUrl(selectedCourseDetails.modules?.[0], null, null, selectedCourseDetails.modules))">
                       <Play class="play-fill" fill="currentColor"/> Assistir
                     </button>
                     <!-- Icon buttons for Nutris -->
@@ -233,7 +233,7 @@
                     </button>
                  </div>
                  <div v-else class="episodes-list">
-                    <div v-for="(lesson, idx) in currentDropModule.lessons" :key="lesson.id" class="episode-row" @click="navigateTo(buildModuleUrl(currentDropModule, lesson, currentDropModule.lessons))">
+                    <div v-for="(lesson, idx) in currentDropModule.lessons" :key="lesson.id" class="episode-row" @click="navigateTo(buildModuleUrl(currentDropModule, lesson, currentDropModule.lessons, selectedCourseDetails.modules))">
                        <div class="episode-number">{{ idx + 1 }}</div>
                       <div class="episode-thumb">
                          <img v-if="lesson.thumbnail" :src="lesson.thumbnail" class="ep-thumb-img" />
@@ -1262,7 +1262,7 @@ const openCoursePlayerPage = (course) => {
   const firstModuleWithLesson = (course.modules || []).find((module) => module?.lessons?.length)
   const firstLesson = firstModuleWithLesson?.lessons?.[0]
   if (firstModuleWithLesson?.id && firstLesson?.id) {
-    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons))
+    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons, course.modules))
   }
 }
 
@@ -1318,15 +1318,24 @@ const openAddLessonFromCourse = async (course) => {
   if (!course?.id) return
   try {
     const token = localStorage.getItem('auth_token')
-    const ensuredModule = await $fetch(`${apiBase}/courses/${course.id}/modules/ensure-first`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!ensuredModule?.id) {
-      throw new Error('Não foi possível preparar o módulo inicial do curso.')
+    const preferredModuleId = selectedCourseDetails.value?.id === course.id
+      ? selectedModuleDropId.value
+      : course.modules?.[0]?.id
+
+    let moduleId = preferredModuleId
+    if (!moduleId) {
+      const ensuredModule = await $fetch(`${apiBase}/courses/${course.id}/modules/ensure-first`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      moduleId = ensuredModule?.id
+    }
+
+    if (!moduleId) {
+      throw new Error('Não foi possível preparar o módulo para nova videoaula.')
     }
     await fetchCourses()
-    openAddLesson(ensuredModule.id)
+    openAddLesson(moduleId)
   } catch (err) {
     alert(err?.data?.message || err?.message || 'Erro ao preparar módulo para nova videoaula.')
   }

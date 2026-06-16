@@ -1,6 +1,7 @@
 import { PrismaClient, Course, Module, Lesson } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { isUuid, slugify } from "../utils/slug";
+import { isUuid } from "../utils/slug";
+import { findModuleBySlug } from "../utils/module-slug";
 
 const moduleInclude = (userId?: string) => ({
   lessons: {
@@ -49,12 +50,24 @@ export class CourseRepository {
     return lesson?.module?.course?.authorId ?? null;
   }
 
-  async findModuleById(id: string, userId?: string): Promise<any | null> {
-    if (isUuid(id)) {
+  async findModuleById(id: string, userId?: string, courseId?: string): Promise<any | null> {
+    const param = String(id || "").trim();
+    if (!param) return null;
+
+    if (isUuid(param)) {
       return prisma.module.findUnique({
-        where: { id },
+        where: { id: param },
         include: moduleInclude(userId),
       });
+    }
+
+    if (courseId && isUuid(courseId)) {
+      const courseModules = await prisma.module.findMany({
+        where: { courseId },
+        include: moduleInclude(userId),
+        orderBy: { order: "asc" },
+      });
+      return findModuleBySlug(courseModules, param);
     }
 
     const modules = await prisma.module.findMany({
@@ -62,8 +75,22 @@ export class CourseRepository {
       orderBy: [{ courseId: "asc" }, { order: "asc" }],
     });
 
-    const matches = modules.filter((module) => slugify(module.title) === id);
-    return matches[0] ?? null;
+    const grouped = new Map<string, typeof modules>();
+    for (const module of modules) {
+      const list = grouped.get(module.courseId) || [];
+      list.push(module);
+      grouped.set(module.courseId, list);
+    }
+
+    let match: (typeof modules)[number] | null = null;
+    for (const courseModules of grouped.values()) {
+      const found = findModuleBySlug(courseModules, param);
+      if (!found) continue;
+      if (match) return null;
+      match = found;
+    }
+
+    return match;
   }
 
   async updateLessonProgress(userId: string, lessonId: string, data: { watched?: boolean, liked?: boolean, disliked?: boolean, favorited?: boolean }): Promise<any> {

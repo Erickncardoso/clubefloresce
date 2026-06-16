@@ -3,6 +3,7 @@ import { CheckInTemplateRepository } from "../repositories/checkin-template.repo
 import { CheckInRepository } from "../repositories/checkin.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { getWeekStart } from "../utils/week-start";
+import { readPatientDateKey, resolvePeriodKey as resolvePeriodKeyForDate } from "../utils/patient-local-date";
 
 const templateRepository = new CheckInTemplateRepository();
 const checkInRepository = new CheckInRepository();
@@ -74,15 +75,8 @@ function validateSteps(steps: unknown): any[] {
   });
 }
 
-function resolvePeriodKey(frequency: string): string {
-  const now = new Date();
-  if (frequency === "daily") {
-    return now.toISOString().slice(0, 10);
-  }
-  if (frequency === "monthly") {
-    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-  }
-  return getWeekStart().toISOString();
+function resolvePeriodKey(frequency: string, dateKey?: string | null): string {
+  return resolvePeriodKeyForDate(frequency, dateKey);
 }
 
 function waterToEnergy(glasses: number): number {
@@ -188,11 +182,17 @@ export class CheckInTemplateService {
     return templateRepository.delete(id);
   }
 
-  async submitResponse(userId: string, templateId: string, answers: Record<string, unknown>) {
+  async submitResponse(
+    userId: string,
+    templateId: string,
+    answers: Record<string, unknown>,
+    headers?: Record<string, string | string[] | undefined>,
+  ) {
     const template = await templateRepository.findById(templateId);
     if (!template || !template.active) throw new Error("Check-in indisponível.");
 
-    const periodKey = resolvePeriodKey(template.frequency);
+    const dateKey = readPatientDateKey(headers);
+    const periodKey = resolvePeriodKey(template.frequency, dateKey);
     const response = await templateRepository.upsertResponse({
       userId,
       templateId,
@@ -208,15 +208,34 @@ export class CheckInTemplateService {
     return response;
   }
 
-  async getPatientContext(userId: string, templateId: string) {
+  async getPatientContext(
+    userId: string,
+    templateId: string,
+    headers?: Record<string, string | string[] | undefined>,
+  ) {
     const template = await templateRepository.findById(templateId);
     if (!template || !template.active) throw new Error("Check-in indisponível.");
 
-    const periodKey = resolvePeriodKey(template.frequency);
+    const dateKey = readPatientDateKey(headers);
+    const periodKey = resolvePeriodKey(template.frequency, dateKey);
     const current = await templateRepository.findResponse(userId, templateId, periodKey);
-    const history = await templateRepository.findResponsesByUser(userId, 12);
+    const history = await templateRepository.findResponsesByUser(userId, 12, templateId);
 
     return { template, periodKey, current, history };
+  }
+
+  async listMyResponses(userId: string) {
+    return templateRepository.findResponsesByUser(userId, 48);
+  }
+
+  async getResponseById(id: string) {
+    const response = await templateRepository.findResponseById(id);
+    if (!response) throw new Error("Resposta não encontrada.");
+    return response;
+  }
+
+  async listPatientResponses(userId: string) {
+    return templateRepository.findResponsesByUser(userId, 48);
   }
 
   async listResponsesForNutri() {

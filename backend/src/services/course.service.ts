@@ -58,8 +58,8 @@ export class CourseService {
     return courseRepository.findById(id);
   }
 
-  async getModuleById(id: string, userId?: string): Promise<any | null> {
-    return courseRepository.findModuleById(id, userId);
+  async getModuleById(id: string, userId?: string, courseId?: string): Promise<any | null> {
+    return courseRepository.findModuleById(id, userId, courseId);
   }
 
   async toggleProgress(userId: string, lessonId: string, data: any): Promise<any> {

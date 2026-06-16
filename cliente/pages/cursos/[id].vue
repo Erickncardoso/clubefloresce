@@ -155,7 +155,22 @@
               </button>
             </div>
 
-            <p v-else-if="isModuleExpanded(module.id)" class="empty-text">Este módulo ainda não possui aulas.</p>
+            <p v-else-if="isModuleExpanded(module.id)" class="empty-text">
+              Este módulo ainda não possui aulas.
+              <button
+                v-if="isNutri"
+                type="button"
+                class="module-add-lesson-btn"
+                @click="openAddLessonAction(module.id)"
+              >
+                Adicionar aula neste módulo
+              </button>
+            </p>
+            <div v-if="isNutri && isModuleExpanded(module.id) && module.lessons?.length" class="module-admin-actions">
+              <button type="button" class="module-add-lesson-btn" @click="openAddLessonAction(module.id)">
+                Adicionar aula neste módulo
+              </button>
+            </div>
           </section>
 
           <section v-if="activeTab === 'overview'" class="overview-bottom-stack">
@@ -459,6 +474,7 @@ const frameVideoDuration = ref(0)
 const frameVideoObjectUrl = ref(null)
 const videoFileInput = ref(null)
 const expandedModuleIds = ref(new Set())
+const lastFocusedModuleId = ref(null)
 const showAllModules = ref(false)
 const activeTab = ref('overview')
 const lessonCompletionById = ref({})
@@ -594,18 +610,19 @@ const educatorList = computed(() => {
 
 const openLessonPlayer = (module, lesson) => {
   if (!module?.id || !lesson?.id) return
-  navigateTo(buildModuleUrl(module, lesson, module.lessons))
+  navigateTo(buildModuleUrl(module, lesson, module.lessons, modules.value))
 }
 
 const openProjectLesson = (project) => {
   const module = modules.value.find((item) => item.id === project.moduleId)
   if (!module) return
-  navigateTo(buildModuleUrl(module, project, module.lessons))
+  navigateTo(buildModuleUrl(module, project, module.lessons, modules.value))
 }
 
 const isModuleExpanded = (moduleId) => expandedModuleIds.value.has(moduleId)
 
 const toggleModule = (moduleId) => {
+  lastFocusedModuleId.value = moduleId
   const next = new Set(expandedModuleIds.value)
   if (next.has(moduleId)) next.delete(moduleId)
   else next.add(moduleId)
@@ -767,13 +784,16 @@ const fetchLessonsProgress = async (courseData, token) => {
   lessonCompletionById.value = nextMap
 }
 
-const openAddLessonAction = () => {
-  const firstModuleId = course.value?.modules?.[0]?.id
-  if (!firstModuleId) {
+const openAddLessonAction = (moduleId) => {
+  const targetModuleId = moduleId
+    || lastFocusedModuleId.value
+    || [...expandedModuleIds.value].at(-1)
+    || course.value?.modules?.[0]?.id
+  if (!targetModuleId) {
     alert('Este curso ainda não possui módulo. Crie um módulo antes de adicionar aulas.')
     return
   }
-  currentModuleIdForLesson.value = firstModuleId
+  currentModuleIdForLesson.value = targetModuleId
   newLesson.title = ''
   newLesson.videoUrl = ''
   newLesson.duration = ''
@@ -1654,6 +1674,25 @@ onBeforeUnmount(() => {
 
 .empty-text {
   color: rgba(255, 255, 255, 0.68);
+}
+
+.module-add-lesson-btn,
+.module-admin-actions {
+  margin-top: 0.75rem;
+}
+
+.module-add-lesson-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .right-column {

@@ -10,6 +10,7 @@ const templateController = new CheckInTemplateController();
 router.get("/me", authenticate, authorize(["PACIENTE"]), controller.getMine.bind(controller));
 router.post("/", authenticate, authorize(["PACIENTE"]), controller.submit.bind(controller));
 
+router.get("/me/responses", authenticate, authorize(["PACIENTE"]), templateController.listMyResponses.bind(templateController));
 router.get("/templates/active", authenticate, authorize(["PACIENTE"]), templateController.listActive.bind(templateController));
 router.get(
   "/templates/:templateId/context",
@@ -24,6 +25,13 @@ router.post("/templates", authenticate, authorize(["NUTRICIONISTA"]), templateCo
 router.put("/templates/:id", authenticate, authorize(["NUTRICIONISTA"]), templateController.updateTemplate.bind(templateController));
 router.delete("/templates/:id", authenticate, authorize(["NUTRICIONISTA"]), templateController.deleteTemplate.bind(templateController));
 router.get("/responses", authenticate, authorize(["NUTRICIONISTA"]), templateController.listResponses.bind(templateController));
+router.get("/responses/:id", authenticate, authorize(["NUTRICIONISTA"]), templateController.getResponse.bind(templateController));
+router.get(
+  "/patients/:userId/responses",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  templateController.listPatientResponses.bind(templateController),
+);
 
 router.get("/patients", authenticate, authorize(["NUTRICIONISTA"]), controller.listPatients.bind(controller));
 router.get(

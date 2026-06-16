@@ -53,7 +53,11 @@ export class CheckInTemplateController {
 
   async getPatientContext(req: Request, res: Response): Promise<any> {
     try {
-      const data = await service.getPatientContext(req.user!.id, req.params.templateId);
+      const data = await service.getPatientContext(
+        req.user!.id,
+        req.params.templateId,
+        req.headers,
+      );
       return res.json(data);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
@@ -64,10 +68,43 @@ export class CheckInTemplateController {
     try {
       const { templateId, answers } = req.body;
       if (!templateId) return res.status(400).json({ message: "templateId é obrigatório." });
-      const response = await service.submitResponse(req.user!.id, templateId, answers || {});
+      const response = await service.submitResponse(
+        req.user!.id,
+        templateId,
+        answers || {},
+        req.headers,
+      );
       return res.status(201).json(response);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
+    }
+  }
+
+  async listMyResponses(req: Request, res: Response): Promise<any> {
+    try {
+      const responses = await service.listMyResponses(req.user!.id);
+      return res.json({ responses });
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+
+  async getResponse(req: Request, res: Response): Promise<any> {
+    try {
+      const response = await service.getResponseById(req.params.id);
+      return res.json(response);
+    } catch (error: any) {
+      const status = error.message === "Resposta não encontrada." ? 404 : 500;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async listPatientResponses(req: Request, res: Response): Promise<any> {
+    try {
+      const responses = await service.listPatientResponses(req.params.userId);
+      return res.json({ responses });
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
     }
   }
 

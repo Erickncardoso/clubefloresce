@@ -30,8 +30,27 @@ export function assignSlugs<T extends SluggableItem>(items: T[]): Map<string, st
   return result
 }
 
-export function getModuleSlug(module: SluggableItem): string {
-  return slugify(module.title || '') || module.id
+export function getModuleSlug(module: SluggableItem, modules?: SluggableItem[]): string {
+  if (!module?.id) return ''
+  if (modules?.length) {
+    const slugs = assignSlugs(modules)
+    return slugs.get(module.id) || module.id
+  }
+  return module.id
+}
+
+export function findModuleBySlug<T extends SluggableItem>(modules: T[], slug: string): T | null {
+  if (!slug || !modules?.length) return null
+
+  if (isUuid(slug)) {
+    return modules.find((module) => module.id === slug) ?? null
+  }
+
+  const slugs = assignSlugs(modules)
+  const byAssignedSlug = modules.find((module) => slugs.get(module.id) === slug)
+  if (byAssignedSlug) return byAssignedSlug
+
+  return modules.find((module) => slugify(module.title || '') === slug) ?? null
 }
 
 export function getLessonSlug(lesson: SluggableItem, lessons: SluggableItem[]): string {
@@ -56,11 +75,12 @@ export function findLessonBySlug<T extends SluggableItem>(lessons: T[], slug: st
 export function buildModuleUrl(
   module: SluggableItem | null | undefined,
   lesson?: SluggableItem | null,
-  lessons?: SluggableItem[]
+  lessons?: SluggableItem[],
+  courseModules?: SluggableItem[],
 ): string {
   if (!module) return '/modulos'
 
-  const moduleSlug = getModuleSlug(module)
+  const moduleSlug = getModuleSlug(module, courseModules)
   let url = `/modulos/${encodeURIComponent(moduleSlug)}`
 
   if (lesson && lessons?.length) {

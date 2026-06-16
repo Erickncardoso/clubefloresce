@@ -108,65 +108,91 @@
 
         <!-- Check-ins -->
         <section v-if="activeTab === 'checkins'" class="tab-panel">
-          <div class="checkin-layout">
-            <form class="checkin-form-card" @submit.prevent="saveCheckIn">
-              <h3>{{ editingCheckIn ? 'Editar check-in' : 'Registrar check-in' }}</h3>
-
-              <label for="checkin-week">Semana</label>
-              <SharedCfSelect
-                id="checkin-week"
-                v-model="checkInForm.weekStart"
-                :options="weekSelectOptions"
-              />
-
-              <div class="score-grid">
-                <div class="score-field">
-                  <label>Humor (1–5)</label>
-                  <input v-model.number="checkInForm.mood" type="range" min="1" max="5" step="1" />
-                  <span>{{ checkInForm.mood }}</span>
-                </div>
-                <div class="score-field">
-                  <label>Energia (1–5)</label>
-                  <input v-model.number="checkInForm.energy" type="range" min="1" max="5" step="1" />
-                  <span>{{ checkInForm.energy }}</span>
-                </div>
-                <div class="score-field">
-                  <label>Aderência (1–5)</label>
-                  <input v-model.number="checkInForm.adherence" type="range" min="1" max="5" step="1" />
-                  <span>{{ checkInForm.adherence }}</span>
+          <div class="template-responses-block">
+            <h3>Respostas da aluna</h3>
+            <article
+              v-for="item in templateResponses"
+              :key="item.id"
+              class="template-response-card"
+            >
+              <div class="template-response-head">
+                <div>
+                  <strong>{{ item.template?.title || 'Check-in' }}</strong>
+                  <p>{{ formatTemplatePeriod(item) }} · {{ formatDateTime(item.updatedAt) }}</p>
                 </div>
               </div>
-
-              <label>Peso (kg)</label>
-              <input v-model="checkInForm.weightKg" type="number" step="0.1" min="20" max="500" placeholder="Opcional" />
-
-              <label>Observações</label>
-              <textarea v-model="checkInForm.notes" rows="4" placeholder="Como foi a semana da paciente..." />
-
-              <button type="submit" class="btn-primary" :disabled="savingCheckIn">
-                {{ savingCheckIn ? 'Salvando...' : 'Salvar check-in' }}
-              </button>
-              <p v-if="checkInMessage" class="form-msg" :class="{ error: checkInError }">{{ checkInMessage }}</p>
-            </form>
-
-            <div class="history-panel">
-              <h3>Histórico</h3>
-              <article v-for="item in checkInHistory" :key="item.id" class="history-card" @click="loadCheckInToForm(item)">
-                <div class="history-head">
-                  <strong>{{ formatWeek(item.weekStart) }}</strong>
-                  <button type="button" class="link-btn" @click.stop="loadCheckInToForm(item)">Editar</button>
-                </div>
-                <div class="history-scores">
-                  <span>Humor {{ item.mood }}/5</span>
-                  <span>Energia {{ item.energy }}/5</span>
-                  <span v-if="item.adherence">Plano {{ item.adherence }}/5</span>
-                  <span v-if="item.weightKg">{{ item.weightKg }} kg</span>
-                </div>
-                <p v-if="item.notes" class="history-notes">{{ item.notes }}</p>
-              </article>
-              <p v-if="!checkInHistory.length" class="empty">Nenhum check-in registrado.</p>
-            </div>
+              <ul class="template-response-answers">
+                <li v-for="row in answerRowsFor(item)" :key="row.id">
+                  <span>{{ row.label }}</span>
+                  <strong>{{ row.value }}</strong>
+                </li>
+              </ul>
+            </article>
+            <p v-if="!templateResponses.length" class="empty">Nenhuma resposta de check-in ainda.</p>
           </div>
+
+          <details class="legacy-checkin-details">
+            <summary>Registro manual (legado)</summary>
+            <div class="checkin-layout">
+              <form class="checkin-form-card" @submit.prevent="saveCheckIn">
+                <h3>{{ editingCheckIn ? 'Editar check-in' : 'Registrar check-in' }}</h3>
+
+                <label for="checkin-week">Semana</label>
+                <SharedCfSelect
+                  id="checkin-week"
+                  v-model="checkInForm.weekStart"
+                  :options="weekSelectOptions"
+                />
+
+                <div class="score-grid">
+                  <div class="score-field">
+                    <label>Humor (1–5)</label>
+                    <input v-model.number="checkInForm.mood" type="range" min="1" max="5" step="1" />
+                    <span>{{ checkInForm.mood }}</span>
+                  </div>
+                  <div class="score-field">
+                    <label>Energia (1–5)</label>
+                    <input v-model.number="checkInForm.energy" type="range" min="1" max="5" step="1" />
+                    <span>{{ checkInForm.energy }}</span>
+                  </div>
+                  <div class="score-field">
+                    <label>Aderência (1–5)</label>
+                    <input v-model.number="checkInForm.adherence" type="range" min="1" max="5" step="1" />
+                    <span>{{ checkInForm.adherence }}</span>
+                  </div>
+                </div>
+
+                <label>Peso (kg)</label>
+                <input v-model="checkInForm.weightKg" type="number" step="0.1" min="20" max="500" placeholder="Opcional" />
+
+                <label>Observações</label>
+                <textarea v-model="checkInForm.notes" rows="4" placeholder="Como foi a semana da paciente..." />
+
+                <button type="submit" class="btn-primary" :disabled="savingCheckIn">
+                  {{ savingCheckIn ? 'Salvando...' : 'Salvar check-in' }}
+                </button>
+                <p v-if="checkInMessage" class="form-msg" :class="{ error: checkInError }">{{ checkInMessage }}</p>
+              </form>
+
+              <div class="history-panel">
+                <h3>Histórico manual</h3>
+                <article v-for="item in checkInHistory" :key="item.id" class="history-card" @click="loadCheckInToForm(item)">
+                  <div class="history-head">
+                    <strong>{{ formatWeek(item.weekStart) }}</strong>
+                    <button type="button" class="link-btn" @click.stop="loadCheckInToForm(item)">Editar</button>
+                  </div>
+                  <div class="history-scores">
+                    <span>Humor {{ item.mood }}/5</span>
+                    <span>Energia {{ item.energy }}/5</span>
+                    <span v-if="item.adherence">Plano {{ item.adherence }}/5</span>
+                    <span v-if="item.weightKg">{{ item.weightKg }} kg</span>
+                  </div>
+                  <p v-if="item.notes" class="history-notes">{{ item.notes }}</p>
+                </article>
+                <p v-if="!checkInHistory.length" class="empty">Nenhum registro manual.</p>
+              </div>
+            </div>
+          </details>
         </section>
 
         <!-- Plano alimentar -->
@@ -284,6 +310,7 @@
 <script setup>
 import { resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 import { isPatientAccessExpired } from '~/utils/patient-access'
+import { buildAnswerRows, formatCheckinPeriod } from '~/utils/checkin-answers'
 
 definePageMeta({
   layout: 'dashboard',
@@ -301,8 +328,9 @@ const overview = ref(null)
 const mealPlan = ref(null)
 const foodDiary = ref([])
 const checkInHistory = ref([])
+const templateResponses = ref([])
 const currentWeekStart = ref('')
-const activeTab = ref('resumo')
+const activeTab = ref(route.query.tab === 'checkins' ? 'checkins' : 'resumo')
 const savingCheckIn = ref(false)
 const checkInMessage = ref('')
 const checkInError = ref(false)
@@ -446,14 +474,22 @@ const loadOverview = async () => {
 }
 
 const loadCheckIns = async () => {
-  const data = await $fetch(`${apiBase.value}/checkin/patients/${patientId.value}`, {
-    headers: authHeaders(),
-  })
-  currentWeekStart.value = data.weekStart
-  checkInForm.weekStart = data.weekStart
-  checkInHistory.value = data.history || []
-  if (data.current) loadCheckInToForm(data.current)
+  const [legacyData, responsesData] = await Promise.all([
+    $fetch(`${apiBase.value}/checkin/patients/${patientId.value}`, { headers: authHeaders() }),
+    $fetch(`${apiBase.value}/checkin/patients/${patientId.value}/responses`, { headers: authHeaders() }),
+  ])
+
+  currentWeekStart.value = legacyData.weekStart
+  checkInForm.weekStart = legacyData.weekStart
+  checkInHistory.value = legacyData.history || []
+  templateResponses.value = responsesData.responses || []
+  if (legacyData.current) loadCheckInToForm(legacyData.current)
 }
+
+const answerRowsFor = (item) => buildAnswerRows(item.template?.steps, item.answers)
+
+const formatTemplatePeriod = (item) =>
+  formatCheckinPeriod(item.periodKey, item.template?.frequency)
 
 const loadFoodDiary = async () => {
   const data = await $fetch(`${apiBase.value}/patients/${patientId.value}/food-diary`, {
@@ -776,6 +812,67 @@ onMounted(loadAll)
   font-weight: 800;
   color: var(--primary);
   text-transform: uppercase;
+}
+
+.template-responses-block {
+  margin-bottom: 1.5rem;
+}
+
+.template-responses-block h3 {
+  margin: 0 0 1rem;
+}
+
+.template-response-card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.template-response-head strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.template-response-head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: #737373;
+}
+
+.template-response-answers {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.template-response-answers li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: #f9fafb;
+  font-size: 0.9rem;
+}
+
+.template-response-answers span {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.legacy-checkin-details {
+  margin-top: 1rem;
+}
+
+.legacy-checkin-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #4b5563;
+  margin-bottom: 1rem;
 }
 
 .checkin-layout {

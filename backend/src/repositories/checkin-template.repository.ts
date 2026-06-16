@@ -64,7 +64,7 @@ export class CheckInTemplateRepository {
       create: data,
       update: { answers: data.answers },
       include: {
-        template: { select: { id: true, title: true, frequency: true } },
+        template: { select: { id: true, title: true, frequency: true, steps: true } },
         user: { select: { id: true, name: true, email: true, avatar: true } },
       },
     });
@@ -75,19 +75,32 @@ export class CheckInTemplateRepository {
       orderBy: { updatedAt: "desc" },
       take: limit,
       include: {
-        template: { select: { id: true, title: true, frequency: true } },
+        template: { select: { id: true, title: true, frequency: true, steps: true } },
         user: { select: { id: true, name: true, email: true, avatar: true, role: true } },
       },
     });
   }
 
-  async findResponsesByUser(userId: string, limit = 24) {
+  async findResponsesByUser(userId: string, limit = 24, templateId?: string) {
     return prisma.checkInResponse.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(templateId ? { templateId } : {}),
+      },
       orderBy: { updatedAt: "desc" },
       take: limit,
       include: {
-        template: { select: { id: true, title: true, frequency: true } },
+        template: { select: { id: true, title: true, frequency: true, steps: true } },
+      },
+    });
+  }
+
+  async findResponseById(id: string) {
+    return prisma.checkInResponse.findUnique({
+      where: { id },
+      include: {
+        template: { select: { id: true, title: true, frequency: true, steps: true } },
+        user: { select: { id: true, name: true, email: true, avatar: true, role: true } },
       },
     });
   }

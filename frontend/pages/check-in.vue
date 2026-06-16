@@ -67,7 +67,7 @@
                   v-for="item in filteredResponses"
                   :key="item.id"
                   class="checkin-row"
-                  @click="goToPatient(item.user?.id)"
+                  @click="openViewModal(item)"
                 >
                   <td>
                     <div class="checkin-patient">
@@ -82,16 +82,16 @@
                   </td>
                   <td>{{ item.template?.title || '—' }}</td>
                   <td class="checkin-date">{{ formatPeriod(item.periodKey, item.template?.frequency) }}</td>
-                  <td class="checkin-summary">{{ summarizeAnswers(item.answers) }}</td>
+                  <td class="checkin-summary">{{ summarizeResponse(item) }}</td>
                   <td class="checkin-date">{{ formatDate(item.updatedAt) }}</td>
                   <td class="td-actions" @click.stop>
-                    <NuxtLink
-                      v-if="item.user?.id"
-                      :to="`/usuarios/${item.user.id}`"
+                    <button
+                      type="button"
                       class="checkin-link-btn"
+                      @click="openViewModal(item)"
                     >
                       Ver
-                    </NuxtLink>
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -256,12 +256,53 @@
           </form>
         </div>
       </div>
+
+      <!-- Detalhe da resposta -->
+      <div v-if="viewModalOpen && selectedResponse" class="modal-overlay" @click.self="closeViewModal">
+        <div class="modal-card response-detail-card" role="dialog" aria-modal="true" aria-label="Resposta do check-in">
+          <header class="modal-head">
+            <div>
+              <h2>{{ selectedResponse.template?.title || 'Check-in' }}</h2>
+              <p class="response-detail-meta">
+                {{ selectedResponse.user?.name || 'Aluna' }}
+                · {{ formatPeriod(selectedResponse.periodKey, selectedResponse.template?.frequency) }}
+                · {{ formatDate(selectedResponse.updatedAt) }}
+              </p>
+            </div>
+            <button type="button" class="modal-close" aria-label="Fechar" @click="closeViewModal">×</button>
+          </header>
+
+          <div class="response-detail-body">
+            <article v-for="row in answerRows" :key="row.id" class="response-answer-row">
+              <span class="response-answer-label">{{ row.label }}</span>
+              <strong class="response-answer-value">{{ row.value }}</strong>
+              <p v-if="row.question" class="response-answer-question">{{ row.question }}</p>
+            </article>
+          </div>
+
+          <footer class="modal-foot">
+            <button type="button" class="btn-ghost" @click="closeViewModal">Fechar</button>
+            <button
+              v-if="selectedResponse.user?.id"
+              type="button"
+              class="btn-primary"
+              @click="goToPatient(selectedResponse.user.id)"
+            >
+              Ver perfil da aluna
+            </button>
+          </footer>
+        </div>
+      </div>
     </div>
   </NuxtLayout>
 </template>
 
 <script setup>
 import { Plus, Search } from 'lucide-vue-next'
+import {
+  buildAnswerRows,
+  summarizeCheckinAnswers,
+} from '~/utils/checkin-answers'
 
 definePageMeta({
   layout: false,
@@ -277,6 +318,8 @@ const loadingTemplates = ref(false)
 const responses = ref([])
 const templates = ref([])
 const responseSearch = ref('')
+const viewModalOpen = ref(false)
+const selectedResponse = ref(null)
 
 const editorOpen = ref(false)
 const editorMode = ref('create')
@@ -313,7 +356,7 @@ const filteredResponses = computed(() => {
   return responses.value.filter((item) => {
     const name = item.user?.name?.toLowerCase() || ''
     const title = item.template?.title?.toLowerCase() || ''
-    const summary = summarizeAnswers(item.answers).toLowerCase()
+    const summary = summarizeResponse(item).toLowerCase()
     return name.includes(q) || title.includes(q) || summary.includes(q)
   })
 })
@@ -343,18 +386,30 @@ function formatPeriod(periodKey, frequency) {
   return new Date(periodKey).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function summarizeAnswers(answers) {
-  if (!answers || typeof answers !== 'object') return '—'
-  const parts = Object.entries(answers).slice(0, 3).map(([key, val]) => {
-    if (val === true) return `${key}: Sim`
-    if (val === false) return `${key}: Não`
-    return `${key}: ${val}`
-  })
-  return parts.join(' · ') || '—'
+function summarizeResponse(item) {
+  return summarizeCheckinAnswers(item.template?.steps, item.answers)
+}
+
+const answerRows = computed(() => {
+  if (!selectedResponse.value) return []
+  return buildAnswerRows(
+    selectedResponse.value.template?.steps,
+    selectedResponse.value.answers,
+  )
+})
+
+function openViewModal(item) {
+  selectedResponse.value = item
+  viewModalOpen.value = true
+}
+
+function closeViewModal() {
+  viewModalOpen.value = false
+  selectedResponse.value = null
 }
 
 function goToPatient(userId) {
-  if (userId) navigateTo(`/usuarios/${userId}`)
+  if (userId) navigateTo(`/usuarios/${userId}?tab=checkins`)
 }
 
 async function loadResponses() {
@@ -886,6 +941,54 @@ onMounted(async () => {
   padding-top: 1rem;
   margin-top: 0.5rem;
   border-top: 1px solid #eee;
+}
+
+.response-detail-card {
+  max-width: 34rem;
+}
+
+.response-detail-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: #737373;
+}
+
+.response-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 0 1.25rem 1.25rem;
+}
+
+.response-answer-row {
+  padding: 0.85rem 1rem;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.response-answer-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  margin-bottom: 0.25rem;
+}
+
+.response-answer-value {
+  display: block;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.response-answer-question {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
 }
 
 .form-row {
