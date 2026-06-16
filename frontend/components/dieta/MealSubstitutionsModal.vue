@@ -61,6 +61,7 @@
 </template>
 
 <script setup>
+import { lockPatientScroll, unlockPatientScroll } from '~/composables/useVerticalWheelPassthrough'
 import { ArrowLeftRight, Check, FileText, X } from 'lucide-vue-next'
 import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 import { useMealSubstitutions } from '~/composables/useMealSubstitutions'
@@ -100,12 +101,13 @@ watch(
   () => props.open,
   (isOpen) => {
     if (typeof document === 'undefined') return
-    document.body.style.overflow = isOpen ? 'hidden' : ''
+    if (isOpen) lockPatientScroll()
+    else unlockPatientScroll()
   },
 )
 
 onUnmounted(() => {
-  if (typeof document !== 'undefined') document.body.style.overflow = ''
+  unlockPatientScroll()
 })
 </script>
 

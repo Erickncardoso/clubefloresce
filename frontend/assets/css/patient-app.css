@@ -23,6 +23,9 @@
   --cf-tab-struct: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + var(--cf-tab-nav-pad-y));
   --cf-tab-h: calc(var(--cf-tab-struct) + var(--cf-tab-safe-bottom));
   --cf-tab-clearance: calc(var(--cf-tab-h) + 0.75rem);
+  --cf-page-pad-x: 1rem;
+  --cf-page-pad-bottom: 1.25rem;
+  --cf-page-pad-bottom-tab: var(--cf-tab-clearance);
   --cf-avatar-mask: url('/icons/userAvatar.svg');
   --cf-space-1: 0.25rem;
   --cf-space-2: 0.5rem;
@@ -95,8 +98,41 @@ html:has(.patient-login-mode):not(:has(.patient-shell)) #__nuxt {
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
+html:has(.patient-shell),
+html:has(.patient-shell) body,
+html:has(.patient-shell) #__nuxt {
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html:has(.patient-shell) #__nuxt {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+html:has(.patient-shell) .patient-app-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+html:has(.patient-shell) .patient-app-shell > :first-child {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .patient-shell {
-  min-height: 100dvh;
+  min-height: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: var(--cf-bg);
@@ -114,55 +150,75 @@ html:has(.patient-login-mode):not(:has(.patient-shell)) #__nuxt {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  touch-action: pan-y;
   background: #ffffff;
+  scroll-behavior: smooth;
+}
+
+html:has(body > .modal-overlay) .patient-shell-body,
+html:has(body > .courses-modal-overlay) .patient-shell-body,
+html:has(body > .netflix-modal-overlay) .patient-shell-body,
+html:has(body > .bella-sheet-backdrop) .patient-shell-body,
+html:has(body > .dieta-subs-overlay) .patient-shell-body {
+  overflow: hidden !important;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.patient-shell-body[data-patient-scroll-locked='true'] {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
 }
 
 html:has(.cf-tab-bar-wrap) .patient-shell-body {
   scroll-padding-bottom: var(--cf-tab-clearance);
+  scroll-padding-top: calc(3.25rem + env(safe-area-inset-top, 0px));
 }
 
-html:has(.bella-chat-page) .patient-shell,
-html.bella-chat-active .patient-shell,
-html:has(.bella-chat-page) .patient-shell-body,
-html.bella-chat-active .patient-shell-body {
-  height: 100svh;
-  max-height: 100svh;
-  min-height: 100svh;
-  overflow: hidden !important;
-  padding-bottom: 0;
-}
-
-html:has(.bella-chat-page):has(.cf-tab-bar-wrap) .patient-shell,
-html.bella-chat-active:has(.cf-tab-bar-wrap) .patient-shell,
-html:has(.bella-chat-page):has(.cf-tab-bar-wrap) .patient-shell-body,
-html.bella-chat-active:has(.cf-tab-bar-wrap) .patient-shell-body {
-  height: calc(100svh - var(--cf-tab-h));
-  max-height: calc(100svh - var(--cf-tab-h));
-  min-height: calc(100svh - var(--cf-tab-h));
-}
-
-html.bella-chat-active,
-html.bella-chat-active body,
-html.bella-chat-active #__nuxt {
-  overflow: hidden !important;
-  height: 100svh;
-  max-height: 100svh;
-  min-height: 100svh;
-  overscroll-behavior: none;
-}
-
-html:has(.bella-chat-page) .patient-shell-body,
-html.bella-chat-active .patient-shell-body {
-  display: flex;
-  flex-direction: column;
-}
-
-html:has(.bella-chat-page) .patient-shell-body > *,
-html.bella-chat-active .patient-shell-body > * {
-  flex: 1;
+/* Bella chat — layout isolado (layouts/bella-chat.vue) */
+.bella-chat-shell {
+  flex: 1 1 0;
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.bella-chat-shell-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+  touch-action: pan-y;
+}
+
+.bella-chat-shell-body > .bella-chat-page {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Composer teleportado para body — fica acima da tab bar sem bug de position:fixed em ancestral */
+.bella-composer-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--cf-tab-h);
+  z-index: 95;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: var(--cf-surface);
+  border-top: 1px solid var(--cf-border);
+}
+
+html:not(:has(.cf-tab-bar-wrap)) .bella-composer-dock {
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html:has(.cf-tab-bar-wrap) .lesson-design-page,
@@ -174,23 +230,108 @@ html:has(.cf-tab-bar-wrap) .onboarding-page {
 .patient-shell .patient-page,
 html:has(.cf-tab-bar) .patient-page,
 html:has(.cf-tab-bar-wrap) .patient-page {
-  padding: 0 1rem 1.5rem;
+  padding:
+    0
+    var(--cf-page-pad-x)
+    var(--cf-page-pad-bottom);
   max-width: 100%;
   overflow-x: hidden;
   overflow-y: visible;
   box-sizing: border-box;
 }
 
-html:has(.cf-tab-bar-wrap) .patient-shell .patient-page,
-html:has(.cf-tab-bar-wrap) .patient-page {
-  padding-bottom: var(--cf-tab-clearance);
+html:has(.cf-tab-bar-wrap) .patient-shell .patient-page:not(.patient-page--no-tab),
+html:has(.cf-tab-bar-wrap) .patient-page:not(.patient-page--no-tab) {
+  padding-bottom: var(--cf-page-pad-bottom-tab);
 }
 
-html:has(.cf-tab-bar-wrap) .bella-composer {
-  padding-bottom: 0.65rem;
+.patient-page--with-tab {
+  /* Marcador semântico — o espaçamento vem das regras globais acima. */
 }
 
-/* Tab bar */
+html:has(.doc-page) .patient-shell-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+}
+
+.patient-page.doc-page {
+  --doc-header-height: calc(4rem + env(safe-area-inset-top, 0px));
+  flex: 1;
+  min-height: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.doc-page__header {
+  flex: 0 0 auto;
+}
+
+.doc-page__body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: calc(100dvh - var(--doc-header-height));
+  overflow: hidden;
+}
+
+.doc-page__viewer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  background: #fff;
+}
+
+.doc-page__embed {
+  display: block;
+}
+
+.doc-page__viewer--loading {
+  box-sizing: border-box;
+  padding: 0.75rem;
+}
+
+.patient-page.doc-page .doc-state {
+  margin: 0.75rem;
+  padding: 1.25rem;
+  text-align: center;
+  color: #5b6472;
+  background: #fff;
+  border: 1px solid rgba(45, 90, 39, 0.08);
+  border-radius: var(--cf-radius-surface, 1.875rem);
+}
+
+.patient-page.doc-page .doc-state-icon {
+  width: 2rem;
+  height: 2rem;
+  margin: 0 auto 0.75rem;
+  color: #c17b80;
+}
+
+.patient-page.doc-page .doc-retry-btn {
+  margin-top: 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
+  background: var(--cf-primary, #2d5a27);
+  color: #fff;
+  font-weight: 700;
+}
+
+.patient-page.doc-page .patient-pdf-viewer {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
 .cf-tab-bar-wrap {
   position: fixed;
   left: 0;
@@ -207,14 +348,6 @@ html:has(.cf-tab-bar-wrap) .bella-composer {
   overflow: visible;
 }
 
-.patient-page--with-tab {
-  padding-bottom: var(--cf-tab-clearance);
-  box-sizing: border-box;
-}
-
-.patient-shell .patient-page.patient-page--with-tab {
-  padding-bottom: var(--cf-tab-clearance);
-}
 
 .cf-card {
   background: var(--cf-surface);
@@ -1181,7 +1314,10 @@ html:has(.cf-tab-bar-wrap) body {
 }
 
 .streaming-page-skeleton {
-  padding: 1rem 1.25rem var(--cf-tab-clearance);
+  padding:
+    0
+    var(--cf-page-pad-x)
+    var(--cf-page-pad-bottom-tab);
   box-sizing: border-box;
 }
 

@@ -128,12 +128,13 @@ import {
   Utensils,
 } from 'lucide-vue-next'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
-import { buildModuleUrl } from '~/utils/course-slug'
+import { openPatientCourse } from '~/utils/open-patient-course'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
+const { openDocument } = usePatientDocument()
 
 const search = ref('')
 const activeChip = ref('all')
@@ -244,18 +245,13 @@ function resetFilters() {
 
 function openCourse(course) {
   if (!course?.id) return
-  const firstModuleWithLesson = (course.modules || []).find((module) => module?.lessons?.length)
-  const firstLesson = firstModuleWithLesson?.lessons?.[0]
-  if (firstModuleWithLesson?.id && firstLesson?.id) {
-    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons, course.id))
-    return
-  }
-  navigateTo(`/cursos/${course.id}`)
+  if (openPatientCourse(course, navigateTo)) return
+  navigateTo('/cursos')
 }
 
 function openEbook(ebook) {
   if (ebook?.fileUrl) {
-    window.open(ebook.fileUrl, '_blank', 'noopener,noreferrer')
+    openDocument(ebook.fileUrl, { title: ebook.title || 'Ebook' })
     return
   }
   navigateTo('/cursos#ebooks')

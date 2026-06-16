@@ -11,6 +11,57 @@ export function scrollPatientPageBy(deltaY) {
   root.scrollTop += deltaY
 }
 
+let patientScrollLockCount = 0
+let patientScrollLockTop = 0
+
+/**
+ * Trava o scroll no container correto do app paciente (.patient-shell-body).
+ * Evita travar body/html, que não são o scroll root no PWA.
+ */
+export function lockPatientScroll() {
+  if (typeof document === 'undefined') return
+  const root = getPatientScrollRoot()
+  if (!(root instanceof HTMLElement)) return
+
+  patientScrollLockCount += 1
+  if (patientScrollLockCount > 1) return
+
+  patientScrollLockTop = root.scrollTop
+  root.dataset.patientScrollLocked = 'true'
+  root.style.overflow = 'hidden'
+  root.style.touchAction = 'none'
+  root.style.overscrollBehavior = 'none'
+}
+
+export function unlockPatientScroll() {
+  if (typeof document === 'undefined') return
+  const root = getPatientScrollRoot()
+  if (!(root instanceof HTMLElement)) return
+
+  patientScrollLockCount = Math.max(0, patientScrollLockCount - 1)
+  if (patientScrollLockCount > 0) return
+
+  root.style.overflow = ''
+  root.style.touchAction = ''
+  root.style.overscrollBehavior = ''
+  delete root.dataset.patientScrollLocked
+  root.scrollTop = patientScrollLockTop
+}
+
+export function usePatientScrollLock() {
+  onBeforeUnmount(() => {
+    if (patientScrollLockCount > 0) {
+      patientScrollLockCount = 0
+      unlockPatientScroll()
+    }
+  })
+
+  return {
+    lockPatientScroll,
+    unlockPatientScroll,
+  }
+}
+
 /**
  * Carrosséis horizontais capturam o wheel vertical no Chrome.
  * Repassa o gesto vertical para o container de scroll do app paciente.

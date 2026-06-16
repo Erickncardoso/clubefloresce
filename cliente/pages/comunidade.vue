@@ -88,6 +88,8 @@
 <script setup>
 import { Search, X } from 'lucide-vue-next'
 
+definePageMeta({ layout: 'patient', middleware: 'patient-only' })
+
 const config = useRuntimeConfig()
 const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const apiBase = config.public.apiBase
@@ -294,21 +296,22 @@ const formatDistance = (date) => {
 const openImageLightbox = (url) => {
   if (!url) return
   lightboxImageUrl.value = url
-  if (import.meta.client) {
-    document.body.style.overflow = 'hidden'
-  }
+  if (import.meta.client) lockPatientScroll()
 }
 
 const closeImageLightbox = () => {
   lightboxImageUrl.value = ''
-  if (import.meta.client) {
-    document.body.style.overflow = ''
-  }
+  if (import.meta.client) unlockPatientScroll()
 }
 
 const handleLightboxKeydown = (event) => {
   if (event.key === 'Escape') closeImageLightbox()
 }
+
+onBeforeRouteLeave(() => {
+  closeImageLightbox()
+  openMenuPostId.value = null
+})
 
 onMounted(() => {
   if (import.meta.client) {
@@ -326,7 +329,7 @@ onUnmounted(() => {
   if (import.meta.client) {
     document.removeEventListener('click', closePostMenu)
     document.removeEventListener('keydown', handleLightboxKeydown)
-    document.body.style.overflow = ''
+    unlockPatientScroll()
     clearPostImage()
   }
 })
@@ -336,7 +339,6 @@ onUnmounted(() => {
 .comm-page {
   padding-top: 0;
   padding-inline: 1.25rem;
-  padding-bottom: var(--cf-tab-clearance);
 }
 
 .comm-header-btn {

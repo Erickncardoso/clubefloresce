@@ -1,6 +1,9 @@
 import { EbookRepository } from "../repositories/ebook.repository";
 import { Ebook } from "@prisma/client";
-import { resolveDocumentDeliveryUrl } from "../utils/media/bunny-document-delivery";
+import {
+  normalizeStoredDocumentUrl,
+  resolveDocumentDeliveryUrl,
+} from "../utils/media/bunny-document-delivery";
 
 const ebookRepository = new EbookRepository();
 
@@ -23,12 +26,24 @@ export class EbookService {
   }
 
   async createEbook(data: any, userId?: string | null): Promise<Ebook> {
-    const ebook = await ebookRepository.create(data);
+    const payload = {
+      ...data,
+      ...(data.fileUrl !== undefined
+        ? { fileUrl: normalizeStoredDocumentUrl(data.fileUrl) }
+        : {}),
+    };
+    const ebook = await ebookRepository.create(payload);
     return mapEbookForClient(ebook, userId);
   }
 
   async updateEbook(id: string, data: any, userId?: string | null): Promise<Ebook> {
-    const ebook = await ebookRepository.update(id, data);
+    const payload = {
+      ...data,
+      ...(data.fileUrl !== undefined
+        ? { fileUrl: normalizeStoredDocumentUrl(data.fileUrl) }
+        : {}),
+    };
+    const ebook = await ebookRepository.update(id, payload);
     return mapEbookForClient(ebook, userId);
   }
 

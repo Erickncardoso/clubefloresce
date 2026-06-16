@@ -443,9 +443,8 @@ onMounted(async () => {
 .patient-page.checkin-page--typeform {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  min-height: 0;
   padding: 0;
-  padding-bottom: calc(var(--cf-tab-clearance) + 0.5rem);
   box-sizing: border-box;
   background: var(--cf-bg);
 }

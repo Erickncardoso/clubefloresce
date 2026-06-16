@@ -6,12 +6,17 @@ body {
   max-width: 100%;
 }
 
-/* Modais compactos — app paciente */
+/* Modais — scroll interno sem vazar para o shell */
 .patient-shell .modal-overlay,
 .patient-shell .courses-modal-overlay,
 .patient-shell .netflix-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
   align-items: center;
   justify-content: center;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding:
     max(0.75rem, env(safe-area-inset-top))
     max(0.75rem, env(safe-area-inset-right))

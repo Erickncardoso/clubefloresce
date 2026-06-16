@@ -107,102 +107,104 @@
       </template>
     </div>
 
-    <div class="bella-composer">
-      <div v-if="chatError" class="bella-error-banner" role="alert">
-        <p>{{ chatError }}</p>
-        <button type="button" class="bella-error-retry" @click="retryLoad">Tentar novamente</button>
-      </div>
+    <Teleport to="body">
+      <div class="bella-composer-dock">
+        <div v-if="chatError" class="bella-error-banner" role="alert">
+          <p>{{ chatError }}</p>
+          <button type="button" class="bella-error-retry" @click="retryLoad">Tentar novamente</button>
+        </div>
 
-      <form class="bella-input-bar" @submit.prevent="sendMessage">
-        <input
-          ref="cameraInputEl"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          class="bella-file-input"
-          @change="onFileSelected"
-        />
-        <input
-          ref="fileInputEl"
-          type="file"
-          :accept="fileAccept"
-          class="bella-file-input"
-          @change="onFileSelected"
-        />
+        <form class="bella-input-bar" @submit.prevent="sendMessage">
+          <input
+            ref="cameraInputEl"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="bella-file-input"
+            @change="onFileSelected"
+          />
+          <input
+            ref="fileInputEl"
+            type="file"
+            :accept="fileAccept"
+            class="bella-file-input"
+            @change="onFileSelected"
+          />
 
-        <div class="bella-composer-shell cf-squircle cf-squircle--composer">
-          <div v-if="attachmentPreview" class="bella-composer-attach">
-            <div v-if="attachmentPreview.kind === 'image'" class="bella-attach-chips">
-              <div class="bella-attach-chip cf-squircle cf-squircle--attach">
-                <img :src="attachmentPreview.url" alt="Imagem anexada" />
-                <button
-                  type="button"
-                  class="bella-attach-remove-overlay"
-                  aria-label="Remover imagem"
-                  @click="clearAttachment"
-                >
+          <div class="bella-composer-shell cf-squircle cf-squircle--composer">
+            <div v-if="attachmentPreview" class="bella-composer-attach">
+              <div v-if="attachmentPreview.kind === 'image'" class="bella-attach-chips">
+                <div class="bella-attach-chip cf-squircle cf-squircle--attach">
+                  <img :src="attachmentPreview.url" alt="Imagem anexada" />
+                  <button
+                    type="button"
+                    class="bella-attach-remove-overlay"
+                    aria-label="Remover imagem"
+                    @click="clearAttachment"
+                  >
+                    <X class="remove-icon" />
+                  </button>
+                </div>
+              </div>
+
+              <div v-else class="bella-attach-file cf-list-row">
+                <div class="cf-list-thumb cf-squircle cf-squircle--icon">
+                  <FileText class="pdf-icon" />
+                </div>
+                <div class="cf-list-copy">
+                  <p class="cf-list-title">{{ attachmentPreview.name }}</p>
+                  <p class="cf-list-meta">Pronto para enviar</p>
+                </div>
+                <button type="button" class="bella-remove-attach" aria-label="Remover anexo" @click="clearAttachment">
                   <X class="remove-icon" />
                 </button>
               </div>
             </div>
 
-            <div v-else class="bella-attach-file cf-list-row">
-              <div class="cf-list-thumb cf-squircle cf-squircle--icon">
-                <FileText class="pdf-icon" />
+            <div class="bella-input-row">
+              <div v-if="showCameraButton || showGalleryButton" class="bella-input-tools">
+                <button
+                  v-if="showCameraButton"
+                  type="button"
+                  class="bella-tool-btn"
+                  :disabled="sending"
+                  aria-label="Tirar foto agora"
+                  @click="openCamera"
+                >
+                  <Camera class="attach-icon" />
+                </button>
+                <button
+                  v-if="showGalleryButton"
+                  type="button"
+                  class="bella-tool-btn"
+                  :disabled="sending"
+                  aria-label="Escolher da galeria"
+                  @click="openFilePicker"
+                >
+                  <ImagePlus class="attach-icon" />
+                </button>
               </div>
-              <div class="cf-list-copy">
-                <p class="cf-list-title">{{ attachmentPreview.name }}</p>
-                <p class="cf-list-meta">Pronto para enviar</p>
-              </div>
-              <button type="button" class="bella-remove-attach" aria-label="Remover anexo" @click="clearAttachment">
-                <X class="remove-icon" />
+              <input
+                v-model="draft"
+                type="text"
+                :placeholder="composerPlaceholder"
+                :disabled="sending || swapSelectionLocked"
+                maxlength="4000"
+                autocomplete="off"
+              />
+              <button type="submit" class="bella-send-btn" :disabled="!canSend || sending" aria-label="Enviar mensagem">
+                <Send class="send-icon" />
               </button>
             </div>
           </div>
+        </form>
 
-          <div class="bella-input-row">
-            <div v-if="showCameraButton || showGalleryButton" class="bella-input-tools">
-              <button
-                v-if="showCameraButton"
-                type="button"
-                class="bella-tool-btn"
-                :disabled="sending"
-                aria-label="Tirar foto agora"
-                @click="openCamera"
-              >
-                <Camera class="attach-icon" />
-              </button>
-              <button
-                v-if="showGalleryButton"
-                type="button"
-                class="bella-tool-btn"
-                :disabled="sending"
-                aria-label="Escolher da galeria"
-                @click="openFilePicker"
-              >
-                <ImagePlus class="attach-icon" />
-              </button>
-            </div>
-            <input
-              v-model="draft"
-              type="text"
-              :placeholder="composerPlaceholder"
-              :disabled="sending || swapSelectionLocked"
-              maxlength="4000"
-              autocomplete="off"
-            />
-            <button type="submit" class="bella-send-btn" :disabled="!canSend || sending" aria-label="Enviar mensagem">
-              <Send class="send-icon" />
-            </button>
-          </div>
-        </div>
-      </form>
-
-      <p v-if="!chatError && !aiEnabled" class="bella-ai-hint">
-        IA desativada no servidor. No Coolify, adicione <strong>OPENAI_API_KEY</strong> no serviço do
-        <strong>backend</strong> (apiclube) e faça redeploy.
-      </p>
-    </div>
+        <p v-if="!chatError && !aiEnabled" class="bella-ai-hint">
+          IA desativada no servidor. No Coolify, adicione <strong>OPENAI_API_KEY</strong> no serviço do
+          <strong>backend</strong> (apiclube) e faça redeploy.
+        </p>
+      </div>
+    </Teleport>
 
     <BellaMealConfirmModal
       :open="showMealModal"
@@ -235,12 +237,7 @@ import {
   hasActiveSwapSelection,
 } from '~/utils/bella-swap'
 
-definePageMeta({ layout: 'patient', middleware: 'patient-only', pageTransition: false })
-
-useHead({
-  htmlAttrs: { class: 'bella-chat-active' },
-  bodyAttrs: { class: 'bella-chat-active' },
-})
+definePageMeta({ layout: 'bella-chat', middleware: 'patient-only', pageTransition: false })
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -390,23 +387,38 @@ let typingDotsShownAt = 0
 let scrollRaf = null
 let scrollRetryTimers = []
 let messagesResizeObserver = null
+let scrollRootEl = null
+let lastScrollTop = 0
+let autoScrolling = false
+let userScrollIntent = false
+let touchStartY = 0
 
 function clearScrollRetryTimers() {
   scrollRetryTimers.forEach((id) => clearTimeout(id))
   scrollRetryTimers = []
 }
 
-function scheduleScrollRetries() {
+function scheduleScrollRetries(delays = [0, 50, 120, 250, 450, 700, 1000, 1500, 2200]) {
   clearScrollRetryTimers()
-  for (const delay of [0, 50, 120, 250, 450, 700]) {
+  for (const delay of delays) {
     scrollRetryTimers.push(setTimeout(() => scrollToBottom(true), delay))
   }
 }
 
+function getScrollRoot() {
+  if (!import.meta.client) return null
+  return messagesEl.value
+}
+
 function getMessagesMaxScroll() {
-  const el = messagesEl.value
+  const el = getScrollRoot()
   if (!el) return 0
   return Math.max(0, el.scrollHeight - el.clientHeight)
+}
+
+function isScrollAtBottom(el, threshold = 12) {
+  if (!el) return false
+  return el.scrollTop >= getMessagesMaxScroll() - threshold
 }
 
 const scrollToBottom = (force = false) => {
@@ -415,12 +427,19 @@ const scrollToBottom = (force = false) => {
   scrollRaf = requestAnimationFrame(() => {
     scrollRaf = requestAnimationFrame(() => {
       scrollRaf = null
-      const el = messagesEl.value
+      const el = getScrollRoot()
       if (!el) return
       const maxScroll = getMessagesMaxScroll()
       const shouldForce = force || sending.value || pinningToBottom.value
       if (!shouldForce && el.scrollTop < maxScroll - 96) return
+
+      autoScrolling = true
       el.scrollTop = maxScroll
+      bottomAnchor.value?.scrollIntoView({ block: 'end', behavior: 'instant' })
+      lastScrollTop = el.scrollTop
+      requestAnimationFrame(() => {
+        autoScrolling = false
+      })
     })
   })
 }
@@ -428,6 +447,17 @@ const scrollToBottom = (force = false) => {
 async function stickScrollToBottom() {
   pinningToBottom.value = true
   await scrollToBottomAfterLayout()
+}
+
+async function ensureScrollAtBottom(maxAttempts = 12) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    await nextTick()
+    scrollToBottom(true)
+    await sleep(attempt < 4 ? 60 : 140)
+    const el = getScrollRoot()
+    if (isScrollAtBottom(el)) return true
+  }
+  return false
 }
 
 async function scrollToBottomAfterLayout() {
@@ -442,7 +472,10 @@ async function scrollToBottomAfterLayout() {
 
   const images = el.querySelectorAll('img')
   const pending = [...images].filter((img) => !img.complete)
-  if (!pending.length) return
+  if (!pending.length) {
+    await ensureScrollAtBottom()
+    return
+  }
 
   await Promise.all(
     pending.map(
@@ -455,6 +488,7 @@ async function scrollToBottomAfterLayout() {
   )
   scrollToBottom(true)
   scheduleScrollRetries()
+  await ensureScrollAtBottom()
 }
 
 function startPinningToBottom() {
@@ -957,6 +991,8 @@ async function bootstrapChat() {
   applyRouteContext()
   messages.value = []
   chatError.value = ''
+  userScrollIntent = false
+  lastScrollTop = 0
 
   if (!import.meta.client) return
 
@@ -964,6 +1000,9 @@ async function bootstrapChat() {
   if (!token) {
     chatError.value = 'Faça login para conversar com a Bella.'
     seedWelcomeMessage()
+    await nextTick()
+    bindScrollRoot()
+    await scrollToBottomAfterLayout()
     return
   }
 
@@ -972,9 +1011,9 @@ async function bootstrapChat() {
   try {
     await loadMessages()
     await loadDailySummary()
+    await nextTick()
+    bindScrollRoot()
     await scrollToBottomAfterLayout()
-    await sleep(120)
-    scrollToBottom(true)
     if (pendingCameraOpen.value && topicConfig.value.acceptImages) {
       pendingCameraOpen.value = false
       await nextTick()
@@ -983,8 +1022,16 @@ async function bootstrapChat() {
   } catch (err) {
     if (chatTopic.value !== 'swap') seedWelcomeMessage()
     chatError.value = formatChatError(err)
+    await nextTick()
+    bindScrollRoot()
+    await scrollToBottomAfterLayout()
   } finally {
-    setTimeout(() => stopPinningToBottom(), 800)
+    if (!userScrollIntent) {
+      await ensureScrollAtBottom(16)
+      setTimeout(() => {
+        if (!userScrollIntent) stopPinningToBottom()
+      }, 1200)
+    }
   }
 }
 
@@ -993,16 +1040,80 @@ watch(chatTopic, () => {
 })
 
 watch(loadingMessages, async (loading) => {
-  if (!loading && pinningToBottom.value) {
-    await scrollToBottomAfterLayout()
-  }
+  if (loading || userScrollIntent) return
+  await nextTick()
+  bindScrollRoot()
+  await scrollToBottomAfterLayout()
 })
 
-onMounted(() => {
-  bootstrapChat()
+watch(
+  () => messages.value.length,
+  async () => {
+    if (userScrollIntent || loadingMessages.value) return
+    if (!pinningToBottom.value && !sending.value) return
+    await nextTick()
+    scrollToBottom(true)
+  },
+)
+
+function onUserScrollIntent() {
+  userScrollIntent = true
+  if (pinningToBottom.value) stopPinningToBottom()
+}
+
+function onMessagesScroll() {
+  const el = scrollRootEl || getScrollRoot()
+  if (!el || autoScrolling) return
+
+  const scrolledUp = el.scrollTop < lastScrollTop - 6
+  lastScrollTop = el.scrollTop
+
+  if (!pinningToBottom.value) return
+  if (scrolledUp && !isScrollAtBottom(el, 72)) onUserScrollIntent()
+}
+
+function onTouchStart(event) {
+  touchStartY = event.touches?.[0]?.clientY ?? 0
+}
+
+function onTouchMove(event) {
+  const y = event.touches?.[0]?.clientY ?? 0
+  if (Math.abs(y - touchStartY) > 10) onUserScrollIntent()
+}
+
+function bindScrollRoot() {
+  scrollRootEl?.removeEventListener('scroll', onMessagesScroll)
+  scrollRootEl?.removeEventListener('wheel', onUserScrollIntent)
+  scrollRootEl?.removeEventListener('touchstart', onTouchStart)
+  scrollRootEl?.removeEventListener('touchmove', onTouchMove)
+
+  scrollRootEl = getScrollRoot()
+  if (!scrollRootEl) return
+
+  lastScrollTop = scrollRootEl.scrollTop
+  scrollRootEl.addEventListener('scroll', onMessagesScroll, { passive: true })
+  scrollRootEl.addEventListener('wheel', onUserScrollIntent, { passive: true })
+  scrollRootEl.addEventListener('touchstart', onTouchStart, { passive: true })
+  scrollRootEl.addEventListener('touchmove', onTouchMove, { passive: true })
+
+  if (pinningToBottom.value && !userScrollIntent) {
+    scrollToBottom(true)
+  }
+}
+
+onMounted(async () => {
+  if (import.meta.client && 'scrollRestoration' in history) {
+    history.scrollRestoration = 'manual'
+  }
+  await bootstrapChat()
 })
 
 onBeforeUnmount(() => {
+  scrollRootEl?.removeEventListener('scroll', onMessagesScroll)
+  scrollRootEl?.removeEventListener('wheel', onUserScrollIntent)
+  scrollRootEl?.removeEventListener('touchstart', onTouchStart)
+  scrollRootEl?.removeEventListener('touchmove', onTouchMove)
+  scrollRootEl = null
   stopTypingIndicator()
   stopPinningToBottom()
   if (scrollRaf) cancelAnimationFrame(scrollRaf)
@@ -1013,20 +1124,21 @@ onBeforeUnmount(() => {
 <style scoped>
 .bella-chat-page {
   position: relative;
-  flex: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
   width: 100%;
   max-width: 430px;
   margin: 0 auto;
   background: var(--cf-bg);
   overflow: hidden;
   box-sizing: border-box;
+  --bella-composer-dock-h: 5.75rem;
 }
 
 .bella-chat-sticky {
-  flex-shrink: 0;
+  grid-row: 1;
   z-index: 2;
   background: var(--cf-bg);
   border-bottom: 1px solid var(--cf-border);
@@ -1041,20 +1153,28 @@ onBeforeUnmount(() => {
 }
 
 .bella-messages {
-  flex: 1;
+  grid-row: 2;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 0.85rem 1.25rem 2.75rem;
-  scroll-padding-bottom: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  padding: 0.85rem 1.25rem calc(var(--bella-composer-dock-h) + var(--cf-tab-h));
+  scroll-padding-bottom: 1rem;
   scroll-behavior: auto;
   overflow-anchor: none;
+}
+
+.bella-messages > .bella-bubble-wrap,
+.bella-messages > .bella-typing-anchor {
+  margin-bottom: 0.75rem;
+}
+
+.bella-messages > .bella-bubble-wrap:last-child,
+.bella-messages > .bella-typing-anchor:last-child,
+.bella-messages > .bella-scroll-anchor {
+  margin-bottom: 0;
 }
 
 .bella-typing-anchor {
@@ -1071,13 +1191,6 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 1px;
   pointer-events: none;
-}
-
-.bella-composer {
-  flex-shrink: 0;
-  background: var(--cf-surface);
-  border-top: 1px solid var(--cf-border);
-  padding-bottom: 0.65rem;
 }
 
 .bella-loading {
@@ -1121,12 +1234,13 @@ onBeforeUnmount(() => {
 }
 
 .bella-bubble-wrap--user {
-  align-self: flex-end;
+  margin-left: auto;
   flex-direction: row-reverse;
   max-width: min(88%, 18.5rem);
 }
 
 .bella-bubble-wrap--user-with-media {
+  margin-left: auto;
   flex-direction: column;
   align-items: flex-end;
   gap: 0.35rem;

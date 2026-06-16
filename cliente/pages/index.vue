@@ -155,6 +155,10 @@ const route = useRoute()
 onMounted(() => {
   if (route.query.access === 'expired') {
     error.value = PATIENT_ACCESS_EXPIRED_MESSAGE
+    return
+  }
+  if (localStorage.getItem('auth_token')) {
+    navigateTo('/inicio', { replace: true })
   }
 })
 

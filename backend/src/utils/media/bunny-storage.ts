@@ -7,6 +7,7 @@ import {
   getBunnyStorageZoneName,
   isBunnyStorageConfigured,
 } from "./bunny-config";
+import { normalizeBunnyStoragePath } from "./bunny-document-delivery";
 
 function sanitizeFileName(fileName: string): string {
   const base = path.basename(String(fileName || "document"));
@@ -89,7 +90,7 @@ export async function downloadBunnyStorageFile(storagePath: string): Promise<{
   const zone = getBunnyStorageZoneName();
   const apiKey = getBunnyStorageApiKey();
   const apiHost = getBunnyStorageApiHost();
-  const normalized = String(storagePath || "").trim().replace(/^\/+/, "");
+  const normalized = normalizeBunnyStoragePath(storagePath);
   if (!normalized || normalized.includes("..")) {
     throw new Error("Caminho de documento inválido.");
   }

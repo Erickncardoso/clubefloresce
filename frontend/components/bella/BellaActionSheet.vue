@@ -73,6 +73,7 @@
 <script setup>
 import { Sparkles, X } from 'lucide-vue-next'
 import { BELLA_ACTIONS, navigateBellaAction } from '~/utils/bella-actions'
+import { lockPatientScroll, unlockPatientScroll } from '~/composables/useVerticalWheelPassthrough'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -196,12 +197,8 @@ function onKeydown(event) {
 
 function setScrollLock(open) {
   if (typeof document === 'undefined') return
-  const patientRoot = document.querySelector('.patient-shell-body')
-  if (patientRoot) {
-    patientRoot.style.overflow = open ? 'hidden' : ''
-    return
-  }
-  document.body.style.overflow = open ? 'hidden' : ''
+  if (open) lockPatientScroll()
+  else unlockPatientScroll()
 }
 
 watch(
@@ -224,8 +221,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   removeDragListeners()
-  setScrollLock(false)
-  if (typeof document !== 'undefined') document.body.style.overflow = ''
+  unlockPatientScroll()
 })
 </script>
 

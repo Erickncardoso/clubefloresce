@@ -20,6 +20,7 @@ import {
 import { cloudinaryUpload, isCloudinaryConfigured } from "../utils/cloudinary";
 import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "../utils/media/bunny-config";
 import {
+  parseBunnyStoragePathFromUrl,
   resolveDocumentDeliveryUrl,
   verifyDocumentAccessToken,
 } from "../utils/media/bunny-document-delivery";
@@ -271,13 +272,15 @@ export class UploadController {
         req.file.originalname,
       );
 
+      const permanentUrl = uploadResult.url;
       const deliveryUrl = resolveDocumentDeliveryUrl(
-        uploadResult.url,
+        permanentUrl,
         req.user?.id,
       );
 
       return res.json({
-        url: deliveryUrl,
+        url: permanentUrl,
+        deliveryUrl,
         storagePath: "storagePath" in uploadResult ? uploadResult.storagePath : null,
         fileName: req.file.originalname,
         sizeMB: fileSizeMB,
@@ -296,17 +299,22 @@ export class UploadController {
     try {
       const token = String(req.query.token || "").trim();
       const payload = verifyDocumentAccessToken(token);
-      if (!payload?.path) {
+      const storagePath = payload?.path
+        || (token
+          ? parseBunnyStoragePathFromUrl(`/api/upload/document?token=${encodeURIComponent(token)}`)
+          : null);
+      if (!storagePath) {
         return res.status(401).json({ message: "Link de documento inválido ou expirado." });
       }
 
-      const { body, contentType } = await downloadBunnyStorageFile(payload.path);
-      const fileName = payload.path.split("/").pop() || "documento.pdf";
+      const { body, contentType } = await downloadBunnyStorageFile(storagePath);
+      const fileName = storagePath.split("/").pop() || "documento.pdf";
 
       res.setHeader("Content-Type", contentType);
       res.setHeader("Content-Length", String(body.length));
       res.setHeader("Content-Disposition", `inline; filename="${fileName.replace(/"/g, "")}"`);
       res.setHeader("Cache-Control", "private, max-age=300");
+      res.setHeader("X-Frame-Options", "SAMEORIGIN");
       return res.send(body);
     } catch (error: any) {
       const status = /não encontrado/i.test(String(error?.message || "")) ? 404 : 500;

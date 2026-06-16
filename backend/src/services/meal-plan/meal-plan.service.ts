@@ -1,4 +1,5 @@
 import { cloudinaryUpload } from "../../utils/cloudinary";
+import { resolveDocumentDeliveryUrl } from "../../utils/media/bunny-document-delivery";
 import { MealPlanRepository } from "../../repositories/meal-plan.repository";
 import type { ParsedMealPlan, PatientMealPlanResponse } from "../../types/meal-plan.types";
 import { parseDietboxMealPlan } from "./dietbox-parser";
@@ -17,11 +18,13 @@ function toResponse(record: {
   plan: unknown;
   parserSource: string;
   updatedAt: Date;
-}): PatientMealPlanResponse {
+}, userId?: string | null): PatientMealPlanResponse {
   return {
     id: record.id,
     fileName: record.fileName,
-    pdfUrl: record.pdfUrl,
+    pdfUrl: record.pdfUrl
+      ? resolveDocumentDeliveryUrl(record.pdfUrl, userId)
+      : null,
     title: record.title,
     patientName: record.patientName,
     prescribedAt: record.prescribedAt,
@@ -34,7 +37,7 @@ function toResponse(record: {
 export class MealPlanService {
   async getForUser(userId: string): Promise<PatientMealPlanResponse | null> {
     const record = await repo.findByUserId(userId);
-    return record ? toResponse(record) : null;
+    return record ? toResponse(record, userId) : null;
   }
 
   async parsePdfBuffer(buffer: Buffer, fileName: string): Promise<ParsedMealPlan> {
@@ -81,6 +84,6 @@ export class MealPlanService {
       parserSource: plan.parserSource,
     });
 
-    return toResponse(saved);
+    return toResponse(saved, userId);
   }
 }

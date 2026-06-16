@@ -120,6 +120,7 @@ import {
   Moon,
   Utensils,
 } from 'lucide-vue-next'
+import { openPatientCourse } from '~/utils/open-patient-course'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
@@ -195,8 +196,7 @@ const calorieConsumedPct = computed(() => {
 const { patientTimeHeaders } = usePatientLocalTime()
 
 const openBellaTeach = () => {
-  if (featuredCourse.value?.id) {
-    navigateTo(`/cursos/${featuredCourse.value.id}`)
+  if (featuredCourse.value && openPatientCourse(featuredCourse.value, navigateTo)) {
     return
   }
   navigateTo('/bella/chat/general')

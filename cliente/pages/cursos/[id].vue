@@ -449,6 +449,11 @@ import {
   CircleHelp
 } from 'lucide-vue-next'
 import { buildModuleUrl } from '~/utils/course-slug'
+import { openPatientCourse } from '~/utils/open-patient-course'
+
+definePageMeta({
+  middleware: ['patient-course-player-redirect'],
+})
 
 const route = useRoute()
 const config = useRuntimeConfig()

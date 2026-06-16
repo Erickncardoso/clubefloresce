@@ -6,6 +6,7 @@ import {
 import { getDocumentUploadProvider } from "./media-config";
 
 const DOCUMENT_TOKEN_TTL = "2h";
+const DOCUMENT_API_PATH = "/api/upload/document";
 
 type DocumentTokenPayload = {
   kind: "document";
@@ -30,17 +31,45 @@ export function shouldDeliverDocumentsViaProxy(): boolean {
   return process.env.BUNNY_STORAGE_USE_CDN !== "true";
 }
 
+/** Caminho real no Bunny (espaços decodificados, sem %20 literais). */
+export function normalizeBunnyStoragePath(storagePath: string): string {
+  const trimmed = String(storagePath || "").trim().replace(/^\/+/, "");
+  if (!trimmed) return "";
+
+  try {
+    return decodeURIComponent(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function decodeDocumentPathFromToken(token: string): string | null {
+  const verified = verifyDocumentAccessToken(token);
+  if (verified?.path) return normalizeBunnyStoragePath(verified.path);
+
+  try {
+    const decoded = jwt.decode(token) as DocumentTokenPayload | null;
+    if (decoded?.kind === "document" && decoded.path) {
+      return normalizeBunnyStoragePath(decoded.path);
+    }
+  } catch {
+    /* ignora */
+  }
+
+  return null;
+}
+
 export function parseBunnyStoragePathFromUrl(fileUrl: string): string | null {
   const value = String(fileUrl || "").trim();
   if (!value) return null;
 
-  if (value.includes("/api/upload/document")) {
+  if (value.includes("/upload/document")) {
     try {
       const url = new URL(value, getBackendPublicBaseUrl());
       const token = url.searchParams.get("token");
       if (token) {
-        const payload = verifyDocumentAccessToken(token);
-        return payload?.path || null;
+        const path = decodeDocumentPathFromToken(token);
+        if (path) return path;
       }
     } catch {
       /* ignora */
@@ -53,17 +82,33 @@ export function parseBunnyStoragePathFromUrl(fileUrl: string): string | null {
 
   try {
     const pathname = new URL(value).pathname.replace(/^\/+/, "");
-    return pathname || null;
+    return pathname ? normalizeBunnyStoragePath(pathname) : null;
   } catch {
     return null;
   }
+}
+
+/** URL permanente para gravar no banco (CDN Bunny), nunca link assinado temporário. */
+export function normalizeStoredDocumentUrl(fileUrl: string | null | undefined): string {
+  const value = String(fileUrl || "").trim();
+  if (!value) return "";
+
+  const storagePath = parseBunnyStoragePathFromUrl(value);
+  if (storagePath && shouldDeliverDocumentsViaProxy()) {
+    const host = getBunnyStorageCdnHostname();
+    if (host) {
+      return `https://${host}/${storagePath}`;
+    }
+  }
+
+  return value;
 }
 
 export function buildDocumentSignedUrl(
   storagePath: string,
   userId?: string | null,
 ): string {
-  const normalized = String(storagePath || "").trim().replace(/^\/+/, "");
+  const normalized = normalizeBunnyStoragePath(storagePath);
   if (!normalized) return "";
 
   const secret = process.env.JWT_SECRET;
@@ -81,7 +126,7 @@ export function buildDocumentSignedUrl(
     { expiresIn: DOCUMENT_TOKEN_TTL },
   );
 
-  return `${getBackendPublicBaseUrl()}/api/upload/document?token=${encodeURIComponent(token)}`;
+  return `${DOCUMENT_API_PATH}?token=${encodeURIComponent(token)}`;
 }
 
 export function verifyDocumentAccessToken(token: string): DocumentTokenPayload | null {

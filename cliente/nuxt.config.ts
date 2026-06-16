@@ -54,7 +54,7 @@ export default defineNuxtConfig({
   ssr: false,
 
   app: {
-    pageTransition: { name: 'patient-page', mode: 'out-in' },
+    pageTransition: false,
     head: {
       title: 'Clube Florescer',
       charset: 'utf-8',
@@ -177,6 +177,9 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [fixWindowsVitePaths()],
+    optimizeDeps: {
+      include: ['pdfjs-dist'],
+    },
     server: {
       origin: `http://${devHost === '0.0.0.0' ? '127.0.0.1' : devHost}:${devPort}`,
       strictPort: true,

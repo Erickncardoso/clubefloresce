@@ -4,6 +4,7 @@ import { getWeekStart } from "../utils/week-start";
 import { MealPlanService } from "./meal-plan/meal-plan.service";
 import { FoodDiaryService } from "./food-diary.service";
 import { getDateKeyInTimeZone } from "../utils/patient-timezone";
+import { resolveDocumentDeliveryUrl } from "../utils/media/bunny-document-delivery";
 
 const mealPlanService = new MealPlanService();
 
@@ -71,7 +72,9 @@ export class PatientOverviewService {
             id: mealPlan.id,
             title: mealPlan.title,
             fileName: mealPlan.fileName,
-            pdfUrl: mealPlan.pdfUrl,
+            pdfUrl: mealPlan.pdfUrl
+              ? resolveDocumentDeliveryUrl(mealPlan.pdfUrl, userId)
+              : null,
             mealCount: mealPlan.plan?.meals?.length ?? 0,
             updatedAt: mealPlan.updatedAt,
           }

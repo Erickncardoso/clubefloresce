@@ -762,9 +762,11 @@ import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as Im
 import { isPdfFile } from '~/utils/upload-file-kind'
 import { useDocumentUploadLimits } from '~/composables/useUploadConfig'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
+import { openPatientCourse } from '~/utils/open-patient-course'
 import { buildModuleUrl } from '~/utils/course-slug'
 
 const config = useRuntimeConfig()
+const { openDocument } = usePatientDocument()
 const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
 const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const pageLoading = ref(true)
@@ -944,7 +946,7 @@ function onEbookTileSelect(item) {
   }
   const ebook = item?.raw
   if (ebook?.fileUrl) {
-    window.open(ebook.fileUrl, '_blank', 'noopener,noreferrer')
+    openDocument(ebook.fileUrl, { title: ebook.title || 'Ebook' })
     return
   }
   openEbooksPage()
@@ -1057,12 +1059,7 @@ const openCourseDetails = (course) => {
 }
 
 const openCoursePlayerPage = (course) => {
-  if (!course?.id) return
-  const firstModuleWithLesson = (course.modules || []).find((module) => module?.lessons?.length)
-  const firstLesson = firstModuleWithLesson?.lessons?.[0]
-  if (firstModuleWithLesson?.id && firstLesson?.id) {
-    navigateTo(buildModuleUrl(firstModuleWithLesson, firstLesson, firstModuleWithLesson.lessons, course.id))
-  }
+  openPatientCourse(course, navigateTo)
 }
 
 const closeDetailsModal = () => {
@@ -3447,7 +3444,8 @@ watch(
   background: transparent !important;
   max-width: none;
   margin: 0;
-  padding: 0 2.5rem 2.25rem;
+  padding-inline: 2.5rem;
+  padding-bottom: var(--cf-page-pad-bottom-tab);
   overflow: visible;
 }
 
@@ -3639,7 +3637,8 @@ watch(
 
 @media (max-width: 640px) {
   .courses-page.patient-page {
-    padding: 0 1.2rem 1.2rem;
+    padding-inline: 1.2rem;
+    padding-bottom: var(--cf-page-pad-bottom-tab);
   }
 
   .course-row-block :deep(.cf-tile-carousel) {

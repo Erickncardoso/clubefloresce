@@ -1,16 +1,18 @@
 <template>
-  <NuxtPwaManifest />
-  <NuxtPage />
-  <PatientTabBar v-if="showTabBar" />
-  <PatientPwaUpdate />
-  <PatientPwaPrompt />
-  <CfConfirmModal />
+  <div class="patient-app-shell">
+    <NuxtPwaManifest />
+    <NuxtPage />
+    <PatientTabBar v-if="showTabBar" />
+    <PatientPwaUpdate />
+    <PatientPwaPrompt />
+    <CfConfirmModal />
+  </div>
 </template>
 
 <script setup>
 const route = useRoute()
 
-const hideTabBarPaths = ['/', '/register']
+const hideTabBarPaths = ['/', '/register', '/documento']
 
 const showTabBar = computed(() => {
   if (hideTabBarPaths.includes(route.path)) return false
