@@ -186,7 +186,7 @@
                           </div>
                         </div>
                         <div v-if="nextModule" class="aula-lista-mobile__footer">
-                          <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule, null, null, moduleData.course?.modules))">
+                          <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule))">
                             <PlayCircle :size="16" />
                             <span>Próximo: {{ nextModule.title }}</span>
                             <ArrowRight :size="14" />
@@ -294,7 +294,7 @@
         </div>
 
               <div v-if="nextModule" class="coluna-lateral__footer">
-                <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule, null, null, moduleData.course?.modules))">
+                <button type="button" class="aula-proximo-modulo" @click="navigateTo(buildModuleUrl(nextModule))">
                   <PlayCircle :size="16" />
                   <span>Próximo: {{ nextModule.title }}</span>
                   <ArrowRight :size="14" />
@@ -381,6 +381,11 @@
     <div v-else-if="loading" class="aula-loading">
       <PatientPageSkeleton layout="lesson" />
     </div>
+
+    <div v-else class="aula-loading aula-error">
+      <p>{{ loadError || 'Não foi possível carregar este módulo.' }}</p>
+      <button type="button" class="btn-back-module" @click="navigateTo('/cursos')">Voltar aos cursos</button>
+    </div>
   </NuxtLayout>
 </template>
 
@@ -419,6 +424,7 @@ const apiBase = config.public.apiBase
 const authApiBase = `${config.public.apiBase}/auth`
 const moduleData = ref(null)
 const loading = ref(true)
+const loadError = ref('')
 const activeLesson = ref(null)
 const completedLessons = ref([])
 const isLessonMenuOpen = ref(false)
@@ -645,8 +651,7 @@ const seekToTranscriptionLine = (line) => {
 const syncLessonUrl = (lesson, replace = true) => {
   if (!import.meta.client || !moduleData.value || !lesson) return
   nextTick(() => {
-    const courseModules = moduleData.value.course?.modules || []
-    const nextUrl = buildModuleUrl(moduleData.value, lesson, moduleData.value.lessons, courseModules)
+    const nextUrl = buildModuleUrl(moduleData.value, lesson, moduleData.value.lessons)
     if (route.fullPath !== nextUrl) {
       router[replace ? 'replace' : 'push'](nextUrl)
     }
@@ -768,8 +773,10 @@ const deleteComment = async (commentId) => {
 }
 
 const fetchModule = async () => {
+  const isRefetch = Boolean(moduleData.value)
   try {
-    loading.value = true
+    if (!isRefetch) loading.value = true
+    loadError.value = ''
     const token = localStorage.getItem('auth_token')
     const courseId = route.query.curso ? String(route.query.curso) : undefined
     const data = await $fetch(`${apiBase}/courses/modules/${encodeURIComponent(moduleParam.value)}`, {
@@ -777,23 +784,39 @@ const fetchModule = async () => {
       query: courseId ? { courseId } : undefined,
     })
     moduleData.value = data
-    activeLesson.value = null
-    activeLessonComments.value = []
-    if (data.lessons?.length > 0) {
-      const queryAula = String(route.query.aula || '')
-      const queryLessonId = String(route.query.lessonId || '')
-      let target = null
-      if (queryAula) {
-        target = findLessonBySlug(data.lessons, decodeURIComponent(queryAula))
-      } else if (queryLessonId) {
-        target = data.lessons.find((lesson) => lesson.id === queryLessonId)
-      }
-      activeLesson.value = target || data.lessons[0]
-      loadLessonNotes(activeLesson.value.id)
-      fetchComments(activeLesson.value.id)
+    applyLessonFromRoute(data)
+    if (activeLesson.value) {
       syncLessonUrl(activeLesson.value)
     }
-  } catch (err) { console.error(err) } finally { loading.value = false }
+  } catch (err) {
+    console.error(err)
+    if (!moduleData.value) {
+      loadError.value = err?.data?.message || 'Não foi possível carregar este módulo.'
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+function applyLessonFromRoute(data) {
+  if (!data?.lessons?.length) {
+    activeLesson.value = null
+    activeLessonComments.value = []
+    return
+  }
+
+  const queryAula = String(route.query.aula || '')
+  const queryLessonId = String(route.query.lessonId || '')
+  let target = null
+  if (queryAula) {
+    target = findLessonBySlug(data.lessons, decodeURIComponent(queryAula))
+  } else if (queryLessonId) {
+    target = data.lessons.find((lesson) => lesson.id === queryLessonId)
+  }
+
+  activeLesson.value = target || data.lessons[0]
+  loadLessonNotes(activeLesson.value.id)
+  fetchComments(activeLesson.value.id)
 }
 
 // Usuário Atual
@@ -815,14 +838,45 @@ onMounted(() => {
   fetchCurrentUser()
 })
 
+watch(moduleParam, () => {
+  moduleData.value = null
+  activeLesson.value = null
+  loadError.value = ''
+  loading.value = true
+  fetchModule()
+})
+
 watch(
-  () => [moduleParam.value, route.query.aula, route.query.lessonId, route.query.curso],
+  () => [route.query.aula, route.query.lessonId],
   () => {
-    fetchModule()
+    if (!moduleData.value) return
+    applyLessonFromRoute(moduleData.value)
   },
 )
 </script>
 
 <style scoped>
 /* Layout principal em ~/assets/css/lesson-player-page.css */
+
+.aula-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 50vh;
+  padding: 2rem;
+  text-align: center;
+  color: #4b5563;
+}
+
+.btn-back-module {
+  border: none;
+  border-radius: 999px;
+  background: #2d5a27;
+  color: #fff;
+  padding: 0.65rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
 </style>

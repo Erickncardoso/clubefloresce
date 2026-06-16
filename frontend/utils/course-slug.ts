@@ -30,18 +30,13 @@ export function assignSlugs<T extends SluggableItem>(items: T[]): Map<string, st
   return result
 }
 
-export function getModuleSlug(module: SluggableItem, modules?: SluggableItem[]): string {
-  if (!module?.id) return ''
-  if (modules?.length) {
-    const slugs = assignSlugs(modules)
-    return slugs.get(module.id) || module.id
-  }
-  return module.id
+/** Sempre usa o ID do módulo na URL — evita colisão de slug entre cursos. */
+export function getModuleSlug(module: SluggableItem, _modules?: SluggableItem[]): string {
+  return module?.id || ''
 }
 
 export function findModuleBySlug<T extends SluggableItem>(modules: T[], slug: string): T | null {
   if (!slug || !modules?.length) return null
-
   if (isUuid(slug)) {
     return modules.find((module) => module.id === slug) ?? null
   }
@@ -76,12 +71,11 @@ export function buildModuleUrl(
   module: SluggableItem | null | undefined,
   lesson?: SluggableItem | null,
   lessons?: SluggableItem[],
-  courseModules?: SluggableItem[],
+  _courseModules?: SluggableItem[],
 ): string {
-  if (!module) return '/modulos'
+  if (!module?.id) return '/modulos'
 
-  const moduleSlug = getModuleSlug(module, courseModules)
-  let url = `/modulos/${encodeURIComponent(moduleSlug)}`
+  let url = `/modulos/${encodeURIComponent(module.id)}`
 
   if (lesson && lessons?.length) {
     const lessonSlug = getLessonSlug(lesson, lessons)
