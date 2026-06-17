@@ -1,4 +1,4 @@
-export const BELLA_TOPIC_IDS = ['general', 'label', 'meal', 'restaurant', 'swap', 'ask', 'goal']
+export const BELLA_TOPIC_IDS = ['general', 'label', 'meal', 'restaurant', 'swap', 'ask']
 
 export function normalizeBellaTopic(raw) {
   const value = Array.isArray(raw)
@@ -69,16 +69,6 @@ export const BELLA_TOPICS = {
     taskHint: null,
     acceptPdf: true,
     acceptImages: true,
-  },
-  goal: {
-    title: 'Meta semanal',
-    subtitle: 'Seu progresso recente',
-    welcome: (name) =>
-      `Olá, ${name}! 🎯 Vou olhar seus check-ins recentes e te ajudar com a meta da semana. O que você quer saber?`,
-    placeholder: 'Ex.: como está minha aderência esta semana?',
-    taskHint: null,
-    acceptPdf: false,
-    acceptImages: false,
   },
 }
 

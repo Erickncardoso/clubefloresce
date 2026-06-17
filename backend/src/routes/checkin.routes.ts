@@ -12,6 +12,9 @@ router.post("/", authenticate, authorize(["PACIENTE"]), controller.submit.bind(c
 
 router.get("/me/responses", authenticate, authorize(["PACIENTE"]), templateController.listMyResponses.bind(templateController));
 router.get("/templates/active", authenticate, authorize(["PACIENTE"]), templateController.listActive.bind(templateController));
+router.post("/dispatch", authenticate, authorize(["NUTRICIONISTA"]), templateController.dispatchWeekly.bind(templateController));
+router.get("/dispatch/status", authenticate, authorize(["NUTRICIONISTA"]), templateController.dispatchStatus.bind(templateController));
+router.post("/reminders/subscribe", authenticate, authorize(["PACIENTE"]), templateController.subscribeReminder.bind(templateController));
 router.get(
   "/templates/:templateId/context",
   authenticate,

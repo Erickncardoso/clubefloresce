@@ -5,6 +5,16 @@
     <PatientPageSkeleton v-if="pageLoading" layout="home" />
 
     <template v-else>
+    <NuxtLink
+      v-if="pendingCheckIn"
+      to="/check-in"
+      class="home-checkin-banner cf-squircle"
+    >
+      <CalendarCheck class="home-checkin-banner-icon" aria-hidden="true" />
+      <span>Check-in semanal disponível — responder agora</span>
+      <ChevronRight class="home-checkin-banner-arrow" aria-hidden="true" />
+    </NuxtLink>
+
     <header class="home-hero">
       <NuxtLink to="/perfil" class="home-hero-row">
         <PatientAvatar
@@ -37,7 +47,10 @@
     <section class="home-section" aria-labelledby="nutrition-title">
       <div class="home-section-head">
         <h2 id="nutrition-title">Sua nutrição</h2>
-        <span class="home-section-meta">Hoje</span>
+        <NuxtLink to="/evolucao/nutricao" class="home-section-link">
+          Ver mês
+          <ChevronRight class="home-section-link-icon" aria-hidden="true" />
+        </NuxtLink>
       </div>
       <HomeNutritionPanel
         :targets="targets"
@@ -50,13 +63,13 @@
     <section class="home-section" aria-labelledby="goals-title">
       <div class="home-section-head">
         <h2 id="goals-title">Metas diárias</h2>
-        <NuxtLink to="/check-in" class="home-section-link">
-          Check-in
+        <NuxtLink to="/evolucao?tab=metas" class="home-section-link">
+          Evolução
           <ChevronRight class="home-section-link-icon" aria-hidden="true" />
         </NuxtLink>
       </div>
-      <div class="home-goals cf-squircle" role="group" aria-label="Metas diárias">
-        <div v-for="metric in metrics" :key="metric.label" class="home-goal">
+      <NuxtLink to="/evolucao?tab=metas" class="home-goals cf-squircle" aria-label="Abrir metas na Evolução">
+        <div v-for="metric in homeGoalMetrics" :key="metric.id" class="home-goal">
           <div class="home-goal-head">
             <component :is="metric.icon" class="home-goal-icon" :style="{ color: metric.color }" aria-hidden="true" />
             <span class="home-goal-label">{{ metric.label }}</span>
@@ -66,7 +79,7 @@
             <div class="home-goal-fill" :style="{ width: `${metric.value}%`, backgroundColor: metric.color }" />
           </div>
         </div>
-      </div>
+      </NuxtLink>
     </section>
 
     <div class="home-bella-overflow">
@@ -89,43 +102,49 @@
       </NuxtLink>
     </div>
 
-    <button type="button" class="home-bella-teach cf-squircle" @click="openBellaTeach">
+    <article class="home-bella-teach cf-squircle" aria-label="Dica da Bella">
       <div class="home-bella-teach-copy">
         <div class="home-bella-teach-head">
           <Lightbulb class="home-bella-teach-bulb" aria-hidden="true" />
           <div>
             <h3 class="home-bella-teach-title">Bella ensina</h3>
-            <p class="home-bella-teach-eyebrow">Nova curiosidade</p>
+            <p class="home-bella-teach-eyebrow">Dica do dia</p>
           </div>
         </div>
         <p class="home-bella-teach-tip">{{ bellaTip }}</p>
       </div>
       <div class="home-bella-teach-visual">
         <img :src="teachImage" alt="" class="home-bella-teach-photo" loading="lazy" />
-        <span class="home-bella-teach-go" aria-hidden="true">
-          <ChevronRight class="home-bella-teach-go-icon" />
-        </span>
       </div>
-    </button>
+    </article>
     </template>
+
+    <CheckinFridayPrompt
+      :open="fridayPromptOpen"
+      :deadline-label="checkInStatus.deadlineLabel || 'segunda-feira'"
+      @dismiss="dismissFridayPrompt"
+      @start="goToCheckIn"
+    />
   </div>
 </template>
 
 <script setup>
 import {
   Activity,
+  CalendarCheck,
   ChevronRight,
   Droplets,
   Lightbulb,
   Moon,
   Utensils,
 } from 'lucide-vue-next'
-import { openPatientCourse } from '~/utils/open-patient-course'
+import { getBellaDailyTip } from '~/data/bella-daily-tips'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const { fetchPlan } = usePatientMealPlan()
 const { hasPlan: hasMealPlan } = useMealPlan()
+const { todaySummary, hydrate: hydrateGoals } = usePatientGoals()
 
 const config = useRuntimeConfig()
 const { userName, userFullName, userAvatar } = usePatientApp()
@@ -148,11 +167,29 @@ const defaultTargets = {
 }
 
 const metrics = ref([
-  { label: 'Água', value: 80, icon: Droplets, color: '#5ba4d9' },
-  { label: 'Alimentação', value: 90, icon: Utensils, color: 'var(--cf-pink)' },
-  { label: 'Exercício', value: 70, icon: Activity, color: 'var(--cf-green)' },
-  { label: 'Sono', value: 85, icon: Moon, color: '#7c6bae' },
+  { id: 'water', label: 'Água', value: 80, icon: Droplets, color: '#5ba4d9' },
+  { id: 'food', label: 'Alimentação', value: 90, icon: Utensils, color: 'var(--cf-pink)' },
+  { id: 'exercise', label: 'Exercício', value: 70, icon: Activity, color: 'var(--cf-green)' },
+  { id: 'sleep', label: 'Sono', value: 85, icon: Moon, color: '#7c6bae' },
 ])
+
+const iconByGoalId = {
+  water: Droplets,
+  food: Utensils,
+  exercise: Activity,
+  sleep: Moon,
+}
+
+const homeGoalMetrics = computed(() => {
+  if (!todaySummary.value.length) return metrics.value
+  return todaySummary.value.map((item) => ({
+    id: item.goal.id,
+    label: item.goal.label,
+    value: item.percent,
+    icon: iconByGoalId[item.goal.id] || Activity,
+    color: item.goal.color,
+  }))
+})
 
 const timeGreeting = computed(() => {
   const h = new Date().getHours()
@@ -161,14 +198,7 @@ const timeGreeting = computed(() => {
   return 'Boa noite'
 })
 
-const bellaTips = [
-  'Proteínas no café da manhã ajudam a controlar a fome ao longo do dia.',
-  'Um copo de água ao acordar ajuda o metabolismo a funcionar melhor.',
-  'Vegetais coloridos no almoço trazem mais vitaminas e saciedade.',
-  'Dormir bem melhora a resposta do corpo à alimentação do dia seguinte.',
-]
-
-const bellaTip = computed(() => bellaTips[new Date().getDate() % bellaTips.length])
+const bellaTip = computed(() => getBellaDailyTip())
 
 const teachImage = computed(() => {
   const c = featuredCourse.value
@@ -195,15 +225,19 @@ const calorieConsumedPct = computed(() => {
 
 const { patientTimeHeaders } = usePatientLocalTime()
 
-const openBellaTeach = () => {
-  if (featuredCourse.value && openPatientCourse(featuredCourse.value, navigateTo)) {
-    return
-  }
-  navigateTo('/bella/chat/general')
-}
+const {
+  checkInStatus,
+  pendingCheckIn,
+  fridayPromptOpen,
+  loadCheckInAccess,
+  dismissFridayPrompt,
+  goToCheckIn,
+} = useWeeklyCheckInPrompt()
 
 onMounted(async () => {
   pageLoading.value = true
+  hydrateGoals()
+  loadCheckInAccess()
   try {
     await fetchPlan()
     try {
@@ -219,11 +253,6 @@ onMounted(async () => {
     }
     try {
       const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: patientTimeHeaders() })
-      if (data.current) {
-        metrics.value[1].value = Math.min(100, (data.current.adherence || 3) * 20)
-        metrics.value[2].value = Math.min(100, (data.current.energy || 3) * 20)
-        metrics.value[3].value = Math.min(100, (data.current.mood || 3) * 20)
-      }
       streakDays.value = Math.max(1, (data.history?.length || 0) + (data.current ? 1 : 0))
     } catch {
       /* defaults */
@@ -241,6 +270,33 @@ onMounted(async () => {
   padding-bottom: var(--cf-tab-clearance);
   box-sizing: border-box;
   background: var(--cf-bg);
+}
+
+.home-checkin-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--cf-pink-soft);
+  border: 1px solid color-mix(in srgb, var(--cf-pink) 25%, var(--cf-border));
+  text-decoration: none;
+  color: var(--cf-pink-dark);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.home-checkin-banner-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+.home-checkin-banner-arrow {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* Hero */
@@ -357,6 +413,7 @@ onMounted(async () => {
   background: var(--cf-surface);
   box-shadow: var(--cf-shadow-lg);
   color: inherit;
+  text-decoration: none;
 }
 
 .home-goal {
@@ -515,13 +572,7 @@ onMounted(async () => {
   background: var(--cf-surface);
   box-shadow: var(--cf-shadow-lg);
   text-align: left;
-  cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.home-bella-teach:active {
-  background: var(--cf-bg);
 }
 
 .home-bella-teach-copy {
@@ -585,29 +636,8 @@ onMounted(async () => {
   display: block;
 }
 
-.home-bella-teach-go {
-  position: absolute;
-  right: -0.35rem;
-  bottom: -0.35rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: var(--cf-radius-full);
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
-
-.home-bella-teach-go-icon {
-  width: 0.9rem;
-  height: 0.9rem;
-  color: var(--cf-text-muted);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .home-bella,
-  .home-bella-teach {
+  .home-bella {
     transition: none;
   }
 }

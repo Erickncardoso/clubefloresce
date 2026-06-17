@@ -22,7 +22,29 @@
 
       <template v-else>
         <div
-          v-for="msg in messages"
+          v-if="hasPreviousHistory"
+          class="bella-history-bar"
+        >
+          <button
+            v-if="!showPreviousHistory"
+            type="button"
+            class="bella-history-btn"
+            @click="openPreviousHistory"
+          >
+            Ver conversas anteriores
+          </button>
+          <button
+            v-else
+            type="button"
+            class="bella-history-btn bella-history-btn--active"
+            @click="closePreviousHistory"
+          >
+            Ocultar conversas anteriores
+          </button>
+        </div>
+
+        <div
+          v-for="msg in displayMessages"
           :key="msg.id"
           class="bella-bubble-wrap"
           :class="{
@@ -251,6 +273,8 @@ const chatTopic = computed(() => {
 const topicConfig = computed(() => getBellaTopicConfig(chatTopic.value))
 
 const messages = ref([])
+const historyMessages = ref([])
+const showPreviousHistory = ref(false)
 const draft = ref('')
 const sending = ref(false)
 const typingDotsVisible = ref(false)
@@ -292,6 +316,25 @@ const canSend = computed(() => {
   if (swapSelectionLocked.value) return false
   return Boolean(draft.value.trim() || selectedFile.value)
 })
+
+function mergeThreadMessages(history, session) {
+  const seen = new Set()
+  const merged = []
+  for (const msg of [...history, ...session]) {
+    if (!msg?.id || seen.has(msg.id)) continue
+    seen.add(msg.id)
+    merged.push(msg)
+  }
+  return merged
+}
+
+const threadMessages = computed(() => mergeThreadMessages(historyMessages.value, messages.value))
+
+const displayMessages = computed(() => (
+  showPreviousHistory.value ? threadMessages.value : messages.value
+))
+
+const hasPreviousHistory = computed(() => historyMessages.value.length > 0)
 
 const activeSwapMessage = computed(() => (
   chatTopic.value === 'swap' ? findActiveSwapMessage(messages.value) : null
@@ -366,6 +409,18 @@ function seedWelcomeMessage() {
     role: 'assistant',
     content: getWelcomeContent(),
   })
+}
+
+async function openPreviousHistory() {
+  showPreviousHistory.value = true
+  await nextTick()
+  await scrollToBottomAfterLayout()
+}
+
+async function closePreviousHistory() {
+  showPreviousHistory.value = false
+  await nextTick()
+  await scrollToBottomAfterLayout()
 }
 
 const messageAttachment = (msg) => getMessageAttachment(msg)
@@ -614,10 +669,12 @@ const loadMessages = async () => {
       headers: patientTimeHeaders(),
       query: { topic: chatTopic.value },
     })
-    messages.value = normalizeLoadedMessages(data.messages)
+    historyMessages.value = normalizeLoadedMessages(data.messages)
+    showPreviousHistory.value = false
+    messages.value = []
     aiEnabled.value = data.aiEnabled !== false
     if (data.dailySummary) dailySummary.value = data.dailySummary
-    if (!messages.value.length && chatTopic.value !== 'swap') seedWelcomeMessage()
+    if (chatTopic.value !== 'swap') seedWelcomeMessage()
   } finally {
     loadingMessages.value = false
   }
@@ -698,8 +755,6 @@ async function applyChatResponse(res) {
 }
 
 async function ensureSwapFlowStarted() {
-  if (findActiveSwapMessage(messages.value)) return
-  if (messages.value.some((m) => m.role === 'assistant')) return
   await postSwapChat({ swapAction: 'init' })
 }
 
@@ -990,6 +1045,8 @@ async function bootstrapChat() {
   resetComposer()
   applyRouteContext()
   messages.value = []
+  historyMessages.value = []
+  showPreviousHistory.value = false
   chatError.value = ''
   userScrollIntent = false
   lastScrollTop = 0
@@ -1047,7 +1104,7 @@ watch(loadingMessages, async (loading) => {
 })
 
 watch(
-  () => messages.value.length,
+  () => displayMessages.value.length,
   async () => {
     if (userScrollIntent || loadingMessages.value) return
     if (!pinningToBottom.value && !sending.value) return
@@ -1164,6 +1221,30 @@ onBeforeUnmount(() => {
   scroll-padding-bottom: 1rem;
   scroll-behavior: auto;
   overflow-anchor: none;
+}
+
+.bella-history-bar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.85rem;
+}
+
+.bella-history-btn {
+  appearance: none;
+  border: 1px solid var(--cf-border);
+  background: var(--cf-surface, #fff);
+  color: var(--cf-muted, #6b7280);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.bella-history-btn--active {
+  color: var(--cf-text, #1f2937);
+  border-color: color-mix(in srgb, var(--cf-pink, #e11d48) 35%, var(--cf-border));
 }
 
 .bella-messages > .bella-bubble-wrap,

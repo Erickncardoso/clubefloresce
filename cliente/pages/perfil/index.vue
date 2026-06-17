@@ -56,12 +56,12 @@
         <span>Minhas informações</span>
         <ChevronRight class="perfil-menu-arrow" />
       </NuxtLink>
-      <NuxtLink to="/check-in" class="perfil-menu-item">
+      <NuxtLink to="/evolucao?tab=metas" class="perfil-menu-item">
         <Target class="perfil-menu-icon" />
         <span>Metas</span>
         <ChevronRight class="perfil-menu-arrow" />
       </NuxtLink>
-      <NuxtLink to="/dieta" class="perfil-menu-item">
+      <NuxtLink to="/evolucao?tab=dieta" class="perfil-menu-item">
         <UtensilsCrossed class="perfil-menu-icon" />
         <span>Meu plano</span>
         <ChevronRight class="perfil-menu-arrow" />

@@ -19,6 +19,23 @@ export class FoodDiaryRepository {
     });
   }
 
+  async findEntriesInRange(userId: string, startDate: Date, endDate: Date) {
+    return prisma.foodDiaryEntry.findMany({
+      where: {
+        userId,
+        entryDate: { gte: startDate, lte: endDate },
+      },
+      orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
+      select: {
+        entryDate: true,
+        caloriesKcal: true,
+        carbsG: true,
+        proteinG: true,
+        fatG: true,
+      },
+    });
+  }
+
   async createEntry(data: {
     userId: string;
     entryDate: Date;

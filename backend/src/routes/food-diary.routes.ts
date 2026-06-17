@@ -6,6 +6,7 @@ const router = Router();
 const controller = new FoodDiaryController();
 
 router.get("/today", authenticate, authorize(["PACIENTE"]), controller.getToday.bind(controller));
+router.get("/month", authenticate, authorize(["PACIENTE"]), controller.getMonth.bind(controller));
 router.post("/confirm", authenticate, authorize(["PACIENTE"]), controller.confirm.bind(controller));
 
 export default router;

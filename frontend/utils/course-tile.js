@@ -50,12 +50,12 @@ export function mapCourseToTile(course, { getCover, topic } = {}) {
     kind: 'course',
     topic: resolvedTopic,
     tone: topicToTone(resolvedTopic),
-    label: 'Curso',
+    label: 'Vídeo',
     value: course.title,
     meta: metaParts.join(' · '),
     cover: resolveTileCoverUrl(getCover ? getCover(course, 'desktop') : ''),
     icon: BookOpen,
-    ariaLabel: `Abrir curso ${course.title}`,
+    ariaLabel: `Abrir vídeo ${course.title}`,
     raw: course,
   }
 }

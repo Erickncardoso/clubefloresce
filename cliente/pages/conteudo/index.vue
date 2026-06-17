@@ -5,7 +5,7 @@
     <header class="bib-hero">
       <p class="bib-hero-eyebrow">Aprenda no seu ritmo</p>
       <h1 class="bib-hero-title">Conteúdos para florescer</h1>
-      <p class="bib-hero-desc">Cursos, guias e materiais escolhidos para apoiar sua rotina.</p>
+      <p class="bib-hero-desc">Vídeos, guias e materiais escolhidos para apoiar sua rotina.</p>
     </header>
 
     <div class="bib-search">
@@ -14,7 +14,7 @@
         v-model="search"
         type="search"
         class="patient-input bib-search-input"
-        placeholder="Buscar cursos ou materiais"
+        placeholder="Buscar vídeos ou materiais"
         aria-label="Buscar conteúdos"
       >
     </div>
@@ -88,7 +88,7 @@
       <BibliotecaScrollRow
         v-if="courseCards.length"
         heading-id="bib-courses-title"
-        title="Cursos em vídeo"
+        title="Vídeos"
         see-all-to="/cursos"
         :items="courseCards"
         @select="openItem"
@@ -148,7 +148,7 @@ useVerticalWheelPassthrough(chipsRef)
 
 const chips = [
   { id: 'all', label: 'Tudo' },
-  { id: 'courses', label: 'Cursos' },
+  { id: 'courses', label: 'Vídeos' },
   { id: 'ebooks', label: 'E-books' },
   { id: 'recipes', label: 'Receitas' },
 ]

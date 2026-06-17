@@ -6,6 +6,7 @@ import type {
   DailyDiarySummary,
   MealItemDraft,
   MacroTotals,
+  MonthDiarySummary,
   NutritionTargets,
 } from "../types/food-diary.types";
 
@@ -122,6 +123,90 @@ export class FoodDiaryService {
         items: parseItems(entry.items),
         createdAt: entry.createdAt.toISOString(),
       })),
+    };
+  }
+
+  async getMonthSummary(userId: string, year: number, month: number): Promise<MonthDiarySummary> {
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      throw new Error("Ano inválido.");
+    }
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      throw new Error("Mês inválido.");
+    }
+
+    const repo = getFoodDiaryRepository();
+    const targetsRow = await repo.getOrCreateTargets(userId);
+    const targets: NutritionTargets = {
+      caloriesKcal: targetsRow.caloriesKcal,
+      carbsG: targetsRow.carbsG,
+      proteinG: targetsRow.proteinG,
+      fatG: targetsRow.fatG,
+    };
+
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+    const endDate = new Date(Date.UTC(year, month, 0));
+    const entries = await repo.findEntriesInRange(userId, startDate, endDate);
+
+    const byDate = new Map<string, MacroTotals & { entryCount: number }>();
+    for (const entry of entries) {
+      const key = entry.entryDate.toISOString().slice(0, 10);
+      const current = byDate.get(key) || {
+        caloriesKcal: 0,
+        carbsG: 0,
+        proteinG: 0,
+        fatG: 0,
+        entryCount: 0,
+      };
+      byDate.set(key, {
+        caloriesKcal: current.caloriesKcal + entry.caloriesKcal,
+        carbsG: round1(current.carbsG + entry.carbsG),
+        proteinG: round1(current.proteinG + entry.proteinG),
+        fatG: round1(current.fatG + entry.fatG),
+        entryCount: current.entryCount + 1,
+      });
+    }
+
+    const daysInMonth = endDate.getUTCDate();
+    const days = [];
+    let totals: MacroTotals = { caloriesKcal: 0, carbsG: 0, proteinG: 0, fatG: 0 };
+    let daysWithEntries = 0;
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const row = byDate.get(dateKey);
+      const consumed: MacroTotals = row
+        ? {
+            caloriesKcal: Math.round(row.caloriesKcal),
+            carbsG: row.carbsG,
+            proteinG: row.proteinG,
+            fatG: row.fatG,
+          }
+        : { caloriesKcal: 0, carbsG: 0, proteinG: 0, fatG: 0 };
+
+      if (row?.entryCount) {
+        daysWithEntries += 1;
+        totals = {
+          caloriesKcal: totals.caloriesKcal + consumed.caloriesKcal,
+          carbsG: round1(totals.carbsG + consumed.carbsG),
+          proteinG: round1(totals.proteinG + consumed.proteinG),
+          fatG: round1(totals.fatG + consumed.fatG),
+        };
+      }
+
+      days.push({
+        date: dateKey,
+        consumed,
+        entryCount: row?.entryCount || 0,
+      });
+    }
+
+    return {
+      year,
+      month,
+      targets,
+      days,
+      totals,
+      daysWithEntries,
     };
   }
 

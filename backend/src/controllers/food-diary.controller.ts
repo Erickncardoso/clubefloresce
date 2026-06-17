@@ -22,6 +22,19 @@ export class FoodDiaryController {
     }
   }
 
+  async getMonth(req: Request, res: Response): Promise<any> {
+    try {
+      const headers = readPatientTimeHeaders(req);
+      const fallback = resolvePatientDateKey(headers);
+      const year = Number(req.query.year) || Number(fallback.slice(0, 4));
+      const month = Number(req.query.month) || Number(fallback.slice(5, 7));
+      const data = await foodDiaryService.getMonthSummary(req.user!.id, year, month);
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   async confirm(req: Request, res: Response): Promise<any> {
     try {
       const body = req.body || {};

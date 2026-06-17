@@ -59,8 +59,8 @@ export default defineNuxtConfig({
       title: 'Clube Florescer',
       charset: 'utf-8',
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/logoflorescer.svg' },
         { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/pwa/icon-192.png' },
+        { rel: 'icon', type: 'image/png', sizes: '512x512', href: '/pwa/icon-512.png' },
         { rel: 'apple-touch-icon', href: '/pwa/apple-touch-icon.png', sizes: '180x180' },
         { rel: 'manifest', href: '/manifest.webmanifest' },
       ],
@@ -71,13 +71,13 @@ export default defineNuxtConfig({
         },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
-        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
         { name: 'apple-mobile-web-app-title', content: 'Florescer' },
         { name: 'application-name', content: 'Clube Florescer' },
-        { name: 'theme-color', content: '#c17b80' },
+        { name: 'theme-color', content: '#f7f3f0' },
         {
           name: 'description',
-          content: 'App do paciente Clube Florescer — cursos, dieta, Bella IA e check-in.',
+          content: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
         },
       ],
     },
@@ -123,15 +123,15 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'prompt',
     injectRegister: 'auto',
-    includeAssets: ['logoflorescer.svg', 'pwa/apple-touch-icon.png'],
+    includeAssets: ['pwa/icon-source.png', 'pwa/apple-touch-icon.png', 'pwa/icon-192.png', 'pwa/icon-512.png'],
     manifest: {
       id: 'clube-florescer-paciente',
       name: 'Clube Florescer',
       short_name: 'Florescer',
-      description: 'App do paciente Clube Florescer — cursos, dieta, Bella IA e check-in.',
+      description: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
       lang: 'pt-BR',
-      theme_color: '#c17b80',
-      background_color: '#ffffff',
+      theme_color: '#f7f3f0',
+      background_color: '#f7f3f0',
       display: 'standalone',
       display_override: ['standalone', 'fullscreen'],
       scope: '/',
@@ -175,6 +175,17 @@ export default defineNuxtConfig({
     appManifest: false,
   },
 
+  hooks: {
+    'render:html'(html: { head: string[]; body: string[]; bodyAppend: string[]; bodyPrepend: string[] }) {
+      if (process.platform !== 'win32') return
+      for (const bucket of [html.head, html.body, html.bodyAppend, html.bodyPrepend]) {
+        for (let i = 0; i < bucket.length; i += 1) {
+          bucket[i] = bucket[i].replace(/\/_nuxt\/C:(?=\/)/g, '/_nuxt/@fs/C:')
+        }
+      }
+    },
+  },
+
   vite: {
     plugins: [fixWindowsVitePaths()],
     optimizeDeps: {
@@ -194,9 +205,6 @@ export default defineNuxtConfig({
           proxyTimeout: 30 * 60 * 1000,
         },
       },
-    },
-    resolve: {
-      preserveSymlinks: true,
     },
   },
 

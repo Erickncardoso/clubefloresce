@@ -4,6 +4,11 @@ import { CheckInRepository } from "../repositories/checkin.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { getWeekStart } from "../utils/week-start";
 import { readPatientDateKey, resolvePeriodKey as resolvePeriodKeyForDate } from "../utils/patient-local-date";
+import {
+  formatNextFridayLabel,
+  isFridayCheckInDay,
+  isWeeklyCheckInWindowOpen,
+} from "../utils/checkin-weekly-window";
 
 const templateRepository = new CheckInTemplateRepository();
 const checkInRepository = new CheckInRepository();
@@ -133,14 +138,75 @@ export class CheckInTemplateService {
     return templateRepository.findAllForNutri();
   }
 
-  async listActiveForPatient() {
+  async listActiveForPatient(headers?: Record<string, string | string[] | undefined>) {
     const templates = await templateRepository.findActiveForPatients();
-    if (templates.length > 0) return templates;
+    if (templates.length === 0) {
+      const nutri = (await userRepository.findAll()).find((u) => u.role === Role.NUTRICIONISTA);
+      if (!nutri) return { templates: [], status: this.buildPatientStatus([], headers) };
+      await this.ensureDefaultTemplate(nutri.id);
+      const loaded = await templateRepository.findActiveForPatients();
+      return {
+        templates: loaded,
+        status: this.buildPatientStatus(loaded, headers),
+      };
+    }
 
-    const nutri = (await userRepository.findAll()).find((u) => u.role === Role.NUTRICIONISTA);
-    if (!nutri) return [];
-    await this.ensureDefaultTemplate(nutri.id);
-    return templateRepository.findActiveForPatients();
+    return {
+      templates,
+      status: this.buildPatientStatus(templates, headers),
+    };
+  }
+
+  buildPatientStatus(
+    templates: Array<{ id: string; frequency: string }>,
+    headers?: Record<string, string | string[] | undefined>,
+  ) {
+    const dateKey = readPatientDateKey(headers);
+    const windowOpen = isWeeklyCheckInWindowOpen(dateKey ? new Date(`${dateKey}T12:00:00`) : new Date());
+    const isFriday = isFridayCheckInDay(dateKey ? new Date(`${dateKey}T12:00:00`) : new Date());
+
+    return {
+      windowOpen,
+      isFriday,
+      deadlineLabel: "segunda-feira",
+      nextOpenLabel: formatNextFridayLabel(dateKey ? new Date(`${dateKey}T12:00:00`) : new Date()),
+    };
+  }
+
+  async enrichTemplatesForPatient(
+    userId: string,
+    templates: any[],
+    headers?: Record<string, string | string[] | undefined>,
+  ) {
+    const dateKey = readPatientDateKey(headers);
+    const enriched = await Promise.all(
+      templates.map(async (tpl) => {
+        const periodKey = resolvePeriodKey(tpl.frequency, dateKey);
+        const current = await templateRepository.findResponse(userId, tpl.id, periodKey);
+        return {
+          ...tpl,
+          periodKey,
+          completedThisPeriod: Boolean(current),
+        };
+      }),
+    );
+
+    const weeklyTemplates = enriched.filter((tpl) => tpl.frequency === "weekly");
+    const allWeeklyCompleted = weeklyTemplates.length > 0
+      && weeklyTemplates.every((tpl) => tpl.completedThisPeriod);
+    const status = this.buildPatientStatus(templates, headers);
+    const windowOpen = status.windowOpen;
+
+    return {
+      templates: enriched,
+      status: {
+        ...status,
+        allWeeklyCompleted,
+        showWaitMessage: allWeeklyCompleted || (!windowOpen && weeklyTemplates.some((tpl) => !tpl.completedThisPeriod)),
+        canStartCheckIn: windowOpen && weeklyTemplates.some((tpl) => !tpl.completedThisPeriod),
+        showFridayPrompt: windowOpen && weeklyTemplates.some((tpl) => !tpl.completedThisPeriod),
+      },
+    };
   }
 
   async createTemplate(authorId: string, data: any) {
@@ -192,6 +258,13 @@ export class CheckInTemplateService {
     if (!template || !template.active) throw new Error("Check-in indisponível.");
 
     const dateKey = readPatientDateKey(headers);
+    if (template.frequency === "weekly") {
+      const reference = dateKey ? new Date(`${dateKey}T12:00:00`) : new Date();
+      if (!isWeeklyCheckInWindowOpen(reference)) {
+        throw new Error("O check-in semanal abre na sexta às 11h e pode ser preenchido até segunda-feira.");
+      }
+    }
+
     const periodKey = resolvePeriodKey(template.frequency, dateKey);
     const response = await templateRepository.upsertResponse({
       userId,

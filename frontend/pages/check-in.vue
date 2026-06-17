@@ -8,6 +8,28 @@
         </div>
       </header>
 
+      <section class="checkin-dispatch-card admin-shell-card">
+        <div class="checkin-dispatch-copy">
+          <h2>Disparo semanal</h2>
+          <p>
+            Toda <strong>sexta-feira às 11h</strong> o sistema envia o check-in para todas as pacientes
+            que ainda não responderam. Você também pode disparar manualmente agora.
+          </p>
+          <p v-if="dispatchStatus.dispatched" class="checkin-dispatch-note">
+            Disparo desta semana já realizado.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn-primary checkin-dispatch-btn"
+          :disabled="dispatching"
+          @click="dispatchWeeklyCheckIn"
+        >
+          {{ dispatching ? 'Enviando...' : 'Disparar check-in agora' }}
+        </button>
+        <p v-if="dispatchMessage" class="checkin-dispatch-feedback">{{ dispatchMessage }}</p>
+      </section>
+
       <nav class="checkin-tabs" aria-label="Seções de check-in">
         <button
           type="button"
@@ -320,6 +342,9 @@ const templates = ref([])
 const responseSearch = ref('')
 const viewModalOpen = ref(false)
 const selectedResponse = ref(null)
+const dispatching = ref(false)
+const dispatchMessage = ref('')
+const dispatchStatus = ref({ dispatched: false, periodKey: '' })
 
 const editorOpen = ref(false)
 const editorMode = ref('create')
@@ -593,14 +618,78 @@ async function deleteTemplate(tpl) {
   }
 }
 
+async function loadDispatchStatus() {
+  try {
+    dispatchStatus.value = await $fetch(`${apiBase}/checkin/dispatch/status`, { headers: authHeaders() })
+  } catch {
+    dispatchStatus.value = { dispatched: false, periodKey: '' }
+  }
+}
+
+async function dispatchWeeklyCheckIn() {
+  dispatchMessage.value = ''
+  dispatching.value = true
+  try {
+    const result = await $fetch(`${apiBase}/checkin/dispatch`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: { force: true },
+    })
+    dispatchMessage.value = result.message || 'Disparo concluído.'
+    await loadDispatchStatus()
+  } catch (err) {
+    dispatchMessage.value = err.data?.message || 'Não foi possível disparar o check-in.'
+  } finally {
+    dispatching.value = false
+  }
+}
+
 onMounted(async () => {
-  await Promise.all([loadResponses(), loadTemplates()])
+  await Promise.all([loadResponses(), loadTemplates(), loadDispatchStatus()])
 })
 </script>
 
 <style scoped>
 .checkin-admin {
   --primary: #2d5a27;
+}
+
+.checkin-dispatch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+  padding: 1.15rem 1.25rem;
+}
+
+.checkin-dispatch-copy h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.checkin-dispatch-copy p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #555;
+}
+
+.checkin-dispatch-note {
+  margin-top: 0.45rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 600;
+  color: var(--primary) !important;
+}
+
+.checkin-dispatch-btn {
+  width: fit-content;
+}
+
+.checkin-dispatch-feedback {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--primary);
 }
 
 .checkin-tabs {

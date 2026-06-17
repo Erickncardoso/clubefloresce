@@ -29,6 +29,7 @@ import {
   getVideoUploadProvider,
 } from "./utils/media/media-config";
 import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "./utils/media/bunny-config";
+import { startCheckInDispatchScheduler } from "./jobs/checkin-weekly-dispatch.job";
 import { assertJwtSecretOnBoot } from "./utils/jwt";
 
 dotenv.config();
@@ -182,6 +183,9 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   } else if (getVideoUploadProvider() === "bunny") {
     console.log("[Cache] REDIS_URL ausente — metadados Bunny Stream buscados na API a cada requisição.");
   }
+
+  startCheckInDispatchScheduler();
+  console.log("[CheckIn] Agendador ativo — disparo automático às sextas 11h (Brasília).");
 });
 
 server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;

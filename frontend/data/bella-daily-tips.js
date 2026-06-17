@@ -1,0 +1,52 @@
+/** Dicas da Bella — rotacionadas por dia do ano (1 por dia). */
+export const BELLA_DAILY_TIPS = [
+  'Proteínas no café da manhã ajudam a controlar a fome ao longo do dia.',
+  'Um copo de água ao acordar ajuda o metabolismo a funcionar melhor.',
+  'Vegetais coloridos no almoço trazem mais vitaminas e saciedade.',
+  'Dormir bem melhora a resposta do corpo à alimentação do dia seguinte.',
+  'Frutas inteiras têm mais fibra do que o suco — prefira comer a fruta.',
+  'Planejar o lanche da tarde evita escolhas impulsivas no fim do dia.',
+  'Comer devagar aumenta a saciedade e melhora a digestão.',
+  'Gorduras boas (abacate, castanhas, azeite) ajudam na saciedade.',
+  'Refeições regulares mantêm a energia mais estável ao longo do dia.',
+  'Leguminosas (feijão, lentilha, grão-de-bico) são ótimas fontes de proteína e fibra.',
+  'Evite pular refeições: isso costuma gerar exagero na próxima.',
+  'Temperos naturais deixam a comida mais saborosa sem calorias extras.',
+  'Hidratação boa melhora foco, pele e digestão — lembre-se ao longo do dia.',
+  'Montar o prato com metade vegetais facilita equilíbrio sem contar calorias o tempo todo.',
+  'Iogurte natural com fruta é um lanche prático e nutritivo.',
+  'Caminhada leve após refeições pode ajudar na digestão e no bem-estar.',
+  'Oleaginosas em porção pequena (um punhado) são ótimos lanches.',
+  'Variar as cores no prato aumenta a variedade de nutrientes.',
+  'Preparar alimentos em casa dá mais controle sobre temperos e porções.',
+  'Fome emocional existe — pausar 10 minutos antes de beliscar já ajuda.',
+  'Fibras no café da manhã (aveia, chia) sustentam a manhã com mais calma.',
+  'Proteína no jantar leve ajuda na recuperação e na saciedade noturna.',
+  'Congelar porções facilita manter a rotina nos dias corridos.',
+  'Ler rótulos: quanto menor a lista de ingredientes, em geral melhor.',
+  'Substituir refrigerante por água com gás e limão já faz diferença.',
+  'Refeição social faz parte da vida — equilíbrio, não perfeição.',
+  'Cafeína tarde demais pode atrapalhar o sono e a fome no dia seguinte.',
+  'Ovos são versáteis e combinam com café da manhã, almoço ou jantar.',
+  'Salada não precisa ser sem graça: molho de iogurte e ervas ajudam muito.',
+  'Manter garrafa de água visível lembra de beber ao longo do dia.',
+  'Grãos integrais liberam energia de forma mais gradual que os refinados.',
+  'Pequenas mudanças consistentes valem mais que dietas radicais curtas.',
+  'Comer fruta como sobremesa é uma forma gentil de adoçar o dia.',
+  'Proteína + fibra no lanche da manhã reduz vontade de doces à tarde.',
+  'Respirar fundo antes de comer ajuda a comer com mais presença.',
+  'Sopa de legumes é confortável, leve e fácil de encher de nutrientes.',
+  'Seu corpo muda — ajustar metas com calma faz parte do processo.',
+  'Celebrar pequenas vitórias mantém a motivação ao longo das semanas.',
+  'Almoço equilibrado hoje facilita escolhas melhores no jantar.',
+  'Banana madura congelada vira base cremosa para um “nice cream” caseiro.',
+  'Hortaliças congeladas salvam nos dias sem tempo de ir ao mercado.',
+  'Comer sentada, sem telas, melhora percepção de saciedade.',
+  'Meta de hoje: uma refeição colorida já é uma grande vitória.',
+]
+
+export function getBellaDailyTip(date = new Date()) {
+  const start = new Date(date.getFullYear(), 0, 0)
+  const dayOfYear = Math.floor((date.getTime() - start.getTime()) / 86400000)
+  return BELLA_DAILY_TIPS[dayOfYear % BELLA_DAILY_TIPS.length]
+}

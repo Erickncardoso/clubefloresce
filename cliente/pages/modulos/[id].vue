@@ -384,7 +384,7 @@
 
     <div v-else class="aula-loading aula-error">
       <p>{{ loadError || 'Não foi possível carregar este módulo.' }}</p>
-      <button type="button" class="btn-back-module" @click="navigateTo('/cursos')">Voltar aos cursos</button>
+      <button type="button" class="btn-back-module" @click="navigateTo('/cursos')">Voltar aos vídeos</button>
     </div>
   </NuxtLayout>
 </template>

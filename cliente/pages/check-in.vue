@@ -15,16 +15,20 @@
         :key="tpl.id"
         type="button"
         class="checkin-picker-card"
-        @click="startTemplate(tpl)"
+        :class="{
+          'checkin-picker-card--done': tpl.completedThisPeriod,
+          'checkin-picker-card--locked': !canOpenTemplate(tpl),
+        }"
+        :disabled="!canOpenTemplate(tpl)"
+        @click="requestStartTemplate(tpl)"
       >
         <strong>{{ tpl.title }}</strong>
         <span v-if="tpl.description">{{ tpl.description }}</span>
         <small>{{ frequencyLabel(tpl.frequency) }}</small>
         <span v-if="tpl.completedThisPeriod" class="checkin-done-badge">Respondido</span>
       </button>
-      <NuxtLink v-if="history.length" to="/check-in/historico" class="checkin-history-link">
-        Ver histórico
-      </NuxtLink>
+
+      <p v-if="waitMessage" class="checkin-wait-message">{{ waitMessage }}</p>
     </div>
 
     <CheckinTypeformFlow
@@ -34,6 +38,13 @@
       :error="formError"
       :show-history-link="history.length > 0"
       @submit="submitPatientCheckIn"
+    />
+
+    <CheckinFridayPrompt
+      :open="fridayPromptOpen"
+      :deadline-label="checkInStatus.deadlineLabel || 'segunda-feira'"
+      @dismiss="dismissFridayPrompt"
+      @start="confirmFridayPrompt"
     />
   </div>
 
@@ -222,6 +233,71 @@ const loadingTemplates = ref(true)
 const activeTemplates = ref([])
 const selectedTemplate = ref(null)
 const view = ref('list')
+const checkInStatus = ref({})
+const fridayPromptOpen = ref(false)
+const pendingTemplate = ref(null)
+
+const waitMessage = computed(() => {
+  if (!checkInStatus.value?.showWaitMessage && !checkInStatus.value?.allWeeklyCompleted) return ''
+
+  if (checkInStatus.value.allWeeklyCompleted) {
+    const next = checkInStatus.value.nextOpenLabel || 'sexta-feira'
+    return `Você já preencheu o check-in da última semana. Aguarde até ${next} para preencher novamente.`
+  }
+
+  if (!checkInStatus.value.windowOpen) {
+    const next = checkInStatus.value.nextOpenLabel || 'sexta-feira'
+    return `O check-in semanal abre na ${next} às 11h. Você pode preencher até segunda-feira.`
+  }
+
+  return ''
+})
+
+function canOpenTemplate(tpl) {
+  if (tpl.completedThisPeriod) return false
+  if (tpl.frequency === 'weekly' && !checkInStatus.value.windowOpen) return false
+  return true
+}
+
+function fridayPromptStorageKey() {
+  const period = activeTemplates.value.find((tpl) => tpl.periodKey)?.periodKey || 'current'
+  return `cf-checkin-friday-prompt:${period}`
+}
+
+function shouldShowFridayPrompt() {
+  if (!checkInStatus.value.showFridayPrompt) return false
+  if (import.meta.server) return false
+  return localStorage.getItem(fridayPromptStorageKey()) !== '1'
+}
+
+function requestStartTemplate(tpl) {
+  if (!canOpenTemplate(tpl)) return
+  if (shouldShowFridayPrompt()) {
+    pendingTemplate.value = tpl
+    fridayPromptOpen.value = true
+    return
+  }
+  startTemplate(tpl)
+}
+
+function dismissFridayPrompt() {
+  fridayPromptOpen.value = false
+  pendingTemplate.value = null
+  if (import.meta.client) {
+    localStorage.setItem(fridayPromptStorageKey(), '1')
+  }
+}
+
+function confirmFridayPrompt() {
+  fridayPromptOpen.value = false
+  if (import.meta.client) {
+    localStorage.setItem(fridayPromptStorageKey(), '1')
+  }
+  if (pendingTemplate.value) {
+    startTemplate(pendingTemplate.value)
+    pendingTemplate.value = null
+  }
+}
 
 const filteredCheckIns = computed(() => {
   let list = patientCheckIns.value
@@ -316,35 +392,26 @@ const loadPatientTemplates = async () => {
   loadingTemplates.value = true
   try {
     const data = await $fetch(`${apiBase}/checkin/templates/active`, { headers: patientTimeHeaders() })
-    const templates = data.templates || []
-    const allHistory = []
-    const enriched = await Promise.all(
-      templates.map(async (tpl) => {
-        try {
-          const ctx = await $fetch(`${apiBase}/checkin/templates/${tpl.id}/context`, {
-            headers: patientTimeHeaders(),
-          })
-          if (Array.isArray(ctx.history)) allHistory.push(...ctx.history)
-          return {
-            ...tpl,
-            completedThisPeriod: Boolean(ctx.current),
-          }
-        } catch {
-          return { ...tpl, completedThisPeriod: false }
-        }
-      }),
-    )
-    activeTemplates.value = enriched
-    history.value = allHistory
+    activeTemplates.value = data.templates || []
+    checkInStatus.value = data.status || {}
 
     const queryId = route.query.template
     if (queryId) {
-      const match = enriched.find((t) => t.id === queryId)
-      if (match) startTemplate(match)
+      const match = activeTemplates.value.find((t) => t.id === queryId)
+      if (match && canOpenTemplate(match)) {
+        requestStartTemplate(match)
+      }
       return
     }
-    if (enriched.length === 1 && !enriched[0].completedThisPeriod) {
-      startTemplate(enriched[0])
+
+    const pending = activeTemplates.value.filter((tpl) => canOpenTemplate(tpl))
+    if (pending.length === 1) {
+      if (shouldShowFridayPrompt()) {
+        pendingTemplate.value = pending[0]
+        fridayPromptOpen.value = true
+      } else {
+        startTemplate(pending[0])
+      }
     }
   } finally {
     loadingTemplates.value = false
@@ -508,6 +575,28 @@ onMounted(async () => {
   font-size: 0.7rem !important;
   font-weight: 700;
   color: var(--cf-text-muted) !important;
+}
+
+.checkin-picker-card--locked,
+.checkin-picker-card--done {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.checkin-picker-card:disabled {
+  pointer-events: none;
+}
+
+.checkin-wait-message {
+  margin: 0.75rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--cf-border);
+  background: #fafafa;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--cf-text-muted);
+  text-align: center;
 }
 
 .checkin-history-link {

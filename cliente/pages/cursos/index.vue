@@ -123,7 +123,7 @@
 
         <div v-else-if="coursesLoadError" class="empty-state">
           <BookOpen class="empty-state-icon" />
-          <h3>Não foi possível carregar os cursos</h3>
+          <h3>Não foi possível carregar os vídeos</h3>
           <p>{{ coursesLoadError }}</p>
           <button class="btn-primary mt-4" @click="fetchCourses">Tentar novamente</button>
         </div>
@@ -131,8 +131,8 @@
         <!-- Estado vazio -->
         <div v-else class="empty-state">
           <BookOpen class="empty-state-icon" />
-          <h3>Nenhum curso disponível</h3>
-          <p>{{ isPacienteView ? 'Ainda não há cursos ou ebooks disponíveis para você.' : 'Você ainda não possui cursos cadastrados em sua conta.' }}</p>
+          <h3>Nenhum vídeo disponível</h3>
+          <p>{{ isPacienteView ? 'Ainda não há vídeos ou ebooks disponíveis para você.' : 'Você ainda não possui vídeos cadastrados em sua conta.' }}</p>
           <button v-if="isNutri" @click="openCreateCourseModal" class="btn-primary mt-4">Criar meu primeiro curso</button>
         </div>
 
@@ -889,7 +889,7 @@ const patientCourseRows = computed(() => {
   return [
     {
       key: 'todos-os-cursos',
-      title: 'Cursos',
+      title: 'Vídeos',
       courses: courses.value
     }
   ]
@@ -1245,7 +1245,7 @@ const fetchCourses = async () => {
       return
     }
     courses.value = []
-    coursesLoadError.value = data?.message || 'Resposta inesperada ao carregar cursos.'
+    coursesLoadError.value = data?.message || 'Resposta inesperada ao carregar vídeos.'
   } catch (err) {
     console.error('Erro ao buscar cursos:', err)
     if (isTokenInvalidError(err)) {
@@ -1254,7 +1254,7 @@ const fetchCourses = async () => {
       return
     }
     courses.value = []
-    coursesLoadError.value = err?.data?.message || err?.message || 'Falha de conexão com o servidor de cursos.'
+    coursesLoadError.value = err?.data?.message || err?.message || 'Falha de conexão com o servidor de vídeos.'
   }
 }
 

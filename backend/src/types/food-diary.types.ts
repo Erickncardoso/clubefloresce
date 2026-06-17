@@ -30,6 +30,21 @@ export interface MealAnalysisDraft {
   notes?: string;
 }
 
+export interface MonthDiaryDaySummary {
+  date: string;
+  consumed: MacroTotals;
+  entryCount: number;
+}
+
+export interface MonthDiarySummary {
+  year: number;
+  month: number;
+  targets: NutritionTargets;
+  days: MonthDiaryDaySummary[];
+  totals: MacroTotals;
+  daysWithEntries: number;
+}
+
 export interface DailyDiarySummary {
   date: string;
   targets: NutritionTargets;

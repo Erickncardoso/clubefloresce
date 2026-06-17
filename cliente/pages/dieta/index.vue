@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page dieta-page">
-    <PatientHeader title="Minha dieta" show-back back-to="/inicio" :show-bell="false" />
+    <PatientHeader title="Minha dieta" show-back back-to="/evolucao?tab=dieta" :show-bell="false" />
 
     <BellaDailyDiaryBar v-if="dailySummary" :summary="dailySummary" class="dieta-diary-bar" />
 

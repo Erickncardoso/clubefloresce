@@ -55,7 +55,7 @@ const menuItems = [
               <Layout v-else class="icon-md" />
             </div>
             <div class="course-info">
-              <h4 class="course-name">{{ courseTitle || 'Curso Atual' }}</h4>
+              <h4 class="course-name">{{ courseTitle || 'Vídeo atual' }}</h4>
               <p class="module-name">{{ moduleTitle || 'Módulo' }}</p>
             </div>
           </div>

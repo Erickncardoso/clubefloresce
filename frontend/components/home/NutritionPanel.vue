@@ -1,5 +1,5 @@
 <template>
-  <NuxtLink to="/dieta" class="home-nutrition cf-squircle">
+  <NuxtLink to="/evolucao/nutricao" class="home-nutrition cf-squircle">
     <div class="home-nutrition-main">
       <HomeMacroPizzaRing
         :targets="targets"

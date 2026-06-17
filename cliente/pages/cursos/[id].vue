@@ -113,7 +113,7 @@
               </span>
               <button class="alert-close" type="button">×</button>
             </div>
-            <p>Trilha atualizada com novos conteúdos de aplicação para você turbinar seu avanço no curso.</p>
+            <p>Trilha atualizada com novos conteúdos de aplicação para você turbinar seu avanço nos vídeos.</p>
             <button class="summary-action" @click="toggleShowAllModules">Ver novidades</button>
           </article>
 
@@ -217,7 +217,7 @@
             </article>
 
             <article v-else class="project-empty">
-              Nenhum projeto foi identificado ainda neste curso.
+              Nenhum projeto foi identificado ainda nesta trilha.
             </article>
           </section>
         </section>
@@ -303,7 +303,7 @@
     <section v-else class="loading-state">
       <div class="loader-card">
         <PlayCircle class="loader-icon" />
-        <p>Carregando curso...</p>
+        <p>Carregando vídeo...</p>
       </div>
     </section>
 
@@ -510,7 +510,7 @@ const overviewParagraphs = computed(() => {
   const raw = String(course.value?.description || '').trim()
   if (!raw) {
     return [
-      'Nesta trilha, você percorre os conceitos essenciais do curso de forma prática, com foco em execução e entendimento progressivo.',
+      'Nesta trilha, você percorre os conceitos essenciais dos vídeos de forma prática, com foco em execução e entendimento progressivo.',
       'Ao avançar pelos módulos, você consolida fundamentos e aplica os aprendizados em cenários reais para evoluir com consistência.'
     ]
   }

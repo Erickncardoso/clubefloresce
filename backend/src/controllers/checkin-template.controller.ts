@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
 import { CheckInTemplateService } from "../services/checkin-template.service";
+import { CheckInDispatchService } from "../services/checkin-dispatch.service";
+import { getWeekStart } from "../utils/week-start";
 
 const service = new CheckInTemplateService();
+const dispatchService = new CheckInDispatchService();
 
 export class CheckInTemplateController {
   async listTemplates(req: Request, res: Response): Promise<any> {
@@ -15,8 +18,38 @@ export class CheckInTemplateController {
 
   async listActive(req: Request, res: Response): Promise<any> {
     try {
-      const templates = await service.listActiveForPatient();
-      return res.json({ templates });
+      const { templates } = await service.listActiveForPatient(req.headers);
+      const data = await service.enrichTemplatesForPatient(req.user!.id, templates, req.headers);
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+
+  async dispatchWeekly(req: Request, res: Response): Promise<any> {
+    try {
+      const force = Boolean(req.body?.force);
+      const result = await dispatchService.dispatchWeeklyToAllPatients({ force });
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
+  async dispatchStatus(req: Request, res: Response): Promise<any> {
+    try {
+      const periodKey = getWeekStart().toISOString();
+      const dispatched = await dispatchService.wasDispatchedForPeriod(periodKey);
+      return res.json({ periodKey, dispatched });
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+
+  async subscribeReminder(req: Request, res: Response): Promise<any> {
+    try {
+      const result = await dispatchService.subscribeReminder(req.user!.id);
+      return res.json(result);
     } catch (error: any) {
       return res.status(500).json({ message: error.message });
     }

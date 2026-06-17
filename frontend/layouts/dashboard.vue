@@ -210,6 +210,7 @@ import {
   Menu,
   X,
   CalendarCheck,
+  LineChart,
   Sparkles
 } from 'lucide-vue-next'
 
@@ -305,9 +306,9 @@ async function loadSessionUser() {
 }
 
 const PACIENTE_MENU = [
-  { label: 'Cursos', path: '/cursos', icon: BookOpen },
+  { label: 'Vídeos', path: '/cursos', icon: BookOpen },
   { label: 'Comunidade', path: '/comunidade', icon: Users },
-  { label: 'Check-in', path: '/check-in', icon: CalendarCheck },
+  { label: 'Evolução', path: '/evolucao', icon: LineChart },
   { label: 'BELLA', path: '/bella', icon: Sparkles },
 ]
 

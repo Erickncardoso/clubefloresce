@@ -42,14 +42,14 @@
 </template>
 
 <script setup>
-import { BookOpen, CalendarCheck, Home, Plus, Users } from 'lucide-vue-next'
+import { BookOpen, Home, LineChart, Plus, Users } from 'lucide-vue-next'
 
 const route = useRoute()
 const bellaMenuOpen = ref(false)
 
 const sideTabs = [
   { label: 'Início', path: '/inicio', icon: Home },
-  { label: 'Check-in', path: '/check-in', icon: CalendarCheck },
+  { label: 'Evolução', path: '/evolucao', icon: LineChart },
 ]
 
 const rightTabs = [
@@ -61,7 +61,9 @@ function isActive(path) {
   if (path === '/conteudo') {
     return route.path.startsWith('/conteudo') || route.path.startsWith('/cursos') || route.path.startsWith('/ebooks')
   }
-  if (path === '/check-in') return route.path.startsWith('/check-in')
+  if (path === '/evolucao') {
+    return route.path.startsWith('/evolucao') || route.path.startsWith('/dieta')
+  }
   if (path === '/comunidade') return route.path.startsWith('/comunidade')
   return route.path === path || route.path.startsWith(`${path}/`)
 }
