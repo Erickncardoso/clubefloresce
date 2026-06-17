@@ -1,28 +1,34 @@
 <template>
   <div class="food-plate" :aria-label="`Alimentação: ${current} de ${target} dias na semana`">
-    <div class="food-plate__scene" aria-hidden="true">
-      <div class="food-plate__dish">
+    <div class="food-plate__card" aria-hidden="true">
+      <svg class="food-plate__icon" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="34" r="22" fill="#fff8f4" stroke="#f0ddd4" stroke-width="2.5" />
+        <circle cx="32" cy="34" r="14" fill="#fff" stroke="#f5e8e2" stroke-width="1.5" stroke-dasharray="3 3" />
+        <path d="M18 18c2-4 6-6 10-6" fill="none" stroke="#e8a598" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+        <path d="M24 14c2-3 5-4 8-4" fill="none" stroke="#e8a598" stroke-width="2" stroke-linecap="round" opacity="0.4" />
+        <path d="M36 14c2-3 5-4 8-4" fill="none" stroke="#e8a598" stroke-width="2" stroke-linecap="round" opacity="0.4" />
+      </svg>
+
+      <div class="food-plate__days">
         <div
-          v-for="(segment, index) in segments"
-          :key="index"
-          class="food-plate__slice"
-          :class="{ 'food-plate__slice--filled': segment.filled }"
-          :style="segmentStyle(index)"
-        />
-        <div class="food-plate__center">
-          <span v-if="current > 0" class="food-plate__sparkle food-plate__sparkle--1">✦</span>
-          <span v-if="current > 1" class="food-plate__sparkle food-plate__sparkle--2">✦</span>
-          <span v-if="current > 2" class="food-plate__sparkle food-plate__sparkle--3">✦</span>
+          v-for="(day, index) in days"
+          :key="`${day.label}-${index}`"
+          class="food-plate__day"
+          :class="{ 'food-plate__day--done': day.done }"
+        >
+          <span class="food-plate__day-label">{{ day.label }}</span>
+          <span class="food-plate__day-dot">
+            <svg v-if="day.done" viewBox="0 0 16 16" width="10" height="10" aria-hidden="true">
+              <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M3.5 8.2 6.4 11 12.5 5" />
+            </svg>
+          </span>
         </div>
-      </div>
-      <div class="food-plate__steam">
-        <span /><span /><span />
       </div>
     </div>
 
     <p class="food-plate__count">
       <strong>{{ current }}</strong>
-      <span>/ {{ target }} dias</span>
+      <span>/ {{ target }} dias na semana</span>
     </p>
 
     <div class="food-plate__actions">
@@ -40,19 +46,15 @@ const props = defineProps({
 
 const emit = defineEmits(['increment', 'decrement'])
 
-const segments = computed(() =>
-  Array.from({ length: props.target }, (_, index) => ({
-    filled: index < props.current,
-  })),
-)
+const weekLabels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
 
-function segmentStyle(index) {
-  const angle = (360 / props.target) * index
-  return {
-    transform: `rotate(${angle}deg) skewY(${90 - 360 / props.target}deg)`,
-    '--slice-delay': `${index * 0.08}s`,
-  }
-}
+const days = computed(() => {
+  const labels = weekLabels.slice(0, props.target)
+  return labels.map((label, index) => ({
+    label,
+    done: index < props.current,
+  }))
+})
 </script>
 
 <style scoped>
@@ -60,82 +62,64 @@ function segmentStyle(index) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
 }
 
-.food-plate__scene {
-  position: relative;
-  width: 7rem;
-  height: 7rem;
+.food-plate__card {
+  width: 100%;
+  max-width: 16rem;
+  padding: 0.75rem 0.65rem 0.85rem;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fff9f6 0%, #fff 100%);
+  border: 1px solid #f3e4de;
 }
 
-.food-plate__dish {
-  position: relative;
-  width: 6.5rem;
-  height: 6.5rem;
+.food-plate__icon {
+  display: block;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0 auto 0.65rem;
+}
+
+.food-plate__days {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+  max-width: 12rem;
   margin: 0 auto;
-  border-radius: 50%;
-  background: #fff8f4;
-  border: 3px solid #f0ddd4;
-  box-shadow: inset 0 2px 8px rgba(232, 165, 152, 0.15);
-  overflow: hidden;
 }
 
-.food-plate__slice {
-  position: absolute;
-  inset: 0;
-  transform-origin: 100% 100%;
-  background: transparent;
-  transition: background 0.4s ease;
-  transition-delay: var(--slice-delay, 0s);
+.food-plate__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.28rem;
 }
 
-.food-plate__slice--filled {
-  background: linear-gradient(135deg, #f4b8a8 0%, #e8a598 55%, #d9897a 100%);
-  animation: food-pop 0.45s ease var(--slice-delay, 0s);
+.food-plate__day-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--cf-text-muted);
 }
 
-.food-plate__center {
-  position: absolute;
-  inset: 22%;
-  border-radius: 50%;
-  background: #fffaf7;
-  border: 2px dashed #f0ddd4;
+.food-plate__day-dot {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.food-plate__sparkle {
-  position: absolute;
-  font-size: 0.55rem;
-  color: #e8a598;
-  animation: food-sparkle 2s ease-in-out infinite;
-}
-
-.food-plate__sparkle--1 { top: 18%; left: 28%; animation-delay: 0s; }
-.food-plate__sparkle--2 { top: 55%; right: 20%; animation-delay: 0.4s; }
-.food-plate__sparkle--3 { bottom: 22%; left: 45%; animation-delay: 0.8s; }
-
-.food-plate__steam {
-  position: absolute;
-  top: -0.15rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 0.35rem;
-}
-
-.food-plate__steam span {
-  width: 0.35rem;
-  height: 1rem;
+  width: 1.55rem;
+  height: 1.55rem;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(232, 165, 152, 0.5), transparent);
-  animation: food-steam 2.2s ease-in-out infinite;
+  border: 2px solid #ecd8d0;
+  background: #fff;
+  color: #fff;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
 }
 
-.food-plate__steam span:nth-child(2) { animation-delay: 0.35s; height: 1.2rem; }
-.food-plate__steam span:nth-child(3) { animation-delay: 0.7s; }
+.food-plate__day--done .food-plate__day-dot {
+  background: linear-gradient(145deg, #efb5a8, #e08f7f);
+  border-color: #e8a598;
+  transform: scale(1.04);
+}
 
 .food-plate__count {
   margin: 0;
@@ -168,30 +152,5 @@ function segmentStyle(index) {
   background: #e8a598;
   border-color: #e8a598;
   color: #fff;
-}
-
-@keyframes food-pop {
-  0% { transform: rotate(var(--r, 0deg)) skewY(var(--s, 0deg)) scale(0.6); opacity: 0.4; }
-  60% { transform: rotate(var(--r, 0deg)) skewY(var(--s, 0deg)) scale(1.04); }
-  100% { transform: rotate(var(--r, 0deg)) skewY(var(--s, 0deg)) scale(1); opacity: 1; }
-}
-
-@keyframes food-steam {
-  0%, 100% { opacity: 0.2; transform: translateY(0) scaleX(1); }
-  50% { opacity: 0.7; transform: translateY(-0.35rem) scaleX(1.15); }
-}
-
-@keyframes food-sparkle {
-  0%, 100% { opacity: 0.35; transform: scale(0.85); }
-  50% { opacity: 1; transform: scale(1.15); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .food-plate__slice,
-  .food-plate__steam span,
-  .food-plate__sparkle {
-    animation: none;
-    transition: none;
-  }
 }
 </style>

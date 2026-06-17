@@ -4,14 +4,6 @@
     :aria-label="`Sono: ${durationLabel} hoje. Dormir ${bedLabel}, acordar ${wakeLabel}`"
   >
     <div class="sleep-clock__panel cf-squircle">
-      <div class="sleep-clock__badge" aria-hidden="true">
-        <span class="sleep-clock__badge-icon">
-          <svg class="sleep-clock__ui-icon sleep-clock__ui-icon--flame" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path fill="currentColor" d="M12 2c1 3 3 4.5 3 7.5a3 3 0 1 1-6 0C9 6.5 11 5 12 2Zm0 11.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z" />
-          </svg>
-        </span>
-      </div>
-
       <div class="sleep-clock__dial-wrap">
         <svg
           ref="svgEl"
@@ -364,27 +356,6 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, #eef8ec 0%, #fff 42%);
   border: 1px solid #dceee0;
   box-shadow: 0 8px 24px rgba(106, 171, 106, 0.12);
-}
-
-.sleep-clock__badge {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 0.35rem;
-}
-
-.sleep-clock__badge-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.sleep-clock__ui-icon--flame {
-  color: #f08a4a;
 }
 
 .sleep-clock__ui-icon--on-dark {

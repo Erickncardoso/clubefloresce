@@ -14,7 +14,7 @@ export interface PatientGoal {
 const STORAGE_KEY = 'cf-patient-goals-v1'
 
 const DEFAULT_GOALS: PatientGoal[] = [
-  { id: 'water', label: 'Água', type: 'water', target: 8, unit: 'copos', frequency: 'daily', color: '#5ba4d9' },
+  { id: 'water', label: 'Água', type: 'water', target: 2, unit: 'litros', frequency: 'daily', color: '#5ba4d9', step: 0.25 },
   { id: 'food', label: 'Alimentação', type: 'food', target: 5, unit: 'dias', frequency: 'weekly', color: '#e8a598' },
   { id: 'exercise', label: 'Exercício', type: 'exercise', target: 3, unit: 'vezes', frequency: 'weekly', color: '#6d9a66' },
   { id: 'sleep', label: 'Sono', type: 'sleep', target: 8, unit: 'horas', frequency: 'daily', color: '#6aab6a', step: 0.5 },
@@ -28,10 +28,10 @@ function readStore(): { goals: PatientGoal[]; progress: Record<string, number> }
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { goals: DEFAULT_GOALS, progress: {} }
     const parsed = JSON.parse(raw)
-    return {
-      goals: normalizeStoredGoals(Array.isArray(parsed.goals) && parsed.goals.length ? parsed.goals : DEFAULT_GOALS),
-      progress: parsed.progress && typeof parsed.progress === 'object' ? parsed.progress : {},
-    }
+    const goals = normalizeStoredGoals(Array.isArray(parsed.goals) && parsed.goals.length ? parsed.goals : DEFAULT_GOALS)
+    const progress = parsed.progress && typeof parsed.progress === 'object' ? parsed.progress : {}
+    migrateWaterProgress({ goals, progress })
+    return { goals, progress }
   } catch {
     return { goals: DEFAULT_GOALS, progress: {} }
   }
@@ -61,8 +61,28 @@ function periodKeyForGoal(goal: PatientGoal, date = new Date()) {
   return goal.frequency === 'weekly' ? weekStartKey(date) : dateKey(date)
 }
 
+function roundToStep(value: number, step: number, max: number) {
+  const clamped = Math.max(0, Math.min(max, value))
+  if (step >= 1) return Math.round(clamped)
+  const factor = 1 / step
+  return Math.round(clamped * factor) / factor
+}
+
 function progressStorageKey(goalId: string, periodKey: string) {
   return `${goalId}:${periodKey}`
+}
+
+function migrateWaterProgress(store: { goals: PatientGoal[]; progress: Record<string, number> }) {
+  const water = store.goals.find((item) => item.id === 'water')
+  if (!water || water.unit !== 'litros') return false
+
+  let changed = false
+  for (const [key, value] of Object.entries(store.progress)) {
+    if (!key.startsWith('water:') || value <= water.target) continue
+    store.progress[key] = roundToStep(value * 0.25, 0.25, water.target)
+    changed = true
+  }
+  return changed
 }
 
 function calcSleepDurationHours(bedMinutes: number, wakeMinutes: number) {
@@ -115,6 +135,24 @@ function normalizeStoredGoals(goals: PatientGoal[]) {
     if (goal.id === 'sleep' && (goal.unit === 'noites' || goal.frequency === 'weekly')) {
       return { ...fallback }
     }
+    if (goal.id === 'water' && goal.unit === 'copos') {
+      return {
+        ...goal,
+        type: 'water',
+        target: Math.round(goal.target * 0.25 * 4) / 4 || 2,
+        unit: 'litros',
+        step: 0.25,
+        color: fallback.color,
+      }
+    }
+    if (goal.id === 'water') {
+      return {
+        ...goal,
+        type: 'water',
+        step: goal.step ?? 0.25,
+        color: fallback.color,
+      }
+    }
     if (goal.id === 'food' && goal.type === 'habit') {
       return { ...goal, type: 'food', color: fallback.color }
     }
@@ -158,13 +196,22 @@ export function usePatientGoals() {
     }
 
     const normalized = normalizeSleepTimes(bed, wake)
-    const changed = bedStored !== normalized.bed || wakeStored !== normalized.wake
+    const hours = calcSleepDurationHours(normalized.bed, normalized.wake)
+    const sleepKey = progressStorageKey('sleep', periodKeyForGoal(
+      store.value.goals.find((item) => item.id === 'sleep') || DEFAULT_GOALS[3],
+      date,
+    ))
+    const currentHours = store.value.progress[sleepKey] || 0
 
-    if (bedStored != null && wakeStored != null && !changed) return
+    const scheduleChanged = bedStored !== normalized.bed || wakeStored !== normalized.wake
+    const hoursChanged = currentHours !== hours
+
+    if (!scheduleChanged && !hoursChanged) return
 
     store.value.progress[bedKey] = normalized.bed
     store.value.progress[wakeKey] = normalized.wake
-    setProgress('sleep', calcSleepDurationHours(normalized.bed, normalized.wake), date)
+    store.value.progress[sleepKey] = hours
+    persist()
   }
 
   function listGoals() {
@@ -187,10 +234,7 @@ export function usePatientGoals() {
     const key = progressStorageKey(goalId, periodKeyForGoal(goal, date))
     const step = goal.step || 1
     const max = goal.target
-    const rounded = step < 1
-      ? Math.round(Math.max(0, Math.min(max, value)) * 2) / 2
-      : Math.max(0, Math.min(max, Math.round(value)))
-    store.value.progress[key] = rounded
+    store.value.progress[key] = roundToStep(value, step, max)
     persist()
   }
 

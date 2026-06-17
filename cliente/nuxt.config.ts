@@ -184,6 +184,16 @@ export default defineNuxtConfig({
         }
       }
     },
+    'nitro:init'(nitro) {
+      if (process.platform !== 'win32') return
+      nitro.hooks.hook('render:response', (response) => {
+        const contentType = String(response.headers?.['content-type'] || '')
+        if (!contentType.includes('text/html')) return
+        if (typeof response.body === 'string') {
+          response.body = response.body.replace(/\/_nuxt\/C:(?=\/)/g, '/_nuxt/@fs/C:')
+        }
+      })
+    },
   },
 
   vite: {

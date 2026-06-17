@@ -6,6 +6,14 @@ function rewriteWinAssetPaths(value: string) {
   return value.replace(/\/_nuxt\/C:(?=\/)/g, '/_nuxt/@fs/C:')
 }
 
+function isDocumentRequest(url: string, acceptHeader?: string) {
+  const path = (url.split('?')[0] || '').toLowerCase()
+  if (!acceptHeader?.includes('text/html')) return false
+  if (path.startsWith('/api') || path.startsWith('/_nuxt') || path.startsWith('/__')) return false
+  if (/\.[a-z0-9]+$/.test(path)) return false
+  return true
+}
+
 export function fixWindowsVitePaths() {
   return {
     name: 'fix-windows-vite-paths',
@@ -25,9 +33,7 @@ export function fixWindowsVitePaths() {
       })
 
       server.middlewares.use((req, res, next) => {
-        const url = req.url?.split('?')[0] || ''
-        const acceptsHtml = req.headers.accept?.includes('text/html')
-        if (!acceptsHtml || (url !== '/' && !url.endsWith('.html'))) {
+        if (!isDocumentRequest(req.url || '', req.headers.accept)) {
           next()
           return
         }
