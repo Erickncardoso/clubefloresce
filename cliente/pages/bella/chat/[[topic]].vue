@@ -1360,8 +1360,7 @@ onBeforeUnmount(() => {
   scroll-padding-bottom: 1rem;
   scroll-behavior: auto;
   overflow-anchor: none;
-  background-image: radial-gradient(circle, rgba(193, 123, 128, 0.1) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background: linear-gradient(180deg, #fff 0%, #f8f8fa 32%, #f5f4f6 100%);
   transition: padding-bottom 0.2s ease;
 }
 

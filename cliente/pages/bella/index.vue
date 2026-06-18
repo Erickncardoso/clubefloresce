@@ -3,8 +3,6 @@
     <PatientHeader show-back back-to="/inicio" :show-bell="false" />
 
     <div class="bella-landing">
-      <div class="bella-dots-bg" aria-hidden="true" />
-
       <header class="bella-hero">
         <div class="bella-avatar-wrap">
           <div class="bella-avatar" aria-hidden="true">
@@ -86,17 +84,7 @@ onMounted(() => {
   flex: 1;
   padding: 0 1.5rem;
   overflow: hidden;
-}
-
-/* Dot pattern background */
-.bella-dots-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-image: radial-gradient(circle, rgba(193, 123, 128, 0.15) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: 0.5;
-  pointer-events: none;
+  background: linear-gradient(180deg, #fff 0%, #f8f8fa 38%, #f5f4f6 100%);
 }
 
 /* Hero */

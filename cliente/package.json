@@ -4,10 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-paciente.mjs",
-    "build": "cross-env NUXT_PUBLIC_MOBILE_APP=true node ../frontend/node_modules/nuxt/bin/nuxt.mjs build",
-    "generate": "cross-env NUXT_PUBLIC_MOBILE_APP=true node ../frontend/node_modules/nuxt/bin/nuxt.mjs generate",
-    "preview": "cross-env NUXT_PUBLIC_MOBILE_APP=true node ../frontend/node_modules/nuxt/bin/nuxt.mjs preview",
-    "prepare": "cross-env NUXT_PUBLIC_MOBILE_APP=true node ../frontend/node_modules/nuxt/bin/nuxt.mjs prepare"
+    "build": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt build",
+    "generate": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt generate",
+    "preview": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt preview",
+    "prepare": "cross-env NUXT_PUBLIC_MOBILE_APP=true nuxt prepare"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -15,6 +15,7 @@
     "@lottiefiles/dotlottie-vue": "^0.11.15",
     "@pinia/nuxt": "^0.5.0",
     "emoji-mart": "^5.6.0",
+    "hls.js": "^1.6.16",
     "lucide-vue-next": "^1.0.0",
     "nuxt": "3.21.2",
     "pdfjs-dist": "4.10.38",

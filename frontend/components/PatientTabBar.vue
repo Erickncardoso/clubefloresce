@@ -87,17 +87,35 @@ watch(() => route.fullPath, () => {
 }
 
 .cf-tab {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.125rem;
+  gap: 0.2rem;
   min-height: 2.75rem;
+  padding: 0.2rem 0.15rem 0.1rem;
   color: var(--cf-text-muted);
   text-decoration: none;
   font-size: 0.6875rem;
   font-weight: 500;
   font-family: var(--cf-font);
+  letter-spacing: -0.01em;
+  transition: color 0.15s ease;
+}
+
+.cf-tab::before {
+  content: '';
+  position: absolute;
+  top: 0.05rem;
+  left: 50%;
+  width: 2.75rem;
+  height: 2rem;
+  border-radius: 0.75rem;
+  background: transparent;
+  transform: translateX(-50%);
+  transition: background 0.15s ease;
+  z-index: -1;
 }
 
 .cf-tab:focus-visible {
@@ -107,13 +125,24 @@ watch(() => route.fullPath, () => {
 }
 
 .cf-tab-icon {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1.25rem;
+  height: 1.25rem;
   stroke-width: 1.75;
+  transition: transform 0.15s ease, color 0.15s ease;
 }
 
 .cf-tab.active {
+  color: var(--cf-pink-dark);
+  font-weight: 600;
+}
+
+.cf-tab.active::before {
+  background: var(--cf-pink-soft);
+}
+
+.cf-tab.active .cf-tab-icon {
   color: var(--cf-pink);
+  transform: translateY(-1px);
 }
 
 .cf-tab-fab-spacer {
@@ -130,14 +159,16 @@ watch(() => route.fullPath, () => {
   justify-content: center;
   width: var(--cf-fab-size);
   height: var(--cf-fab-size);
-  border: none;
+  border: 3px solid #fff;
   border-radius: 50%;
-  background: var(--cf-pink);
+  background: linear-gradient(145deg, #c98a8f 0%, var(--cf-pink) 48%, var(--cf-pink-dark) 100%);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(193, 123, 128, 0.35);
+  box-shadow:
+    0 4px 14px rgba(193, 123, 128, 0.38),
+    0 1px 3px rgba(20, 20, 20, 0.08);
   cursor: pointer;
   transform: translateX(-50%);
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cf-tab-fab:focus-visible {
@@ -151,8 +182,11 @@ watch(() => route.fullPath, () => {
 }
 
 .cf-tab-fab--open {
-  background: var(--cf-pink-dark);
+  background: linear-gradient(145deg, var(--cf-pink-dark) 0%, #8f4f54 100%);
   transform: translateX(-50%) rotate(45deg);
+  box-shadow:
+    0 4px 16px rgba(160, 98, 103, 0.42),
+    0 1px 3px rgba(20, 20, 20, 0.1);
 }
 
 .cf-tab-fab--open:active {

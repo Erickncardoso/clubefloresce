@@ -245,8 +245,9 @@ html.bella-chat-active .bella-chat-shell {
   max-width: 430px;
   margin: 0 auto;
   box-sizing: border-box;
-  background: linear-gradient(to top, #f8f8fa 72%, transparent);
-  padding-top: 0.75rem;
+  background: #f8f8fa;
+  border-top: 1px solid rgba(228, 228, 224, 0.7);
+  padding-top: 0.65rem;
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
   transition: bottom 0.2s ease, padding-bottom 0.2s ease;
 }
@@ -381,8 +382,11 @@ html:has(.doc-page) .patient-shell-body {
   min-height: var(--cf-tab-h);
   padding-top: var(--cf-tab-fab-rise);
   padding-bottom: var(--cf-tab-safe-bottom);
-  background: var(--cf-surface);
-  border-top: 1px solid var(--cf-border);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-top: 1px solid rgba(228, 228, 224, 0.85);
+  box-shadow: 0 -6px 28px rgba(20, 20, 20, 0.06);
   box-sizing: border-box;
   overflow: visible;
   transition: transform 0.2s ease, opacity 0.2s ease;

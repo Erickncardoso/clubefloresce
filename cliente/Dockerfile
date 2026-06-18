@@ -5,22 +5,24 @@
 #   Dockerfile:      cliente/Dockerfile
 #   Porta:           3000
 
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
+
+RUN apk add --no-cache libc6-compat
+
 WORKDIR /app
 
-COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm ci
+ENV NODE_OPTIONS=--max-old-space-size=4096
+ENV NUXT_TELEMETRY_DISABLED=1
+ENV NUXT_IGNORE_LOCK=1
+ENV NUXT_PUBLIC_MOBILE_APP=true
+ARG NUXT_PUBLIC_API_BASE=/api
+ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
 
 COPY frontend ./frontend
 COPY cliente/package*.json ./cliente/
 COPY cliente ./cliente
 
 WORKDIR /app/cliente
-
-# Não definir NODE_ENV=production aqui — o build precisa das devDependencies (cross-env, etc.)
-ENV NUXT_PUBLIC_MOBILE_APP=true
-ARG NUXT_PUBLIC_API_BASE=/api
-ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
 
 RUN npm ci && npm run generate
 

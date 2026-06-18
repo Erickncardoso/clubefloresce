@@ -198,6 +198,10 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [fixWindowsVitePaths()],
+    build: {
+      sourcemap: false,
+      reportCompressedSize: false,
+    },
     optimizeDeps: {
       include: ['pdfjs-dist'],
     },
