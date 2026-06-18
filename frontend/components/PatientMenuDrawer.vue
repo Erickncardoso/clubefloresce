@@ -7,7 +7,13 @@
       <aside v-if="open" class="cf-drawer" aria-label="Menu">
         <div class="cf-drawer-inner">
           <div class="cf-drawer-head">
-            <img src="/logoflorescer.svg" alt="Clube Florescer" class="cf-drawer-logo" width="110" height="32">
+            <img
+              src="/clube-florescer-logo.png"
+              alt="Clube Florescer"
+              class="cf-drawer-logo"
+              width="180"
+              height="36"
+            >
             <button type="button" class="cf-drawer-close" aria-label="Fechar menu" @click="$emit('close')">
               <X class="cf-drawer-close-icon" />
             </button>
@@ -152,7 +158,11 @@ function logout() {
 }
 
 .cf-drawer-logo {
+  height: 2rem;
+  width: auto;
+  max-width: calc(100% - 3rem);
   object-fit: contain;
+  object-position: left center;
 }
 
 .cf-drawer-close {

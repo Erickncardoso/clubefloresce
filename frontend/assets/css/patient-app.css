@@ -234,12 +234,12 @@ html.bella-chat-active .bella-chat-shell {
   }
 }
 
-/* Composer teleportado para body — fica colado no bottom (tab bar oculta no chat) */
+/* Composer teleportado para body — posição via --bella-dock-bottom (JS + tab bar) */
 .bella-composer-dock {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--bella-dock-bottom, 0px);
   z-index: 95;
   width: 100%;
   max-width: 430px;
@@ -251,20 +251,12 @@ html.bella-chat-active .bella-chat-shell {
   transition: bottom 0.2s ease, padding-bottom 0.2s ease;
 }
 
-html:not(.bella-chat-active) .bella-composer-dock {
-  bottom: var(--cf-tab-h);
+html.bella-chat-active:has(.cf-tab-bar-wrap):not(.vk-open) .bella-composer-dock {
+  --bella-dock-bottom: var(--cf-tab-h);
   padding-bottom: 0;
 }
 
-html:not(:has(.cf-tab-bar-wrap)) .bella-composer-dock {
-  bottom: 0;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* Quando teclado abre: tab bar some, composer vai pro bottom */
 html.vk-open .bella-composer-dock {
-  bottom: 0;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: #f8f8fa;
 }
 
@@ -873,7 +865,9 @@ html:has(.cf-tab-bar-wrap) body {
 
 .patient-auth-logo {
   display: block;
-  margin: 0 auto 0.5rem;
+  width: min(13.75rem, 78vw);
+  height: auto;
+  margin: 0 auto 0.75rem;
   object-fit: contain;
 }
 

@@ -9,8 +9,13 @@
         <span class="cf-header-title">{{ title }}</span>
       </template>
       <template v-else>
-        <img src="/logoflorescer.svg" alt="" class="cf-header-logo" width="22" height="22">
-        <span>Clube Florescer</span>
+        <img
+          src="/clube-florescer-logo.png"
+          alt="Clube Florescer"
+          class="cf-header-logo"
+          width="160"
+          height="32"
+        >
       </template>
     </div>
 
@@ -123,8 +128,11 @@ function goBack() {
 }
 
 .cf-header-logo {
+  height: 1.75rem;
+  width: auto;
+  max-width: min(10.5rem, 42vw);
   object-fit: contain;
-  opacity: 0.9;
+  object-position: center;
 }
 
 .cf-header-title {

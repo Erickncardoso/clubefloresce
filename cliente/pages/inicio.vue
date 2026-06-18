@@ -473,7 +473,7 @@ onMounted(async () => {
 
 .home-bella-figure {
   position: absolute;
-  left: 0.15rem;
+  left: 1.15rem;
   top: -2.5rem;
   bottom: 0;
   z-index: 2;
@@ -507,7 +507,7 @@ onMounted(async () => {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 1.15rem 1.125rem 0.85rem 5.75rem;
+  padding: 1.15rem 1.125rem 0.85rem 6.5rem;
   margin: 0;
   min-height: 4.5rem;
   border: none;
