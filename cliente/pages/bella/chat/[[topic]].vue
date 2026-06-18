@@ -216,6 +216,7 @@
                 autocomplete="off"
                 enterkeyhint="send"
                 @focus="onComposerFocus"
+                @blur="onComposerBlur"
               />
               <button type="submit" class="bella-send-btn" :disabled="!canSend || sending" aria-label="Enviar mensagem">
                 <Send class="send-icon" />
@@ -1183,12 +1184,44 @@ function bindScrollRoot() {
 }
 
 let composerHeightObserver = null
+let vvCleanup = null
+let vkClassObserver = null
+
+function getKeyboardInset() {
+  if (!import.meta.client) return 0
+  const vv = window.visualViewport
+  if (!vv) return 0
+  return Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
+}
+
+function syncComposerDockPosition() {
+  if (!import.meta.client) return
+  const dock = composerDockEl.value
+  if (!dock) return
+
+  const root = document.documentElement
+  const keyboardInset = getKeyboardInset()
+  const keyboardOpen = keyboardInset > 80 || root.classList.contains('vk-open')
+  const tabBarVisible = Boolean(root.querySelector('.cf-tab-bar-wrap')) && !keyboardOpen
+
+  if (keyboardOpen) {
+    dock.style.setProperty('--bella-dock-bottom', `${keyboardInset}px`)
+    dock.style.paddingBottom = 'max(0.5rem, env(safe-area-inset-bottom, 0px))'
+  } else if (tabBarVisible) {
+    dock.style.setProperty('--bella-dock-bottom', 'var(--cf-tab-h)')
+    dock.style.paddingBottom = '0'
+  } else {
+    dock.style.setProperty('--bella-dock-bottom', '0px')
+    dock.style.paddingBottom = 'max(0.5rem, env(safe-area-inset-bottom, 0px))'
+  }
+}
 
 function updateComposerDockHeight() {
   if (!import.meta.client) return
   const dock = composerDockEl.value
   const page = chatPageEl.value
   if (!dock || !page) return
+  syncComposerDockPosition()
   const height = Math.ceil(dock.getBoundingClientRect().height)
   page.style.setProperty('--bella-composer-dock-h', `${height}px`)
 }
@@ -1206,9 +1239,25 @@ function bindComposerHeightObserver() {
 function onComposerFocus() {
   userScrollIntent = false
   pinningToBottom.value = true
+  syncComposerDockPosition()
+  updateComposerDockHeight()
   scrollToBottom(true)
-  setTimeout(() => scrollToBottom(true), 120)
-  setTimeout(() => scrollToBottom(true), 320)
+  setTimeout(() => {
+    syncComposerDockPosition()
+    updateComposerDockHeight()
+    scrollToBottom(true)
+  }, 120)
+  setTimeout(() => {
+    syncComposerDockPosition()
+    scrollToBottom(true)
+  }, 320)
+}
+
+function onComposerBlur() {
+  setTimeout(() => {
+    syncComposerDockPosition()
+    updateComposerDockHeight()
+  }, 120)
 }
 
 onMounted(async () => {
@@ -1218,21 +1267,40 @@ onMounted(async () => {
 
   if (import.meta.client && window.visualViewport) {
     const vv = window.visualViewport
-    const onVvResize = () => {
+    const onVvChange = () => {
+      syncComposerDockPosition()
       updateComposerDockHeight()
       requestAnimationFrame(() => scrollToBottom(true))
     }
-    vv.addEventListener('resize', onVvResize, { passive: true })
-    vvCleanup = () => vv.removeEventListener('resize', onVvResize)
+    vv.addEventListener('resize', onVvChange, { passive: true })
+    vv.addEventListener('scroll', onVvChange, { passive: true })
+    vvCleanup = () => {
+      vv.removeEventListener('resize', onVvChange)
+      vv.removeEventListener('scroll', onVvChange)
+    }
   }
 
   await bootstrapChat()
   await nextTick()
   bindComposerHeightObserver()
+  syncComposerDockPosition()
+
+  if (import.meta.client) {
+    vkClassObserver = new MutationObserver(() => {
+      syncComposerDockPosition()
+      updateComposerDockHeight()
+    })
+    vkClassObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+  }
 })
 
 onBeforeUnmount(() => {
   vvCleanup?.()
+  vkClassObserver?.disconnect()
+  vkClassObserver = null
   composerHeightObserver?.disconnect()
   composerHeightObserver = null
   scrollRootEl?.removeEventListener('scroll', onMessagesScroll)
