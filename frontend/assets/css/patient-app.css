@@ -193,6 +193,18 @@ html:has(.cf-tab-bar-wrap) .patient-shell-body {
   flex-direction: column;
 }
 
+html.bella-chat-active,
+html.bella-chat-active body {
+  overscroll-behavior: none;
+}
+
+html.bella-chat-active .patient-app-shell,
+html.bella-chat-active .patient-app-shell__main,
+html.bella-chat-active .bella-chat-shell {
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
 .bella-chat-shell-body {
   flex: 1 1 0;
   min-height: 0;
@@ -222,20 +234,26 @@ html:has(.cf-tab-bar-wrap) .patient-shell-body {
   }
 }
 
-/* Composer teleportado para body — fica acima da tab bar sem bug de position:fixed em ancestral */
+/* Composer teleportado para body — fica colado no bottom (tab bar oculta no chat) */
 .bella-composer-dock {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: var(--cf-tab-h);
+  bottom: 0;
   z-index: 95;
   width: 100%;
   max-width: 430px;
   margin: 0 auto;
   box-sizing: border-box;
-  background: linear-gradient(to top, #f8f8fa 60%, transparent);
+  background: linear-gradient(to top, #f8f8fa 72%, transparent);
   padding-top: 0.75rem;
-  transition: bottom 0.2s ease;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  transition: bottom 0.2s ease, padding-bottom 0.2s ease;
+}
+
+html:not(.bella-chat-active) .bella-composer-dock {
+  bottom: var(--cf-tab-h);
+  padding-bottom: 0;
 }
 
 html:not(:has(.cf-tab-bar-wrap)) .bella-composer-dock {

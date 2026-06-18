@@ -1,16 +1,17 @@
 export default defineNuxtPlugin(() => {
   const router = useRouter()
 
-  const cleanupLegacyShellClasses = () => {
+  function syncBellaChatShell(path: string) {
     if (!import.meta.client) return
-    document.documentElement.classList.remove('bella-chat-active')
-    document.body.classList.remove('bella-chat-active')
+    const onChat = path.startsWith('/bella/chat')
+    document.documentElement.classList.toggle('bella-chat-active', onChat)
+    document.body.classList.toggle('bella-chat-active', onChat)
   }
 
-  cleanupLegacyShellClasses()
+  syncBellaChatShell(router.currentRoute.value.path)
 
   router.afterEach((to) => {
-    cleanupLegacyShellClasses()
+    syncBellaChatShell(to.path)
     if (!import.meta.client) return
     if (to.path.startsWith('/bella/chat')) return
     const shell = document.querySelector('.patient-shell-body')

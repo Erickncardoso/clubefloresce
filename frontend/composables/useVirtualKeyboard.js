@@ -3,27 +3,44 @@ export function useVirtualKeyboard() {
 
   if (!import.meta.client) return { keyboardOpen }
 
-  const THRESHOLD = 150
+  const THRESHOLD = 120
   let cleanup = null
 
   onMounted(() => {
     const vv = window.visualViewport
     if (!vv) return
 
-    const initialHeight = window.innerHeight
+    let baselineHeight = vv.height
 
-    function onResize() {
-      const diff = initialHeight - vv.height
-      const isOpen = diff > THRESHOLD
+    function sync() {
+      const visibleHeight = vv.height
+      const offsetTop = vv.offsetTop || 0
+      const layoutHeight = window.innerHeight
+      const overlap = layoutHeight - visibleHeight - offsetTop
+      const shrink = baselineHeight - visibleHeight
+
+      const isOpen = overlap > THRESHOLD || shrink > THRESHOLD
+
       if (isOpen !== keyboardOpen.value) {
         keyboardOpen.value = isOpen
         document.documentElement.classList.toggle('vk-open', isOpen)
       }
+
+      if (!isOpen) {
+        baselineHeight = visibleHeight
+      }
     }
 
-    vv.addEventListener('resize', onResize, { passive: true })
+    vv.addEventListener('resize', sync, { passive: true })
+    vv.addEventListener('scroll', sync, { passive: true })
+    window.addEventListener('orientationchange', () => {
+      baselineHeight = vv.height
+      setTimeout(sync, 150)
+    }, { passive: true })
+
     cleanup = () => {
-      vv.removeEventListener('resize', onResize)
+      vv.removeEventListener('resize', sync)
+      vv.removeEventListener('scroll', sync)
       document.documentElement.classList.remove('vk-open')
     }
   })

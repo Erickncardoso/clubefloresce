@@ -1,5 +1,5 @@
 <template>
-  <div class="bella-chat-page">
+  <div ref="chatPageEl" class="bella-chat-page">
     <div class="bella-chat-sticky">
       <PatientHeader
         :title="topicConfig.title"
@@ -130,7 +130,7 @@
     </div>
 
     <Teleport to="body">
-      <div class="bella-composer-dock">
+      <div ref="composerDockEl" class="bella-composer-dock">
         <div v-if="chatError" class="bella-error-banner" role="alert">
           <p>{{ chatError }}</p>
           <button type="button" class="bella-error-retry" @click="retryLoad">Tentar novamente</button>
@@ -207,12 +207,15 @@
                 </button>
               </div>
               <input
+                ref="composerInputEl"
                 v-model="draft"
                 type="text"
                 :placeholder="composerPlaceholder"
                 :disabled="sending || swapSelectionLocked"
                 maxlength="4000"
                 autocomplete="off"
+                enterkeyhint="send"
+                @focus="onComposerFocus"
               />
               <button type="submit" class="bella-send-btn" :disabled="!canSend || sending" aria-label="Enviar mensagem">
                 <Send class="send-icon" />
@@ -283,8 +286,11 @@ const chatError = ref('')
 const aiEnabled = ref(true)
 const messagesEl = ref(null)
 const bottomAnchor = ref(null)
+const composerDockEl = ref(null)
+const chatPageEl = ref(null)
 const fileInputEl = ref(null)
 const cameraInputEl = ref(null)
+const composerInputEl = ref(null)
 const taskHint = ref('')
 const selectedFile = ref(null)
 const attachmentPreview = ref(null)
@@ -675,6 +681,10 @@ const loadMessages = async () => {
     aiEnabled.value = data.aiEnabled !== false
     if (data.dailySummary) dailySummary.value = data.dailySummary
     if (chatTopic.value !== 'swap') seedWelcomeMessage()
+  } catch (err) {
+    chatError.value = formatChatError(err)
+    if (chatTopic.value !== 'swap') seedWelcomeMessage()
+    throw err
   } finally {
     loadingMessages.value = false
   }
@@ -1113,6 +1123,20 @@ watch(
   },
 )
 
+watch(attachmentPreview, async () => {
+  await nextTick()
+  updateComposerDockHeight()
+  if (!userScrollIntent) scrollToBottom(true)
+})
+
+watch(
+  () => chatError.value,
+  async () => {
+    await nextTick()
+    updateComposerDockHeight()
+  },
+)
+
 function onUserScrollIntent() {
   userScrollIntent = true
   if (pinningToBottom.value) stopPinningToBottom()
@@ -1158,7 +1182,34 @@ function bindScrollRoot() {
   }
 }
 
-let vvCleanup = null
+let composerHeightObserver = null
+
+function updateComposerDockHeight() {
+  if (!import.meta.client) return
+  const dock = composerDockEl.value
+  const page = chatPageEl.value
+  if (!dock || !page) return
+  const height = Math.ceil(dock.getBoundingClientRect().height)
+  page.style.setProperty('--bella-composer-dock-h', `${height}px`)
+}
+
+function bindComposerHeightObserver() {
+  composerHeightObserver?.disconnect()
+  composerHeightObserver = null
+  updateComposerDockHeight()
+  const dock = composerDockEl.value
+  if (!dock || typeof ResizeObserver === 'undefined') return
+  composerHeightObserver = new ResizeObserver(() => updateComposerDockHeight())
+  composerHeightObserver.observe(dock)
+}
+
+function onComposerFocus() {
+  userScrollIntent = false
+  pinningToBottom.value = true
+  scrollToBottom(true)
+  setTimeout(() => scrollToBottom(true), 120)
+  setTimeout(() => scrollToBottom(true), 320)
+}
 
 onMounted(async () => {
   if (import.meta.client && 'scrollRestoration' in history) {
@@ -1168,6 +1219,7 @@ onMounted(async () => {
   if (import.meta.client && window.visualViewport) {
     const vv = window.visualViewport
     const onVvResize = () => {
+      updateComposerDockHeight()
       requestAnimationFrame(() => scrollToBottom(true))
     }
     vv.addEventListener('resize', onVvResize, { passive: true })
@@ -1175,10 +1227,14 @@ onMounted(async () => {
   }
 
   await bootstrapChat()
+  await nextTick()
+  bindComposerHeightObserver()
 })
 
 onBeforeUnmount(() => {
   vvCleanup?.()
+  composerHeightObserver?.disconnect()
+  composerHeightObserver = null
   scrollRootEl?.removeEventListener('scroll', onMessagesScroll)
   scrollRootEl?.removeEventListener('wheel', onUserScrollIntent)
   scrollRootEl?.removeEventListener('touchstart', onTouchStart)
@@ -1232,7 +1288,7 @@ onBeforeUnmount(() => {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 1rem 1rem calc(var(--bella-composer-dock-h) + var(--cf-tab-h));
+  padding: 1rem 1rem calc(var(--bella-composer-dock-h, 5.75rem) + env(safe-area-inset-bottom, 0px) + 0.75rem);
   scroll-padding-bottom: 1rem;
   scroll-behavior: auto;
   overflow-anchor: none;
@@ -1241,9 +1297,8 @@ onBeforeUnmount(() => {
   transition: padding-bottom 0.2s ease;
 }
 
-/* Quando teclado abre: tab bar some, reduz padding */
 html.vk-open .bella-messages {
-  padding-bottom: calc(var(--bella-composer-dock-h) + 0.5rem);
+  padding-bottom: calc(var(--bella-composer-dock-h, 5.75rem) + 0.35rem);
 }
 
 .bella-history-bar {
