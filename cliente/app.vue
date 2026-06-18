@@ -13,6 +13,7 @@
 
 <script setup>
 const route = useRoute()
+useVirtualKeyboard()
 
 const hideTabBarPaths = ['/', '/register', '/documento']
 

@@ -153,7 +153,7 @@
             @change="onFileSelected"
           />
 
-          <div class="bella-composer-shell cf-squircle cf-squircle--composer">
+          <div class="bella-composer-shell" :class="{ 'has-attach': attachmentPreview }">
             <div v-if="attachmentPreview" class="bella-composer-attach">
               <div v-if="attachmentPreview.kind === 'image'" class="bella-attach-chips">
                 <div class="bella-attach-chip cf-squircle cf-squircle--attach">
@@ -1158,14 +1158,27 @@ function bindScrollRoot() {
   }
 }
 
+let vvCleanup = null
+
 onMounted(async () => {
   if (import.meta.client && 'scrollRestoration' in history) {
     history.scrollRestoration = 'manual'
   }
+
+  if (import.meta.client && window.visualViewport) {
+    const vv = window.visualViewport
+    const onVvResize = () => {
+      requestAnimationFrame(() => scrollToBottom(true))
+    }
+    vv.addEventListener('resize', onVvResize, { passive: true })
+    vvCleanup = () => vv.removeEventListener('resize', onVvResize)
+  }
+
   await bootstrapChat()
 })
 
 onBeforeUnmount(() => {
+  vvCleanup?.()
   scrollRootEl?.removeEventListener('scroll', onMessagesScroll)
   scrollRootEl?.removeEventListener('wheel', onUserScrollIntent)
   scrollRootEl?.removeEventListener('touchstart', onTouchStart)
@@ -1188,7 +1201,7 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: 430px;
   margin: 0 auto;
-  background: var(--cf-bg);
+  background: #f8f8fa;
   overflow: hidden;
   box-sizing: border-box;
   --bella-composer-dock-h: 5.75rem;
@@ -1197,12 +1210,14 @@ onBeforeUnmount(() => {
 .bella-chat-sticky {
   grid-row: 1;
   z-index: 2;
-  background: var(--cf-bg);
-  border-bottom: 1px solid var(--cf-border);
+  background: #fff;
+  border-bottom: none;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
 .bella-chat-sticky :deep(.cf-header) {
   border-bottom: none;
+  background: #fff;
 }
 
 .bella-diary-bar {
@@ -1217,10 +1232,18 @@ onBeforeUnmount(() => {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 0.85rem 1.25rem calc(var(--bella-composer-dock-h) + var(--cf-tab-h));
+  padding: 1rem 1rem calc(var(--bella-composer-dock-h) + var(--cf-tab-h));
   scroll-padding-bottom: 1rem;
   scroll-behavior: auto;
   overflow-anchor: none;
+  background-image: radial-gradient(circle, rgba(193, 123, 128, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+  transition: padding-bottom 0.2s ease;
+}
+
+/* Quando teclado abre: tab bar some, reduz padding */
+html.vk-open .bella-messages {
+  padding-bottom: calc(var(--bella-composer-dock-h) + 0.5rem);
 }
 
 .bella-history-bar {
@@ -1232,24 +1255,27 @@ onBeforeUnmount(() => {
 .bella-history-btn {
   appearance: none;
   border: 1px solid var(--cf-border);
-  background: var(--cf-surface, #fff);
-  color: var(--cf-muted, #6b7280);
-  font-size: 0.8125rem;
+  background: #fff;
+  color: var(--cf-text-muted);
+  font-size: 0.78rem;
   font-weight: 500;
+  font-family: inherit;
   line-height: 1.2;
   padding: 0.45rem 0.85rem;
   border-radius: 999px;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .bella-history-btn--active {
-  color: var(--cf-text, #1f2937);
-  border-color: color-mix(in srgb, var(--cf-pink, #e11d48) 35%, var(--cf-border));
+  color: var(--cf-pink-dark);
+  border-color: #e0c4c6;
+  background: var(--cf-pink-soft);
 }
 
 .bella-messages > .bella-bubble-wrap,
 .bella-messages > .bella-typing-anchor {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 
 .bella-messages > .bella-bubble-wrap:last-child,
@@ -1293,7 +1319,7 @@ onBeforeUnmount(() => {
 .bella-loading-dots span {
   width: 0.45rem;
   height: 0.45rem;
-  border-radius: var(--cf-radius-full);
+  border-radius: 50%;
   background: var(--cf-pink);
   opacity: 0.35;
   animation: bella-pulse 1.2s infinite;
@@ -1307,10 +1333,11 @@ onBeforeUnmount(() => {
   40% { opacity: 1; transform: scale(1); }
 }
 
+/* Bubble layout */
 .bella-bubble-wrap {
   display: flex;
   align-items: flex-end;
-  gap: 0.45rem;
+  gap: 0.5rem;
   max-width: 90%;
 }
 
@@ -1324,41 +1351,46 @@ onBeforeUnmount(() => {
   margin-left: auto;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.35rem;
-  max-width: min(78%, 11.5rem);
-}
-
-.bella-msg-thumb {
-  overflow: hidden;
-  line-height: 0;
-  width: 9.25rem;
-  max-width: 100%;
-  border: 1px solid var(--cf-border);
-  border-radius: var(--cf-radius-msg-media, 1.25rem);
-  background: var(--cf-surface);
-  box-shadow: var(--cf-shadow);
-}
-
-.bella-msg-thumb .bella-msg-image {
-  width: 100%;
-  max-height: 8rem;
-  object-fit: cover;
-  object-position: center;
-  border: none;
+  gap: 0.4rem;
+  max-width: min(78%, 12.5rem);
 }
 
 .bella-bubble-wrap--bot {
   max-width: 94%;
 }
 
+/* User image thumb — dashed border style */
+.bella-msg-thumb {
+  overflow: hidden;
+  line-height: 0;
+  width: 10rem;
+  max-width: 100%;
+  border: 2px dashed #dbbfc1;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 0.3rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.bella-msg-thumb .bella-msg-image {
+  width: 100%;
+  max-height: 8.5rem;
+  object-fit: cover;
+  object-position: center;
+  border: none;
+  border-radius: 0.7rem;
+}
+
+/* Bot avatar */
 .bella-bot-avatar {
   width: 2rem;
   height: 2rem;
-  border-radius: var(--cf-radius-full);
-  background: var(--cf-pink-soft);
-  border: 1px solid #f0d8da;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid var(--cf-border);
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .bella-bot-avatar img {
@@ -1369,11 +1401,12 @@ onBeforeUnmount(() => {
   display: block;
 }
 
+/* Bubble base */
 .bella-bubble {
-  padding: 0.75rem 0.9rem;
-  border-radius: var(--cf-radius-xl);
-  line-height: 1.5;
-  font-size: 0.9rem;
+  padding: 0.8rem 1rem;
+  border-radius: 1.25rem;
+  line-height: 1.55;
+  font-size: 0.875rem;
   min-width: 0;
   word-break: break-word;
 }
@@ -1398,6 +1431,7 @@ onBeforeUnmount(() => {
 .bella-bubble--bot .bella-msg-image {
   max-width: 220px;
   margin-bottom: 0.5rem;
+  border-radius: 0.75rem;
 }
 
 .bella-msg-pdf {
@@ -1415,6 +1449,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
+/* Formatted message content */
 .bella-msg-formatted :deep(h3.bella-md-h) {
   margin: 0 0 0.45rem;
   font-size: 0.88rem;
@@ -1464,24 +1499,28 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+/* User bubble */
 .bella-bubble--user {
-  background: var(--cf-pink);
-  color: #fff;
-  border-bottom-right-radius: 0.375rem;
+  background: #fdf2f3;
+  color: var(--cf-text);
+  border: 1px solid #edcfd1;
+  border-bottom-right-radius: 0.35rem;
 }
 
+/* Bot bubble */
 .bella-bubble--bot {
-  background: var(--cf-surface);
+  background: #fff;
   border: 1px solid var(--cf-border);
-  border-bottom-left-radius: 6px;
+  border-bottom-left-radius: 0.35rem;
   color: var(--cf-text);
-  box-shadow: var(--cf-shadow);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .bella-bubble--bot:has(.bella-swap-actions) {
-  width: min(100%, 18.5rem);
+  width: 100%;
 }
 
+/* Typing indicator */
 .bella-bubble--typing {
   display: flex;
   align-items: center;
@@ -1492,14 +1531,14 @@ onBeforeUnmount(() => {
 
 .bella-typing-dots {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   min-height: 7px;
 }
 
 .bella-typing-dots span {
   width: 7px;
   height: 7px;
-  border-radius: var(--cf-radius-full);
+  border-radius: 50%;
   background: var(--cf-pink);
   opacity: 0.55;
   animation: bella-typing-pulse 1.2s infinite;
@@ -1513,6 +1552,7 @@ onBeforeUnmount(() => {
   40% { opacity: 1; }
 }
 
+/* Inline chat link */
 .bella-msg-formatted :deep(.bella-chat-link-inline) {
   display: inline-flex;
   align-items: center;
@@ -1520,23 +1560,34 @@ onBeforeUnmount(() => {
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
   background: var(--cf-pink-soft);
-  color: var(--cf-pink-dark, #9f4f56);
+  color: var(--cf-pink-dark);
   font-weight: 600;
   font-size: 0.8125rem;
   text-decoration: none;
-  border: 1px solid #f0d4d8;
+  border: 1px solid #edcfd1;
 }
 
 .bella-msg-formatted :deep(.bella-chat-link-inline:hover) {
-  background: #fce8eb;
+  background: #f5dfe1;
 }
 
+/* Composer */
 .bella-composer-shell {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--cf-border);
-  background: var(--cf-bg);
-  box-shadow: var(--cf-shadow);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.bella-composer-shell:has(.bella-composer-attach) {
+  border-radius: 1.25rem;
+}
+
+.bella-composer-shell.has-attach {
+  border-radius: 1.25rem;
 }
 
 .bella-composer-attach {
@@ -1555,6 +1606,8 @@ onBeforeUnmount(() => {
   height: 4.5rem;
   flex-shrink: 0;
   line-height: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
 }
 
 .bella-attach-chip img {
@@ -1571,7 +1624,7 @@ onBeforeUnmount(() => {
   width: 1.45rem;
   height: 1.45rem;
   border: none;
-  border-radius: var(--cf-radius-full);
+  border-radius: 50%;
   background: rgba(15, 23, 42, 0.68);
   color: #fff;
   cursor: pointer;
@@ -1598,6 +1651,7 @@ onBeforeUnmount(() => {
   color: var(--cf-text-muted);
 }
 
+/* Error */
 .bella-error-banner {
   display: flex;
   align-items: flex-start;
@@ -1605,7 +1659,7 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   margin: 0.65rem 1.25rem 0;
   padding: 0.65rem 0.75rem;
-  border-radius: var(--cf-radius-xl);
+  border-radius: 1rem;
   background: #fff5f5;
   border: 1px solid #f5c2c2;
 }
@@ -1635,7 +1689,7 @@ onBeforeUnmount(() => {
   width: 2rem;
   height: 2rem;
   border: none;
-  border-radius: var(--cf-radius-full);
+  border-radius: 50%;
   background: transparent;
   color: var(--cf-text-muted);
   cursor: pointer;
@@ -1654,8 +1708,9 @@ onBeforeUnmount(() => {
   height: 1rem;
 }
 
+/* Input bar */
 .bella-input-bar {
-  padding: 0.65rem 1.25rem 0.5rem;
+  padding: 0.65rem 1rem 0.5rem;
 }
 
 .bella-file-input {
@@ -1665,14 +1720,14 @@ onBeforeUnmount(() => {
 .bella-input-row {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.35rem 0.35rem 0.5rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.65rem;
 }
 
 .bella-input-tools {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.1rem;
   flex-shrink: 0;
 }
 
@@ -1680,13 +1735,18 @@ onBeforeUnmount(() => {
   width: 2.15rem;
   height: 2.15rem;
   border: none;
-  border-radius: var(--cf-radius-full);
+  border-radius: 50%;
   background: transparent;
-  color: var(--cf-pink-dark);
+  color: var(--cf-text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.bella-tool-btn:active {
+  color: var(--cf-pink);
 }
 
 .bella-tool-btn:disabled {
@@ -1697,6 +1757,7 @@ onBeforeUnmount(() => {
 .attach-icon {
   width: 1.05rem;
   height: 1.05rem;
+  stroke-width: 1.75;
 }
 
 .bella-input-row input[type='text'] {
@@ -1705,24 +1766,26 @@ onBeforeUnmount(() => {
   border: none;
   background: transparent;
   padding: 0.55rem 0.25rem;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-family: inherit;
   color: var(--cf-text);
 }
 
 .bella-input-row input[type='text']::placeholder {
   color: var(--cf-text-muted);
+  font-weight: 400;
 }
 
 .bella-input-row input[type='text']:focus {
   outline: none;
 }
 
+/* Send button */
 .bella-send-btn {
-  width: 2.35rem;
-  height: 2.35rem;
+  width: 2.25rem;
+  height: 2.25rem;
   border: none;
-  border-radius: var(--cf-radius-full);
+  border-radius: 50%;
   background: var(--cf-pink);
   color: #fff;
   cursor: pointer;
@@ -1730,22 +1793,25 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(193, 123, 128, 0.3);
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .bella-send-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.35;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .bella-send-btn:not(:disabled):active {
-  transform: scale(0.96);
+  transform: scale(0.94);
   background: var(--cf-pink-dark);
 }
 
 .send-icon {
-  width: 1rem;
-  height: 1rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 2.25;
 }
 
 .bella-ai-hint {
@@ -1760,7 +1826,8 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .bella-loading-dots span,
   .bella-typing-dots span,
-  .bella-send-btn {
+  .bella-send-btn,
+  .bella-tool-btn {
     animation: none;
     transition: none;
   }

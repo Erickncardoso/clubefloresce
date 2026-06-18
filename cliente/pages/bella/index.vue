@@ -2,45 +2,61 @@
   <div class="patient-page bella-page patient-page--with-tab">
     <PatientHeader show-back back-to="/inicio" :show-bell="false" />
 
-    <header class="bella-hero">
-      <div class="bella-avatar" aria-hidden="true">
-        <Sparkles class="bella-avatar-icon" />
-      </div>
-      <h1 class="bella-title">Bella IA</h1>
-      <p class="bella-subtitle">Sua nutricionista inteligente</p>
-    </header>
+    <div class="bella-landing">
+      <div class="bella-dots-bg" aria-hidden="true" />
 
-    <p class="bella-prompt">Como posso te ajudar hoje?</p>
+      <header class="bella-hero">
+        <div class="bella-avatar-wrap">
+          <div class="bella-avatar" aria-hidden="true">
+            <img src="/falecomabella.webp" alt="" class="bella-avatar-img" width="72" height="72" />
+          </div>
+          <span class="bella-avatar-badge">
+            <Sparkles class="bella-avatar-badge-icon" />
+          </span>
+        </div>
 
-    <section class="bella-actions" aria-label="Atalhos da Bella">
-      <div class="bella-grid">
+        <p class="bella-greeting">Olá, {{ firstName }}!</p>
+        <h1 class="bella-headline">O que vamos<br>analisar hoje?</h1>
+      </header>
+
+      <section class="bella-chips" aria-label="Atalhos da Bella">
         <button
           v-for="action in actions"
           :key="action.id"
           type="button"
-          class="bella-action cf-squircle cf-squircle--tile"
+          class="bella-chip"
           @click="handleAction(action)"
         >
-          <span class="bella-action-icon-wrap" aria-hidden="true">
-            <component :is="action.icon" class="bella-action-icon" />
-          </span>
-          <span class="bella-action-label">{{ action.label }}</span>
+          <component :is="action.icon" class="bella-chip-icon" />
+          <span>{{ action.label }}</span>
         </button>
-      </div>
-    </section>
+      </section>
 
-    <NuxtLink to="/bella/chat/general" class="bella-chat-link cf-btn cf-btn--pink">
-      Iniciar conversa
-    </NuxtLink>
+      <div class="bella-cta-area">
+        <NuxtLink to="/bella/chat/general" class="bella-cta-input">
+          <span class="bella-cta-placeholder">Pergunte algo para a Bella...</span>
+          <span class="bella-cta-actions">
+            <span class="bella-cta-attach">
+              <Paperclip class="bella-cta-icon" />
+            </span>
+            <span class="bella-cta-send">
+              <ArrowUp class="bella-cta-send-icon" />
+            </span>
+          </span>
+        </NuxtLink>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { Sparkles } from 'lucide-vue-next'
+import { ArrowUp, Paperclip, Sparkles } from 'lucide-vue-next'
 import { BELLA_ACTIONS, navigateBellaAction } from '~/utils/bella-actions'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
+const { userName } = usePatientApp()
+const firstName = computed(() => userName())
 const actions = BELLA_ACTIONS
 
 function handleAction(action) {
@@ -54,144 +70,233 @@ onMounted(() => {
 
 <style scoped>
 .patient-page.bella-page {
-  padding-inline: 1.25rem;
+  padding-inline: 0;
   padding-top: 0;
   min-height: 100%;
   box-sizing: border-box;
+  background: #f8f8fa;
 }
 
-.bella-hero {
-  text-align: center;
-  padding: 0.25rem 0 1.5rem;
-}
-
-.bella-avatar {
-  width: 5rem;
-  height: 5rem;
-  margin: 0 auto 1rem;
-  border-radius: 50%;
-  background: var(--cf-pink-soft);
-  border: 2px solid #f5dfe1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--cf-shadow);
-}
-
-.bella-avatar-icon {
-  width: 2rem;
-  height: 2rem;
-  color: var(--cf-pink);
-}
-
-.bella-title {
-  margin: 0;
-  font-size: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
-  color: var(--cf-text);
-  text-wrap: balance;
-}
-
-.bella-subtitle {
-  margin: 0.35rem 0 0;
-  font-size: 0.875rem;
-  line-height: 1.45;
-  color: var(--cf-text-muted);
-}
-
-.bella-prompt {
-  margin: 0 0 1.25rem;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  line-height: 1.45;
-  text-align: center;
-  color: var(--cf-text);
-  text-wrap: balance;
-}
-
-.bella-actions {
-  margin-bottom: 1.5rem;
-}
-
-.bella-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.bella-action {
+.bella-landing {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  min-height: 6.25rem;
-  padding: 1rem 0.75rem;
-  border: 1px solid var(--cf-border);
-  background: var(--cf-surface);
-  box-shadow: var(--cf-shadow);
-  font-family: inherit;
-  cursor: pointer;
+  min-height: 0;
+  flex: 1;
+  padding: 0 1.5rem;
+  overflow: hidden;
+}
+
+/* Dot pattern background */
+.bella-dots-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(circle, rgba(193, 123, 128, 0.15) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Hero */
+.bella-hero {
+  position: relative;
+  z-index: 1;
   text-align: center;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    transform 0.18s ease;
+  padding: 2.5rem 0 2rem;
 }
 
-.bella-action:hover {
-  border-color: #e8d4d6;
-  background: #fffbfc;
+.bella-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-bottom: 1.5rem;
 }
 
-.bella-action:active {
-  transform: scale(0.98);
-  background: var(--cf-pink-soft);
-}
-
-.bella-action:focus-visible {
-  outline: 2px solid var(--cf-pink);
-  outline-offset: 2px;
-}
-
-.bella-action-icon-wrap {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  background: var(--cf-pink-soft);
+.bella-avatar {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 1.25rem;
+  background: #fff;
+  border: 1px solid var(--cf-border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
 }
 
-.bella-action-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: var(--cf-pink-dark);
+.bella-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
 }
 
-.bella-action-label {
-  font-size: 0.8125rem;
+.bella-avatar-badge {
+  position: absolute;
+  bottom: -0.35rem;
+  right: -0.35rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--cf-pink);
+  border: 2.5px solid #f8f8fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(193, 123, 128, 0.3);
+}
+
+.bella-avatar-badge-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: #fff;
+}
+
+.bella-greeting {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  line-height: 1.35;
+  color: var(--cf-text-muted);
+  letter-spacing: -0.01em;
+}
+
+.bella-headline {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
   color: var(--cf-text);
 }
 
-.bella-chat-link {
+/* Chips */
+.bella-chips {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+  margin-bottom: 2rem;
+}
+
+.bella-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--cf-border);
+  background: #fff;
+  color: var(--cf-text);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.bella-chip:active {
+  transform: scale(0.97);
+  border-color: var(--cf-pink);
+  box-shadow: 0 2px 12px rgba(193, 123, 128, 0.15);
+}
+
+.bella-chip-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--cf-pink);
+  stroke-width: 1.85;
+}
+
+/* CTA input bar (fake, links to chat) */
+.bella-cta-area {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-top: auto;
+  padding-bottom: 1.5rem;
+}
+
+.bella-cta-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 0.65rem 0.75rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid var(--cf-border);
+  background: #fff;
   text-decoration: none;
-  margin-top: 0.25rem;
-  margin-bottom: 0.25rem;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bella-cta-input:active {
+  border-color: var(--cf-pink);
+  box-shadow: 0 4px 20px rgba(193, 123, 128, 0.12);
+}
+
+.bella-cta-placeholder {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--cf-text-muted);
+  font-weight: 400;
+}
+
+.bella-cta-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.bella-cta-attach {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bella-cta-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--cf-text-muted);
+  stroke-width: 1.75;
+}
+
+.bella-cta-send {
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 50%;
+  background: var(--cf-pink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(193, 123, 128, 0.3);
+}
+
+.bella-cta-send-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #fff;
+  stroke-width: 2.25;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bella-action {
+  .bella-chip,
+  .bella-cta-input {
     transition: none;
   }
 
-  .bella-action:active {
+  .bella-chip:active {
     transform: none;
   }
 }

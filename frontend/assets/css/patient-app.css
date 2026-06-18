@@ -18,11 +18,11 @@
   --cf-fab-size: 3.25rem;
   --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.75rem);
   --cf-tab-nav-h: 3rem;
-  --cf-tab-nav-pad-y: 0.625rem;
+  --cf-tab-nav-pad-y: 0.5rem;
   --cf-tab-safe-bottom: env(safe-area-inset-bottom, 0px);
   --cf-tab-struct: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + var(--cf-tab-nav-pad-y));
   --cf-tab-h: calc(var(--cf-tab-struct) + var(--cf-tab-safe-bottom));
-  --cf-tab-clearance: calc(var(--cf-tab-h) + 0.75rem);
+  --cf-tab-clearance: calc(var(--cf-tab-h) + 0.5rem);
   --cf-page-pad-x: 1rem;
   --cf-page-pad-bottom: 1.25rem;
   --cf-page-pad-bottom-tab: var(--cf-tab-clearance);
@@ -60,6 +60,13 @@ html:has(.cf-tab-bar-wrap) {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   font-family: var(--cf-font);
+}
+
+/* PWA standalone: safe-area-inset-bottom é 0 em Android, não precisa padding extra */
+@media (display-mode: standalone) {
+  :root {
+    --cf-tab-safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
 
 html:has(.patient-login-mode):not(:has(.patient-shell)) {
@@ -194,12 +201,25 @@ html:has(.cf-tab-bar-wrap) .patient-shell-body {
   flex-direction: column;
   padding-bottom: 0;
   touch-action: pan-y;
+  max-width: 430px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .bella-chat-shell-body > .bella-chat-page {
   flex: 1 1 0;
   min-height: 0;
   min-width: 0;
+}
+
+/* Fix iOS PWA: usar height visual do viewport */
+@supports (height: 100dvh) {
+  html:has(.bella-chat-shell) .patient-app-shell,
+  html:has(.bella-chat-shell) .patient-app-shell__main,
+  html:has(.bella-chat-shell) .bella-chat-shell {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
 }
 
 /* Composer teleportado para body — fica acima da tab bar sem bug de position:fixed em ancestral */
@@ -213,13 +233,21 @@ html:has(.cf-tab-bar-wrap) .patient-shell-body {
   max-width: 430px;
   margin: 0 auto;
   box-sizing: border-box;
-  background: var(--cf-surface);
-  border-top: 1px solid var(--cf-border);
+  background: linear-gradient(to top, #f8f8fa 60%, transparent);
+  padding-top: 0.75rem;
+  transition: bottom 0.2s ease;
 }
 
 html:not(:has(.cf-tab-bar-wrap)) .bella-composer-dock {
   bottom: 0;
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Quando teclado abre: tab bar some, composer vai pro bottom */
+html.vk-open .bella-composer-dock {
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: #f8f8fa;
 }
 
 html:has(.cf-tab-bar-wrap) .lesson-design-page,
@@ -347,6 +375,14 @@ html:has(.doc-page) .patient-shell-body {
   border-top: 1px solid var(--cf-border);
   box-sizing: border-box;
   overflow: visible;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Esconde tab bar quando teclado virtual está aberto */
+html.vk-open .cf-tab-bar-wrap {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 
