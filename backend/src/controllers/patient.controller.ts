@@ -46,7 +46,7 @@ export class PatientController {
       }
 
       await assertPatientUser(req.params.id);
-      const data = await mealPlanService.uploadAndSave(req.params.id, {
+      const result = await mealPlanService.uploadAndSave(req.params.id, {
         buffer: req.file.buffer,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
@@ -55,7 +55,8 @@ export class PatientController {
 
       return res.json({
         message: "Plano alimentar importado com sucesso.",
-        plan: data,
+        plan: result.plan,
+        user: result.user,
       });
     } catch (error: any) {
       const status = error.message?.includes("não encontrado") ? 404 : 400;

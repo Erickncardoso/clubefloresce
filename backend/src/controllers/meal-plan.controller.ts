@@ -19,7 +19,7 @@ export class MealPlanController {
         return res.status(400).json({ message: "Envie o PDF do planejamento alimentar." });
       }
 
-      const data = await mealPlanService.uploadAndSave(req.user!.id, {
+      const result = await mealPlanService.uploadAndSave(req.user!.id, {
         buffer: req.file.buffer,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
@@ -28,7 +28,8 @@ export class MealPlanController {
 
       return res.json({
         message: "Plano alimentar importado com sucesso.",
-        plan: data,
+        plan: result.plan,
+        user: result.user,
       });
     } catch (error: any) {
       return res.status(400).json({ message: error.message || "Não foi possível processar o PDF." });

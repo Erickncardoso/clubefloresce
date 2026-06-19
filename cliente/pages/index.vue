@@ -4,13 +4,7 @@
       <div class="patient-auth-inner">
         <div class="patient-auth-card cf-squircle cf-squircle--surface">
           <header class="patient-auth-header patient-auth-header--login">
-            <img
-              src="/clube-florescer-logo.png"
-              alt="Clube Florescer"
-              class="patient-auth-logo"
-              width="220"
-              height="44"
-            >
+            <PatientBrandMark size="lg" stacked class="patient-auth-brand-mark" />
             <h2>Entrar</h2>
           </header>
 

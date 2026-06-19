@@ -43,6 +43,7 @@ export default defineNuxtConfig({
     join(frontendRoot, 'plugins/api-base.client.js'),
     join(frontendRoot, 'plugins/patient-session.client.ts'),
     join(frontendRoot, 'plugins/patient-route.client.ts'),
+    join(frontendRoot, 'plugins/patient-meal-plan.client.ts'),
     join(frontendRoot, 'plugins/pwa-standalone.client.ts'),
   ],
 
@@ -208,6 +209,7 @@ export default defineNuxtConfig({
     server: {
       origin: `http://${devHost === '0.0.0.0' ? '127.0.0.1' : devHost}:${devPort}`,
       strictPort: true,
+      hmr: devHost === '0.0.0.0' ? { host: '127.0.0.1', port: devPort } : undefined,
       fs: {
         allow: [rootDir, frontendRoot],
       },

@@ -3,7 +3,7 @@ import type { ParsedFoodItem, ParsedMeal, ParsedMealPlan } from "../../types/mea
 const MEAL_HEADER_RE = /^(\d{2}:\d{2})\s*-\s*(.+)$/;
 const PAGE_NOISE_RE =
   /^(Isabella Jardim|Nutricionista CRN|nutri\.|Rua Doutor|Página \d|-- \d+ of \d+ --|Planejamento alimentar)$/i;
-const META_PATIENT_RE = /Paciente\s+(.+?)\s*\|\s*Prescrito em:\s*([\d/]+)/i;
+const META_PATIENT_RE = /Paciente\s*[:\-]?\s*(.+?)\s*\|\s*Prescrito em:\s*([\d/]+)/i;
 const SUB_HEADER_RE = /^[•*]?\s*Op[cç][õo]es de substitui[cç][aã]o para\s+(.+?):\s*$/i;
 const FOOD_PARENS_END_RE = /\((\d+(?:\.\d+)?)(g|ml)\)\s*$/i;
 const FOOD_PLAIN_END_RE = /(\d+(?:\.\d+)?)(g|ml)\s*$/i;
@@ -139,14 +139,28 @@ function parseSubstitutionOptions(raw: string): ParsedFoodItem[] {
 function extractMeta(text: string): { title: string | null; patientName: string | null; prescribedAt: string | null } {
   const lines = cleanLines(text);
   const title = lines.find((line) => /^Cardápio/i.test(line)) || null;
-  const metaLine = lines.find((line) => META_PATIENT_RE.test(line));
-  const metaMatch = metaLine?.match(META_PATIENT_RE);
 
-  return {
-    title,
-    patientName: metaMatch?.[1]?.trim() || null,
-    prescribedAt: metaMatch?.[2]?.trim() || null,
-  };
+  const metaPatterns = [
+    /Paciente\s*[:\-]?\s*(.+?)\s*\|\s*Prescrito em:\s*([\d/]+)/i,
+    /P[aá]gina\s+\d+[^|]*\|\s*Paciente\s+(.+?)\s*\|\s*Prescrito em:\s*([\d/]+)/i,
+    /Paciente\s*[:\-]\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]{2,})(?:\s*$|\s*\|)/i,
+    /Paciente\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]{2,})(?:\s*\|\s*Prescrito|\s*$)/i,
+  ];
+
+  for (const pattern of metaPatterns) {
+    const metaLine = lines.find((line) => pattern.test(line));
+    const metaMatch = metaLine?.match(pattern);
+    if (!metaMatch?.[1]) continue;
+
+    const patientName = metaMatch[1].replace(/[.|,;:]+$/g, "").trim();
+    const prescribedAt = metaMatch[2]?.replace(/[.|,;:]+$/g, "").trim() || null;
+
+    if (patientName) {
+      return { title, patientName, prescribedAt };
+    }
+  }
+
+  return { title, patientName: null, prescribedAt: null };
 }
 
 function trimPlanText(text: string): string {

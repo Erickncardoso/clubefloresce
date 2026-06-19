@@ -3,6 +3,7 @@ import { apiConnectionErrorMessage, isApiConnectionError, resolveUploadApiUrl } 
 export function usePatientMealPlan() {
   const config = useRuntimeConfig()
   const planRecord = useState('patient-meal-plan', () => null)
+  const planChecked = useState('patient-meal-plan-checked', () => false)
   const loading = ref(false)
   const uploading = ref(false)
   const error = ref('')
@@ -21,11 +22,27 @@ export function usePatientMealPlan() {
         headers: authHeaders(),
       })
       planRecord.value = res.plan ?? null
+
+      const planName = planRecord.value?.patientName || planRecord.value?.plan?.patientName
+      if (planName) {
+        const { profile, persistSession } = usePatientApp()
+        const currentName = profile.value.name?.trim() || ''
+        if (!currentName || currentName.toLowerCase() === 'paciente') {
+          persistSession({ name: planName })
+        }
+      }
     } catch {
       planRecord.value = null
     } finally {
       loading.value = false
+      planChecked.value = true
     }
+  }
+
+  function resetPlan() {
+    planRecord.value = null
+    planChecked.value = false
+    error.value = ''
   }
 
   function resolveUploadError(err) {
@@ -71,6 +88,17 @@ export function usePatientMealPlan() {
         body: formData,
       })
       planRecord.value = res.plan ?? null
+      planChecked.value = true
+
+      if (res.user?.name) {
+        const { persistSession } = usePatientApp()
+        persistSession({
+          name: res.user.name,
+          avatar: res.user.avatar,
+          createdAt: res.user.createdAt,
+        })
+      }
+
       return planRecord.value
     } catch (err) {
       error.value = resolveUploadError(err)
@@ -82,11 +110,13 @@ export function usePatientMealPlan() {
 
   return {
     planRecord,
+    planChecked,
     hasPlan,
     loading,
     uploading,
     error,
     fetchPlan,
     uploadPdf,
+    resetPlan,
   }
 }

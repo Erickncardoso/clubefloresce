@@ -28,10 +28,34 @@ function readStorageProfile(): PatientProfile {
   }
 }
 
+function isPlaceholderPatientName(name: string) {
+  const normalized = String(name || '').trim().toLowerCase()
+  return !normalized || normalized === 'paciente'
+}
+
 export function usePatientApp() {
   const config = useRuntimeConfig()
   const isPatientApp = computed(() => Boolean(config.public.mobileApp))
   const profile = useState<PatientProfile>('patient-profile', () => ({ ...DEFAULT_PROFILE }))
+
+  function readPlanPatientName() {
+    const mealPlan = useState('patient-meal-plan', () => null)
+    const fromRecord = mealPlan.value?.patientName || mealPlan.value?.plan?.patientName
+    const normalized = String(fromRecord || '').replace(/\s+/g, ' ').trim()
+    return normalized || ''
+  }
+
+  function resolvedProfileName() {
+    const profileName = profile.value.name?.trim() || ''
+    if (!isPlaceholderPatientName(profileName)) {
+      return profileName
+    }
+
+    const fromPlan = readPlanPatientName()
+    if (fromPlan) return fromPlan
+
+    return profileName || DEFAULT_PROFILE.name
+  }
 
   function hydrateProfile() {
     profile.value = readStorageProfile()
@@ -99,11 +123,11 @@ export function usePatientApp() {
   }
 
   function userName() {
-    return profile.value.name.split(' ')[0] || DEFAULT_PROFILE.name
+    return resolvedProfileName().split(' ')[0] || DEFAULT_PROFILE.name
   }
 
   function userFullName() {
-    return profile.value.name || DEFAULT_PROFILE.name
+    return resolvedProfileName() || DEFAULT_PROFILE.name
   }
 
   function userInitials() {

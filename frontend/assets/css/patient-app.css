@@ -867,6 +867,12 @@ html:has(.cf-tab-bar-wrap) body {
   margin-bottom: 1.5rem;
 }
 
+.patient-auth-brand-mark {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 0.75rem;
+}
+
 .patient-auth-logo {
   display: block;
   width: min(13.75rem, 78vw);

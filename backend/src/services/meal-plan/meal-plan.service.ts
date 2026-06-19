@@ -5,6 +5,8 @@ import type { ParsedMealPlan, PatientMealPlanResponse } from "../../types/meal-p
 import { parseDietboxMealPlan } from "./dietbox-parser";
 import { parseMealPlanWithAi } from "./meal-plan-ai-parser";
 import { extractPdfRawText } from "./pdf-text";
+import { normalizePersonName, syncUserNameFromMealPlan } from "./sync-patient-name";
+import type { User } from "@prisma/client";
 
 const repo = new MealPlanRepository();
 
@@ -37,7 +39,11 @@ function toResponse(record: {
 export class MealPlanService {
   async getForUser(userId: string): Promise<PatientMealPlanResponse | null> {
     const record = await repo.findByUserId(userId);
-    return record ? toResponse(record, userId) : null;
+    if (!record) return null;
+
+    await syncUserNameFromMealPlan(userId, record.patientName);
+
+    return toResponse(record, userId);
   }
 
   async parsePdfBuffer(buffer: Buffer, fileName: string): Promise<ParsedMealPlan> {
@@ -62,9 +68,16 @@ export class MealPlanService {
   async uploadAndSave(
     userId: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
-  ): Promise<PatientMealPlanResponse> {
+  ): Promise<{ plan: PatientMealPlanResponse; user: Omit<User, "password"> | null }> {
     const fileName = file.originalname || "plano-alimentar.pdf";
-    const plan = await this.parsePdfBuffer(file.buffer, fileName);
+    const parsedPlan = await this.parsePdfBuffer(file.buffer, fileName);
+    const patientName = normalizePersonName(parsedPlan.patientName);
+
+    const plan: ParsedMealPlan = {
+      ...parsedPlan,
+      patientName,
+      title: parsedPlan.title?.trim() || "Planejamento alimentar",
+    };
 
     let pdfUrl: string | null = null;
     try {
@@ -82,8 +95,16 @@ export class MealPlanService {
       pdfUrl,
       plan,
       parserSource: plan.parserSource,
+      patientName,
+      title: plan.title,
+      prescribedAt: plan.prescribedAt,
     });
 
-    return toResponse(saved, userId);
+    const syncedUser = await syncUserNameFromMealPlan(userId, patientName);
+
+    return {
+      plan: toResponse(saved, userId),
+      user: syncedUser,
+    };
   }
 }

@@ -9,13 +9,7 @@
         <span class="cf-header-title">{{ title }}</span>
       </template>
       <template v-else>
-        <img
-          src="/clube-florescer-logo.png"
-          alt="Clube Florescer"
-          class="cf-header-logo"
-          width="160"
-          height="32"
-        >
+        <PatientBrandMark size="sm" />
       </template>
     </div>
 
@@ -119,20 +113,7 @@ function goBack() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.375rem;
   min-width: 0;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  color: var(--cf-text);
-}
-
-.cf-header-logo {
-  height: 1.75rem;
-  width: auto;
-  max-width: min(10.5rem, 42vw);
-  object-fit: contain;
-  object-position: center;
 }
 
 .cf-header-title {

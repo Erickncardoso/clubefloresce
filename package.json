@@ -7,6 +7,7 @@
     "dev:cliente": "npm run dev --prefix cliente",
     "dev:paciente": "npm run dev --prefix cliente",
     "dev:mobile": "npm run dev --prefix cliente",
+    "dev:mobile:lan": "npm run dev:lan --prefix cliente",
     "generate:cliente": "npm run generate --prefix cliente",
     "generate:paciente": "npm run generate --prefix cliente",
     "build:paciente": "npm run generate --prefix cliente",
