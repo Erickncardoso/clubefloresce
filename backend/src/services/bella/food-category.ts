@@ -1,4 +1,5 @@
 import type { NormalizedPer100g } from "../../utils/food-macros";
+import { macroEnergyContributions } from "../../utils/atwater";
 
 /** Grupo funcional para trocas (macro principal do alimento). */
 export type SwapGroup =
@@ -75,9 +76,10 @@ export function getCategoriesForSwapGroup(group: SwapGroup): string[] {
 }
 
 function dominantMacro(per100g: NormalizedPer100g): "carbs" | "protein" | "fat" | "calories" {
-  const carbKcal = per100g.carbsG * 4;
-  const protKcal = per100g.proteinG * 4;
-  const fatKcal = per100g.fatG * 9;
+  const energy = macroEnergyContributions(per100g);
+  const carbKcal = energy.carbsKcal;
+  const protKcal = energy.proteinKcal;
+  const fatKcal = energy.fatKcal;
   const max = Math.max(carbKcal, protKcal, fatKcal);
   if (max <= 0) return "calories";
   if (max === carbKcal) return "carbs";

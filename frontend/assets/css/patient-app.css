@@ -1,6 +1,14 @@
 /* Clube Florescer — design system app paciente */
 :root {
-  --cf-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cf-font: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cf-text-body: 1rem;
+  --cf-leading-body: 1.62;
+  --cf-leading-ui: 1.45;
+  --cf-leading-heading: 1.28;
+  --cf-tracking-body: 0.015em;
+  --cf-tracking-ui: 0.01em;
+  --cf-tracking-heading: -0.012em;
+  --cf-tracking-caps: 0.06em;
   --cf-pink: #c17b80;
   --cf-pink-soft: #faecef;
   --cf-pink-dark: #a06267;
@@ -9,20 +17,23 @@
   --cf-green-dark: #4d7348;
   --cf-bg: #ffffff;
   --cf-surface: #ffffff;
-  --cf-text: #141414;
-  --cf-text-muted: #525252;
+  --cf-text: #1a1a1a;
+  --cf-text-muted: #5f5f5c;
   --cf-border: #e4e4e0;
   --cf-track: #e8e8e4;
   --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   --cf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
-  --cf-fab-size: 3.25rem;
-  --cf-tab-fab-rise: calc(var(--cf-fab-size) / 2 - 0.75rem);
-  --cf-tab-nav-h: 3rem;
-  --cf-tab-nav-pad-y: 0.5rem;
+  --cf-fab-size: 2.5rem;
+  --cf-tab-fab-rise: 0;
+  --cf-tab-pill-h: 3.75rem;
+  --cf-tab-float-margin-x: 1rem;
+  --cf-tab-float-margin-bottom: 0.75rem;
+  --cf-tab-nav-h: var(--cf-tab-pill-h);
+  --cf-tab-nav-pad-y: 0;
   --cf-tab-safe-bottom: env(safe-area-inset-bottom, 0px);
-  --cf-tab-struct: calc(var(--cf-tab-fab-rise) + var(--cf-tab-nav-h) + var(--cf-tab-nav-pad-y));
-  --cf-tab-h: calc(var(--cf-tab-struct) + var(--cf-tab-safe-bottom));
-  --cf-tab-clearance: calc(var(--cf-tab-h) + 0.5rem);
+  --cf-tab-struct: calc(var(--cf-tab-pill-h) + var(--cf-tab-float-margin-bottom));
+  --cf-tab-h: calc(var(--cf-tab-struct) + var(--cf-tab-safe-bottom) + var(--cf-tab-float-margin-bottom));
+  --cf-tab-clearance: calc(var(--cf-tab-h) + 0.75rem);
   --cf-page-pad-x: 1rem;
   --cf-page-pad-bottom: 1.25rem;
   --cf-page-pad-bottom-tab: var(--cf-tab-clearance);
@@ -62,11 +73,18 @@ html:has(.cf-tab-bar-wrap) {
   font-family: var(--cf-font);
 }
 
-/* PWA standalone: safe-area-inset-bottom é 0 em Android, não precisa padding extra */
+/* PWA instalado: barra mais estreita e mais baixa */
 @media (display-mode: standalone) {
   :root {
     --cf-tab-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --cf-tab-float-margin-x: 1.125rem;
+    --cf-tab-float-margin-bottom: 0.125rem;
   }
+}
+
+html.cf-pwa-standalone {
+  --cf-tab-float-margin-x: 1.125rem;
+  --cf-tab-float-margin-bottom: 0.125rem;
 }
 
 html:has(.patient-login-mode):not(:has(.patient-shell)) {
@@ -95,14 +113,30 @@ html:has(.patient-login-mode):not(:has(.patient-shell)) #__nuxt {
 .patient-shell,
 .patient-login-mode {
   font-family: var(--cf-font);
-  font-size: 0.9375rem;
+  font-size: var(--cf-text-body);
   font-weight: 400;
-  line-height: 1.5;
-  letter-spacing: -0.011em;
+  line-height: var(--cf-leading-body);
+  letter-spacing: var(--cf-tracking-body);
   color: var(--cf-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+}
+
+.patient-shell h1,
+.patient-shell h2,
+.patient-shell h3,
+.patient-login-mode h1,
+.patient-login-mode h2,
+.patient-login-mode h3 {
+  letter-spacing: var(--cf-tracking-heading);
+  line-height: var(--cf-leading-heading);
+}
+
+.patient-shell p,
+.patient-login-mode p {
+  line-height: var(--cf-leading-body);
 }
 
 html:has(.patient-shell),
@@ -122,11 +156,13 @@ html:has(.patient-shell) #__nuxt {
 }
 
 html:has(.patient-shell) .patient-app-shell {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   width: 100%;
+  overflow: visible;
 }
 
 html:has(.patient-shell) .patient-app-shell__main {
@@ -167,10 +203,17 @@ html:has(body > .modal-overlay) .patient-shell-body,
 html:has(body > .courses-modal-overlay) .patient-shell-body,
 html:has(body > .netflix-modal-overlay) .patient-shell-body,
 html:has(body > .bella-sheet-backdrop) .patient-shell-body,
+html:has(body > .meal-sheet-backdrop) .patient-shell-body,
 html:has(body > .dieta-subs-overlay) .patient-shell-body {
   overflow: hidden !important;
   touch-action: none;
   overscroll-behavior: none;
+}
+
+html.meal-sheet-keyboard .cf-tab-bar-wrap,
+html.meal-sheet-keyboard .bella-composer-dock {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .patient-shell-body[data-patient-scroll-locked='true'] {
@@ -377,19 +420,33 @@ html:has(.doc-page) .patient-shell-body {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 100;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
   height: var(--cf-tab-h);
   min-height: var(--cf-tab-h);
-  padding-top: var(--cf-tab-fab-rise);
-  padding-bottom: var(--cf-tab-safe-bottom);
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border-top: 1px solid rgba(228, 228, 224, 0.85);
-  box-shadow: 0 -6px 28px rgba(20, 20, 20, 0.06);
+  padding:
+    0
+    var(--cf-tab-float-margin-x)
+    calc(var(--cf-tab-float-margin-bottom) + var(--cf-tab-safe-bottom));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.88) 38%,
+    rgba(255, 255, 255, 0.98) 100%
+  );
+  border: none;
+  box-shadow: none;
   box-sizing: border-box;
   overflow: visible;
+  pointer-events: none;
   transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.cf-tab-bar-wrap .cf-tab-bar {
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 /* Esconde tab bar quando teclado virtual está aberto */
@@ -525,35 +582,39 @@ html.vk-open .cf-tab-bar-wrap {
 
 .cf-list-title {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--cf-text);
-  line-height: 1.3;
+  line-height: var(--cf-leading-ui);
+  letter-spacing: var(--cf-tracking-ui);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cf-list-meta {
-  margin: 0.12rem 0 0;
-  font-size: 0.75rem;
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
   color: var(--cf-text-muted);
-  line-height: 1.3;
+  line-height: var(--cf-leading-ui);
+  letter-spacing: var(--cf-tracking-body);
 }
 
 .cf-card-title {
   margin: 0 0 1rem;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--cf-tracking-heading);
+  line-height: var(--cf-leading-heading);
   color: var(--cf-text);
 }
 
 .cf-section-title {
   margin: 0 0 0.85rem;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--cf-tracking-heading);
+  line-height: var(--cf-leading-heading);
   color: var(--cf-text);
 }
 
@@ -900,15 +961,19 @@ html:has(.cf-tab-bar-wrap) body {
 }
 
 .patient-auth-header h2 {
-  margin: 0 0 0.35rem;
-  font-size: 1.25rem;
+  margin: 0 0 0.45rem;
+  font-size: 1.35rem;
   font-weight: 700;
+  letter-spacing: var(--cf-tracking-heading);
+  line-height: var(--cf-leading-heading);
   color: var(--cf-text);
 }
 
 .patient-auth-header p {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.92rem;
+  line-height: var(--cf-leading-ui);
+  letter-spacing: var(--cf-tracking-body);
   color: var(--cf-text-muted);
 }
 
@@ -932,9 +997,10 @@ html:has(.cf-tab-bar-wrap) body {
   padding: 0 0.4rem;
   background: var(--cf-surface);
   z-index: 2;
-  font-size: 0.76rem;
-  font-weight: 700;
-  line-height: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
   color: var(--cf-text);
   pointer-events: none;
 }

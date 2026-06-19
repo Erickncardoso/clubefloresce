@@ -93,8 +93,12 @@ export interface OrchestratorInput {
   topic?: string;
   taskHint?: string;
   patientDateKey?: string;
+  patientTimeZone?: string;
   restaurantIntent?: RestaurantIntent;
   restaurantContextBlock?: string;
+  contextImageUrl?: string;
+  handoffFromTopic?: string;
+  crossTopicContext?: string;
   attachment?: {
     buffer: Buffer;
     mimeType: string;

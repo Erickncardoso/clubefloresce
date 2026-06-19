@@ -47,12 +47,11 @@
             <button
               type="button"
               class="dieta-check-btn"
-              :class="{ 'dieta-check-btn--done': checkedItems[index] }"
               :aria-pressed="checkedItems[index]"
               :aria-label="checkedItems[index] ? `Desmarcar ${item}` : `Marcar ${item}`"
               @click="toggleItem(index)"
             >
-              <span class="dieta-check">{{ checkedItems[index] ? '✓' : '' }}</span>
+              <DietaCheckIcon :completed="checkedItems[index]" />
             </button>
             <div class="dieta-item-copy">
               <span :class="{ 'dieta-item-done': checkedItems[index], 'dieta-item-substituted': currentMeal.items[index]?.isSubstituted }">
@@ -72,6 +71,10 @@
           <ArrowLeftRight class="dieta-subs-btn-icon" aria-hidden="true" />
           Ver opções de substituições
         </button>
+        <NuxtLink to="/substituicao" class="dieta-subs-link">
+          <ArrowLeftRight class="dieta-subs-btn-icon" aria-hidden="true" />
+          Calculadora de substituição
+        </NuxtLink>
 
         <div class="dieta-actions">
           <button type="button" class="dieta-action-btn dieta-action-btn--primary" @click="takePhotoNow">
@@ -236,6 +239,7 @@ function onPlanUploaded() {
     activeMeal.value = mealId
     syncChecked(mealId)
   }
+  loadDailySummary()
 }
 
 async function onReupload(event) {
@@ -278,6 +282,12 @@ async function loadDailySummary() {
     dailySummary.value = null
   }
 }
+
+const nutritionRefresh = useState('patient-nutrition-refresh', () => 0)
+
+watch(nutritionRefresh, () => {
+  loadDailySummary()
+})
 
 onMounted(async () => {
   await fetchPlan()
@@ -490,27 +500,7 @@ watch(
   padding: 0;
   cursor: pointer;
   flex-shrink: 0;
-}
-
-.dieta-check {
-  width: 1.35rem;
-  height: 1.35rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--cf-surface);
-  border: 1.5px solid var(--cf-border);
-  color: transparent;
-  font-size: 0.72rem;
-  font-weight: 700;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.dieta-check-btn--done .dieta-check {
-  background: var(--cf-green-soft);
-  border-color: var(--cf-green-soft);
-  color: var(--cf-green-dark);
+  line-height: 0;
 }
 
 .dieta-item-done {
@@ -540,6 +530,28 @@ watch(
 
 .dieta-subs-btn:active {
   background: #e3ebdf;
+}
+
+.dieta-subs-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  border: 1.5px solid var(--cf-border);
+  border-radius: 10px;
+  background: var(--cf-surface);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cf-text);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dieta-subs-link:active {
+  background: var(--cf-track);
 }
 
 .dieta-subs-btn-icon {

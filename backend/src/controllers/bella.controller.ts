@@ -64,9 +64,14 @@ export class BellaController {
         typeof req.body.swapSelectionMessageId === "string"
           ? req.body.swapSelectionMessageId
           : undefined;
+      const contextImageUrl =
+        typeof req.body.contextImageUrl === "string" ? req.body.contextImageUrl : undefined;
+      const handoffFromTopic =
+        typeof req.body.handoffFromTopic === "string" ? req.body.handoffFromTopic : undefined;
       const file = req.file;
 
-      const dateKey = resolvePatientDateKey(readPatientTimeHeaders(req));
+      const timeHeaders = readPatientTimeHeaders(req);
+      const dateKey = resolvePatientDateKey(timeHeaders);
 
       const result = await bellaService.chat(req.user!.id, {
         message,
@@ -80,11 +85,16 @@ export class BellaController {
         swapMealId,
         swapFoodKey,
         swapSelectionMessageId,
+        contextImageUrl,
+        handoffFromTopic,
         file,
-      }, dateKey);
+      }, dateKey, timeHeaders.patientTimeZone);
       return res.json(result);
     } catch (error: any) {
-      const status = error.name === "OpenAIApiError" ? 502 : 400;
+      const status =
+        error.name === "OpenAIApiError"
+          ? (error.statusCode === 504 ? 504 : 502)
+          : 400;
       return res.status(status).json({ message: error.message });
     }
   }

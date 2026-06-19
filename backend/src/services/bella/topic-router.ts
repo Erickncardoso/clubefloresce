@@ -20,7 +20,9 @@ export const TOPIC_ROUTES: Record<BellaChatTopic, TopicRouteInfo> = {
 const SPECIALIZED_TOPICS = new Set<BellaChatTopic>(["label", "meal", "restaurant", "swap", "goal"]);
 
 const LABEL_SIGNALS =
-  /rótulo|rotulo|tabela nutricional|lista de ingredientes|ingredientes|embalagem|industrializado|ultraprocessado|semáforo|semaforo|rótulos|rotulos|produto embalado|informação nutricional|informacao nutricional/i;
+  /rótulo|rotulo|tabela nutricional|lista de ingredientes|ingredientes|embalagem|industrializado|ultraprocessado|semáforo|semaforo|rótulos|rotulos|produto embalado|informação nutricional|informacao nutricional|margarina|manteiga/i;
+const LABEL_CONTINUATION_SIGNALS =
+  /manteiga|margarina|melhor|comparar|vale a pena|alternativa|substituir|troca|ou\b|em vez de|no lugar|mesmo produto|esse produto|esse r[oó]tulo|classifica/i;
 const MEAL_SIGNALS =
   /meu prato|foto do prato|prato montado|refeição|refeicao|registrar no diário|registrar no diario|diário alimentar|diario alimentar|calorias do prato|macros do prato|almoco|almoço|jantar|lanche|café da manhã|cafe da manha/i;
 const RESTAURANT_SIGNALS =
@@ -43,6 +45,7 @@ export function isMessageInTopicScope(topic: BellaChatTopic, message: string): b
   if (topic === "label") {
     return (
       LABEL_SIGNALS.test(text) ||
+      LABEL_CONTINUATION_SIGNALS.test(text) ||
       /foto|imagem|analise|analisa|embalagem|produto|industrializ|manda|enviei|mandei/i.test(text)
     );
   }
@@ -125,7 +128,7 @@ export function buildTopicRedirectReply(
     return (
       `${firstName}, essa pergunta fica melhor no chat **${target.title}**, onde posso te explicar com calma sobre nutrição e hábitos.\n\n` +
       `Aqui no **${current.title}** cuido só de ${scopeShort(currentTopic)}.\n\n` +
-      `Toque para continuar: ${link}`
+      `Toque para continuar com sua pergunta e a imagem que você enviou: ${link}`
     );
   }
 
@@ -173,12 +176,11 @@ export function evaluateTopicRedirect(input: {
   topic: BellaChatTopic;
   message: string;
   firstName: string;
-  hasAttachment?: boolean;
 }): TopicRedirectDecision | null {
-  const { topic, message, firstName, hasAttachment } = input;
+  const { topic, message, firstName } = input;
   const text = message.trim();
 
-  if (!text || hasAttachment) return null;
+  if (!text) return null;
   if (!SPECIALIZED_TOPICS.has(topic)) return null;
   if (isLikelyGreeting(text)) return null;
 

@@ -8,6 +8,7 @@ coverage/
 tmp/
 backend/public/uploads/
 backend/data/foods/tbca.json
+backend/data/foods/tbca-source.jsonl
 backend/users.json
 
 .env

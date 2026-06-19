@@ -13,8 +13,10 @@ const OUT_DIR = path.join(__dirname, "../data/foods");
 
 const TACO_CSV_URL =
   "https://raw.githubusercontent.com/brolesi/taco/main/data/processed/taco/alimentos.csv";
-const TBCA_JSONL_URL =
-  "https://raw.githubusercontent.com/raul-rznd/web-scraping-tbca/main/alimentos.txt";
+const TBCA_SOURCE_FILE = path.join(OUT_DIR, "tbca-source.jsonl");
+const TBCA_META_FILE = path.join(OUT_DIR, "tbca-fetch-meta.json");
+const TBCA_VERSION = "7.3";
+const TBCA_SOURCE_SITE = "https://www.tbca.net.br/";
 
 function parseBrNumber(value) {
   if (value == null) return null;
@@ -170,6 +172,15 @@ function findTbcaNutrient(nutrientes, component, unit) {
   return parseBrNumber(hit?.["Valor por 100g"]);
 }
 
+function cleanTbcaDescription(descricao) {
+  return String(descricao || "")
+    .replace(/&lt;{2}|&gt;{2}|&lt&lt|&gt&gt/gi, " << ")
+    .split("<<")[0]
+    .replace(/&lt;|&gt;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function buildTbcaRecord(raw) {
   const nutrientes = Array.isArray(raw.nutrientes) ? raw.nutrientes : [];
   const nutrientsPer100g = {
@@ -206,7 +217,7 @@ function buildTbcaRecord(raw) {
   };
 
   const sourceCode = String(raw.codigo || "").trim();
-  const name = String(raw.descricao || "").trim();
+  const name = cleanTbcaDescription(raw.descricao) || String(raw.descricao || "").trim();
   const category = String(raw.classe || "").trim() || null;
 
   return {
@@ -242,9 +253,24 @@ async function buildTacoJson() {
 }
 
 async function buildTbcaJson() {
-  const text = await downloadText(TBCA_JSONL_URL);
+  let meta = null;
+  try {
+    meta = JSON.parse(await fs.readFile(TBCA_META_FILE, "utf8"));
+  } catch {
+    // optional
+  }
+
+  let rawText = "";
+  try {
+    rawText = await fs.readFile(TBCA_SOURCE_FILE, "utf8");
+  } catch {
+    throw new Error(
+      "Arquivo tbca-source.jsonl não encontrado. Rode primeiro: npm run foods:fetch-tbca",
+    );
+  }
+
   const items = [];
-  for (const line of text.split(/\r?\n/)) {
+  for (const line of rawText.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
@@ -253,13 +279,23 @@ async function buildTbcaJson() {
       console.warn("Linha TBCA ignorada:", err instanceof Error ? err.message : err);
     }
   }
-  return items.filter((item) => item.sourceCode && item.name);
+
+  const normalized = items.filter((item) => item.sourceCode && item.name);
+  if (!normalized.length) {
+    throw new Error("Nenhum alimento TBCA válido em tbca-source.jsonl.");
+  }
+
+  console.log(
+    `TBCA v${meta?.version || TBCA_VERSION}: ${normalized.length} itens (fonte: ${TBCA_SOURCE_SITE})`,
+  );
+  return normalized;
 }
 
 async function writeJson(fileName, data) {
   const filePath = path.join(OUT_DIR, fileName);
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
-  console.log(`Gerado ${filePath} (${data.length} itens)`);
+  const countLabel = Array.isArray(data) ? `${data.length} itens` : "ok";
+  console.log(`Gerado ${filePath} (${countLabel})`);
 }
 
 async function main() {
@@ -273,7 +309,12 @@ async function main() {
     totals: { taco: taco.length, tbca: tbca.length, all: taco.length + tbca.length },
     sources: {
       TACO: { count: taco.length, url: TACO_CSV_URL },
-      TBCA: { count: tbca.length, url: TBCA_JSONL_URL },
+      TBCA: {
+        version: TBCA_VERSION,
+        count: tbca.length,
+        site: TBCA_SOURCE_SITE,
+        file: "tbca-source.jsonl",
+      },
     },
   });
 }

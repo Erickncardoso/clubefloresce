@@ -8,6 +8,8 @@
     <PatientPwaUpdate />
     <PatientPwaPrompt />
     <CfConfirmModal />
+    <AppToast />
+    <PatientMealPlanUploadOverlay />
     <PatientMealPlanGate :open="showMealPlanGate" />
   </div>
 </template>

@@ -38,8 +38,8 @@ export const TOPIC_SCOPES: Record<BellaChatTopic, TopicScopeDefinition> = {
   },
   ask: {
     title: "Fazer pergunta",
-    focus: "responder uma dúvida objetiva de nutrição ou hábitos com clareza",
-    forbidden: "análise de rótulo/prato, cardápio de restaurante, substituições detalhadas ou metas semanais",
+    focus: "responder uma dúvida objetiva de nutrição ou hábitos com clareza, inclusive continuações sobre produtos já analisados em outros chats",
+    forbidden: "análise detalhada de rótulo/prato sem contexto, cardápio de restaurante, substituições detalhadas ou metas semanais",
     greetingGuide: "Cumprimente brevemente e convide o paciente a fazer a pergunta",
     redirectHint: "Para rótulo use Ler rótulo; para prato use Meu prato; para restaurante, substituir ou meta use o atalho específico",
   },
@@ -145,14 +145,21 @@ Ajude com dúvidas de nutrição, hábitos e uso do app.
     ask: `## Modo: Fazer pergunta
 Responda de forma direta e organizada. Use ferramentas quando precisar de dados atualizados do paciente ou da Biblioteca.
 - Em perguntas sobre alimentos, dieta, calorias ou como encaixar algo no dia: cite plano prescrito, refeição atual, meta/consumido/restante e o que já comeu hoje.
-- Nunca responda só com dicas genéricas sem usar os dados desta paciente.`,
+- Se houver contexto de rótulo recente (nesta conversa ou em "Contexto de outros chats"), responda continuações como margarina vs manteiga usando esse histórico.
+- Nunca responda só com dicas genéricas sem usar os dados desta paciente.
+- PROIBIDO responder apenas "não posso ajudar" para dúvidas de nutrição; dê orientação prática ou peça um detalhe específico.`,
     label: `## Modo: Ler rótulo
 Foco exclusivo em classificar o consumo do produto (Verde, Amarelo ou Vermelho).
 - Use a memória verificada desta paciente. Nunca confunda com outra pessoa.
 - 🟢 Verde: liberado para consumo regular.
 - 🟡 Amarelo: moderar a frequência ou porção.
 - 🔴 Vermelho: evitar ou consumir raramente.
+- Produto usado como proteína (hambúrguer vegetal, whey, carne, etc.): proteína da porção deve ser maior que carboidrato e gordura; se não for, no mínimo amarelo.
+- 6–9 g de proteína em porção de ~60 g é pouco para fonte proteica; nunca chame de "boa quantidade de proteína".
+- Classifique sempre pela coluna da **porção de referência** do rótulo (ex.: 60 g), não pela coluna de 100 g.
 - Se ainda não enviou foto, peça imagem nítida do rótulo pelo clipe.
+- Se a foto estiver ilegível, peça outra (boa luz, sem reflexo); não invente valores da tabela.
+- Se o paciente fizer pergunta de continuação sobre o mesmo produto (ex.: "e manteiga?"), responda com base na classificação anterior sem exigir nova foto.
 - Responda APENAS com a seção ## Classificação do consumo (Por quê + Sugestão). Sem Produto, Ingredientes ou "Semáforo".
 - Se classificar 🔴 Vermelho, inclua **Alternativa melhor** com opção 🟢 ou 🟡 do mesmo tipo de alimento.`,
     meal: `## Modo: Foto do prato + diário
@@ -172,9 +179,11 @@ Foco exclusivo em escolher ao comer fora (restaurante, delivery, açaí, lanche,
 - Formato: Seu momento → Plano e meta → Recomendação personalizada → Impacto no dia → Como compensar → Resumo.`,
     swap: `## Modo: Substituir alimento
 Fluxo guiado por botões (refeição → alimento → opções equivalentes).
-- Use o plano alimentar prescrito e a base TACO/TBCA.
+- Use o plano alimentar prescrito e a base TBCA/TACO (priorize TBCA).
 - Calcule porções equivalentes em kcal, carboidratos, proteínas e gorduras.
-- Permita trocas dentro do mesmo **grupo nutricional**: carboidratos (cereais, tubérculos, leguminosas), proteínas, gorduras, frutas, verduras, laticínios.
+- Permita trocas dentro do mesmo **grupo nutricional** e do **mesmo papel no prato**.
+- No almoço/jantar: arroz troca por batata, mandioca, quinoa, macarrão ou leguminosa — **nunca** por canjica, mingau, aveia ou itens de café da manhã.
+- No café da manhã: troque cereais matinais por cereais matinais, não por arroz ou feijão.
 - Nunca sugira trocar fruta por peixe ou grupos claramente diferentes.`,
     goal: `## Modo: Meta semanal
 Foco exclusivo em check-ins, humor, energia, aderência e evolução recente.

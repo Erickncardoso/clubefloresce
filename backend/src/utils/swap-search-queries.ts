@@ -1,4 +1,6 @@
-/** Gera buscas TACO/TBCA a partir do nome do plano alimentar. */
+/** Gera buscas TBCA/TACO a partir do nome do plano alimentar. */
+import { tokenizeFoodQuery } from "./food-search";
+
 export function buildSwapSearchQueries(rawName: string): string[] {
   const trimmed = rawName.trim();
   const simplified = trimmed
@@ -31,4 +33,23 @@ export function buildSwapSearchQueries(rawName: string): string[] {
   }
 
   return [...queries];
+}
+
+const INGREDIENT_PREP_VARIANTS = [
+  "in natura",
+  "cozida",
+  "cozido",
+  "crua",
+  "cru",
+  "grelhada",
+  "grelhado",
+];
+
+/** Variantes TBCA (e TACO) para busca de ingrediente simples (ex.: banana → banana in natura). */
+export function buildIngredientSearchVariants(rawName: string): string[] {
+  const tokens = tokenizeFoodQuery(rawName);
+  if (tokens.length !== 1) return [];
+
+  const base = tokens[0];
+  return INGREDIENT_PREP_VARIANTS.map((prep) => `${base} ${prep}`);
 }

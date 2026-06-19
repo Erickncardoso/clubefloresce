@@ -4,6 +4,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { Role, UserStatus } from "@prisma/client";
 import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
+import { cloudinaryUpload } from "../utils/cloudinary";
 
 const userRepository = new UserRepository();
 
@@ -214,6 +215,25 @@ export class AuthService {
       status: UserStatus.ATIVO,
     });
 
+    const { password, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
+  }
+
+  async updateAvatar(
+    userId: string,
+    file: { buffer: Buffer; mimetype: string; size: number },
+  ): Promise<any> {
+    if (!file.mimetype.startsWith("image/")) {
+      throw new Error("Envie uma imagem válida (JPG, PNG ou WEBP).");
+    }
+
+    const avatarUrl = await cloudinaryUpload(file.buffer, "clube-patient-avatars", {
+      resourceType: "image",
+      fileSizeBytes: file.size,
+      errorKind: "image",
+    });
+
+    const updatedUser = await userRepository.update(userId, { avatar: avatarUrl });
     const { password, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword;
   }

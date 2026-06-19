@@ -1,6 +1,5 @@
 import type { ParsedFoodItem, ParsedMeal, ParsedMealPlan } from "../../types/meal-plan.types";
 import type { FoodItemDto } from "../../types/food.types";
-import { FoodService } from "../food.service";
 import { getMealPlanForUser } from "./meal-plan-context";
 import {
   buildPlanItemLabel,
@@ -18,12 +17,28 @@ import {
   formatMacrosShort,
   macrosAtGramsFromPer100g,
   normalizePer100gMacros,
-  type NormalizedPer100g,
 } from "../../utils/food-macros";
-import { pickBestFoodForSwap } from "../../utils/swap-food-match";
-import { buildSwapSearchQueries } from "../../utils/swap-search-queries";
+import { formatFoodDisplayName } from "../../utils/food-display";
+import { smartMatchFood } from "../food-smart-match.service";
+import {
+  buildNutrientVector,
+  readFiberG,
+  scoreNutritionalSimilarity,
+  similarityToPercent,
+} from "../../utils/swap-cosine-similarity";
+import { buildEquivalentPortion } from "../../utils/swap-portion-equivalence";
+import {
+  buildCulinarySwapRejection,
+  isCulinarySwapAllowed,
+  resolveMealPeriod,
+  scoreCulinarySwapFit,
+} from "./swap-culinary-fit";
+import {
+  isPreparationSwapAllowed,
+  scorePreparationSwapFit,
+  buildPrepSwapRejection,
+} from "./swap-prep-state";
 
-const foodService = new FoodService();
 const foodRepository = new FoodRepository();
 
 export interface MacroSnapshot {
@@ -45,6 +60,7 @@ export interface SwapSuggestion {
 
 export interface SwapOriginalContext {
   mealLabel: string;
+  mealPeriod: ReturnType<typeof resolveMealPeriod>;
   mealId: string;
   foodKey: string;
   item: ParsedFoodItem;
@@ -100,67 +116,6 @@ function macrosAtGrams(food: FoodItemDto, grams: number): MacroSnapshot {
   return macrosAtGramsFromPer100g(normalizePer100gMacros(food), grams);
 }
 
-function gramsForEquivalentPortion(
-  per100g: NormalizedPer100g,
-  target: MacroSnapshot,
-  anchor: MacroAnchor,
-): number {
-  if (anchor === "protein" && per100g.proteinG > 0 && per100g.caloriesKcal > 0) {
-    const byProtein = (target.proteinG / per100g.proteinG) * 100;
-    const byCalories = (target.caloriesKcal / per100g.caloriesKcal) * 100;
-    return Math.max(10, Math.round(byProtein * 0.75 + byCalories * 0.25));
-  }
-
-  if (anchor === "carbs" && per100g.carbsG > 0 && per100g.caloriesKcal > 0) {
-    const byCarbs = (target.carbsG / per100g.carbsG) * 100;
-    const byCalories = (target.caloriesKcal / per100g.caloriesKcal) * 100;
-    return Math.max(10, Math.round(byCarbs * 0.75 + byCalories * 0.25));
-  }
-
-  if (anchor === "fat" && per100g.fatG > 0 && per100g.caloriesKcal > 0) {
-    const byFat = (target.fatG / per100g.fatG) * 100;
-    const byCalories = (target.caloriesKcal / per100g.caloriesKcal) * 100;
-    return Math.max(5, Math.round(byFat * 0.75 + byCalories * 0.25));
-  }
-
-  return gramsForAnchor(per100g, target, anchor);
-}
-
-function gramsForAnchor(
-  per100g: NormalizedPer100g,
-  target: MacroSnapshot,
-  anchor: MacroAnchor,
-): number {
-  let targetValue = target.caloriesKcal;
-  let per100Value = per100g.caloriesKcal;
-
-  if (anchor === "carbs") {
-    targetValue = target.carbsG;
-    per100Value = per100g.carbsG;
-  } else if (anchor === "protein") {
-    targetValue = target.proteinG;
-    per100Value = per100g.proteinG;
-  } else if (anchor === "fat") {
-    targetValue = target.fatG;
-    per100Value = per100g.fatG;
-  }
-
-  if (targetValue <= 0 || per100Value <= 0) {
-    return target.grams;
-  }
-
-  return Math.max(10, Math.round((targetValue / per100Value) * 100));
-}
-
-function macroDeviation(target: MacroSnapshot, candidate: MacroSnapshot): number {
-  return (
-    Math.abs(target.caloriesKcal - candidate.caloriesKcal) +
-    Math.abs(target.carbsG - candidate.carbsG) * 4 +
-    Math.abs(target.proteinG - candidate.proteinG) * 4 +
-    Math.abs(target.fatG - candidate.fatG) * 9
-  );
-}
-
 function buildSuggestionFromFood(
   food: FoodItemDto,
   target: MacroSnapshot,
@@ -168,34 +123,25 @@ function buildSuggestionFromFood(
   source: SwapSuggestion["source"],
 ): SwapSuggestion {
   const per100g = normalizePer100gMacros(food);
-  const grams = gramsForEquivalentPortion(per100g, target, anchor);
-  const macros = macrosAtGramsFromPer100g(per100g, grams);
+  const macros = buildEquivalentPortion(per100g, target, anchor);
   return {
     name: food.name,
-    display: food.name,
-    grams,
+    display: formatFoodDisplayName(food.name),
+    grams: macros.grams,
     category: food.category,
     source,
     macros,
   };
 }
 
-async function matchFoodForSwap(name: string, expectedGroup?: SwapGroup): Promise<FoodItemDto | null> {
-  const queries = buildSwapSearchQueries(name);
-  const merged = new Map<string, FoodItemDto>();
-
-  for (const query of queries) {
-    const { items } = await foodService.search({ q: query, limit: 35 });
-    for (const item of items) {
-      merged.set(item.id, item);
-    }
-  }
-
-  const candidates = [...merged.values()];
-  if (!candidates.length) return null;
-
-  return pickBestFoodForSwap(name, candidates, {
+async function matchFoodForSwap(
+  name: string,
+  expectedGroup?: SwapGroup,
+  originalName?: string,
+): Promise<FoodItemDto | null> {
+  return smartMatchFood(name, {
     expectedGroup: expectedGroup && expectedGroup !== "mixed" ? expectedGroup : undefined,
+    originalName,
   });
 }
 
@@ -225,6 +171,7 @@ export async function resolveSwapOriginalContext(
   const matchedOriginal = await matchFoodForSwap(
     item.name,
     provisionalGroup !== "mixed" ? provisionalGroup : undefined,
+    planLabel,
   );
   const normalizedPer100g = matchedOriginal ? normalizePer100gMacros(matchedOriginal) : undefined;
   const originalSwapGroup = resolveSwapGroup({
@@ -246,6 +193,7 @@ export async function resolveSwapOriginalContext(
 
   return {
     mealLabel: meal.label,
+    mealPeriod: resolveMealPeriod(meal.label, meal.id),
     mealId,
     foodKey,
     item,
@@ -293,8 +241,19 @@ async function buildPrescribedSuggestions(
   const suggestions: SwapSuggestion[] = [];
 
   for (const sub of item.substitutions || []) {
-    const matched = await matchFoodForSwap(sub.name, ctx.originalSwapGroup);
+    const matched = await matchFoodForSwap(sub.name, ctx.originalSwapGroup, buildPlanItemLabel(item));
     if (!matched) continue;
+    if (
+      !isCulinarySwapAllowed(
+        buildPlanItemLabel(item),
+        matched.name,
+        ctx.mealPeriod,
+        ctx.originalSwapGroup,
+      )
+      || !isPreparationSwapAllowed(buildPlanItemLabel(item), matched.name)
+    ) {
+      continue;
+    }
     const subGroup = resolveSwapGroup({
       category: matched.category,
       name: matched.name,
@@ -312,14 +271,38 @@ async function buildPrescribedSuggestions(
 async function buildFoodBankSuggestions(ctx: SwapOriginalContext): Promise<SwapSuggestion[]> {
   if (ctx.originalSwapGroup === "mixed") return [];
 
+  const originalLabel = buildPlanItemLabel(ctx.item);
+
   const candidates = await foodRepository.findForSwapGroup(ctx.originalSwapGroup, {
     excludeNames: [ctx.item.name, ctx.matchedOriginal?.name || ""].filter(Boolean),
-    limit: 120,
+    limit: 160,
   });
+
+  const originalPer100g = ctx.matchedOriginal
+    ? normalizePer100gMacros(ctx.matchedOriginal)
+    : null;
+  const originalVector = originalPer100g
+    ? buildNutrientVector(
+        originalPer100g,
+        ctx.originalMacros.grams,
+        ctx.matchedOriginal ? readFiberG(ctx.matchedOriginal) : 0,
+      )
+    : null;
 
   return candidates
     .filter((food) => {
       if (/sandu[ií]che|picol[eé]|sorvete|hamb[uú]rguer.*p[aã]o/i.test(food.name)) return false;
+      if (
+        !isCulinarySwapAllowed(
+          originalLabel,
+          food.name,
+          ctx.mealPeriod,
+          ctx.originalSwapGroup,
+        )
+        || !isPreparationSwapAllowed(originalLabel, food.name)
+      ) {
+        return false;
+      }
       const group = resolveSwapGroup({
         category: food.category,
         name: food.name,
@@ -329,10 +312,24 @@ async function buildFoodBankSuggestions(ctx: SwapOriginalContext): Promise<SwapS
     })
     .map((food) => {
       const suggestion = buildSuggestionFromFood(food, ctx.originalMacros, ctx.anchor, "food_bank");
-      return { suggestion, deviation: macroDeviation(ctx.originalMacros, suggestion.macros) };
+      const per100g = normalizePer100gMacros(food);
+      const candidateVector = buildNutrientVector(
+        per100g,
+        suggestion.macros.grams,
+        readFiberG(food),
+      );
+      const cosineScore = originalVector
+        ? scoreNutritionalSimilarity(originalVector, candidateVector, ctx.anchor)
+        : 0;
+      const culinary = scoreCulinarySwapFit(originalLabel, food.name, ctx.mealPeriod);
+      const prep = scorePreparationSwapFit(originalLabel, food.name);
+      return {
+        suggestion,
+        score: similarityToPercent(cosineScore) + culinary * 0.15 + prep * 0.1,
+      };
     })
-    .sort((a, b) => a.deviation - b.deviation)
-    .slice(0, 4)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
     .map((entry) => entry.suggestion);
 }
 
@@ -382,7 +379,12 @@ export async function buildCustomSwap(
     return { ok: false, reply: "Não encontrei esse alimento no seu plano." };
   }
 
-  const replacement = await matchFoodForSwap(replacementName.trim(), ctx.originalSwapGroup);
+  const originalLabel = buildPlanItemLabel(ctx.item);
+  const replacement = await matchFoodForSwap(
+    replacementName.trim(),
+    ctx.originalSwapGroup,
+    originalLabel,
+  );
   if (!replacement) {
     return {
       ok: false,
@@ -396,10 +398,35 @@ export async function buildCustomSwap(
     per100g: normalizePer100gMacros(replacement),
   });
 
-  if (
-    isAbsurdSwap(ctx.originalSwapGroup, replacementGroup) ||
-    !canSwapWithinGroup(ctx.originalSwapGroup, replacementGroup)
-  ) {
+  const culinaryOk = isCulinarySwapAllowed(
+    buildPlanItemLabel(ctx.item),
+    replacement.name,
+    ctx.mealPeriod,
+    ctx.originalSwapGroup,
+  );
+  const groupOk =
+    !isAbsurdSwap(ctx.originalSwapGroup, replacementGroup) &&
+    canSwapWithinGroup(ctx.originalSwapGroup, replacementGroup);
+
+  if (!culinaryOk) {
+    return {
+      ok: false,
+      reply: buildCulinarySwapRejection(
+        ctx.item.display || ctx.item.name,
+        replacement.name,
+        ctx.mealPeriod,
+      ),
+    };
+  }
+
+  if (!isPreparationSwapAllowed(originalLabel, replacement.name)) {
+    return {
+      ok: false,
+      reply: buildPrepSwapRejection(originalLabel, replacement.name),
+    };
+  }
+
+  if (!groupOk) {
     return {
       ok: false,
       reply:
@@ -422,7 +449,7 @@ export async function buildCustomSwap(
 }
 
 function formatFoodTitle(name: string): string {
-  return name.replace(/,/g, "").replace(/\s+/g, " ").trim();
+  return formatFoodDisplayName(name);
 }
 
 function formatCustomSwapReply(ctx: SwapOriginalContext, replacement: SwapSuggestion): string {

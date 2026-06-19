@@ -14,6 +14,9 @@ export const SWAP_FOOD_QUESTION =
 export const SWAP_MODE_QUESTION =
   "Como você prefere continuar?\n\nDigite o alimento que quer incluir no lugar ou peça sugestões:";
 
+export const SWAP_CUSTOM_FOOD_QUESTION =
+  "Sem problema! Digite abaixo o alimento que você quer no lugar.\n\nVou buscar na base TBCA/TACO e calcular a porção equivalente para você.";
+
 export const SWAP_NO_PLAN_MESSAGE =
   "Ainda não encontrei um plano alimentar cadastrado para você. Peça à sua nutricionista para publicar o plano no app e volte aqui para trocar alimentos com segurança.";
 
@@ -32,6 +35,16 @@ export function buildSwapModeMetadata(swapMealId: string, swapFoodKey: string) {
     topic: "swap",
     taskType: "chat",
     pendingSwapMode: true,
+    swapMealId,
+    swapFoodKey,
+  };
+}
+
+export function buildSwapCompletedMetadata(swapMealId: string, swapFoodKey: string) {
+  return {
+    topic: "swap",
+    taskType: "chat",
+    swapCompleted: true,
     swapMealId,
     swapFoodKey,
   };

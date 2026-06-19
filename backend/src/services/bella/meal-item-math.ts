@@ -1,4 +1,5 @@
 import type { MealItemDraft, MacroTotals } from "../../types/food-diary.types";
+import { calculateAtwaterCalories } from "../../utils/atwater";
 
 export function round1(value: number): number {
   return Math.round(value * 10) / 10;
@@ -19,12 +20,16 @@ export function sumItems(items: MealItemDraft[]): MacroTotals {
 export function scaleItemGrams(item: MealItemDraft, newGrams: number): MealItemDraft {
   const grams = Math.max(1, Math.round(newGrams));
   const ratio = grams / Math.max(item.grams, 1);
+  const carbsG = round1(item.carbsG * ratio);
+  const proteinG = round1(item.proteinG * ratio);
+  const fatG = round1(item.fatG * ratio);
+
   return {
     ...item,
     grams,
-    caloriesKcal: Math.max(0, Math.round(item.caloriesKcal * ratio)),
-    carbsG: round1(item.carbsG * ratio),
-    proteinG: round1(item.proteinG * ratio),
-    fatG: round1(item.fatG * ratio),
+    caloriesKcal: calculateAtwaterCalories({ carbsG, proteinG, fatG }),
+    carbsG,
+    proteinG,
+    fatG,
   };
 }

@@ -19,6 +19,8 @@ import foodRoutes from "./routes/food.routes";
 import mealPlanRoutes from "./routes/meal-plan.routes";
 import patientRoutes from "./routes/patient.routes";
 import notificationRoutes from "./routes/notification.routes";
+import pushRoutes from "./routes/push.routes";
+import patientGoalsRoutes from "./routes/patient-goals.routes";
 import registrationRequestRoutes from "./routes/registration-request.routes";
 import { prisma } from "./lib/prisma";
 import { readEnv, maskSecret } from "./utils/env";
@@ -31,6 +33,7 @@ import {
 import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "./utils/media/bunny-config";
 import { startCheckInDispatchScheduler } from "./jobs/checkin-weekly-dispatch.job";
 import { assertJwtSecretOnBoot } from "./utils/jwt";
+import { isVapidConfigured } from "./utils/vapid-config";
 
 dotenv.config();
 assertJwtSecretOnBoot();
@@ -101,7 +104,9 @@ app.use("/api/food-diary", foodDiaryRoutes);
 app.use("/api/foods", foodRoutes);
 app.use("/api/meal-plan", mealPlanRoutes);
 app.use("/api/patients", patientRoutes);
+app.use("/api/patient-goals", patientGoalsRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/push", pushRoutes);
 app.use("/api/registration-requests", registrationRequestRoutes);
 
 // Basic Route for testing
@@ -144,6 +149,11 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   } else {
     console.warn("[Bella] OPENAI_API_KEY ausente — Bella usará respostas locais limitadas.");
     console.warn("[Bella] Coolify: adicione OPENAI_API_KEY no serviço do BACKEND (apiclube), não no app cliente.");
+  }
+  if (isVapidConfigured()) {
+    console.log("[Push] Web Push (VAPID) configurado — notificações push ativas.");
+  } else {
+    console.warn("[Push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes — push desativado.");
   }
   const videoProvider = getVideoUploadProvider();
   const documentProvider = getDocumentUploadProvider();

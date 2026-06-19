@@ -1,0 +1,13 @@
+{
+  "version": "7.3",
+  "source": "https://www.tbca.net.br",
+  "listEndpoint": "https://www.tbca.net.br/base-dados/composicao_alimentos.php",
+  "detailEndpoint": "https://www.tbca.net.br/base-dados/int_composicao_alimentos.php",
+  "fetchedAt": "2026-06-19T17:25:55.214Z",
+  "startedAt": "2026-06-19T17:23:46.507Z",
+  "listedFoods": 5869,
+  "downloadedThisRun": 5869,
+  "totalRecords": 5869,
+  "probeMode": false,
+  "resumeMode": false
+}

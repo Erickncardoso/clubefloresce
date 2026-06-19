@@ -20,7 +20,7 @@
       cy="10"
       :r="radius"
       fill="none"
-      stroke="var(--cf-green)"
+      :stroke="ringColor"
       :stroke-width="stroke"
       stroke-linecap="round"
       :stroke-dasharray="`${filled} ${circumference}`"
@@ -33,6 +33,7 @@
 const props = defineProps({
   value: { type: Number, default: 0 },
   size: { type: Number, default: 14 },
+  color: { type: String, default: '' },
 })
 
 const radius = 7.25
@@ -43,6 +44,8 @@ const clamped = computed(() => Math.max(0, Math.min(100, Math.round(Number(props
 const circumference = 2 * Math.PI * radius
 
 const filled = computed(() => (circumference * clamped.value) / 100)
+
+const ringColor = computed(() => props.color || 'var(--cf-green)')
 </script>
 
 <style scoped>

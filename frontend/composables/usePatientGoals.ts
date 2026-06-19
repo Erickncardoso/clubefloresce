@@ -165,14 +165,61 @@ function normalizeStoredGoals(goals: PatientGoal[]) {
 
 export function usePatientGoals() {
   const store = useState('patient-goals-store', () => readStore())
+  const config = useRuntimeConfig()
+  let goalsSyncTimer: ReturnType<typeof setTimeout> | null = null
+
+  function scheduleGoalsSync() {
+    if (!import.meta.client) return
+    if (localStorage.getItem('user_role') !== 'PACIENTE') return
+    if (goalsSyncTimer) clearTimeout(goalsSyncTimer)
+    goalsSyncTimer = setTimeout(async () => {
+      const token = localStorage.getItem('auth_token')
+      if (!token) return
+      try {
+        await $fetch(`${config.public.apiBase}/patient-goals/me`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}` },
+          body: {
+            goals: store.value.goals,
+            progress: store.value.progress,
+          },
+        })
+      } catch {
+        /* sync opcional */
+      }
+    }, 900)
+  }
+
+  async function syncGoalsFromServer() {
+    if (!import.meta.client) return
+    if (localStorage.getItem('user_role') !== 'PACIENTE') return
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
+    try {
+      const data = await $fetch(`${config.public.apiBase}/patient-goals/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (Array.isArray(data?.goals) && data.goals.length) {
+        store.value.goals = normalizeStoredGoals(data.goals)
+        store.value.progress = data.progress && typeof data.progress === 'object' ? data.progress : {}
+        writeStore(store.value)
+      } else if (store.value.goals.length) {
+        scheduleGoalsSync()
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   function persist() {
     writeStore(store.value)
+    scheduleGoalsSync()
   }
 
   function hydrate() {
     store.value = readStore()
     repairSleepSchedule()
+    void syncGoalsFromServer()
   }
 
   function repairSleepSchedule(date = new Date()) {

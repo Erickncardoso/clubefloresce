@@ -71,10 +71,12 @@ export function applyFoodMatch(item, nameInput, matchedFood = null) {
 export function scaleMealItem(item, newGrams, matchedFood = null) {
   const grams = Math.max(1, Math.round(Number(newGrams) || 1))
 
-  if (matchedFood && item.source === 'food_bank') {
+  if (matchedFood) {
     return {
       ...item,
       grams,
+      foodId: matchedFood.id,
+      source: 'food_bank',
       ...macrosForFoodRecord(matchedFood, grams),
     }
   }
@@ -90,8 +92,25 @@ export function scaleMealItem(item, newGrams, matchedFood = null) {
   }
 }
 
-export function sumMealItems(items) {
-  return items.reduce(
+export function isItemCounted(item) {
+  return Boolean(item?.foodId) && item?.source === 'food_bank'
+}
+
+export function stripUncountedMacros(item) {
+  if (isItemCounted(item)) return item
+  return {
+    ...item,
+    caloriesKcal: 0,
+    carbsG: 0,
+    proteinG: 0,
+    fatG: 0,
+    source: item.source === 'ai' ? 'ai' : item.source || 'manual',
+  }
+}
+
+export function sumMealItems(items, { countedOnly = false } = {}) {
+  const list = countedOnly ? items.filter(isItemCounted) : items
+  return list.reduce(
     (acc, item) => ({
       caloriesKcal: acc.caloriesKcal + (item.caloriesKcal || 0),
       carbsG: roundMacro(acc.carbsG + (item.carbsG || 0)),
@@ -113,7 +132,7 @@ export function normalizeMealItemsForSave(items) {
       proteinG: roundMacro(item.proteinG || 0),
       fatG: roundMacro(item.fatG || 0),
       foodId: item.foodId || null,
-      source: item.source || (item.foodId ? 'food_bank' : 'manual'),
+      source: item.source || (item.foodId ? 'food_bank' : item.caloriesKcal ? 'ai' : 'manual'),
       originalName: item.originalName || null,
     }))
     .filter((item) => item.name)

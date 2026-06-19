@@ -26,8 +26,8 @@ export const DEFAULT_CHECKIN_STEPS = [
     id: "water",
     type: "water",
     label: "Água",
-    question: "Quantos copos de água você bebeu?",
-    hint: "Conte apenas copos padrão, de cerca de 200 ml.",
+    question: "Quantos litros de água você bebeu?",
+    hint: "Conte o total do dia (água pura, chás sem açúcar, etc.).",
   },
   {
     id: "exercise",
@@ -84,11 +84,11 @@ function resolvePeriodKey(frequency: string, dateKey?: string | null): string {
   return resolvePeriodKeyForDate(frequency, dateKey);
 }
 
-function waterToEnergy(glasses: number): number {
-  if (glasses <= 2) return 1;
-  if (glasses <= 4) return 2;
-  if (glasses <= 6) return 3;
-  if (glasses <= 8) return 4;
+function waterLitersToEnergy(liters: number): number {
+  if (liters <= 0.5) return 1;
+  if (liters <= 1) return 2;
+  if (liters <= 1.5) return 3;
+  if (liters <= 2) return 4;
   return 5;
 }
 
@@ -102,14 +102,17 @@ async function syncLegacyWeeklyCheckIn(userId: string, answers: Record<string, u
 
   const weekStart = getWeekStart();
   const notesParts: string[] = [];
-  if (water != null && Number.isFinite(water)) notesParts.push(`Água: ${water} copos.`);
+  if (water != null && Number.isFinite(water)) {
+    const litersText = String(water).replace(".", ",");
+    notesParts.push(`Água: ${litersText} litros.`);
+  }
   if (exercise != null) notesParts.push(`Exercício: ${exercise ? "Sim" : "Não"}.`);
 
   await checkInRepository.upsert({
     userId,
     weekStart,
     mood: sleep != null && Number.isFinite(sleep) ? Math.min(5, Math.max(1, Math.round(sleep))) : 3,
-    energy: water != null && Number.isFinite(water) ? waterToEnergy(water) : 3,
+    energy: water != null && Number.isFinite(water) ? waterLitersToEnergy(water) : 3,
     adherence: food != null && Number.isFinite(food) ? Math.min(5, Math.max(1, Math.round(food))) : null,
     weightKg: null,
     notes: notesParts.length ? notesParts.join(" ") : null,

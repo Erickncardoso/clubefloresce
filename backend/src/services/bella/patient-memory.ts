@@ -52,6 +52,7 @@ export interface PatientVerifiedMemory {
 export async function buildPatientVerifiedMemory(
   userId: string,
   patientDateKey?: string,
+  patientTimeZone?: string,
 ): Promise<PatientVerifiedMemory> {
   const user = await userRepository.findById(userId);
   if (!user) {
@@ -62,7 +63,7 @@ export async function buildPatientVerifiedMemory(
     mealPlanRepository.findByUserId(userId),
     getFoodDiaryService().then((service) => service.getDailySummary(userId, patientDateKey)),
     buildCheckInSummary(userId),
-    resolveMealSlot(userId),
+    resolveMealSlot(userId, new Date(), patientTimeZone),
   ]);
 
   const plan = mealPlanRecord?.plan as ParsedMealPlan | undefined;

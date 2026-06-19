@@ -10,8 +10,8 @@ export const CHECKIN_DEFAULT_STEPS = [
     id: 'water',
     type: 'water',
     label: 'Água',
-    question: 'Quantos copos de água você bebeu?',
-    hint: 'Conte apenas copos padrão, de cerca de 200 ml.',
+    question: 'Quantos litros de água você bebeu?',
+    hint: 'Conte o total do dia (água pura, chás sem açúcar, etc.).',
   },
   {
     id: 'exercise',

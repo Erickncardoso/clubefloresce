@@ -5,6 +5,9 @@ export interface FoodNutrientsPer100g {
   fatG?: number | null;
   carbsG?: number | null;
   fiberG?: number | null;
+  alcoholG?: number | null;
+  carbsAvailableG?: number | null;
+  carbsTotalG?: number | null;
   sodiumMg?: number | null;
   [key: string]: number | null | undefined;
 }

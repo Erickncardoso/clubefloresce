@@ -7,6 +7,7 @@ import {
   getDefaultImageUserText,
   getImageAnalysisFailureMessage,
 } from "./prompts";
+import { analyzeLabelFromImage } from "./label-classifier";
 import { runInputGuardrails, sanitizeOutput } from "./guardrails";
 import { OpenAIClient, buildImageDataUrl } from "./openai.client";
 import { buildUserContext } from "./context-builder";
@@ -86,6 +87,7 @@ export class BellaOrchestratorService {
         taskType,
         topic,
         input.patientDateKey,
+        input.patientTimeZone,
         input.restaurantIntent,
         input.restaurantContextBlock,
       );
@@ -106,8 +108,12 @@ export class BellaOrchestratorService {
       taskType,
       topic,
       input.patientDateKey,
+      input.patientTimeZone,
       input.restaurantIntent,
       input.restaurantContextBlock,
+      input.contextImageUrl,
+      input.handoffFromTopic,
+      input.crossTopicContext,
     );
   }
 
@@ -119,12 +125,32 @@ export class BellaOrchestratorService {
     taskType: BellaTaskType,
     topic: BellaChatTopic,
     patientDateKey?: string,
+    patientTimeZone?: string,
     restaurantIntent?: RestaurantIntent,
     restaurantContextBlock?: string,
   ): Promise<OrchestratorResult> {
     const userContext = await buildUserContext(userId, patientDateKey);
     const model = getModelForTask("image");
     const conversationMemory = buildConversationMemoryBlock(topic, priorHistory);
+
+    const redirectText = userMessage.trim();
+    if (redirectText) {
+      const redirect = evaluateTopicRedirect({
+        topic,
+        message: redirectText,
+        firstName: userContext.firstName,
+      });
+      if (redirect && !restaurantIntent) {
+        return {
+          reply: sanitizeOutput(redirect.reply),
+          meta: {
+            ...this.baseMeta("image", model, [], false, topic, attachment, 0),
+            taskType: "image",
+            redirectTopic: redirect.targetTopic,
+          },
+        };
+      }
+    }
 
     if (!this.llm.isEnabled()) {
       return {
@@ -135,7 +161,10 @@ export class BellaOrchestratorService {
 
     const restaurantAdvisor =
       topic === "restaurant"
-        ? await buildRestaurantAdvisorContext(userId, patientDateKey)
+        ? await buildRestaurantAdvisorContext(userId, patientDateKey, {
+            userMessage,
+            patientTimeZone,
+          })
         : undefined;
 
     const restaurantBlock =
@@ -147,6 +176,30 @@ export class BellaOrchestratorService {
         : undefined;
 
     const dataUrl = buildImageDataUrl(attachment.buffer, attachment.mimeType);
+
+    if (topic === "label") {
+      try {
+        const reply = await analyzeLabelFromImage(
+          userId,
+          attachment.buffer,
+          attachment.mimeType,
+          userMessage || getDefaultImageUserText(topic),
+          patientDateKey,
+        );
+        return {
+          reply: sanitizeOutput(reply),
+          meta: this.baseMeta("image", model, [], false, topic, attachment),
+        };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : getImageAnalysisFailureMessage(topic);
+        return {
+          reply: sanitizeOutput(message),
+          meta: this.baseMeta("image", model, [], true, topic, attachment),
+        };
+      }
+    }
+
     const systemPrompt =
       buildVisionMemoryPrefix(userContext, conversationMemory) +
       (topic === "restaurant" && restaurantBlock
@@ -261,11 +314,16 @@ export class BellaOrchestratorService {
     taskType: BellaTaskType,
     topic: BellaChatTopic,
     patientDateKey?: string,
+    patientTimeZone?: string,
     restaurantIntent?: RestaurantIntent,
     restaurantContextBlock?: string,
+    contextImageUrl?: string,
+    handoffFromTopic?: string,
+    crossTopicContext?: string,
   ): Promise<OrchestratorResult> {
     const userContext = await buildUserContext(userId, patientDateKey);
-    const model = getModelForTask("chat");
+    const hasContextImage = Boolean(contextImageUrl?.trim());
+    const model = hasContextImage ? getModelForTask("image") : getModelForTask("chat");
     const conversationMemory = buildConversationMemoryBlock(topic, priorHistory);
 
     if (!this.llm.isEnabled()) {
@@ -274,12 +332,12 @@ export class BellaOrchestratorService {
         reply: fallback.reply,
         meta: {
           ...this.baseMeta("chat", null, fallback.toolsUsed, true, topic),
-          taskType: "chat",
+          taskType: hasContextImage ? "image" : "chat",
         },
       };
     }
 
-    if (isLikelyGreeting(userMessage)) {
+    if (isLikelyGreeting(userMessage) && !hasContextImage) {
       return {
         reply: sanitizeOutput(getTopicOfflineReply(topic, userContext.firstName)),
         meta: {
@@ -289,20 +347,22 @@ export class BellaOrchestratorService {
       };
     }
 
-    const redirect = evaluateTopicRedirect({
-      topic,
-      message: userMessage,
-      firstName: userContext.firstName,
-    });
-    if (redirect && !restaurantIntent) {
-      return {
-        reply: sanitizeOutput(redirect.reply),
-        meta: {
-          ...this.baseMeta("chat", model, [], false, topic, undefined, 0),
-          taskType: "chat",
-          redirectTopic: redirect.targetTopic,
-        },
-      };
+    if (!handoffFromTopic) {
+      const redirect = evaluateTopicRedirect({
+        topic,
+        message: userMessage,
+        firstName: userContext.firstName,
+      });
+      if (redirect && !restaurantIntent) {
+        return {
+          reply: sanitizeOutput(redirect.reply),
+          meta: {
+            ...this.baseMeta("chat", model, [], false, topic, undefined, 0),
+            taskType: "chat",
+            redirectTopic: redirect.targetTopic,
+          },
+        };
+      }
     }
 
     const toolsUsed: BellaToolName[] = [];
@@ -312,21 +372,46 @@ export class BellaOrchestratorService {
       topic === "restaurant"
         ? restaurantContextBlock ||
           buildRestaurantAdvisorPrompt(
-            await buildRestaurantAdvisorContext(userId, patientDateKey),
+            await buildRestaurantAdvisorContext(userId, patientDateKey, {
+              userMessage,
+              patientTimeZone,
+            }),
             restaurantIntent,
           )
         : undefined;
 
+    const handoffPrefix = handoffFromTopic
+      ? `O paciente veio do chat "${handoffFromTopic}" e continua uma dúvida sobre a imagem que já havia enviado. Responda considerando a imagem e o contexto da conversa anterior.\n\nPergunta: `
+      : crossTopicContext
+        ? "Pergunta de continuação sobre produto/rotulo já discutido:\n\n"
+        : hasContextImage
+          ? "Pergunta sobre esta imagem:\n\n"
+          : "";
+
+    const userContent: ChatMessage["content"] = hasContextImage
+      ? [
+          { type: "text", text: `${handoffPrefix}${userMessage}` },
+          { type: "image_url", image_url: { url: contextImageUrl!.trim(), detail: "high" } },
+        ]
+      : userMessage;
+
+    const topicExtraBlock = [
+      topicExtra,
+      crossTopicContext,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
     const messages: ChatMessage[] = [
       {
         role: "system",
-        content: buildSystemPromptForTopic(topic, userContext, topicExtra, conversationMemory),
+        content: buildSystemPromptForTopic(topic, userContext, topicExtraBlock || undefined, conversationMemory),
       },
       ...prepareHistoryForModel(priorHistory, MAX_HISTORY),
-      { role: "user", content: userMessage },
+      { role: "user", content: userContent },
     ];
 
-    const toolDefinitions = getToolsForTopic(topic);
+    const toolDefinitions = hasContextImage ? [] : getToolsForTopic(topic);
     const ctx = { userId, patientDateKey };
 
     while (iterations < MAX_ITERATIONS) {

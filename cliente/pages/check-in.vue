@@ -179,7 +179,7 @@
                     {{ item.adherence != null ? `${item.adherence}/5` : '—' }}
                   </td>
                   <td class="checkin-meta">
-                    {{ item.extras.water != null ? `${item.extras.water} copos` : '—' }}
+                    {{ formatLegacyWater(item.extras.water, item.extras.waterUnit) }}
                   </td>
                   <td class="checkin-meta">
                     {{ item.extras.exercise != null ? (item.extras.exercise ? 'Sim' : 'Não') : '—' }}
@@ -351,35 +351,60 @@ const waterToEnergy = (glasses) => {
   return 5
 }
 
+function formatLegacyWater(value, unit) {
+  if (value == null) return '—'
+  if (unit === 'litros') {
+    const liters = Number(value)
+    if (!Number.isFinite(liters)) return '—'
+    const rounded = Math.round(liters * 100) / 100
+    const text = rounded % 1 === 0
+      ? String(rounded)
+      : rounded.toFixed(2).replace(/0$/, '').replace(/\.$/, '').replace('.', ',')
+    return `${text} L`
+  }
+  return value === 1 ? '1 copo' : `${value} copos`
+}
+
 const formatWeek = (dateStr) => {
   const d = new Date(dateStr)
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-const AUTO_NOTES_RE = /^[\s\S]*?Água:\s*\d+\s*copos?\.?\s*Exercícios?:\s*(Sim|Não)\.?\s*$/i
+const AUTO_NOTES_RE = /^[\s\S]*?Água:\s*[\d.,]+\s*(litros?|copos?)\.?\s*Exercícios?:\s*(Sim|Não)\.?\s*$/i
 
 function parseCheckInNotes(notes) {
   const text = String(notes || '').trim()
   if (!text) {
-    return { water: null, exercise: null, freeText: null }
+    return { water: null, waterUnit: null, exercise: null, freeText: null }
   }
 
-  const waterMatch = text.match(/Água:\s*(\d+)\s*copos?/i)
-  const exerciseMatch = text.match(/Exercícios?:\s*(Sim|Não)/i)
+  const waterLitersMatch = text.match(/Água:\s*([\d.,]+)\s*litros?/i)
+  const waterCoposMatch = text.match(/Água:\s*(\d+)\s*copos?/i)
 
-  const water = waterMatch ? Number(waterMatch[1]) : null
+  let water = null
+  let waterUnit = null
+  if (waterLitersMatch) {
+    water = Number(waterLitersMatch[1].replace(',', '.'))
+    waterUnit = 'litros'
+  } else if (waterCoposMatch) {
+    water = Number(waterCoposMatch[1])
+    waterUnit = 'copos'
+  }
+
+  const exerciseMatch = text.match(/Exercícios?:\s*(Sim|Não)/i)
   const exercise = exerciseMatch
     ? exerciseMatch[1].toLowerCase() === 'sim'
     : null
 
   const stripped = text
+    .replace(/Água:\s*[\d.,]+\s*litros?\.?\s*/gi, '')
     .replace(/Água:\s*\d+\s*copos?\.?\s*/gi, '')
     .replace(/Exercícios?:\s*(Sim|Não)\.?\s*/gi, '')
     .trim()
 
   const freeText = stripped || (AUTO_NOTES_RE.test(text) ? null : text)
 
-  return { water, exercise, freeText: freeText || null }
+  return { water, waterUnit, exercise, freeText: freeText || null }
 }
 
 function frequencyLabel(freq) {

@@ -12,6 +12,33 @@ export class FoodDiaryRepository {
     });
   }
 
+  async upsertTargets(
+    userId: string,
+    data: {
+      caloriesKcal: number;
+      proteinG: number;
+      carbsG: number;
+      fatG: number;
+    },
+  ) {
+    return prisma.nutritionTarget.upsert({
+      where: { userId },
+      create: {
+        userId,
+        caloriesKcal: data.caloriesKcal,
+        proteinG: data.proteinG,
+        carbsG: data.carbsG,
+        fatG: data.fatG,
+      },
+      update: {
+        caloriesKcal: data.caloriesKcal,
+        proteinG: data.proteinG,
+        carbsG: data.carbsG,
+        fatG: data.fatG,
+      },
+    });
+  }
+
   async findEntriesByDate(userId: string, entryDate: Date) {
     return prisma.foodDiaryEntry.findMany({
       where: { userId, entryDate },

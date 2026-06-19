@@ -1,3 +1,17 @@
+export interface MealPlanMealMacros {
+  proteinG: number;
+  fatG: number;
+  carbsG: number;
+  caloriesKcal: number;
+}
+
+export interface MealPlanNutritionTotals {
+  caloriesKcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
 export interface ParsedFoodItem {
   key: string;
   name: string;
@@ -14,6 +28,7 @@ export interface ParsedMeal {
   time: string;
   label: string;
   items: ParsedFoodItem[];
+  macros?: MealPlanMealMacros;
 }
 
 export interface ParsedMealPlan {
@@ -22,6 +37,7 @@ export interface ParsedMealPlan {
   prescribedAt: string | null;
   fileName: string;
   meals: ParsedMeal[];
+  nutritionTotals?: MealPlanNutritionTotals;
   parserSource: "dietbox" | "ai";
 }
 

@@ -1,8 +1,8 @@
 export type RestaurantIntent = "plan_fit" | "free_meal";
 
 export const RESTAURANT_INTENT_LABELS: Record<RestaurantIntent, string> = {
-  plan_fit: "Encaixar no plano alimentar",
-  free_meal: "Refeição livre",
+  plan_fit: "Encaixar na dieta",
+  free_meal: "Refeição livre consciente",
 };
 
 export function normalizeRestaurantIntent(raw?: string | null): RestaurantIntent | null {

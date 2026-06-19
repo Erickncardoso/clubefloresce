@@ -20,6 +20,12 @@ export function isProdAppHostname(hostname) {
   return PROD_APP_HOSTNAMES.includes(hostname)
 }
 
+/** Push e service worker exigem contexto seguro (HTTPS ou localhost neste aparelho). */
+export function isPushSecureContext(hostname = typeof window !== 'undefined' ? window.location.hostname : '') {
+  if (typeof window !== 'undefined' && window.isSecureContext) return true
+  return isLocalHostname(hostname)
+}
+
 /** URL de upload/API — sempre mesma origem (/api), funciona de qualquer rede ou país. */
 export function resolveUploadApiUrl(path, apiBase = DEV_MOBILE_API_BASE) {
   const normalized = path.startsWith('/') ? path : `/${path}`
@@ -117,10 +123,37 @@ export function apiConnectionErrorMessage() {
   return 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.'
 }
 
+export function sanitizeUserFacingError(message) {
+  const raw = String(message || '').trim()
+  if (!raw) return ''
+
+  if (
+    /prisma/i.test(raw)
+    || /Invalid `/i.test(raw)
+    || /connection pool/i.test(raw)
+    || /P2024/i.test(raw)
+    || /Timed out fetching/i.test(raw)
+  ) {
+    return 'Servidor ocupado ou banco indisponível. Aguarde alguns segundos e tente novamente.'
+  }
+
+  if (raw.length > 200) {
+    return 'Não foi possível concluir a operação. Tente novamente.'
+  }
+
+  return raw
+}
+
 export function isApiConnectionError(err) {
   const message = String(err?.message || '')
   const status = err?.statusCode || err?.response?.status
+  const hasApiMessage = Boolean(err?.data?.message)
+
+  if ((status === 500 || status === 502 || status === 503 || status === 504) && !hasApiMessage) {
+    return true
+  }
+
   if (status === 502 || status === 503 || status === 504) return true
-  return /failed to fetch|networkerror|fetch failed|ECONNREFUSED|Load failed|no available server/i.test(message)
-    || (!err?.statusCode && !err?.data?.message)
+  return /failed to fetch|networkerror|fetch failed|ECONNREFUSED|Load failed|no available server|proxy/i.test(message)
+    || (!err?.statusCode && !hasApiMessage)
 }

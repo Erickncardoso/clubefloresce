@@ -17,10 +17,28 @@
 
     <section class="config-section">
       <h2>Notificações</h2>
-      <label v-for="item in notifToggles" :key="item.key" class="config-toggle">
-        <span>{{ item.label }}</span>
-        <input v-model="item.on" type="checkbox" />
-      </label>
+      <div
+        v-for="item in notifToggles"
+        :key="item.key"
+        class="config-toggle-row"
+      >
+        <button
+          type="button"
+          class="config-toggle-label-btn"
+          @click="toggleNotif(item)"
+        >
+          {{ item.label }}
+        </button>
+        <button
+          type="button"
+          class="config-check-btn"
+          :aria-pressed="item.on"
+          :aria-label="item.on ? `Desativar ${item.label}` : `Ativar ${item.label}`"
+          @click="toggleNotif(item)"
+        >
+          <DietaCheckIcon :completed="item.on" />
+        </button>
+      </div>
     </section>
 
     <section class="config-section">
@@ -56,6 +74,10 @@ const notifToggles = reactive([
   { key: 'bella', label: 'Mensagens da BELLA', on: false },
   { key: 'community', label: 'Atividade na comunidade', on: true },
 ])
+
+function toggleNotif(item) {
+  item.on = !item.on
+}
 </script>
 
 <style scoped>
@@ -105,15 +127,59 @@ const notifToggles = reactive([
   margin: 0 0 0.75rem;
 }
 
-.config-toggle {
+.config-toggle-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0.95rem 0;
+  gap: 0.5rem;
   border-bottom: 1px solid var(--pa-border);
+}
+
+.config-toggle-label-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 0.95rem 0;
+  border: none;
+  background: transparent;
   font-size: 0.92rem;
   font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  color: var(--pa-text);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.config-check-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0.15rem 0;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.config-check-btn:active {
+  background: rgba(99, 186, 138, 0.08);
+}
+
+.config-check-btn :deep(.dieta-status-icon) {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.config-toggle-label-btn:focus-visible,
+.config-check-btn:focus-visible {
+  outline: 2px solid var(--cf-green);
+  outline-offset: 2px;
 }
 
 .config-link {

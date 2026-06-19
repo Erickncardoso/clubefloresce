@@ -1,6 +1,5 @@
 <template>
   <div class="patient-shell bella-chat-shell">
-    <AppToast />
     <div class="patient-shell-body bella-chat-shell-body">
       <slot />
     </div>

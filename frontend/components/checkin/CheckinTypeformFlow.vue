@@ -43,24 +43,25 @@
                 <button
                   type="button"
                   class="typeform-water-btn"
-                  aria-label="Remover um copo"
-                  @click="form[currentStep.id] = Math.max(0, (form[currentStep.id] || 0) - 1)"
+                  aria-label="Remover 0,25 litro"
+                  @click="adjustWater(-WATER_STEP_L)"
                 >
                   −
                 </button>
                 <div class="typeform-water-value">
-                  <strong>{{ form[currentStep.id] ?? 0 }}</strong>
-                  <span>{{ (form[currentStep.id] ?? 0) === 1 ? 'copo' : 'copos' }}</span>
+                  <strong>{{ formatWaterLiters(form[currentStep.id]) }}</strong>
+                  <span>{{ waterUnitLabel }}</span>
                 </div>
                 <button
                   type="button"
                   class="typeform-water-btn"
-                  aria-label="Adicionar um copo"
-                  @click="form[currentStep.id] = Math.min(12, (form[currentStep.id] || 0) + 1)"
+                  aria-label="Adicionar 0,25 litro"
+                  @click="adjustWater(WATER_STEP_L)"
                 >
                   +
                 </button>
               </div>
+              <p class="typeform-water-hint">+0,25 L por toque</p>
             </div>
 
             <div v-else-if="stepType === 'exercise'" class="typeform-choices">
@@ -162,6 +163,10 @@ const props = defineProps({
 
 const emit = defineEmits(['submit'])
 
+const WATER_STEP_L = 0.25
+const WATER_MAX_L = 5
+const WATER_DEFAULT_L = 2
+
 const form = reactive({})
 const stepIndex = ref(0)
 
@@ -217,10 +222,29 @@ const okLabel = computed(() => {
 
 const okHint = computed(() => (props.saving ? 'Salvando...' : 'continuar'))
 
+const waterUnitLabel = computed(() => {
+  const value = Number(form[currentStep.value.id] ?? 0)
+  return value === 1 ? 'litro' : 'litros'
+})
+
+function formatWaterLiters(value) {
+  const liters = Number(value ?? 0)
+  if (!Number.isFinite(liters)) return '0'
+  const rounded = Math.round(liters * 100) / 100
+  if (rounded % 1 === 0) return String(rounded)
+  return rounded.toFixed(2).replace(/0$/, '').replace(/\.$/, '').replace('.', ',')
+}
+
+function adjustWater(delta) {
+  const id = currentStep.value.id
+  const next = Math.round(((form[id] || 0) + delta) * 100) / 100
+  form[id] = Math.max(0, Math.min(WATER_MAX_L, next))
+}
+
 function initForm() {
   for (const key of Object.keys(form)) delete form[key]
   for (const step of flowSteps.value) {
-    form[step.id] = step.type === 'water' ? 6 : null
+    form[step.id] = step.type === 'water' ? WATER_DEFAULT_L : null
   }
   stepIndex.value = 0
 }
@@ -524,6 +548,12 @@ onUnmounted(() => {
   margin-top: 0.35rem;
   font-size: 0.9rem;
   font-weight: 500;
+  color: var(--cf-text-muted);
+}
+
+.typeform-water-hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.78rem;
   color: var(--cf-text-muted);
 }
 

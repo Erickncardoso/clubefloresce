@@ -1,4 +1,6 @@
-import { getWeekStart } from "./week-start";
+import { getWeekStart, getWeekStartInTimeZone } from "./week-start";
+import { CHECKIN_TIMEZONE } from "./checkin-weekly-window";
+import { entryDateFromKey } from "./patient-timezone";
 
 export function readPatientDateKey(
   headers?: Record<string, string | string[] | undefined>,
@@ -31,5 +33,5 @@ export function resolvePeriodKey(
     return `${year}-${month}`;
   }
 
-  return getWeekStart(reference).toISOString();
+  return getWeekStartInTimeZone(CHECKIN_TIMEZONE, reference).toISOString();
 }

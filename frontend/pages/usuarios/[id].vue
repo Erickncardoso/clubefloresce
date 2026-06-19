@@ -240,17 +240,44 @@
             <h3>Registros recentes do diário</h3>
             <div v-if="!foodDiary.length" class="empty">Nenhuma refeição registrada.</div>
             <div v-for="entry in foodDiary" :key="entry.id" class="diary-row">
-              <div class="diary-head">
-                <strong>{{ entry.mealLabel || entry.mealType }}</strong>
-                <span>{{ entry.entryDate }}</span>
-              </div>
-              <div class="diary-macros">
-                <span v-if="entry.caloriesKcal">{{ Math.round(entry.caloriesKcal) }} kcal</span>
-                <span v-if="entry.proteinG">P {{ Math.round(entry.proteinG) }}g</span>
-                <span v-if="entry.carbsG">C {{ Math.round(entry.carbsG) }}g</span>
-                <span v-if="entry.fatG">G {{ Math.round(entry.fatG) }}g</span>
+              <img v-if="entry.imageUrl" :src="entry.imageUrl" alt="" class="diary-thumb" loading="lazy" />
+              <div class="diary-body">
+                <div class="diary-head">
+                  <strong>{{ entry.mealLabel || entry.mealType }}</strong>
+                  <span>{{ formatDiaryDate(entry.entryDate) }}</span>
+                </div>
+                <div class="diary-macros">
+                  <span v-if="entry.caloriesKcal">{{ Math.round(entry.caloriesKcal) }} kcal</span>
+                  <span v-if="entry.proteinG">P {{ Math.round(entry.proteinG) }}g</span>
+                  <span v-if="entry.carbsG">C {{ Math.round(entry.carbsG) }}g</span>
+                  <span v-if="entry.fatG">G {{ Math.round(entry.fatG) }}g</span>
+                </div>
               </div>
             </div>
+          </article>
+        </section>
+
+        <!-- Nutrição -->
+        <section v-if="activeTab === 'nutricao'" class="tab-panel">
+          <article class="info-card">
+            <h3>Panorama nutricional</h3>
+            <EvolucaoNutritionMonthView :patient-id="patientId" />
+          </article>
+        </section>
+
+        <!-- Metas -->
+        <section v-if="activeTab === 'metas'" class="tab-panel">
+          <article class="info-card">
+            <h3>Metas da paciente</h3>
+            <PatientsPatientGoalsPanel :patient-id="patientId" :nutrition-target="overview.nutritionTarget" />
+          </article>
+        </section>
+
+        <!-- Fotos -->
+        <section v-if="activeTab === 'fotos'" class="tab-panel">
+          <article class="info-card">
+            <h3>Fotos de refeições</h3>
+            <PatientsPatientPhotosPanel :patient-id="patientId" />
           </article>
         </section>
       </template>
@@ -330,7 +357,13 @@ const foodDiary = ref([])
 const checkInHistory = ref([])
 const templateResponses = ref([])
 const currentWeekStart = ref('')
-const activeTab = ref(route.query.tab === 'checkins' ? 'checkins' : 'resumo')
+const activeTab = ref(normalizePatientTab(route.query.tab))
+
+function normalizePatientTab(value) {
+  const tab = String(value || 'resumo')
+  if (['resumo', 'checkins', 'plano', 'diario', 'nutricao', 'metas', 'fotos'].includes(tab)) return tab
+  return 'resumo'
+}
 const savingCheckIn = ref(false)
 const checkInMessage = ref('')
 const checkInError = ref(false)
@@ -344,6 +377,9 @@ const savingPatient = ref(false)
 const tabs = [
   { id: 'resumo', label: 'Resumo' },
   { id: 'checkins', label: 'Check-ins' },
+  { id: 'nutricao', label: 'Nutrição' },
+  { id: 'metas', label: 'Metas' },
+  { id: 'fotos', label: 'Fotos' },
   { id: 'plano', label: 'Plano alimentar' },
   { id: 'diario', label: 'Diário' },
 ]
@@ -450,6 +486,19 @@ const formatDateTime = (date) =>
   new Date(date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 const formatWeek = (dateStr) => formatDate(dateStr)
+
+const formatDiaryDate = (value) => {
+  if (!value) return '—'
+  const text = typeof value === 'string' ? value.slice(0, 10) : value
+  return new Date(`${text}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
+
+watch(
+  () => route.query.tab,
+  (tab) => {
+    activeTab.value = normalizePatientTab(tab)
+  },
+)
 
 const loadCheckInToForm = (item) => {
   checkInForm.weekStart = item.weekStart
@@ -794,10 +843,31 @@ onMounted(loadAll)
 }
 
 .mini-row,
-.bella-row,
-.diary-row {
+.bella-row {
   padding: 0.75rem 0;
   border-bottom: 1px solid #f5f5f5;
+}
+
+.diary-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.diary-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f3f3f3;
+}
+
+.diary-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .mini-row {

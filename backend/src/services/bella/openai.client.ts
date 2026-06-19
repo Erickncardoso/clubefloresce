@@ -2,6 +2,7 @@ import type { ChatMessage, LLMCompletionResult, MessageContent, OpenAIToolDefini
 import { readEnv } from "../../utils/env";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_REQUEST_TIMEOUT_MS || 90_000);
 
 export class OpenAIApiError extends Error {
   statusCode?: number;
@@ -54,14 +55,31 @@ export class OpenAIClient {
       body.response_format = params.responseFormat;
     }
 
-    const res = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), OPENAI_REQUEST_TIMEOUT_MS);
+
+    let res: Response;
+    try {
+      res = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new OpenAIApiError(
+          "A análise demorou muito. Tente outra foto com boa luz ou aguarde um instante e envie de novo.",
+          504,
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!res.ok) {
       const errText = await res.text();

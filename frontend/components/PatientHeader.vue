@@ -1,6 +1,6 @@
 <template>
   <header class="cf-header">
-    <button type="button" class="cf-header-btn" aria-label="Menu" @click="menuOpen = true">
+    <button type="button" class="cf-header-btn" aria-label="Menu" @click="openMenu">
       <Menu class="cf-header-icon" />
     </button>
 
@@ -17,13 +17,20 @@
       <slot name="actions" />
       <button
         v-if="showBell"
+        ref="notifAnchorRef"
         type="button"
         class="cf-header-btn"
         aria-label="Notificações"
-        @click="navigateTo('/perfil/notificacoes')"
+        :aria-expanded="notifOpen"
+        @click="toggleNotifications"
       >
         <Bell class="cf-header-icon" />
-        <span v-if="showNotificationDot" class="cf-header-dot" />
+        <span
+          v-if="badgeText"
+          class="cf-header-badge"
+          :class="{ 'cf-header-badge--wide': badgeText.length > 1 }"
+          aria-hidden="true"
+        >{{ badgeText }}</span>
       </button>
       <button
         v-if="showBack"
@@ -37,6 +44,11 @@
     </div>
 
     <PatientMenuDrawer :open="menuOpen" @close="menuOpen = false" />
+    <PatientNotificationsPanel
+      :open="notifOpen"
+      :anchor-el="notifAnchorRef"
+      @close="notifOpen = false"
+    />
   </header>
 </template>
 
@@ -54,9 +66,26 @@ const props = defineProps({
 
 const router = useRouter()
 const menuOpen = ref(false)
-const { hasUnread } = usePatientNotifications()
+const notifOpen = ref(false)
+const notifAnchorRef = ref(null)
+const { unreadCount, fetchNotifications } = usePatientNotifications()
 
-const showNotificationDot = computed(() => props.hasNotifications || hasUnread.value)
+const badgeText = computed(() => {
+  if (!props.hasNotifications && unreadCount.value <= 0) return ''
+  const count = props.hasNotifications ? Math.max(unreadCount.value, 1) : unreadCount.value
+  if (count <= 0) return ''
+  return count > 9 ? '9+' : String(count)
+})
+
+function openMenu() {
+  notifOpen.value = false
+  menuOpen.value = true
+}
+
+function toggleNotifications() {
+  menuOpen.value = false
+  notifOpen.value = !notifOpen.value
+}
 
 function goBack() {
   if (props.backTo) {
@@ -66,6 +95,11 @@ function goBack() {
   if (import.meta.client && window.history.length > 1) router.back()
   else navigateTo('/inicio')
 }
+
+onMounted(() => {
+  if (!props.showBell || !import.meta.client) return
+  void fetchNotifications()
+})
 </script>
 
 <style scoped>
@@ -132,14 +166,34 @@ function goBack() {
   flex-shrink: 0;
 }
 
-.cf-header-dot {
+.cf-header-badge {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
+  top: 0.42rem;
+  right: 0.38rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.8rem;
+  height: 0.8rem;
+  padding: 0;
   border-radius: 50%;
   background: var(--cf-green);
-  border: 2px solid var(--cf-bg);
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  border: 1.5px solid var(--cf-bg);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.cf-header-badge--wide {
+  width: auto;
+  min-width: 0.8rem;
+  height: 0.8rem;
+  padding: 0 0.18rem;
+  border-radius: 999px;
 }
 </style>

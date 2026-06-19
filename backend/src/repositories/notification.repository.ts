@@ -1,5 +1,6 @@
 import { } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import { dispatchPushToUser } from "../services/push-notification.service";
 
 export type CreateNotificationInput = {
   userId: string;
@@ -30,7 +31,7 @@ export class NotificationRepository {
       return prisma.notification.create({ data: input });
     }
 
-    return prisma.notification.upsert({
+    const notification = await prisma.notification.upsert({
       where: {
         userId_sourceKey: {
           userId: input.userId,
@@ -43,8 +44,18 @@ export class NotificationRepository {
         title: input.title,
         body: input.body,
         actionPath: input.actionPath ?? null,
+        read: false,
       },
     });
+
+    dispatchPushToUser(input.userId, {
+      title: input.title,
+      body: input.body,
+      url: input.actionPath,
+      tag: input.sourceKey || notification.id,
+    });
+
+    return notification;
   }
 
   async deleteBySourceKey(userId: string, sourceKey: string) {

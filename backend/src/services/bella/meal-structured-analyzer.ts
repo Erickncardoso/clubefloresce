@@ -37,13 +37,14 @@ Retorne SOMENTE um JSON válido (sem markdown) neste formato:
 
 Regras:
 - Identifique CADA alimento visível no prato.
-- Use nomes EXATOS da TACO/TBCA quando souber, por exemplo:
+- Use nomes EXATOS da TBCA/TACO quando souber, por exemplo:
   - arroz branco cozido → "Arroz, tipo 1, cozido"
   - arroz integral cozido → "Arroz, integral, cozido"
   - feijão carioca cozido → "Feijão, carioca, cozido"
   - frango grelhado → "Frango, peito, sem pele, grelhado"
 - Preencha apenas "grams" (porção estimada em gramas). Calorias e macros serão calculados pela base de alimentos quando houver correspondência.
-- Se não reconhecer o alimento, ainda assim informe name e grams; deixe caloriesKcal, carbsG, proteinG e fatG como estimativa coerente.
+- Se não reconhecer o alimento ou não houver equivalente na TBCA/TACO, ainda informe name e grams; deixe caloriesKcal, carbsG, proteinG e fatG como estimativa coerente.
+- Se identificar um prato preparado ou receita (bolo, lasanha, strogonoff, pizza, sanduíche, feijoada etc.), NÃO trate como um único alimento genérico: liste cada ingrediente visível ou separável (ex.: arroz, feijão, frango) em itens distintos. Se não conseguir separar, use um nome descritivo e em "notes" avise para o paciente cadastrar ingrediente por ingrediente.
 - Não invente itens invisíveis.
 - Se a foto não mostrar comida, retorne "items": [] e explique em "notes".
 - Mínimo 1 item quando houver comida reconhecível.

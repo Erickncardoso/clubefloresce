@@ -12,14 +12,19 @@ export default defineNuxtPlugin(() => {
 
   if (isStandalonePwa()) {
     markPwaInstalled()
+    document.documentElement.classList.add('cf-pwa-standalone')
     return
   }
 
   const nuxtApp = useNuxtApp()
   if (nuxtApp.$pwa?.isPWAInstalled?.value) {
     markPwaInstalled()
+    document.documentElement.classList.add('cf-pwa-standalone')
     return
   }
 
-  if (hasInstalledPwa()) return
+  if (hasInstalledPwa()) {
+    document.documentElement.classList.add('cf-pwa-standalone')
+    return
+  }
 })

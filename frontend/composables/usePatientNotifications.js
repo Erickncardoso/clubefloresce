@@ -86,7 +86,10 @@ export function usePatientNotifications() {
         headers: authHeaders(),
       })
       items.value = data?.items || []
-      unreadCount.value = data?.unreadCount || 0
+      const serverCount = data?.unreadCount
+      unreadCount.value = typeof serverCount === 'number'
+        ? serverCount
+        : items.value.filter((item) => !item.read).length
     } catch (err) {
       error.value = err?.data?.message || 'Não foi possível carregar as notificações.'
     } finally {

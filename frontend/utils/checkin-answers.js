@@ -25,9 +25,13 @@ export function formatCheckinAnswer(step, value) {
   }
 
   if (type === 'water') {
-    const glasses = Number(value)
-    if (!Number.isFinite(glasses)) return String(value)
-    return glasses === 1 ? '1 copo' : `${glasses} copos`
+    const liters = Number(value)
+    if (!Number.isFinite(liters)) return String(value)
+    const rounded = Math.round(liters * 100) / 100
+    const text = rounded % 1 === 0
+      ? String(rounded)
+      : rounded.toFixed(2).replace(/0$/, '').replace(/\.$/, '').replace('.', ',')
+    return `${text} L`
   }
 
   if (type === 'exercise') {
@@ -94,11 +98,11 @@ export function scoreFromTemplateAnswers(answers) {
   }
 
   if (answers.water != null && Number.isFinite(Number(answers.water))) {
-    const glasses = Number(answers.water)
-    if (glasses <= 2) values.push(1)
-    else if (glasses <= 4) values.push(2)
-    else if (glasses <= 6) values.push(3)
-    else if (glasses <= 8) values.push(4)
+    const liters = Number(answers.water)
+    if (liters <= 0.5) values.push(1)
+    else if (liters <= 1) values.push(2)
+    else if (liters <= 1.5) values.push(3)
+    else if (liters <= 2) values.push(4)
     else values.push(5)
   }
 

@@ -1,6 +1,6 @@
 import { CheckInRepository } from "../repositories/checkin.repository";
 import { assertPatientUser, resolveWeekStart } from "../utils/patient-access";
-import { getWeekStart } from "../utils/week-start";
+import { resolvePatientWeekStart, type PatientWeekHeaders } from "../utils/week-start";
 
 const checkInRepository = new CheckInRepository();
 
@@ -20,8 +20,8 @@ function clampScore(value: unknown, min = 1, max = 5): number {
 }
 
 export class CheckInService {
-  async getMyCheckIns(userId: string) {
-    const weekStart = getWeekStart();
+  async getMyCheckIns(userId: string, patientHeaders?: PatientWeekHeaders) {
+    const weekStart = resolvePatientWeekStart(patientHeaders);
     const current = await checkInRepository.findByUserAndWeek(userId, weekStart);
     const history = await checkInRepository.findHistoryByUser(userId, 12);
     return { weekStart, current, history };
@@ -53,15 +53,15 @@ export class CheckInService {
     return { weekStart, mood, energy, adherence, weightKg, notes };
   }
 
-  async submitCheckIn(userId: string, data: CheckInPayload) {
-    const weekStart = getWeekStart();
+  async submitCheckIn(userId: string, data: CheckInPayload, patientHeaders?: PatientWeekHeaders) {
+    const weekStart = resolvePatientWeekStart(patientHeaders);
     const payload = this.normalizePayload(data, weekStart);
     return checkInRepository.upsert({ userId, ...payload });
   }
 
   async getPatientCheckIns(userId: string) {
     await assertPatientUser(userId);
-    const weekStart = getWeekStart();
+    const weekStart = resolvePatientWeekStart();
     const current = await checkInRepository.findByUserAndWeek(userId, weekStart);
     const history = await checkInRepository.findHistoryByUser(userId, 52);
     return { weekStart, current, history };

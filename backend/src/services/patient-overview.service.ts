@@ -113,6 +113,7 @@ export class PatientOverviewService {
       entryDate: entry.entryDate,
       mealType: entry.mealType,
       mealLabel: entry.mealLabel,
+      imageUrl: entry.imageUrl,
       caloriesKcal: entry.caloriesKcal,
       proteinG: entry.proteinG,
       carbsG: entry.carbsG,

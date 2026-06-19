@@ -44,7 +44,9 @@ export default defineNuxtConfig({
     join(frontendRoot, 'plugins/patient-session.client.ts'),
     join(frontendRoot, 'plugins/patient-route.client.ts'),
     join(frontendRoot, 'plugins/patient-meal-plan.client.ts'),
+    join(frontendRoot, 'plugins/patient-notifications.client.ts'),
     join(frontendRoot, 'plugins/pwa-standalone.client.ts'),
+    join(frontendRoot, 'plugins/push-notifications.client.ts'),
   ],
 
   dir: {
@@ -93,12 +95,11 @@ export default defineNuxtConfig({
   },
 
   css: [
-    '@fontsource/inter/latin-300.css',
-    '@fontsource/inter/latin-400.css',
-    '@fontsource/inter/latin-500.css',
-    '@fontsource/inter/latin-600.css',
-    '@fontsource/inter/latin-700.css',
-    '@fontsource/inter/latin-800.css',
+    '@fontsource/plus-jakarta-sans/latin-400.css',
+    '@fontsource/plus-jakarta-sans/latin-500.css',
+    '@fontsource/plus-jakarta-sans/latin-600.css',
+    '@fontsource/plus-jakarta-sans/latin-700.css',
+    '@fontsource/plus-jakarta-sans/latin-800.css',
     join(frontendRoot, 'assets/css/fonts.css'),
     join(frontendRoot, 'assets/css/patient-app.css'),
     join(frontendRoot, 'assets/css/mobile-app.css'),
@@ -149,13 +150,14 @@ export default defineNuxtConfig({
       globPatterns: ['**/*.{js,css,png,svg,ico,webp,woff2,woff,webmanifest}'],
       cleanupOutdatedCaches: true,
       clientsClaim: true,
+      importScripts: ['/push-sw.js'],
     },
     client: {
       installPrompt: true,
       periodicSyncForUpdates: 300,
     },
     devOptions: {
-      enabled: process.env.NUXT_PWA_DEV === 'true',
+      enabled: true,
       suppressWarnings: true,
       navigateFallback: '/',
       type: 'module',

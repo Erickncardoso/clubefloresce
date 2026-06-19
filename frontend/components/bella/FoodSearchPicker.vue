@@ -32,7 +32,7 @@
           v-model="searchQuery"
           type="search"
           class="food-picker-search"
-          placeholder="Digite para buscar (TACO / TBCA)…"
+          placeholder="Digite para buscar (TBCA / TACO)…"
           autocomplete="off"
           @keydown="onSearchKeydown"
         />

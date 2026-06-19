@@ -6,6 +6,7 @@ import { parseDietboxMealPlan } from "./dietbox-parser";
 import { parseMealPlanWithAi } from "./meal-plan-ai-parser";
 import { extractPdfRawText } from "./pdf-text";
 import { normalizePersonName, syncUserNameFromMealPlan } from "./sync-patient-name";
+import { syncNutritionTargetsFromMealPlan } from "./sync-nutrition-targets";
 import type { User } from "@prisma/client";
 
 const repo = new MealPlanRepository();
@@ -68,7 +69,16 @@ export class MealPlanService {
   async uploadAndSave(
     userId: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
-  ): Promise<{ plan: PatientMealPlanResponse; user: Omit<User, "password"> | null }> {
+  ): Promise<{
+    plan: PatientMealPlanResponse;
+    user: Omit<User, "password"> | null;
+    nutritionTargets: {
+      caloriesKcal: number;
+      proteinG: number;
+      carbsG: number;
+      fatG: number;
+    } | null;
+  }> {
     const fileName = file.originalname || "plano-alimentar.pdf";
     const parsedPlan = await this.parsePdfBuffer(file.buffer, fileName);
     const patientName = normalizePersonName(parsedPlan.patientName);
@@ -101,10 +111,19 @@ export class MealPlanService {
     });
 
     const syncedUser = await syncUserNameFromMealPlan(userId, patientName);
+    const syncedTargets = await syncNutritionTargetsFromMealPlan(userId, plan.nutritionTotals);
 
     return {
       plan: toResponse(saved, userId),
       user: syncedUser,
+      nutritionTargets: syncedTargets
+        ? {
+            caloriesKcal: syncedTargets.caloriesKcal,
+            proteinG: syncedTargets.proteinG,
+            carbsG: syncedTargets.carbsG,
+            fatG: syncedTargets.fatG,
+          }
+        : null,
     };
   }
 }

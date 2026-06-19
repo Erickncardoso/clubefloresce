@@ -7,6 +7,7 @@ const controller = new FoodController();
 
 router.get("/stats", authenticate, controller.stats.bind(controller));
 router.get("/search", authenticate, controller.search.bind(controller));
+router.post("/substitute", authenticate, controller.substitute.bind(controller));
 router.get("/match", authenticate, controller.match.bind(controller));
 router.get("/:id", authenticate, controller.getById.bind(controller));
 

@@ -50,6 +50,25 @@ test("evaluateTopicRedirect: label redireciona fale mais para ask", () => {
   assert.equal(decision?.targetTopic, "ask");
 });
 
+test("evaluateTopicRedirect: label com imagem e pergunta fora do escopo redireciona", () => {
+  const decision = evaluateTopicRedirect({
+    topic: "label",
+    message: "posso comer isso todo dia?",
+    firstName: "Ana",
+  });
+  assert.ok(decision);
+  assert.equal(decision?.targetTopic, "ask");
+});
+
+test("evaluateTopicRedirect: label com pergunta de rótulo não redireciona mesmo com anexo implícito", () => {
+  const decision = evaluateTopicRedirect({
+    topic: "label",
+    message: "esse rótulo tem muito sódio?",
+    firstName: "Ana",
+  });
+  assert.equal(decision, null);
+});
+
 test("buildTopicLink: formato esperado", () => {
   assert.equal(buildTopicLink("ask"), "[[chat:ask|Fazer pergunta]]");
 });

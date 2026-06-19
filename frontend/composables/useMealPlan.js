@@ -1,16 +1,6 @@
-import { Coffee, Cookie, Moon, Salad, Sun, Utensils } from 'lucide-vue-next'
 import { formatMealItemLabel, formatMealItemsLabels } from '~/utils/meal-plan-format'
 import { getMealIdForTimeFromMeals } from '~/utils/meal-plan-time'
-
-function pickMealIcon(label = '') {
-  const value = label.toLowerCase()
-  if (value.includes('café') || value.includes('cafe')) return Coffee
-  if (value.includes('lanche') || value.includes('shake') || value.includes('sobremesa')) return Cookie
-  if (value.includes('almoço') || value.includes('almoco')) return Salad
-  if (value.includes('jantar')) return Moon
-  if (value.includes('tarde')) return Sun
-  return Utensils
-}
+import { pickMealIcon } from '~/utils/meal-slot-options'
 
 function mapApiItem(item) {
   return {

@@ -12,22 +12,32 @@
 
     <template v-else>
     <section class="perfil-hero">
-      <div class="perfil-avatar-wrap">
+      <label
+        class="perfil-avatar-wrap"
+        :class="{ 'perfil-avatar-wrap--uploading': avatarUploading }"
+        aria-label="Alterar foto do perfil"
+      >
         <PatientAvatar
           size="xl"
           :src="avatarUrl"
           :name="fullName"
           :initials="initials"
+          :interactive="!avatarUploading"
         />
-        <button
-          type="button"
-          class="perfil-avatar-edit"
-          aria-label="Alterar foto do perfil"
-          @click="navigateTo('/perfil/configuracoes')"
-        >
-          <Camera class="perfil-avatar-edit-icon" />
-        </button>
-      </div>
+        <span class="perfil-avatar-edit" aria-hidden="true">
+          <Loader2 v-if="avatarUploading" class="perfil-avatar-edit-icon perfil-avatar-edit-icon--spin" />
+          <Camera v-else class="perfil-avatar-edit-icon" />
+        </span>
+        <input
+          ref="avatarInputEl"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/*"
+          class="perfil-avatar-input"
+          :disabled="avatarUploading"
+          @change="onAvatarSelected"
+        />
+      </label>
+      <p v-if="avatarError" class="perfil-avatar-error" role="alert">{{ avatarError }}</p>
       <h1 class="perfil-name">{{ fullName }}</h1>
       <p v-if="memberSince" class="perfil-since">Membro desde {{ memberSince }}</p>
     </section>
@@ -99,6 +109,7 @@ import {
   ChevronRight,
   Flower2,
   HelpCircle,
+  Loader2,
   LogOut,
   Settings,
   Sun,
@@ -110,7 +121,14 @@ import {
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const config = useRuntimeConfig()
-const { clearPatientSession, userFullName, userInitials, userAvatar, memberSinceLabel } = usePatientApp()
+const {
+  clearPatientSession,
+  userFullName,
+  userInitials,
+  userAvatar,
+  memberSinceLabel,
+  uploadProfileAvatar,
+} = usePatientApp()
 
 const fullName = computed(() => userFullName())
 const initials = computed(() => userInitials())
@@ -120,6 +138,9 @@ const checkInWeeks = ref(0)
 const flowers = ref(24)
 const level = ref('Girassol')
 const pageLoading = ref(true)
+const avatarInputEl = ref(null)
+const avatarUploading = ref(false)
+const avatarError = ref('')
 
 onMounted(async () => {
   pageLoading.value = true
@@ -137,6 +158,33 @@ onMounted(async () => {
 function logout() {
   clearPatientSession()
   navigateTo('/')
+}
+
+function onAvatarSelected(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    avatarError.value = 'Selecione uma imagem (JPG, PNG ou WEBP).'
+    return
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    avatarError.value = 'A imagem deve ter no máximo 8 MB.'
+    return
+  }
+
+  avatarError.value = ''
+  avatarUploading.value = true
+
+  uploadProfileAvatar(file)
+    .catch((err) => {
+      avatarError.value = err?.data?.message || 'Não foi possível atualizar a foto. Tente novamente.'
+    })
+    .finally(() => {
+      avatarUploading.value = false
+    })
 }
 </script>
 
@@ -170,8 +218,33 @@ function logout() {
 
 .perfil-avatar-wrap {
   position: relative;
+  display: block;
   width: fit-content;
   margin: 0 auto 0.85rem;
+  cursor: pointer;
+}
+
+.perfil-avatar-wrap--uploading {
+  cursor: wait;
+  pointer-events: none;
+}
+
+.perfil-avatar-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.perfil-avatar-error {
+  margin: -0.5rem 0 0.75rem;
+  font-size: 0.78rem;
+  color: #d64545;
+  text-align: center;
 }
 
 .perfil-avatar-edit {
@@ -187,11 +260,10 @@ function logout() {
   border-radius: 50%;
   background: var(--cf-green);
   color: #fff;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
 }
 
-.perfil-avatar-edit:active {
+.perfil-avatar-wrap:active .perfil-avatar-edit {
   transform: scale(0.96);
   background: var(--cf-green-dark);
 }
@@ -199,6 +271,16 @@ function logout() {
 .perfil-avatar-edit-icon {
   width: 0.95rem;
   height: 0.95rem;
+}
+
+.perfil-avatar-edit-icon--spin {
+  animation: perfil-avatar-spin 0.9s linear infinite;
+}
+
+@keyframes perfil-avatar-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .perfil-name {

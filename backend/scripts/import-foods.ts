@@ -87,6 +87,11 @@ async function main() {
   const tbca = await readJson("tbca.json");
   const all = [...taco, ...tbca];
 
+  const removed = await prisma.foodItem.deleteMany({ where: { source: "TBCA" } });
+  if (removed.count > 0) {
+    console.log(`Removidos ${removed.count} registros TBCA antigos antes da reimportacao.`);
+  }
+
   console.log(`Importando ${all.length} alimentos (TACO: ${taco.length}, TBCA: ${tbca.length})...`);
   await importBatch(all);
 

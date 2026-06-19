@@ -2,11 +2,14 @@
   <div class="evo-weight">
     <form class="evo-weight-form cf-squircle" @submit.prevent="saveWeight">
       <h3>Registrar peso</h3>
-      <div class="evo-weight-row">
-        <input v-model="weightInput" type="number" step="0.1" min="20" max="500" placeholder="Ex: 68.5" />
-        <span>kg</span>
-        <button type="submit" class="evo-weight-save" :disabled="saving">Salvar</button>
+      <p class="evo-weight-hint">Arraste a régua para o lado até o peso de hoje.</p>
+      <SharedWeightRulerPicker v-if="!loading" v-model="weightValue" />
+      <div class="evo-weight-actions">
+        <button type="submit" class="evo-weight-save" :disabled="saving || weightValue == null">
+          {{ saving ? 'Salvando…' : 'Salvar peso' }}
+        </button>
       </div>
+      <p v-if="saveSuccess" class="evo-weight-success">Peso salvo com sucesso.</p>
       <p v-if="formError" class="evo-weight-error">{{ formError }}</p>
     </form>
 
@@ -20,9 +23,13 @@
       <li v-for="entry in entries" :key="entry.id" class="evo-weight-item cf-squircle">
         <div>
           <strong>{{ formatWeight(entry.weightKg) }} kg</strong>
-          <span>{{ formatWeek(entry.weekStart) }}</span>
+          <span>{{ formatRecordedAt(entry) }}</span>
         </div>
-        <span v-if="entry.delta != null" class="evo-weight-delta" :class="{ 'evo-weight-delta--down': entry.delta < 0, 'evo-weight-delta--up': entry.delta > 0 }">
+        <span
+          v-if="entry.delta != null"
+          class="evo-weight-delta"
+          :class="{ 'evo-weight-delta--down': entry.delta < 0, 'evo-weight-delta--up': entry.delta > 0 }"
+        >
           {{ entry.delta > 0 ? '+' : '' }}{{ entry.delta.toFixed(1) }} kg
         </span>
       </li>
@@ -36,36 +43,53 @@
 </template>
 
 <script setup>
+import { formatPatientDateLabel } from '~/utils/local-date'
+
 const config = useRuntimeConfig()
 const { patientTimeHeaders } = usePatientLocalTime()
 
 const loading = ref(true)
 const saving = ref(false)
 const formError = ref('')
-const weightInput = ref('')
+const saveSuccess = ref(false)
+const weightValue = ref(null)
 const entries = ref([])
+
+let saveSuccessTimer = null
 
 function formatWeight(value) {
   return Number(value).toFixed(1).replace('.0', '')
 }
 
-function formatWeek(value) {
-  const date = new Date(value)
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+function formatRecordedAt(entry) {
+  const stamp = entry?.updatedAt || entry?.createdAt || entry?.weekStart
+  return formatPatientDateLabel(stamp)
 }
 
-async function loadHistory() {
-  loading.value = true
+async function loadHistory({ silent = false } = {}) {
+  if (!silent) loading.value = true
   try {
     const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: patientTimeHeaders() })
+    const seen = new Set()
     const rows = []
-    if (data.current?.weightKg != null) rows.push(data.current)
-    for (const item of data.history || []) {
-      if (item.weightKg != null) rows.push(item)
+
+    const pushRow = (item) => {
+      if (item?.weightKg == null) return
+      const key = item.id || String(item.weekStart)
+      if (seen.has(key)) return
+      seen.add(key)
+      rows.push(item)
     }
 
+    if (data.current) pushRow(data.current)
+    for (const item of data.history || []) pushRow(item)
+
     const sorted = rows
-      .sort((a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime())
+      .sort((a, b) => {
+        const aTime = new Date(a.updatedAt || a.createdAt || a.weekStart).getTime()
+        const bTime = new Date(b.updatedAt || b.createdAt || b.weekStart).getTime()
+        return bTime - aTime
+      })
       .slice(0, 12)
 
     entries.value = sorted.map((row, index) => {
@@ -73,16 +97,21 @@ async function loadHistory() {
       const delta = prev?.weightKg != null ? row.weightKg - prev.weightKg : null
       return { ...row, delta }
     })
+
+    const latest = sorted[0]?.weightKg
+    weightValue.value = latest != null ? latest : 70
   } catch {
     entries.value = []
+    weightValue.value = 70
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
 async function saveWeight() {
   formError.value = ''
-  const weight = Number(weightInput.value)
+  saveSuccess.value = false
+  const weight = Number(weightValue.value)
   if (!Number.isFinite(weight) || weight <= 0) {
     formError.value = 'Informe um peso válido.'
     return
@@ -102,8 +131,12 @@ async function saveWeight() {
         notes: current.current?.notes || '',
       },
     })
-    weightInput.value = ''
-    await loadHistory()
+    await loadHistory({ silent: true })
+    saveSuccess.value = true
+    if (saveSuccessTimer) clearTimeout(saveSuccessTimer)
+    saveSuccessTimer = setTimeout(() => {
+      saveSuccess.value = false
+    }, 3000)
   } catch (error) {
     formError.value = error?.data?.message || 'Não foi possível salvar o peso.'
   } finally {
@@ -112,6 +145,10 @@ async function saveWeight() {
 }
 
 onMounted(loadHistory)
+
+onBeforeUnmount(() => {
+  if (saveSuccessTimer) clearTimeout(saveSuccessTimer)
+})
 </script>
 
 <style scoped>
@@ -136,34 +173,45 @@ onMounted(loadHistory)
   font-size: 0.92rem;
 }
 
-.evo-weight-row {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
+.evo-weight-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--cf-text-muted);
 }
 
-.evo-weight-row input {
-  flex: 1;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid var(--cf-border);
-  border-radius: 10px;
-  font-size: 0.9rem;
+.evo-weight-actions {
+  margin-top: 0.85rem;
 }
 
 .evo-weight-save {
-  padding: 0.55rem 0.85rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
   border: none;
   border-radius: 10px;
   background: var(--cf-green);
   color: #fff;
   font-weight: 600;
+  font-size: 0.82rem;
   cursor: pointer;
+}
+
+.evo-weight-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .evo-weight-error {
   margin: 0.5rem 0 0;
   font-size: 0.75rem;
   color: var(--pa-red, #d64545);
+}
+
+.evo-weight-success {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--cf-green-dark);
+  font-weight: 600;
 }
 
 .evo-weight-loading {

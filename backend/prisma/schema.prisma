@@ -56,6 +56,7 @@ model User {
   status        UserStatus @default(ATIVO)
   plan          UserPlan   @default(FREE)
   accessExpiresAt DateTime?
+  patientGoalsData Json?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -65,6 +66,7 @@ model User {
   posts         Post[]
   comments      Comment[]
   notifications Notification[]
+  pushSubscriptions PushSubscription[]
   lessonProgress LessonProgress[]
   likedComments Comment[]        @relation("CommentLikes")
   likedPosts    Post[]           @relation("PostLikes")
@@ -340,6 +342,21 @@ model Notification {
 
   @@unique([userId, sourceKey])
   @@index([userId, read, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, endpoint])
+  @@index([userId])
 }
 
 model Transaction {

@@ -1,5 +1,9 @@
 import { FoodSource } from "@prisma/client";
 import { FoodRepository } from "../repositories/food.repository";
+import {
+  calculateFoodSubstitution,
+  type SubstitutionRequest,
+} from "./food-substitution.service";
 
 export class FoodService {
   private repo = new FoodRepository();
@@ -37,5 +41,9 @@ export class FoodService {
 
   async getById(id: string) {
     return this.repo.findById(id);
+  }
+
+  async calculateSubstitution(input: SubstitutionRequest) {
+    return calculateFoodSubstitution(input);
   }
 }

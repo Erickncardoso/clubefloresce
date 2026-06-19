@@ -1,5 +1,5 @@
 <template>
-  <div v-if="showSelection || showMode" class="bella-swap-actions" role="group" :aria-label="ariaLabel">
+  <div v-if="showSelection || showMode || showRestart" class="bella-swap-actions" role="group" :aria-label="ariaLabel">
     <template v-if="showSelection">
       <button
         v-for="option in options"
@@ -11,6 +11,19 @@
       >
         {{ option.label }}
       </button>
+
+      <button
+        v-if="isSuggestionStep"
+        type="button"
+        class="bella-swap-btn bella-swap-btn--outline"
+        :disabled="disabled"
+        @click="emit('custom')"
+      >
+        Nenhuma agrada? Escreva outro alimento
+      </button>
+      <p v-if="isSuggestionStep" class="bella-swap-hint">
+        Ou toque acima em uma sugestão. Se preferir outro alimento, use o botão e digite abaixo.
+      </p>
     </template>
 
     <template v-else-if="showMode">
@@ -23,6 +36,17 @@
         Ver sugestões
       </button>
       <p class="bella-swap-hint">Ou digite abaixo o alimento que quer incluir no lugar.</p>
+    </template>
+
+    <template v-else-if="showRestart">
+      <button
+        type="button"
+        class="bella-swap-btn bella-swap-btn--primary"
+        :disabled="disabled"
+        @click="emit('restart')"
+      >
+        Fazer nova substituição
+      </button>
     </template>
   </div>
 </template>
@@ -39,15 +63,19 @@ import {
 const props = defineProps({
   message: { type: Object, default: null },
   disabled: { type: Boolean, default: false },
+  showRestart: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['select', 'mode'])
+const emit = defineEmits(['select', 'mode', 'custom', 'restart'])
 
 const showSelection = computed(() => hasActiveSwapSelection(props.message))
 const showMode = computed(() => !showSelection.value && hasActiveSwapMode(props.message))
+const showRestart = computed(() => !showSelection.value && !showMode.value && props.showRestart)
 const options = computed(() => getSwapOptions(props.message))
+const isSuggestionStep = computed(() => getSwapMessageMeta(props.message)?.swapStep === 'suggestion')
 
 const ariaLabel = computed(() => {
+  if (showRestart.value) return 'Nova substituição'
   const step = getSwapMessageMeta(props.message)?.swapStep
   if (step === 'food') return 'Alimentos da refeição'
   if (step === 'meal') return 'Refeições do plano'
@@ -106,6 +134,13 @@ const ariaLabel = computed(() => {
   color: var(--cf-pink-dark, #a06267);
   text-align: center;
   font-weight: 700;
+}
+
+.bella-swap-btn--outline {
+  text-align: center;
+  border-style: dashed;
+  color: var(--cf-pink-dark, #a06267);
+  background: #fff;
 }
 
 .bella-swap-hint {

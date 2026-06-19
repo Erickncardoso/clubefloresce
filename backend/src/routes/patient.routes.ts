@@ -32,5 +32,29 @@ router.post(
   pdfUpload.single("file"),
   controller.uploadMealPlan.bind(controller),
 );
+router.get(
+  "/:id/food-diary/month",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.getFoodDiaryMonth.bind(controller),
+);
+router.get(
+  "/:id/food-diary/day",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.getFoodDiaryDay.bind(controller),
+);
+router.get(
+  "/:id/food-diary/photos",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.getFoodDiaryPhotos.bind(controller),
+);
+router.get(
+  "/:id/goals",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.getGoals.bind(controller),
+);
 
 export default router;

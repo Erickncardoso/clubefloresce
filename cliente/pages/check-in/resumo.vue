@@ -76,7 +76,7 @@ const tagFromText = (text) => {
   if (value.includes('Excelente') || value.includes('Boa') || value.includes('Sim')) {
     return 'patient-tag--ok'
   }
-  if (value.includes('Regular') || value.includes('copos')) {
+  if (value.includes('Regular') || value.includes('copos') || value.includes(' L')) {
     return 'patient-tag--warn'
   }
   if (value.includes('Ruim') || value.includes('Péssimo') || value.includes('Não')) {

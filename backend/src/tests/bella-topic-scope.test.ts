@@ -61,6 +61,15 @@ test("buildImageVisionPrompt: label inclui classificação do consumo", () => {
   assert.match(prompt, /Classificação do consumo/i);
   assert.match(prompt, /Verde|Amarelo|Vermelho/);
   assert.match(prompt, /NUNCA inclua seções ## Produto/i);
+  assert.match(prompt, /FONTE DE PROTEÍNA/i);
+  assert.match(prompt, /MAIORES.*carboidratos/i);
+  assert.match(prompt, /proteína baixa/i);
+  assert.match(prompt, /NUNCA.*boa quantidade de proteína/i);
+  assert.match(prompt, /6 g de proteína, escreva 6 g/i);
+  assert.match(prompt, /Preciso de uma foto melhor/i);
+  assert.match(prompt, /NÃO invente, estime nem arredonde/i);
+  assert.match(prompt, /porção de referência/i);
+  assert.match(prompt, /60 g \(1 unidade\)/i);
 });
 
 test("buildImageVisionPrompt: meal não menciona rótulo", () => {

@@ -66,7 +66,7 @@ const secondaryText = computed(() => {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 9999;
+  z-index: 10001;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -1,12 +1,34 @@
 import { apiConnectionErrorMessage, isApiConnectionError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
+function showUploadResultToast({ successTitle, errorMessage }) {
+  if (!import.meta.client) return
+
+  nextTick(() => {
+    window.setTimeout(() => {
+      const { showToast } = useAppToast()
+      if (successTitle) {
+        showToast({ type: 'success', title: successTitle })
+        return
+      }
+      if (errorMessage) {
+        showToast({
+          type: 'error',
+          title: 'Não foi possível atualizar o cardápio',
+          message: errorMessage,
+          duration: 5500,
+        })
+      }
+    }, 180)
+  })
+}
+
 export function usePatientMealPlan() {
   const config = useRuntimeConfig()
   const planRecord = useState('patient-meal-plan', () => null)
   const planChecked = useState('patient-meal-plan-checked', () => false)
-  const loading = ref(false)
-  const uploading = ref(false)
-  const error = ref('')
+  const loading = useState('patient-meal-plan-loading', () => false)
+  const uploading = useState('patient-meal-plan-uploading', () => false)
+  const error = useState('patient-meal-plan-error', () => '')
 
   const hasPlan = computed(() => Boolean(planRecord.value?.plan?.meals?.length))
 
@@ -43,6 +65,7 @@ export function usePatientMealPlan() {
     planRecord.value = null
     planChecked.value = false
     error.value = ''
+    uploading.value = false
   }
 
   function resolveUploadError(err) {
@@ -75,11 +98,18 @@ export function usePatientMealPlan() {
       return null
     }
 
+    const isUpdate = hasPlan.value
+    const uploadHadPlan = useState('patient-meal-plan-upload-had-plan', () => false)
+    uploadHadPlan.value = isUpdate
+
     uploading.value = true
     error.value = ''
 
     const formData = new FormData()
     formData.append('file', file)
+
+    let successTitle = null
+    let errorMessage = null
 
     try {
       const res = await $fetch(resolveUploadApiUrl('/meal-plan/upload', config.public.apiBase), {
@@ -99,12 +129,20 @@ export function usePatientMealPlan() {
         })
       }
 
+      if (res.nutritionTargets) {
+        const nutritionRefresh = useState('patient-nutrition-refresh', () => 0)
+        nutritionRefresh.value += 1
+      }
+
+      successTitle = isUpdate ? 'Cardápio atualizado' : 'Cardápio importado'
       return planRecord.value
     } catch (err) {
-      error.value = resolveUploadError(err)
+      errorMessage = resolveUploadError(err)
+      error.value = errorMessage
       throw err
     } finally {
       uploading.value = false
+      showUploadResultToast({ successTitle, errorMessage })
     }
   }
 

@@ -1,6 +1,7 @@
 import { PrismaClient, Role } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { getWeekStart } from "./week-start";
+import { getWeekStart, getWeekStartInTimeZone } from "./week-start";
+import { CHECKIN_TIMEZONE } from "./checkin-weekly-window";
 
 export async function assertPatientUser(userId: string) {
   const user = await prisma.user.findUnique({
@@ -34,7 +35,7 @@ export function resolveWeekStart(raw?: string | null): Date {
   if (raw && String(raw).trim()) {
     const parsed = new Date(raw);
     if (!Number.isNaN(parsed.getTime())) {
-      return getWeekStart(parsed);
+      return getWeekStartInTimeZone(CHECKIN_TIMEZONE, parsed);
     }
   }
   return getWeekStart();

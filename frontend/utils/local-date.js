@@ -45,3 +45,25 @@ export function getLocalTimeParts(date = new Date(), timeZone = getPatientTimeZo
     }
   }
 }
+
+/** Data legível no fuso do paciente (ex.: histórico de peso). */
+export function formatPatientDateLabel(value, timeZone = getPatientTimeZone()) {
+  if (!value) return ''
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  try {
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone,
+    })
+  } catch {
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+}

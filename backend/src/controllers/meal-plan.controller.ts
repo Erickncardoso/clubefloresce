@@ -30,6 +30,7 @@ export class MealPlanController {
         message: "Plano alimentar importado com sucesso.",
         plan: result.plan,
         user: result.user,
+        nutritionTargets: result.nutritionTargets,
       });
     } catch (error: any) {
       return res.status(400).json({ message: error.message || "Não foi possível processar o PDF." });

@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { getJwtSecret } from "../utils/jwt";
 import { UserStatus } from "@prisma/client";
 import { isPatientAccessExpired } from "../utils/access-expires";
+import { mapDatabaseError } from "../utils/db-errors";
 
 const authService = new AuthService();
 const registrationRequestService = new RegistrationRequestService();
@@ -89,6 +90,11 @@ export class AuthController {
       const data = await authService.login(email, password);
       return res.json(data);
     } catch (error: any) {
+      const mapped = mapDatabaseError(error);
+      if (mapped) {
+        return res.status(503).json({ message: mapped });
+      }
+
       const message = error.message || "Credenciais inválidas.";
       return res.status(this.authFailureStatus(message)).json({ message });
     }
@@ -153,6 +159,30 @@ export class AuthController {
       return res.json(userWithoutPassword);
     } catch (error: any) {
       return res.status(401).json({ message: "Acesso expirado" });
+    }
+  }
+
+  async updateAvatar(req: Request, res: Response): Promise<any> {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Usuário não autenticado." });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhuma imagem enviada." });
+      }
+
+      const user = await authService.updateAvatar(req.user.id, {
+        buffer: req.file.buffer,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+      });
+
+      return res.json(user);
+    } catch (error: any) {
+      const message = error?.message || "Não foi possível atualizar a foto.";
+      const status = message.includes("Cloudinary") ? 503 : 400;
+      return res.status(status).json({ message });
     }
   }
 }

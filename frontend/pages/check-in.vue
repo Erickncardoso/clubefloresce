@@ -236,7 +236,7 @@
                     <label>Tipo</label>
                     <select v-model="step.type" @change="onStepTypeChange(step)">
                       <option value="food">Alimentação (rostos)</option>
-                      <option value="water">Água (copos)</option>
+                      <option value="water">Água (litros)</option>
                       <option value="exercise">Sim/Não exercício</option>
                       <option value="scale">Escala 1–5 (estrelas)</option>
                       <option value="choice">Escolha única</option>
@@ -521,6 +521,11 @@ function removeStep(index) {
 function onStepTypeChange(step) {
   if (step.type === 'choice' && !step.optionsText) {
     step.optionsText = 'Sim\nNão'
+  }
+  if (step.type === 'water') {
+    if (!step.label) step.label = 'Água'
+    if (!step.question) step.question = 'Quantos litros de água você bebeu?'
+    if (!step.hint) step.hint = 'Conte o total do dia (água pura, chás sem açúcar, etc.).'
   }
 }
 

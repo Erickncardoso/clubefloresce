@@ -129,7 +129,7 @@
 
 <script setup>
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
-import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
+import { apiConnectionErrorMessage, isApiConnectionError, sanitizeUserFacingError } from '~/utils/resolve-api-base.mjs'
 import { PATIENT_ACCESS_EXPIRED_MESSAGE } from '~/utils/patient-access'
 
 definePageMeta({ layout: false, pageTransition: false })
@@ -198,11 +198,18 @@ const handleLogin = async () => {
         dev: import.meta.dev,
         hostname: import.meta.client ? window.location.hostname : undefined,
       })
+    } else if (err.statusCode === 503) {
+      error.value = sanitizeUserFacingError(err.data?.message)
+        || 'Servidor ocupado. Aguarde alguns segundos e tente novamente.'
     } else if (err.data?.message) {
-      error.value = err.data.message
+      error.value = sanitizeUserFacingError(err.data.message)
     } else if (err.statusCode === 401) {
       error.value = 'Credenciais inválidas. Verifique e-mail e senha.'
-    } else if (err.statusCode === 500) {
+    } else if (!err?.data?.message && (err?.statusCode >= 500 || !err?.statusCode)) {
+      error.value = apiConnectionErrorMessage({
+        dev: import.meta.dev,
+        hostname: import.meta.client ? window.location.hostname : undefined,
+      })
     } else {
       error.value = 'Não foi possível entrar. Verifique e-mail e senha.'
     }

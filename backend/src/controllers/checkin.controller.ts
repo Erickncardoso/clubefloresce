@@ -1,12 +1,13 @@
 import { Request, Response } from "express";
 import { CheckInService } from "../services/checkin.service";
+import { readPatientTimeHeaders } from "../utils/patient-timezone";
 
 const checkInService = new CheckInService();
 
 export class CheckInController {
   async getMine(req: Request, res: Response): Promise<any> {
     try {
-      const data = await checkInService.getMyCheckIns(req.user!.id);
+      const data = await checkInService.getMyCheckIns(req.user!.id, readPatientTimeHeaders(req));
       return res.json(data);
     } catch (error: any) {
       return res.status(500).json({ message: error.message });
@@ -15,7 +16,11 @@ export class CheckInController {
 
   async submit(req: Request, res: Response): Promise<any> {
     try {
-      const checkIn = await checkInService.submitCheckIn(req.user!.id, req.body);
+      const checkIn = await checkInService.submitCheckIn(
+        req.user!.id,
+        req.body,
+        readPatientTimeHeaders(req),
+      );
       return res.status(201).json(checkIn);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });

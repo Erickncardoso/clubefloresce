@@ -76,10 +76,14 @@ ${LABEL_SEMAPHORE_CRITERIA}
 ${LABEL_ANALYSIS_SECTIONS}
 
 Regras:
-- A seção ## Classificação do consumo deve ser a ÚNICA seção da resposta.
+- Primeiro: a foto está legível com certeza? Se não, responda só com ## Preciso de uma foto melhor (sem semáforo, sem números).
+- Identifique a **porção de referência** no rótulo e classifique usando a coluna dessa porção, não a de 100 g.
+- A seção ## Classificação do consumo deve ser a ÚNICA seção da resposta quando a foto for legível.
 - Não inclua Produto, Ingredientes nem listas de nutrientes detalhadas.
+- Se o produto for fonte de proteína na dieta, compare proteína × carboidrato × gordura por porção antes de classificar.
+- Se proteína for baixa (ex.: 6 g em 60 g) ou menor que carbo/gordura, diga explicitamente que é **pouca proteína**; nunca elogie como "boa quantidade".
+- Copie os gramas da tabela exatamente como aparecem na foto; não invente nem arredonde para cima.
 - Se classificar 🔴 Vermelho, inclua **Alternativa melhor:** com produto ou hábito 🟢/🟡 equivalente.
-- Se algo estiver ilegível, escreva "Não legível". Não invente números.
 - Tom acolhedor, português do Brasil.
 
 Pergunta do paciente: ${userQuestion || "Analise este rótulo e classifique o consumo (Verde, Amarelo ou Vermelho)."}`;
@@ -193,7 +197,7 @@ export function getDefaultImageUserText(topic: BellaChatTopic): string {
 
 export function getImageAnalysisFailureMessage(topic: BellaChatTopic): string {
   if (topic === "label") {
-    return "Não consegui analisar a imagem agora. Tente outra foto mais nítida, com boa luz e o rótulo de frente.";
+    return "Não consegui processar a imagem agora. Tente outra foto mais nítida, com boa luz e o rótulo de frente.";
   }
   if (topic === "meal") {
     return "Não consegui analisar o prato agora. Tire a foto de cima, com boa luz e todos os alimentos visíveis.";

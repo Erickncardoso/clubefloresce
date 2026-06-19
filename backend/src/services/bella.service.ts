@@ -25,11 +25,19 @@ import {
 import {
   buildSwapModeMetadata,
   buildSwapSelectionMetadata,
+  buildSwapCompletedMetadata,
   SWAP_FOOD_QUESTION,
   SWAP_MEAL_QUESTION,
   SWAP_MODE_QUESTION,
   SWAP_NO_PLAN_MESSAGE,
+  SWAP_CUSTOM_FOOD_QUESTION,
 } from "./bella/swap-flow";
+import {
+  buildCrossTopicContextBlock,
+  extractImageUrlFromStoredMessages,
+  isLabelContinuationMessage,
+  shouldAnalyzeImageAsLabel,
+} from "./bella/bella-conversation-context";
 import {
   detectRestaurantIntentFromMessage,
   normalizeRestaurantIntent,
@@ -54,6 +62,8 @@ export interface BellaChatPayload {
   swapMealId?: string;
   swapFoodKey?: string;
   swapSelectionMessageId?: string;
+  contextImageUrl?: string;
+  handoffFromTopic?: string;
   file?: Express.Multer.File;
 }
 
@@ -81,7 +91,7 @@ export class BellaService {
     };
   }
 
-  async chat(userId: string, payload: BellaChatPayload, patientDateKey?: string) {
+  async chat(userId: string, payload: BellaChatPayload, patientDateKey?: string, patientTimeZone?: string) {
     const topic = normalizeTopic(payload.topic);
     const restaurantIntent = normalizeRestaurantIntent(payload.restaurantIntent);
     const continueFromUserMessageId = payload.continueFromUserMessageId?.trim();
@@ -92,6 +102,7 @@ export class BellaService {
         continueFromUserMessageId,
         restaurantIntent,
         patientDateKey,
+        patientTimeZone,
       );
     }
 
@@ -106,14 +117,16 @@ export class BellaService {
 
     const message = payload.message?.trim() || "";
     const file = payload.file;
+    let contextImageUrl = payload.contextImageUrl?.trim();
+    const handoffFromTopic = payload.handoffFromTopic?.trim();
     const taskHint = payload.taskHint?.trim() || getTopicTaskHint(topic);
     const mealTypeInput = payload.mealType?.trim();
     const mealLabelInput = payload.mealLabel?.trim();
-    const slot = await resolveMealSlot(userId);
+    const slot = await resolveMealSlot(userId, new Date(), patientTimeZone);
     const mealType = mealTypeInput && mealTypeInput !== "other" ? mealTypeInput : slot.mealType;
     const mealLabel = mealLabelInput || slot.mealLabel;
 
-    if (!message && !file) throw new Error("Envie uma mensagem ou anexe um arquivo.");
+    if (!message && !file && !contextImageUrl) throw new Error("Envie uma mensagem ou anexe um arquivo.");
     if (message.length > 4000) throw new Error("Mensagem muito longa.");
 
     const taskType = resolveTaskType({
@@ -125,7 +138,12 @@ export class BellaService {
     });
 
     const userContent = buildUserDisplayContent(message, file, taskType, topic);
-    const attachmentUrl = file ? await uploadChatAttachment(file, taskType) : undefined;
+    const attachmentUploadPromise =
+      file && taskType === "image"
+        ? uploadChatAttachment(file, taskType)
+        : Promise.resolve<string | undefined>(undefined);
+    const reusedImageUrl =
+      !file && contextImageUrl && /^https?:\/\//i.test(contextImageUrl) ? contextImageUrl : undefined;
 
     const userMsg = await bellaRepository.create(userId, "user", userContent, {
       topic,
@@ -138,20 +156,33 @@ export class BellaService {
               fileName: file.originalname,
               mimeType: file.mimetype,
               sizeBytes: file.size,
-              ...(attachmentUrl ? { url: attachmentUrl } : {}),
             },
           }
-        : { topic, taskType },
+        : reusedImageUrl
+          ? {
+              topic,
+              taskType: "image",
+              handoffFromTopic: handoffFromTopic || undefined,
+              attachment: {
+                type: "image",
+                fileName: "imagem-contexto.jpg",
+                url: reusedImageUrl,
+              },
+            }
+          : { topic, taskType },
     });
 
     if (topic === "meal" && file && taskType === "image") {
-      const mealDraft = await analyzeMealStructured(
-        userId,
-        file.buffer,
-        file.mimetype,
-        message || userContent,
-        patientDateKey,
-      );
+      const [attachmentUrl, mealDraft] = await Promise.all([
+        attachmentUploadPromise,
+        analyzeMealStructured(
+          userId,
+          file.buffer,
+          file.mimetype,
+          message || userContent,
+          patientDateKey,
+        ),
+      ]);
       const dailySummary = await foodDiaryService.getDailySummary(userId, patientDateKey);
       const resolvedLabel = mealLabel || inferMealLabel(mealType);
       const previewReply = buildMealAnalysisPreview(
@@ -173,7 +204,7 @@ export class BellaService {
 
       return {
         topic,
-        userMessage: userMsg,
+        userMessage: patchUserMessageAttachmentUrl(userMsg, attachmentUrl),
         requiresMealConfirmation: true,
         mealDraft: {
           ...mealDraft,
@@ -200,6 +231,7 @@ export class BellaService {
           userMsg,
           detectedIntent,
           patientDateKey,
+          patientTimeZone,
           file,
           taskHint,
           { createChoiceMessage: false },
@@ -234,11 +266,38 @@ export class BellaService {
         content: m.content,
       }));
 
+    const crossTopicContext = await buildCrossTopicContextBlock(
+      bellaRepository,
+      userId,
+      topic,
+      message,
+    );
+
+    if (!contextImageUrl) {
+      contextImageUrl = reusedImageUrl;
+    }
+    if (!file && !contextImageUrl) {
+      contextImageUrl = extractImageUrlFromStoredMessages(history.slice(0, -1));
+      if (!contextImageUrl && isLabelContinuationMessage(message)) {
+        const labelHistory = await bellaRepository.findRecentByUser(userId, "label", 12);
+        contextImageUrl = extractImageUrlFromStoredMessages(labelHistory);
+      }
+    }
+
+    const orchestratorTopic =
+      file && taskType === "image" && shouldAnalyzeImageAsLabel(topic, message)
+        ? ("label" as const)
+        : topic;
+
     const input: OrchestratorInput = {
       userMessage: message,
-      topic,
-      taskHint,
+      topic: orchestratorTopic,
+      taskHint: orchestratorTopic === "label" ? "label" : taskHint,
       patientDateKey,
+      patientTimeZone,
+      contextImageUrl,
+      handoffFromTopic,
+      crossTopicContext,
       attachment: file
         ? {
             buffer: file.buffer,
@@ -248,7 +307,10 @@ export class BellaService {
         : undefined,
     };
 
-    const { reply, meta } = await orchestrator.run(userId, input, prior);
+    const [{ reply, meta }, attachmentUrl] = await Promise.all([
+      orchestrator.run(userId, input, prior),
+      attachmentUploadPromise,
+    ]);
 
     const assistantMsg = await bellaRepository.create(userId, "assistant", reply, {
       topic,
@@ -258,7 +320,7 @@ export class BellaService {
     return {
       topic,
       message: assistantMsg,
-      userMessage: userMsg,
+      userMessage: patchUserMessageAttachmentUrl(userMsg, attachmentUrl),
       meta: serializeMeta(meta),
       requiresMealConfirmation: false,
       requiresRestaurantIntent: false,
@@ -301,7 +363,7 @@ export class BellaService {
         "assistant",
         hasSuggestionButtons
           ? formatSwapSuggestionsIntro(analysis)
-          : formatSwapSuggestionsReply(analysis),
+          : `${formatSwapSuggestionsReply(analysis)}\n\n${SWAP_CUSTOM_FOOD_QUESTION}`,
         {
           topic: "swap",
           metadata: hasSuggestionButtons
@@ -310,7 +372,7 @@ export class BellaService {
                 swapMealId,
                 swapFoodKey,
               }
-            : { topic: "swap", taskType: "chat", swapMealId, swapFoodKey },
+            : buildSwapModeMetadata(swapMealId, swapFoodKey),
         },
       );
 
@@ -321,6 +383,31 @@ export class BellaService {
         requiresMealConfirmation: false,
         requiresRestaurantIntent: false,
         requiresSwapSelection: hasSuggestionButtons,
+      };
+    }
+
+    if (action === "enable_custom_swap") {
+      if (!swapMealId || !swapFoodKey) {
+        throw new Error("Selecione refeição e alimento.");
+      }
+
+      const userMsg = await bellaRepository.create(userId, "user", "Quero digitar outro alimento", {
+        topic: "swap",
+        metadata: { topic: "swap", swapMealId, swapFoodKey },
+      });
+
+      const assistantMsg = await bellaRepository.create(userId, "assistant", SWAP_CUSTOM_FOOD_QUESTION, {
+        topic: "swap",
+        metadata: buildSwapModeMetadata(swapMealId, swapFoodKey),
+      });
+
+      return {
+        topic: "swap" as const,
+        userMessage: userMsg,
+        message: assistantMsg,
+        requiresMealConfirmation: false,
+        requiresRestaurantIntent: false,
+        requiresSwapSelection: false,
       };
     }
 
@@ -342,7 +429,7 @@ export class BellaService {
       const result = await buildCustomSwap(userId, swapMealId, swapFoodKey, replacementName);
       const assistantMsg = await bellaRepository.create(userId, "assistant", result.reply, {
         topic: "swap",
-        metadata: { topic: "swap", taskType: "chat", swapMealId, swapFoodKey },
+        metadata: buildSwapCompletedMetadata(swapMealId, swapFoodKey),
       });
 
       return {
@@ -476,6 +563,7 @@ export class BellaService {
     sourceUserMessageId: string,
     restaurantIntent: RestaurantIntent,
     patientDateKey?: string,
+    patientTimeZone?: string,
   ) {
     const sourceMsg = await bellaRepository.findById(sourceUserMessageId);
     if (!sourceMsg || sourceMsg.userId !== userId || sourceMsg.topic !== "restaurant") {
@@ -489,6 +577,7 @@ export class BellaService {
       sourceMsg,
       restaurantIntent,
       patientDateKey,
+      patientTimeZone,
       undefined,
       undefined,
       { createChoiceMessage: true },
@@ -500,6 +589,7 @@ export class BellaService {
     sourceMsg: { id: string; content: string; metadata?: unknown },
     restaurantIntent: RestaurantIntent,
     patientDateKey?: string,
+    patientTimeZone?: string,
     file?: Express.Multer.File,
     taskHint?: string,
     options: { createChoiceMessage?: boolean } = {},
@@ -546,7 +636,10 @@ export class BellaService {
       : "";
     const userMessage = `${sourceMsg.content}${intentNote}`;
 
-    const advisorCtx = await buildRestaurantAdvisorContext(userId, patientDateKey);
+    const advisorCtx = await buildRestaurantAdvisorContext(userId, patientDateKey, {
+      userMessage: sourceMsg.content,
+      patientTimeZone,
+    });
     const restaurantContextBlock = buildRestaurantAdvisorPrompt(advisorCtx, restaurantIntent);
 
     const input: OrchestratorInput = {
@@ -554,6 +647,7 @@ export class BellaService {
       topic: "restaurant",
       taskHint,
       patientDateKey,
+      patientTimeZone,
       restaurantIntent,
       restaurantContextBlock,
       attachment,
@@ -617,6 +711,27 @@ async function uploadChatAttachment(
   }
 }
 
+function patchUserMessageAttachmentUrl<T extends { metadata?: unknown }>(
+  userMsg: T,
+  attachmentUrl?: string,
+): T {
+  if (!attachmentUrl) return userMsg;
+  const metadata = userMsg.metadata as Record<string, unknown> | null | undefined;
+  const attachment = metadata?.attachment as Record<string, unknown> | undefined;
+  if (!attachment || attachment.type !== "image") return userMsg;
+
+  return {
+    ...userMsg,
+    metadata: {
+      ...(metadata || {}),
+      attachment: {
+        ...attachment,
+        url: attachmentUrl,
+      },
+    },
+  };
+}
+
 function buildUserDisplayContent(
   message: string,
   file: Express.Multer.File | undefined,
@@ -643,5 +758,6 @@ function serializeMeta(meta: OrchestratorMeta) {
     guardrail: meta.guardrail ?? null,
     iterations: meta.iterations,
     attachment: meta.attachment ?? null,
+    redirectTopic: meta.redirectTopic ?? null,
   };
 }

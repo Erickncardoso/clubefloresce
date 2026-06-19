@@ -14,6 +14,7 @@ import {
   scoreFoodSearchResult,
   tokenizeFoodQuery,
 } from "../utils/food-search";
+import { scoreFoodForSwapMatch } from "../utils/swap-food-match";
 
 function mapFood(item: {
   id: string;
@@ -91,7 +92,7 @@ export class FoodRepository {
         ...(source ? { source } : {}),
         name: { equals: trimmed, mode: "insensitive" },
       },
-      orderBy: [{ source: "asc" }, { name: "asc" }],
+      orderBy: [{ source: "desc" }, { name: "asc" }],
     });
     if (exact) return mapFood(exact);
 
@@ -101,10 +102,41 @@ export class FoodRepository {
         ...(source ? { source } : {}),
         searchText: { equals: normalized },
       },
-      orderBy: [{ source: "asc" }, { name: "asc" }],
+      orderBy: [{ source: "desc" }, { name: "asc" }],
     });
 
     return fuzzy ? mapFood(fuzzy) : null;
+  }
+
+  async findByPrimaryIngredient(query: string, limit = 25): Promise<FoodItemDto[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const normalized = normalizeFoodSearchQuery(trimmed);
+    const titleCase = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+
+    const rows = await prisma.foodItem.findMany({
+      where: {
+        OR: [
+          { name: { startsWith: `${titleCase},`, mode: "insensitive" } },
+          { name: { startsWith: `${trimmed},`, mode: "insensitive" } },
+          { name: { equals: titleCase, mode: "insensitive" } },
+          { name: { equals: trimmed, mode: "insensitive" } },
+          { searchText: { startsWith: normalized } },
+        ],
+      },
+      take: Math.min(limit * 3, 80),
+      orderBy: [{ source: "desc" }, { name: "asc" }],
+    });
+
+    return rows
+      .map(mapFood)
+      .sort(
+        (a, b) =>
+          scoreFoodForSwapMatch(trimmed, b.name, b.source) -
+          scoreFoodForSwapMatch(trimmed, a.name, a.source),
+      )
+      .slice(0, limit);
   }
 
   async findBestMatch(name: string, source?: FoodSource) {
@@ -175,7 +207,7 @@ export class FoodRepository {
             }
           : {}),
       },
-      orderBy: [{ source: "asc" }, { name: "asc" }],
+      orderBy: [{ source: "desc" }, { name: "asc" }],
       take: limit,
     });
 
@@ -207,7 +239,7 @@ export class FoodRepository {
             }
           : {}),
       },
-      orderBy: [{ source: "asc" }, { name: "asc" }],
+      orderBy: [{ source: "desc" }, { name: "asc" }],
       take: limit,
     });
 

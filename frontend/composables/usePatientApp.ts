@@ -83,6 +83,26 @@ export function usePatientApp() {
 
   const patientAuth = usePatientAuth()
 
+  async function uploadProfileAvatar(file: File) {
+    if (import.meta.server) throw new Error('Indisponível no servidor.')
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const user = await $fetch<{
+      name: string
+      avatar?: string | null
+      createdAt?: string
+    }>(`${config.public.apiBase}/auth/me/avatar`, {
+      method: 'POST',
+      headers: patientAuth.authHeaders(),
+      body: formData,
+    })
+
+    persistSession(user)
+    return user
+  }
+
   function clearPatientSession() {
     if (import.meta.server) return
     patientAuth.clearSession()
@@ -155,6 +175,7 @@ export function usePatientApp() {
     persistSession,
     clearPatientSession,
     syncPatientProfile,
+    uploadProfileAvatar,
     userName,
     userFullName,
     userInitials,

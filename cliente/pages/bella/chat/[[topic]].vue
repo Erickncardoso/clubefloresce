@@ -22,7 +22,7 @@
 
       <template v-else>
         <div
-          v-if="hasPreviousHistory"
+          v-if="hasPreviousHistory && chatTopic !== 'swap'"
           class="bella-history-bar"
         >
           <button
@@ -64,8 +64,12 @@
             <img
               :src="userMessageImage(msg)"
               alt="Imagem enviada"
-              class="bella-msg-image"
+              class="bella-msg-image bella-msg-image--clickable"
               loading="lazy"
+              role="button"
+              tabindex="0"
+              @click="openImageLightbox(userMessageImage(msg))"
+              @keydown.enter.prevent="openImageLightbox(userMessageImage(msg))"
             />
           </div>
 
@@ -86,8 +90,12 @@
                 v-if="messageAttachment(msg)?.url && messageAttachment(msg).type === 'image'"
                 :src="messageAttachment(msg).url"
                 alt="Imagem enviada"
-                class="bella-msg-image cf-squircle cf-squircle--attach"
+                class="bella-msg-image cf-squircle cf-squircle--attach bella-msg-image--clickable"
                 loading="lazy"
+                role="button"
+                tabindex="0"
+                @click.stop="openImageLightbox(messageAttachment(msg).url)"
+                @keydown.enter.prevent="openImageLightbox(messageAttachment(msg).url)"
               />
               <div v-else-if="messageAttachment(msg)?.type === 'pdf'" class="bella-msg-pdf">
                 <FileText class="bella-msg-pdf-icon" />
@@ -98,12 +106,29 @@
                 @click="onMessageContentClick"
                 v-html="formatMessageContent(msg.content)"
               />
+              <BellaMealSlotPicker
+                v-if="chatTopic === 'meal' && isWelcomeMessage(msg)"
+                v-model="selectedMealId"
+                :meals="mealSlotOptions"
+                :logged-meal-ids="loggedMealIds"
+                :disabled="sending"
+                inline
+              />
               <BellaSwapButtons
-                v-if="chatTopic === 'swap' && shouldShowSwapButtons(msg)"
+                v-if="chatTopic === 'swap' && (shouldShowSwapButtons(msg) || shouldShowSwapRestart(msg))"
                 :message="msg"
                 :disabled="sending"
+                :show-restart="shouldShowSwapRestart(msg)"
                 @select="(option) => handleSwapSelection(msg, option)"
                 @mode="(action) => handleSwapModeAction(msg, action)"
+                @custom="() => handleSwapCustomInput(msg)"
+                @restart="handleSwapRestart"
+              />
+              <BellaRestaurantIntentButtons
+                v-if="chatTopic === 'restaurant' && shouldShowRestaurantIntentButtons(msg)"
+                :message="msg"
+                :disabled="sending"
+                @select="(option) => handleRestaurantIntent(msg, option)"
               />
             </template>
           </div>
@@ -211,7 +236,7 @@
                 v-model="draft"
                 type="text"
                 :placeholder="composerPlaceholder"
-                :disabled="sending || swapSelectionLocked"
+                :disabled="sending || swapSelectionLocked || restaurantIntentLocked"
                 maxlength="4000"
                 autocomplete="off"
                 enterkeyhint="send"
@@ -241,6 +266,22 @@
       @cancel="cancelMealConfirm"
       @confirm="confirmMeal"
     />
+
+    <Teleport to="body">
+      <div
+        v-if="lightboxImageUrl"
+        class="bella-image-lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Imagem ampliada"
+        @click.self="closeImageLightbox"
+      >
+        <button type="button" class="bella-image-lightbox-close" aria-label="Fechar" @click="closeImageLightbox">
+          <X class="bella-image-lightbox-close-icon" />
+        </button>
+        <img :src="lightboxImageUrl" alt="Imagem ampliada" class="bella-image-lightbox-img" />
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -257,11 +298,23 @@ import {
   shouldShowUserMessageText,
 } from '~/utils/bella-message-format'
 import { normalizeMealItemsForSave } from '~/utils/meal-diary'
+import { buildFallbackMealSlotOptions } from '~/utils/meal-slot-options'
+import {
+  saveBellaChatHandoff,
+  consumeBellaChatHandoff,
+  buildChatHandoffFromMessages,
+} from '~/utils/bella-chat-handoff'
 import {
   findActiveSwapMessage,
+  findLatestCompletedSwapMessage,
   hasActiveSwapMode,
   hasActiveSwapSelection,
+  isCompletedSwapMessage,
 } from '~/utils/bella-swap'
+import {
+  findActiveRestaurantIntentMessage,
+  hasActiveRestaurantIntent,
+} from '~/utils/bella-restaurant'
 
 definePageMeta({ layout: 'bella-chat', middleware: 'patient-only', pageTransition: false })
 
@@ -297,11 +350,34 @@ const selectedFile = ref(null)
 const attachmentPreview = ref(null)
 const pendingCameraOpen = ref(false)
 const dailySummary = ref(null)
+const lightboxImageUrl = ref('')
+const handoffSending = ref(false)
 const showMealModal = ref(false)
 const mealDraft = ref(null)
+const nutritionRefresh = useState('patient-nutrition-refresh', () => 0)
 const confirmingMeal = ref(false)
 const mealConfirmError = ref('')
 const pinningToBottom = ref(false)
+const selectedMealId = ref('')
+
+const { fetchPlan } = usePatientMealPlan()
+const { mealList, mealOrder, getMealById, getMealIdForTime } = useMealPlan()
+
+const mealSlotOptions = computed(() => {
+  if (mealList.value.length) return mealList.value
+  return buildFallbackMealSlotOptions()
+})
+
+const selectedMeal = computed(() => {
+  const options = mealSlotOptions.value
+  if (!options.length) return null
+  return options.find((meal) => meal.id === selectedMealId.value) || options[0]
+})
+
+const loggedMealIds = computed(() => {
+  const entries = dailySummary.value?.entries || []
+  return [...new Set(entries.map((entry) => entry.mealType).filter(Boolean))]
+})
 
 const { patientTimeHeaders } = usePatientLocalTime()
 
@@ -320,7 +396,7 @@ const fileAccept = computed(() => {
 })
 
 const canSend = computed(() => {
-  if (swapSelectionLocked.value) return false
+  if (swapSelectionLocked.value || restaurantIntentLocked.value) return false
   return Boolean(draft.value.trim() || selectedFile.value)
 })
 
@@ -337,22 +413,34 @@ function mergeThreadMessages(history, session) {
 
 const threadMessages = computed(() => mergeThreadMessages(historyMessages.value, messages.value))
 
-const displayMessages = computed(() => (
-  showPreviousHistory.value ? threadMessages.value : messages.value
-))
+const displayMessages = computed(() => {
+  if (chatTopic.value === 'swap') return threadMessages.value
+  return showPreviousHistory.value ? threadMessages.value : messages.value
+})
 
 const hasPreviousHistory = computed(() => historyMessages.value.length > 0)
 
 const activeSwapMessage = computed(() => (
-  chatTopic.value === 'swap' ? findActiveSwapMessage(messages.value) : null
+  chatTopic.value === 'swap' ? findActiveSwapMessage(threadMessages.value) : null
+))
+
+const activeRestaurantIntentMessage = computed(() => (
+  chatTopic.value === 'restaurant'
+    ? findActiveRestaurantIntentMessage(displayMessages.value)
+    : null
 ))
 
 const swapSelectionLocked = computed(() => (
   Boolean(activeSwapMessage.value && hasActiveSwapSelection(activeSwapMessage.value))
 ))
 
+const restaurantIntentLocked = computed(() => (
+  Boolean(activeRestaurantIntentMessage.value && hasActiveRestaurantIntent(activeRestaurantIntentMessage.value))
+))
+
 const composerPlaceholder = computed(() => {
-  if (swapSelectionLocked.value) return 'Use os botões acima para escolher'
+  if (swapSelectionLocked.value) return 'Toque em uma sugestão ou em "Escreva outro alimento"'
+  if (restaurantIntentLocked.value) return 'Escolha uma opção acima para continuar'
   if (activeSwapMessage.value && hasActiveSwapMode(activeSwapMessage.value)) {
     return 'Digite o alimento que quer incluir...'
   }
@@ -370,6 +458,27 @@ function isActiveSwapMessage(msg) {
 function shouldShowSwapButtons(msg) {
   if (chatTopic.value !== 'swap' || msg?.role !== 'assistant') return false
   return isActiveSwapMessage(msg)
+}
+
+function shouldShowSwapRestart(msg) {
+  if (chatTopic.value !== 'swap' || msg?.role !== 'assistant') return false
+  if (activeSwapMessage.value) return false
+  if (!isCompletedSwapMessage(msg)) return false
+  const latest = findLatestCompletedSwapMessage(threadMessages.value)
+  return latest?.id === msg?.id
+}
+
+function isActiveRestaurantIntentMessage(msg) {
+  return Boolean(
+    chatTopic.value === 'restaurant'
+    && activeRestaurantIntentMessage.value
+    && msg?.id === activeRestaurantIntentMessage.value.id,
+  )
+}
+
+function shouldShowRestaurantIntentButtons(msg) {
+  if (chatTopic.value !== 'restaurant' || msg?.role !== 'assistant') return false
+  return isActiveRestaurantIntentMessage(msg)
 }
 
 function normalizeMessageMetadata(metadata) {
@@ -405,7 +514,31 @@ function formatChatError(err) {
   if (err?.statusCode === 502 || err?.status === 502) {
     return raw || 'A OpenAI retornou erro. Verifique OPENAI_API_KEY e saldo da conta no backend (Coolify).'
   }
+  if (err?.statusCode === 504 || err?.status === 504 || /timeout|timed out|demorou muito/i.test(raw)) {
+    return raw || 'A Bella demorou para analisar a foto. Tente outra imagem com boa luz ou envie de novo em instantes.'
+  }
   return raw || 'Não foi possível falar com a Bella. Tente novamente.'
+}
+
+async function fetchBellaChat(options) {
+  try {
+    return await $fetch(`${apiBase}/bella/chat`, {
+      ...options,
+      timeout: BELLA_CHAT_TIMEOUT_MS,
+    })
+  } catch (err) {
+    if (err?.name === 'TimeoutError' || err?.cause?.name === 'TimeoutError') {
+      throw Object.assign(
+        new Error('A Bella demorou para analisar a foto. Tente outra imagem com boa luz ou envie de novo em instantes.'),
+        { statusCode: 504 },
+      )
+    }
+    throw err
+  }
+}
+
+function isWelcomeMessage(msg) {
+  return msg?.id === `welcome-${chatTopic.value}`
 }
 
 function seedWelcomeMessage() {
@@ -441,8 +574,9 @@ const userMessageShowsBubble = (msg) => {
 }
 const formatMessageContent = (content) => formatBellaMarkdown(content)
 
-const TYPING_DOTS_DELAY_MS = 2000
+const TYPING_DOTS_DELAY_MS = 800
 const TYPING_DOTS_MIN_MS = 1200
+const BELLA_CHAT_TIMEOUT_MS = 120_000
 
 let typingDotsTimer = null
 let typingDotsShownAt = 0
@@ -614,7 +748,34 @@ function onMessageContentClick(event) {
   if (!link) return
   event.preventDefault()
   const topic = link.dataset.chatTopic
-  if (topic) navigateTo(`/bella/chat/${topic}`)
+  if (!topic) return
+  persistChatHandoff(topic)
+  navigateTo(`/bella/chat/${topic}`)
+}
+
+function getAllConversationMessages() {
+  return [...historyMessages.value, ...messages.value]
+}
+
+function persistChatHandoff(targetTopic) {
+  const payload = buildChatHandoffFromMessages(getAllConversationMessages(), {
+    targetTopic,
+    sourceTopic: chatTopic.value,
+  })
+  saveBellaChatHandoff(payload)
+}
+
+function openImageLightbox(url) {
+  if (!url) return
+  lightboxImageUrl.value = url
+}
+
+function closeImageLightbox() {
+  lightboxImageUrl.value = ''
+}
+
+function onLightboxKeydown(event) {
+  if (event.key === 'Escape') closeImageLightbox()
 }
 
 function revokeBlobUrl(url) {
@@ -652,9 +813,51 @@ function getWelcomeContent() {
   const fromDieta = route.query.from === 'dieta'
   const mealLabel = typeof route.query.label === 'string' ? route.query.label.trim() : ''
   if (chatTopic.value === 'meal' && fromDieta && mealLabel) {
-    return `Olá, ${userName()}! 📸 Envie a foto do seu ${mealLabel.toLowerCase()}. Estimo gramas, calorias e macros de cada item do prato.`
+    return `Olá, ${userName()}! 📸 Escolhi ${mealLabel.toLowerCase()} nos botões abaixo — confira e envie a foto do prato.`
+  }
+  if (chatTopic.value === 'meal') {
+    return `Olá, ${userName()}! 📸 Escolha a refeição logo abaixo (pode ser almoço mesmo sem ter registrado o café) e envie a foto do prato de cima, com boa luz.`
   }
   return topicConfig.value.welcome(userName())
+}
+
+function initMealSelection() {
+  if (chatTopic.value !== 'meal') return
+  const options = mealSlotOptions.value
+  if (!options.length) {
+    selectedMealId.value = ''
+    return
+  }
+
+  const queryMeal = typeof route.query.meal === 'string' ? route.query.meal.trim() : ''
+  if (queryMeal && options.some((meal) => meal.id === queryMeal)) {
+    selectedMealId.value = queryMeal
+    return
+  }
+
+  if (selectedMealId.value && options.some((meal) => meal.id === selectedMealId.value)) {
+    return
+  }
+
+  const timeId = getMealIdForTime()
+  selectedMealId.value =
+    timeId && options.some((meal) => meal.id === timeId) ? timeId : options[0].id
+}
+
+function getSelectedMealPayload() {
+  const meal = selectedMeal.value || getMealById(selectedMealId.value)
+  if (!meal?.id) return null
+  return {
+    mealType: meal.id,
+    mealLabel: meal.label || meal.short || 'Refeição',
+  }
+}
+
+function appendMealPayloadToForm(form) {
+  const payload = getSelectedMealPayload()
+  if (!payload) return
+  form.append('mealType', payload.mealType)
+  form.append('mealLabel', payload.mealLabel)
 }
 
 function applyRouteContext() {
@@ -666,6 +869,7 @@ function applyRouteContext() {
   if (route.query.camera === '1') {
     pendingCameraOpen.value = true
   }
+  initMealSelection()
 }
 
 const loadMessages = async () => {
@@ -713,7 +917,7 @@ async function postSwapChat(body, userLabel = '') {
   }
 
   try {
-    const res = await $fetch(`${apiBase}/bella/chat`, {
+    const res = await fetchBellaChat({
       method: 'POST',
       headers: patientTimeHeaders(),
       body: { topic: 'swap', ...body },
@@ -762,11 +966,92 @@ async function applyChatResponse(res) {
     const [assistantMessage] = normalizeLoadedMessages([res.message])
     if (assistantMessage) messages.value.push(assistantMessage)
     await stickScrollToBottom()
+    return
+  }
+
+  chatError.value = 'A Bella não conseguiu responder. Tente enviar a foto novamente.'
+}
+
+async function sendHandoffMessage(handoff) {
+  const text = handoff.question?.trim()
+  if (!text || sending.value || handoffSending.value) return
+
+  handoffSending.value = true
+  chatError.value = ''
+  sending.value = true
+  pinningToBottom.value = true
+  startTypingIndicator()
+
+  const tempId = `temp-handoff-${Date.now()}`
+  const imageUrl = handoff.imageUrl?.startsWith('http') ? handoff.imageUrl : null
+
+  messages.value.push({
+    id: tempId,
+    role: 'user',
+    content: text,
+    metadata: imageUrl
+      ? {
+          taskType: 'image',
+          handoffFromTopic: handoff.sourceTopic,
+          attachment: {
+            type: 'image',
+            fileName: 'imagem-contexto.jpg',
+            url: imageUrl,
+          },
+        }
+      : null,
+  })
+
+  await stickScrollToBottom()
+
+  try {
+    const res = await fetchBellaChat({
+      method: 'POST',
+      headers: patientTimeHeaders(),
+      body: {
+        message: text,
+        topic: chatTopic.value,
+        contextImageUrl: imageUrl || undefined,
+        handoffFromTopic: handoff.sourceTopic || undefined,
+      },
+    })
+
+    const tempIndex = messages.value.findIndex((m) => m.id === tempId)
+    if (tempIndex >= 0 && res.userMessage) {
+      messages.value[tempIndex] = res.userMessage
+    }
+
+    await applyChatResponse(res)
+  } catch (err) {
+    chatError.value = formatChatError(err)
+    messages.value = messages.value.filter((m) => m.id !== tempId)
+  } finally {
+    stopTypingIndicator()
+    await stickScrollToBottom()
+    sending.value = false
+    handoffSending.value = false
+    setTimeout(() => {
+      if (!loadingMessages.value) pinningToBottom.value = false
+    }, 500)
   }
 }
 
+async function applyPendingHandoff() {
+  if (!import.meta.client || chatTopic.value === 'swap') return
+  const handoff = consumeBellaChatHandoff(chatTopic.value)
+  if (!handoff?.question) return
+  await nextTick()
+  await sendHandoffMessage(handoff)
+}
+
 async function ensureSwapFlowStarted() {
+  if (findActiveSwapMessage(threadMessages.value)) return
   await postSwapChat({ swapAction: 'init' })
+}
+
+async function handleSwapRestart() {
+  if (sending.value) return
+  await ensureSwapFlowStarted()
 }
 
 async function handleSwapSelection(assistantMsg, option) {
@@ -812,6 +1097,83 @@ async function handleSwapModeAction(assistantMsg, action) {
     swapFoodKey: meta.swapFoodKey,
     swapSelectionMessageId: assistantMsg.id,
   }, action === 'show_suggestions' ? 'Ver sugestões' : '')
+}
+
+async function handleSwapCustomInput(assistantMsg) {
+  if (!assistantMsg?.id || sending.value) return
+  const meta = assistantMsg.metadata || {}
+  if (!meta.swapMealId || !meta.swapFoodKey) return
+
+  if (assistantMsg.metadata) {
+    assistantMsg.metadata = {
+      ...assistantMsg.metadata,
+      pendingSwapSelection: false,
+      resolvedSwapSelection: true,
+    }
+  }
+
+  await postSwapChat({
+    swapAction: 'enable_custom_swap',
+    swapMealId: meta.swapMealId,
+    swapFoodKey: meta.swapFoodKey,
+    swapSelectionMessageId: assistantMsg.id,
+  }, 'Quero digitar outro alimento')
+
+  await nextTick()
+  composerInputEl.value?.focus()
+}
+
+function resolveRestaurantIntentMessage(assistantMsg) {
+  if (!assistantMsg?.metadata) return
+  assistantMsg.metadata = {
+    ...assistantMsg.metadata,
+    pendingRestaurantIntent: false,
+    resolvedRestaurantIntent: true,
+  }
+}
+
+async function handleRestaurantIntent(assistantMsg, option) {
+  if (!assistantMsg?.id || !option?.id || sending.value) return
+  const continueFromUserMessageId = assistantMsg.metadata?.relatedUserMessageId
+  if (!continueFromUserMessageId) return
+
+  chatError.value = ''
+  sending.value = true
+  pinningToBottom.value = true
+  startTypingIndicator()
+  resolveRestaurantIntentMessage(assistantMsg)
+
+  try {
+    const res = await fetchBellaChat({
+      method: 'POST',
+      headers: patientTimeHeaders(),
+      body: {
+        topic: 'restaurant',
+        restaurantIntent: option.id,
+        continueFromUserMessageId,
+      },
+    })
+
+    if (res.userMessage) {
+      const [userMsg] = normalizeLoadedMessages([res.userMessage])
+      if (userMsg) messages.value.push(userMsg)
+    }
+
+    await applyChatResponse(res)
+  } catch (err) {
+    if (assistantMsg.metadata) {
+      assistantMsg.metadata.pendingRestaurantIntent = true
+      assistantMsg.metadata.resolvedRestaurantIntent = false
+    }
+    chatError.value = formatChatError(err)
+  } finally {
+    stopTypingIndicator()
+    await stickScrollToBottom()
+    sending.value = false
+    setTimeout(() => {
+      if (!loadingMessages.value) pinningToBottom.value = false
+    }, 500)
+  }
 }
 
 const retryLoad = async () => {
@@ -923,6 +1285,7 @@ const confirmMeal = async (items) => {
 
     if (res.message) messages.value.push(res.message)
     if (res.dailySummary) dailySummary.value = res.dailySummary
+    nutritionRefresh.value += 1
     cancelMealConfirm()
     await scrollToBottomAfterLayout()
   } catch (err) {
@@ -955,6 +1318,8 @@ const sendMessage = async () => {
     if (swapSelectionLocked.value) return
   }
 
+  if (chatTopic.value === 'restaurant' && restaurantIntentLocked.value) return
+
   chatError.value = ''
   sending.value = true
   pinningToBottom.value = true
@@ -965,7 +1330,7 @@ const sendMessage = async () => {
   const fallbackText = isPdf
     ? 'Analise este PDF, por favor.'
     : chatTopic.value === 'meal'
-      ? 'Analise meu prato para registrar no diário de hoje.'
+      ? `Analise meu ${(selectedMeal.value?.label || 'prato').toLowerCase()} para registrar no diário de hoje.`
       : chatTopic.value === 'label'
         ? 'Analise este rótulo e classifique o consumo (Verde, Amarelo ou Vermelho).'
         : 'Analise esta imagem, por favor.'
@@ -1000,20 +1365,24 @@ const sendMessage = async () => {
       if (text) form.append('message', text)
       form.append('topic', chatTopic.value)
       if (hint) form.append('taskHint', hint)
-      if (route.query.meal) form.append('mealType', String(route.query.meal))
-      if (route.query.label) form.append('mealLabel', String(route.query.label))
+      if (chatTopic.value === 'meal') appendMealPayloadToForm(form)
       form.append('file', outgoingFile)
 
-      res = await $fetch(`${apiBase}/bella/chat`, {
+      res = await fetchBellaChat({
         method: 'POST',
         headers: patientTimeHeaders(),
         body: form,
       })
     } else {
-      res = await $fetch(`${apiBase}/bella/chat`, {
+      res = await fetchBellaChat({
         method: 'POST',
         headers: patientTimeHeaders(),
-        body: { message: text, topic: chatTopic.value, taskHint: hint },
+        body: {
+          message: text,
+          topic: chatTopic.value,
+          taskHint: hint,
+          ...(chatTopic.value === 'meal' ? getSelectedMealPayload() : {}),
+        },
       })
     }
 
@@ -1067,6 +1436,7 @@ async function bootstrapChat() {
   const token = localStorage.getItem('auth_token')
   if (!token) {
     chatError.value = 'Faça login para conversar com a Bella.'
+    if (chatTopic.value === 'meal') initMealSelection()
     seedWelcomeMessage()
     await nextTick()
     bindScrollRoot()
@@ -1077,8 +1447,13 @@ async function bootstrapChat() {
   startPinningToBottom()
 
   try {
+    if (chatTopic.value === 'meal') {
+      await fetchPlan()
+      initMealSelection()
+    }
     await loadMessages()
     await loadDailySummary()
+    if (chatTopic.value === 'meal') initMealSelection()
     await nextTick()
     bindScrollRoot()
     await scrollToBottomAfterLayout()
@@ -1087,6 +1462,7 @@ async function bootstrapChat() {
       await nextTick()
       openCamera()
     }
+    await applyPendingHandoff()
   } catch (err) {
     if (chatTopic.value !== 'swap') seedWelcomeMessage()
     chatError.value = formatChatError(err)
@@ -1102,6 +1478,19 @@ async function bootstrapChat() {
     }
   }
 }
+
+watch(mealSlotOptions, () => {
+  if (chatTopic.value === 'meal') initMealSelection()
+})
+
+watch(selectedMealId, () => {
+  if (chatTopic.value !== 'meal' || loadingMessages.value) return
+  const welcomeId = `welcome-${chatTopic.value}`
+  const welcome = messages.value.find((m) => m.id === welcomeId)
+  if (welcome) {
+    welcome.content = getWelcomeContent()
+  }
+})
 
 watch(chatTopic, () => {
   bootstrapChat()
@@ -1197,23 +1586,30 @@ function getKeyboardInset() {
 function syncComposerDockPosition() {
   if (!import.meta.client) return
   const dock = composerDockEl.value
+  const page = chatPageEl.value
   if (!dock) return
 
   const root = document.documentElement
   const keyboardInset = getKeyboardInset()
   const keyboardOpen = keyboardInset > 80 || root.classList.contains('vk-open')
-  const tabBarVisible = Boolean(root.querySelector('.cf-tab-bar-wrap')) && !keyboardOpen
+  const tabBar = root.querySelector('.cf-tab-bar-wrap')
+  const tabBarVisible = Boolean(tabBar) && !keyboardOpen
+  let dockBottomPx = 0
 
   if (keyboardOpen) {
+    dockBottomPx = keyboardInset
     dock.style.setProperty('--bella-dock-bottom', `${keyboardInset}px`)
     dock.style.paddingBottom = 'max(0.5rem, env(safe-area-inset-bottom, 0px))'
   } else if (tabBarVisible) {
-    dock.style.setProperty('--bella-dock-bottom', 'var(--cf-tab-h)')
+    dockBottomPx = Math.ceil(tabBar.getBoundingClientRect().height)
+    dock.style.setProperty('--bella-dock-bottom', `${dockBottomPx}px`)
     dock.style.paddingBottom = '0'
   } else {
     dock.style.setProperty('--bella-dock-bottom', '0px')
     dock.style.paddingBottom = 'max(0.5rem, env(safe-area-inset-bottom, 0px))'
   }
+
+  page?.style.setProperty('--bella-dock-bottom', `${dockBottomPx}px`)
 }
 
 function updateComposerDockHeight() {
@@ -1224,6 +1620,9 @@ function updateComposerDockHeight() {
   syncComposerDockPosition()
   const height = Math.ceil(dock.getBoundingClientRect().height)
   page.style.setProperty('--bella-composer-dock-h', `${height}px`)
+  if (pinningToBottom.value) {
+    requestAnimationFrame(() => scrollToBottom(true))
+  }
 }
 
 function bindComposerHeightObserver() {
@@ -1234,6 +1633,8 @@ function bindComposerHeightObserver() {
   if (!dock || typeof ResizeObserver === 'undefined') return
   composerHeightObserver = new ResizeObserver(() => updateComposerDockHeight())
   composerHeightObserver.observe(dock)
+  const tabBar = document.querySelector('.cf-tab-bar-wrap')
+  if (tabBar) composerHeightObserver.observe(tabBar)
 }
 
 function onComposerFocus() {
@@ -1286,6 +1687,7 @@ onMounted(async () => {
   syncComposerDockPosition()
 
   if (import.meta.client) {
+    document.addEventListener('keydown', onLightboxKeydown)
     vkClassObserver = new MutationObserver(() => {
       syncComposerDockPosition()
       updateComposerDockHeight()
@@ -1298,6 +1700,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (import.meta.client) {
+    document.removeEventListener('keydown', onLightboxKeydown)
+  }
   vvCleanup?.()
   vkClassObserver?.disconnect()
   vkClassObserver = null
@@ -1329,6 +1734,8 @@ onBeforeUnmount(() => {
   overflow: hidden;
   box-sizing: border-box;
   --bella-composer-dock-h: 5.75rem;
+  --bella-dock-bottom: var(--cf-tab-h);
+  --bella-messages-bottom-gap: 1rem;
 }
 
 .bella-chat-sticky {
@@ -1356,8 +1763,12 @@ onBeforeUnmount(() => {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 1rem 1rem calc(var(--bella-composer-dock-h, 5.75rem) + env(safe-area-inset-bottom, 0px) + 0.75rem);
-  scroll-padding-bottom: 1rem;
+  padding: 1rem 1rem calc(
+    var(--bella-composer-dock-h, 5.75rem) + var(--bella-dock-bottom, 0px) + var(--bella-messages-bottom-gap, 1rem)
+  );
+  scroll-padding-bottom: calc(
+    var(--bella-composer-dock-h, 5.75rem) + var(--bella-dock-bottom, 0px) + var(--bella-messages-bottom-gap, 1rem)
+  );
   scroll-behavior: auto;
   overflow-anchor: none;
   background: linear-gradient(180deg, #fff 0%, #f8f8fa 32%, #f5f4f6 100%);
@@ -1365,7 +1776,12 @@ onBeforeUnmount(() => {
 }
 
 html.vk-open .bella-messages {
-  padding-bottom: calc(var(--bella-composer-dock-h, 5.75rem) + 0.35rem);
+  padding-bottom: calc(
+    var(--bella-composer-dock-h, 5.75rem) + var(--bella-dock-bottom, 0px) + 0.75rem
+  );
+  scroll-padding-bottom: calc(
+    var(--bella-composer-dock-h, 5.75rem) + var(--bella-dock-bottom, 0px) + 0.75rem
+  );
 }
 
 .bella-history-bar {
@@ -1540,6 +1956,50 @@ html.vk-open .bella-messages {
   height: auto;
   object-fit: contain;
   object-position: center;
+}
+
+.bella-msg-image--clickable {
+  cursor: zoom-in;
+}
+
+.bella-image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.bella-image-lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bella-image-lightbox-close-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.bella-image-lightbox-img {
+  max-width: min(100%, 960px);
+  max-height: calc(100vh - 2.5rem);
+  object-fit: contain;
+  border-radius: 8px;
+  user-select: none;
 }
 
 .bella-msg-plain {

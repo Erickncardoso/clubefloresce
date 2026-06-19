@@ -63,6 +63,16 @@
             <span>G {{ selectedDay.consumed.fatG }}g</span>
           </div>
           <p class="nutrition-month-detail-meta">{{ selectedDay.entryCount }} refeiç{{ selectedDay.entryCount === 1 ? 'ão' : 'ões' }} registrada{{ selectedDay.entryCount === 1 ? '' : 's' }}</p>
+
+          <ul v-if="dayEntries.length" class="nutrition-month-entries">
+            <li v-for="entry in dayEntries" :key="entry.id" class="nutrition-month-entry">
+              <img v-if="entry.imageUrl" :src="entry.imageUrl" alt="" class="nutrition-month-entry-img" loading="lazy" />
+              <div>
+                <strong>{{ entry.mealLabel || entry.mealType }}</strong>
+                <span>{{ entry.caloriesKcal }} kcal · P {{ entry.proteinG }}g · C {{ entry.carbsG }}g · G {{ entry.fatG }}g</span>
+              </div>
+            </li>
+          </ul>
         </template>
       </article>
     </template>
@@ -72,6 +82,10 @@
 <script setup>
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
+const props = defineProps({
+  patientId: { type: String, default: null },
+})
+
 const config = useRuntimeConfig()
 const { patientTimeHeaders } = usePatientLocalTime()
 
@@ -79,6 +93,8 @@ const loading = ref(true)
 const error = ref('')
 const summary = ref(null)
 const selectedDate = ref('')
+const dayEntries = ref([])
+const loadingDay = ref(false)
 
 const now = new Date()
 const viewYear = ref(now.getFullYear())
@@ -132,6 +148,47 @@ function barColor(day) {
   return '#5ba4d9'
 }
 
+function authHeaders() {
+  const token = import.meta.client ? localStorage.getItem('auth_token') : null
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+function monthFetchOptions() {
+  if (props.patientId) {
+    return {
+      url: `${config.public.apiBase}/patients/${props.patientId}/food-diary/month`,
+      headers: authHeaders(),
+    }
+  }
+  return {
+    url: `${config.public.apiBase}/food-diary/month`,
+    headers: patientTimeHeaders(),
+  }
+}
+
+async function loadDayEntries(date) {
+  if (!date || !props.patientId) {
+    dayEntries.value = []
+    return
+  }
+  loadingDay.value = true
+  try {
+    const data = await $fetch(`${config.public.apiBase}/patients/${props.patientId}/food-diary/day`, {
+      headers: authHeaders(),
+      query: { date },
+    })
+    dayEntries.value = data.entries || []
+  } catch {
+    dayEntries.value = []
+  } finally {
+    loadingDay.value = false
+  }
+}
+
+watch(selectedDate, (date) => {
+  void loadDayEntries(date)
+})
+
 function shiftMonth(delta) {
   let month = viewMonth.value + delta
   let year = viewYear.value
@@ -151,8 +208,9 @@ async function loadMonth() {
   loading.value = true
   error.value = ''
   try {
-    summary.value = await $fetch(`${config.public.apiBase}/food-diary/month`, {
-      headers: patientTimeHeaders(),
+    const { url, headers } = monthFetchOptions()
+    summary.value = await $fetch(url, {
+      headers,
       query: { year: viewYear.value, month: viewMonth.value },
     })
     const todayInView = summary.value.days.find((day) => day.date === todayKey.value)
@@ -310,5 +368,43 @@ onMounted(loadMonth)
   gap: 0.65rem;
   font-size: 0.78rem;
   color: var(--cf-text);
+}
+
+.nutrition-month-entries {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.nutrition-month-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--cf-border);
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.nutrition-month-entry strong {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.nutrition-month-entry span {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--cf-text-muted);
+}
+
+.nutrition-month-entry-img {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 </style>

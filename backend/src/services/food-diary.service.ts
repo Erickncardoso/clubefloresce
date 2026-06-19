@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { BellaRepository } from "../repositories/bella.repository";
 import { FoodDiaryRepository } from "../repositories/food-diary.repository";
 import { round1, sumItems } from "./bella/meal-item-math";
+import { enrichMealItemsWithFoodBank } from "./bella/meal-food-enricher";
 import type {
   DailyDiarySummary,
   MealItemDraft,
@@ -222,7 +223,7 @@ export class FoodDiaryService {
     },
     dateKey?: string,
   ) {
-    const items = payload.items.map((item) => ({
+    const rawItems = payload.items.map((item) => ({
       id: item.id || randomUUID(),
       name: String(item.name || "").trim(),
       grams: Math.max(1, Math.round(Number(item.grams) || 0)),
@@ -231,15 +232,16 @@ export class FoodDiaryService {
       proteinG: round1(Number(item.proteinG) || 0),
       fatG: round1(Number(item.fatG) || 0),
       foodId: item.foodId ? String(item.foodId) : null,
-      source: item.source || (item.foodId ? "food_bank" : "manual"),
+      source: item.source || (item.foodId ? "food_bank" : "ai"),
       originalName: item.originalName ? String(item.originalName) : null,
     }));
 
-    if (!items.length) throw new Error("Adicione pelo menos um alimento.");
-    if (items.some((item) => !item.name)) {
+    if (!rawItems.length) throw new Error("Adicione pelo menos um alimento.");
+    if (rawItems.some((item) => !item.name)) {
       throw new Error("Preencha o nome de todos os alimentos.");
     }
 
+    const items = await enrichMealItemsWithFoodBank(rawItems);
     const totals = sumItems(items);
     const key = dateKey || getDateKeyInTimeZone("UTC");
     const entryDate = entryDateFromKey(key);

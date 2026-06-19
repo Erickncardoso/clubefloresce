@@ -1,5 +1,5 @@
 :root {
-  --cf-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cf-font: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   /* squircle — cantos contínuos com laterais curvadas (estilo Copilot/iOS) */
   --cf-radius-sheet: 2.75rem;

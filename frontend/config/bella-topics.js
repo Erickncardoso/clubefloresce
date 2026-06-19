@@ -35,7 +35,7 @@ export const BELLA_TOPICS = {
     title: 'Meu prato',
     subtitle: 'Registre no diário de hoje',
     welcome: (name) =>
-      `Olá, ${name}! 📸 Envie a foto do prato de cima, com boa luz. Estimo gramas, calorias e macros de cada item; você confirma e registro no diário de hoje.`,
+      `Olá, ${name}! 📸 Escolha a refeição logo abaixo e envie a foto do prato. Estimo gramas, calorias e macros; você confirma e registro no diário de hoje.`,
     placeholder: 'Opcional: descreva a refeição...',
     taskHint: 'meal',
     acceptPdf: false,

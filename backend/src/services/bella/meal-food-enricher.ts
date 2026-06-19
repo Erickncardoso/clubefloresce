@@ -1,24 +1,38 @@
 import { FoodService } from "../food.service";
 import type { FoodItemDto } from "../../types/food.types";
 import type { MealItemDraft } from "../../types/food-diary.types";
-import { round1, sumItems } from "./meal-item-math";
+import { macrosAtGramsFromPer100g, normalizePer100gMacros } from "../../utils/food-macros";
+import { sumItems } from "./meal-item-math";
 
 const foodService = new FoodService();
 
 function macrosFromFood(food: FoodItemDto, grams: number) {
-  const per100g = food.per100g || {};
-  const portion = Math.max(1, Math.round(grams));
-  const ratio = portion / 100;
+  const per100g = normalizePer100gMacros(food);
+  const macros = macrosAtGramsFromPer100g(per100g, grams);
 
   return {
-    caloriesKcal: Math.max(0, Math.round((per100g.caloriesKcal || 0) * ratio)),
-    carbsG: round1((per100g.carbsG || 0) * ratio),
-    proteinG: round1((per100g.proteinG || 0) * ratio),
-    fatG: round1((per100g.fatG || 0) * ratio),
+    caloriesKcal: macros.caloriesKcal,
+    carbsG: macros.carbsG,
+    proteinG: macros.proteinG,
+    fatG: macros.fatG,
   };
 }
 
 async function enrichItem(item: MealItemDraft): Promise<MealItemDraft> {
+  if (item.foodId) {
+    const byId = await foodService.getById(item.foodId);
+    if (byId) {
+      return {
+        ...item,
+        name: byId.name,
+        foodId: byId.id,
+        source: "food_bank",
+        originalName: item.originalName || item.name,
+        ...macrosFromFood(byId, item.grams),
+      };
+    }
+  }
+
   const matched = await foodService.matchByName(item.name);
   if (!matched) return item;
 
