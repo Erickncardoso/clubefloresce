@@ -128,7 +128,7 @@ import { Save, Link2, MessageSquare, BookOpen, Bell } from 'lucide-vue-next'
 const saving = ref(false)
 const settings = reactive({
   logo: '',
-  primaryColor: '#2d5a27',
+  primaryColor: '#8B967C',
   welcomeTitle: 'Que bom ter você aqui!',
   welcomeText: 'Continue sua jornada rumo a uma vida mais saudável e equilibrada.',
   supportLink: '',

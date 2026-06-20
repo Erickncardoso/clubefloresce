@@ -82,13 +82,44 @@ function updateMenuPosition() {
   if (!root) return
 
   const rect = root.getBoundingClientRect()
+  const viewportPad = 10
+  const gap = 6
+  const menuEl = menuRef.value
+  const menuHeight = menuEl?.offsetHeight || Math.min(props.options.length * 44 + 14, 320)
+
+  const spaceBelow = window.innerHeight - rect.bottom - viewportPad
+  const spaceAbove = rect.top - viewportPad
+  const openBelow = spaceBelow >= menuHeight || spaceBelow >= spaceAbove
+  const maxHeight = Math.max(120, openBelow ? spaceBelow - gap : spaceAbove - gap)
+
+  const width = rect.width
+  let left = rect.left
+  if (left + width > window.innerWidth - viewportPad) {
+    left = window.innerWidth - width - viewportPad
+  }
+  left = Math.max(viewportPad, left)
+
+  const top = openBelow
+    ? rect.bottom + gap
+    : Math.max(viewportPad, rect.top - Math.min(menuHeight, maxHeight) - gap)
+
   menuStyle.value = {
     position: 'fixed',
-    top: `${rect.bottom + 6}px`,
-    left: `${rect.left}px`,
-    width: `${rect.width}px`,
+    top: `${top}px`,
+    left: `${left}px`,
+    width: `${width}px`,
+    maxHeight: `${maxHeight}px`,
+    overflowY: 'auto',
     zIndex: 12000,
   }
+}
+
+function openMenu() {
+  open.value = true
+  nextTick(() => {
+    updateMenuPosition()
+    nextTick(() => updateMenuPosition())
+  })
 }
 
 function close() {
@@ -97,10 +128,11 @@ function close() {
 
 function toggle() {
   if (props.disabled) return
-  open.value = !open.value
   if (open.value) {
-    nextTick(() => updateMenuPosition())
+    close()
+    return
   }
+  openMenu()
 }
 
 function select(value) {
@@ -201,7 +233,7 @@ onBeforeUnmount(() => {
 
 .cf-select--open .cf-select-chevron {
   transform: rotate(180deg);
-  color: #2d5a27;
+  color: #8B967C;
 }
 
 .cf-select-menu {
@@ -236,7 +268,7 @@ onBeforeUnmount(() => {
 
 .cf-select-option--active {
   background: #edf5eb;
-  color: #2d5a27;
+  color: #8B967C;
   font-weight: 700;
 }
 

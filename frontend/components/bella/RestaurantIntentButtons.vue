@@ -67,13 +67,13 @@ const options = computed(() => RESTAURANT_INTENT_OPTIONS)
 }
 
 .bella-restaurant-intent-btn:hover:not(:disabled) {
-  background: var(--cf-pink-soft, #faecef);
-  border-color: #e0c4c6;
+  background: var(--cf-pink-soft, #eef0eb);
+  border-color: #c8d4bc;
 }
 
 .bella-restaurant-intent-btn:active:not(:disabled) {
   transform: scale(0.98);
-  background: var(--cf-pink-soft, #faecef);
+  background: var(--cf-pink-soft, #eef0eb);
 }
 
 .bella-restaurant-intent-btn:disabled {
@@ -82,9 +82,9 @@ const options = computed(() => RESTAURANT_INTENT_OPTIONS)
 }
 
 .bella-restaurant-intent-btn--primary {
-  background: var(--cf-pink-soft, #faecef);
-  border-color: #e0c4c6;
-  color: var(--cf-pink-dark, #a06267);
+  background: var(--cf-pink-soft, #eef0eb);
+  border-color: #c8d4bc;
+  color: var(--cf-pink-dark, #6f7863);
   font-weight: 700;
 }
 </style>

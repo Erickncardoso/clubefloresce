@@ -155,9 +155,16 @@ function logout() {
 .cf-drawer-head :deep(.cf-brand-mark) {
   min-width: 0;
   flex: 1;
+  gap: 0.55rem;
+}
+
+.cf-drawer-head :deep(.cf-brand-mark__icon) {
+  height: 1.85rem;
 }
 
 .cf-drawer-head :deep(.cf-brand-mark__text) {
+  font-size: 1.02rem;
+  font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
 }

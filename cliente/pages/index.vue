@@ -4,7 +4,11 @@
       <div class="patient-auth-inner">
         <div class="patient-auth-card cf-squircle cf-squircle--surface">
           <header class="patient-auth-header patient-auth-header--login">
-            <PatientBrandMark size="lg" stacked class="patient-auth-brand-mark" />
+            <PatientLoadingLogo
+              size="xl"
+              :animated="loading || firstAccessLoading"
+              class="patient-auth-logo-mark"
+            />
             <h2>Entrar</h2>
           </header>
 
@@ -256,10 +260,9 @@ const handleFirstAccessPasswordChange = async () => {
   margin-bottom: 1.35rem;
 }
 
-.patient-auth-header--login .patient-auth-logo {
+.patient-auth-header--login .patient-auth-logo-mark {
   display: block;
   margin: 0 auto 0.85rem;
-  object-fit: contain;
 }
 
 .patient-auth-header--login h2 {

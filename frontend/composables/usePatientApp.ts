@@ -36,7 +36,7 @@ function isPlaceholderPatientName(name: string) {
 export function usePatientApp() {
   const config = useRuntimeConfig()
   const isPatientApp = computed(() => Boolean(config.public.mobileApp))
-  const profile = useState<PatientProfile>('patient-profile', () => ({ ...DEFAULT_PROFILE }))
+  const profile = useState<PatientProfile>('patient-profile', () => readStorageProfile())
 
   function readPlanPatientName() {
     const mealPlan = useState('patient-meal-plan', () => null)
@@ -68,9 +68,20 @@ export function usePatientApp() {
   }) {
     if (import.meta.server) return
 
-    const name = String(user.name || DEFAULT_PROFILE.name).trim() || DEFAULT_PROFILE.name
-    const avatar = String(user.avatar || '').trim()
-    const createdAt = user.createdAt ? new Date(user.createdAt).toISOString() : ''
+    const stored = readStorageProfile()
+    const current = profile.value
+
+    const name = 'name' in user
+      ? (String(user.name || DEFAULT_PROFILE.name).trim() || DEFAULT_PROFILE.name)
+      : (current.name || stored.name || DEFAULT_PROFILE.name)
+
+    const avatar = 'avatar' in user
+      ? String(user.avatar || '').trim()
+      : (current.avatar || stored.avatar || '')
+
+    const createdAt = 'createdAt' in user
+      ? (user.createdAt ? new Date(user.createdAt).toISOString() : '')
+      : (current.createdAt || stored.createdAt || '')
 
     localStorage.setItem('user_name', name)
     if (avatar) localStorage.setItem('user_avatar', avatar)

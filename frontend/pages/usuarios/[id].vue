@@ -80,7 +80,25 @@
               <strong>{{ latestWeight || '—' }}</strong>
               <small v-if="overview.checkIn.latest">Semana {{ formatWeek(overview.checkIn.latest.weekStart) }}</small>
             </article>
+            <article v-if="overview.foodDiary?.today" class="stat-card stat-card--nutrition">
+              <span class="stat-label">Nutrição hoje</span>
+              <strong>{{ Math.round(overview.foodDiary.today.consumed.caloriesKcal) }} kcal</strong>
+              <small>
+                Meta {{ overview.foodDiary.today.targets.caloriesKcal }} kcal
+                · P {{ Math.round(overview.foodDiary.today.consumed.proteinG) }}g
+                · C {{ Math.round(overview.foodDiary.today.consumed.carbsG) }}g
+                · G {{ Math.round(overview.foodDiary.today.consumed.fatG) }}g
+              </small>
+            </article>
           </div>
+
+          <section class="resumo-nutrition-panel">
+            <PatientsPatientNutritionSection
+              :patient-id="patientId"
+              show-links
+              @navigate="activeTab = $event"
+            />
+          </section>
 
           <div class="two-col">
             <article class="info-card">
@@ -672,7 +690,7 @@ onMounted(loadAll)
 
 <style scoped>
 .patient-detail-page {
-  --primary: #2d5a27;
+  --primary: #8B967C;
 }
 
 .loading-state,
@@ -794,6 +812,18 @@ onMounted(loadAll)
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.resumo-nutrition-panel {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 16px;
+}
+
+.stat-card--nutrition small {
+  line-height: 1.45;
 }
 
 .stat-card {
@@ -1084,7 +1114,7 @@ onMounted(loadAll)
   cursor: pointer;
 }
 
-.form-msg { margin-top: 0.75rem; color: #2d5a27; }
+.form-msg { margin-top: 0.75rem; color: #8B967C; }
 .form-msg.error { color: #c53030; }
 
 .empty { color: #aaa; padding: 1rem 0; }

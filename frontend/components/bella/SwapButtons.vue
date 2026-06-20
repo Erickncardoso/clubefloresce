@@ -114,13 +114,13 @@ const ariaLabel = computed(() => {
 }
 
 .bella-swap-btn:hover:not(:disabled) {
-  background: var(--cf-pink-soft, #faecef);
-  border-color: #e0c4c6;
+  background: var(--cf-pink-soft, #eef0eb);
+  border-color: #c8d4bc;
 }
 
 .bella-swap-btn:active:not(:disabled) {
   transform: scale(0.98);
-  background: var(--cf-pink-soft, #faecef);
+  background: var(--cf-pink-soft, #eef0eb);
 }
 
 .bella-swap-btn:disabled {
@@ -129,9 +129,9 @@ const ariaLabel = computed(() => {
 }
 
 .bella-swap-btn--primary {
-  background: var(--cf-pink-soft, #faecef);
-  border-color: #e0c4c6;
-  color: var(--cf-pink-dark, #a06267);
+  background: var(--cf-pink-soft, #eef0eb);
+  border-color: #c8d4bc;
+  color: var(--cf-pink-dark, #6f7863);
   text-align: center;
   font-weight: 700;
 }
@@ -139,7 +139,7 @@ const ariaLabel = computed(() => {
 .bella-swap-btn--outline {
   text-align: center;
   border-style: dashed;
-  color: var(--cf-pink-dark, #a06267);
+  color: var(--cf-pink-dark, #6f7863);
   background: #fff;
 }
 

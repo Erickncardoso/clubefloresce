@@ -1,8 +1,25 @@
 <template>
-  <header class="cf-header">
-    <button type="button" class="cf-header-btn" aria-label="Menu" @click="openMenu">
-      <Menu class="cf-header-icon" />
-    </button>
+  <header class="cf-header" :class="{ 'cf-header--menu-left': menuLeft }">
+    <div class="cf-header-start">
+      <button
+        v-if="menuLeft"
+        type="button"
+        class="cf-header-btn"
+        aria-label="Menu"
+        @click="openMenu"
+      >
+        <Menu class="cf-header-icon" />
+      </button>
+      <button
+        v-else-if="showBack"
+        type="button"
+        class="cf-header-btn cf-header-btn--back"
+        aria-label="Voltar"
+        @click="goBack"
+      >
+        <ChevronLeft class="cf-header-icon" />
+      </button>
+    </div>
 
     <div class="cf-header-brand">
       <template v-if="title">
@@ -33,13 +50,13 @@
         >{{ badgeText }}</span>
       </button>
       <button
-        v-if="showBack"
+        v-if="!menuLeft"
         type="button"
         class="cf-header-btn"
-        aria-label="Voltar"
-        @click="goBack"
+        aria-label="Menu"
+        @click="openMenu"
       >
-        <ChevronLeft class="cf-header-icon" />
+        <Menu class="cf-header-icon" />
       </button>
     </div>
 
@@ -58,8 +75,9 @@ import { Bell, ChevronLeft, Menu } from 'lucide-vue-next'
 const props = defineProps({
   title: { type: String, default: '' },
   subtitle: { type: String, default: '' },
-  showBack: { type: Boolean, default: false },
+  showBack: { type: Boolean, default: true },
   showBell: { type: Boolean, default: true },
+  menuLeft: { type: Boolean, default: false },
   hasNotifications: { type: Boolean, default: false },
   backTo: { type: String, default: '' },
 })
@@ -104,12 +122,22 @@ onMounted(() => {
 
 <style scoped>
 .cf-header {
-  display: grid;
-  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  position: relative;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
   padding: calc(0.5rem + env(safe-area-inset-top)) 1rem 0.75rem;
   background: #ffffff;
+}
+
+.cf-header-start {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 2.75rem;
+  flex-shrink: 0;
+  z-index: 1;
 }
 
 .cf-header-btn {
@@ -131,6 +159,26 @@ onMounted(() => {
   background: var(--cf-border);
 }
 
+.cf-header-btn--back {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.75rem;
+  background: var(--cf-green-soft, #eef0eb);
+}
+
+.cf-header-btn--back:hover {
+  background: color-mix(in srgb, var(--cf-green-soft, #eef0eb) 72%, var(--cf-border));
+}
+
+.cf-header-btn--back:active {
+  background: color-mix(in srgb, var(--cf-green-soft, #eef0eb) 55%, var(--cf-border));
+}
+
+.cf-header-btn--back .cf-header-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
 .cf-header-btn:focus-visible {
   outline: 2px solid var(--cf-pink);
   outline-offset: 2px;
@@ -144,10 +192,15 @@ onMounted(() => {
 }
 
 .cf-header-brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
+  max-width: calc(100% - 8.5rem);
+  pointer-events: none;
 }
 
 .cf-header-title {
@@ -156,6 +209,7 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
 }
 
 .cf-header-actions {
@@ -164,6 +218,7 @@ onMounted(() => {
   align-items: center;
   gap: 0.15rem;
   flex-shrink: 0;
+  z-index: 1;
 }
 
 .cf-header-badge {

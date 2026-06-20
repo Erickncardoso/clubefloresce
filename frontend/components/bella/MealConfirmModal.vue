@@ -892,7 +892,7 @@ onUnmounted(() => {
 }
 
 .meal-sheet-tag--ok {
-  color: var(--cf-green-dark, #166534);
+  color: var(--cf-green-dark, #6f7863);
 }
 
 .meal-sheet-tag--warn {
@@ -998,7 +998,7 @@ onUnmounted(() => {
   margin-top: 0.85rem;
   padding: 0.7rem 0.75rem;
   border-radius: 12px;
-  background: var(--cf-green-soft, #eef7f1);
+  background: var(--cf-green-soft, #eef0eb);
   font-size: 0.82rem;
 }
 

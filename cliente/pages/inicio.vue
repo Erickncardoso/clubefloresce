@@ -1,45 +1,82 @@
 <template>
   <div class="patient-page home-page patient-page--with-tab">
     <div class="home-hero-bg">
-      <PatientHeader class="home-header" />
+      <PatientHeader class="home-header" menu-left />
 
       <template v-if="!pageLoading">
-        <NuxtLink to="/perfil" class="home-profile">
-          <PatientAvatar
-            size="lg"
-            :src="avatarUrl"
-            :name="fullName"
-            interactive
-          />
-          <div class="home-profile-copy">
-            <p class="home-profile-greeting">{{ timeGreeting }}</p>
-            <h1 class="home-profile-name">{{ firstName }}</h1>
-            <p class="home-profile-streak">
-              <Flame class="home-profile-streak-icon" aria-hidden="true" />
-              {{ streakDays }} {{ streakDaysLabel }} florescendo
-            </p>
+        <div class="home-hero-panel">
+          <NuxtLink to="/perfil" class="home-hero-profile">
+            <PatientAvatar
+              size="lg"
+              :src="avatarUrl"
+              :name="fullName"
+              interactive
+            />
+            <div class="home-hero-profile-copy">
+              <h1 class="home-hero-name">{{ firstName }}</h1>
+              <p class="home-hero-sub">{{ timeGreeting }} · Clube Florescer</p>
+            </div>
+          </NuxtLink>
+
+          <div class="home-hero-kcal">
+            <span class="home-hero-kcal-label">Kcal hoje</span>
+            <strong class="home-hero-kcal-value">{{ consumed.caloriesKcal.toLocaleString('pt-BR') }}</strong>
           </div>
-        </NuxtLink>
+        </div>
+
+        <div class="home-hero-stats" aria-label="Resumo do dia">
+          <div class="home-hero-stat">
+            <strong>{{ streakDays }}</strong>
+            <span>{{ streakDaysLabel }} florescendo</span>
+          </div>
+          <div class="home-hero-stat">
+            <strong>{{ calorieConsumedPct }}%</strong>
+            <span>Meta calórica</span>
+          </div>
+          <div class="home-hero-stat">
+            <strong>{{ homeGoalsAverage }}%</strong>
+            <span>Metas do dia</span>
+          </div>
+        </div>
       </template>
     </div>
+
+    <NuxtLink v-if="!pageLoading" to="/bella/chat/general" class="home-hero-search-pill">
+      <Search class="home-hero-search-icon" aria-hidden="true" />
+      <span>Pergunte algo para a Bella</span>
+    </NuxtLink>
 
     <div class="home-sheet">
       <PatientPageSkeleton v-if="pageLoading" layout="home" />
 
       <template v-else>
-        <nav class="home-quick-strip cf-squircle" aria-label="Atalhos rápidos">
-          <NuxtLink
-            v-for="action in quickActions"
-            :key="action.to"
-            :to="action.to"
-            class="home-quick-action"
+        <div class="home-quick-strip">
+          <div
+            class="home-quick-carousel"
+            data-h-scroll
+            role="list"
+            aria-label="Atalhos rápidos"
           >
-            <span class="home-quick-action-icon-wrap" aria-hidden="true">
-              <component :is="action.icon" class="home-quick-action-icon" />
-            </span>
-            <span class="home-quick-action-label">{{ action.label }}</span>
-          </NuxtLink>
-        </nav>
+            <NuxtLink
+              v-for="action in quickActions"
+              :key="action.label"
+              :to="action.to"
+              class="home-quick-action"
+              role="listitem"
+            >
+              <span class="home-quick-action-icon-wrap" aria-hidden="true">
+                <img
+                  :src="action.image"
+                  alt=""
+                  class="home-quick-action-photo"
+                  loading="lazy"
+                  draggable="false"
+                >
+              </span>
+              <span class="home-quick-action-label">{{ action.label }}</span>
+            </NuxtLink>
+          </div>
+        </div>
 
         <section v-if="hasMealPlan" class="home-section" aria-labelledby="meal-title">
           <div class="home-section-head">
@@ -76,29 +113,29 @@
               <ChevronRight class="home-section-link-icon" aria-hidden="true" />
             </NuxtLink>
           </div>
-          <p class="home-goals-overview">
-            <span>Seu dia</span>
-            <strong>{{ homeGoalsAverage }}%</strong>
-          </p>
+          <div class="home-goals-summary">
+            <p class="home-goals-summary-title">Seu dia</p>
+            <p class="home-goals-summary-copy">
+              Média das metas: <strong>{{ homeGoalsAverage }}%</strong>
+            </p>
+          </div>
           <NuxtLink to="/evolucao?tab=metas" class="home-goals-grid" aria-label="Abrir metas na Evolução">
             <article
               v-for="metric in homeGoalMetrics"
               :key="metric.id"
-              class="home-goal-tile"
-              :style="{ '--goal-color': metric.color }"
+              class="home-goal-card"
+              :class="`home-goal-card--${metric.id}`"
             >
-              <div class="home-goal-tile-ring" aria-hidden="true">
-                <GoalMiniPie :value="metric.value" :size="54" :color="metric.color" />
-                <component :is="metric.icon" class="home-goal-tile-icon" />
-              </div>
-              <p class="home-goal-tile-label">{{ metric.label }}</p>
-              <p class="home-goal-tile-pct">{{ metric.value }}%</p>
+              <ArrowUpRight class="home-goal-card-arrow" aria-hidden="true" />
+              <p class="home-goal-card-value">{{ metric.value }}%</p>
+              <p class="home-goal-card-label">{{ metric.label }}</p>
+              <p class="home-goal-card-meta">{{ metric.meta }}</p>
             </article>
           </NuxtLink>
         </section>
 
         <div class="home-bella-overflow">
-          <NuxtLink to="/bella/chat/general" class="home-bella cf-squircle">
+          <NuxtLink to="/bella/chat/general" class="home-bella">
             <div class="home-bella-copy">
               <h3>Fale com a Bella</h3>
               <p>Sua nutricionista IA para dúvidas do dia a dia.</p>
@@ -152,26 +189,24 @@
 
 <script setup>
 import {
-  Activity,
-  CalendarCheck,
+  ArrowUpRight,
   ChevronRight,
-  Droplets,
-  Flame,
   Lightbulb,
-  LineChart,
-  Moon,
-  Sparkles,
-  Utensils,
+  Search,
 } from 'lucide-vue-next'
 import { getBellaDailyTip } from '~/data/bella-daily-tips'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const quickActions = [
-  { label: 'Minha dieta', to: '/dieta', icon: Utensils },
-  { label: 'Evolução', to: '/evolucao', icon: LineChart },
-  { label: 'Check-in', to: '/check-in', icon: CalendarCheck },
-  { label: 'Bella IA', to: '/bella', icon: Sparkles },
+  { label: 'Minha dieta', to: '/dieta', image: '/imgs/quick/quick-dieta.png' },
+  { label: 'Evolução', to: '/evolucao', image: '/imgs/quick/quick-evolucao.png' },
+  { label: 'Check-in', to: '/check-in', image: '/imgs/quick/quick-checkin.png' },
+  { label: 'Bella IA', to: '/bella', image: '/imgs/quick/quick-bella.png' },
+  { label: 'Vídeos', to: '/cursos', image: '/imgs/quick/quick-videos.png' },
+  { label: 'Ebooks', to: '/ebooks', image: '/imgs/quick/quick-ebooks.png' },
+  { label: 'Biblioteca', to: '/conteudo', image: '/imgs/quick/quick-biblioteca.png' },
+  { label: 'Comunidade', to: '/comunidade', image: '/imgs/quick/quick-comunidade.png' },
 ]
 
 const { fetchPlan } = usePatientMealPlan()
@@ -199,18 +234,11 @@ const defaultTargets = {
 }
 
 const metrics = ref([
-  { id: 'water', label: 'Água', value: 80, icon: Droplets, color: '#5ba4d9' },
-  { id: 'food', label: 'Alimentação', value: 90, icon: Utensils, color: 'var(--cf-pink)' },
-  { id: 'exercise', label: 'Exercício', value: 70, icon: Activity, color: 'var(--cf-green)' },
-  { id: 'sleep', label: 'Sono', value: 85, icon: Moon, color: '#7c6bae' },
+  { id: 'water', label: 'Água', value: 80 },
+  { id: 'food', label: 'Refeição livre', value: 90 },
+  { id: 'exercise', label: 'Exercício', value: 70 },
+  { id: 'sleep', label: 'Sono', value: 85 },
 ])
-
-const iconByGoalId = {
-  water: Droplets,
-  food: Utensils,
-  exercise: Activity,
-  sleep: Moon,
-}
 
 const homeGoalsAverage = computed(() => {
   const items = homeGoalMetrics.value
@@ -219,14 +247,32 @@ const homeGoalsAverage = computed(() => {
   return Math.round(total / items.length)
 })
 
+function formatGoalMeta(progress, goal) {
+  const current = Number(progress ?? 0)
+  const target = Number(goal?.target ?? 0)
+  const unit = goal?.unit ?? ''
+
+  if (goal?.type === 'sleep') {
+    return `${current}h de ${target}h`
+  }
+  if (goal?.frequency === 'weekly') {
+    return `${current} / ${target} ${unit} na semana`
+  }
+  return `${current} / ${target} ${unit} hoje`
+}
+
 const homeGoalMetrics = computed(() => {
-  if (!todaySummary.value.length) return metrics.value
+  if (!todaySummary.value.length) {
+    return metrics.value.map((item) => ({
+      ...item,
+      meta: `${item.value}% concluído`,
+    }))
+  }
   return todaySummary.value.map((item) => ({
     id: item.goal.id,
     label: item.goal.label,
     value: item.percent,
-    icon: iconByGoalId[item.goal.id] || Activity,
-    color: item.goal.color,
+    meta: formatGoalMeta(item.progress, item.goal),
   }))
 })
 
@@ -320,21 +366,22 @@ onMounted(async () => {
   overflow-x: hidden;
 }
 
-/* Header colorido — só o topo */
+/* Header verde — topo da home (inclui área do relógio/status bar) */
 .home-hero-bg {
   position: relative;
-  z-index: 0;
+  z-index: 1;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 1.25rem 2.85rem;
-  background: linear-gradient(165deg, #d49297 0%, #c17b80 42%, #a06267 100%);
+  padding: env(safe-area-inset-top, 0px) 1.25rem 2.65rem;
+  background: var(--cf-pink);
+  border-radius: 0 0 30px 30px;
 }
 
 .home-page :deep(.home-header.cf-header) {
   margin-inline: -0.25rem;
   padding-inline: 0.25rem;
-  padding-top: calc(0.35rem + env(safe-area-inset-top, 0px));
-  padding-bottom: 0.5rem;
+  padding-top: 0.35rem;
+  padding-bottom: 0.65rem;
   background: transparent;
 }
 
@@ -348,7 +395,7 @@ onMounted(async () => {
 }
 
 .home-page :deep(.home-header .cf-header-btn:hover) {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .home-page :deep(.home-header .cf-header-icon) {
@@ -356,138 +403,212 @@ onMounted(async () => {
 }
 
 .home-page :deep(.home-header .cf-header-badge) {
-  border-color: #a06267;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
-.home-hero-skeleton {
-  display: none;
+.home-hero-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-bottom: 1.15rem;
 }
 
-.home-profile {
+.home-hero-profile {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  margin-bottom: 0.85rem;
+  gap: 0.85rem;
+  min-width: 0;
+  flex: 1;
   text-decoration: none;
   color: inherit;
 }
 
-.home-profile-copy {
-  flex: 1;
+.home-hero-profile-copy {
   min-width: 0;
 }
 
-.home-profile-greeting {
-  margin: 0 0 0.2rem;
-  font-size: 0.84rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.home-profile-name {
-  margin: 0 0 0.35rem;
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.012em;
-  line-height: 1.22;
+.home-hero-name {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
   color: #fff;
 }
 
-.home-profile-streak {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin: 0;
-  padding: 0.25rem 0.62rem;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+.home-hero-sub {
+  margin: 0.28rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
   line-height: 1.35;
-  background: rgba(255, 255, 255, 0.16);
 }
 
-.home-profile-streak-icon {
-  width: 0.85rem;
-  height: 0.85rem;
-  color: #ffe8a8;
+.home-hero-kcal {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.home-hero-kcal-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.home-hero-kcal-value {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #fff;
+}
+
+.home-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.home-hero-stat {
+  text-align: center;
+}
+
+.home-hero-stat strong {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.home-hero-stat span {
+  display: block;
+  margin-top: 0.22rem;
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.52);
+  line-height: 1.25;
+}
+
+.home-hero-search-pill {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: -1.35rem 1.25rem 0;
+  padding: 0.9rem 1.05rem;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+  text-decoration: none;
+  color: #6b7280;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.home-hero-search-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: #111827;
 }
 
 .home-quick-strip {
   position: relative;
   z-index: 2;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.45rem;
-  margin: -2.55rem 0 1.1rem;
-  padding: 0.5rem;
-  background: #fff;
-  border: 1px solid var(--cf-border);
-  border-radius: 1.15rem;
-  box-shadow: 0 10px 28px rgba(40, 20, 22, 0.1);
-}
-
-.home-quick-action {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.38rem;
-  min-height: 3.95rem;
-  padding: 0.55rem 0.2rem;
-  border-radius: 0.9rem;
-  background: #f3f3f6;
-  border: none;
-  text-decoration: none;
-  color: var(--cf-text);
-  transition: background 0.15s ease, transform 0.15s ease;
-}
-
-.home-quick-action:active {
-  transform: scale(0.98);
-  background: #ebebef;
-}
-
-.home-quick-action-icon-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
-  height: auto;
-  border-radius: 0;
+  margin: 1rem 0 1.15rem;
+  padding: 0;
   background: transparent;
+  border: none;
   box-shadow: none;
 }
 
-.home-quick-action-icon {
-  width: 1.2rem;
-  height: 1.2rem;
-  stroke-width: 1.8;
-  color: var(--cf-pink-dark, #a06267);
+.home-quick-carousel {
+  display: flex;
+  gap: 0.85rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 1.25rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin-inline: -1.25rem;
+  padding: 0.1rem 1.25rem 0.15rem;
+}
+
+.home-quick-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.home-quick-action {
+  flex: 0 0 4.85rem;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  text-decoration: none;
+  color: var(--cf-text);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.home-quick-action:active {
+  transform: scale(0.94);
+  opacity: 0.82;
+}
+
+.home-quick-action-icon-wrap {
+  display: block;
+  width: auto;
+  height: auto;
+  line-height: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.home-quick-action-photo {
+  display: block;
+  width: 3.6rem;
+  height: 3.6rem;
+  object-fit: contain;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .home-quick-action-label {
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  line-height: 1.35;
-  letter-spacing: 0.02em;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
   text-align: center;
-  color: #3d3d45;
+  color: var(--cf-text);
 }
 
-/* Folha branca — bordas arredondadas sobre o header rosa */
+/* Corpo claro abaixo do header */
 .home-sheet {
   position: relative;
-  z-index: 1;
+  z-index: 0;
   width: 100%;
   box-sizing: border-box;
-  margin-top: -0.35rem;
-  padding: 1.35rem 1.25rem var(--cf-tab-clearance);
-  border-radius: 2rem 2rem 0 0;
+  margin-top: 0;
+  padding: 0.35rem 1.25rem var(--cf-tab-clearance);
   background: var(--cf-bg);
-  box-shadow: 0 -8px 32px rgba(40, 20, 22, 0.1);
   min-height: 12rem;
 }
 
@@ -529,77 +650,115 @@ onMounted(async () => {
   height: 0.85rem;
 }
 
-.home-goals-overview {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0 0.55rem;
-  padding: 0.55rem 0.85rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(232, 165, 152, 0.14), rgba(106, 171, 106, 0.1));
+.home-goals-summary {
+  margin: 0 0 0.65rem;
+  padding: 1rem 1.05rem;
+  border-radius: 1.35rem;
+  background: #fff;
+  border: 1px solid rgba(28, 24, 22, 0.06);
+}
+
+.home-goals-summary-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--cf-text);
+}
+
+.home-goals-summary-copy {
+  margin: 0;
   font-size: 0.78rem;
+  line-height: 1.45;
   color: var(--cf-text-muted);
 }
 
-.home-goals-overview strong {
-  font-size: 0.9rem;
+.home-goals-summary-copy strong {
   font-weight: 800;
-  color: var(--cf-pink-dark);
+  color: var(--cf-text);
   font-variant-numeric: tabular-nums;
 }
 
 .home-goals-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.65rem;
   color: inherit;
   text-decoration: none;
 }
 
-.home-goal-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.85rem 0.5rem 0.75rem;
-  border-radius: 1.15rem;
-  border: 1px solid var(--cf-border);
-  background: color-mix(in srgb, var(--goal-color) 10%, #fff);
-  box-shadow: 0 4px 14px rgba(28, 24, 22, 0.04);
-}
-
-.home-goal-tile-ring {
+.home-goal-card {
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.4rem;
-  height: 3.4rem;
-}
-
-.home-goal-tile-icon {
-  position: absolute;
-  width: 1.05rem;
-  height: 1.05rem;
-  color: var(--goal-color);
-}
-
-.home-goal-tile-label {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  line-height: 1.35;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 6.75rem;
+  padding: 1rem 1rem 0.9rem;
+  border-radius: 1.35rem;
+  border: none;
+  box-shadow: none;
+  background: #f3f4f6;
+  text-decoration: none;
   color: var(--cf-text);
-  text-align: center;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-.home-goal-tile-pct {
+.home-goals-grid:active .home-goal-card {
+  transform: scale(0.985);
+}
+
+.home-goal-card-arrow {
+  position: absolute;
+  top: 0.95rem;
+  right: 0.95rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--cf-text);
+  opacity: 0.65;
+  stroke-width: 2.1;
+}
+
+.home-goal-card-value {
   margin: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--cf-text-muted);
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+
+.home-goal-card-label {
+  margin: 0.38rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--cf-text);
+}
+
+.home-goal-card-meta {
+  margin: auto 0 0;
+  padding-top: 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgba(28, 24, 22, 0.52);
+}
+
+.home-goal-card--water {
+  background: #e8f0fb;
+}
+
+.home-goal-card--food {
+  background: #fef9c3;
+}
+
+.home-goal-card--exercise {
+  background: #eef0eb;
+}
+
+.home-goal-card--sleep {
+  background: #f3f4f6;
 }
 
 .home-bella-overflow {
@@ -647,11 +806,12 @@ onMounted(async () => {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 1.15rem 6.5rem 0.85rem 2.35rem;
+  padding: 1.15rem 6.5rem 0.85rem 1.25rem;
   margin: 0;
   min-height: 4.5rem;
   border: none;
-  background: linear-gradient(135deg, #c98a8f 0%, var(--cf-pink) 55%, #a06267 100%);
+  border-radius: 1.85rem;
+  background: var(--cf-pink);
   color: #fff;
   text-decoration: none;
   text-align: left;
@@ -660,7 +820,7 @@ onMounted(async () => {
   touch-action: manipulation;
   -webkit-tap-highlight-color: rgba(255, 255, 255, 0.12);
   overflow: visible;
-  box-shadow: 0 8px 24px rgba(160, 98, 103, 0.28);
+  box-shadow: 0 8px 24px rgba(86, 97, 55, 0.22);
   transition: transform 0.15s ease;
 }
 
@@ -680,14 +840,15 @@ onMounted(async () => {
 
 .home-bella-copy h3 {
   margin: 0 0 0.2rem;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.05rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .home-bella-copy p {
   margin: 0;
   font-size: 0.8125rem;
+  font-weight: 500;
   opacity: 0.92;
   line-height: 1.4;
 }
@@ -746,7 +907,7 @@ onMounted(async () => {
   height: 2.85rem;
   border: 4px solid var(--cf-bg);
   border-radius: 50%;
-  background: #e5efe3;
+  background: #eef0eb;
 }
 
 .home-bella-teach-badge-icon {
@@ -801,7 +962,7 @@ onMounted(async () => {
   font-size: 0.82rem;
   line-height: 1.55;
   letter-spacing: 0.01em;
-  color: #2f3d2c;
+  color: #6f7863;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -810,5 +971,16 @@ onMounted(async () => {
   .home-bella-teach {
     transition: none;
   }
+}
+</style>
+
+<style>
+/* PWA: faixa do status bar (horário/bateria) verde na home */
+html:has(.home-page),
+html:has(.home-page) body,
+html:has(.home-page) #__nuxt,
+html:has(.home-page) .patient-app-shell,
+html:has(.home-page) .patient-shell {
+  background-color: var(--cf-pink, #8B967C);
 }
 </style>

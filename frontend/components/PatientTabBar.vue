@@ -57,9 +57,11 @@
 
 <script setup>
 import { BookOpen, CirclePlus, Home, LineChart, Users } from 'lucide-vue-next'
+import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
 
 const route = useRoute()
 const router = useRouter()
+const { startNavigation, finishNavigation } = usePatientNavigationLoading()
 const bellaMenuOpen = ref(false)
 const navigating = ref(false)
 const evolucaoLastTab = useState('evolucao-last-tab', () => 'metas')
@@ -75,7 +77,7 @@ const rightTabs = [
 ]
 
 function normalizeEvoTab(tab) {
-  if (tab === 'dieta' || tab === 'peso' || tab === 'metas') return tab
+  if (tab === 'peso' || tab === 'metas') return tab
   return 'metas'
 }
 
@@ -84,8 +86,6 @@ watch(
   () => {
     if (route.path.startsWith('/evolucao')) {
       evolucaoLastTab.value = normalizeEvoTab(String(route.query.tab || 'metas'))
-    } else if (route.path.startsWith('/dieta')) {
-      evolucaoLastTab.value = 'dieta'
     }
   },
   { immediate: true },
@@ -106,7 +106,7 @@ function isTabActive(item) {
     return route.path.startsWith('/conteudo') || route.path.startsWith('/cursos') || route.path.startsWith('/ebooks')
   }
   if (item.key === 'evolucao') {
-    return route.path.startsWith('/evolucao') || route.path.startsWith('/dieta')
+    return route.path.startsWith('/evolucao')
   }
   if (item.key === 'comunidade') return route.path.startsWith('/comunidade')
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
@@ -133,13 +133,13 @@ async function goTab(item) {
 
   bellaMenuOpen.value = false
   navigating.value = true
+  startNavigation()
 
   try {
     await navigateTo(target)
   } finally {
-    window.setTimeout(() => {
-      navigating.value = false
-    }, 120)
+    navigating.value = false
+    finishNavigation()
   }
 }
 
@@ -235,8 +235,8 @@ watch(() => route.fullPath, () => {
   padding-inline: 0.8rem;
   background: var(--cf-pink-soft);
   color: var(--cf-pink-dark);
-  border-color: var(--cf-pink);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cf-pink) 35%, transparent);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .cf-tab.active .cf-tab-icon {
@@ -296,8 +296,8 @@ watch(() => route.fullPath, () => {
 
 .cf-tab--fab-open .cf-tab-pill--fab {
   background: var(--cf-pink-soft);
-  border-color: var(--cf-pink);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cf-pink) 35%, transparent);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .cf-tab--fab-open .cf-tab-icon--fab {

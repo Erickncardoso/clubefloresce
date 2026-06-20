@@ -4,6 +4,7 @@
     <div class="patient-app-shell__main" :inert="showMealPlanGate">
       <NuxtPage />
     </div>
+    <PatientNavigationLoader />
     <PatientTabBar v-if="showTabBar" />
     <PatientPwaUpdate />
     <PatientPwaPrompt />
@@ -15,6 +16,9 @@
 </template>
 
 <script setup>
+import PatientNavigationLoader from '~/components/PatientNavigationLoader.vue'
+import { usePatientTabBar } from '~/composables/usePatientTabBar'
+
 const route = useRoute()
 const config = useRuntimeConfig()
 useVirtualKeyboard()
@@ -38,8 +42,11 @@ const showMealPlanGate = computed(() => {
   return !hasPlan.value
 })
 
+const { suppressed: tabBarSuppressed } = usePatientTabBar()
+
 const showTabBar = computed(() => {
   if (showMealPlanGate.value) return false
+  if (tabBarSuppressed.value) return false
   if (hideTabBarPaths.includes(route.path)) return false
   if (route.path.startsWith('/modulos/')) return false
   return true

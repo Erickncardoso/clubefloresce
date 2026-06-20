@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
 }
 
 .food-picker--open .food-picker-input-wrap {
-  border-color: var(--pa-green, #2d8a4e);
+  border-color: var(--pa-green, #8B967C);
   box-shadow: 0 0 0 2px rgba(45, 138, 78, 0.12);
 }
 
@@ -383,7 +383,7 @@ onBeforeUnmount(() => {
 
 .food-picker-option--active,
 .food-picker-option:hover {
-  background: var(--cf-green-soft, #eef7f1);
+  background: var(--cf-green-soft, #eef0eb);
 }
 
 .food-picker-option-name {

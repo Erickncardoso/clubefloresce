@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page evo-page patient-page--with-tab">
-    <PatientHeader title="Evolução" :show-bell="false" />
+    <PatientHeader title="Evolução" show-back back-to="/inicio" :show-bell="false" />
 
     <NuxtLink
       v-if="pendingCheckIn"
@@ -35,20 +35,6 @@
       <EvolucaoGoalsPanel />
     </section>
 
-    <section v-else-if="activeTab === 'dieta'" class="evo-dieta" aria-label="Dieta">
-      <div class="evo-dieta-card cf-squircle">
-        <h2>Seu plano alimentar</h2>
-        <p>Acompanhe refeições do dia, substituições e registros no diário.</p>
-        <NuxtLink to="/dieta" class="evo-dieta-link">
-          Abrir minha dieta
-          <ChevronRight class="evo-dieta-link-icon" />
-        </NuxtLink>
-      </div>
-      <NuxtLink to="/evolucao/nutricao" class="evo-dieta-secondary">
-        Ver panorama nutricional do mês
-      </NuxtLink>
-    </section>
-
     <section v-else aria-label="Peso e medidas">
       <EvolucaoWeightPanel />
     </section>
@@ -56,7 +42,7 @@
 </template>
 
 <script setup>
-import { CalendarCheck, ChevronRight, LineChart, Scale, Target } from 'lucide-vue-next'
+import { CalendarCheck, ChevronRight, LineChart, Target } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
@@ -71,14 +57,13 @@ const {
 
 const tabs = [
   { id: 'metas', label: 'Metas', icon: Target },
-  { id: 'dieta', label: 'Dieta', icon: Scale },
   { id: 'peso', label: 'Peso e medidas', icon: LineChart },
 ]
 
 const activeTab = ref('metas')
 
 function normalizeTab(value) {
-  if (value === 'dieta' || value === 'peso' || value === 'metas') return value
+  if (value === 'peso' || value === 'metas') return value
   return 'metas'
 }
 
@@ -90,7 +75,12 @@ function setTab(id) {
 watch(
   () => route.query.tab,
   (tab) => {
-    activeTab.value = normalizeTab(String(tab || 'metas'))
+    const value = String(tab || 'metas')
+    if (value === 'dieta') {
+      navigateTo('/dieta', { replace: true })
+      return
+    }
+    activeTab.value = normalizeTab(value)
   },
   { immediate: true },
 )
@@ -147,8 +137,8 @@ onMounted(() => {
 
 .evo-tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.35rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.45rem;
   margin-bottom: 1rem;
 }
 
@@ -177,51 +167,5 @@ onMounted(() => {
 .evo-tab-icon {
   width: 1rem;
   height: 1rem;
-}
-
-.evo-dieta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.evo-dieta-card {
-  padding: 1rem;
-  border: 1px solid var(--cf-border);
-  background: var(--cf-surface);
-  box-shadow: var(--cf-shadow-lg);
-}
-
-.evo-dieta-card h2 {
-  margin: 0 0 0.35rem;
-  font-size: 0.95rem;
-}
-
-.evo-dieta-card p {
-  margin: 0 0 0.85rem;
-  font-size: 0.8rem;
-  color: var(--cf-text-muted);
-  line-height: 1.45;
-}
-
-.evo-dieta-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--cf-pink-dark);
-  text-decoration: none;
-}
-
-.evo-dieta-link-icon {
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
-.evo-dieta-secondary {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--cf-text-muted);
 }
 </style>

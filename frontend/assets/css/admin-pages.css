@@ -1,7 +1,7 @@
 /* Painel nutricionista — tokens globais (páginas usam layout dashboard, não default) */
 :root {
-  --primary: #2d5a27;
-  --primary-light: #4c8c4a;
+  --primary: #8B967C;
+  --primary-light: #a3ad98;
   --secondary: #f4f7f6;
   --text-main: #333d3b;
   --text-muted: #66706e;
@@ -42,8 +42,8 @@
 
 /* Painel nutricionista — shell compartilhado (light) */
 .admin-shell {
-  --admin-primary: #2d5a27;
-  --admin-primary-soft: #eef8f0;
+  --admin-primary: #8B967C;
+  --admin-primary-soft: #eef0eb;
   --admin-ink: #141414;
   --admin-muted: #66706e;
   --admin-border: #e8ece9;
@@ -105,7 +105,7 @@
 }
 
 .admin-btn-primary:hover:not(:disabled) {
-  background: #4c8c4a;
+  background: #a3ad98;
 }
 
 .admin-btn-primary:disabled {
@@ -194,6 +194,7 @@
 }
 
 .modal-card .field--float input,
+.modal-card .field--float textarea,
 .modal-card .field--float select:not(.cf-select-trigger) {
   padding-top: 0.95rem;
 }

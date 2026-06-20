@@ -1,7 +1,11 @@
 // Nuxt compartilhado — admin (:3000) ou paciente via cliente/ (:3002) com NUXT_PUBLIC_MOBILE_APP=true
+import { fileURLToPath } from 'node:url'
 import { fixWindowsVitePaths } from './utils/fix-windows-vite-paths'
+import { ensurePwaDevSwPlaceholder, mirrorPwaDevSwDist } from './utils/mirror-pwa-dev-sw'
 import { PROD_API_ORIGIN, PROD_WHATSAPP_API_BASE } from './utils/api-env.mjs'
 import { resolveApiBaseAtBuild } from './utils/resolve-api-base.mjs'
+
+const frontendRoot = fileURLToPath(new URL('.', import.meta.url))
 
 const isMobileApp = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
 const isGenerate =
@@ -18,6 +22,10 @@ const defaultApiBase = resolveApiBaseAtBuild({
 })
 const defaultWhatsappApiBase = process.env.NUXT_PUBLIC_WHATSAPP_API_BASE
   || (isDev ? '/api/whatsapp' : PROD_WHATSAPP_API_BASE)
+
+if (isMobileApp && isDev) {
+  ensurePwaDevSwPlaceholder(frontendRoot, '.nuxt-mobile')
+}
 
 export default defineNuxtConfig({
   buildDir: isMobileApp ? '.nuxt-mobile' : '.nuxt',
@@ -155,7 +163,9 @@ export default defineNuxtConfig({
     host: devHost,
   },
   vite: {
-    ...(isMobileApp ? { plugins: [fixWindowsVitePaths()] } : {}),
+    ...(isMobileApp
+      ? { plugins: [fixWindowsVitePaths(), mirrorPwaDevSwDist(frontendRoot, '.nuxt-mobile')] }
+      : {}),
     server: {
       ...(isMobileApp
         ? {

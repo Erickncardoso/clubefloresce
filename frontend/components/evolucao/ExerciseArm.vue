@@ -171,7 +171,7 @@ const ringOffset = computed(() => ringCircumference - (fillPercent.value / 100) 
 
 .exercise-arm__count strong {
   font-size: 1.15rem;
-  color: #6d9a66;
+  color: #8B967C;
 }
 
 .exercise-arm__actions {
@@ -191,8 +191,8 @@ const ringOffset = computed(() => ringCircumference - (fillPercent.value / 100) 
 }
 
 .exercise-arm__btn--primary {
-  background: #6d9a66;
-  border-color: #6d9a66;
+  background: #8B967C;
+  border-color: #8B967C;
   color: #fff;
 }
 

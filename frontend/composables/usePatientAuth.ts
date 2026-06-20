@@ -127,6 +127,14 @@ export function usePatientAuth() {
         if (data.user?.role) {
           localStorage.setItem('user_role', data.user.role)
         }
+        if (data.user) {
+          const { persistSession } = usePatientApp()
+          persistSession({
+            name: data.user.name,
+            avatar: data.user.avatar,
+            createdAt: data.user.createdAt,
+          })
+        }
         return true
       }
       return false

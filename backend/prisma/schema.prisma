@@ -76,6 +76,7 @@ model User {
   whatsappGroupObservedSenders WhatsappGroupObservedSenders[]
   weeklyCheckIns WeeklyCheckIn[]
   checkInTemplates CheckInTemplate[] @relation("CheckInTemplateAuthor")
+  checkInDispatchSchedules CheckInDispatchSchedule[] @relation("CheckInDispatchAuthor")
   checkInResponses CheckInResponse[]
   bellaMessages  BellaMessage[]
   nutritionTarget NutritionTarget?
@@ -129,8 +130,28 @@ model CheckInTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   responses   CheckInResponse[]
+  dispatchSchedules CheckInDispatchSchedule[]
 
   @@index([active, sortOrder])
+  @@index([authorId])
+}
+
+model CheckInDispatchSchedule {
+  id          String            @id @default(uuid())
+  templateId  String?
+  template    CheckInTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  userIds     Json              @default("[]")
+  periodDate  String?
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      String            @default("pending")
+  title       String?
+  body        String?
+  authorId    String
+  author      User              @relation("CheckInDispatchAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+
+  @@index([status, scheduledAt])
   @@index([authorId])
 }
 

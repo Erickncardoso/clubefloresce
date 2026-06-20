@@ -15,8 +15,8 @@ const STORAGE_KEY = 'cf-patient-goals-v1'
 
 const DEFAULT_GOALS: PatientGoal[] = [
   { id: 'water', label: 'Água', type: 'water', target: 2, unit: 'litros', frequency: 'daily', color: '#5ba4d9', step: 0.25 },
-  { id: 'food', label: 'Alimentação', type: 'food', target: 5, unit: 'dias', frequency: 'weekly', color: '#e8a598' },
-  { id: 'exercise', label: 'Exercício', type: 'exercise', target: 3, unit: 'vezes', frequency: 'weekly', color: '#6d9a66' },
+  { id: 'food', label: 'Refeição livre', type: 'food', target: 5, unit: 'dias', frequency: 'weekly', color: '#8B967C' },
+  { id: 'exercise', label: 'Exercício', type: 'exercise', target: 3, unit: 'vezes', frequency: 'weekly', color: '#8B967C' },
   { id: 'sleep', label: 'Sono', type: 'sleep', target: 8, unit: 'horas', frequency: 'daily', color: '#6aab6a', step: 0.5 },
 ]
 
@@ -85,35 +85,31 @@ function migrateWaterProgress(store: { goals: PatientGoal[]; progress: Record<st
   return changed
 }
 
-function calcSleepDurationHours(bedMinutes: number, wakeMinutes: number) {
+function calcSleepDurationMinutes(bedMinutes: number, wakeMinutes: number) {
   let diff = wakeMinutes - bedMinutes
   if (diff <= 0) diff += 1440
-  return Math.round((diff / 60) * 2) / 2
+  return diff
+}
+
+function calcSleepDurationHours(bedMinutes: number, wakeMinutes: number) {
+  const minutes = calcSleepDurationMinutes(bedMinutes, wakeMinutes)
+  return Math.round((minutes / 60) * 2) / 2
 }
 
 function normalizeSleepTimes(bedMinutes: number, wakeMinutes: number) {
   let bed = ((bedMinutes % 1440) + 1440) % 1440
   let wake = ((wakeMinutes % 1440) + 1440) % 1440
   const bedH = Math.floor(bed / 60)
-  const wakeH = Math.floor(wake / 60)
 
   if (bedH >= 6 && bedH < 18) {
     bed = (bed + 12 * 60) % 1440
   }
 
-  if (wakeH >= 12) {
-    const morning = wake - 12 * 60
-    if (calcSleepDurationHours(bed, morning) >= 4) {
-      wake = ((morning % 1440) + 1440) % 1440
-    }
-  }
-
-  const duration = calcSleepDurationHours(bed, wake)
-  if (duration > 12 && wakeH < 12) {
-    const eveningWake = wake + 12 * 60
-    if (calcSleepDurationHours(bed, eveningWake) <= 12) {
-      wake = eveningWake % 1440
-    }
+  let diff = calcSleepDurationMinutes(bed, wake)
+  if (diff < 3 * 60) {
+    wake = (bed + 7 * 60) % 1440
+  } else if (diff > 14 * 60) {
+    wake = (bed + 8 * 60) % 1440
   }
 
   return { bed, wake }
@@ -154,7 +150,10 @@ function normalizeStoredGoals(goals: PatientGoal[]) {
       }
     }
     if (goal.id === 'food' && goal.type === 'habit') {
-      return { ...goal, type: 'food', color: fallback.color }
+      return { ...goal, type: 'food', label: 'Refeição livre', color: fallback.color }
+    }
+    if (goal.id === 'food') {
+      return { ...goal, label: 'Refeição livre', type: 'food', color: fallback.color }
     }
     if (goal.id === 'exercise' && goal.type === 'habit') {
       return { ...goal, type: 'exercise', color: fallback.color }
@@ -339,6 +338,7 @@ export function usePatientGoals() {
     }
 
     const normalized = normalizeSleepTimes(bedMinutes, wakeMinutes)
+    const durationMinutes = calcSleepDurationMinutes(normalized.bed, normalized.wake)
     const durationHours = calcSleepDurationHours(normalized.bed, normalized.wake)
 
     return {
@@ -346,7 +346,7 @@ export function usePatientGoals() {
       bedMinutes: normalized.bed,
       wakeMinutes: normalized.wake,
       durationHours,
-      durationMinutes: Math.round(durationHours * 60),
+      durationMinutes,
     }
   }
 
@@ -401,9 +401,15 @@ export function usePatientGoals() {
     })),
   )
 
+  const sleepSchedule = computed(() => {
+    void store.value.progress
+    return getSleepSchedule()
+  })
+
   return {
     goals: computed(() => store.value.goals),
     todaySummary,
+    sleepSchedule,
     hydrate,
     listGoals,
     getProgress,

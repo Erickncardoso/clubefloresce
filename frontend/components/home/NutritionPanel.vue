@@ -25,21 +25,21 @@
         :aria-label="chartAriaLabel"
       >
         <circle
-          v-for="bg in donutBackgrounds"
-          :key="`bg-${bg.key}`"
+          v-for="track in donutTracks"
+          :key="`track-${track.key}`"
           cx="60"
           cy="60"
           :r="radius"
           fill="none"
-          :stroke="bg.color"
+          :stroke="track.color"
           :stroke-width="strokeWidth"
           stroke-linecap="round"
-          :stroke-dasharray="bg.dasharray"
-          :transform="bg.transform"
+          :stroke-dasharray="track.dasharray"
+          :transform="track.transform"
         />
         <circle
           v-for="segment in donutSegments"
-          :key="segment.key"
+          :key="`seg-${segment.key}`"
           cx="60"
           cy="60"
           :r="radius"
@@ -52,15 +52,11 @@
         />
       </svg>
 
-      <span
-        v-for="marker in donutMarkers"
-        :key="marker.key"
-        class="home-nutrition-marker"
-        :style="{ left: `${marker.x}%`, top: `${marker.y}%`, color: marker.color }"
-        aria-hidden="true"
-      >
-        <component :is="marker.icon" class="home-nutrition-marker-icon" />
-      </span>
+      <div class="home-nutrition-chart-center" aria-hidden="true">
+        <Flame class="home-nutrition-chart-center-icon" />
+        <strong class="home-nutrition-chart-center-value">{{ centerPercent }}%</strong>
+        <span class="home-nutrition-chart-center-label">meta kcal</span>
+      </div>
     </div>
   </NuxtLink>
 </template>
@@ -80,8 +76,8 @@ const MACRO_CONFIG = [
     key: 'calories',
     label: 'Calorias',
     unit: 'kcal',
-    color: '#dce85a',
-    trackColor: '#eef3c4',
+    color: '#c5d84a',
+    trackColor: '#eef3c8',
     icon: Flame,
     getValue: (c) => Number(c.caloriesKcal || 0),
     getTarget: (t) => Number(t.caloriesKcal || 0),
@@ -90,8 +86,8 @@ const MACRO_CONFIG = [
     key: 'carbs',
     label: 'Carboidrato',
     unit: 'g',
-    color: '#9eb8f8',
-    trackColor: '#dfe8fb',
+    color: '#8eb0f0',
+    trackColor: '#e4ecfb',
     icon: Wheat,
     getValue: (c) => Number(c.carbsG || 0),
     getTarget: (t) => Number(t.carbsG || 0),
@@ -100,8 +96,8 @@ const MACRO_CONFIG = [
     key: 'fat',
     label: 'Gorduras',
     unit: 'g',
-    color: '#c9b8f2',
-    trackColor: '#ebe6f8',
+    color: '#b8a8e8',
+    trackColor: '#ede8f8',
     icon: Droplet,
     getValue: (c) => Number(c.fatG || 0),
     getTarget: (t) => Number(t.fatG || 0),
@@ -110,20 +106,23 @@ const MACRO_CONFIG = [
     key: 'protein',
     label: 'Proteínas',
     unit: 'g',
-    color: '#e8a598',
-    trackColor: '#fae8e4',
+    color: '#8B967C',
+    trackColor: '#eef0eb',
     icon: Fish,
     getValue: (c) => Number(c.proteinG || 0),
     getTarget: (t) => Number(t.proteinG || 0),
   },
 ]
 
-const radius = 42
-const strokeWidth = 22
+const radius = 46
+const strokeWidth = 12
 const circumference = 2 * Math.PI * radius
 const slotCount = MACRO_CONFIG.length
-const slotArc = circumference / slotCount
 const slotAngle = 360 / slotCount
+const gapAngle = 6
+const segmentAngle = slotAngle - gapAngle
+const segmentArc = (segmentAngle / 360) * circumference
+const segmentGap = circumference - segmentArc
 
 const macroStats = computed(() =>
   MACRO_CONFIG.map((item) => ({
@@ -131,69 +130,49 @@ const macroStats = computed(() =>
     label: item.label,
     unit: item.unit,
     color: item.color,
-    icon: item.icon,
     value: item.getValue(props.consumed),
     target: item.getTarget(props.targets),
     percent: progressPercent(item.getValue(props.consumed), item.getTarget(props.targets)),
   })),
 )
 
+const centerPercent = computed(() => Math.min(100, Math.max(0, Math.round(Number(props.percent) || 0))))
+
 function progressPercent(value, target) {
   if (!target) return 0
   return Math.min(100, Math.round((value / target) * 100))
 }
 
-const donutBackgrounds = computed(() => {
-  let rotation = -90
+const donutTracks = computed(() => {
+  let rotation = -90 + gapAngle / 2
 
   return macroStats.value.map((item) => {
-    const dasharray = `${slotArc} ${circumference - slotArc}`
+    const config = MACRO_CONFIG.find((m) => m.key === item.key)
     const transform = `rotate(${rotation} 60 60)`
     rotation += slotAngle
 
     return {
       key: item.key,
-      color: MACRO_CONFIG.find((m) => m.key === item.key)?.trackColor || item.color,
-      dasharray,
+      color: config?.trackColor || item.color,
+      dasharray: `${segmentArc} ${segmentGap}`,
       transform,
     }
   })
 })
 
 const donutSegments = computed(() => {
-  let rotation = -90
+  let rotation = -90 + gapAngle / 2
 
   return macroStats.value.map((item) => {
-    const filled = (item.percent / 100) * slotArc
-    const dasharray = `${Math.max(filled, 0)} ${circumference - Math.max(filled, 0)}`
+    const filled = Math.max((item.percent / 100) * segmentArc, item.percent > 0 ? 1.5 : 0)
     const transform = `rotate(${rotation} 60 60)`
     rotation += slotAngle
 
     return {
       key: item.key,
       color: item.color,
-      dasharray,
+      dasharray: `${filled} ${circumference - filled}`,
       transform,
-    }
-  })
-})
-
-const donutMarkers = computed(() => {
-  let rotation = -90
-  // Borda externa do anel (r=42 + metade do traço) em % do centro do gráfico
-  const markerRadius = ((radius + strokeWidth / 2) / 60) * 50
-
-  return macroStats.value.map((item) => {
-    const midAngle = rotation + slotAngle / 2
-    rotation += slotAngle
-    const rad = (midAngle * Math.PI) / 180
-
-    return {
-      key: item.key,
-      icon: item.icon,
-      color: item.color,
-      x: 50 + markerRadius * Math.cos(rad),
-      y: 50 + markerRadius * Math.sin(rad),
     }
   })
 })
@@ -212,11 +191,11 @@ function formatStatValue(value) {
 
 <style scoped>
 .home-nutrition {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 1.15rem 1rem 1.15rem 1.15rem;
+  gap: 0.75rem 1.15rem;
+  padding: 1.25rem 1.2rem 1.25rem 1.3rem;
   border: 1px solid var(--cf-border);
   border-radius: 1.65rem;
   background: #fafaf8;
@@ -237,20 +216,20 @@ function formatStatValue(value) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.62rem;
-  flex: 1;
+  gap: 0.9rem;
   min-width: 0;
 }
 
 .home-nutrition-stat {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
 .home-nutrition-stat-dot {
-  width: 0.48rem;
-  height: 0.48rem;
+  width: 0.58rem;
+  height: 0.58rem;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -259,34 +238,34 @@ function formatStatValue(value) {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.06rem;
+  gap: 0.08rem;
 }
 
 .home-nutrition-stat-value {
   margin: 0;
   display: flex;
   align-items: baseline;
-  gap: 0.18rem;
+  gap: 0.2rem;
   line-height: 1.1;
   color: var(--cf-text);
 }
 
 .home-nutrition-stat-number {
-  font-size: 1.02rem;
-  font-weight: 600;
+  font-size: 1.12rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .home-nutrition-stat-unit {
-  font-size: 0.68rem;
-  font-weight: 500;
+  font-size: 0.74rem;
+  font-weight: 600;
   color: var(--cf-text-muted);
 }
 
 .home-nutrition-stat-label {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 500;
   line-height: 1.15;
   color: var(--cf-text-muted);
@@ -295,9 +274,8 @@ function formatStatValue(value) {
 .home-nutrition-chart-wrap {
   position: relative;
   flex-shrink: 0;
-  width: 8.1rem;
-  height: 8.1rem;
-  overflow: visible;
+  width: 9.75rem;
+  height: 9.75rem;
 }
 
 .home-nutrition-chart {
@@ -306,27 +284,39 @@ function formatStatValue(value) {
   height: 100%;
 }
 
-.home-nutrition-marker {
+.home-nutrition-chart-center {
   position: absolute;
+  inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid currentColor;
-  box-shadow: 0 0 0 4px #fafaf8;
-  transform: translate(-50%, -50%);
+  gap: 0.08rem;
   pointer-events: none;
-  z-index: 3;
 }
 
-.home-nutrition-marker-icon {
-  width: 0.82rem;
-  height: 0.82rem;
-  color: currentColor;
-  stroke-width: 2.35;
+.home-nutrition-chart-center-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: #c5d84a;
+  stroke-width: 2.2;
+}
+
+.home-nutrition-chart-center-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--cf-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-nutrition-chart-center-label {
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--cf-text-muted);
 }
 
 @media (prefers-reduced-motion: reduce) {

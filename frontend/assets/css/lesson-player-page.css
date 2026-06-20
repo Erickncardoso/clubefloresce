@@ -4,9 +4,9 @@
    ═══════════════════════════════════════════════════════════════ */
 
 .aula-page {
-  --aula-accent: #2d5a27;
-  --aula-accent-soft: #eef8f0;
-  --aula-accent-muted: #c8dcc4;
+  --aula-accent: #8B967C;
+  --aula-accent-soft: #eef0eb;
+  --aula-accent-muted: #c5ccc0;
   --aula-bg: #f4f6f4;
   --aula-surface: #ffffff;
   --aula-border: #eef1ee;
@@ -386,7 +386,7 @@
 }
 
 .resumo-editor--success {
-  color: #166534;
+  color: #6f7863;
 }
 
 .resumo-editor--warn {
@@ -464,7 +464,7 @@
   font-size: 1.2rem;
   font-weight: 800;
   line-height: 1.35;
-  color: var(--aula-accent, #2d5a27);
+  color: var(--aula-accent, #8B967C);
   letter-spacing: -0.02em;
 }
 
@@ -506,7 +506,7 @@
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 999px;
-  background: var(--aula-accent, #2d5a27);
+  background: var(--aula-accent, #8B967C);
   opacity: 0.85;
 }
 
@@ -528,7 +528,7 @@
   background: none;
   font-size: 0.82rem;
   font-weight: 800;
-  color: var(--aula-accent, #2d5a27);
+  color: var(--aula-accent, #8B967C);
 }
 
 .resumo-prose strong {

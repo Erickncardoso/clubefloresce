@@ -15,7 +15,7 @@
           <span class="patient-goals-pct">{{ item.percent }}%</span>
         </div>
         <div class="patient-goals-track" role="progressbar" :aria-valuenow="item.percent" aria-valuemin="0" aria-valuemax="100">
-          <div class="patient-goals-fill" :style="{ width: `${item.percent}%`, backgroundColor: item.goal.color || '#6d9a66' }" />
+          <div class="patient-goals-fill" :style="{ width: `${item.percent}%`, backgroundColor: item.goal.color || '#8B967C' }" />
         </div>
         <p class="patient-goals-progress">{{ formatProgress(item) }}</p>
       </li>
@@ -181,7 +181,7 @@ watch(() => props.patientId, loadGoals, { immediate: true })
 .patient-goals-pct {
   font-size: 0.88rem;
   font-weight: 700;
-  color: #2d5a27;
+  color: #8B967C;
 }
 
 .patient-goals-track {

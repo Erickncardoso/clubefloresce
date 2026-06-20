@@ -477,12 +477,12 @@ const handleLogout = () => {
 }
 
 .top-nav-menu a:hover {
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
   background: var(--nav-surface-hover);
 }
 
 .top-nav-menu a.active {
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
   background: transparent;
 }
 
@@ -511,7 +511,7 @@ const handleLogout = () => {
 
 .top-nav-mega-trigger:hover,
 .top-nav-mega-trigger.active {
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
   background: var(--nav-surface-hover);
 }
 
@@ -556,12 +556,12 @@ const handleLogout = () => {
 
 .top-nav-mega-item:hover {
   background: var(--nav-surface-hover);
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
 }
 
 .top-nav-mega-item.active {
   background: #eef8f0;
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
 }
 
 .top-nav-actions {
@@ -675,7 +675,7 @@ const handleLogout = () => {
   padding: 0.28rem 0.65rem;
   border-radius: 999px;
   background: #eef8f0;
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -801,7 +801,7 @@ const handleLogout = () => {
     border: 1px solid var(--nav-border);
     border-radius: 999px;
     background: #fff;
-    color: var(--primary, #2d5a27);
+    color: var(--primary, #8B967C);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
   }
@@ -884,7 +884,7 @@ const handleLogout = () => {
     padding: 0.25rem 0.6rem;
     border-radius: 999px;
     background: #eef8f0;
-    color: var(--primary, #2d5a27);
+    color: var(--primary, #8B967C);
     font-size: 0.7rem !important;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -923,7 +923,7 @@ const handleLogout = () => {
   .mobile-nav-link:hover,
   .mobile-nav-link.active {
     background: var(--nav-surface-hover);
-    color: var(--primary, #2d5a27);
+    color: var(--primary, #8B967C);
   }
 
   .mobile-nav-group {
@@ -959,7 +959,7 @@ const handleLogout = () => {
   }
 
   .mobile-nav-link--child.active {
-    color: var(--primary, #2d5a27);
+    color: var(--primary, #8B967C);
   }
 
   .mobile-nav-drawer-footer {

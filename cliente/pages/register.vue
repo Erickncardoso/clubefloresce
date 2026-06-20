@@ -270,7 +270,7 @@ const handlePatientRequest = async () => {
   height: 3.5rem;
   margin: 0 auto 1rem;
   border-radius: 50%;
-  background: var(--cf-green-soft, #edf3eb);
+  background: var(--cf-green-soft, #eef0eb);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -279,7 +279,7 @@ const handlePatientRequest = async () => {
 .success-icon {
   width: 1.75rem;
   height: 1.75rem;
-  color: var(--cf-green-dark, #4d7348);
+  color: var(--cf-green-dark, #6f7863);
 }
 
 .success-back-btn {

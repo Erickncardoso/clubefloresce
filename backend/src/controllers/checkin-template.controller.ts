@@ -26,6 +26,33 @@ export class CheckInTemplateController {
     }
   }
 
+  async dispatchCustom(req: Request, res: Response): Promise<any> {
+    try {
+      const result = await dispatchService.createCustomDispatch(req.user!.id, req.body || {});
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
+  async listDispatchSchedules(req: Request, res: Response): Promise<any> {
+    try {
+      const schedules = await dispatchService.listSchedules(req.user!.id);
+      return res.json({ schedules });
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+
+  async cancelDispatchSchedule(req: Request, res: Response): Promise<any> {
+    try {
+      const result = await dispatchService.cancelSchedule(req.user!.id, req.params.id);
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   async dispatchWeekly(req: Request, res: Response): Promise<any> {
     try {
       const force = Boolean(req.body?.force);

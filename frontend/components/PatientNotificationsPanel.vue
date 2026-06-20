@@ -79,7 +79,7 @@
 
         <footer class="notif-panel-foot">
           <NuxtLink to="/perfil/notificacoes" class="notif-panel-link" @click="$emit('close')">
-            Ver todas e configurar push
+            Ver todas
           </NuxtLink>
         </footer>
       </section>
@@ -266,7 +266,7 @@ async function handleOpen(notification) {
 .notif-panel-mark-all {
   border: none;
   background: transparent;
-  color: var(--pa-green, #2d5a27);
+  color: var(--pa-green, #8B967C);
   font-size: 0.72rem;
   font-weight: 700;
   font-family: inherit;
@@ -325,7 +325,7 @@ async function handleOpen(notification) {
   width: 1.25rem;
   height: 1.25rem;
   border: 2px solid var(--pa-border, #ece8e4);
-  border-top-color: var(--pa-green, #2d5a27);
+  border-top-color: var(--pa-green, #8B967C);
   border-radius: 50%;
   animation: notif-spin 0.7s linear infinite;
 }
@@ -362,7 +362,7 @@ async function handleOpen(notification) {
 }
 
 .notif-panel-item:focus-visible {
-  outline: 2px solid var(--pa-green, #2d5a27);
+  outline: 2px solid var(--pa-green, #8B967C);
   outline-offset: -2px;
 }
 
@@ -376,7 +376,7 @@ async function handleOpen(notification) {
   flex-shrink: 0;
 }
 
-.notif-panel-icon-wrap--bella { background: #ecfdf5; color: var(--pa-green, #2d5a27); }
+.notif-panel-icon-wrap--bella { background: #eef0eb; color: var(--pa-green, #8B967C); }
 .notif-panel-icon-wrap--checkin { background: #eff6ff; color: #2563eb; }
 .notif-panel-icon-wrap--community { background: #fdf4ff; color: #9333ea; }
 .notif-panel-icon-wrap--content { background: #fff7ed; color: #ea580c; }
@@ -419,7 +419,7 @@ async function handleOpen(notification) {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--pa-green, #2d5a27);
+  background: var(--pa-green, #8B967C);
   flex-shrink: 0;
   margin-top: 0.3rem;
 }
@@ -434,7 +434,7 @@ async function handleOpen(notification) {
   text-align: center;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--pa-green, #2d5a27);
+  color: var(--pa-green, #8B967C);
   text-decoration: none;
 }
 

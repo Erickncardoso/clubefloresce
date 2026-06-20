@@ -2956,9 +2956,9 @@ watch(
 }
 
 .pdf-upload-box.has-file {
-  border-color: #2d5a27;
+  border-color: #8B967C;
   background: #f0fdf4;
-  color: #166534;
+  color: #6f7863;
 }
 
 .pdf-icon-big {
@@ -3321,7 +3321,7 @@ watch(
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), #6ab04c);
+  background: linear-gradient(90deg, var(--primary), #8B967C);
   border-radius: 8px;
   transition: width 0.3s ease;
 }
@@ -3632,7 +3632,7 @@ watch(
 }
 
 .course-row-title-link:hover {
-  color: var(--cf-green-dark, #4d7348);
+  color: var(--cf-green-dark, #6f7863);
 }
 
 @media (max-width: 640px) {

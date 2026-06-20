@@ -256,7 +256,7 @@ async function syncTranscription() {
   flex-shrink: 0;
   border: 1px solid var(--aula-border, #e5e7eb);
   background: #fff;
-  color: var(--aula-accent, #2d5a27);
+  color: var(--aula-accent, #8B967C);
   border-radius: 999px;
   padding: 0.45rem 0.8rem;
   font-size: 0.78rem;
@@ -349,7 +349,7 @@ async function syncTranscription() {
   font-size: 0.82rem;
   font-weight: 700;
   line-height: 1.55;
-  color: var(--aula-accent, #2d5a27);
+  color: var(--aula-accent, #8B967C);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

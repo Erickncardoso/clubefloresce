@@ -1,23 +1,49 @@
 /**
  * Dev do app paciente (:3002) — páginas em cliente/, componentes via alias no nuxt.config.
- * Use --lan para expor na rede local (celular na mesma Wi-Fi).
+ * Por padrão expõe na rede local (celular na mesma Wi-Fi). Use --local só no PC.
  */
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
+
+const DEV_SW_PLACEHOLDER = "self.skipWaiting(); self.addEventListener('fetch', () => {});"
+
+function ensureDevServiceWorkerFiles() {
+  const targets = [
+    join(root, 'dev-sw-dist', 'sw.js'),
+    join(root, '.nuxt-mobile', 'dev-sw-dist', 'sw.js'),
+  ]
+  for (const file of targets) {
+    const dir = join(file, '..')
+    mkdirSync(dir, { recursive: true })
+    if (!existsSync(file)) writeFileSync(file, DEV_SW_PLACEHOLDER, 'utf8')
+  }
+}
 
 const root = join(import.meta.dirname, '..')
 const frontendRoot = join(root, '..', 'frontend')
 const localNuxt = join(root, 'node_modules', 'nuxt', 'bin', 'nuxt.mjs')
 const nuxtBin = existsSync(localNuxt) ? localNuxt : join(frontendRoot, 'node_modules', 'nuxt', 'bin', 'nuxt.mjs')
-const devPort = Number(process.env.NUXT_PORT || 3002)
-const backendOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://localhost:3001'
-const lanMode =
-  process.argv.includes('--lan')
-  || process.env.NUXT_LAN === 'true'
-  || process.env.NUXT_HOST === '0.0.0.0'
-const devHost = lanMode ? '0.0.0.0' : (process.env.NUXT_HOST || '127.0.0.1')
+const devPort = (() => {
+  const portFlagIndex = process.argv.indexOf('--port')
+  if (portFlagIndex !== -1 && process.argv[portFlagIndex + 1]) {
+    return Number(process.argv[portFlagIndex + 1])
+  }
+  // Porta fixa do app paciente — ignora NUXT_PORT global do sistema (ex.: 3097)
+  return Number(process.env.NUXT_CLIENTE_PORT || 3002)
+})()
+const backendOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
+
+const localOnly =
+  process.argv.includes('--local')
+  || process.env.NUXT_LOCAL === 'true'
+
+const lanMode = !localOnly
+
+const devHost = localOnly
+  ? (process.env.NUXT_CLIENTE_HOST || '127.0.0.1')
+  : (process.env.NUXT_CLIENTE_HOST || '0.0.0.0')
 
 function getLanAddresses() {
   const addresses = []
@@ -33,10 +59,10 @@ function getLanAddresses() {
 function printLanInstructions() {
   const lanAddresses = getLanAddresses()
   console.log('')
-  console.log('[cliente:dev] Modo LAN ativo — abra no celular (mesma Wi-Fi):')
+  console.log('[cliente:dev] Abra no celular (mesma Wi-Fi):')
   if (lanAddresses.length === 0) {
     console.log(`  http://SEU-IP-LAN:${devPort}`)
-    console.log('  (rode ipconfig no PowerShell para ver o IPv4)')
+    console.log('  (rode ipconfig no PowerShell para ver o IPv4 da Wi-Fi)')
   } else {
     for (const { iface, address } of lanAddresses) {
       console.log(`  http://${address}:${devPort}  (${iface})`)
@@ -44,7 +70,10 @@ function printLanInstructions() {
   }
   console.log('')
   console.log('[cliente:dev] No PC: http://127.0.0.1:' + devPort)
-  console.log('[cliente:dev] Backend precisa estar rodando: npm run dev:backend')
+  console.log('[cliente:dev] Backend: npm run dev:backend (porta 3001)')
+  if (process.platform === 'win32') {
+    console.log('[cliente:dev] Se o celular não abre, permita Node.js no Firewall do Windows (portas 3001 e 3002).')
+  }
   console.log('')
 }
 
@@ -56,8 +85,16 @@ function run(args, options = {}) {
       ...process.env,
       NUXT_PUBLIC_MOBILE_APP: 'true',
       NUXT_PORT: String(devPort),
+      NUXT_CLIENTE_PORT: String(devPort),
       NUXT_HOST: devHost,
-      ...(lanMode ? { NUXT_PWA_DEV: process.env.NUXT_PWA_DEV || 'true' } : {}),
+      NUXT_DEV_API_ORIGIN: backendOrigin,
+      ...(lanMode
+        ? {
+            NUXT_LAN: 'true',
+            NUXT_PWA_DEV: process.env.NUXT_PWA_DEV || 'true',
+          }
+        : {}),
+      ...(localOnly ? { NUXT_LOCAL: 'true' } : {}),
     },
     ...options,
   })
@@ -83,7 +120,7 @@ function killPort(port) {
 }
 
 function cleanArtifacts() {
-  for (const rel of ['.output', '.nuxt-mobile']) {
+  for (const rel of ['.output', '.nuxt-mobile', 'dev-sw-dist']) {
     const target = join(root, rel)
     if (existsSync(target)) {
       rmSync(target, { recursive: true, force: true })
@@ -94,18 +131,14 @@ function cleanArtifacts() {
 
 async function assertBackendReachable() {
   try {
-    const res = await fetch(`${backendOrigin}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: '', password: '' }),
-    })
-    const type = res.headers.get('content-type') || ''
-    if (type.includes('text/html') || type.includes('text/plain')) {
-      console.error('[cliente:dev] ERRO: porta 3001 não é o backend. Rode: npm run dev:backend')
+    const res = await fetch(`${backendOrigin}/api/health`, { method: 'GET' })
+    if (!res.ok) {
+      console.error('[cliente:dev] ERRO: backend respondeu', res.status, 'em', backendOrigin)
       process.exit(1)
     }
   } catch {
     console.error('[cliente:dev] ERRO: backend offline em', backendOrigin)
+    console.error('[cliente:dev] Rode primeiro: npm run dev:backend')
     process.exit(1)
   }
 }
@@ -113,6 +146,7 @@ async function assertBackendReachable() {
 console.log(`[cliente:dev] liberando porta ${devPort}…`)
 killPort(devPort)
 cleanArtifacts()
+ensureDevServiceWorkerFiles()
 
 await assertBackendReachable()
 
@@ -120,12 +154,14 @@ console.log('[cliente:dev] preparando Nuxt…')
 const prepare = run(['prepare'])
 if (prepare.status !== 0) process.exit(prepare.status ?? 1)
 
+ensureDevServiceWorkerFiles()
+
 if (lanMode) {
   printLanInstructions()
-  console.log(`[cliente:dev] iniciando em 0.0.0.0:${devPort} (rede local)`)
+  console.log(`[cliente:dev] iniciando em 0.0.0.0:${devPort} (rede local + PC)`)
 } else {
-  console.log(`[cliente:dev] iniciando em http://127.0.0.1:${devPort}`)
-  console.log('[cliente:dev] Celular na mesma Wi-Fi? Use: npm run dev:mobile:lan')
+  console.log(`[cliente:dev] iniciando só no PC: http://127.0.0.1:${devPort}`)
+  console.log('[cliente:dev] Celular? Use npm run dev:cliente (padrão) ou npm run dev:mobile:lan')
 }
 
 const dev = run(['dev', '--host', devHost])

@@ -1026,14 +1026,14 @@ async function submit(skipThumb = false) {
 
 .lesson-step--active {
   background: #fff;
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   outline: 1.5px solid rgba(45, 90, 39, 0.2);
 }
 
 .lesson-step--done .lesson-step-num {
   background: #e8f5e9;
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
 }
 
 .lesson-step-num {
@@ -1209,7 +1209,7 @@ async function submit(skipThumb = false) {
 }
 
 .drop-zone:hover {
-  border-color: var(--primary, #2d5a27);
+  border-color: var(--primary, #8B967C);
   background: #f4faf4;
 }
 
@@ -1250,7 +1250,7 @@ async function submit(skipThumb = false) {
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
   cursor: pointer;
 }
 
@@ -1267,7 +1267,7 @@ async function submit(skipThumb = false) {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary, #2d5a27), #6ab04c);
+  background: linear-gradient(90deg, var(--primary, #8B967C), #a3ad98);
   transition: width 0.25s ease;
 }
 
@@ -1276,7 +1276,7 @@ async function submit(skipThumb = false) {
   margin-top: 0.25rem;
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
   text-align: right;
 }
 
@@ -1303,9 +1303,9 @@ async function submit(skipThumb = false) {
 .progress-fill--processing {
   background: linear-gradient(
     90deg,
-    #2d5a27 0%,
-    #6ab04c 50%,
-    #2d5a27 100%
+    #8B967C 0%,
+    #a3ad98 50%,
+    #8B967C 100%
   );
   background-size: 200% 100%;
   animation: lesson-upload-pulse 1.4s ease-in-out infinite;
@@ -1525,7 +1525,7 @@ async function submit(skipThumb = false) {
 }
 
 .btn-primary {
-  background: var(--primary, #2d5a27);
+  background: var(--primary, #8B967C);
   color: #fff;
   box-shadow: 0 2px 8px rgba(45, 90, 39, 0.18);
 }

@@ -1807,7 +1807,7 @@ html.vk-open .bella-messages {
 
 .bella-history-btn--active {
   color: var(--cf-pink-dark);
-  border-color: #e0c4c6;
+  border-color: #c8d4bc;
   background: var(--cf-pink-soft);
 }
 

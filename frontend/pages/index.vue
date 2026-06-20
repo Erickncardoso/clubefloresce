@@ -287,8 +287,8 @@ const handleFirstAccessPasswordChange = async () => {
 
 <style scoped>
 .auth-container {
-  --auth-green: #2d5a27;
-  --auth-green-light: #4c8c4a;
+  --auth-green: #8B967C;
+  --auth-green-light: #a3ad98;
   --auth-green-soft: #e8f2e6;
   --auth-green-glow: #8ec487;
   --auth-text: #1a2e24;
@@ -313,7 +313,7 @@ const handleFirstAccessPasswordChange = async () => {
   align-items: center;
   padding: clamp(2.5rem, 5vw, 4.5rem);
   overflow: hidden;
-  background: linear-gradient(145deg, #1f3d1b 0%, #2d5a27 42%, #3d7040 100%);
+  background: linear-gradient(145deg, #5a6152 0%, #8B967C 42%, #9aa88f 100%);
 }
 
 @media (max-width: 1024px) {

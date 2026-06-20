@@ -9,12 +9,13 @@
   --cf-tracking-ui: 0.01em;
   --cf-tracking-heading: -0.012em;
   --cf-tracking-caps: 0.06em;
-  --cf-pink: #c17b80;
-  --cf-pink-soft: #faecef;
-  --cf-pink-dark: #a06267;
-  --cf-green: #6d9a66;
-  --cf-green-soft: #edf3eb;
-  --cf-green-dark: #4d7348;
+  --cf-pink: #8B967C;
+  --cf-pink-soft: #eef0eb;
+  --cf-pink-dark: #6f7863;
+  --cf-green: #8B967C;
+  --cf-green-soft: #eef0eb;
+  --cf-green-dark: #6f7863;
+  --cf-primary: #8B967C;
   --cf-bg: #ffffff;
   --cf-surface: #ffffff;
   --cf-text: #1a1a1a;
@@ -332,6 +333,32 @@ html:has(.cf-tab-bar-wrap) .patient-page:not(.patient-page--no-tab) {
   /* Marcador semântico — o espaçamento vem das regras globais acima. */
 }
 
+html:has(.checkin-page--flow) .patient-app-shell,
+html:has(.checkin-page--flow) .patient-app-shell__main,
+html:has(.checkin-page--flow) .patient-shell,
+html:has(.checkin-page--flow) .patient-shell-body {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+}
+
+html:has(.checkin-page--flow) .patient-shell-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+html:has(.checkin-page--flow) .patient-page.checkin-page--flow {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
 html:has(.doc-page) .patient-shell-body {
   display: flex;
   flex-direction: column;
@@ -397,7 +424,7 @@ html:has(.doc-page) .patient-shell-body {
   width: 2rem;
   height: 2rem;
   margin: 0 auto 0.75rem;
-  color: #c17b80;
+  color: var(--cf-pink);
 }
 
 .patient-page.doc-page .doc-retry-btn {
@@ -405,7 +432,7 @@ html:has(.doc-page) .patient-shell-body {
   border: 0;
   border-radius: 999px;
   padding: 0.65rem 1.1rem;
-  background: var(--cf-primary, #2d5a27);
+  background: var(--cf-primary, #8B967C);
   color: #fff;
   font-weight: 700;
 }

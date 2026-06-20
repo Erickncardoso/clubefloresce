@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
 
 .cf-date-input--open .cf-date-input-icon,
 .cf-date-input-trigger:focus-visible .cf-date-input-icon {
-  color: #2d5a27;
+  color: #8B967C;
 }
 
 .cf-date-input-value {
@@ -411,7 +411,7 @@ onBeforeUnmount(() => {
   border: none;
   border-radius: var(--cf-radius-icon, 0.875rem);
   background: #f4f8f3;
-  color: #2d5a27;
+  color: #8B967C;
   cursor: pointer;
   transition: background 0.12s ease;
 }
@@ -483,13 +483,13 @@ onBeforeUnmount(() => {
 }
 
 .cf-date-day--today:not(.cf-date-day--selected) {
-  color: #2d5a27;
+  color: #8B967C;
   font-weight: 700;
   box-shadow: inset 0 0 0 1.5px #cfe3cb;
 }
 
 .cf-date-day--selected {
-  background: #2d5a27;
+  background: #8B967C;
   color: #fff;
   font-weight: 700;
 }
@@ -537,12 +537,12 @@ onBeforeUnmount(() => {
 }
 
 .cf-date-foot-btn:hover {
-  color: #2d5a27;
+  color: #8B967C;
   background: #f4f8f3;
 }
 
 .cf-date-foot-btn--primary {
-  color: #2d5a27;
+  color: #8B967C;
 }
 
 .cf-date-foot-btn:focus-visible {

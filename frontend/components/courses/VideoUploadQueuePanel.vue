@@ -171,7 +171,7 @@ function progressWidth(job) {
 .upload-queue-card__thumb-fallback {
   width: 1.1rem;
   height: 1.1rem;
-  color: #2d5a27;
+  color: #8B967C;
   position: absolute;
   inset: 0;
   margin: auto;
@@ -254,7 +254,7 @@ function progressWidth(job) {
 .upload-queue-card__fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #3d7a35, #2d5a27);
+  background: linear-gradient(90deg, #7a8570, #8B967C);
   transition: width 0.2s ease;
 }
 
@@ -265,7 +265,7 @@ function progressWidth(job) {
 .upload-queue-card__percent {
   font-size: 0.68rem;
   font-weight: 700;
-  color: #2d5a27;
+  color: #8B967C;
   min-width: 2rem;
   text-align: right;
 }

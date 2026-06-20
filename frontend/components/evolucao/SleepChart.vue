@@ -11,6 +11,16 @@
           class="sleep-clock__svg"
           aria-hidden="true"
         >
+          <defs>
+            <linearGradient id="sleepArcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#a8b59d" />
+              <stop offset="100%" stop-color="#8B967C" />
+            </linearGradient>
+            <filter id="sleepHandleShadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#6f7863" flood-opacity="0.14" />
+            </filter>
+          </defs>
+
           <circle cx="100" cy="100" :r="RING_R" class="sleep-clock__ring-bg" />
 
           <circle
@@ -18,19 +28,21 @@
             cy="100"
             :r="RING_R"
             class="sleep-clock__ring-active"
+            stroke="url(#sleepArcGrad)"
             :stroke-dasharray="`${sleepArcLength} ${RING_CIRCUMFERENCE}`"
             stroke-dashoffset="0"
             :transform="`rotate(${sleepArcRotation} 100 100)`"
           />
 
           <g class="sleep-clock__ticks">
-            <circle
-              v-for="tick in hourTicks"
-              :key="`tick-${tick}`"
-              :cx="tick.x"
-              :cy="tick.y"
-              r="1.3"
-              class="sleep-clock__tick-dot"
+            <line
+              v-for="tick in hourTickLines"
+              :key="`tick-${tick.n}`"
+              :x1="tick.x1"
+              :y1="tick.y1"
+              :x2="tick.x2"
+              :y2="tick.y2"
+              class="sleep-clock__tick-line"
             />
           </g>
 
@@ -44,95 +56,105 @@
             >{{ hour.n }}</text>
           </g>
 
-          <circle cx="100" cy="100" r="46" class="sleep-clock__face" />
+          <circle cx="100" cy="100" r="48" class="sleep-clock__face" />
+          <circle cx="100" cy="100" r="48" class="sleep-clock__face-ring" />
 
-          <text x="100" y="96" text-anchor="middle" class="sleep-clock__duration">
+          <text x="100" y="93" text-anchor="middle" class="sleep-clock__duration">
             <tspan class="sleep-clock__duration-h">{{ durationParts.h }}</tspan>
-            <tspan class="sleep-clock__duration-sep"> : </tspan>
+            <tspan class="sleep-clock__duration-sep">:</tspan>
             <tspan class="sleep-clock__duration-m">{{ durationParts.m }}</tspan>
           </text>
+          <text x="100" y="110" text-anchor="middle" class="sleep-clock__duration-caption">de sono</text>
 
           <g
             class="sleep-clock__handle"
+            :class="{ 'sleep-clock__handle--active': dragKind === 'bed' }"
             :transform="`translate(${moonPos.x}, ${moonPos.y})`"
             @pointerdown="(e) => startDrag('bed', e)"
           >
-            <circle :r="HANDLE_R" class="sleep-clock__handle-bg sleep-clock__handle-bg--moon" />
-            <g class="sleep-clock__handle-glyph" transform="translate(-7,-7)">
-              <path fill="#6b7fb8" d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" transform="scale(0.58) translate(2,2)" />
+            <circle :r="HANDLE_R" class="sleep-clock__handle-bg sleep-clock__handle-bg--moon" filter="url(#sleepHandleShadow)" />
+            <circle :r="HANDLE_R - 2" class="sleep-clock__handle-inner sleep-clock__handle-inner--moon" />
+            <g class="sleep-clock__handle-glyph sleep-clock__handle-glyph--moon" transform="scale(0.52) translate(-12,-12)">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
             </g>
           </g>
 
           <g
             class="sleep-clock__handle"
+            :class="{ 'sleep-clock__handle--active': dragKind === 'wake' }"
             :transform="`translate(${sunPos.x}, ${sunPos.y})`"
             @pointerdown="(e) => startDrag('wake', e)"
           >
-            <circle :r="HANDLE_R" class="sleep-clock__handle-bg sleep-clock__handle-bg--sun" />
-            <g class="sleep-clock__handle-glyph" transform="translate(-7,-7)">
-              <g transform="scale(0.58) translate(2,2)">
-                <circle cx="12" cy="12" r="4" fill="#f0a830" />
-                <path fill="none" stroke="#f0a830" stroke-width="2" stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-              </g>
+            <circle :r="HANDLE_R" class="sleep-clock__handle-bg sleep-clock__handle-bg--sun" filter="url(#sleepHandleShadow)" />
+            <circle :r="HANDLE_R - 2" class="sleep-clock__handle-inner sleep-clock__handle-inner--sun" />
+            <g class="sleep-clock__handle-glyph sleep-clock__handle-glyph--sun">
+              <circle r="3.2" />
+              <path d="M0 -6.2v1.6M0 4.6v1.6M-5.4 -3.1l1.1 1.1M4.3 3.8l1.1 1.1M-6.2 0h1.6M4.6 0h1.6M-5.4 3.1l1.1-1.1M4.3 -3.8l1.1-1.1" />
             </g>
           </g>
         </svg>
       </div>
 
       <div class="sleep-clock__cards">
-        <div class="sleep-clock__card">
-          <div class="sleep-clock__card-icon sleep-clock__card-icon--night" aria-hidden="true">
-            <svg class="sleep-clock__ui-icon sleep-clock__ui-icon--on-dark" viewBox="0 0 24 24" width="14" height="14">
-              <path fill="currentColor" d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-            </svg>
-          </div>
-          <div class="sleep-clock__card-copy">
-            <span class="sleep-clock__card-label">Dormir</span>
-            <strong class="sleep-clock__card-time">{{ bedLabel }}</strong>
+        <div class="sleep-clock__card sleep-clock__card--night">
+          <div class="sleep-clock__card-top">
+            <span class="sleep-clock__card-icon" aria-hidden="true">
+              <Moon class="sleep-clock__card-icon-svg" />
+            </span>
+            <div class="sleep-clock__card-copy">
+              <span class="sleep-clock__card-label">Dormir</span>
+              <strong class="sleep-clock__card-time">{{ bedLabel }}</strong>
+            </div>
           </div>
           <div class="sleep-clock__card-actions">
-            <button type="button" aria-label="Adiantar horário de dormir" @click="emitShift('bed', -15)">
-              <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M5 12h14" /></svg>
+            <button type="button" class="sleep-clock__step-btn" aria-label="Adiantar horário de dormir" @click="emitShift('bed', -15)">
+              <Minus class="sleep-clock__step-icon" />
             </button>
-            <button type="button" aria-label="Atrasar horário de dormir" @click="emitShift('bed', 15)">
-              <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+            <span class="sleep-clock__step-label">15 min</span>
+            <button type="button" class="sleep-clock__step-btn sleep-clock__step-btn--primary" aria-label="Atrasar horário de dormir" @click="emitShift('bed', 15)">
+              <Plus class="sleep-clock__step-icon" />
             </button>
           </div>
         </div>
 
-        <div class="sleep-clock__card">
-          <div class="sleep-clock__card-icon sleep-clock__card-icon--day" aria-hidden="true">
-            <svg class="sleep-clock__ui-icon sleep-clock__ui-icon--on-light" viewBox="0 0 24 24" width="14" height="14">
-              <circle cx="12" cy="12" r="4" fill="currentColor" />
-              <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-            </svg>
-          </div>
-          <div class="sleep-clock__card-copy">
-            <span class="sleep-clock__card-label">Acordar</span>
-            <strong class="sleep-clock__card-time">{{ wakeLabel }}</strong>
+        <div class="sleep-clock__card sleep-clock__card--day">
+          <div class="sleep-clock__card-top">
+            <span class="sleep-clock__card-icon sleep-clock__card-icon--day" aria-hidden="true">
+              <Sun class="sleep-clock__card-icon-svg" />
+            </span>
+            <div class="sleep-clock__card-copy">
+              <span class="sleep-clock__card-label">Acordar</span>
+              <strong class="sleep-clock__card-time">{{ wakeLabel }}</strong>
+            </div>
           </div>
           <div class="sleep-clock__card-actions">
-            <button type="button" aria-label="Acordar mais cedo" @click="emitShift('wake', -15)">
-              <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M5 12h14" /></svg>
+            <button type="button" class="sleep-clock__step-btn" aria-label="Acordar mais cedo" @click="emitShift('wake', -15)">
+              <Minus class="sleep-clock__step-icon" />
             </button>
-            <button type="button" aria-label="Acordar mais tarde" @click="emitShift('wake', 15)">
-              <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+            <span class="sleep-clock__step-label">15 min</span>
+            <button type="button" class="sleep-clock__step-btn sleep-clock__step-btn--primary sleep-clock__step-btn--sun" aria-label="Acordar mais tarde" @click="emitShift('wake', 15)">
+              <Plus class="sleep-clock__step-icon" />
             </button>
           </div>
         </div>
       </div>
 
-      <p class="sleep-clock__meta">
-        Meta {{ target }}h · hoje {{ durationHoursLabel }}h
-        <svg v-if="metGoal" class="sleep-clock__meta-ok-icon" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
-          <path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5" />
-        </svg>
-      </p>
+      <div class="sleep-clock__meta" :class="{ 'sleep-clock__meta--ok': metGoal }">
+        <span>Meta {{ target }}h</span>
+        <span class="sleep-clock__meta-dot" aria-hidden="true">·</span>
+        <span>Hoje <strong>{{ durationHoursLabel }}h</strong></span>
+        <span v-if="metGoal" class="sleep-clock__meta-badge">
+          <Check class="sleep-clock__meta-check" aria-hidden="true" />
+          Meta atingida
+        </span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { Check, Minus, Moon, Plus, Sun } from 'lucide-vue-next'
+
 const props = defineProps({
   target: { type: Number, default: 8 },
   schedule: {
@@ -150,21 +172,35 @@ const emit = defineEmits(['shift-bed', 'shift-wake', 'set-schedule'])
 
 const CX = 100
 const CY = 100
-const RING_R = 78
-const HANDLE_R = 11
-const TICK_R = 68
-const NUMBER_R = 56
+const RING_R = 76
+const HANDLE_R = 13
+const TICK_OUTER = 70
+const TICK_INNER = 64
+const NUMBER_R = 54
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
 
 const svgEl = ref(null)
 const dragKind = ref(null)
-const lastDragMinutes = ref(null)
+const draftBed = ref(23 * 60)
+const draftWake = ref(7 * 60 + 20)
 
-const bedMinutes = computed(() => props.schedule.bedMinutes ?? 23 * 60)
-const wakeMinutes = computed(() => props.schedule.wakeMinutes ?? 7 * 60 + 20)
+watch(
+  () => props.schedule,
+  (schedule) => {
+    if (dragKind.value) return
+    draftBed.value = schedule?.bedMinutes ?? 23 * 60
+    draftWake.value = schedule?.wakeMinutes ?? 7 * 60 + 20
+  },
+  { immediate: true, deep: true },
+)
+
+const bedMinutes = computed(() => draftBed.value)
+const wakeMinutes = computed(() => draftWake.value)
+
 const durationMinutes = computed(() => {
-  if (props.schedule.durationMinutes) return props.schedule.durationMinutes
-  return Math.round((props.schedule.durationHours || 0) * 60)
+  let diff = wakeMinutes.value - bedMinutes.value
+  if (diff <= 0) diff += 1440
+  return diff
 })
 
 const durationParts = computed(() => {
@@ -179,10 +215,10 @@ const durationParts = computed(() => {
 
 const durationLabel = computed(() => `${durationParts.value.h}:${durationParts.value.m}`)
 const durationHoursLabel = computed(() => {
-  const h = props.schedule.durationHours || 0
-  return Number.isInteger(h) ? String(h) : h.toFixed(1)
+  const hours = durationMinutes.value / 60
+  return Number.isInteger(hours) ? String(hours) : hours.toFixed(1)
 })
-const metGoal = computed(() => (props.schedule.durationHours || 0) >= props.target)
+const metGoal = computed(() => durationMinutes.value / 60 >= props.target)
 
 const bedLabel = computed(() => formatClock(bedMinutes.value))
 const wakeLabel = computed(() => formatClock(wakeMinutes.value))
@@ -201,10 +237,12 @@ const sleepSweepDegrees = computed(() => {
 const sleepArcLength = computed(() => (sleepSweepDegrees.value / 360) * RING_CIRCUMFERENCE)
 const sleepArcRotation = computed(() => dialAngle(bedMinutes.value))
 
-const hourTicks = computed(() =>
+const hourTickLines = computed(() =>
   Array.from({ length: 12 }, (_, index) => {
-    const pos = polar(TICK_R, hourLabelAngle(index + 1))
-    return { x: pos.x, y: pos.y }
+    const angle = hourLabelAngle(index + 1)
+    const outer = polar(TICK_OUTER, angle)
+    const inner = polar(TICK_INNER, angle)
+    return { n: index + 1, x1: outer.x, y1: outer.y, x2: inner.x, y2: inner.y }
   }),
 )
 
@@ -212,7 +250,7 @@ const clockHours = computed(() =>
   Array.from({ length: 12 }, (_, index) => {
     const n = index + 1
     const pos = polar(NUMBER_R, hourLabelAngle(n))
-    return { n, x: pos.x, y: pos.y + 4 }
+    return { n, x: pos.x, y: pos.y + 3.5 }
   }),
 )
 
@@ -240,7 +278,7 @@ function polar(radius, angleDeg) {
   }
 }
 
-function resolveMinutesOnDial(angleDeg, kind, currentMinutes) {
+function resolveMinutesOnDial(angleDeg, kind, currentMinutes, otherMinutes) {
   let a = angleDeg + 90
   a = ((a % 360) + 360) % 360
   const hourOnDial = (a / 360) * 12
@@ -250,44 +288,30 @@ function resolveMinutesOnDial(angleDeg, kind, currentMinutes) {
   const base = h12 * 60 + min
   const candidates = [base, base + 12 * 60].map((value) => normalizeMinutes(value))
 
-  if (kind === 'bed') {
-    const evening = candidates.filter((value) => {
-      const h = Math.floor(value / 60)
-      return h >= 18 || h < 6
-    })
-    if (evening.length === 1) return evening[0]
-    if (evening.length > 1) {
-      return evening.reduce((best, value) =>
-        Math.abs(value - currentMinutes) < Math.abs(best - currentMinutes) ? value : best,
-      )
-    }
-    return candidates.reduce((best, value) => (value >= 12 * 60 ? value : best), candidates[0])
+  function score(candidate) {
+    const bed = kind === 'bed' ? candidate : otherMinutes
+    const wake = kind === 'wake' ? candidate : otherMinutes
+    let diff = wake - bed
+    if (diff <= 0) diff += 1440
+    const hours = diff / 60
+    const hour = Math.floor(candidate / 60)
+
+    let penalty = Math.abs(candidate - currentMinutes) / 30
+    if (hours < 3 || hours > 14) penalty += 100
+    if (kind === 'bed' && hour >= 6 && hour < 18) penalty += 40
+    if (kind === 'wake' && (hour < 4 || hour > 12)) penalty += 25
+    penalty += Math.abs(hours - 8) * 1.5
+    return penalty
   }
 
-  const morning = candidates.filter((value) => {
-    const h = Math.floor(value / 60)
-    return h >= 5 && h <= 11
-  })
-  if (morning.length === 1) return morning[0]
-  if (morning.length > 1) {
-    return morning.reduce((best, value) =>
-      Math.abs(value - currentMinutes) < Math.abs(best - currentMinutes) ? value : best,
-    )
-  }
-
-  const am = candidates.filter((value) => Math.floor(value / 60) < 12)
-  if (am.length) return am[0]
-  return candidates[0]
+  return candidates.reduce((best, value) => (score(value) < score(best) ? value : best))
 }
 
 function formatClock(minutes) {
   const total = normalizeMinutes(minutes)
   const h24 = Math.floor(total / 60)
   const m = total % 60
-  const period = h24 >= 12 ? 'PM' : 'AM'
-  let h12 = h24 % 12
-  if (h12 === 0) h12 = 12
-  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`
+  return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
 function emitShift(kind, delta) {
@@ -308,41 +332,46 @@ function minutesFromPointer(event) {
   const y = svgPt.y - CY
   const angleDeg = (Math.atan2(y, x) * 180) / Math.PI
   const current = dragKind.value === 'bed' ? bedMinutes.value : wakeMinutes.value
-  return resolveMinutesOnDial(angleDeg, dragKind.value, current)
+  const other = dragKind.value === 'bed' ? wakeMinutes.value : bedMinutes.value
+  return resolveMinutesOnDial(angleDeg, dragKind.value, current, other)
 }
 
 function startDrag(kind, event) {
   dragKind.value = kind
-  lastDragMinutes.value = null
   event.currentTarget?.setPointerCapture?.(event.pointerId)
+  event.preventDefault()
 }
 
 function onPointerMove(event) {
   if (!dragKind.value) return
   const minutes = minutesFromPointer(event)
-  if (minutes === lastDragMinutes.value) return
-  lastDragMinutes.value = minutes
-
   if (dragKind.value === 'bed') {
-    emit('set-schedule', { bedMinutes: minutes, wakeMinutes: wakeMinutes.value })
+    draftBed.value = minutes
   } else {
-    emit('set-schedule', { bedMinutes: bedMinutes.value, wakeMinutes: minutes })
+    draftWake.value = minutes
   }
 }
 
-function stopDrag() {
+function commitDrag() {
+  if (!dragKind.value) return
+  emit('set-schedule', { bedMinutes: draftBed.value, wakeMinutes: draftWake.value })
   dragKind.value = null
-  lastDragMinutes.value = null
+}
+
+function stopDrag() {
+  commitDrag()
 }
 
 onMounted(() => {
   window.addEventListener('pointermove', onPointerMove)
   window.addEventListener('pointerup', stopDrag)
+  window.addEventListener('pointercancel', stopDrag)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', stopDrag)
+  window.removeEventListener('pointercancel', stopDrag)
 })
 </script>
 
@@ -352,29 +381,21 @@ onBeforeUnmount(() => {
 }
 
 .sleep-clock__panel {
-  padding: 1rem 0.85rem 0.85rem;
-  background: linear-gradient(180deg, #eef8ec 0%, #fff 42%);
-  border: 1px solid #dceee0;
-  box-shadow: 0 8px 24px rgba(106, 171, 106, 0.12);
-}
-
-.sleep-clock__ui-icon--on-dark {
-  color: #f5d76e;
-}
-
-.sleep-clock__ui-icon--on-light {
-  color: #e8941a;
+  padding: 1.1rem 0.95rem 1rem;
+  background: linear-gradient(165deg, #f7fbf6 0%, #fff 55%, #fafdf9 100%);
+  border: 1px solid #e3ebe1;
+  box-shadow: 0 10px 28px rgba(77, 115, 72, 0.08);
 }
 
 .sleep-clock__dial-wrap {
   display: flex;
   justify-content: center;
-  margin-bottom: 0.85rem;
-  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  padding: 0.35rem 0 0.15rem;
 }
 
 .sleep-clock__svg {
-  width: min(100%, 15.5rem);
+  width: min(100%, 16.25rem);
   height: auto;
   touch-action: none;
   overflow: visible;
@@ -382,169 +403,295 @@ onBeforeUnmount(() => {
 
 .sleep-clock__ring-bg {
   fill: none;
-  stroke: #e3f2e0;
-  stroke-width: 14;
+  stroke: #e8f0e6;
+  stroke-width: 12;
 }
 
 .sleep-clock__ring-active {
   fill: none;
-  stroke: #7ec87a;
-  stroke-width: 14;
+  stroke-width: 12;
   stroke-linecap: round;
-  transition: stroke-dasharray 0.35s ease, transform 0.35s ease;
 }
 
-.sleep-clock__tick-dot {
-  fill: #c5dcc2;
+.sleep-clock__tick-line {
+  stroke: #d4e4d0;
+  stroke-width: 1.5;
+  stroke-linecap: round;
 }
 
 .sleep-clock__number {
-  fill: #9bb898;
-  font-size: 8px;
+  fill: #a8bda4;
+  font-size: 7.5px;
   font-weight: 600;
+  font-family: var(--cf-font, system-ui, sans-serif);
   text-anchor: middle;
 }
 
 .sleep-clock__face {
   fill: #fff;
+}
+
+.sleep-clock__face-ring {
+  fill: none;
   stroke: #edf5eb;
-  stroke-width: 1;
+  stroke-width: 1.5;
 }
 
 .sleep-clock__duration {
   font-family: var(--cf-font, system-ui, sans-serif);
-  fill: #4f9a4c;
+  fill: var(--cf-green-dark, #6f7863);
   font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .sleep-clock__duration-h,
 .sleep-clock__duration-m {
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .sleep-clock__duration-sep {
-  font-size: 15px;
-  opacity: 0.65;
+  font-size: 16px;
+  opacity: 0.45;
+}
+
+.sleep-clock__duration-caption {
+  font-family: var(--cf-font, system-ui, sans-serif);
+  fill: #8aa886;
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .sleep-clock__handle {
   cursor: grab;
+  transition: transform 0.15s ease;
 }
 
-.sleep-clock__handle:active {
+.sleep-clock__handle--active {
   cursor: grabbing;
 }
 
 .sleep-clock__handle-bg {
   fill: #fff;
-  stroke-width: 2;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  stroke-width: 2.5;
 }
 
 .sleep-clock__handle-bg--moon {
-  stroke: #8ecf8a;
+  stroke: #7c8fd4;
 }
 
 .sleep-clock__handle-bg--sun {
-  stroke: #f0c060;
+  stroke: #e8b44a;
+}
+
+.sleep-clock__handle-inner {
+  fill: none;
+  stroke-width: 1;
+  opacity: 0.35;
+}
+
+.sleep-clock__handle-inner--moon {
+  stroke: #7c8fd4;
+}
+
+.sleep-clock__handle-inner--sun {
+  stroke: #e8b44a;
 }
 
 .sleep-clock__handle-glyph {
   pointer-events: none;
 }
 
-.sleep-clock__handle-glyph path,
-.sleep-clock__handle-glyph circle {
-  pointer-events: none;
+.sleep-clock__handle-glyph--moon path {
+  fill: #6b7fb8;
+}
+
+.sleep-clock__handle-glyph--sun {
+  fill: #e8a830;
+  stroke: #e8a830;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.sleep-clock__handle-glyph--sun circle {
+  fill: #e8a830;
+  stroke: none;
 }
 
 .sleep-clock__cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.55rem;
+  gap: 0.6rem;
 }
 
 .sleep-clock__card {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 0.65rem 0.65rem;
+  border-radius: 1rem;
+  border: 1px solid transparent;
+}
+
+.sleep-clock__card--night {
+  background: linear-gradient(160deg, #f0f3fa 0%, #fff 100%);
+  border-color: #e2e8f4;
+}
+
+.sleep-clock__card--day {
+  background: linear-gradient(160deg, #fff9ec 0%, #fff 100%);
+  border-color: #f5e8c8;
+}
+
+.sleep-clock__card-top {
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.5rem;
-  border-radius: 14px;
-  background: #f6f8f6;
-  border: 1px solid #e8ece8;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .sleep-clock__card-icon {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.75rem;
   flex-shrink: 0;
-}
-
-.sleep-clock__card-icon--night {
-  background: linear-gradient(135deg, #2a3555 0%, #4a5a8a 100%);
+  background: linear-gradient(145deg, #3d4f7a 0%, #5a6fa0 100%);
+  color: #f5e6a8;
+  box-shadow: 0 4px 10px rgba(61, 79, 122, 0.2);
 }
 
 .sleep-clock__card-icon--day {
-  background: linear-gradient(135deg, #ffe9a8 0%, #ffd060 100%);
+  background: linear-gradient(145deg, #f5c842 0%, #ffe08a 100%);
+  color: #c47a10;
+  box-shadow: 0 4px 10px rgba(232, 180, 74, 0.25);
+}
+
+.sleep-clock__card-icon-svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.2;
+}
+
+.sleep-clock__card-copy {
+  min-width: 0;
 }
 
 .sleep-clock__card-label {
   display: block;
   font-size: 0.62rem;
-  color: var(--cf-text-muted);
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cf-text-muted);
 }
 
 .sleep-clock__card-time {
   display: block;
-  font-size: 0.72rem;
+  margin-top: 0.12rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--cf-text);
-  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 
 .sleep-clock__card-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.35rem;
 }
 
-.sleep-clock__card-actions button {
+.sleep-clock__step-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.35rem;
-  height: 1.35rem;
-  border: 1px solid #dceee0;
-  border-radius: 6px;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #e3ebe1;
+  border-radius: 0.65rem;
   background: #fff;
-  color: #5a9a57;
+  color: var(--cf-green-dark, #6f7863);
   cursor: pointer;
   padding: 0;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.sleep-clock__step-btn:active {
+  transform: scale(0.96);
+}
+
+.sleep-clock__step-btn--primary {
+  background: var(--cf-green, #8B967C);
+  border-color: var(--cf-green, #8B967C);
+  color: #fff;
+}
+
+.sleep-clock__step-btn--sun {
+  background: #e8b44a;
+  border-color: #e8b44a;
+  color: #fff;
+}
+
+.sleep-clock__step-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  stroke-width: 2.5;
+}
+
+.sleep-clock__step-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--cf-text-muted);
+  white-space: nowrap;
 }
 
 .sleep-clock__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
-  margin: 0.75rem 0 0;
-  font-size: 0.68rem;
+  gap: 0.28rem 0.35rem;
+  margin-top: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: #f3f7f2;
+  font-size: 0.72rem;
   color: var(--cf-text-muted);
 }
 
-.sleep-clock__meta-ok-icon {
-  color: #4f9a4c;
-  flex-shrink: 0;
+.sleep-clock__meta--ok {
+  background: var(--cf-green-soft, #eef0eb);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sleep-clock__ring-active {
-    transition: none;
-  }
+.sleep-clock__meta strong {
+  color: var(--cf-green-dark, #6f7863);
+  font-weight: 700;
+}
+
+.sleep-clock__meta-dot {
+  opacity: 0.45;
+}
+
+.sleep-clock__meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--cf-green-dark, #6f7863);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.sleep-clock__meta-check {
+  width: 0.75rem;
+  height: 0.75rem;
+  stroke-width: 3;
 }
 </style>

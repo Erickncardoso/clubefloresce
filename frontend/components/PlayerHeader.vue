@@ -129,7 +129,7 @@ const toggleMenu = () => {
   font-weight: 800;
   font-size: 1.1rem;
   letter-spacing: -0.5px;
-  color: #2d5a27;
+  color: #8B967C;
 }
 
 /* Center Section (Search) */
@@ -152,7 +152,7 @@ const toggleMenu = () => {
 }
 
 .search-bar:focus-within {
-  border-color: #2d5a27;
+  border-color: #8B967C;
   background: #ffffff;
 }
 

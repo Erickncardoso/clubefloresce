@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page biblioteca-page patient-page--with-tab">
-    <PatientHeader title="Biblioteca" :show-bell="false" />
+    <PatientHeader title="Biblioteca" show-back back-to="/inicio" :show-bell="false" />
 
     <header class="bib-hero">
       <p class="bib-hero-eyebrow">Aprenda no seu ritmo</p>
@@ -520,7 +520,7 @@ onMounted(loadLibrary)
   height: 1rem;
 }
 
-.bib-quick-icon--rose { background: #f3e4e5; color: #a06267; }
+.bib-quick-icon--rose { background: var(--cf-pink-soft); color: var(--cf-pink-dark); }
 .bib-quick-icon--peach { background: #faeee6; color: #b07a4a; }
 .bib-quick-icon--green { background: var(--cf-green-soft); color: var(--cf-green-dark); }
 .bib-quick-icon--lavender { background: #eeeaf5; color: #7c5fad; }

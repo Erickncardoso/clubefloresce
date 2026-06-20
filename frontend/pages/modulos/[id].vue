@@ -971,7 +971,7 @@ watch(
 .btn-back-module {
   border: none;
   border-radius: 999px;
-  background: #2d5a27;
+  background: #8B967C;
   color: #fff;
   padding: 0.65rem 1.2rem;
   font-weight: 700;

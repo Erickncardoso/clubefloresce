@@ -1,14 +1,14 @@
-ï»¿<template>
+<template>
   <NuxtLayout name="dashboard">
     <div class="users-container">
       <div class="users-page admin-shell">
         <header class="admin-shell-header">
           <div class="page-header-copy">
-            <h1>GestÃ£o de Alunos</h1>
+            <h1>Gestão de Alunos</h1>
             <p>
               {{ users.length }} {{ users.length === 1 ? 'aluna cadastrada' : 'alunas cadastradas' }}
-              <span v-if="activeCount !== users.length"> Â· {{ activeCount }} ativas</span>
-              <span v-if="registrationRequests.length"> Â· {{ registrationRequests.length }} solicitaÃ§Ã£o(Ãµes) pendente(s)</span>
+              <span v-if="activeCount !== users.length"> · {{ activeCount }} ativas</span>
+              <span v-if="registrationRequests.length"> · {{ registrationRequests.length }} solicitação(ões) pendente(s)</span>
             </p>
           </div>
         </header>
@@ -31,11 +31,11 @@
 
         <section v-if="requestsLoading || registrationRequests.length || requestsError" class="requests-section">
           <div class="requests-head">
-            <h2 class="requests-title">SolicitaÃ§Ãµes pendentes</h2>
+            <h2 class="requests-title">Solicitações pendentes</h2>
             <span v-if="registrationRequests.length" class="requests-count">{{ registrationRequests.length }}</span>
           </div>
 
-          <p v-if="requestsLoading" class="requests-loading">Carregando solicitaÃ§Ãµes...</p>
+          <p v-if="requestsLoading" class="requests-loading">Carregando solicitações...</p>
           <p v-else-if="requestsError" class="load-error requests-error">{{ requestsError }}</p>
 
           <div v-else-if="registrationRequests.length" class="requests-list">
@@ -43,7 +43,7 @@
               <PatientAvatar :name="req.name" size="sm" :ring="false" />
               <div class="request-body">
                 <strong>{{ req.name }}</strong>
-                <p>{{ req.email }}<span v-if="req.phone"> Â· {{ req.phone }}</span></p>
+                <p>{{ req.email }}<span v-if="req.phone"> · {{ req.phone }}</span></p>
                 <p v-if="req.message" class="request-message">{{ req.message }}</p>
                 <small>{{ formatDate(req.createdAt) }}</small>
               </div>
@@ -70,8 +70,8 @@
                   <th>Plano</th>
                   <th>Status</th>
                   <th>Membro desde</th>
-                  <th>Acesso atÃ©</th>
-                  <th class="th-actions">AÃ§Ãµes</th>
+                  <th>Acesso até</th>
+                  <th class="th-actions">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,7 +125,7 @@
             <div v-else-if="!usersError" class="empty-state">
               <UserPlus class="empty-icon" />
               <h3>{{ searchQuery ? 'Nenhuma aluna encontrada' : 'Nenhuma aluna cadastrada' }}</h3>
-              <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar aluna para comeÃ§ar.' }}</p>
+              <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar aluna para começar.' }}</p>
             </div>
           </div>
         </div>
@@ -135,9 +135,9 @@
     <Teleport to="body">
       <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
         <form class="modal-card" @submit.prevent="createPatient">
-          <h3>{{ creatingFromRequest ? 'Aprovar solicitaÃ§Ã£o' : 'Nova paciente' }}</h3>
+          <h3>{{ creatingFromRequest ? 'Aprovar solicitação' : 'Nova paciente' }}</h3>
           <p v-if="creatingFromRequest" class="modal-hint">
-            A senha jÃ¡ foi definida pela aluna. Informe o plano e atÃ© quando ela terÃ¡ acesso.
+            A senha já foi definida pela aluna. Informe o plano e até quando ela terá acesso.
           </p>
 
           <div class="modal-fields">
@@ -159,12 +159,12 @@
                 type="password"
                 required
                 minlength="8"
-                placeholder="MÃ­nimo 8 caracteres"
+                placeholder="Mínimo 8 caracteres"
               />
             </div>
 
             <p v-else class="field-hint field-hint--password">
-              A aluna jÃ¡ escolheu a senha no app. ApÃ³s aprovar, ela entra direto com e-mail e senha.
+              A aluna já escolheu a senha no app. Após aprovar, ela entra direto com e-mail e senha.
             </p>
 
             <div class="field field--float">
@@ -178,7 +178,7 @@
 
             <div class="field field--float">
               <label for="create-access-expires">
-                Acesso vÃ¡lido atÃ©
+                Acesso válido até
                 <span v-if="creatingFromRequest" class="label-required">*</span>
               </label>
               <SharedCfDateInput
@@ -233,7 +233,7 @@
             </div>
 
             <div class="field field--float">
-              <label for="edit-access-expires">Acesso vÃ¡lido atÃ©</label>
+              <label for="edit-access-expires">Acesso válido até</label>
               <SharedCfDateInput
                 id="edit-access-expires"
                 v-model="editForm.accessExpiresAt"
@@ -247,7 +247,7 @@
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="showEditModal = false">Cancelar</button>
             <button type="submit" class="btn-primary modal-submit" :disabled="savingEdit">
-              {{ savingEdit ? 'Salvando...' : 'Salvar alteraÃ§Ãµes' }}
+              {{ savingEdit ? 'Salvando...' : 'Salvar alterações' }}
             </button>
           </div>
         </form>
@@ -331,7 +331,7 @@ function resolveFetchError(err, fallback) {
   const status = err?.statusCode || err?.status || err?.response?.status
 
   if (status === 401 || status === 403) {
-    return 'Sem permissÃ£o ou sessÃ£o expirada. FaÃ§a login novamente.'
+    return 'Sem permissão ou sessão expirada. Faça login novamente.'
   }
 
   if (isApiConnectionError(err)) {
@@ -355,7 +355,7 @@ const fetchRegistrationRequests = async () => {
     registrationRequests.value = data?.requests || []
   } catch (err) {
     registrationRequests.value = []
-    requestsError.value = resolveFetchError(err, 'NÃ£o foi possÃ­vel carregar as solicitaÃ§Ãµes.')
+    requestsError.value = resolveFetchError(err, 'Não foi possível carregar as solicitações.')
   } finally {
     requestsLoading.value = false
   }
@@ -372,7 +372,7 @@ const fetchPatients = async () => {
       : []
   } catch (err) {
     users.value = []
-    usersError.value = resolveFetchError(err, 'NÃ£o foi possÃ­vel carregar os alunos.')
+    usersError.value = resolveFetchError(err, 'Não foi possível carregar os alunos.')
   } finally {
     usersLoading.value = false
   }
@@ -385,7 +385,7 @@ const fetchUsers = async () => {
   if (!token || role !== 'NUTRICIONISTA') {
     usersLoading.value = false
     requestsLoading.value = false
-    const sessionError = 'SessÃ£o expirada. FaÃ§a login novamente como nutricionista.'
+    const sessionError = 'Sessão expirada. Faça login novamente como nutricionista.'
     usersError.value = sessionError
     requestsError.value = sessionError
     return
@@ -460,7 +460,7 @@ const createPatient = async () => {
   createError.value = ''
 
   if (creatingFromRequest.value && !createForm.accessExpiresAt) {
-    createError.value = 'Informe atÃ© quando a aluna terÃ¡ acesso.'
+    createError.value = 'Informe até quando a aluna terá acesso.'
     creating.value = false
     return
   }
@@ -555,7 +555,7 @@ const saveEdit = async () => {
     showEditModal.value = false
     editingUserId.value = ''
   } catch (err) {
-    editError.value = err.data?.error || 'Erro ao salvar alteraÃ§Ãµes.'
+    editError.value = err.data?.error || 'Erro ao salvar alterações.'
   } finally {
     savingEdit.value = false
   }
@@ -577,7 +577,7 @@ const handleDelete = async (id) => {
     })
     fetchUsers()
   } catch (err) {
-    alert('Erro ao excluir usuÃ¡rio.')
+    alert('Erro ao excluir usuário.')
   }
 }
 
@@ -586,8 +586,8 @@ onMounted(fetchUsers)
 
 <style scoped>
 .users-container {
-  --primary: #2d5a27;
-  --primary-light: #4c8c4a;
+  --primary: #8B967C;
+  --primary-light: #a3ad98;
 }
 
 .users-toolbar {

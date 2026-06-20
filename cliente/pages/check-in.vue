@@ -1,6 +1,10 @@
 <template>
-  <div v-if="isPatientApp" class="patient-page checkin-page checkin-page--typeform">
-    <PatientHeader v-if="view === 'list'" title="Check-ins" />
+  <div
+    v-if="isPatientApp"
+    class="patient-page checkin-page checkin-page--typeform"
+    :class="{ 'checkin-page--flow': view === 'flow' }"
+  >
+    <PatientHeader v-if="view === 'list'" title="Check-ins" show-back back-to="/inicio" />
 
     <div v-if="loadingTemplates" class="checkin-loading">
       <PatientPageSkeleton layout="checkin" />
@@ -31,14 +35,16 @@
       <p v-if="waitMessage" class="checkin-wait-message">{{ waitMessage }}</p>
     </div>
 
-    <CheckinTypeformFlow
-      v-else-if="selectedTemplate"
-      :steps="selectedTemplate.steps"
-      :saving="saving"
-      :error="formError"
-      :show-history-link="history.length > 0"
-      @submit="submitPatientCheckIn"
-    />
+    <div v-else-if="selectedTemplate" class="checkin-flow-wrap">
+      <CheckinTypeformFlow
+        :steps="selectedTemplate.steps"
+        :saving="saving"
+        :submitted="checkInSubmitted"
+        :error="formError"
+        :show-history-link="history.length > 0"
+        @submit="submitPatientCheckIn"
+      />
+    </div>
 
     <CheckinFridayPrompt
       :open="fridayPromptOpen"
@@ -205,6 +211,7 @@
 
 <script setup>
 import { Search } from 'lucide-vue-next'
+import { usePatientTabBar } from '~/composables/usePatientTabBar'
 
 const isPatientAppBuild = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
 
@@ -216,8 +223,11 @@ definePageMeta({
 const config = useRuntimeConfig()
 const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const { patientTimeHeaders } = usePatientLocalTime()
+const { authHeaders, bootstrapToken } = usePatientAuth()
+const { showToast } = useAppToast()
 
 const route = useRoute()
+const { suppress: suppressTabBar, release: releaseTabBar } = usePatientTabBar()
 const apiBase = config.public.apiBase
 const isNutri = ref(false)
 const saving = ref(false)
@@ -233,11 +243,15 @@ const loadingTemplates = ref(true)
 const activeTemplates = ref([])
 const selectedTemplate = ref(null)
 const view = ref('list')
+const checkInSubmitted = ref(false)
+const checkInSubmitInFlight = ref(false)
 const checkInStatus = ref({})
 const fridayPromptOpen = ref(false)
 const pendingTemplate = ref(null)
 
 const waitMessage = computed(() => {
+  if (checkInStatus.value?.hasInvitedPending) return ''
+
   if (!checkInStatus.value?.showWaitMessage && !checkInStatus.value?.allWeeklyCompleted) return ''
 
   if (checkInStatus.value.allWeeklyCompleted) {
@@ -255,6 +269,8 @@ const waitMessage = computed(() => {
 
 function canOpenTemplate(tpl) {
   if (tpl.completedThisPeriod) return false
+  if (tpl.canOpen != null) return Boolean(tpl.canOpen)
+  if (tpl.invited) return true
   if (tpl.frequency === 'weekly' && !checkInStatus.value.windowOpen) return false
   return true
 }
@@ -447,6 +463,7 @@ const startTemplate = (tpl) => {
   selectedTemplate.value = tpl
   view.value = 'flow'
   formError.value = ''
+  checkInSubmitted.value = false
 }
 
 const loadPatientData = async () => {
@@ -473,24 +490,61 @@ const loadNutriData = async () => {
   }))
 }
 
+function checkInFetchErrorMessage(err, fallback = 'Erro ao salvar check-in.') {
+  return err?.data?.message
+    || err?.response?._data?.message
+    || err?.statusMessage
+    || err?.message
+    || fallback
+}
+
 const submitPatientCheckIn = async (answers) => {
-  if (!selectedTemplate.value) return
+  if (!selectedTemplate.value || checkInSubmitted.value || checkInSubmitInFlight.value) return
+
   formError.value = ''
   saving.value = true
+  checkInSubmitInFlight.value = true
+
   try {
+    await bootstrapToken()
     await $fetch(`${apiBase}/checkin/responses`, {
       method: 'POST',
-      headers: patientTimeHeaders(),
+      headers: {
+        ...authHeaders(),
+        ...patientTimeHeaders(),
+        'Content-Type': 'application/json',
+      },
       body: {
         templateId: selectedTemplate.value.id,
         answers,
       },
     })
-    navigateTo('/check-in/concluido')
+
+    checkInSubmitted.value = true
+    showToast({
+      type: 'success',
+      title: 'Check-in enviado com sucesso!',
+      message: 'Suas respostas foram registradas.',
+      duration: 4000,
+    })
+
+    try {
+      await navigateTo('/inicio', { replace: true })
+    } catch {
+      window.location.assign('/inicio')
+    }
   } catch (err) {
-    formError.value = err.data?.message || 'Erro ao salvar check-in.'
+    checkInSubmitted.value = false
+    formError.value = checkInFetchErrorMessage(err)
+    showToast({
+      type: 'error',
+      title: 'Não foi possível enviar',
+      message: formError.value,
+      duration: 6000,
+    })
   } finally {
-    saving.value = false
+    checkInSubmitInFlight.value = false
+    if (!checkInSubmitted.value) saving.value = false
   }
 }
 
@@ -520,6 +574,19 @@ const submitCheckIn = async () => {
   }
 }
 
+watch(
+  view,
+  (v) => {
+    if (v === 'flow') suppressTabBar()
+    else releaseTabBar()
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => {
+  releaseTabBar()
+})
+
 onMounted(async () => {
   isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
   try {
@@ -539,6 +606,20 @@ onMounted(async () => {
   padding: 0;
   box-sizing: border-box;
   background: var(--cf-bg);
+}
+
+.patient-page.checkin-page--flow {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.checkin-flow-wrap {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .checkin-loading {
@@ -635,7 +716,7 @@ onMounted(async () => {
 
 /* Portal web / nutri */
 .checkin-page.admin-shell {
-  --primary: #2d5a27;
+  --primary: #8B967C;
 }
 
 .week-badge {
@@ -982,5 +1063,5 @@ onMounted(async () => {
 }
 
 .error-text { color: #c53030; margin-top: 0.75rem; }
-.success-text { color: #2d5a27; margin-top: 0.75rem; }
+.success-text { color: #8B967C; margin-top: 0.75rem; }
 </style>

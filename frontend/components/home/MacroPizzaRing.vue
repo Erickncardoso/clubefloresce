@@ -70,7 +70,7 @@ function slotDash(percent) {
 
 const segments = computed(() => {
   const percents = [
-    { key: 'carbs', pct: macroPercent(props.consumed.carbsG, props.targets.carbsG), color: '#6d9a66' },
+    { key: 'carbs', pct: macroPercent(props.consumed.carbsG, props.targets.carbsG), color: '#8B967C' },
     { key: 'protein', pct: macroPercent(props.consumed.proteinG, props.targets.proteinG), color: '#e8c24b' },
     { key: 'fat', pct: macroPercent(props.consumed.fatG, props.targets.fatG), color: '#a882d4' },
   ]

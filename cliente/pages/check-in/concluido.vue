@@ -17,6 +17,18 @@
 import { Check } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
+
+let redirectTimer = null
+
+onMounted(() => {
+  redirectTimer = window.setTimeout(() => {
+    navigateTo('/inicio', { replace: true })
+  }, 1200)
+})
+
+onBeforeUnmount(() => {
+  if (redirectTimer) window.clearTimeout(redirectTimer)
+})
 </script>
 
 <style scoped>

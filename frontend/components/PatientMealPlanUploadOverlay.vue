@@ -10,7 +10,7 @@
         aria-label="Processando PDF do cardápio"
       >
         <div class="meal-plan-upload-overlay__card cf-squircle">
-          <span class="meal-plan-upload-overlay__spinner" aria-hidden="true" />
+          <PatientLoadingLogo size="lg" animated class="meal-plan-upload-overlay__logo" />
           <p class="meal-plan-upload-overlay__title">{{ title }}</p>
           <p class="meal-plan-upload-overlay__copy">{{ copy }}</p>
         </div>
@@ -68,15 +68,9 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.meal-plan-upload-overlay__spinner {
-  display: inline-block;
-  width: 2rem;
-  height: 2rem;
-  margin-bottom: 0.85rem;
-  border: 3px solid var(--cf-pink-soft);
-  border-top-color: var(--cf-pink);
-  border-radius: 50%;
-  animation: meal-plan-upload-spin 0.75s linear infinite;
+.meal-plan-upload-overlay__logo {
+  display: block;
+  margin: 0 auto 0.85rem;
 }
 
 .meal-plan-upload-overlay__title {
@@ -91,12 +85,6 @@ onUnmounted(() => {
   font-size: 0.78rem;
   line-height: 1.4;
   color: var(--cf-text-muted);
-}
-
-@keyframes meal-plan-upload-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .meal-plan-upload-fade-enter-active,

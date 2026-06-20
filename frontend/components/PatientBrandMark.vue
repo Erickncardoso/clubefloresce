@@ -1,11 +1,11 @@
 <template>
   <div class="cf-brand-mark" :class="[`cf-brand-mark--${size}`, { 'cf-brand-mark--stacked': stacked }]">
     <img
-      src="/logoflorescer.svg"
+      src="/icons/logovetorcarregamento.svg"
       alt=""
       class="cf-brand-mark__icon"
       width="28"
-      height="50"
+      height="40"
       aria-hidden="true"
     />
     <span v-if="showText" class="cf-brand-mark__text">Clube Florescer</span>
@@ -50,7 +50,7 @@ defineProps({
 }
 
 .cf-brand-mark--sm .cf-brand-mark__icon {
-  height: 1.35rem;
+  height: 1.45rem;
 }
 
 .cf-brand-mark--sm .cf-brand-mark__text {
@@ -58,7 +58,7 @@ defineProps({
 }
 
 .cf-brand-mark--md .cf-brand-mark__icon {
-  height: 1.65rem;
+  height: 1.9rem;
 }
 
 .cf-brand-mark--md .cf-brand-mark__text {
@@ -66,7 +66,7 @@ defineProps({
 }
 
 .cf-brand-mark--lg .cf-brand-mark__icon {
-  height: 2.65rem;
+  height: 2.75rem;
 }
 
 .cf-brand-mark--lg .cf-brand-mark__text {

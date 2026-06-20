@@ -1,12 +1,12 @@
 <template>
-  <div class="food-plate" :aria-label="`Alimentação: ${current} de ${target} dias na semana`">
+  <div class="food-plate" :aria-label="`Refeição livre: ${current} de ${target} dias na semana`">
     <div class="food-plate__card" aria-hidden="true">
       <svg class="food-plate__icon" viewBox="0 0 64 64" aria-hidden="true">
-        <circle cx="32" cy="34" r="22" fill="#fff8f4" stroke="#f0ddd4" stroke-width="2.5" />
-        <circle cx="32" cy="34" r="14" fill="#fff" stroke="#f5e8e2" stroke-width="1.5" stroke-dasharray="3 3" />
-        <path d="M18 18c2-4 6-6 10-6" fill="none" stroke="#e8a598" stroke-width="2" stroke-linecap="round" opacity="0.55" />
-        <path d="M24 14c2-3 5-4 8-4" fill="none" stroke="#e8a598" stroke-width="2" stroke-linecap="round" opacity="0.4" />
-        <path d="M36 14c2-3 5-4 8-4" fill="none" stroke="#e8a598" stroke-width="2" stroke-linecap="round" opacity="0.4" />
+        <circle cx="32" cy="34" r="22" fill="#f8faf5" stroke="#dce5d4" stroke-width="2.5" />
+        <circle cx="32" cy="34" r="14" fill="#fff" stroke="#e8efe3" stroke-width="1.5" stroke-dasharray="3 3" />
+        <path d="M18 18c2-4 6-6 10-6" fill="none" stroke="#8B967C" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+        <path d="M24 14c2-3 5-4 8-4" fill="none" stroke="#8B967C" stroke-width="2" stroke-linecap="round" opacity="0.4" />
+        <path d="M36 14c2-3 5-4 8-4" fill="none" stroke="#8B967C" stroke-width="2" stroke-linecap="round" opacity="0.4" />
       </svg>
 
       <div class="food-plate__days">
@@ -33,7 +33,7 @@
 
     <div class="food-plate__actions">
       <button type="button" class="food-plate__btn" aria-label="Remover um dia" @click="emit('decrement')">−</button>
-      <button type="button" class="food-plate__btn food-plate__btn--primary" aria-label="Marcar dia alinhado" @click="emit('increment')">+</button>
+      <button type="button" class="food-plate__btn food-plate__btn--primary" aria-label="Marcar refeição livre" @click="emit('increment')">+</button>
     </div>
   </div>
 </template>
@@ -48,13 +48,12 @@ const emit = defineEmits(['increment', 'decrement'])
 
 const weekLabels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
 
-const days = computed(() => {
-  const labels = weekLabels.slice(0, props.target)
-  return labels.map((label, index) => ({
+const days = computed(() =>
+  weekLabels.map((label, index) => ({
     label,
     done: index < props.current,
-  }))
-})
+  })),
+)
 </script>
 
 <style scoped>
@@ -67,11 +66,11 @@ const days = computed(() => {
 
 .food-plate__card {
   width: 100%;
-  max-width: 16rem;
+  max-width: 17rem;
   padding: 0.75rem 0.65rem 0.85rem;
   border-radius: 16px;
-  background: linear-gradient(180deg, #fff9f6 0%, #fff 100%);
-  border: 1px solid #f3e4de;
+  background: linear-gradient(180deg, #f8faf5 0%, #fff 100%);
+  border: 1px solid #e0e8da;
 }
 
 .food-plate__icon {
@@ -83,9 +82,9 @@ const days = computed(() => {
 
 .food-plate__days {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.35rem;
-  max-width: 12rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.22rem;
+  max-width: 14.5rem;
   margin: 0 auto;
 }
 
@@ -106,18 +105,18 @@ const days = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.55rem;
-  height: 1.55rem;
+  width: 1.35rem;
+  height: 1.35rem;
   border-radius: 999px;
-  border: 2px solid #ecd8d0;
+  border: 2px solid #d4dfc8;
   background: #fff;
   color: #fff;
   transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
 }
 
 .food-plate__day--done .food-plate__day-dot {
-  background: linear-gradient(145deg, #efb5a8, #e08f7f);
-  border-color: #e8a598;
+  background: linear-gradient(145deg, #9aa88f, #8B967C);
+  border-color: #8B967C;
   transform: scale(1.04);
 }
 
@@ -129,7 +128,7 @@ const days = computed(() => {
 
 .food-plate__count strong {
   font-size: 1.15rem;
-  color: #d9897a;
+  color: var(--cf-pink-dark);
 }
 
 .food-plate__actions {
@@ -149,8 +148,8 @@ const days = computed(() => {
 }
 
 .food-plate__btn--primary {
-  background: #e8a598;
-  border-color: #e8a598;
+  background: var(--cf-pink);
+  border-color: var(--cf-pink);
   color: #fff;
 }
 </style>

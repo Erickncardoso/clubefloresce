@@ -1,6 +1,6 @@
 <template>
   <div v-if="isPatientApp" class="patient-page comm-page">
-    <PatientHeader title="Comunidade">
+    <PatientHeader title="Comunidade" show-back back-to="/inicio">
       <template #actions>
         <button type="button" class="comm-header-btn" aria-label="Buscar">
           <Search class="comm-header-icon" />

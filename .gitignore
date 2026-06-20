@@ -2,6 +2,8 @@ node_modules/
 dist/
 .output/
 .nuxt/
+.nuxt-mobile/
+dev-sw-dist/
 .cache/
 coverage/
 *.log

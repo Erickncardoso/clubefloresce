@@ -186,7 +186,7 @@ function onScroll() {
   box-sizing: border-box;
   overflow: hidden;
   border: 1px solid var(--cf-border, #e4e4e0);
-  background: var(--cf-green-soft, #edf3eb);
+  background: var(--cf-green-soft, #eef0eb);
   box-shadow: var(--cf-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.06));
 }
 

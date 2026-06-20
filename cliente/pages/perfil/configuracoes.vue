@@ -16,7 +16,12 @@
     </section>
 
     <section class="config-section">
-      <h2>Notificações</h2>
+      <h2>Notificações push</h2>
+      <PatientPushSettings />
+    </section>
+
+    <section class="config-section">
+      <h2>Preferências</h2>
       <div
         v-for="item in notifToggles"
         :key="item.key"

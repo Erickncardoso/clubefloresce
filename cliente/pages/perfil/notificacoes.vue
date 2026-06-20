@@ -2,37 +2,6 @@
   <div class="patient-page notif-page">
     <PatientHeader title="Notificações" show-back back-to="/perfil" />
 
-    <section class="notif-push cf-squircle">
-      <div class="notif-push-copy">
-        <h3>Notificações no celular</h3>
-        <p v-if="pushChecking">Verificando suporte a notificações…</p>
-        <p v-else-if="pushNeedsHttps">
-          Push não funciona em <strong>http</strong> no celular (ex.: IP da rede <code>192.168.x.x</code>).
-          Para testar no aparelho, use o app em produção (HTTPS) ou um túnel seguro no PC.
-        </p>
-        <p v-else-if="!pushSupported && !pushStandalone">
-          Para receber push, adicione o app à tela inicial do celular e abra por lá (não pelo navegador).
-        </p>
-        <p v-else-if="!pushSupported && pushStandalone">
-          Atualize o iOS para 16.4 ou superior, ou reabra o app e tente de novo.
-        </p>
-        <p v-else-if="!pushEnabledOnServer">Conectando ao servidor de push…</p>
-        <p v-else-if="pushPermission === 'denied'">Permissão bloqueada. Libere nas configurações do navegador ou do app.</p>
-        <p v-else-if="pushSubscribed">Você receberá alertas de check-in, Bella e comunidade.</p>
-        <p v-else>Receba alertas mesmo com o app fechado.</p>
-      </div>
-      <button
-        v-if="pushSupported && pushEnabledOnServer && pushPermission !== 'denied'"
-        type="button"
-        class="notif-push-btn"
-        :disabled="pushLoading"
-        @click="togglePush"
-      >
-        {{ pushLoading ? 'Aguarde…' : pushSubscribed ? 'Desativar push' : 'Ativar push' }}
-      </button>
-      <p v-if="pushError" class="notif-push-error">{{ pushError }}</p>
-    </section>
-
     <div v-if="hasUnread" class="notif-toolbar">
       <button type="button" class="notif-mark-all" :disabled="markingAll" @click="handleMarkAllRead">
         Marcar todas como lidas
@@ -85,34 +54,9 @@ const {
 
 const markingAll = ref(false)
 
-const {
-  supported: pushSupported,
-  standalone: pushStandalone,
-  needsHttps: pushNeedsHttps,
-  checking: pushChecking,
-  enabledOnServer: pushEnabledOnServer,
-  permission: pushPermission,
-  subscribed: pushSubscribed,
-  loading: pushLoading,
-  error: pushError,
-  initPushState,
-  subscribe: subscribePush,
-  unsubscribe: unsubscribePush,
-} = usePushNotifications()
-
 onMounted(() => {
-  void initPushState()
   fetchNotifications()
 })
-
-async function togglePush() {
-  if (pushSubscribed.value) {
-    await unsubscribePush()
-    return
-  }
-  const ok = await subscribePush()
-  if (ok) localStorage.removeItem('push_prompt_dismissed')
-}
 
 async function handleMarkAllRead() {
   if (markingAll.value || !hasUnread.value) return
@@ -128,50 +72,6 @@ async function handleMarkAllRead() {
 <style scoped>
 .notif-page {
   padding-top: 0;
-}
-
-.notif-push {
-  margin-bottom: 0.85rem;
-  padding: 1rem;
-  border: 1px solid var(--pa-border);
-  background: var(--cf-surface, #fff);
-  box-shadow: var(--cf-shadow-lg);
-}
-
-.notif-push-copy h3 {
-  margin: 0 0 0.35rem;
-  font-size: 0.92rem;
-}
-
-.notif-push-copy p {
-  margin: 0 0 0.75rem;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--pa-text-muted);
-}
-
-.notif-push-btn {
-  width: 100%;
-  padding: 0.65rem 1rem;
-  border: none;
-  border-radius: 10px;
-  background: var(--pa-green);
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.82rem;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.notif-push-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.notif-push-error {
-  margin: 0.5rem 0 0;
-  font-size: 0.75rem;
-  color: var(--pa-red, #d64545);
 }
 
 .notif-toolbar {
@@ -245,7 +145,7 @@ async function handleMarkAllRead() {
   flex-shrink: 0;
 }
 
-.notif-icon-wrap--bella { background: #ecfdf5; color: var(--pa-green); }
+.notif-icon-wrap--bella { background: #eef0eb; color: var(--pa-green); }
 .notif-icon-wrap--checkin { background: #eff6ff; color: #2563eb; }
 .notif-icon-wrap--community { background: #fdf4ff; color: #9333ea; }
 .notif-icon-wrap--content { background: #fff7ed; color: #ea580c; }

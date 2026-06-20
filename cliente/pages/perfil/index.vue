@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page perfil-page">
-    <PatientHeader title="Meu perfil" :show-bell="false">
+    <PatientHeader title="Meu perfil" show-back back-to="/inicio" :show-bell="false">
       <template #actions>
         <button type="button" class="perfil-settings" aria-label="Configurações" @click="navigateTo('/perfil/configuracoes')">
           <Settings class="perfil-settings-icon" />
@@ -71,7 +71,7 @@
         <span>Metas</span>
         <ChevronRight class="perfil-menu-arrow" />
       </NuxtLink>
-      <NuxtLink to="/evolucao?tab=dieta" class="perfil-menu-item">
+      <NuxtLink to="/dieta" class="perfil-menu-item">
         <UtensilsCrossed class="perfil-menu-icon" />
         <span>Meu plano</span>
         <ChevronRight class="perfil-menu-arrow" />

@@ -642,9 +642,9 @@ onMounted(() => {
 }
 
 .pdf-upload-box.has-file {
-  border-color: #2d5a27;
+  border-color: #8B967C;
   background: #f0fdf4;
-  color: #166534;
+  color: #6f7863;
 }
 
 .pdf-icon-big { width: 32px; height: 32px; opacity: 0.5; }

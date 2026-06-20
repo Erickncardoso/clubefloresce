@@ -1,5 +1,5 @@
 <template>
-  <div class="nutrition-month">
+  <div class="nutrition-month" :class="{ 'nutrition-month--compact': compact }">
     <div class="nutrition-month-nav">
       <button type="button" class="nutrition-month-btn" aria-label="Mês anterior" @click="shiftMonth(-1)">
         <ChevronLeft />
@@ -40,8 +40,14 @@
             'nutrition-month-day--today': day.date === todayKey,
             'nutrition-month-day--empty': !day.entryCount,
             'nutrition-month-day--selected': day.date === selectedDate,
+            'nutrition-month-day--hovered': day.date === hoveredDate,
           }"
-          @click="selectedDate = day.date"
+          :aria-label="dayAriaLabel(day)"
+          @click="selectDay(day)"
+          @mouseenter="hoveredDate = day.date"
+          @mouseleave="hoveredDate = ''"
+          @focus="hoveredDate = day.date"
+          @blur="hoveredDate = ''"
         >
           <span class="nutrition-month-day-num">{{ dayNumber(day.date) }}</span>
           <span
@@ -49,8 +55,20 @@
             :style="{ height: `${barHeight(day)}%`, backgroundColor: barColor(day) }"
             aria-hidden="true"
           />
+          <span
+            v-if="hoveredDate === day.date || selectedDate === day.date"
+            class="nutrition-month-tip"
+            role="tooltip"
+          >
+            {{ dayTip(day) }}
+          </span>
         </button>
       </div>
+
+      <p v-if="compact && hoveredDaySummary" class="nutrition-month-hover-readout">
+        <strong>{{ hoveredDayTitle }}</strong>
+        <span>{{ dayTip(hoveredDaySummary) }}</span>
+      </p>
 
       <article v-if="selectedDay" class="nutrition-month-detail cf-squircle">
         <h3>{{ detailTitle }}</h3>
@@ -62,9 +80,15 @@
             <span>P {{ selectedDay.consumed.proteinG }}g</span>
             <span>G {{ selectedDay.consumed.fatG }}g</span>
           </div>
-          <p class="nutrition-month-detail-meta">{{ selectedDay.entryCount }} refeiç{{ selectedDay.entryCount === 1 ? 'ão' : 'ões' }} registrada{{ selectedDay.entryCount === 1 ? '' : 's' }}</p>
+          <p class="nutrition-month-detail-meta">
+            {{ selectedDay.entryCount }} refeiç{{ selectedDay.entryCount === 1 ? 'ão' : 'ões' }} registrada{{ selectedDay.entryCount === 1 ? '' : 's' }}
+            <span v-if="summary?.targets?.caloriesKcal">
+              · meta {{ summary.targets.caloriesKcal }} kcal
+            </span>
+          </p>
 
-          <ul v-if="dayEntries.length" class="nutrition-month-entries">
+          <p v-if="loadingDay" class="nutrition-month-detail-loading">Carregando refeições…</p>
+          <ul v-else-if="dayEntries.length" class="nutrition-month-entries">
             <li v-for="entry in dayEntries" :key="entry.id" class="nutrition-month-entry">
               <img v-if="entry.imageUrl" :src="entry.imageUrl" alt="" class="nutrition-month-entry-img" loading="lazy" />
               <div>
@@ -84,6 +108,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
 const props = defineProps({
   patientId: { type: String, default: null },
+  compact: { type: Boolean, default: false },
 })
 
 const config = useRuntimeConfig()
@@ -93,6 +118,7 @@ const loading = ref(true)
 const error = ref('')
 const summary = ref(null)
 const selectedDate = ref('')
+const hoveredDate = ref('')
 const dayEntries = ref([])
 const loadingDay = ref(false)
 
@@ -124,11 +150,38 @@ const selectedDay = computed(() =>
   summary.value?.days.find((day) => day.date === selectedDate.value) || null,
 )
 
+const hoveredDaySummary = computed(() =>
+  summary.value?.days.find((day) => day.date === hoveredDate.value) || null,
+)
+
+const hoveredDayTitle = computed(() => {
+  if (!hoveredDaySummary.value) return ''
+  const date = new Date(`${hoveredDaySummary.value.date}T12:00:00`)
+  return date.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })
+})
+
 const detailTitle = computed(() => {
   if (!selectedDay.value) return ''
   const date = new Date(`${selectedDay.value.date}T12:00:00`)
   return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 })
+
+function dayTip(day) {
+  if (!day.entryCount) return 'Sem registro neste dia'
+  const target = summary.value?.targets?.caloriesKcal || 2000
+  const pct = Math.round((day.consumed.caloriesKcal / target) * 100)
+  return `${day.consumed.caloriesKcal} kcal (${pct}% da meta) · ${day.entryCount} refeiç${day.entryCount === 1 ? 'ão' : 'ões'}`
+}
+
+function dayAriaLabel(day) {
+  const date = new Date(`${day.date}T12:00:00`)
+  const label = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
+  return `${label}: ${dayTip(day)}`
+}
+
+function selectDay(day) {
+  selectedDate.value = day.date
+}
 
 function dayNumber(dateKey) {
   return Number(dateKey.slice(8, 10))
@@ -167,7 +220,11 @@ function monthFetchOptions() {
 }
 
 async function loadDayEntries(date) {
-  if (!date || !props.patientId) {
+  if (!date) {
+    dayEntries.value = []
+    return
+  }
+  if (!props.patientId) {
     dayEntries.value = []
     return
   }
@@ -309,6 +366,7 @@ onMounted(loadMonth)
 }
 
 .nutrition-month-day {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -320,6 +378,124 @@ onMounted(loadMonth)
   background: #fafafa;
   cursor: pointer;
   font-family: inherit;
+}
+
+.nutrition-month-day--hovered:not(.nutrition-month-day--selected) {
+  border-color: #d6e8f5;
+  background: #f3f9fd;
+}
+
+.nutrition-month-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.35rem);
+  z-index: 5;
+  transform: translateX(-50%);
+  min-width: 9.5rem;
+  max-width: 13rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.nutrition-month-tip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1f2937;
+}
+
+.nutrition-month-day--selected .nutrition-month-tip {
+  background: var(--cf-pink-dark, #9a4f55);
+}
+
+.nutrition-month-day--selected .nutrition-month-tip::after {
+  border-top-color: var(--cf-pink-dark, #9a4f55);
+}
+
+.nutrition-month-detail-loading {
+  margin: 0.5rem 0 0;
+  font-size: 0.76rem;
+  color: var(--cf-text-muted);
+}
+
+.nutrition-month--compact .nutrition-month-tip {
+  display: none;
+}
+
+.nutrition-month-hover-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.55rem;
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  background: #eef6fc;
+  border: 1px solid #d6e8f5;
+  font-size: 0.72rem;
+  color: #374151;
+}
+
+.nutrition-month-hover-readout strong {
+  font-size: 0.74rem;
+  color: #1f2937;
+}
+
+.nutrition-month-hover-readout span {
+  color: #4b5563;
+}
+
+.nutrition-month--compact .nutrition-month-title {
+  font-size: 0.88rem;
+}
+
+.nutrition-month--compact .nutrition-month-summary {
+  padding: 0.65rem;
+  gap: 0.35rem;
+}
+
+.nutrition-month--compact .nutrition-month-stat strong {
+  font-size: 0.82rem;
+}
+
+.nutrition-month--compact .nutrition-month-stat span {
+  font-size: 0.62rem;
+}
+
+.nutrition-month--compact .nutrition-month-day {
+  min-height: 2.85rem;
+}
+
+.nutrition-month--compact .nutrition-month-day-num {
+  font-size: 0.62rem;
+}
+
+.nutrition-month--compact .nutrition-month-day-bar {
+  width: 0.45rem;
+}
+
+.nutrition-month--compact .nutrition-month-detail {
+  padding: 0.75rem;
+}
+
+.nutrition-month--compact .nutrition-month-detail h3 {
+  font-size: 0.82rem;
+}
+
+.nutrition-month--compact .nutrition-month-entry-img {
+  width: 44px;
+  height: 44px;
 }
 
 .nutrition-month-day--today {

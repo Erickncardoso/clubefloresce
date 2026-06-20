@@ -10,23 +10,184 @@
 
       <section class="checkin-dispatch-card admin-shell-card">
         <div class="checkin-dispatch-copy">
-          <h2>Disparo semanal</h2>
+          <h2>Disparos de check-in</h2>
           <p>
-            Toda <strong>sexta-feira às 11h</strong> o sistema envia o check-in para todas as pacientes
-            que ainda não responderam. Você também pode disparar manualmente agora.
+            O disparo automático semanal ocorre na <strong>sexta às 11h</strong>. Você também pode enviar
+            check-ins individuais, escolher a aluna, o tipo e programar a data do envio.
           </p>
           <p v-if="dispatchStatus.dispatched" class="checkin-dispatch-note">
-            Disparo desta semana já realizado.
+            Disparo em massa desta semana já realizado.
           </p>
         </div>
-        <button
-          type="button"
-          class="btn-primary checkin-dispatch-btn"
-          :disabled="dispatching"
-          @click="dispatchWeeklyCheckIn"
-        >
-          {{ dispatching ? 'Enviando...' : 'Disparar check-in agora' }}
-        </button>
+
+        <div class="checkin-dispatch-actions">
+          <button
+            type="button"
+            class="btn-ghost checkin-dispatch-btn"
+            :disabled="dispatching"
+            @click="dispatchWeeklyCheckIn"
+          >
+            {{ dispatching ? 'Enviando...' : 'Disparar semanal (todas)' }}
+          </button>
+        </div>
+
+        <form class="checkin-custom-dispatch" @submit.prevent="submitCustomDispatch">
+          <h3>Disparo personalizado</h3>
+          <div class="dispatch-fields">
+            <div class="dispatch-field">
+              <label for="dispatch-template">Tipo de check-in</label>
+              <SharedCfSelect
+                id="dispatch-template"
+                v-model="customDispatch.templateId"
+                :options="dispatchTemplateOptions"
+                placeholder="Selecione o check-in"
+              />
+            </div>
+            <div class="dispatch-field">
+              <label for="dispatch-period">Período de referência (opcional)</label>
+              <SharedCfDateInput
+                id="dispatch-period"
+                v-model="customDispatch.periodDate"
+                :title="dispatchPeriodHint"
+              />
+              <small class="dispatch-field-hint">{{ dispatchPeriodHint }}</small>
+            </div>
+            <div class="dispatch-field">
+              <label for="dispatch-when">Enviar</label>
+              <SharedCfSelect
+                id="dispatch-when"
+                v-model="customDispatch.mode"
+                :options="dispatchModeOptions"
+              />
+            </div>
+            <div v-if="customDispatch.mode === 'schedule'" class="dispatch-field">
+              <label for="dispatch-scheduled-at">Data e hora do envio</label>
+              <SharedCfDateTimeInput
+                id="dispatch-scheduled-at"
+                v-model="customDispatch.scheduledAt"
+                required
+              />
+            </div>
+            <div class="dispatch-field dispatch-field--full">
+              <label for="dispatch-title">Título da notificação (opcional)</label>
+              <input
+                id="dispatch-title"
+                v-model="customDispatch.title"
+                class="dispatch-control"
+                type="text"
+                maxlength="80"
+                placeholder="Ex: Check-in da semana"
+              >
+            </div>
+            <div class="dispatch-field dispatch-field--full">
+              <label for="dispatch-body">Mensagem (opcional)</label>
+              <input
+                id="dispatch-body"
+                v-model="customDispatch.body"
+                class="dispatch-control"
+                type="text"
+                maxlength="200"
+                placeholder="Texto que a aluna verá na notificação"
+              >
+            </div>
+          </div>
+
+          <div class="dispatch-patients">
+            <div class="dispatch-patients-head">
+              <strong>Alunas</strong>
+              <label class="form-check cf-round-check dispatch-all-check">
+                <input v-model="customDispatch.allPatients" type="checkbox" class="cf-round-check-input">
+                <span class="cf-round-check-box" aria-hidden="true"><Check class="cf-round-check-icon" /></span>
+                <span class="cf-round-check-label">Todas as alunas</span>
+              </label>
+            </div>
+            <div v-if="!customDispatch.allPatients" class="dispatch-patient-tools">
+              <div class="dispatch-patients-meta">
+                <span>{{ dispatchPatients.length }} alunas cadastradas</span>
+                <span v-if="customDispatch.userIds.length" class="dispatch-patients-selected">
+                  {{ customDispatch.userIds.length }} selecionada(s)
+                </span>
+              </div>
+
+              <div v-if="selectedDispatchPatients.length" class="dispatch-selected-list" aria-label="Alunas selecionadas">
+                <span
+                  v-for="patient in selectedDispatchPatients"
+                  :key="patient.id"
+                  class="dispatch-selected-chip"
+                >
+                  {{ patient.name }}
+                  <button
+                    type="button"
+                    class="dispatch-selected-chip-remove"
+                    :aria-label="`Remover ${patient.name}`"
+                    @click="removeDispatchPatient(patient.id)"
+                  >
+                    ×
+                  </button>
+                </span>
+              </div>
+
+              <div class="nutri-search dispatch-search">
+                <Search class="nutri-search-icon" />
+                <input
+                  v-model="dispatchPatientSearch"
+                  type="search"
+                  placeholder="Buscar aluna por nome..."
+                  aria-label="Buscar aluna para disparo"
+                >
+              </div>
+
+              <div class="dispatch-patient-panel">
+                <p v-if="dispatchPatientListHint" class="dispatch-patient-hint">{{ dispatchPatientListHint }}</p>
+
+                <ul
+                  v-if="visibleDispatchPatients.length"
+                  class="dispatch-patient-list"
+                  aria-label="Lista de alunas"
+                >
+                  <li v-for="patient in visibleDispatchPatients" :key="patient.id">
+                    <label class="dispatch-patient-item cf-round-check">
+                      <input
+                        v-model="customDispatch.userIds"
+                        type="checkbox"
+                        class="cf-round-check-input"
+                        :value="patient.id"
+                      >
+                      <span class="cf-round-check-box" aria-hidden="true">
+                        <Check class="cf-round-check-icon" />
+                      </span>
+                      <span class="cf-round-check-label dispatch-patient-name">{{ patient.name }}</span>
+                    </label>
+                  </li>
+                </ul>
+
+                <p v-else-if="!dispatchPatientListHint" class="dispatch-empty">Nenhuma aluna encontrada.</p>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary" :disabled="customDispatching">
+            {{ customDispatching ? 'Processando...' : customDispatchSubmitLabel }}
+          </button>
+          <p v-if="customDispatchMessage" class="checkin-dispatch-feedback">{{ customDispatchMessage }}</p>
+        </form>
+
+        <div v-if="dispatchSchedules.length" class="dispatch-schedules">
+          <h3>Agendamentos</h3>
+          <ul>
+            <li v-for="item in dispatchSchedules" :key="item.id" class="dispatch-schedule-item">
+              <div>
+                <strong>{{ item.templateTitle }}</strong>
+                <span>{{ formatScheduleWhen(item.scheduledAt) }}</span>
+                <small>{{ item.allPatients ? 'Todas as alunas' : `${item.userIds.length} aluna(s)` }}</small>
+              </div>
+              <button type="button" class="btn-danger-ghost btn-sm" @click="cancelSchedule(item.id)">
+                Cancelar
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <p v-if="dispatchMessage" class="checkin-dispatch-feedback">{{ dispatchMessage }}</p>
       </section>
 
@@ -107,13 +268,36 @@
                   <td class="checkin-summary">{{ summarizeResponse(item) }}</td>
                   <td class="checkin-date">{{ formatDate(item.updatedAt) }}</td>
                   <td class="td-actions" @click.stop>
-                    <button
-                      type="button"
-                      class="checkin-link-btn"
-                      @click="openViewModal(item)"
-                    >
-                      Ver
-                    </button>
+                    <div class="checkin-row-actions">
+                      <button
+                        v-if="item.user?.id"
+                        type="button"
+                        class="checkin-action-btn checkin-action-btn--ghost"
+                        title="Fotos de refeições"
+                        @click="openViewModal(item, 'fotos')"
+                      >
+                        <Image aria-hidden="true" />
+                        Fotos
+                      </button>
+                      <button
+                        v-if="item.user?.id"
+                        type="button"
+                        class="checkin-action-btn checkin-action-btn--ghost"
+                        title="Gráfico nutricional"
+                        @click="openViewModal(item, 'desempenho')"
+                      >
+                        <LineChart aria-hidden="true" />
+                        Nutrição
+                      </button>
+                      <button
+                        type="button"
+                        class="checkin-action-btn checkin-action-btn--main"
+                        @click="openViewModal(item)"
+                      >
+                        <Eye aria-hidden="true" />
+                        Ver
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -123,10 +307,16 @@
       </section>
 
       <!-- Tipos de check-in -->
-      <section v-else class="checkin-section">
-        <div class="templates-toolbar">
-          <p class="templates-hint">{{ templates.length }} tipo{{ templates.length === 1 ? '' : 's' }} cadastrado{{ templates.length === 1 ? '' : 's' }}</p>
-          <button type="button" class="btn-primary" @click="openCreateTemplate">
+      <section v-else class="checkin-section checkin-section--templates">
+        <div class="templates-toolbar admin-shell-card">
+          <div class="templates-toolbar-copy">
+            <span class="templates-count" aria-hidden="true">{{ templates.length }}</span>
+            <div>
+              <strong>Tipos cadastrados</strong>
+              <p>Formulários que as alunas respondem no app — semanal, diário ou mensal.</p>
+            </div>
+          </div>
+          <button type="button" class="btn-primary templates-create-btn" @click="openCreateTemplate">
             <Plus class="btn-icon" />
             Novo check-in
           </button>
@@ -134,184 +324,372 @@
 
         <div v-if="loadingTemplates" class="loading-row">Carregando tipos...</div>
 
-        <div v-else-if="!templates.length" class="nutri-empty admin-shell-card">
-          <p>Nenhum tipo de check-in.</p>
-          <span>Crie o primeiro para suas alunas responderem.</span>
+        <div v-else-if="!templates.length" class="nutri-empty admin-shell-card templates-empty">
+          <p>Nenhum tipo de check-in</p>
+          <span>Crie o primeiro formulário para suas alunas começarem a responder.</span>
+          <button type="button" class="btn-primary templates-empty-btn" @click="openCreateTemplate">
+            <Plus class="btn-icon" />
+            Criar check-in
+          </button>
         </div>
 
         <div v-else class="templates-grid">
           <article
-            v-for="tpl in templates"
+            v-for="tpl in sortedTemplates"
             :key="tpl.id"
             class="template-card admin-shell-card"
+            :class="{ 'template-card--inactive': !tpl.active }"
           >
-            <div class="template-card-head">
-              <div>
-                <h3>{{ tpl.title }}</h3>
-                <p v-if="tpl.description">{{ tpl.description }}</p>
-              </div>
-              <span class="template-badge" :class="{ 'template-badge--off': !tpl.active }">
-                {{ tpl.active ? 'Ativo' : 'Inativo' }}
-              </span>
+            <div class="template-card-accent" :class="`template-card-accent--${tpl.frequency || 'weekly'}`" aria-hidden="true" />
+
+            <div class="template-card-body">
+              <header class="template-card-head">
+                <div class="template-card-title-wrap">
+                  <span class="template-frequency">
+                    <component :is="frequencyIcon(tpl.frequency)" class="template-frequency-icon" aria-hidden="true" />
+                    {{ frequencyLabel(tpl.frequency) }}
+                  </span>
+                  <h3>{{ tpl.title }}</h3>
+                </div>
+                <div class="template-badges">
+                  <span v-if="tpl.isDefault" class="template-badge template-badge--default">Padrão</span>
+                  <span class="template-badge" :class="{ 'template-badge--off': !tpl.active }">
+                    {{ tpl.active ? 'Ativo' : 'Inativo' }}
+                  </span>
+                </div>
+              </header>
+
+              <p class="template-desc">
+                {{ tpl.description || 'Sem descrição — adicione um texto curto para orientar a aluna.' }}
+              </p>
+
+              <ul class="template-stats">
+                <li>
+                  <ListChecks class="template-stat-icon" aria-hidden="true" />
+                  <span>
+                    <strong>{{ templateQuestionCount(tpl) }}</strong>
+                    {{ templateQuestionCount(tpl) === 1 ? 'pergunta' : 'perguntas' }}
+                  </span>
+                </li>
+                <li>
+                  <MessageSquare class="template-stat-icon" aria-hidden="true" />
+                  <span>
+                    <strong>{{ tpl._count?.responses || 0 }}</strong>
+                    {{ (tpl._count?.responses || 0) === 1 ? 'resposta' : 'respostas' }}
+                  </span>
+                </li>
+              </ul>
             </div>
-            <ul class="template-meta">
-              <li>{{ frequencyLabel(tpl.frequency) }}</li>
-              <li>{{ Array.isArray(tpl.steps) ? tpl.steps.length : 0 }} pergunta{{ (tpl.steps?.length || 0) === 1 ? '' : 's' }}</li>
-              <li>{{ tpl._count?.responses || 0 }} resposta{{ (tpl._count?.responses || 0) === 1 ? '' : 's' }}</li>
-            </ul>
-            <div class="template-actions">
-              <button type="button" class="btn-ghost" @click="openEditTemplate(tpl)">Editar</button>
-              <button
-                type="button"
-                class="btn-ghost"
-                @click="toggleTemplateActive(tpl)"
-              >
+
+            <footer class="template-actions">
+              <button type="button" class="template-action template-action--primary" @click="openEditTemplate(tpl)">
+                <Pencil class="template-action-icon" aria-hidden="true" />
+                Editar
+              </button>
+              <button type="button" class="template-action" @click="toggleTemplateActive(tpl)">
+                <Power class="template-action-icon" aria-hidden="true" />
                 {{ tpl.active ? 'Desativar' : 'Ativar' }}
               </button>
               <button
                 v-if="!tpl.isDefault"
                 type="button"
-                class="btn-danger-ghost"
+                class="template-action template-action--danger"
                 @click="deleteTemplate(tpl)"
               >
+                <Trash2 class="template-action-icon" aria-hidden="true" />
                 Excluir
               </button>
-            </div>
+            </footer>
           </article>
         </div>
       </section>
 
       <!-- Modal editor -->
       <div v-if="editorOpen" class="modal-overlay" @click.self="closeEditor">
-        <div class="modal-card" role="dialog" aria-modal="true" :aria-label="editorMode === 'create' ? 'Novo check-in' : 'Editar check-in'">
+        <div class="modal-card modal-card--editor" role="dialog" aria-modal="true" :aria-label="editorMode === 'create' ? 'Novo check-in' : 'Editar check-in'">
           <header class="modal-head">
             <h2>{{ editorMode === 'create' ? 'Novo check-in' : 'Editar check-in' }}</h2>
             <button type="button" class="modal-close" aria-label="Fechar" @click="closeEditor">×</button>
           </header>
 
-          <form class="modal-body" @submit.prevent="saveTemplate">
-            <div class="form-row">
-              <label for="tpl-title">Título</label>
-              <input id="tpl-title" v-model="editor.title" type="text" required maxlength="120" placeholder="Ex: Check-in semanal">
-            </div>
-            <div class="form-row">
-              <label for="tpl-desc">Descrição (opcional)</label>
-              <textarea id="tpl-desc" v-model="editor.description" rows="2" maxlength="300" placeholder="Breve explicação para a aluna" />
-            </div>
-            <div class="form-row-inline">
-              <div class="form-row">
-                <label for="tpl-freq">Frequência</label>
-                <select id="tpl-freq" v-model="editor.frequency">
-                  <option value="weekly">Semanal</option>
-                  <option value="daily">Diário</option>
-                  <option value="monthly">Mensal</option>
-                </select>
-              </div>
-              <label class="form-check">
-                <input v-model="editor.active" type="checkbox">
-                Ativo para alunas
-              </label>
-            </div>
-
-            <div class="steps-block">
-              <div class="steps-head">
-                <h3>Perguntas</h3>
-                <button type="button" class="btn-ghost btn-sm" @click="addStep">+ Pergunta</button>
-              </div>
-
-              <div v-for="(step, index) in editor.steps" :key="step._key" class="step-card">
-                <div class="step-card-head">
-                  <strong>Pergunta {{ index + 1 }}</strong>
-                  <button
-                    v-if="editor.steps.length > 1"
-                    type="button"
-                    class="btn-danger-ghost btn-sm"
-                    @click="removeStep(index)"
-                  >
-                    Remover
-                  </button>
+          <div class="editor-layout">
+            <form class="editor-form" @submit.prevent="saveTemplate">
+              <div class="modal-fields">
+                <div class="field field--float">
+                  <label for="tpl-title">Título</label>
+                  <input id="tpl-title" v-model="editor.title" type="text" required maxlength="120" placeholder="Ex: Check-in semanal">
                 </div>
-                <div class="form-row-inline">
-                  <div class="form-row">
-                    <label>Tipo</label>
-                    <select v-model="step.type" @change="onStepTypeChange(step)">
-                      <option value="food">Alimentação (rostos)</option>
-                      <option value="water">Água (litros)</option>
-                      <option value="exercise">Sim/Não exercício</option>
-                      <option value="scale">Escala 1–5 (estrelas)</option>
-                      <option value="choice">Escolha única</option>
-                      <option value="text">Texto livre</option>
-                    </select>
+                <div class="field field--float">
+                  <label for="tpl-desc">Descrição (opcional)</label>
+                  <textarea id="tpl-desc" v-model="editor.description" rows="2" maxlength="300" placeholder="Breve explicação para a aluna" />
+                </div>
+                <div class="editor-form-row editor-form-row--inline">
+                  <div class="field field--float editor-form-row-grow">
+                    <label for="tpl-freq">Frequência</label>
+                    <SharedCfSelect
+                      id="tpl-freq"
+                      v-model="editor.frequency"
+                      :options="frequencyOptions"
+                    />
                   </div>
-                  <div class="form-row">
-                    <label>Rótulo curto</label>
-                    <input v-model="step.label" type="text" maxlength="40" placeholder="Ex: Sono">
-                  </div>
-                </div>
-                <div class="form-row">
-                  <label>Pergunta</label>
-                  <input v-model="step.question" type="text" required maxlength="200" placeholder="Texto exibido para a aluna">
-                </div>
-                <div class="form-row">
-                  <label>Dica (opcional)</label>
-                  <input v-model="step.hint" type="text" maxlength="200" placeholder="Texto de apoio">
-                </div>
-                <div v-if="step.type === 'choice'" class="form-row">
-                  <label>Opções (uma por linha)</label>
-                  <textarea
-                    v-model="step.optionsText"
-                    rows="3"
-                    placeholder="Ótimo&#10;Regular&#10;Ruim"
-                  />
+                  <label class="form-check editor-form-check cf-round-check">
+                    <input v-model="editor.active" type="checkbox" class="cf-round-check-input">
+                    <span class="cf-round-check-box" aria-hidden="true">
+                      <Check class="cf-round-check-icon" />
+                    </span>
+                    <span class="cf-round-check-label">Ativo para alunas</span>
+                  </label>
                 </div>
               </div>
-            </div>
 
-            <p v-if="editorError" class="error-text">{{ editorError }}</p>
+              <div class="steps-block">
+                <div class="steps-head">
+                  <h3>Perguntas</h3>
+                  <button type="button" class="btn-ghost btn-sm" @click="addStep">+ Pergunta</button>
+                </div>
 
-            <footer class="modal-foot">
-              <button type="button" class="btn-ghost" @click="closeEditor">Cancelar</button>
-              <button type="submit" class="btn-primary" :disabled="savingTemplate">
-                {{ savingTemplate ? 'Salvando...' : 'Salvar' }}
-              </button>
-            </footer>
-          </form>
+                <div
+                  v-for="(step, index) in editor.steps"
+                  :key="step._key"
+                  class="step-card"
+                  :class="{ 'step-card--active': editorPreviewStep === index }"
+                  @click="focusPreviewStep(index)"
+                >
+                  <div class="step-card-head">
+                    <strong>Pergunta {{ index + 1 }}</strong>
+                    <button
+                      v-if="editor.steps.length > 1"
+                      type="button"
+                      class="btn-danger-ghost btn-sm"
+                      @click.stop="removeStep(index)"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                  <div class="modal-fields">
+                    <div class="editor-form-row editor-form-row--full">
+                      <div class="field field--float editor-form-row-grow">
+                        <label :for="`step-type-${step._key}`">Tipo</label>
+                        <SharedCfSelect
+                          :id="`step-type-${step._key}`"
+                          v-model="step.type"
+                          :options="stepTypeOptions"
+                          @update:model-value="onStepTypeChange(step)"
+                        />
+                      </div>
+                    </div>
+                    <div class="field field--float">
+                      <label :for="`step-question-${step._key}`">Pergunta</label>
+                      <input :id="`step-question-${step._key}`" v-model="step.question" type="text" required maxlength="200" placeholder="Texto exibido para a aluna">
+                    </div>
+                    <div class="field field--float">
+                      <label :for="`step-hint-${step._key}`">Dica (opcional)</label>
+                      <input :id="`step-hint-${step._key}`" v-model="step.hint" type="text" maxlength="200" placeholder="Texto de apoio abaixo da pergunta">
+                    </div>
+                    <div v-if="step.type === 'choice'" class="field field--float">
+                      <label :for="`step-options-${step._key}`">Opções de resposta (uma por linha)</label>
+                      <textarea
+                        :id="`step-options-${step._key}`"
+                        v-model="step.optionsText"
+                        rows="4"
+                        placeholder="Ótimo&#10;Regular&#10;Ruim"
+                      />
+                    </div>
+
+                    <div v-if="step.type === 'scale'" class="editor-form-row">
+                      <div class="field field--float editor-form-row-grow">
+                        <label :for="`step-scale-min-${step._key}`">Escala — mínimo</label>
+                        <input
+                          :id="`step-scale-min-${step._key}`"
+                          v-model.number="step.scaleMin"
+                          type="number"
+                          min="0"
+                          max="20"
+                        >
+                      </div>
+                      <div class="field field--float editor-form-row-grow">
+                        <label :for="`step-scale-max-${step._key}`">Escala — máximo</label>
+                        <input
+                          :id="`step-scale-max-${step._key}`"
+                          v-model.number="step.scaleMax"
+                          type="number"
+                          min="1"
+                          max="20"
+                        >
+                      </div>
+                    </div>
+
+                    <div v-if="step.type === 'water'" class="editor-step-config">
+                      <div class="editor-form-row">
+                        <div class="field field--float editor-form-row-grow">
+                          <label :for="`step-water-min-${step._key}`">Mín. (L)</label>
+                          <input :id="`step-water-min-${step._key}`" v-model.number="step.waterMin" type="number" min="0" step="0.25">
+                        </div>
+                        <div class="field field--float editor-form-row-grow">
+                          <label :for="`step-water-max-${step._key}`">Máx. (L)</label>
+                          <input :id="`step-water-max-${step._key}`" v-model.number="step.waterMax" type="number" min="0.25" step="0.25">
+                        </div>
+                      </div>
+                      <div class="editor-form-row">
+                        <div class="field field--float editor-form-row-grow">
+                          <label :for="`step-water-step-${step._key}`">Incremento (+/−)</label>
+                          <input :id="`step-water-step-${step._key}`" v-model.number="step.waterStep" type="number" min="0.05" step="0.05">
+                        </div>
+                        <div class="field field--float editor-form-row-grow">
+                          <label :for="`step-water-default-${step._key}`">Valor inicial</label>
+                          <input :id="`step-water-default-${step._key}`" v-model.number="step.waterDefault" type="number" min="0" step="0.25">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div v-if="step.type === 'number'" class="editor-step-config">
+                      <div class="editor-form-row">
+                        <div class="field field--float editor-form-row-grow">
+                          <label :for="`step-num-min-${step._key}`">Mínimo</label>
+                          <input :id="`step-num-min-${step._key}`" v-model.number="step.numberMin" type="number">
+                        </div>
+                        <div class="field field--float editor-form-row-grow">
+                          <label :for="`step-num-max-${step._key}`">Máximo</label>
+                          <input :id="`step-num-max-${step._key}`" v-model.number="step.numberMax" type="number">
+                        </div>
+                      </div>
+                      <div class="editor-form-row">
+                        <div class="field field--float editor-form-row-grow">
+                          <label :for="`step-num-step-${step._key}`">Incremento (+/−)</label>
+                          <input :id="`step-num-step-${step._key}`" v-model.number="step.numberStep" type="number" min="0.01" step="0.01">
+                        </div>
+                        <div class="field field--float editor-form-row-grow">
+                          <label :for="`step-num-default-${step._key}`">Valor inicial</label>
+                          <input :id="`step-num-default-${step._key}`" v-model.number="step.numberDefault" type="number">
+                        </div>
+                      </div>
+                      <div class="field field--float">
+                        <label :for="`step-num-unit-${step._key}`">Unidade (opcional)</label>
+                        <input :id="`step-num-unit-${step._key}`" v-model="step.numberUnit" type="text" maxlength="24" placeholder="Ex: horas, copos, km">
+                      </div>
+                    </div>
+
+                    <div v-if="step.type === 'exercise'" class="editor-form-row">
+                      <div class="field field--float editor-form-row-grow">
+                        <label :for="`step-yes-${step._key}`">Texto da opção positiva</label>
+                        <input :id="`step-yes-${step._key}`" v-model="step.yesLabel" type="text" maxlength="80" placeholder="Sim, pratiquei hoje">
+                      </div>
+                      <div class="field field--float editor-form-row-grow">
+                        <label :for="`step-no-${step._key}`">Texto da opção negativa</label>
+                        <input :id="`step-no-${step._key}`" v-model="step.noLabel" type="text" maxlength="80" placeholder="Não pratiquei hoje">
+                      </div>
+                    </div>
+
+                    <div v-if="step.type === 'text'" class="field field--float">
+                      <label :for="`step-placeholder-${step._key}`">Placeholder do campo</label>
+                      <input
+                        :id="`step-placeholder-${step._key}`"
+                        v-model="step.placeholder"
+                        type="text"
+                        maxlength="120"
+                        placeholder="Sua resposta..."
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <p v-if="editorError" class="error-text">{{ editorError }}</p>
+
+              <footer class="modal-foot">
+                <button type="button" class="btn-ghost" @click="closeEditor">Cancelar</button>
+                <button type="submit" class="btn-primary" :disabled="savingTemplate">
+                  {{ savingTemplate ? 'Salvando...' : 'Salvar' }}
+                </button>
+              </footer>
+            </form>
+
+            <aside class="editor-preview" aria-label="Prévia do check-in no app">
+              <CheckinTemplateEditorPreview
+                v-model:step-index="editorPreviewStep"
+                :steps="previewSteps"
+              />
+            </aside>
+          </div>
         </div>
       </div>
 
       <!-- Detalhe da resposta -->
       <div v-if="viewModalOpen && selectedResponse" class="modal-overlay" @click.self="closeViewModal">
         <div class="modal-card response-detail-card" role="dialog" aria-modal="true" aria-label="Resposta do check-in">
-          <header class="modal-head">
-            <div>
-              <h2>{{ selectedResponse.template?.title || 'Check-in' }}</h2>
-              <p class="response-detail-meta">
-                {{ selectedResponse.user?.name || 'Aluna' }}
-                · {{ formatPeriod(selectedResponse.periodKey, selectedResponse.template?.frequency) }}
-                · {{ formatDate(selectedResponse.updatedAt) }}
-              </p>
+          <header class="modal-head response-detail-head">
+            <div class="response-detail-head-main">
+              <PatientAvatar
+                :src="selectedResponse.user?.avatar"
+                :name="selectedResponse.user?.name || 'Aluna'"
+                size="md"
+                :ring="false"
+              />
+              <div class="response-detail-head-copy">
+                <span class="response-detail-kicker">{{ selectedResponse.template?.title || 'Check-in' }}</span>
+                <h2 class="response-detail-name">{{ selectedResponse.user?.name || 'Aluna' }}</h2>
+                <p class="response-detail-meta">
+                  <span>{{ formatPeriod(selectedResponse.periodKey, selectedResponse.template?.frequency) }}</span>
+                  <span>{{ formatDate(selectedResponse.updatedAt) }}</span>
+                </p>
+              </div>
             </div>
             <button type="button" class="modal-close" aria-label="Fechar" @click="closeViewModal">×</button>
           </header>
 
-          <div class="response-detail-body">
-            <article v-for="row in answerRows" :key="row.id" class="response-answer-row">
-              <span class="response-answer-label">{{ row.label }}</span>
-              <strong class="response-answer-value">{{ row.value }}</strong>
-              <p v-if="row.question" class="response-answer-question">{{ row.question }}</p>
-            </article>
+          <div class="response-detail-layout">
+            <div class="response-detail-checkin">
+              <h3 class="response-detail-subtitle">Respostas do check-in</h3>
+              <div class="response-detail-body">
+                <article v-for="row in answerRows" :key="row.id" class="response-answer-row">
+                  <span class="response-answer-label">{{ row.label }}</span>
+                  <strong class="response-answer-value">{{ row.value }}</strong>
+                  <p v-if="row.question" class="response-answer-question">{{ row.question }}</p>
+                </article>
+              </div>
+            </div>
+
+            <aside v-if="selectedResponse.user?.id" class="response-detail-nutrition">
+              <PatientsPatientNutritionSection
+                v-model:active-tab="modalNutritionTab"
+                :patient-id="selectedResponse.user.id"
+                compact
+                show-links
+                :photo-limit="12"
+                @navigate="goToPatient(selectedResponse.user.id, $event)"
+              />
+            </aside>
           </div>
 
-          <footer class="modal-foot">
-            <button type="button" class="btn-ghost" @click="closeViewModal">Fechar</button>
-            <button
-              v-if="selectedResponse.user?.id"
-              type="button"
-              class="btn-primary"
-              @click="goToPatient(selectedResponse.user.id)"
-            >
-              Ver perfil da aluna
+          <footer class="modal-foot response-detail-foot">
+            <button type="button" class="btn-ghost response-detail-foot-close" @click="closeViewModal">
+              Fechar
             </button>
+            <div v-if="selectedResponse.user?.id" class="response-detail-foot-actions">
+              <button
+                type="button"
+                class="btn-ghost"
+                :class="{ 'response-detail-foot-tab--active': modalNutritionTab === 'fotos' }"
+                @click="modalNutritionTab = 'fotos'"
+              >
+                Fotos
+              </button>
+              <button
+                type="button"
+                class="btn-ghost"
+                :class="{ 'response-detail-foot-tab--active': modalNutritionTab === 'desempenho' }"
+                @click="modalNutritionTab = 'desempenho'"
+              >
+                Nutrição
+              </button>
+              <button
+                type="button"
+                class="btn-primary"
+                @click="goToPatient(selectedResponse.user.id, 'resumo')"
+              >
+                Perfil da aluna
+              </button>
+            </div>
           </footer>
         </div>
       </div>
@@ -320,11 +698,18 @@
 </template>
 
 <script setup>
-import { Plus, Search } from 'lucide-vue-next'
+import { Calendar, CalendarDays, CalendarRange, Check, Eye, Image, LineChart, ListChecks, MessageSquare, Pencil, Plus, Power, Search, Trash2 } from 'lucide-vue-next'
 import {
   buildAnswerRows,
   summarizeCheckinAnswers,
 } from '~/utils/checkin-answers'
+import {
+  CHECKIN_STEP_TYPE_OPTIONS,
+  buildStepPayload,
+  buildStepPreviewPayload,
+  defaultEditorStep,
+  editorStepFromApi,
+} from '~/utils/checkin-step-schema'
 
 definePageMeta({
   layout: false,
@@ -342,25 +727,129 @@ const templates = ref([])
 const responseSearch = ref('')
 const viewModalOpen = ref(false)
 const selectedResponse = ref(null)
+const modalNutritionTab = ref('fotos')
 const dispatching = ref(false)
 const dispatchMessage = ref('')
 const dispatchStatus = ref({ dispatched: false, periodKey: '' })
+const customDispatching = ref(false)
+const customDispatchMessage = ref('')
+const dispatchSchedules = ref([])
+const dispatchPatients = ref([])
+const dispatchPatientSearch = ref('')
+
+const customDispatch = reactive({
+  templateId: '',
+  allPatients: false,
+  userIds: [],
+  periodDate: '',
+  mode: 'now',
+  scheduledAt: '',
+  title: '',
+  body: '',
+})
+
+const dispatchModeOptions = [
+  { value: 'now', label: 'Agora' },
+  { value: 'schedule', label: 'Programar data e hora' },
+]
+
+const dispatchTemplateOptions = computed(() =>
+  templates.value
+    .filter((tpl) => tpl.active)
+    .map((tpl) => ({
+      value: tpl.id,
+      label: `${tpl.title} (${frequencyLabel(tpl.frequency)})`,
+    })),
+)
+
+const dispatchPeriodHint = computed(() => {
+  const tpl = templates.value.find((t) => t.id === customDispatch.templateId)
+  if (!tpl) return 'Define a semana, dia ou mês da resposta. Vazio = período atual.'
+  if (tpl.frequency === 'daily') return 'Dia da resposta (ex.: hoje). Vazio = hoje.'
+  if (tpl.frequency === 'monthly') return 'Mês da resposta. Vazio = mês atual.'
+  return 'Semana da resposta. Vazio = semana atual.'
+})
+
+const DISPATCH_PATIENT_SEARCH_MIN = 2
+const DISPATCH_PATIENT_VISIBLE_LIMIT = 80
+
+const filteredDispatchPatients = computed(() => {
+  const q = dispatchPatientSearch.value.trim().toLowerCase()
+  const all = dispatchPatients.value
+  const needsSearch = all.length > DISPATCH_PATIENT_VISIBLE_LIMIT
+
+  if (!q) {
+    return needsSearch ? [] : all
+  }
+
+  const minLen = needsSearch ? DISPATCH_PATIENT_SEARCH_MIN : 1
+  if (q.length < minLen) return []
+
+  return all.filter((p) => p.name?.toLowerCase().includes(q))
+})
+
+const visibleDispatchPatients = computed(() =>
+  filteredDispatchPatients.value.slice(0, DISPATCH_PATIENT_VISIBLE_LIMIT),
+)
+
+const dispatchPatientListHint = computed(() => {
+  const total = dispatchPatients.value.length
+  const q = dispatchPatientSearch.value.trim()
+  const needsSearch = total > DISPATCH_PATIENT_VISIBLE_LIMIT
+
+  if (!total) return 'Nenhuma aluna cadastrada no sistema.'
+
+  if (!q && needsSearch) {
+    return `Há ${total} alunas. Digite pelo menos ${DISPATCH_PATIENT_SEARCH_MIN} caracteres para buscar e selecionar.`
+  }
+
+  if (q) {
+    const minLen = needsSearch ? DISPATCH_PATIENT_SEARCH_MIN : 1
+    if (q.length < minLen) {
+      return needsSearch
+        ? `Digite pelo menos ${DISPATCH_PATIENT_SEARCH_MIN} caracteres para buscar.`
+        : ''
+    }
+  }
+
+  if (q && !filteredDispatchPatients.value.length) return ''
+
+  if (filteredDispatchPatients.value.length > DISPATCH_PATIENT_VISIBLE_LIMIT) {
+    return `Mostrando ${DISPATCH_PATIENT_VISIBLE_LIMIT} de ${filteredDispatchPatients.value.length} resultados. Refine a busca.`
+  }
+
+  return ''
+})
+
+const selectedDispatchPatients = computed(() => {
+  const selected = new Set(customDispatch.userIds)
+  return dispatchPatients.value.filter((p) => selected.has(p.id))
+})
+
+function removeDispatchPatient(id) {
+  customDispatch.userIds = customDispatch.userIds.filter((userId) => userId !== id)
+}
+
+const customDispatchSubmitLabel = computed(() =>
+  customDispatch.mode === 'schedule' ? 'Agendar disparo' : 'Enviar agora',
+)
+
+const frequencyOptions = [
+  { value: 'weekly', label: 'Semanal' },
+  { value: 'daily', label: 'Diário' },
+  { value: 'monthly', label: 'Mensal' },
+]
+
+const stepTypeOptions = CHECKIN_STEP_TYPE_OPTIONS
 
 const editorOpen = ref(false)
 const editorMode = ref('create')
 const editorId = ref(null)
 const editorError = ref('')
 const savingTemplate = ref(false)
+const editorPreviewStep = ref(0)
 
-const defaultStep = () => ({
-  _key: crypto.randomUUID(),
-  id: `step_${Date.now()}`,
-  type: 'scale',
-  label: 'Pergunta',
-  question: '',
-  hint: '',
-  optionsText: '',
-})
+const defaultStep = () => defaultEditorStep()
 
 const editor = reactive({
   title: '',
@@ -391,6 +880,27 @@ function frequencyLabel(freq) {
   if (freq === 'monthly') return 'Mensal'
   return 'Semanal'
 }
+
+function frequencyIcon(freq) {
+  if (freq === 'daily') return CalendarDays
+  if (freq === 'monthly') return CalendarRange
+  return Calendar
+}
+
+function templateQuestionCount(tpl) {
+  return Array.isArray(tpl?.steps) ? tpl.steps.length : 0
+}
+
+const sortedTemplates = computed(() =>
+  [...templates.value].sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1
+    const freqOrder = { weekly: 0, daily: 1, monthly: 2 }
+    const fa = freqOrder[a.frequency] ?? 0
+    const fb = freqOrder[b.frequency] ?? 0
+    if (fa !== fb) return fa - fb
+    return String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR')
+  }),
+)
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('pt-BR', {
@@ -423,18 +933,23 @@ const answerRows = computed(() => {
   )
 })
 
-function openViewModal(item) {
+function openViewModal(item, tab = 'fotos') {
   selectedResponse.value = item
+  modalNutritionTab.value = tab === 'desempenho' ? 'desempenho' : 'fotos'
   viewModalOpen.value = true
 }
 
 function closeViewModal() {
   viewModalOpen.value = false
   selectedResponse.value = null
+  modalNutritionTab.value = 'fotos'
 }
 
-function goToPatient(userId) {
-  if (userId) navigateTo(`/usuarios/${userId}?tab=checkins`)
+function goToPatient(userId, tab = 'resumo') {
+  if (!userId) return
+  closeViewModal()
+  const profileTab = tab === 'desempenho' ? 'nutricao' : tab
+  navigateTo(`/usuarios/${userId}?tab=${profileTab}`)
 }
 
 async function loadResponses() {
@@ -461,6 +976,19 @@ async function loadTemplates() {
   }
 }
 
+function buildPreviewSteps() {
+  return editor.steps.map((step, index) => buildStepPreviewPayload(step, index))
+}
+
+const previewSteps = computed(() => buildPreviewSteps())
+
+function focusPreviewStep(index) {
+  editorPreviewStep.value = Math.min(
+    Math.max(0, index),
+    Math.max(0, editor.steps.length - 1),
+  )
+}
+
 function resetEditor() {
   editor.title = ''
   editor.description = ''
@@ -469,6 +997,7 @@ function resetEditor() {
   editor.steps = [defaultStep()]
   editorError.value = ''
   editorId.value = null
+  editorPreviewStep.value = 0
 }
 
 function openCreateTemplate() {
@@ -484,19 +1013,10 @@ function openEditTemplate(tpl) {
   editor.description = tpl.description || ''
   editor.frequency = tpl.frequency || 'weekly'
   editor.active = tpl.active !== false
-  editor.steps = (Array.isArray(tpl.steps) ? tpl.steps : []).map((step) => ({
-    _key: crypto.randomUUID(),
-    id: step.id,
-    type: step.type || 'text',
-    label: step.label || '',
-    question: step.question || '',
-    hint: step.hint || '',
-    optionsText: Array.isArray(step.options)
-      ? step.options.map((o) => (typeof o === 'string' ? o : o.label || o.value)).join('\n')
-      : '',
-  }))
+  editor.steps = (Array.isArray(tpl.steps) ? tpl.steps : []).map((step) => editorStepFromApi(step))
   if (!editor.steps.length) editor.steps = [defaultStep()]
   editorError.value = ''
+  editorPreviewStep.value = 0
   editorOpen.value = true
 }
 
@@ -512,10 +1032,16 @@ function addStep() {
   const step = defaultStep()
   step.id = `step_${editor.steps.length + 1}`
   editor.steps.push(step)
+  editorPreviewStep.value = editor.steps.length - 1
 }
 
 function removeStep(index) {
   editor.steps.splice(index, 1)
+  if (editorPreviewStep.value >= editor.steps.length) {
+    editorPreviewStep.value = Math.max(0, editor.steps.length - 1)
+  } else if (editorPreviewStep.value > index) {
+    editorPreviewStep.value -= 1
+  }
 }
 
 function onStepTypeChange(step) {
@@ -523,36 +1049,23 @@ function onStepTypeChange(step) {
     step.optionsText = 'Sim\nNão'
   }
   if (step.type === 'water') {
-    if (!step.label) step.label = 'Água'
     if (!step.question) step.question = 'Quantos litros de água você bebeu?'
     if (!step.hint) step.hint = 'Conte o total do dia (água pura, chás sem açúcar, etc.).'
+  }
+  if (step.type === 'exercise') {
+    if (!step.yesLabel) step.yesLabel = 'Sim, pratiquei hoje'
+    if (!step.noLabel) step.noLabel = 'Não pratiquei hoje'
+  }
+  if (step.type === 'number' && !step.numberUnit) {
+    step.numberUnit = ''
+  }
+  if (step.type === 'text' && !step.placeholder) {
+    step.placeholder = 'Sua resposta...'
   }
 }
 
 function buildStepsPayload() {
-  return editor.steps.map((step, index) => {
-    const payload = {
-      id: String(step.id || `step_${index + 1}`).trim(),
-      type: step.type,
-      label: String(step.label || `Pergunta ${index + 1}`).trim(),
-      question: String(step.question || '').trim(),
-      hint: step.hint ? String(step.hint).trim() : '',
-    }
-    if (step.type === 'scale') {
-      payload.min = 1
-      payload.max = 5
-    }
-    if (step.type === 'choice') {
-      const options = String(step.optionsText || '')
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-      if (options.length < 2) throw new Error(`Pergunta ${index + 1}: adicione pelo menos 2 opções.`)
-      payload.options = options
-    }
-    if (!payload.question) throw new Error(`Pergunta ${index + 1}: texto obrigatório.`)
-    return payload
-  })
+  return editor.steps.map((step, index) => buildStepPayload(step, index))
 }
 
 async function saveTemplate() {
@@ -631,6 +1144,94 @@ async function loadDispatchStatus() {
   }
 }
 
+async function loadDispatchSchedules() {
+  try {
+    const data = await $fetch(`${apiBase}/checkin/dispatch/schedules`, { headers: authHeaders() })
+    dispatchSchedules.value = data.schedules || []
+  } catch {
+    dispatchSchedules.value = []
+  }
+}
+
+async function loadDispatchPatients() {
+  try {
+    const users = await $fetch(`${apiBase}/users`, { headers: authHeaders() })
+    dispatchPatients.value = Array.isArray(users)
+      ? users.filter((u) => u.role === 'PACIENTE').map((u) => ({ id: u.id, name: u.name }))
+      : []
+  } catch {
+    dispatchPatients.value = []
+  }
+}
+
+function formatScheduleWhen(value) {
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+async function submitCustomDispatch() {
+  customDispatchMessage.value = ''
+  if (!customDispatch.templateId) {
+    customDispatchMessage.value = 'Selecione um tipo de check-in.'
+    return
+  }
+  if (!customDispatch.allPatients && !customDispatch.userIds.length) {
+    customDispatchMessage.value = 'Selecione pelo menos uma aluna ou marque todas.'
+    return
+  }
+
+  customDispatching.value = true
+  try {
+    const body = {
+      templateId: customDispatch.templateId,
+      allPatients: customDispatch.allPatients,
+      userIds: customDispatch.allPatients ? [] : [...customDispatch.userIds],
+      periodDate: customDispatch.periodDate || null,
+      title: customDispatch.title.trim() || null,
+      body: customDispatch.body.trim() || null,
+    }
+    if (customDispatch.mode === 'schedule') {
+      if (!customDispatch.scheduledAt) {
+        customDispatchMessage.value = 'Informe data e hora do envio.'
+        return
+      }
+      body.scheduledAt = new Date(customDispatch.scheduledAt).toISOString()
+    }
+
+    const result = await $fetch(`${apiBase}/checkin/dispatch/custom`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body,
+    })
+    customDispatchMessage.value = result.message || 'Disparo processado.'
+    if (!result.scheduled) {
+      customDispatch.userIds = []
+    }
+    await loadDispatchSchedules()
+  } catch (err) {
+    customDispatchMessage.value = err.data?.message || 'Não foi possível processar o disparo.'
+  } finally {
+    customDispatching.value = false
+  }
+}
+
+async function cancelSchedule(id) {
+  try {
+    const result = await $fetch(`${apiBase}/checkin/dispatch/schedules/${id}/cancel`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    customDispatchMessage.value = result.message || 'Agendamento cancelado.'
+    await loadDispatchSchedules()
+  } catch (err) {
+    customDispatchMessage.value = err.data?.message || 'Não foi possível cancelar.'
+  }
+}
+
 async function dispatchWeeklyCheckIn() {
   dispatchMessage.value = ''
   dispatching.value = true
@@ -650,13 +1251,13 @@ async function dispatchWeeklyCheckIn() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadResponses(), loadTemplates(), loadDispatchStatus()])
+  await Promise.all([loadResponses(), loadTemplates(), loadDispatchStatus(), loadDispatchSchedules(), loadDispatchPatients()])
 })
 </script>
 
 <style scoped>
 .checkin-admin {
-  --primary: #2d5a27;
+  --primary: #8B967C;
 }
 
 .checkin-dispatch-card {
@@ -697,12 +1298,303 @@ onMounted(async () => {
   color: var(--primary);
 }
 
-.checkin-tabs {
+.checkin-dispatch-actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.checkin-custom-dispatch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--admin-border, #e8ece9);
+}
+
+.checkin-custom-dispatch h3,
+.dispatch-schedules h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.dispatch-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem 0.85rem;
+  align-items: start;
+  padding-top: 0.4rem;
+}
+
+.dispatch-field {
+  position: relative;
+  margin-top: 0.35rem;
+  min-width: 0;
+}
+
+.dispatch-field--full {
+  grid-column: 1 / -1;
+}
+
+.dispatch-field label {
+  position: absolute;
+  top: -0.58rem;
+  left: 0.78rem;
+  margin: 0;
+  padding: 0 0.4rem;
+  background: #fff;
+  z-index: 2;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #444;
+  line-height: 1;
+}
+
+.dispatch-field-hint {
+  display: block;
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--admin-muted, #66706e);
+}
+
+.dispatch-control {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.95rem 0.9rem 0.85rem;
+  border: 1.5px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1a2e24;
+  box-sizing: border-box;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dispatch-control:hover {
+  border-color: #d4e5d1;
+}
+
+.dispatch-control:focus {
+  outline: none;
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+}
+
+.dispatch-field :deep(.cf-select),
+.dispatch-field :deep(.cf-date-input),
+.dispatch-field :deep(.cf-dt-input) {
+  width: 100%;
+}
+
+.dispatch-field :deep(.cf-select-trigger),
+.dispatch-field :deep(.cf-date-input-trigger),
+.dispatch-field :deep(.cf-dt-trigger) {
+  padding-top: 0.95rem;
+  min-height: 3rem;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--admin-muted, #66706e);
+}
+
+@media (max-width: 960px) {
+  .dispatch-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dispatch-patients {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dispatch-patients-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dispatch-all-check {
+  margin: 0;
+}
+
+.dispatch-patient-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dispatch-patients-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  font-size: 0.78rem;
+  color: var(--admin-muted, #66706e);
+}
+
+.dispatch-patients-selected {
+  font-weight: 700;
+  color: var(--primary, #2d5a39);
+}
+
+.dispatch-selected-list {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.dispatch-selected-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #eef5ec;
+  border: 1px solid #d4e5d1;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #2d5a39;
+  line-height: 1.2;
+}
+
+.dispatch-selected-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #5a7a5e;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dispatch-selected-chip-remove:hover {
+  background: #d4e5d1;
+  color: #1a2e24;
+}
+
+.dispatch-search {
+  max-width: 100%;
+}
+
+.dispatch-patient-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control, 10px);
+  background: #fafbfa;
+}
+
+.dispatch-patient-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--admin-muted, #66706e);
+}
+
+.dispatch-patient-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.dispatch-patient-list li {
+  margin: 0;
+}
+
+.dispatch-patient-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--cf-radius-control, 8px);
+  font-size: 0.84rem;
+  transition: background 0.12s ease;
+}
+
+.dispatch-patient-item:hover {
+  background: #fff;
+}
+
+.dispatch-patient-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dispatch-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--admin-muted, #66706e);
+}
+
+.dispatch-schedules {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--admin-border, #e8ece9);
+}
+
+.dispatch-schedules ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dispatch-schedule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.dispatch-schedule-item strong {
+  display: block;
+}
+
+.dispatch-schedule-item span,
+.dispatch-schedule-item small {
+  display: block;
+  color: var(--admin-muted, #66706e);
+}
+
+.checkin-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
   margin-bottom: 1.25rem;
-  padding: 0.25rem;
-  background: #f3f5f4;
+  padding: 0.3rem;
+  background: #eef0eb;
+  border: 1px solid var(--admin-border, #e8ece9);
   border-radius: 12px;
   width: fit-content;
 }
@@ -710,23 +1602,27 @@ onMounted(async () => {
 .checkin-tab {
   border: none;
   background: transparent;
-  padding: 0.55rem 1rem;
+  padding: 0.6rem 1.1rem;
   border-radius: 9px;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 600;
-  color: #666;
+  color: var(--admin-muted, #66706e);
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.checkin-tab:hover:not(.checkin-tab--active) {
+  color: var(--admin-ink, #141414);
 }
 
 .checkin-tab--active {
   background: #fff;
   color: var(--primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
 }
 
-.nutri-toolbar,
-.templates-toolbar {
+.nutri-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -734,10 +1630,67 @@ onMounted(async () => {
   margin-bottom: 1rem;
 }
 
-.templates-hint {
-  margin: 0;
-  font-size: 0.88rem;
-  color: #666;
+.templates-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.15rem;
+}
+
+.templates-toolbar-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.templates-toolbar-copy strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--admin-ink, #141414);
+}
+
+.templates-toolbar-copy p {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: var(--admin-muted, #66706e);
+  line-height: 1.45;
+  max-width: 36rem;
+}
+
+.templates-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+  background: var(--admin-primary-soft, #eef0eb);
+  color: var(--primary);
+  font-size: 1.1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.templates-create-btn {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding-inline: 1.15rem;
+}
+
+.templates-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.templates-empty-btn {
+  margin-top: 0.85rem;
+  border-radius: 999px;
 }
 
 .nutri-search {
@@ -868,49 +1821,192 @@ onMounted(async () => {
   text-align: right;
 }
 
-.checkin-link-btn {
-  font-size: 0.8rem;
+.th-actions,
+.td-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.checkin-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.checkin-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.74rem;
   font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.checkin-action-btn :deep(svg) {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+}
+
+.checkin-action-btn--ghost {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #4b5563;
+}
+
+.checkin-action-btn--ghost:hover {
+  border-color: #cfe3d2;
+  background: #f6fbf7;
   color: var(--primary);
-  text-decoration: none;
+}
+
+.checkin-action-btn--main {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  padding: 0.42rem 0.82rem;
+}
+
+.checkin-action-btn--main:hover {
+  background: #244a20;
 }
 
 .templates-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-items: stretch;
 }
 
 .template-card {
-  padding: 1.1rem 1.15rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  padding: 0;
+  overflow: hidden;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.template-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.template-card--inactive {
+  opacity: 0.82;
+}
+
+.template-card-accent {
+  height: 4px;
+  width: 100%;
+  background: var(--primary);
+}
+
+.template-card-accent--daily {
+  background: #5ba4d9;
+}
+
+.template-card-accent--weekly {
+  background: var(--primary);
+}
+
+.template-card-accent--monthly {
+  background: #c4842e;
+}
+
+.template-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.15rem 0.85rem;
+  min-height: 0;
 }
 
 .template-card-head {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.template-card-title-wrap {
+  min-width: 0;
+}
+
+.template-frequency {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-muted, #66706e);
+}
+
+.template-frequency-icon {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .template-card h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--admin-ink, #141414);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-.template-card p {
-  margin: 0;
-  font-size: 0.84rem;
-  color: #666;
+.template-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.template-desc {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--admin-muted, #66706e);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
 }
 
 .template-badge {
   flex-shrink: 0;
-  padding: 0.2rem 0.55rem;
+  padding: 0.22rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   background: #eef8f0;
   color: var(--primary);
+  white-space: nowrap;
+}
+
+.template-badge--default {
+  background: #f4f0e8;
+  color: #8a6d3b;
 }
 
 .template-badge--off {
@@ -918,21 +2014,94 @@ onMounted(async () => {
   color: #888;
 }
 
-.template-meta {
+.template-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 0.85rem;
-  margin: 0 0 1rem;
+  gap: 0.5rem;
+  margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.8rem;
-  color: #888;
+}
+
+.template-stats li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: #f8faf8;
+  border: 1px solid var(--admin-border, #e8ece9);
+  font-size: 0.78rem;
+  color: var(--admin-muted, #66706e);
+}
+
+.template-stats strong {
+  color: var(--admin-ink, #141414);
+  font-weight: 800;
+}
+
+.template-stat-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--primary);
+  flex-shrink: 0;
 }
 
 .template-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--admin-border, #e8ece9);
+  background: #fafcfb;
+}
+
+.template-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: 999px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.template-action:hover {
+  background: #f8faf8;
+  border-color: #c8dcc4;
+  color: var(--admin-ink, #141414);
+}
+
+.template-action--primary {
+  background: var(--admin-primary-soft, #eef0eb);
+  border-color: color-mix(in srgb, var(--primary) 25%, #e8ece9);
+  color: var(--primary);
+}
+
+.template-action--primary:hover {
+  background: color-mix(in srgb, var(--primary) 12%, #fff);
+}
+
+.template-action--danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff;
+}
+
+.template-action--danger:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.template-action-icon {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .btn-primary {
@@ -1002,6 +2171,160 @@ onMounted(async () => {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
 }
 
+.modal-card--editor {
+  width: min(100%, 1120px);
+  max-height: calc(100vh - 1.5rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.modal-card--editor .modal-head {
+  flex-shrink: 0;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid #eee;
+}
+
+.editor-form {
+  overflow: auto;
+  padding: 1.1rem 1.35rem 1.35rem;
+  min-height: 0;
+  max-height: calc(100vh - 7.5rem);
+  box-sizing: border-box;
+}
+
+.modal-card--editor .modal-fields {
+  gap: 1rem;
+}
+
+.modal-card--editor .step-card .modal-fields {
+  gap: 1rem;
+}
+
+.modal-card--editor .field--float input,
+.modal-card--editor .field--float textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.modal-card--editor .modal-fields > .field--float {
+  margin-top: 0.55rem;
+}
+
+.editor-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.editor-form-row--full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.editor-form-row--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1rem;
+}
+
+.editor-form-row .field--float {
+  margin-top: 0.7rem;
+  min-width: 0;
+}
+
+.editor-step-config {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.15rem;
+}
+
+.editor-form-row-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-preview {
+  border-left: 1px solid #eee;
+  background: linear-gradient(180deg, #f8faf9 0%, #f1f4f2 100%);
+  padding: 1rem 0.85rem 1.25rem;
+  overflow: auto;
+  min-height: 0;
+  max-height: calc(100vh - 7.5rem);
+  box-sizing: border-box;
+}
+
+.editor-form-check {
+  margin: 0;
+  flex-shrink: 0;
+  align-self: center;
+  white-space: nowrap;
+}
+
+.cf-round-check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cf-round-check-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.cf-round-check-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: #c5c9c5;
+  color: #fff;
+  flex-shrink: 0;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.cf-round-check-icon {
+  width: 0.78rem;
+  height: 0.78rem;
+  stroke-width: 3;
+}
+
+.cf-round-check-label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.cf-round-check-input:checked + .cf-round-check-box {
+  background: #62b054;
+}
+
+.cf-round-check-input:focus-visible + .cf-round-check-box {
+  outline: 2px solid #9fc499;
+  outline-offset: 2px;
+}
+
+.cf-round-check:active .cf-round-check-box {
+  transform: scale(0.94);
+}
+
 .modal-head {
   display: flex;
   align-items: center;
@@ -1038,22 +2361,183 @@ onMounted(async () => {
 }
 
 .response-detail-card {
-  max-width: 34rem;
+  max-width: min(72rem, 96vw);
+  width: 100%;
+}
+
+.response-detail-head {
+  align-items: center;
+  gap: 1rem;
+  padding: 1.35rem 1.5rem 1.2rem;
+}
+
+.response-detail-head .modal-close {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.25rem 0.35rem;
+}
+
+.response-detail-head-main {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.response-detail-head-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.response-detail-kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  line-height: 1.2;
+}
+
+.response-detail-name {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #111827;
 }
 
 .response-detail-meta {
-  margin: 0.35rem 0 0;
-  font-size: 0.82rem;
-  color: #737373;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.response-detail-meta span:not(:last-child)::after {
+  content: '·';
+  margin-left: 0.5rem;
+  color: #d1d5db;
+  font-weight: 400;
+}
+
+.response-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 1.25rem;
+  padding: 1.15rem 1.5rem 1.25rem;
+  max-height: 70vh;
+  overflow: hidden;
+}
+
+.response-detail-checkin {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0.1rem;
+}
+
+.response-detail-nutrition {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+  padding-top: 0.1rem;
+}
+
+.response-detail-subtitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  line-height: 1.2;
+}
+
+@media (max-width: 900px) {
+  .response-detail-layout {
+    grid-template-columns: 1fr;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .response-detail-nutrition {
+    overflow: visible;
+  }
+}
+
+.response-detail-foot {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 1.25rem;
+  margin-top: 0;
+}
+
+.response-detail-foot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.response-detail-foot-tab--active {
+  border-color: #cfe3d2;
+  background: #f0fdf4;
+  color: var(--primary);
+}
+
+.response-detail-foot-close {
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .response-detail-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .response-detail-foot-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .response-detail-foot-actions .btn-primary {
+    grid-column: 1 / -1;
+  }
+
+  .templates-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .templates-create-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .templates-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .response-detail-body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  max-height: 55vh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 0 1.25rem 1.25rem;
+  padding: 0;
 }
 
 .response-answer-row {
@@ -1150,11 +2634,24 @@ onMounted(async () => {
 }
 
 .step-card {
-  padding: 0.85rem;
-  margin-bottom: 0.75rem;
+  padding: 1rem 1.05rem 1.1rem;
+  margin-bottom: 0.85rem;
   border: 1px solid #e8ece9;
   border-radius: 12px;
   background: #fafcfb;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  box-sizing: border-box;
+}
+
+.step-card:hover {
+  border-color: #c5cfc4;
+}
+
+.step-card--active {
+  border-color: var(--primary, #8B967C);
+  box-shadow: 0 0 0 2px rgba(139, 150, 124, 0.18);
+  background: #fff;
 }
 
 .step-card-head {
@@ -1168,5 +2665,25 @@ onMounted(async () => {
   color: #c53030;
   font-size: 0.84rem;
   font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .modal-card--editor {
+    max-height: calc(100vh - 1rem);
+  }
+
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-form,
+  .editor-preview {
+    max-height: none;
+  }
+
+  .editor-preview {
+    border-left: none;
+    border-top: 1px solid #eee;
+  }
 }
 </style>

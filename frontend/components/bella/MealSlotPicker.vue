@@ -126,7 +126,7 @@ function selectMeal(id) {
 }
 
 .meal-slot-btn--active {
-  background: var(--cf-green-soft, #eef7f1);
+  background: var(--cf-green-soft, #eef0eb);
   border-color: var(--cf-green, var(--pa-green));
   color: var(--cf-green-dark, var(--pa-green-dark));
 }

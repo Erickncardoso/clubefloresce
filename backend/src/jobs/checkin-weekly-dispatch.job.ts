@@ -27,5 +27,8 @@ export function startCheckInDispatchScheduler() {
   void runCheckInDispatchIfDue();
   setInterval(() => {
     void runCheckInDispatchIfDue();
+    void dispatchService.processScheduledDispatches().catch((error) => {
+      console.error("[CheckIn] Falha no disparo programado:", error);
+    });
   }, 60_000);
 }

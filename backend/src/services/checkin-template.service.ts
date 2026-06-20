@@ -4,6 +4,7 @@ import { CheckInRepository } from "../repositories/checkin.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { getWeekStart } from "../utils/week-start";
 import { readPatientDateKey, resolvePeriodKey as resolvePeriodKeyForDate } from "../utils/patient-local-date";
+import { CheckInDispatchService } from "./checkin-dispatch.service";
 import {
   formatNextFridayLabel,
   isFridayCheckInDay,
@@ -13,6 +14,7 @@ import {
 const templateRepository = new CheckInTemplateRepository();
 const checkInRepository = new CheckInRepository();
 const userRepository = new UserRepository();
+const dispatchService = new CheckInDispatchService();
 
 export const DEFAULT_CHECKIN_STEPS = [
   {
@@ -47,7 +49,7 @@ export const DEFAULT_CHECKIN_STEPS = [
   },
 ];
 
-const STEP_TYPES = new Set(["food", "water", "exercise", "scale", "choice", "text"]);
+const STEP_TYPES = new Set(["food", "water", "exercise", "scale", "choice", "text", "number"]);
 
 function validateSteps(steps: unknown): any[] {
   if (!Array.isArray(steps) || steps.length === 0) {
@@ -67,16 +69,47 @@ function validateSteps(steps: unknown): any[] {
     if (!STEP_TYPES.has(type)) throw new Error(`Pergunta ${index + 1}: tipo inválido.`);
     if (!question) throw new Error(`Pergunta ${index + 1}: texto obrigatório.`);
 
-    return {
+    const normalized: Record<string, unknown> = {
       id,
       type,
-      label: String(step.label || `Pergunta ${index + 1}`).trim(),
+      label: String(step.label || question).trim().slice(0, 80),
       question,
       hint: step.hint ? String(step.hint).trim() : "",
-      min: step.min != null ? Number(step.min) : undefined,
-      max: step.max != null ? Number(step.max) : undefined,
-      options: Array.isArray(step.options) ? step.options : undefined,
     };
+
+    if (step.min != null && Number.isFinite(Number(step.min))) {
+      normalized.min = Number(step.min);
+    }
+    if (step.max != null && Number.isFinite(Number(step.max))) {
+      normalized.max = Number(step.max);
+    }
+    if (step.step != null && Number.isFinite(Number(step.step))) {
+      normalized.step = Number(step.step);
+    }
+    if (step.defaultValue != null && Number.isFinite(Number(step.defaultValue))) {
+      normalized.defaultValue = Number(step.defaultValue);
+    }
+    if (step.unit != null && String(step.unit).trim()) {
+      normalized.unit = String(step.unit).trim();
+    }
+    if (step.placeholder != null && String(step.placeholder).trim()) {
+      normalized.placeholder = String(step.placeholder).trim();
+    }
+    if (step.yesLabel != null && String(step.yesLabel).trim()) {
+      normalized.yesLabel = String(step.yesLabel).trim();
+    }
+    if (step.noLabel != null && String(step.noLabel).trim()) {
+      normalized.noLabel = String(step.noLabel).trim();
+    }
+    if (Array.isArray(step.options)) {
+      normalized.options = step.options;
+    }
+
+    if (type === "choice" && (!Array.isArray(normalized.options) || normalized.options.length < 2)) {
+      throw new Error(`Pergunta ${index + 1}: adicione pelo menos 2 opções.`);
+    }
+
+    return normalized;
   });
 }
 
@@ -182,14 +215,25 @@ export class CheckInTemplateService {
     headers?: Record<string, string | string[] | undefined>,
   ) {
     const dateKey = readPatientDateKey(headers);
+    const periodKeys: Record<string, string> = {};
+    for (const tpl of templates) {
+      periodKeys[tpl.id] = resolvePeriodKey(tpl.frequency, dateKey);
+    }
+    const invitedIds = await dispatchService.listInvitedTemplateIds(userId, periodKeys);
+
     const enriched = await Promise.all(
       templates.map(async (tpl) => {
-        const periodKey = resolvePeriodKey(tpl.frequency, dateKey);
+        const periodKey = periodKeys[tpl.id];
         const current = await templateRepository.findResponse(userId, tpl.id, periodKey);
+        const invited = invitedIds.has(tpl.id);
         return {
           ...tpl,
           periodKey,
           completedThisPeriod: Boolean(current),
+          invited,
+          canOpen: Boolean(!current && (invited || tpl.frequency !== "weekly" || isWeeklyCheckInWindowOpen(
+            dateKey ? new Date(`${dateKey}T12:00:00`) : new Date(),
+          ))),
         };
       }),
     );
@@ -199,15 +243,18 @@ export class CheckInTemplateService {
       && weeklyTemplates.every((tpl) => tpl.completedThisPeriod);
     const status = this.buildPatientStatus(templates, headers);
     const windowOpen = status.windowOpen;
+    const hasInvitedPending = enriched.some((tpl) => tpl.invited && !tpl.completedThisPeriod);
+    const canStartWeekly = windowOpen && weeklyTemplates.some((tpl) => !tpl.completedThisPeriod);
 
     return {
       templates: enriched,
       status: {
         ...status,
         allWeeklyCompleted,
-        showWaitMessage: allWeeklyCompleted || (!windowOpen && weeklyTemplates.some((tpl) => !tpl.completedThisPeriod)),
-        canStartCheckIn: windowOpen && weeklyTemplates.some((tpl) => !tpl.completedThisPeriod),
-        showFridayPrompt: windowOpen && weeklyTemplates.some((tpl) => !tpl.completedThisPeriod),
+        hasInvitedPending,
+        showWaitMessage: !hasInvitedPending && (allWeeklyCompleted || (!windowOpen && weeklyTemplates.some((tpl) => !tpl.completedThisPeriod))),
+        canStartCheckIn: canStartWeekly || hasInvitedPending || enriched.some((tpl) => tpl.frequency !== "weekly" && !tpl.completedThisPeriod),
+        showFridayPrompt: canStartWeekly,
       },
     };
   }
@@ -261,14 +308,15 @@ export class CheckInTemplateService {
     if (!template || !template.active) throw new Error("Check-in indisponível.");
 
     const dateKey = readPatientDateKey(headers);
+    const periodKey = resolvePeriodKey(template.frequency, dateKey);
     if (template.frequency === "weekly") {
       const reference = dateKey ? new Date(`${dateKey}T12:00:00`) : new Date();
-      if (!isWeeklyCheckInWindowOpen(reference)) {
+      const invited = await dispatchService.hasInvite(userId, templateId, periodKey);
+      if (!invited && !isWeeklyCheckInWindowOpen(reference)) {
         throw new Error("O check-in semanal abre na sexta às 11h e pode ser preenchido até segunda-feira.");
       }
     }
 
-    const periodKey = resolvePeriodKey(template.frequency, dateKey);
     const response = await templateRepository.upsertResponse({
       userId,
       templateId,
@@ -278,7 +326,11 @@ export class CheckInTemplateService {
 
     const stepIds = new Set((template.steps as any[]).map((s) => s.id));
     if (stepIds.has("food") || stepIds.has("water") || stepIds.has("exercise") || stepIds.has("sleep")) {
-      await syncLegacyWeeklyCheckIn(userId, answers);
+      try {
+        await syncLegacyWeeklyCheckIn(userId, answers);
+      } catch (syncError) {
+        console.error("[checkin] Falha ao sincronizar check-in legado:", syncError);
+      }
     }
 
     return response;

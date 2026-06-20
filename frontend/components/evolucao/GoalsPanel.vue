@@ -108,12 +108,10 @@ const {
   decrementGoal,
   updateGoal,
   addGoal,
-  getSleepSchedule,
+  sleepSchedule,
   setSleepSchedule,
   shiftSleepTime,
 } = usePatientGoals()
-
-const sleepSchedule = computed(() => getSleepSchedule())
 
 const showAdd = ref(false)
 const editingGoal = ref(null)
@@ -153,7 +151,7 @@ function saveForm() {
   }
 
   if (showAdd.value) {
-    addGoal({ ...payload, type: 'habit', color: '#c17b80' })
+    addGoal({ ...payload, type: 'habit', color: '#8B967C' })
   } else if (editingGoal.value) {
     updateGoal(editingGoal.value.id, payload)
   }

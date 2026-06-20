@@ -90,7 +90,7 @@ const titleId = 'cf-confirm-title'
 
 .cf-confirm-icon.default {
   background: #f0fdf4;
-  color: #2d5a27;
+  color: #8B967C;
 }
 
 .cf-confirm-title {
@@ -151,7 +151,7 @@ const titleId = 'cf-confirm-title'
 }
 
 .cf-confirm-btn--primary {
-  background: #2d5a27;
+  background: #8B967C;
   color: #fff;
 }
 

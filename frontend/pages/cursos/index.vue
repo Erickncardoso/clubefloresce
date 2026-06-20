@@ -2742,7 +2742,7 @@ watch(
 }
 
 .banner-editor-tab--active {
-  background: var(--primary, #2d5a27);
+  background: var(--primary, #8B967C);
   color: #fff;
 }
 
@@ -2802,7 +2802,7 @@ watch(
 .banner-upload-device-icon {
   width: 1.1rem;
   height: 1.1rem;
-  color: var(--primary, #2d5a27);
+  color: var(--primary, #8B967C);
 }
 
 .banner-upload-frame {
@@ -2821,7 +2821,7 @@ watch(
 }
 
 .banner-upload-frame:hover {
-  border-color: var(--primary, #2d5a27);
+  border-color: var(--primary, #8B967C);
   background: #f3f7f2;
 }
 
@@ -2964,7 +2964,7 @@ watch(
 }
 
 .color-hex-input:focus {
-  border-color: var(--primary, #2d5a27);
+  border-color: var(--primary, #8B967C);
   background: #fff;
   box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.1);
 }
@@ -3271,9 +3271,9 @@ watch(
 }
 
 .pdf-upload-box.has-file {
-  border-color: #2d5a27;
+  border-color: #8B967C;
   background: #f0fdf4;
-  color: #166534;
+  color: #6f7863;
 }
 
 .pdf-icon-big {
@@ -3637,7 +3637,7 @@ watch(
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), #6ab04c);
+  background: linear-gradient(90deg, var(--primary), #8B967C);
   border-radius: var(--cf-radius-sm);
   transition: width 0.3s ease;
 }
@@ -3933,7 +3933,7 @@ watch(
   margin: -9px 0 0 -9px;
   border-radius: 50%;
   border: 2px solid #fff;
-  background: var(--cf-pink, #c17b80);
+  background: var(--cf-pink, #8B967C);
   box-shadow: 0 0 0 2px rgba(193, 123, 128, 0.35);
   pointer-events: none;
 }
@@ -3976,7 +3976,7 @@ watch(
 
 .banner-position-preset:hover {
   border-color: rgba(193, 123, 128, 0.45);
-  color: #a06267;
+  color: var(--cf-pink-dark, #6f7863);
 }
 
 .patient-banner-content {
@@ -4109,7 +4109,7 @@ watch(
 }
 
 .course-row-title-link:hover {
-  color: var(--cf-green-dark, #4d7348);
+  color: var(--cf-green-dark, #6f7863);
 }
 
 @media (max-width: 640px) {

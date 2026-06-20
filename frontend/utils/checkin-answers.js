@@ -18,7 +18,6 @@ export function formatCheckinAnswer(step, value) {
   if (value == null || value === '') return '—'
 
   const type = step?.type || 'text'
-  const id = step?.id
 
   if (type === 'food') {
     return FOOD_LABELS[Number(value)] || String(value)
@@ -34,24 +33,32 @@ export function formatCheckinAnswer(step, value) {
     return `${text} L`
   }
 
+  if (type === 'number') {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return String(value)
+    const rounded = Math.round(n * 100) / 100
+    const text = rounded % 1 === 0
+      ? String(rounded)
+      : rounded.toFixed(2).replace(/0$/, '').replace(/\.$/, '').replace('.', ',')
+    const unit = step?.unit ? ` ${step.unit}` : ''
+    return `${text}${unit}`
+  }
+
   if (type === 'exercise') {
-    return value === true || value === 'true' ? 'Sim, praticou' : 'Não praticou'
+    const yes = step?.yesLabel || 'Sim'
+    const no = step?.noLabel || 'Não'
+    return value === true || value === 'true' ? yes : no
   }
 
   if (type === 'scale') {
     const score = Number(value)
+    const max = Math.max(1, Number(step?.max) || 5)
     const label = SCALE_LABELS[score]
-    return label ? `${label} (${score}/5)` : `${value}/5`
+    return label ? `${label} (${score}/${max})` : `${value}/${max}`
   }
 
   if (type === 'choice') {
     return String(value)
-  }
-
-  if (id === 'sleep') {
-    const score = Number(value)
-    const label = SCALE_LABELS[score]
-    return label ? `${label} (${score}/5)` : `${value}/5`
   }
 
   return String(value)

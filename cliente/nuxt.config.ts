@@ -1,17 +1,25 @@
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { fixWindowsVitePaths } from '../frontend/utils/fix-windows-vite-paths'
+import { mirrorPwaDevSwDist, ensurePwaDevSwPlaceholder } from '../frontend/utils/mirror-pwa-dev-sw'
 import { resolveApiBaseAtBuild } from '../frontend/utils/resolve-api-base.mjs'
+
+const pwaDevEnabled = process.env.NUXT_PWA_DEV === 'true'
 
 const isGenerate =
   process.argv.some((arg) => arg.includes('generate')) ||
   process.env.npm_lifecycle_event?.includes('generate')
-const devHost = process.env.NUXT_HOST || '127.0.0.1'
-const devPort = Number(process.env.NUXT_PORT || 3002)
-const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://localhost:3001'
+const devHost = process.env.NUXT_HOST || '0.0.0.0'
+const devPort = Number(process.env.NUXT_CLIENTE_PORT || 3002)
+const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
+const lanMode = process.env.NUXT_LAN === 'true' || devHost === '0.0.0.0'
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url))
 const frontendRoot = fileURLToPath(new URL('../frontend', import.meta.url))
+
+if (!isGenerate) {
+  ensurePwaDevSwPlaceholder(rootDir, '.nuxt-mobile')
+}
 
 // App paciente — páginas em cliente/; componentes via alias (sem extends, evita conflito SSR)
 export default defineNuxtConfig({
@@ -43,6 +51,7 @@ export default defineNuxtConfig({
     join(frontendRoot, 'plugins/api-base.client.js'),
     join(frontendRoot, 'plugins/patient-session.client.ts'),
     join(frontendRoot, 'plugins/patient-route.client.ts'),
+    join(frontendRoot, 'plugins/patient-navigation-loading.client.ts'),
     join(frontendRoot, 'plugins/patient-meal-plan.client.ts'),
     join(frontendRoot, 'plugins/patient-notifications.client.ts'),
     join(frontendRoot, 'plugins/pwa-standalone.client.ts'),
@@ -74,10 +83,10 @@ export default defineNuxtConfig({
         },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
-        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: 'Florescer' },
         { name: 'application-name', content: 'Clube Florescer' },
-        { name: 'theme-color', content: '#f7f3f0' },
+        { name: 'theme-color', content: '#8B967C' },
         {
           name: 'description',
           content: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
@@ -132,8 +141,8 @@ export default defineNuxtConfig({
       short_name: 'Florescer',
       description: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
       lang: 'pt-BR',
-      theme_color: '#f7f3f0',
-      background_color: '#f7f3f0',
+      theme_color: '#8B967C',
+      background_color: '#eef0eb',
       display: 'standalone',
       display_override: ['standalone', 'fullscreen'],
       scope: '/',
@@ -157,7 +166,7 @@ export default defineNuxtConfig({
       periodicSyncForUpdates: 300,
     },
     devOptions: {
-      enabled: true,
+      enabled: pwaDevEnabled,
       suppressWarnings: true,
       navigateFallback: '/',
       type: 'module',
@@ -200,7 +209,7 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    plugins: [fixWindowsVitePaths()],
+    plugins: [fixWindowsVitePaths(), mirrorPwaDevSwDist(rootDir, '.nuxt-mobile')],
     build: {
       sourcemap: false,
       reportCompressedSize: false,
@@ -209,9 +218,19 @@ export default defineNuxtConfig({
       include: ['pdfjs-dist'],
     },
     server: {
-      origin: `http://${devHost === '0.0.0.0' ? '127.0.0.1' : devHost}:${devPort}`,
       strictPort: true,
-      hmr: devHost === '0.0.0.0' ? { host: '127.0.0.1', port: devPort } : undefined,
+      allowedHosts: true,
+      ...(lanMode
+        ? {
+            // Celular na LAN usa o IP da máquina — não fixar origin em 127.0.0.1
+            hmr: {
+              port: devPort,
+              clientPort: devPort,
+            },
+          }
+        : {
+            origin: `http://${devHost}:${devPort}`,
+          }),
       fs: {
         allow: [rootDir, frontendRoot],
       },
@@ -231,5 +250,12 @@ export default defineNuxtConfig({
         preset: 'static',
         prerender: { crawlLinks: true },
       }
-    : {},
+    : {
+        devProxy: {
+          '/api': {
+            target: devApiOrigin,
+            changeOrigin: true,
+          },
+        },
+      },
 })
