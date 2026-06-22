@@ -26,7 +26,7 @@ useVirtualKeyboard()
 const { getToken, bootstrapToken } = usePatientAuth()
 const { hasPlan, planChecked, loading: planLoading } = usePatientMealPlan()
 
-const hideTabBarPaths = ['/', '/register', '/documento']
+const hideTabBarPaths = ['/', '/register', '/documento', '/onboarding']
 const publicPaths = hideTabBarPaths
 
 const isAuthenticatedRoute = computed(() => {
@@ -60,12 +60,25 @@ body,
   margin: 0;
   min-height: 100%;
   max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
   background: #ffffff;
   font-family: var(--cf-font);
   -webkit-font-smoothing: antialiased;
+}
+
+.patient-app-shell {
+  overflow-x: hidden;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.patient-app-shell__main {
+  overflow-x: hidden;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .patient-app-shell--gated .patient-app-shell__main {

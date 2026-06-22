@@ -5,13 +5,14 @@
 #   Dockerfile:      cliente/Dockerfile
 #   Porta:           3000
 
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
-RUN apk add --no-cache libc6-compat
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-ENV NODE_OPTIONS=--max-old-space-size=4096
 ENV NUXT_TELEMETRY_DISABLED=1
 ENV NUXT_IGNORE_LOCK=1
 ENV NUXT_PUBLIC_MOBILE_APP=true
@@ -24,7 +25,10 @@ COPY cliente ./cliente
 
 WORKDIR /app/cliente
 
-RUN npm ci && npm run generate
+RUN npm ci
+
+ENV NODE_OPTIONS=--max-old-space-size=3072
+RUN npm run generate
 
 FROM nginx:1.27-alpine AS runner
 

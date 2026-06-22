@@ -7,14 +7,12 @@
             <path :d="bottleInnerPath" />
           </clipPath>
           <linearGradient :id="gradWater" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#a8e4fa" />
-            <stop offset="35%" stop-color="#6dbde8" />
-            <stop offset="100%" stop-color="#3d8fc4" />
+            <stop offset="0%" stop-color="#6dbde8" />
+            <stop offset="100%" stop-color="#6dbde8" />
           </linearGradient>
           <linearGradient :id="gradShine" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="#fff" stop-opacity="0.55" />
-            <stop offset="45%" stop-color="#fff" stop-opacity="0" />
-            <stop offset="100%" stop-color="#fff" stop-opacity="0.12" />
+            <stop offset="0%" stop-color="#fff" stop-opacity="0.35" />
+            <stop offset="100%" stop-color="#fff" stop-opacity="0.08" />
           </linearGradient>
           <filter :id="filterShadow" x="-20%" y="-10%" width="140%" height="130%">
             <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#5ba4d9" flood-opacity="0.18" />
@@ -123,20 +121,25 @@
       </svg>
     </div>
 
-    <p class="water-bottle__count">
+    <p class="water-bottle__count" aria-hidden="true">
       <strong>{{ displayCurrent }}</strong>
       <span>/ {{ displayTarget }}</span>
     </p>
 
     <div class="water-bottle__actions">
-      <button type="button" class="water-bottle__btn" aria-label="Remover 250 ml" @click="emit('decrement')">−</button>
-      <button type="button" class="water-bottle__btn water-bottle__btn--primary" aria-label="Adicionar 250 ml" @click="emit('increment')">+</button>
+      <button type="button" class="water-bottle__btn" aria-label="Remover 250 ml" @click="emit('decrement')">
+        <Minus class="water-bottle__btn-icon" aria-hidden="true" />
+      </button>
+      <button type="button" class="water-bottle__btn water-bottle__btn--primary" aria-label="Adicionar 250 ml" @click="emit('increment')">
+        <Plus class="water-bottle__btn-icon" aria-hidden="true" />
+      </button>
     </div>
     <p class="water-bottle__hint">+250 ml por toque</p>
   </div>
 </template>
 
 <script setup>
+import { Minus, Plus } from 'lucide-vue-next'
 import { useConfetti } from '~/composables/useConfetti'
 
 const props = defineProps({
@@ -231,12 +234,12 @@ const displayTarget = computed(() => formatLiters(props.target))
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .water-bottle__viz {
-  width: 5.5rem;
-  height: 10.5rem;
+  width: 4.75rem;
+  height: 9rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -265,20 +268,21 @@ const displayTarget = computed(() => formatLiters(props.target))
 }
 
 .water-bottle__count {
-  margin: 0.1rem 0 0;
-  font-size: 0.82rem;
-  color: var(--cf-text-muted);
-}
-
-.water-bottle__count strong {
-  font-size: 1.2rem;
-  color: #5ba4d9;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .water-bottle__hint {
   margin: 0;
-  font-size: 0.62rem;
-  color: var(--cf-text-muted);
+  font-size: 0.64rem;
+  color: rgba(28, 24, 22, 0.45);
 }
 
 .water-bottle__actions {
@@ -288,21 +292,36 @@ const displayTarget = computed(() => formatLiters(props.target))
 }
 
 .water-bottle__btn {
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 1px solid var(--cf-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border: none;
   border-radius: 999px;
-  background: var(--cf-surface);
-  font-size: 1.2rem;
-  font-weight: 700;
+  background: rgba(255, 255, 255, 0.95);
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1;
   color: var(--cf-text);
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .water-bottle__btn--primary {
   background: #5ba4d9;
-  border-color: #5ba4d9;
   color: #fff;
+  box-shadow: 0 4px 12px rgba(91, 164, 217, 0.28);
+}
+
+.water-bottle__btn-icon {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.5;
+  flex-shrink: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

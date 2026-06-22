@@ -55,10 +55,14 @@ const AUTO_IMAGE_FALLBACKS = new Set([
   'Analise esta imagem, por favor.',
 ])
 
+const AUTO_IMAGE_FALLBACK_RE =
+  /^Analise meu .+ para registrar no diário de hoje\.?$/i
+
 export function shouldShowUserMessageText(msg) {
   const text = getMessageDisplayText(msg)
   if (!text) return false
   if (!getMessageAttachment(msg)) return true
+  if (AUTO_IMAGE_FALLBACK_RE.test(text)) return false
   return !AUTO_IMAGE_FALLBACKS.has(text)
 }
 

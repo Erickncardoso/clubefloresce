@@ -750,7 +750,7 @@ onMounted(async () => {
 }
 
 .home-goal-card--food {
-  background: #fef9c3;
+  background: #f8f0ed;
 }
 
 .home-goal-card--exercise {

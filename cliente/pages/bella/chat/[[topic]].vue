@@ -211,6 +211,16 @@
             <div class="bella-input-row">
               <div v-if="showCameraButton || showGalleryButton" class="bella-input-tools">
                 <button
+                  v-if="showCameraButton && chatTopic === 'meal'"
+                  type="button"
+                  class="bella-tool-btn bella-tool-btn--tips"
+                  :disabled="sending"
+                  aria-label="Ver dicas de foto"
+                  @click="openPhotoGuide"
+                >
+                  <img src="/imgs/iconelampada.png" alt="" class="bella-tool-tip-icon" />
+                </button>
+                <button
                   v-if="showCameraButton"
                   type="button"
                   class="bella-tool-btn"
@@ -265,6 +275,12 @@
       :error="mealConfirmError"
       @cancel="cancelMealConfirm"
       @confirm="confirmMeal"
+    />
+
+    <BellaMealPhotoGuideSheet
+      :open="showPhotoGuide"
+      @close="onPhotoGuideClose"
+      @complete="onPhotoGuideComplete"
     />
 
     <Teleport to="body">
@@ -349,6 +365,9 @@ const taskHint = ref('')
 const selectedFile = ref(null)
 const attachmentPreview = ref(null)
 const pendingCameraOpen = ref(false)
+const showPhotoGuide = ref(false)
+
+const MEAL_PHOTO_GUIDE_KEY = 'bella-meal-photo-guide-v2'
 const dailySummary = ref(null)
 const lightboxImageUrl = ref('')
 const handoffSending = ref(false)
@@ -569,8 +588,9 @@ const userMessageImage = (msg) => getUserMessageImageUrl(msg)
 const shouldShowUserText = (msg) => shouldShowUserMessageText(msg)
 const userMessageShowsBubble = (msg) => {
   if (msg.role === 'assistant') return true
-  if (!userMessageImage(msg)) return true
-  return shouldShowUserText(msg) || messageAttachment(msg)?.type === 'pdf'
+  if (messageAttachment(msg)?.type === 'pdf') return true
+  if (shouldShowUserText(msg)) return true
+  return !userMessageImage(msg)
 }
 const formatMessageContent = (content) => formatBellaMarkdown(content)
 
@@ -794,19 +814,43 @@ function patchUserMessageAttachment(msg, fallbackUrl) {
   if (!msg || !fallbackUrl) return msg
   const attachment = getMessageAttachment(msg)
   if (attachment?.url?.startsWith('http')) return msg
-  if (attachment?.type !== 'image') return msg
 
   return {
     ...msg,
     metadata: {
       ...(msg.metadata || {}),
+      taskType: msg.metadata?.taskType || 'image',
       attachment: {
-        ...(msg.metadata?.attachment || {}),
+        ...(attachment || {}),
         type: 'image',
+        fileName: attachment?.fileName || 'foto.jpg',
         url: fallbackUrl,
       },
     },
   }
+}
+
+function mergeUserMessageResponse(tempMsg, serverMsg, localPreviewUrl) {
+  if (!serverMsg) return tempMsg
+
+  const [normalized] = normalizeLoadedMessages([serverMsg])
+  if (!normalized) return tempMsg
+
+  let merged = { ...normalized }
+  if (!merged.content?.trim() && tempMsg.content?.trim()) {
+    merged.content = tempMsg.content
+  }
+
+  const tempImageUrl = getUserMessageImageUrl(tempMsg) || localPreviewUrl
+  const serverImageUrl = getUserMessageImageUrl(merged)
+
+  if (!serverImageUrl && tempImageUrl) {
+    merged = patchUserMessageAttachment(merged, tempImageUrl)
+  } else if (serverImageUrl?.startsWith('http') && tempImageUrl?.startsWith('blob:')) {
+    revokeBlobUrl(tempImageUrl)
+  }
+
+  return merged
 }
 
 function getWelcomeContent() {
@@ -881,7 +925,7 @@ const loadMessages = async () => {
       query: { topic: chatTopic.value },
     })
     historyMessages.value = normalizeLoadedMessages(data.messages)
-    showPreviousHistory.value = false
+    showPreviousHistory.value = historyMessages.value.length > 0
     messages.value = []
     aiEnabled.value = data.aiEnabled !== false
     if (data.dailySummary) dailySummary.value = data.dailySummary
@@ -926,8 +970,13 @@ async function postSwapChat(body, userLabel = '') {
     if (userLabel) {
       const tempIndex = messages.value.findIndex((m) => m.id === tempId)
       if (tempIndex >= 0) {
-        if (res.userMessage) messages.value[tempIndex] = res.userMessage
-        else messages.value.splice(tempIndex, 1)
+        if (res.userMessage) {
+          messages.value[tempIndex] = mergeUserMessageResponse(
+            messages.value[tempIndex],
+            res.userMessage,
+            null,
+          )
+        }
       }
     }
 
@@ -1018,7 +1067,11 @@ async function sendHandoffMessage(handoff) {
 
     const tempIndex = messages.value.findIndex((m) => m.id === tempId)
     if (tempIndex >= 0 && res.userMessage) {
-      messages.value[tempIndex] = res.userMessage
+      messages.value[tempIndex] = mergeUserMessageResponse(
+        messages.value[tempIndex],
+        res.userMessage,
+        imageUrl,
+      )
     }
 
     await applyChatResponse(res)
@@ -1190,8 +1243,36 @@ const openFilePicker = () => {
   fileInputEl.value?.click()
 }
 
+function shouldShowMealPhotoGuide() {
+  if (chatTopic.value !== 'meal') return false
+  if (!import.meta.client) return false
+  return localStorage.getItem(MEAL_PHOTO_GUIDE_KEY) !== '1'
+}
+
+function markMealPhotoGuideSeen() {
+  if (import.meta.client) localStorage.setItem(MEAL_PHOTO_GUIDE_KEY, '1')
+}
+
+function openPhotoGuide() {
+  showPhotoGuide.value = true
+}
+
 const openCamera = () => {
+  if (shouldShowMealPhotoGuide()) {
+    openPhotoGuide()
+    return
+  }
   cameraInputEl.value?.click()
+}
+
+function onPhotoGuideClose() {
+  showPhotoGuide.value = false
+}
+
+function onPhotoGuideComplete() {
+  markMealPhotoGuideSeen()
+  showPhotoGuide.value = false
+  nextTick(() => cameraInputEl.value?.click())
 }
 
 const clearAttachment = () => {
@@ -1387,12 +1468,18 @@ const sendMessage = async () => {
     }
 
     const tempIndex = messages.value.findIndex((m) => m.id === tempId)
-    if (tempIndex >= 0 && res.userMessage) {
-      messages.value[tempIndex] = patchUserMessageAttachment(res.userMessage, localPreviewUrl)
+    if (tempIndex >= 0) {
+      if (res.userMessage) {
+        messages.value[tempIndex] = mergeUserMessageResponse(
+          messages.value[tempIndex],
+          res.userMessage,
+          localPreviewUrl,
+        )
+      }
     }
 
     const savedUrl = tempIndex >= 0 ? getUserMessageImageUrl(messages.value[tempIndex]) : null
-    if (localPreviewUrl && savedUrl?.startsWith('http')) {
+    if (localPreviewUrl && savedUrl?.startsWith('http') && localPreviewUrl !== savedUrl) {
       revokeBlobUrl(localPreviewUrl)
     }
 
@@ -1460,7 +1547,11 @@ async function bootstrapChat() {
     if (pendingCameraOpen.value && topicConfig.value.acceptImages) {
       pendingCameraOpen.value = false
       await nextTick()
-      openCamera()
+      if (shouldShowMealPhotoGuide()) {
+        openPhotoGuide()
+      } else {
+        openCamera()
+      }
     }
     await applyPendingHandoff()
   } catch (err) {
@@ -1908,12 +1999,17 @@ html.vk-open .bella-messages {
   background: #fff;
   padding: 0.3rem;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .bella-msg-thumb .bella-msg-image {
   width: 100%;
-  max-height: 8.5rem;
-  object-fit: cover;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
   object-position: center;
   border: none;
   border-radius: 0.7rem;
@@ -2340,6 +2436,13 @@ html.vk-open .bella-messages {
   width: 1.05rem;
   height: 1.05rem;
   stroke-width: 1.75;
+}
+
+.bella-tool-tip-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  object-fit: contain;
+  display: block;
 }
 
 .bella-input-row input[type='text'] {

@@ -24,13 +24,24 @@ export async function executeUserProfileTool(_args: Record<string, unknown>, ctx
   if (!user) return "Perfil não encontrado.";
 
   const checkIns = await checkInRepository.findHistoryByUser(ctx.userId, 52);
+  const profile = (user.patientProfileData ?? {}) as Record<string, unknown>;
 
-  return [
+  const lines = [
     `Nome: ${user.name}`,
     `Primeiro nome: ${firstName(user.name)}`,
     `Plano: ${user.plan}`,
     `Membro desde: ${formatDate(user.createdAt)}`,
     `Status: ${user.status}`,
     `Total de check-ins registrados: ${checkIns.length}`,
-  ].join("\n");
+  ];
+
+  if (profile.gender) lines.push(`Gênero: ${profile.gender}`);
+  if (profile.birthDate) lines.push(`Data de nascimento: ${profile.birthDate}`);
+  if (profile.heightCm) lines.push(`Altura: ${profile.heightCm} cm`);
+  if (profile.weightKg) lines.push(`Peso atual: ${profile.weightKg} kg`);
+  if (profile.targetWeightKg) lines.push(`Peso desejado: ${profile.targetWeightKg} kg`);
+  if (profile.primaryGoal) lines.push(`Objetivo: ${profile.primaryGoal}`);
+  if (profile.workoutsPerWeek) lines.push(`Treinos/semana: ${profile.workoutsPerWeek}`);
+
+  return lines.join("\n");
 }

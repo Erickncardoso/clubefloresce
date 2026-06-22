@@ -127,10 +127,6 @@ export default defineNuxtConfig({
     },
   },
 
-  routeRules: {
-    '/onboarding': { redirect: { to: '/inicio', statusCode: 301 } },
-  },
-
   pwa: {
     registerType: 'prompt',
     injectRegister: 'auto',

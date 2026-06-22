@@ -141,6 +141,7 @@ definePageMeta({ layout: false, pageTransition: false })
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)
 const { persistSession, clearPatientSession } = usePatientApp()
+const patientAuth = usePatientAuth()
 
 const form = reactive({ email: '', password: '' })
 const loading = ref(false)
@@ -156,13 +157,20 @@ const firstAccessForm = reactive({ newPassword: '', confirmPassword: '' })
 
 const route = useRoute()
 
-onMounted(() => {
+onMounted(async () => {
   if (route.query.access === 'expired') {
     error.value = PATIENT_ACCESS_EXPIRED_MESSAGE
     return
   }
-  if (localStorage.getItem('auth_token')) {
-    navigateTo('/inicio', { replace: true })
+  if (!localStorage.getItem('auth_token')) return
+
+  try {
+    patientAuth.bootstrapToken()
+    const { resolvePostLoginRoute } = usePatientOnboarding()
+    const nextRoute = await resolvePostLoginRoute()
+    await navigateTo(nextRoute, { replace: true })
+  } catch {
+    clearPatientSession()
   }
 })
 
@@ -178,6 +186,7 @@ const handleLogin = async () => {
     localStorage.setItem('auth_token', data.token)
     localStorage.setItem('user_role', data.user.role)
     localStorage.setItem('user_id', data.user.id)
+    patientAuth.saveToken(data.token)
     persistSession({
       name: data.user.name,
       avatar: data.user.avatar,
@@ -195,7 +204,9 @@ const handleLogin = async () => {
       return
     }
 
-    navigateTo('/inicio')
+    const { resetOnboardingState, resolvePostLoginRoute } = usePatientOnboarding()
+    resetOnboardingState()
+    await navigateTo(await resolvePostLoginRoute())
   } catch (err) {
     if (isApiConnectionError(err)) {
       error.value = apiConnectionErrorMessage({
@@ -245,7 +256,8 @@ const handleFirstAccessPasswordChange = async () => {
     showFirstAccessModal.value = false
     firstAccessForm.newPassword = ''
     firstAccessForm.confirmPassword = ''
-    navigateTo('/inicio')
+    const { resolvePostLoginRoute } = usePatientOnboarding()
+    await navigateTo(await resolvePostLoginRoute())
   } catch (err) {
     firstAccessError.value = err.data?.message || 'Não foi possível atualizar a senha.'
   } finally {

@@ -57,6 +57,8 @@ model User {
   plan          UserPlan   @default(FREE)
   accessExpiresAt DateTime?
   patientGoalsData Json?
+  patientProfileData Json?
+  onboardingCompletedAt DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 

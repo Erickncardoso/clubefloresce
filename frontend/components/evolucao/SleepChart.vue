@@ -12,10 +12,6 @@
           aria-hidden="true"
         >
           <defs>
-            <linearGradient id="sleepArcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#a8b59d" />
-              <stop offset="100%" stop-color="#8B967C" />
-            </linearGradient>
             <filter id="sleepHandleShadow" x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#6f7863" flood-opacity="0.14" />
             </filter>
@@ -28,7 +24,7 @@
             cy="100"
             :r="RING_R"
             class="sleep-clock__ring-active"
-            stroke="url(#sleepArcGrad)"
+            stroke="#8B967C"
             :stroke-dasharray="`${sleepArcLength} ${RING_CIRCUMFERENCE}`"
             stroke-dashoffset="0"
             :transform="`rotate(${sleepArcRotation} 100 100)`"
@@ -381,21 +377,21 @@ onBeforeUnmount(() => {
 }
 
 .sleep-clock__panel {
-  padding: 1.1rem 0.95rem 1rem;
-  background: linear-gradient(165deg, #f7fbf6 0%, #fff 55%, #fafdf9 100%);
-  border: 1px solid #e3ebe1;
-  box-shadow: 0 10px 28px rgba(77, 115, 72, 0.08);
+  padding: 0.15rem 0.1rem 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .sleep-clock__dial-wrap {
   display: flex;
   justify-content: center;
-  margin-bottom: 1rem;
-  padding: 0.35rem 0 0.15rem;
+  margin-bottom: 0.75rem;
+  padding: 0.15rem 0 0;
 }
 
 .sleep-clock__svg {
-  width: min(100%, 16.25rem);
+  width: min(100%, 14.5rem);
   height: auto;
   touch-action: none;
   overflow: visible;
@@ -527,20 +523,18 @@ onBeforeUnmount(() => {
 .sleep-clock__card {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.7rem 0.65rem 0.65rem;
-  border-radius: 1rem;
-  border: 1px solid transparent;
+  gap: 0.5rem;
+  padding: 0.65rem 0.6rem 0.6rem;
+  border-radius: 0.95rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.sleep-clock__card--night {
-  background: linear-gradient(160deg, #f0f3fa 0%, #fff 100%);
-  border-color: #e2e8f4;
-}
-
+.sleep-clock__card--night,
 .sleep-clock__card--day {
-  background: linear-gradient(160deg, #fff9ec 0%, #fff 100%);
-  border-color: #f5e8c8;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: transparent;
 }
 
 .sleep-clock__card-top {
@@ -554,19 +548,17 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 0.75rem;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
   flex-shrink: 0;
-  background: linear-gradient(145deg, #3d4f7a 0%, #5a6fa0 100%);
-  color: #f5e6a8;
-  box-shadow: 0 4px 10px rgba(61, 79, 122, 0.2);
+  background: #eef0fb;
+  color: #6b7fb8;
 }
 
 .sleep-clock__card-icon--day {
-  background: linear-gradient(145deg, #f5c842 0%, #ffe08a 100%);
-  color: #c47a10;
-  box-shadow: 0 4px 10px rgba(232, 180, 74, 0.25);
+  background: #fff4dc;
+  color: #d49a2a;
 }
 
 .sleep-clock__card-icon-svg {
@@ -610,14 +602,15 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid #e3ebe1;
-  border-radius: 0.65rem;
+  width: 1.85rem;
+  height: 1.85rem;
+  border: none;
+  border-radius: 999px;
   background: #fff;
   color: var(--cf-green-dark, #6f7863);
   cursor: pointer;
   padding: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
@@ -656,16 +649,16 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 0.28rem 0.35rem;
-  margin-top: 0.85rem;
-  padding: 0.5rem 0.75rem;
+  margin-top: 0.65rem;
+  padding: 0.45rem 0.65rem;
   border-radius: 999px;
-  background: #f3f7f2;
+  background: rgba(255, 255, 255, 0.55);
   font-size: 0.72rem;
-  color: var(--cf-text-muted);
+  color: rgba(28, 24, 22, 0.52);
 }
 
 .sleep-clock__meta--ok {
-  background: var(--cf-green-soft, #eef0eb);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .sleep-clock__meta strong {

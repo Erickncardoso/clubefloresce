@@ -1,155 +1,198 @@
 <template>
-  <div class="food-plate" :aria-label="`Refeição livre: ${current} de ${target} dias na semana`">
-    <div class="food-plate__card" aria-hidden="true">
-      <svg class="food-plate__icon" viewBox="0 0 64 64" aria-hidden="true">
-        <circle cx="32" cy="34" r="22" fill="#f8faf5" stroke="#dce5d4" stroke-width="2.5" />
-        <circle cx="32" cy="34" r="14" fill="#fff" stroke="#e8efe3" stroke-width="1.5" stroke-dasharray="3 3" />
-        <path d="M18 18c2-4 6-6 10-6" fill="none" stroke="#8B967C" stroke-width="2" stroke-linecap="round" opacity="0.55" />
-        <path d="M24 14c2-3 5-4 8-4" fill="none" stroke="#8B967C" stroke-width="2" stroke-linecap="round" opacity="0.4" />
-        <path d="M36 14c2-3 5-4 8-4" fill="none" stroke="#8B967C" stroke-width="2" stroke-linecap="round" opacity="0.4" />
-      </svg>
-
-      <div class="food-plate__days">
-        <div
-          v-for="(day, index) in days"
-          :key="`${day.label}-${index}`"
-          class="food-plate__day"
-          :class="{ 'food-plate__day--done': day.done }"
-        >
-          <span class="food-plate__day-label">{{ day.label }}</span>
-          <span class="food-plate__day-dot">
-            <svg v-if="day.done" viewBox="0 0 16 16" width="10" height="10" aria-hidden="true">
-              <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M3.5 8.2 6.4 11 12.5 5" />
-            </svg>
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <p class="food-plate__count">
-      <strong>{{ current }}</strong>
-      <span>/ {{ target }} dias na semana</span>
+  <div
+    class="food-days"
+    :aria-label="`Refeição livre: ${selectedCount} de ${target} dias marcados esta semana`"
+  >
+    <p class="food-days__hint">
+      Toque nos dias em que você fez refeição livre
+      <span class="food-days__hint-meta">(até {{ target }})</span>
     </p>
 
-    <div class="food-plate__actions">
-      <button type="button" class="food-plate__btn" aria-label="Remover um dia" @click="emit('decrement')">−</button>
-      <button type="button" class="food-plate__btn food-plate__btn--primary" aria-label="Marcar refeição livre" @click="emit('increment')">+</button>
+    <div class="food-days__grid" role="group" aria-label="Dias da semana">
+      <button
+        v-for="day in weekdays"
+        :key="day.index"
+        type="button"
+        class="food-days__chip"
+        :class="{
+          'food-days__chip--selected': isSelected(day.index),
+          'food-days__chip--today': day.index === todayIndex,
+          'food-days__chip--disabled': isDisabled(day.index),
+        }"
+        :aria-pressed="isSelected(day.index)"
+        :aria-label="`${day.label}${day.index === todayIndex ? ', hoje' : ''}${isSelected(day.index) ? ', marcado' : ''}`"
+        :disabled="isDisabled(day.index)"
+        @click="emit('toggle-day', day.index)"
+      >
+        <span class="food-days__chip-short">{{ day.short }}</span>
+        <span class="food-days__chip-check" aria-hidden="true">
+          <Check v-if="isSelected(day.index)" class="food-days__chip-check-icon" />
+        </span>
+      </button>
     </div>
+
+    <p class="food-days__summary">
+      <strong>{{ selectedCount }}</strong>
+      <span>/ {{ target }} dias marcados</span>
+    </p>
+
+    <p v-if="limitReached" class="food-days__note">
+      Meta atingida. Toque em um dia marcado para desmarcar.
+    </p>
+    <p v-else-if="remaining > 0" class="food-days__note">
+      Você ainda pode marcar {{ remaining }} {{ remaining === 1 ? 'dia' : 'dias' }}.
+    </p>
   </div>
 </template>
 
 <script setup>
+import { Check } from 'lucide-vue-next'
+import { FOOD_WEEKDAYS } from '~/composables/usePatientGoals'
+
 const props = defineProps({
-  current: { type: Number, default: 0 },
-  target: { type: Number, default: 5 },
+  target: { type: Number, default: 2 },
+  selectedDays: { type: Array, default: () => [] },
+  todayIndex: { type: Number, default: 0 },
 })
 
-const emit = defineEmits(['increment', 'decrement'])
+const emit = defineEmits(['toggle-day'])
 
-const weekLabels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
+const weekdays = FOOD_WEEKDAYS
 
-const days = computed(() =>
-  weekLabels.map((label, index) => ({
-    label,
-    done: index < props.current,
-  })),
-)
+const selectedSet = computed(() => new Set(props.selectedDays))
+const selectedCount = computed(() => props.selectedDays.length)
+const remaining = computed(() => Math.max(0, props.target - selectedCount.value))
+const limitReached = computed(() => selectedCount.value >= props.target)
+
+function isSelected(index) {
+  return selectedSet.value.has(index)
+}
+
+function isDisabled(index) {
+  return !isSelected(index) && limitReached.value
+}
 </script>
 
 <style scoped>
-.food-plate {
+.food-days {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.55rem;
+  gap: 0.65rem;
 }
 
-.food-plate__card {
-  width: 100%;
-  max-width: 17rem;
-  padding: 0.75rem 0.65rem 0.85rem;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #f8faf5 0%, #fff 100%);
-  border: 1px solid #e0e8da;
+.food-days__hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--cf-text-muted);
+  text-align: center;
 }
 
-.food-plate__icon {
-  display: block;
-  width: 4.5rem;
-  height: 4.5rem;
-  margin: 0 auto 0.65rem;
+.food-days__hint-meta {
+  color: var(--cf-text);
+  font-weight: 700;
 }
 
-.food-plate__days {
+.food-days__grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.22rem;
-  max-width: 14.5rem;
-  margin: 0 auto;
+  gap: 0.35rem;
 }
 
-.food-plate__day {
+.food-days__chip {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.28rem;
+  padding: 0.45rem 0.15rem 0.4rem;
+  border: none;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.food-plate__day-label {
+.food-days__chip-short {
   font-size: 0.58rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.01em;
   color: var(--cf-text-muted);
 }
 
-.food-plate__day-dot {
+.food-days__chip-check {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.15rem;
+  height: 1.15rem;
   border-radius: 999px;
-  border: 2px solid #d4dfc8;
-  background: #fff;
+  border: 1.5px solid #e8ddd8;
+  background: rgba(255, 255, 255, 0.72);
   color: #fff;
-  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
 }
 
-.food-plate__day--done .food-plate__day-dot {
-  background: linear-gradient(145deg, #9aa88f, #8B967C);
-  border-color: #8B967C;
-  transform: scale(1.04);
+.food-days__chip-check-icon {
+  width: 0.7rem;
+  height: 0.7rem;
+  stroke-width: 3;
 }
 
-.food-plate__count {
+.food-days__chip--today {
+  box-shadow: inset 0 0 0 1.5px rgba(157, 114, 104, 0.35);
+}
+
+.food-days__chip--selected {
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px #b8927a, 0 2px 8px rgba(157, 114, 104, 0.16);
+}
+
+.food-days__chip--selected .food-days__chip-short {
+  color: #9d7268;
+}
+
+.food-days__chip--selected .food-days__chip-check {
+  background: #b8927a;
+  border-color: #b8927a;
+}
+
+.food-days__chip--disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.food-days__chip:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.food-days__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3rem;
   margin: 0;
   font-size: 0.82rem;
   color: var(--cf-text-muted);
 }
 
-.food-plate__count strong {
-  font-size: 1.15rem;
-  color: var(--cf-pink-dark);
+.food-days__summary strong {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #9d7268;
 }
 
-.food-plate__actions {
-  display: flex;
-  gap: 0.5rem;
+.food-days__note {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--cf-text-muted);
 }
 
-.food-plate__btn {
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 1px solid var(--cf-border);
-  border-radius: 999px;
-  background: var(--cf-surface);
-  font-size: 1.2rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.food-plate__btn--primary {
-  background: var(--cf-pink);
-  border-color: var(--cf-pink);
-  color: #fff;
+@media (prefers-reduced-motion: reduce) {
+  .food-days__chip {
+    transition: none;
+  }
 }
 </style>

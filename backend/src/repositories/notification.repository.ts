@@ -28,18 +28,49 @@ export class NotificationRepository {
 
   async upsertBySourceKey(input: CreateNotificationInput) {
     if (!input.sourceKey) {
-      return prisma.notification.create({ data: input });
+      const notification = await prisma.notification.create({ data: input });
+      dispatchPushToUser(input.userId, {
+        title: input.title,
+        body: input.body,
+        url: input.actionPath,
+        tag: notification.id,
+      });
+      return notification;
     }
 
-    const notification = await prisma.notification.upsert({
+    const existing = await prisma.notification.findUnique({
       where: {
         userId_sourceKey: {
           userId: input.userId,
           sourceKey: input.sourceKey,
         },
       },
-      create: input,
-      update: {
+    });
+
+    if (!existing) {
+      const notification = await prisma.notification.create({ data: input });
+      dispatchPushToUser(input.userId, {
+        title: input.title,
+        body: input.body,
+        url: input.actionPath,
+        tag: input.sourceKey,
+      });
+      return notification;
+    }
+
+    const contentChanged =
+      existing.title !== input.title
+      || existing.body !== input.body
+      || existing.type !== input.type
+      || (existing.actionPath ?? null) !== (input.actionPath ?? null);
+
+    if (!contentChanged) {
+      return existing;
+    }
+
+    const notification = await prisma.notification.update({
+      where: { id: existing.id },
+      data: {
         type: input.type,
         title: input.title,
         body: input.body,
@@ -52,7 +83,7 @@ export class NotificationRepository {
       title: input.title,
       body: input.body,
       url: input.actionPath,
-      tag: input.sourceKey || notification.id,
+      tag: input.sourceKey,
     });
 
     return notification;

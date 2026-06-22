@@ -15,7 +15,7 @@ const STORAGE_KEY = 'cf-patient-goals-v1'
 
 const DEFAULT_GOALS: PatientGoal[] = [
   { id: 'water', label: 'Água', type: 'water', target: 2, unit: 'litros', frequency: 'daily', color: '#5ba4d9', step: 0.25 },
-  { id: 'food', label: 'Refeição livre', type: 'food', target: 5, unit: 'dias', frequency: 'weekly', color: '#8B967C' },
+  { id: 'food', label: 'Refeição livre', type: 'food', target: 2, unit: 'dias', frequency: 'weekly', color: '#c9a96e' },
   { id: 'exercise', label: 'Exercício', type: 'exercise', target: 3, unit: 'vezes', frequency: 'weekly', color: '#8B967C' },
   { id: 'sleep', label: 'Sono', type: 'sleep', target: 8, unit: 'horas', frequency: 'daily', color: '#6aab6a', step: 0.5 },
 ]
@@ -70,6 +70,37 @@ function roundToStep(value: number, step: number, max: number) {
 
 function progressStorageKey(goalId: string, periodKey: string) {
   return `${goalId}:${periodKey}`
+}
+
+export const FOOD_WEEKDAYS = [
+  { index: 0, short: 'Seg', label: 'Segunda' },
+  { index: 1, short: 'Ter', label: 'Terça' },
+  { index: 2, short: 'Qua', label: 'Quarta' },
+  { index: 3, short: 'Qui', label: 'Quinta' },
+  { index: 4, short: 'Sex', label: 'Sexta' },
+  { index: 5, short: 'Sáb', label: 'Sábado' },
+  { index: 6, short: 'Dom', label: 'Domingo' },
+] as const
+
+function foodDaysStorageKey(weekKey: string) {
+  return `food-days:${weekKey}`
+}
+
+function parseFoodDays(raw: unknown): number[] {
+  if (typeof raw !== 'string' || !raw.trim()) return []
+  return raw
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
+}
+
+function serializeFoodDays(days: number[]) {
+  return [...new Set(days)].sort((a, b) => a - b).join(',')
+}
+
+function weekdayIndex(date = new Date()) {
+  const day = date.getDay()
+  return day === 0 ? 6 : day - 1
 }
 
 function migrateWaterProgress(store: { goals: PatientGoal[]; progress: Record<string, number> }) {
@@ -153,7 +184,7 @@ function normalizeStoredGoals(goals: PatientGoal[]) {
       return { ...goal, type: 'food', label: 'Refeição livre', color: fallback.color }
     }
     if (goal.id === 'food') {
-      return { ...goal, label: 'Refeição livre', type: 'food', color: fallback.color }
+      return { ...goal, label: 'Refeição livre', type: 'food', color: '#c9a96e' }
     }
     if (goal.id === 'exercise' && goal.type === 'habit') {
       return { ...goal, type: 'exercise', color: fallback.color }
@@ -265,6 +296,14 @@ export function usePatientGoals() {
   }
 
   function getProgress(goal: PatientGoal, date = new Date()) {
+    if (goal.id === 'food') {
+      const weekKey = periodKeyForGoal(goal, date)
+      const daysKey = foodDaysStorageKey(weekKey)
+      if (daysKey in store.value.progress) {
+        return parseFoodDays(store.value.progress[daysKey]).length
+      }
+      return 0
+    }
     const key = progressStorageKey(goal.id, periodKeyForGoal(goal, date))
     return store.value.progress[key] || 0
   }
@@ -272,6 +311,37 @@ export function usePatientGoals() {
   function getProgressPercent(goal: PatientGoal, date = new Date()) {
     if (!goal.target) return 0
     return Math.min(100, Math.round((getProgress(goal, date) / goal.target) * 100))
+  }
+
+  function getFoodSelectedDays(date = new Date()) {
+    const goal = store.value.goals.find((item) => item.id === 'food')
+    if (!goal) return []
+    const weekKey = periodKeyForGoal(goal, date)
+    return parseFoodDays(store.value.progress[foodDaysStorageKey(weekKey)])
+  }
+
+  function toggleFoodDay(weekdayIndex: number, date = new Date()) {
+    const goal = store.value.goals.find((item) => item.id === 'food')
+    if (!goal || weekdayIndex < 0 || weekdayIndex > 6) return false
+
+    const weekKey = periodKeyForGoal(goal, date)
+    const daysKey = foodDaysStorageKey(weekKey)
+    const selected = parseFoodDays(store.value.progress[daysKey])
+    const existingIndex = selected.indexOf(weekdayIndex)
+
+    if (existingIndex >= 0) {
+      selected.splice(existingIndex, 1)
+    } else if (selected.length >= goal.target) {
+      return false
+    } else {
+      selected.push(weekdayIndex)
+      selected.sort((a, b) => a - b)
+    }
+
+    store.value.progress[daysKey] = serializeFoodDays(selected)
+    store.value.progress[progressStorageKey('food', weekKey)] = selected.length
+    persist()
+    return true
   }
 
   function setProgress(goalId: string, value: number, date = new Date()) {
@@ -285,6 +355,7 @@ export function usePatientGoals() {
   }
 
   function incrementGoal(goalId: string, step?: number, date = new Date()) {
+    if (goalId === 'food') return
     const goal = store.value.goals.find((item) => item.id === goalId)
     if (!goal) return
     const delta = step ?? goal.step ?? 1
@@ -292,6 +363,7 @@ export function usePatientGoals() {
   }
 
   function decrementGoal(goalId: string, step?: number, date = new Date()) {
+    if (goalId === 'food') return
     const goal = store.value.goals.find((item) => item.id === goalId)
     if (!goal) return
     const delta = step ?? goal.step ?? 1
@@ -376,6 +448,21 @@ export function usePatientGoals() {
   function updateGoal(goalId: string, patch: Partial<Pick<PatientGoal, 'label' | 'target' | 'unit' | 'frequency'>>) {
     const index = store.value.goals.findIndex((item) => item.id === goalId)
     if (index < 0) return
+
+    if (goalId === 'food' && patch.target != null) {
+      const goal = store.value.goals[index]
+      const weekKey = periodKeyForGoal(goal)
+      const daysKey = foodDaysStorageKey(weekKey)
+      const nextTarget = Math.max(1, Math.min(7, Number(patch.target) || 1))
+      let selected = parseFoodDays(store.value.progress[daysKey])
+      if (selected.length > nextTarget) {
+        selected = selected.slice(0, nextTarget)
+        store.value.progress[daysKey] = serializeFoodDays(selected)
+        store.value.progress[progressStorageKey('food', weekKey)] = selected.length
+      }
+      patch = { ...patch, target: nextTarget, unit: 'dias', frequency: 'weekly' }
+    }
+
     store.value.goals[index] = { ...store.value.goals[index], ...patch }
     persist()
   }
@@ -393,13 +480,14 @@ export function usePatientGoals() {
     persist()
   }
 
-  const todaySummary = computed(() =>
-    store.value.goals.map((goal) => ({
+  const todaySummary = computed(() => {
+    void store.value.progress
+    return store.value.goals.map((goal) => ({
       goal,
       progress: getProgress(goal),
       percent: getProgressPercent(goal),
-    })),
-  )
+    }))
+  })
 
   const sleepSchedule = computed(() => {
     void store.value.progress
@@ -425,5 +513,8 @@ export function usePatientGoals() {
     getSleepSchedule,
     setSleepSchedule,
     shiftSleepTime,
+    getFoodSelectedDays,
+    toggleFoodDay,
+    weekdayIndex,
   }
 }

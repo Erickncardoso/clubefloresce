@@ -118,6 +118,11 @@ export function usePatientApp() {
     if (import.meta.server) return
     patientAuth.clearSession()
     profile.value = { ...DEFAULT_PROFILE }
+    try {
+      usePatientOnboarding().resetOnboardingState()
+    } catch {
+      // composable pode não estar disponível em todos os contextos
+    }
   }
 
   async function syncPatientProfile() {
