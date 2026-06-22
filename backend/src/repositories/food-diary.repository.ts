@@ -90,4 +90,44 @@ export class FoodDiaryRepository {
       },
     });
   }
+
+  async findEntryByIdForUser(userId: string, entryId: string) {
+    return prisma.foodDiaryEntry.findFirst({
+      where: { id: entryId, userId },
+    });
+  }
+
+  async updateEntry(
+    entryId: string,
+    data: {
+      mealType: string;
+      mealLabel?: string;
+      imageUrl?: string;
+      items: MealItemDraft[];
+      caloriesKcal: number;
+      carbsG: number;
+      proteinG: number;
+      fatG: number;
+    },
+  ) {
+    return prisma.foodDiaryEntry.update({
+      where: { id: entryId },
+      data: {
+        mealType: data.mealType,
+        mealLabel: data.mealLabel,
+        imageUrl: data.imageUrl,
+        items: data.items as unknown as Prisma.InputJsonValue,
+        caloriesKcal: data.caloriesKcal,
+        carbsG: data.carbsG,
+        proteinG: data.proteinG,
+        fatG: data.fatG,
+      },
+    });
+  }
+
+  async deleteEntry(entryId: string) {
+    return prisma.foodDiaryEntry.delete({
+      where: { id: entryId },
+    });
+  }
 }

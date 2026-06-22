@@ -25,7 +25,6 @@
       >
         <component :is="meal.icon" class="meal-slot-btn-icon" aria-hidden="true" />
         <span class="meal-slot-btn-text">{{ meal.short }}</span>
-        <span v-if="loggedMealIds.includes(meal.id)" class="meal-slot-btn-dot" aria-hidden="true" />
       </button>
     </div>
   </section>
@@ -149,15 +148,5 @@ function selectMeal(id) {
   line-height: 1.2;
   text-align: center;
   white-space: nowrap;
-}
-
-.meal-slot-btn-dot {
-  position: absolute;
-  top: 0.3rem;
-  right: 0.3rem;
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: var(--cf-green, var(--pa-green));
 }
 </style>

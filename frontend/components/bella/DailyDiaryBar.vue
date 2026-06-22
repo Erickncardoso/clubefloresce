@@ -19,7 +19,6 @@
         <span class="diary-bar-title">Diário de hoje</span>
         <span class="diary-bar-compact">
           <span class="diary-bar-compact-cal">{{ summary.consumed.caloriesKcal }} / {{ summary.targets.caloriesKcal }} kcal</span>
-          <span v-if="hasConsumedData" class="diary-bar-compact-dot" aria-hidden="true" />
         </span>
       </span>
       <ChevronDown class="diary-bar-chevron" aria-hidden="true" />
@@ -43,17 +42,47 @@
         <span>C {{ summary.consumed.carbsG }}/{{ summary.targets.carbsG }} g</span>
         <span>G {{ summary.consumed.fatG }}/{{ summary.targets.fatG }} g</span>
       </div>
+
+      <ul v-if="manageable && diaryEntries.length" class="diary-bar-entries">
+        <li v-for="entry in diaryEntries" :key="entry.id" class="diary-bar-entry">
+          <div class="diary-bar-entry-copy">
+            <span class="diary-bar-entry-label">{{ entry.mealLabel || 'Refeição' }}</span>
+            <span class="diary-bar-entry-kcal">{{ entry.caloriesKcal }} kcal</span>
+          </div>
+          <div class="diary-bar-entry-actions">
+            <button
+              type="button"
+              class="diary-bar-entry-btn"
+              :aria-label="`Editar ${entry.mealLabel || 'refeição'}`"
+              @click="emit('edit-entry', entry)"
+            >
+              <Pencil class="diary-bar-entry-icon" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="diary-bar-entry-btn diary-bar-entry-btn--danger"
+              :aria-label="`Remover ${entry.mealLabel || 'refeição'}`"
+              @click="emit('delete-entry', entry)"
+            >
+              <Trash2 class="diary-bar-entry-icon" aria-hidden="true" />
+            </button>
+          </div>
+        </li>
+      </ul>
     </div>
   </section>
 </template>
 
 <script setup>
-import { ChevronDown } from 'lucide-vue-next'
+import { ChevronDown, Pencil, Trash2 } from 'lucide-vue-next'
 
 const props = defineProps({
   summary: { type: Object, default: null },
   collapsible: { type: Boolean, default: false },
+  manageable: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['edit-entry', 'delete-entry'])
 
 const expanded = ref(!props.collapsible)
 
@@ -74,6 +103,8 @@ const hasConsumedData = computed(() => {
   )
 })
 
+const diaryEntries = computed(() => props.summary?.entries || [])
+
 function toggleExpanded() {
   expanded.value = !expanded.value
 }
@@ -91,6 +122,13 @@ watch(
     expanded.value = !isCollapsible || hasConsumedData.value
   },
   { immediate: true },
+)
+
+watch(
+  () => [props.manageable, diaryEntries.value.length],
+  ([manageable, count]) => {
+    if (manageable && count > 0 && props.collapsible) expanded.value = true
+  },
 )
 </script>
 
@@ -152,14 +190,6 @@ watch(
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.diary-bar-compact-dot {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: var(--cf-radius-full, 50%);
-  background: var(--pa-green, var(--cf-green));
-  flex-shrink: 0;
 }
 
 .diary-bar-chevron {
@@ -229,6 +259,78 @@ watch(
   margin-top: 0.45rem;
   font-size: 0.72rem;
   color: var(--pa-text-muted, var(--cf-text-muted));
+}
+
+.diary-bar-entries {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--pa-border, var(--cf-border));
+}
+
+.diary-bar-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.diary-bar-entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.diary-bar-entry-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.diary-bar-entry-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--pa-text, var(--cf-text));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diary-bar-entry-kcal {
+  font-size: 0.68rem;
+  color: var(--pa-text-muted, var(--cf-text-muted));
+}
+
+.diary-bar-entry-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.diary-bar-entry-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: #f3f4f3;
+  color: var(--pa-text-muted, var(--cf-text-muted));
+  cursor: pointer;
+}
+
+.diary-bar-entry-btn--danger {
+  color: #dc2626;
+}
+
+.diary-bar-entry-icon {
+  width: 0.9rem;
+  height: 0.9rem;
 }
 
 .diary-bar:not(.diary-bar--collapsible) .diary-bar-title {

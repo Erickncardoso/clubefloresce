@@ -3,30 +3,60 @@ export {}
 declare global {
   const BELLA_ACTIONS: typeof import('../../utils/bella-actions').BELLA_ACTIONS
   const CHECKIN_DEFAULT_STEPS: typeof import('../../utils/checkin-default-steps').CHECKIN_DEFAULT_STEPS
+  const CHECKIN_STEP_TYPE_OPTIONS: typeof import('../../utils/checkin-step-schema').CHECKIN_STEP_TYPE_OPTIONS
+  const CLOUDINARY_VIDEO_MAX_BYTES: typeof import('../../utils/video-upload-limits').CLOUDINARY_VIDEO_MAX_BYTES
   const DEV_MOBILE_API_BASE: typeof import('../../utils/resolve-api-base').DEV_MOBILE_API_BASE
-  const DEV_PANEL_API_BASE: typeof import('../../utils/resolve-api-base').DEV_PANEL_API_BASE
+  const EBOOK_PDF_MAX_BYTES: typeof import('../../utils/upload-file-kind').EBOOK_PDF_MAX_BYTES
+  const EBOOK_PDF_MAX_LABEL: typeof import('../../utils/upload-file-kind').EBOOK_PDF_MAX_LABEL
+  const EBOOK_PDF_UPLOAD_HINT: typeof import('../../utils/upload-file-kind').EBOOK_PDF_UPLOAD_HINT
+  const FOOD_WEEKDAYS: typeof import('../../composables/usePatientGoals').FOOD_WEEKDAYS
+  const PATIENT_ACCESS_EXPIRED_MESSAGE: typeof import('../../utils/patient-access').PATIENT_ACCESS_EXPIRED_MESSAGE
+  const PORTION_MEASURES: typeof import('../../utils/meal-portion-measures').PORTION_MEASURES
   const PROD_API_BASE: typeof import('../../utils/api-env').PROD_API_BASE
   const PROD_API_ORIGIN: typeof import('../../utils/api-env').PROD_API_ORIGIN
   const PROD_APP_HOSTNAMES: typeof import('../../utils/resolve-api-base').PROD_APP_HOSTNAMES
   const PROD_WHATSAPP_API_BASE: typeof import('../../utils/api-env').PROD_WHATSAPP_API_BASE
+  const PWA_INSTALLED_KEY: typeof import('../../utils/pwa-standalone').PWA_INSTALLED_KEY
+  const PWA_UPDATING_KEY: typeof import('../../utils/pwa-standalone').PWA_UPDATING_KEY
+  const RESTAURANT_INTENT_OPTIONS: typeof import('../../utils/bella-restaurant').RESTAURANT_INTENT_OPTIONS
+  const VIDEO_COMPRESS_THRESHOLD_BYTES: typeof import('../../utils/video-upload-limits').VIDEO_COMPRESS_THRESHOLD_BYTES
   const abortNavigation: typeof import('../../node_modules/nuxt/dist/app/composables/router').abortNavigation
   const addRouteMiddleware: typeof import('../../node_modules/nuxt/dist/app/composables/router').addRouteMiddleware
+  const amountToGrams: typeof import('../../utils/meal-portion-measures').amountToGrams
   const apiConnectionErrorMessage: typeof import('../../utils/resolve-api-base').apiConnectionErrorMessage
+  const applyCloudinaryVideoQuality: typeof import('../../utils/cloudinary-video').applyCloudinaryVideoQuality
   const applyFoodMatch: typeof import('../../utils/meal-diary').applyFoodMatch
+  const applyPhoneMask: typeof import('../../utils/phone-countries').applyPhoneMask
+  const assignSlugs: typeof import('../../utils/course-slug').assignSlugs
+  const buildAnswerRows: typeof import('../../utils/checkin-answers').buildAnswerRows
+  const buildChatHandoffFromMessages: typeof import('../../utils/bella-chat-handoff').buildChatHandoffFromMessages
+  const buildFallbackMealSlotOptions: typeof import('../../utils/meal-slot-options').buildFallbackMealSlotOptions
   const buildLessonLocationPath: typeof import('../../utils/video-upload-path').buildLessonLocationPath
+  const buildModuleUrl: typeof import('../../utils/course-slug').buildModuleUrl
+  const buildSeekSpritePageUrl: typeof import('../../utils/bunny-seek-thumbnails').buildSeekSpritePageUrl
+  const buildSeekThumbnailImageStyle: typeof import('../../utils/bunny-seek-thumbnails').buildSeekThumbnailImageStyle
+  const buildSeekThumbnailStyle: typeof import('../../utils/bunny-seek-thumbnails').buildSeekThumbnailStyle
+  const buildStepPayload: typeof import('../../utils/checkin-step-schema').buildStepPayload
+  const buildStepPreviewPayload: typeof import('../../utils/checkin-step-schema').buildStepPreviewPayload
   const callOnce: typeof import('../../node_modules/nuxt/dist/app/composables/once').callOnce
   const cancelIdleCallback: typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback').cancelIdleCallback
+  const captureVideoThumbnail: typeof import('../../utils/video-thumbnail').captureVideoThumbnail
   const clearError: typeof import('../../node_modules/nuxt/dist/app/composables/error').clearError
   const clearNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').clearNuxtData
   const clearNuxtState: typeof import('../../node_modules/nuxt/dist/app/composables/state').clearNuxtState
+  const clearPwaUpdating: typeof import('../../utils/pwa-standalone').clearPwaUpdating
   const closeAllTileActionMenus: typeof import('../../composables/useTileActionsMenu').closeAllTileActionMenus
   const computed: typeof import('vue').computed
+  const consumeBellaChatHandoff: typeof import('../../utils/bella-chat-handoff').consumeBellaChatHandoff
   const countCourseLessons: typeof import('../../utils/course-tile').countCourseLessons
   const createError: typeof import('../../node_modules/nuxt/dist/app/composables/error').createError
   const createLessonNote: typeof import('../../utils/lesson-notes').createLessonNote
   const createMealItem: typeof import('../../utils/meal-diary').createMealItem
   const createMealItemId: typeof import('../../utils/meal-diary').createMealItemId
+  const createPortionState: typeof import('../../utils/meal-portion-measures').createPortionState
   const customRef: typeof import('vue').customRef
+  const defaultEditorStep: typeof import('../../utils/checkin-step-schema').defaultEditorStep
+  const defaultPhoneCountry: typeof import('../../utils/phone-countries').defaultPhoneCountry
   const defineAppConfig: typeof import('../../node_modules/nuxt/dist/app/nuxt').defineAppConfig
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
   const defineComponent: typeof import('vue').defineComponent
@@ -39,62 +69,145 @@ declare global {
   const definePayloadPlugin: typeof import('../../node_modules/nuxt/dist/app/nuxt').definePayloadPlugin
   const definePayloadReducer: typeof import('../../node_modules/nuxt/dist/app/composables/payload').definePayloadReducer
   const definePayloadReviver: typeof import('../../node_modules/nuxt/dist/app/composables/payload').definePayloadReviver
+  const digitsOnly: typeof import('../../utils/phone-countries').digitsOnly
+  const editorStepFromApi: typeof import('../../utils/checkin-step-schema').editorStepFromApi
   const effect: typeof import('vue').effect
   const effectScope: typeof import('vue').effectScope
+  const ensurePwaDevSwPlaceholder: typeof import('../../utils/mirror-pwa-dev-sw').ensurePwaDevSwPlaceholder
+  const fetchUploadConfig: typeof import('../../composables/useUploadConfig').fetchUploadConfig
+  const fetchVideoUploadSignature: typeof import('../../utils/cloudinary-video-upload').fetchVideoUploadSignature
+  const findActiveRestaurantIntentMessage: typeof import('../../utils/bella-restaurant').findActiveRestaurantIntentMessage
+  const findActiveSwapMessage: typeof import('../../utils/bella-swap').findActiveSwapMessage
+  const findLastUserQuestion: typeof import('../../utils/bella-chat-handoff').findLastUserQuestion
+  const findLatestCompletedSwapMessage: typeof import('../../utils/bella-swap').findLatestCompletedSwapMessage
+  const findLessonBySlug: typeof import('../../utils/course-slug').findLessonBySlug
+  const findModuleBySlug: typeof import('../../utils/course-slug').findModuleBySlug
+  const findRecentUserImageUrl: typeof import('../../utils/bella-chat-handoff').findRecentUserImageUrl
   const fixWindowsVitePaths: typeof import('../../utils/fix-windows-vite-paths').fixWindowsVitePaths
   const flattenTranscriptionChunks: typeof import('../../utils/transcription').flattenTranscriptionChunks
   const formatBellaMarkdown: typeof import('../../utils/bella-message-format').formatBellaMarkdown
+  const formatCheckinAnswer: typeof import('../../utils/checkin-answers').formatCheckinAnswer
+  const formatCheckinPeriod: typeof import('../../utils/checkin-answers').formatCheckinPeriod
   const formatCloudinaryVideoPath: typeof import('../../utils/video-upload-path').formatCloudinaryVideoPath
+  const formatDocumentMaxLabel: typeof import('../../composables/useUploadConfig').formatDocumentMaxLabel
   const formatLessonCount: typeof import('../../utils/course-tile').formatLessonCount
+  const formatLessonSummaryHtml: typeof import('../../utils/lesson-summary-format').formatLessonSummaryHtml
   const formatMealItemLabel: typeof import('../../utils/meal-plan-format').formatMealItemLabel
   const formatMealItemsLabels: typeof import('../../utils/meal-plan-format').formatMealItemsLabels
+  const formatMeasureHint: typeof import('../../utils/meal-portion-measures').formatMeasureHint
   const formatModuleCount: typeof import('../../utils/course-tile').formatModuleCount
+  const formatNationalPhone: typeof import('../../utils/phone-countries').formatNationalPhone
   const formatNoteTime: typeof import('../../utils/lesson-notes').formatNoteTime
+  const formatNotificationTime: typeof import('../../composables/usePatientNotifications').formatNotificationTime
+  const formatPatientDateLabel: typeof import('../../utils/local-date').formatPatientDateLabel
+  const formatTranscriptionDisplayTime: typeof import('../../utils/transcription').formatTranscriptionDisplayTime
+  const getActiveCaptionCue: typeof import('../../utils/transcription').getActiveCaptionCue
   const getAppManifest: typeof import('../../node_modules/nuxt/dist/app/composables/manifest').getAppManifest
+  const getBaseCloudinaryVideoUrl: typeof import('../../utils/cloudinary-video').getBaseCloudinaryVideoUrl
+  const getBunnyStreamCaptionCandidates: typeof import('../../utils/bunny-video').getBunnyStreamCaptionCandidates
+  const getBunnyStreamCaptionUrl: typeof import('../../utils/bunny-video').getBunnyStreamCaptionUrl
+  const getBunnyStreamHlsUrl: typeof import('../../utils/bunny-video').getBunnyStreamHlsUrl
+  const getBunnyStreamMp4Url: typeof import('../../utils/bunny-video').getBunnyStreamMp4Url
+  const getCachedUploadConfig: typeof import('../../composables/useUploadConfig').getCachedUploadConfig
+  const getChapterAtTime: typeof import('../../utils/bunny-seek-thumbnails').getChapterAtTime
   const getCloudinaryCaptionUrl: typeof import('../../utils/cloudinary-video').getCloudinaryCaptionUrl
+  const getCloudinaryHlsUrl: typeof import('../../utils/cloudinary-video').getCloudinaryHlsUrl
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
+  const getFetchErrorMessage: typeof import('../../utils/patient-access').getFetchErrorMessage
+  const getLessonSlug: typeof import('../../utils/course-slug').getLessonSlug
   const getLocalDateKey: typeof import('../../utils/local-date').getLocalDateKey
   const getLocalTimeParts: typeof import('../../utils/local-date').getLocalTimeParts
   const getMealIdForTimeFromMeals: typeof import('../../utils/meal-plan-time').getMealIdForTimeFromMeals
   const getMessageAttachment: typeof import('../../utils/bella-message-format').getMessageAttachment
   const getMessageDisplayText: typeof import('../../utils/bella-message-format').getMessageDisplayText
+  const getModuleSlug: typeof import('../../utils/course-slug').getModuleSlug
+  const getNotificationGroup: typeof import('../../composables/usePatientNotifications').getNotificationGroup
   const getPatientScrollRoot: typeof import('../../composables/useVerticalWheelPassthrough').getPatientScrollRoot
   const getPatientTimeZone: typeof import('../../utils/local-date').getPatientTimeZone
+  const getQualityTargetHeight: typeof import('../../utils/cloudinary-video').getQualityTargetHeight
+  const getRestaurantIntentRelatedUserMessageId: typeof import('../../utils/bella-restaurant').getRestaurantIntentRelatedUserMessageId
+  const getRestaurantMessageMeta: typeof import('../../utils/bella-restaurant').getRestaurantMessageMeta
   const getRouteRules: typeof import('../../node_modules/nuxt/dist/app/composables/manifest').getRouteRules
+  const getSeekFrameHeight: typeof import('../../utils/bunny-seek-thumbnails').getSeekFrameHeight
+  const getSeekThumbnailAtTime: typeof import('../../utils/bunny-seek-thumbnails').getSeekThumbnailAtTime
+  const getSwapMessageMeta: typeof import('../../utils/bella-swap').getSwapMessageMeta
+  const getSwapOptions: typeof import('../../utils/bella-swap').getSwapOptions
+  const getTranscriptionDisplayLines: typeof import('../../utils/transcription').getTranscriptionDisplayLines
+  const getTranscriptionLineState: typeof import('../../utils/transcription').getTranscriptionLineState
   const getUserMessageImageUrl: typeof import('../../utils/bella-message-format').getUserMessageImageUrl
+  const getVideoCaptionCandidates: typeof import('../../utils/video-provider').getVideoCaptionCandidates
+  const getVideoCaptionUrl: typeof import('../../utils/video-provider').getVideoCaptionUrl
+  const getVideoProvider: typeof import('../../utils/video-provider').getVideoProvider
+  const gramsToAmount: typeof import('../../utils/meal-portion-measures').gramsToAmount
+  const guessGramsPerUnit: typeof import('../../utils/meal-portion-measures').guessGramsPerUnit
   const h: typeof import('vue').h
+  const hasActiveRestaurantIntent: typeof import('../../utils/bella-restaurant').hasActiveRestaurantIntent
+  const hasActiveSwapMode: typeof import('../../utils/bella-swap').hasActiveSwapMode
+  const hasActiveSwapSelection: typeof import('../../utils/bella-swap').hasActiveSwapSelection
   const hasInjectionContext: typeof import('vue').hasInjectionContext
+  const hasInstalledPwa: typeof import('../../utils/pwa-standalone').hasInstalledPwa
+  const hasLessonSummaryContent: typeof import('../../utils/lesson-summary-format').hasLessonSummaryContent
+  const heightToQualityLabel: typeof import('../../utils/cloudinary-video').heightToQualityLabel
   const inferCourseTopic: typeof import('../../utils/course-tile').inferCourseTopic
   const inject: typeof import('vue').inject
   const injectHead: typeof import('../../node_modules/nuxt/dist/app/composables/head').injectHead
   const isApiConnectionError: typeof import('../../utils/resolve-api-base').isApiConnectionError
+  const isBunnyStorageFileUrl: typeof import('../../utils/bunny-video').isBunnyStorageFileUrl
+  const isBunnyStreamVideoUrl: typeof import('../../utils/bunny-video').isBunnyStreamVideoUrl
+  const isCloudinarySizeError: typeof import('../../utils/video-upload-limits').isCloudinarySizeError
   const isCloudinaryVideoUrl: typeof import('../../utils/cloudinary-video').isCloudinaryVideoUrl
+  const isCompletedSwapMessage: typeof import('../../utils/bella-swap').isCompletedSwapMessage
+  const isItemCounted: typeof import('../../utils/meal-diary').isItemCounted
   const isLocalHostname: typeof import('../../utils/resolve-api-base').isLocalHostname
+  const isManagedVideoUrl: typeof import('../../utils/video-provider').isManagedVideoUrl
   const isNuxtError: typeof import('../../node_modules/nuxt/dist/app/composables/error').isNuxtError
+  const isPatientAccessBlockedError: typeof import('../../utils/patient-access').isPatientAccessBlockedError
+  const isPatientAccessBlockedMessage: typeof import('../../utils/patient-access').isPatientAccessBlockedMessage
+  const isPatientAccessExpired: typeof import('../../utils/patient-access').isPatientAccessExpired
+  const isPdfFile: typeof import('../../utils/upload-file-kind').isPdfFile
   const isPrerendered: typeof import('../../node_modules/nuxt/dist/app/composables/payload').isPrerendered
+  const isPrivateLanHostname: typeof import('../../utils/resolve-api-base').isPrivateLanHostname
   const isProdAppHostname: typeof import('../../utils/resolve-api-base').isProdAppHostname
   const isProxy: typeof import('vue').isProxy
+  const isPushSecureContext: typeof import('../../utils/resolve-api-base').isPushSecureContext
+  const isPwaInstalledPersisted: typeof import('../../utils/pwa-standalone').isPwaInstalledPersisted
+  const isPwaUpdating: typeof import('../../utils/pwa-standalone').isPwaUpdating
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
   const isShallow: typeof import('vue').isShallow
+  const isStandalonePwa: typeof import('../../utils/pwa-standalone').isStandalonePwa
   const isTranscriptionChunkActive: typeof import('../../utils/transcription').isTranscriptionChunkActive
+  const isUuid: typeof import('../../utils/course-slug').isUuid
+  const isVideoFile: typeof import('../../utils/upload-file-kind').isVideoFile
   const isVue2: typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi').isVue2
   const isVue3: typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi').isVue3
   const loadLessonNotes: typeof import('../../utils/lesson-notes').loadLessonNotes
   const loadPayload: typeof import('../../node_modules/nuxt/dist/app/composables/payload').loadPayload
+  const lockPatientScroll: typeof import('../../composables/useVerticalWheelPassthrough').lockPatientScroll
+  const looksLikeRecipe: typeof import('../../utils/meal-portion-measures').looksLikeRecipe
   const macrosForFoodRecord: typeof import('../../utils/food-bank').macrosForFoodRecord
   const mapCourseToTile: typeof import('../../utils/course-tile').mapCourseToTile
   const mapEbookToTile: typeof import('../../utils/course-tile').mapEbookToTile
   const mapFoodItemFromApi: typeof import('../../utils/food-bank').mapFoodItemFromApi
+  const mapNotificationItem: typeof import('../../composables/usePatientNotifications').mapNotificationItem
+  const markPwaInstalled: typeof import('../../utils/pwa-standalone').markPwaInstalled
+  const markPwaUpdating: typeof import('../../utils/pwa-standalone').markPwaUpdating
   const markRaw: typeof import('vue').markRaw
   const mealTypeLabel: typeof import('../../utils/meal-diary').mealTypeLabel
+  const mirrorPwaDevSwDist: typeof import('../../utils/mirror-pwa-dev-sw').mirrorPwaDevSwDist
   const navigateBellaAction: typeof import('../../utils/bella-actions').navigateBellaAction
   const navigateTo: typeof import('../../node_modules/nuxt/dist/app/composables/router').navigateTo
+  const needsServerCompression: typeof import('../../utils/video-upload-limits').needsServerCompression
   const nextTick: typeof import('vue').nextTick
+  const normalizeDocumentUrl: typeof import('../../composables/usePatientDocument').normalizeDocumentUrl
+  const normalizeFileUploadError: typeof import('../../utils/resolve-api-base').normalizeFileUploadError
+  const normalizeFlowStep: typeof import('../../utils/checkin-step-schema').normalizeFlowStep
   const normalizeItemFromAi: typeof import('../../utils/meal-diary').normalizeItemFromAi
   const normalizeMealItemsForSave: typeof import('../../utils/meal-diary').normalizeMealItemsForSave
+  const normalizeUploadError: typeof import('../../utils/resolve-api-base').normalizeUploadError
+  const normalizeVideoUploadError: typeof import('../../utils/resolve-api-base').normalizeVideoUploadError
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount
   const onBeforeRouteLeave: typeof import('vue-router').onBeforeRouteLeave
@@ -113,9 +226,16 @@ declare global {
   const onUnmounted: typeof import('vue').onUnmounted
   const onUpdated: typeof import('vue').onUpdated
   const onWatcherCleanup: typeof import('vue').onWatcherCleanup
+  const openPatientCourse: typeof import('../../utils/open-patient-course').openPatientCourse
+  const parseBunnyStreamVideoId: typeof import('../../utils/bunny-video').parseBunnyStreamVideoId
   const parseCloudinaryVideoUrl: typeof import('../../utils/cloudinary-video').parseCloudinaryVideoUrl
+  const parseDocumentSrcQuery: typeof import('../../composables/usePatientDocument').parseDocumentSrcQuery
+  const parseInternationalPhone: typeof import('../../utils/phone-countries').parseInternationalPhone
   const parseMealTimeToMinutes: typeof import('../../utils/meal-plan-time').parseMealTimeToMinutes
   const parseTranscriptionTimeToSeconds: typeof import('../../utils/cloudinary-video').parseTranscriptionTimeToSeconds
+  const parseVttToCaptionCues: typeof import('../../utils/transcription').parseVttToCaptionCues
+  const phoneCountries: typeof import('../../utils/phone-countries').phoneCountries
+  const pickMealIcon: typeof import('../../utils/meal-slot-options').pickMealIcon
   const prefetchComponents: typeof import('../../node_modules/nuxt/dist/app/composables/preload').prefetchComponents
   const preloadComponents: typeof import('../../node_modules/nuxt/dist/app/composables/preload').preloadComponents
   const preloadPayload: typeof import('../../node_modules/nuxt/dist/app/composables/payload').preloadPayload
@@ -129,14 +249,24 @@ declare global {
   const refreshCookie: typeof import('../../node_modules/nuxt/dist/app/composables/cookie').refreshCookie
   const refreshNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').refreshNuxtData
   const reloadNuxtApp: typeof import('../../node_modules/nuxt/dist/app/composables/chunk').reloadNuxtApp
+  const reloadPwaInPlace: typeof import('../../utils/pwa-standalone').reloadPwaInPlace
   const requestIdleCallback: typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback').requestIdleCallback
   const resolveApiBaseAtBuild: typeof import('../../utils/resolve-api-base').resolveApiBaseAtBuild
   const resolveApiBaseAtRuntime: typeof import('../../utils/resolve-api-base').resolveApiBaseAtRuntime
   const resolveComponent: typeof import('vue').resolveComponent
+  const resolveDirectApiUrl: typeof import('../../utils/resolve-api-base').resolveDirectApiUrl
+  const resolveDocumentSrcFromRoute: typeof import('../../composables/usePatientDocument').resolveDocumentSrcFromRoute
+  const resolvePatientCoursePlayerUrl: typeof import('../../utils/open-patient-course').resolvePatientCoursePlayerUrl
+  const resolveTileCoverUrl: typeof import('../../utils/media-cover').resolveTileCoverUrl
+  const resolveUploadApiUrl: typeof import('../../utils/resolve-api-base').resolveUploadApiUrl
   const resolveVideoUploadEndpoint: typeof import('../../utils/video-upload-endpoint').resolveVideoUploadEndpoint
+  const revokeThumbnailUrl: typeof import('../../utils/video-thumbnail').revokeThumbnailUrl
   const roundMacro: typeof import('../../utils/meal-diary').roundMacro
+  const sanitizeUserFacingError: typeof import('../../utils/resolve-api-base').sanitizeUserFacingError
+  const saveBellaChatHandoff: typeof import('../../utils/bella-chat-handoff').saveBellaChatHandoff
   const saveLessonNotes: typeof import('../../utils/lesson-notes').saveLessonNotes
   const scaleMealItem: typeof import('../../utils/meal-diary').scaleMealItem
+  const scoreFromTemplateAnswers: typeof import('../../utils/checkin-answers').scoreFromTemplateAnswers
   const scrollPatientPageBy: typeof import('../../composables/useVerticalWheelPassthrough').scrollPatientPageBy
   const setInterval: typeof import('../../node_modules/nuxt/dist/app/compat/interval').setInterval
   const setPageLayout: typeof import('../../node_modules/nuxt/dist/app/composables/router').setPageLayout
@@ -145,18 +275,29 @@ declare global {
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
   const shouldShowUserMessageText: typeof import('../../utils/bella-message-format').shouldShowUserMessageText
+  const shouldUseBackendVideoUpload: typeof import('../../utils/video-provider').shouldUseBackendVideoUpload
   const showError: typeof import('../../node_modules/nuxt/dist/app/composables/error').showError
+  const slugify: typeof import('../../utils/course-slug').slugify
   const splitMealItemDisplay: typeof import('../../utils/meal-item-display').splitMealItemDisplay
+  const storePdfBytes: typeof import('../../utils/pdf-bytes').storePdfBytes
+  const stripUncountedMacros: typeof import('../../utils/meal-diary').stripUncountedMacros
   const sumMealItems: typeof import('../../utils/meal-diary').sumMealItems
+  const summarizeCheckinAnswers: typeof import('../../utils/checkin-answers').summarizeCheckinAnswers
+  const toInternationalPhone: typeof import('../../utils/phone-countries').toInternationalPhone
+  const toPdfByteArray: typeof import('../../utils/pdf-bytes').toPdfByteArray
   const toRaw: typeof import('vue').toRaw
   const toRef: typeof import('vue').toRef
   const toRefs: typeof import('vue').toRefs
   const toValue: typeof import('vue').toValue
   const topicToTone: typeof import('../../utils/course-tile').topicToTone
+  const transcriptionToCaptionCues: typeof import('../../utils/transcription').transcriptionToCaptionCues
   const triggerRef: typeof import('vue').triggerRef
   const tryUseNuxtApp: typeof import('../../node_modules/nuxt/dist/app/nuxt').tryUseNuxtApp
+  const unlockPatientScroll: typeof import('../../composables/useVerticalWheelPassthrough').unlockPatientScroll
   const unref: typeof import('vue').unref
   const updateAppConfig: typeof import('../../node_modules/nuxt/dist/app/config').updateAppConfig
+  const uploadVideoToCloudinary: typeof import('../../utils/cloudinary-video-upload').uploadVideoToCloudinary
+  const uploadVideoToCloudinaryWithRetry: typeof import('../../utils/cloudinary-video-upload').uploadVideoToCloudinaryWithRetry
   const useApiBase: typeof import('../../composables/useApiBase').useApiBase
   const useAppConfig: typeof import('../../node_modules/nuxt/dist/app/config').useAppConfig
   const useAppToast: typeof import('../../composables/useAppToast').useAppToast
@@ -164,15 +305,18 @@ declare global {
   const useAppleSplashScreenPwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useAppleSplashScreenPwaIcon
   const useAsyncData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').useAsyncData
   const useAttrs: typeof import('vue').useAttrs
+  const useConfetti: typeof import('../../composables/useConfetti').useConfetti
   const useConfirm: typeof import('../../composables/useConfirm').useConfirm
   const useCookie: typeof import('../../node_modules/nuxt/dist/app/composables/cookie').useCookie
   const useCssModule: typeof import('vue').useCssModule
   const useCssVars: typeof import('vue').useCssVars
   const useDietaProgress: typeof import('../../composables/useDietaProgress').useDietaProgress
+  const useDocumentUploadLimits: typeof import('../../composables/useUploadConfig').useDocumentUploadLimits
   const useError: typeof import('../../node_modules/nuxt/dist/app/composables/error').useError
   const useFaviconPwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useFaviconPwaIcon
   const useFetch: typeof import('../../node_modules/nuxt/dist/app/composables/fetch').useFetch
   const useFoodBank: typeof import('../../composables/useFoodBank').useFoodBank
+  const useFoodSubstitution: typeof import('../../composables/useFoodSubstitution').useFoodSubstitution
   const useHead: typeof import('../../node_modules/nuxt/dist/app/composables/head').useHead
   const useHeadSafe: typeof import('../../node_modules/nuxt/dist/app/composables/head').useHeadSafe
   const useHydration: typeof import('../../node_modules/nuxt/dist/app/composables/hydrate').useHydration
@@ -191,10 +335,18 @@ declare global {
   const usePWA: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').usePWA
   const usePatientApp: typeof import('../../composables/usePatientApp').usePatientApp
   const usePatientAuth: typeof import('../../composables/usePatientAuth').usePatientAuth
+  const usePatientDocument: typeof import('../../composables/usePatientDocument').usePatientDocument
+  const usePatientGoals: typeof import('../../composables/usePatientGoals').usePatientGoals
   const usePatientHorizontalWheelBridge: typeof import('../../composables/useVerticalWheelPassthrough').usePatientHorizontalWheelBridge
   const usePatientLocalTime: typeof import('../../composables/usePatientLocalTime').usePatientLocalTime
   const usePatientMealPlan: typeof import('../../composables/usePatientMealPlan').usePatientMealPlan
+  const usePatientNavigationLoading: typeof import('../../composables/usePatientNavigationLoading').usePatientNavigationLoading
+  const usePatientNotifications: typeof import('../../composables/usePatientNotifications').usePatientNotifications
+  const usePatientOnboarding: typeof import('../../composables/usePatientOnboarding').usePatientOnboarding
+  const usePatientScrollLock: typeof import('../../composables/useVerticalWheelPassthrough').usePatientScrollLock
+  const usePatientTabBar: typeof import('../../composables/usePatientTabBar').usePatientTabBar
   const usePreviewMode: typeof import('../../node_modules/nuxt/dist/app/composables/preview').usePreviewMode
+  const usePushNotifications: typeof import('../../composables/usePushNotifications').usePushNotifications
   const useRequestEvent: typeof import('../../node_modules/nuxt/dist/app/composables/ssr').useRequestEvent
   const useRequestFetch: typeof import('../../node_modules/nuxt/dist/app/composables/ssr').useRequestFetch
   const useRequestHeader: typeof import('../../node_modules/nuxt/dist/app/composables/ssr').useRequestHeader
@@ -248,6 +400,9 @@ declare global {
   const useTransitionState: typeof import('vue').useTransitionState
   const useTransparentPwaIcon: typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index').useTransparentPwaIcon
   const useVerticalWheelPassthrough: typeof import('../../composables/useVerticalWheelPassthrough').useVerticalWheelPassthrough
+  const useVideoUploadQueue: typeof import('../../composables/useVideoUploadQueue').useVideoUploadQueue
+  const useVirtualKeyboard: typeof import('../../composables/useVirtualKeyboard').useVirtualKeyboard
+  const useWeeklyCheckInPrompt: typeof import('../../composables/useWeeklyCheckInPrompt').useWeeklyCheckInPrompt
   const watch: typeof import('vue').watch
   const watchEffect: typeof import('vue').watchEffect
   const watchPostEffect: typeof import('vue').watchPostEffect
@@ -268,13 +423,19 @@ declare global {
   export type { PatientProfile } from '../../composables/usePatientApp'
   import('../../composables/usePatientApp')
   // @ts-ignore
-  export type { CloudinaryVideoRef } from '../../utils/cloudinary-video'
+  export type { GoalFrequency, PatientGoal } from '../../composables/usePatientGoals'
+  import('../../composables/usePatientGoals')
+  // @ts-ignore
+  export type { PatientGender, PatientPrimaryGoal, PatientWorkoutsPerWeek, PatientProfileData, PatientProfileResponse } from '../../composables/usePatientOnboarding'
+  import('../../composables/usePatientOnboarding')
+  // @ts-ignore
+  export type { CloudinaryVideoRef, VideoQualityPreset } from '../../utils/cloudinary-video'
   import('../../utils/cloudinary-video')
   // @ts-ignore
   export type { LessonNote } from '../../utils/lesson-notes'
   import('../../utils/lesson-notes')
   // @ts-ignore
-  export type { TranscriptionChunk } from '../../utils/transcription'
+  export type { CaptionCue, TranscriptionChunk } from '../../utils/transcription'
   import('../../utils/transcription')
 }
 // for vue template auto import
@@ -283,30 +444,60 @@ declare module 'vue' {
   interface ComponentCustomProperties {
     readonly BELLA_ACTIONS: UnwrapRef<typeof import('../../utils/bella-actions')['BELLA_ACTIONS']>
     readonly CHECKIN_DEFAULT_STEPS: UnwrapRef<typeof import('../../utils/checkin-default-steps')['CHECKIN_DEFAULT_STEPS']>
+    readonly CHECKIN_STEP_TYPE_OPTIONS: UnwrapRef<typeof import('../../utils/checkin-step-schema')['CHECKIN_STEP_TYPE_OPTIONS']>
+    readonly CLOUDINARY_VIDEO_MAX_BYTES: UnwrapRef<typeof import('../../utils/video-upload-limits')['CLOUDINARY_VIDEO_MAX_BYTES']>
     readonly DEV_MOBILE_API_BASE: UnwrapRef<typeof import('../../utils/resolve-api-base')['DEV_MOBILE_API_BASE']>
-    readonly DEV_PANEL_API_BASE: UnwrapRef<typeof import('../../utils/resolve-api-base')['DEV_PANEL_API_BASE']>
+    readonly EBOOK_PDF_MAX_BYTES: UnwrapRef<typeof import('../../utils/upload-file-kind')['EBOOK_PDF_MAX_BYTES']>
+    readonly EBOOK_PDF_MAX_LABEL: UnwrapRef<typeof import('../../utils/upload-file-kind')['EBOOK_PDF_MAX_LABEL']>
+    readonly EBOOK_PDF_UPLOAD_HINT: UnwrapRef<typeof import('../../utils/upload-file-kind')['EBOOK_PDF_UPLOAD_HINT']>
+    readonly FOOD_WEEKDAYS: UnwrapRef<typeof import('../../composables/usePatientGoals')['FOOD_WEEKDAYS']>
+    readonly PATIENT_ACCESS_EXPIRED_MESSAGE: UnwrapRef<typeof import('../../utils/patient-access')['PATIENT_ACCESS_EXPIRED_MESSAGE']>
+    readonly PORTION_MEASURES: UnwrapRef<typeof import('../../utils/meal-portion-measures')['PORTION_MEASURES']>
     readonly PROD_API_BASE: UnwrapRef<typeof import('../../utils/api-env')['PROD_API_BASE']>
     readonly PROD_API_ORIGIN: UnwrapRef<typeof import('../../utils/api-env')['PROD_API_ORIGIN']>
     readonly PROD_APP_HOSTNAMES: UnwrapRef<typeof import('../../utils/resolve-api-base')['PROD_APP_HOSTNAMES']>
     readonly PROD_WHATSAPP_API_BASE: UnwrapRef<typeof import('../../utils/api-env')['PROD_WHATSAPP_API_BASE']>
+    readonly PWA_INSTALLED_KEY: UnwrapRef<typeof import('../../utils/pwa-standalone')['PWA_INSTALLED_KEY']>
+    readonly PWA_UPDATING_KEY: UnwrapRef<typeof import('../../utils/pwa-standalone')['PWA_UPDATING_KEY']>
+    readonly RESTAURANT_INTENT_OPTIONS: UnwrapRef<typeof import('../../utils/bella-restaurant')['RESTAURANT_INTENT_OPTIONS']>
+    readonly VIDEO_COMPRESS_THRESHOLD_BYTES: UnwrapRef<typeof import('../../utils/video-upload-limits')['VIDEO_COMPRESS_THRESHOLD_BYTES']>
     readonly abortNavigation: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['abortNavigation']>
     readonly addRouteMiddleware: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['addRouteMiddleware']>
+    readonly amountToGrams: UnwrapRef<typeof import('../../utils/meal-portion-measures')['amountToGrams']>
     readonly apiConnectionErrorMessage: UnwrapRef<typeof import('../../utils/resolve-api-base')['apiConnectionErrorMessage']>
+    readonly applyCloudinaryVideoQuality: UnwrapRef<typeof import('../../utils/cloudinary-video')['applyCloudinaryVideoQuality']>
     readonly applyFoodMatch: UnwrapRef<typeof import('../../utils/meal-diary')['applyFoodMatch']>
+    readonly applyPhoneMask: UnwrapRef<typeof import('../../utils/phone-countries')['applyPhoneMask']>
+    readonly assignSlugs: UnwrapRef<typeof import('../../utils/course-slug')['assignSlugs']>
+    readonly buildAnswerRows: UnwrapRef<typeof import('../../utils/checkin-answers')['buildAnswerRows']>
+    readonly buildChatHandoffFromMessages: UnwrapRef<typeof import('../../utils/bella-chat-handoff')['buildChatHandoffFromMessages']>
+    readonly buildFallbackMealSlotOptions: UnwrapRef<typeof import('../../utils/meal-slot-options')['buildFallbackMealSlotOptions']>
     readonly buildLessonLocationPath: UnwrapRef<typeof import('../../utils/video-upload-path')['buildLessonLocationPath']>
+    readonly buildModuleUrl: UnwrapRef<typeof import('../../utils/course-slug')['buildModuleUrl']>
+    readonly buildSeekSpritePageUrl: UnwrapRef<typeof import('../../utils/bunny-seek-thumbnails')['buildSeekSpritePageUrl']>
+    readonly buildSeekThumbnailImageStyle: UnwrapRef<typeof import('../../utils/bunny-seek-thumbnails')['buildSeekThumbnailImageStyle']>
+    readonly buildSeekThumbnailStyle: UnwrapRef<typeof import('../../utils/bunny-seek-thumbnails')['buildSeekThumbnailStyle']>
+    readonly buildStepPayload: UnwrapRef<typeof import('../../utils/checkin-step-schema')['buildStepPayload']>
+    readonly buildStepPreviewPayload: UnwrapRef<typeof import('../../utils/checkin-step-schema')['buildStepPreviewPayload']>
     readonly callOnce: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/once')['callOnce']>
     readonly cancelIdleCallback: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback')['cancelIdleCallback']>
+    readonly captureVideoThumbnail: UnwrapRef<typeof import('../../utils/video-thumbnail')['captureVideoThumbnail']>
     readonly clearError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['clearError']>
     readonly clearNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['clearNuxtData']>
     readonly clearNuxtState: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/state')['clearNuxtState']>
+    readonly clearPwaUpdating: UnwrapRef<typeof import('../../utils/pwa-standalone')['clearPwaUpdating']>
     readonly closeAllTileActionMenus: UnwrapRef<typeof import('../../composables/useTileActionsMenu')['closeAllTileActionMenus']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
+    readonly consumeBellaChatHandoff: UnwrapRef<typeof import('../../utils/bella-chat-handoff')['consumeBellaChatHandoff']>
     readonly countCourseLessons: UnwrapRef<typeof import('../../utils/course-tile')['countCourseLessons']>
     readonly createError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['createError']>
     readonly createLessonNote: UnwrapRef<typeof import('../../utils/lesson-notes')['createLessonNote']>
     readonly createMealItem: UnwrapRef<typeof import('../../utils/meal-diary')['createMealItem']>
     readonly createMealItemId: UnwrapRef<typeof import('../../utils/meal-diary')['createMealItemId']>
+    readonly createPortionState: UnwrapRef<typeof import('../../utils/meal-portion-measures')['createPortionState']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
+    readonly defaultEditorStep: UnwrapRef<typeof import('../../utils/checkin-step-schema')['defaultEditorStep']>
+    readonly defaultPhoneCountry: UnwrapRef<typeof import('../../utils/phone-countries')['defaultPhoneCountry']>
     readonly defineAppConfig: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/nuxt')['defineAppConfig']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
@@ -319,62 +510,145 @@ declare module 'vue' {
     readonly definePayloadPlugin: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/nuxt')['definePayloadPlugin']>
     readonly definePayloadReducer: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['definePayloadReducer']>
     readonly definePayloadReviver: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['definePayloadReviver']>
+    readonly digitsOnly: UnwrapRef<typeof import('../../utils/phone-countries')['digitsOnly']>
+    readonly editorStepFromApi: UnwrapRef<typeof import('../../utils/checkin-step-schema')['editorStepFromApi']>
     readonly effect: UnwrapRef<typeof import('vue')['effect']>
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
+    readonly ensurePwaDevSwPlaceholder: UnwrapRef<typeof import('../../utils/mirror-pwa-dev-sw')['ensurePwaDevSwPlaceholder']>
+    readonly fetchUploadConfig: UnwrapRef<typeof import('../../composables/useUploadConfig')['fetchUploadConfig']>
+    readonly fetchVideoUploadSignature: UnwrapRef<typeof import('../../utils/cloudinary-video-upload')['fetchVideoUploadSignature']>
+    readonly findActiveRestaurantIntentMessage: UnwrapRef<typeof import('../../utils/bella-restaurant')['findActiveRestaurantIntentMessage']>
+    readonly findActiveSwapMessage: UnwrapRef<typeof import('../../utils/bella-swap')['findActiveSwapMessage']>
+    readonly findLastUserQuestion: UnwrapRef<typeof import('../../utils/bella-chat-handoff')['findLastUserQuestion']>
+    readonly findLatestCompletedSwapMessage: UnwrapRef<typeof import('../../utils/bella-swap')['findLatestCompletedSwapMessage']>
+    readonly findLessonBySlug: UnwrapRef<typeof import('../../utils/course-slug')['findLessonBySlug']>
+    readonly findModuleBySlug: UnwrapRef<typeof import('../../utils/course-slug')['findModuleBySlug']>
+    readonly findRecentUserImageUrl: UnwrapRef<typeof import('../../utils/bella-chat-handoff')['findRecentUserImageUrl']>
     readonly fixWindowsVitePaths: UnwrapRef<typeof import('../../utils/fix-windows-vite-paths')['fixWindowsVitePaths']>
     readonly flattenTranscriptionChunks: UnwrapRef<typeof import('../../utils/transcription')['flattenTranscriptionChunks']>
     readonly formatBellaMarkdown: UnwrapRef<typeof import('../../utils/bella-message-format')['formatBellaMarkdown']>
+    readonly formatCheckinAnswer: UnwrapRef<typeof import('../../utils/checkin-answers')['formatCheckinAnswer']>
+    readonly formatCheckinPeriod: UnwrapRef<typeof import('../../utils/checkin-answers')['formatCheckinPeriod']>
     readonly formatCloudinaryVideoPath: UnwrapRef<typeof import('../../utils/video-upload-path')['formatCloudinaryVideoPath']>
+    readonly formatDocumentMaxLabel: UnwrapRef<typeof import('../../composables/useUploadConfig')['formatDocumentMaxLabel']>
     readonly formatLessonCount: UnwrapRef<typeof import('../../utils/course-tile')['formatLessonCount']>
+    readonly formatLessonSummaryHtml: UnwrapRef<typeof import('../../utils/lesson-summary-format')['formatLessonSummaryHtml']>
     readonly formatMealItemLabel: UnwrapRef<typeof import('../../utils/meal-plan-format')['formatMealItemLabel']>
     readonly formatMealItemsLabels: UnwrapRef<typeof import('../../utils/meal-plan-format')['formatMealItemsLabels']>
+    readonly formatMeasureHint: UnwrapRef<typeof import('../../utils/meal-portion-measures')['formatMeasureHint']>
     readonly formatModuleCount: UnwrapRef<typeof import('../../utils/course-tile')['formatModuleCount']>
+    readonly formatNationalPhone: UnwrapRef<typeof import('../../utils/phone-countries')['formatNationalPhone']>
     readonly formatNoteTime: UnwrapRef<typeof import('../../utils/lesson-notes')['formatNoteTime']>
+    readonly formatNotificationTime: UnwrapRef<typeof import('../../composables/usePatientNotifications')['formatNotificationTime']>
+    readonly formatPatientDateLabel: UnwrapRef<typeof import('../../utils/local-date')['formatPatientDateLabel']>
+    readonly formatTranscriptionDisplayTime: UnwrapRef<typeof import('../../utils/transcription')['formatTranscriptionDisplayTime']>
+    readonly getActiveCaptionCue: UnwrapRef<typeof import('../../utils/transcription')['getActiveCaptionCue']>
     readonly getAppManifest: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/manifest')['getAppManifest']>
+    readonly getBaseCloudinaryVideoUrl: UnwrapRef<typeof import('../../utils/cloudinary-video')['getBaseCloudinaryVideoUrl']>
+    readonly getBunnyStreamCaptionCandidates: UnwrapRef<typeof import('../../utils/bunny-video')['getBunnyStreamCaptionCandidates']>
+    readonly getBunnyStreamCaptionUrl: UnwrapRef<typeof import('../../utils/bunny-video')['getBunnyStreamCaptionUrl']>
+    readonly getBunnyStreamHlsUrl: UnwrapRef<typeof import('../../utils/bunny-video')['getBunnyStreamHlsUrl']>
+    readonly getBunnyStreamMp4Url: UnwrapRef<typeof import('../../utils/bunny-video')['getBunnyStreamMp4Url']>
+    readonly getCachedUploadConfig: UnwrapRef<typeof import('../../composables/useUploadConfig')['getCachedUploadConfig']>
+    readonly getChapterAtTime: UnwrapRef<typeof import('../../utils/bunny-seek-thumbnails')['getChapterAtTime']>
     readonly getCloudinaryCaptionUrl: UnwrapRef<typeof import('../../utils/cloudinary-video')['getCloudinaryCaptionUrl']>
+    readonly getCloudinaryHlsUrl: UnwrapRef<typeof import('../../utils/cloudinary-video')['getCloudinaryHlsUrl']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
+    readonly getFetchErrorMessage: UnwrapRef<typeof import('../../utils/patient-access')['getFetchErrorMessage']>
+    readonly getLessonSlug: UnwrapRef<typeof import('../../utils/course-slug')['getLessonSlug']>
     readonly getLocalDateKey: UnwrapRef<typeof import('../../utils/local-date')['getLocalDateKey']>
     readonly getLocalTimeParts: UnwrapRef<typeof import('../../utils/local-date')['getLocalTimeParts']>
     readonly getMealIdForTimeFromMeals: UnwrapRef<typeof import('../../utils/meal-plan-time')['getMealIdForTimeFromMeals']>
     readonly getMessageAttachment: UnwrapRef<typeof import('../../utils/bella-message-format')['getMessageAttachment']>
     readonly getMessageDisplayText: UnwrapRef<typeof import('../../utils/bella-message-format')['getMessageDisplayText']>
+    readonly getModuleSlug: UnwrapRef<typeof import('../../utils/course-slug')['getModuleSlug']>
+    readonly getNotificationGroup: UnwrapRef<typeof import('../../composables/usePatientNotifications')['getNotificationGroup']>
     readonly getPatientScrollRoot: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['getPatientScrollRoot']>
     readonly getPatientTimeZone: UnwrapRef<typeof import('../../utils/local-date')['getPatientTimeZone']>
+    readonly getQualityTargetHeight: UnwrapRef<typeof import('../../utils/cloudinary-video')['getQualityTargetHeight']>
+    readonly getRestaurantIntentRelatedUserMessageId: UnwrapRef<typeof import('../../utils/bella-restaurant')['getRestaurantIntentRelatedUserMessageId']>
+    readonly getRestaurantMessageMeta: UnwrapRef<typeof import('../../utils/bella-restaurant')['getRestaurantMessageMeta']>
     readonly getRouteRules: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/manifest')['getRouteRules']>
+    readonly getSeekFrameHeight: UnwrapRef<typeof import('../../utils/bunny-seek-thumbnails')['getSeekFrameHeight']>
+    readonly getSeekThumbnailAtTime: UnwrapRef<typeof import('../../utils/bunny-seek-thumbnails')['getSeekThumbnailAtTime']>
+    readonly getSwapMessageMeta: UnwrapRef<typeof import('../../utils/bella-swap')['getSwapMessageMeta']>
+    readonly getSwapOptions: UnwrapRef<typeof import('../../utils/bella-swap')['getSwapOptions']>
+    readonly getTranscriptionDisplayLines: UnwrapRef<typeof import('../../utils/transcription')['getTranscriptionDisplayLines']>
+    readonly getTranscriptionLineState: UnwrapRef<typeof import('../../utils/transcription')['getTranscriptionLineState']>
     readonly getUserMessageImageUrl: UnwrapRef<typeof import('../../utils/bella-message-format')['getUserMessageImageUrl']>
+    readonly getVideoCaptionCandidates: UnwrapRef<typeof import('../../utils/video-provider')['getVideoCaptionCandidates']>
+    readonly getVideoCaptionUrl: UnwrapRef<typeof import('../../utils/video-provider')['getVideoCaptionUrl']>
+    readonly getVideoProvider: UnwrapRef<typeof import('../../utils/video-provider')['getVideoProvider']>
+    readonly gramsToAmount: UnwrapRef<typeof import('../../utils/meal-portion-measures')['gramsToAmount']>
+    readonly guessGramsPerUnit: UnwrapRef<typeof import('../../utils/meal-portion-measures')['guessGramsPerUnit']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
+    readonly hasActiveRestaurantIntent: UnwrapRef<typeof import('../../utils/bella-restaurant')['hasActiveRestaurantIntent']>
+    readonly hasActiveSwapMode: UnwrapRef<typeof import('../../utils/bella-swap')['hasActiveSwapMode']>
+    readonly hasActiveSwapSelection: UnwrapRef<typeof import('../../utils/bella-swap')['hasActiveSwapSelection']>
     readonly hasInjectionContext: UnwrapRef<typeof import('vue')['hasInjectionContext']>
+    readonly hasInstalledPwa: UnwrapRef<typeof import('../../utils/pwa-standalone')['hasInstalledPwa']>
+    readonly hasLessonSummaryContent: UnwrapRef<typeof import('../../utils/lesson-summary-format')['hasLessonSummaryContent']>
+    readonly heightToQualityLabel: UnwrapRef<typeof import('../../utils/cloudinary-video')['heightToQualityLabel']>
     readonly inferCourseTopic: UnwrapRef<typeof import('../../utils/course-tile')['inferCourseTopic']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/head')['injectHead']>
     readonly isApiConnectionError: UnwrapRef<typeof import('../../utils/resolve-api-base')['isApiConnectionError']>
+    readonly isBunnyStorageFileUrl: UnwrapRef<typeof import('../../utils/bunny-video')['isBunnyStorageFileUrl']>
+    readonly isBunnyStreamVideoUrl: UnwrapRef<typeof import('../../utils/bunny-video')['isBunnyStreamVideoUrl']>
+    readonly isCloudinarySizeError: UnwrapRef<typeof import('../../utils/video-upload-limits')['isCloudinarySizeError']>
     readonly isCloudinaryVideoUrl: UnwrapRef<typeof import('../../utils/cloudinary-video')['isCloudinaryVideoUrl']>
+    readonly isCompletedSwapMessage: UnwrapRef<typeof import('../../utils/bella-swap')['isCompletedSwapMessage']>
+    readonly isItemCounted: UnwrapRef<typeof import('../../utils/meal-diary')['isItemCounted']>
     readonly isLocalHostname: UnwrapRef<typeof import('../../utils/resolve-api-base')['isLocalHostname']>
+    readonly isManagedVideoUrl: UnwrapRef<typeof import('../../utils/video-provider')['isManagedVideoUrl']>
     readonly isNuxtError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['isNuxtError']>
+    readonly isPatientAccessBlockedError: UnwrapRef<typeof import('../../utils/patient-access')['isPatientAccessBlockedError']>
+    readonly isPatientAccessBlockedMessage: UnwrapRef<typeof import('../../utils/patient-access')['isPatientAccessBlockedMessage']>
+    readonly isPatientAccessExpired: UnwrapRef<typeof import('../../utils/patient-access')['isPatientAccessExpired']>
+    readonly isPdfFile: UnwrapRef<typeof import('../../utils/upload-file-kind')['isPdfFile']>
     readonly isPrerendered: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['isPrerendered']>
+    readonly isPrivateLanHostname: UnwrapRef<typeof import('../../utils/resolve-api-base')['isPrivateLanHostname']>
     readonly isProdAppHostname: UnwrapRef<typeof import('../../utils/resolve-api-base')['isProdAppHostname']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
+    readonly isPushSecureContext: UnwrapRef<typeof import('../../utils/resolve-api-base')['isPushSecureContext']>
+    readonly isPwaInstalledPersisted: UnwrapRef<typeof import('../../utils/pwa-standalone')['isPwaInstalledPersisted']>
+    readonly isPwaUpdating: UnwrapRef<typeof import('../../utils/pwa-standalone')['isPwaUpdating']>
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
+    readonly isStandalonePwa: UnwrapRef<typeof import('../../utils/pwa-standalone')['isStandalonePwa']>
     readonly isTranscriptionChunkActive: UnwrapRef<typeof import('../../utils/transcription')['isTranscriptionChunkActive']>
+    readonly isUuid: UnwrapRef<typeof import('../../utils/course-slug')['isUuid']>
+    readonly isVideoFile: UnwrapRef<typeof import('../../utils/upload-file-kind')['isVideoFile']>
     readonly isVue2: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi')['isVue2']>
     readonly isVue3: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi')['isVue3']>
     readonly loadLessonNotes: UnwrapRef<typeof import('../../utils/lesson-notes')['loadLessonNotes']>
     readonly loadPayload: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['loadPayload']>
+    readonly lockPatientScroll: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['lockPatientScroll']>
+    readonly looksLikeRecipe: UnwrapRef<typeof import('../../utils/meal-portion-measures')['looksLikeRecipe']>
     readonly macrosForFoodRecord: UnwrapRef<typeof import('../../utils/food-bank')['macrosForFoodRecord']>
     readonly mapCourseToTile: UnwrapRef<typeof import('../../utils/course-tile')['mapCourseToTile']>
     readonly mapEbookToTile: UnwrapRef<typeof import('../../utils/course-tile')['mapEbookToTile']>
     readonly mapFoodItemFromApi: UnwrapRef<typeof import('../../utils/food-bank')['mapFoodItemFromApi']>
+    readonly mapNotificationItem: UnwrapRef<typeof import('../../composables/usePatientNotifications')['mapNotificationItem']>
+    readonly markPwaInstalled: UnwrapRef<typeof import('../../utils/pwa-standalone')['markPwaInstalled']>
+    readonly markPwaUpdating: UnwrapRef<typeof import('../../utils/pwa-standalone')['markPwaUpdating']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
     readonly mealTypeLabel: UnwrapRef<typeof import('../../utils/meal-diary')['mealTypeLabel']>
+    readonly mirrorPwaDevSwDist: UnwrapRef<typeof import('../../utils/mirror-pwa-dev-sw')['mirrorPwaDevSwDist']>
     readonly navigateBellaAction: UnwrapRef<typeof import('../../utils/bella-actions')['navigateBellaAction']>
     readonly navigateTo: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['navigateTo']>
+    readonly needsServerCompression: UnwrapRef<typeof import('../../utils/video-upload-limits')['needsServerCompression']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
+    readonly normalizeDocumentUrl: UnwrapRef<typeof import('../../composables/usePatientDocument')['normalizeDocumentUrl']>
+    readonly normalizeFileUploadError: UnwrapRef<typeof import('../../utils/resolve-api-base')['normalizeFileUploadError']>
+    readonly normalizeFlowStep: UnwrapRef<typeof import('../../utils/checkin-step-schema')['normalizeFlowStep']>
     readonly normalizeItemFromAi: UnwrapRef<typeof import('../../utils/meal-diary')['normalizeItemFromAi']>
     readonly normalizeMealItemsForSave: UnwrapRef<typeof import('../../utils/meal-diary')['normalizeMealItemsForSave']>
+    readonly normalizeUploadError: UnwrapRef<typeof import('../../utils/resolve-api-base')['normalizeUploadError']>
+    readonly normalizeVideoUploadError: UnwrapRef<typeof import('../../utils/resolve-api-base')['normalizeVideoUploadError']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
     readonly onBeforeMount: UnwrapRef<typeof import('vue')['onBeforeMount']>
     readonly onBeforeRouteLeave: UnwrapRef<typeof import('vue-router')['onBeforeRouteLeave']>
@@ -393,9 +667,16 @@ declare module 'vue' {
     readonly onUnmounted: UnwrapRef<typeof import('vue')['onUnmounted']>
     readonly onUpdated: UnwrapRef<typeof import('vue')['onUpdated']>
     readonly onWatcherCleanup: UnwrapRef<typeof import('vue')['onWatcherCleanup']>
+    readonly openPatientCourse: UnwrapRef<typeof import('../../utils/open-patient-course')['openPatientCourse']>
+    readonly parseBunnyStreamVideoId: UnwrapRef<typeof import('../../utils/bunny-video')['parseBunnyStreamVideoId']>
     readonly parseCloudinaryVideoUrl: UnwrapRef<typeof import('../../utils/cloudinary-video')['parseCloudinaryVideoUrl']>
+    readonly parseDocumentSrcQuery: UnwrapRef<typeof import('../../composables/usePatientDocument')['parseDocumentSrcQuery']>
+    readonly parseInternationalPhone: UnwrapRef<typeof import('../../utils/phone-countries')['parseInternationalPhone']>
     readonly parseMealTimeToMinutes: UnwrapRef<typeof import('../../utils/meal-plan-time')['parseMealTimeToMinutes']>
     readonly parseTranscriptionTimeToSeconds: UnwrapRef<typeof import('../../utils/cloudinary-video')['parseTranscriptionTimeToSeconds']>
+    readonly parseVttToCaptionCues: UnwrapRef<typeof import('../../utils/transcription')['parseVttToCaptionCues']>
+    readonly phoneCountries: UnwrapRef<typeof import('../../utils/phone-countries')['phoneCountries']>
+    readonly pickMealIcon: UnwrapRef<typeof import('../../utils/meal-slot-options')['pickMealIcon']>
     readonly prefetchComponents: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/preload')['prefetchComponents']>
     readonly preloadComponents: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/preload')['preloadComponents']>
     readonly preloadPayload: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['preloadPayload']>
@@ -409,14 +690,24 @@ declare module 'vue' {
     readonly refreshCookie: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/cookie')['refreshCookie']>
     readonly refreshNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['refreshNuxtData']>
     readonly reloadNuxtApp: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/chunk')['reloadNuxtApp']>
+    readonly reloadPwaInPlace: UnwrapRef<typeof import('../../utils/pwa-standalone')['reloadPwaInPlace']>
     readonly requestIdleCallback: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback')['requestIdleCallback']>
     readonly resolveApiBaseAtBuild: UnwrapRef<typeof import('../../utils/resolve-api-base')['resolveApiBaseAtBuild']>
     readonly resolveApiBaseAtRuntime: UnwrapRef<typeof import('../../utils/resolve-api-base')['resolveApiBaseAtRuntime']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
+    readonly resolveDirectApiUrl: UnwrapRef<typeof import('../../utils/resolve-api-base')['resolveDirectApiUrl']>
+    readonly resolveDocumentSrcFromRoute: UnwrapRef<typeof import('../../composables/usePatientDocument')['resolveDocumentSrcFromRoute']>
+    readonly resolvePatientCoursePlayerUrl: UnwrapRef<typeof import('../../utils/open-patient-course')['resolvePatientCoursePlayerUrl']>
+    readonly resolveTileCoverUrl: UnwrapRef<typeof import('../../utils/media-cover')['resolveTileCoverUrl']>
+    readonly resolveUploadApiUrl: UnwrapRef<typeof import('../../utils/resolve-api-base')['resolveUploadApiUrl']>
     readonly resolveVideoUploadEndpoint: UnwrapRef<typeof import('../../utils/video-upload-endpoint')['resolveVideoUploadEndpoint']>
+    readonly revokeThumbnailUrl: UnwrapRef<typeof import('../../utils/video-thumbnail')['revokeThumbnailUrl']>
     readonly roundMacro: UnwrapRef<typeof import('../../utils/meal-diary')['roundMacro']>
+    readonly sanitizeUserFacingError: UnwrapRef<typeof import('../../utils/resolve-api-base')['sanitizeUserFacingError']>
+    readonly saveBellaChatHandoff: UnwrapRef<typeof import('../../utils/bella-chat-handoff')['saveBellaChatHandoff']>
     readonly saveLessonNotes: UnwrapRef<typeof import('../../utils/lesson-notes')['saveLessonNotes']>
     readonly scaleMealItem: UnwrapRef<typeof import('../../utils/meal-diary')['scaleMealItem']>
+    readonly scoreFromTemplateAnswers: UnwrapRef<typeof import('../../utils/checkin-answers')['scoreFromTemplateAnswers']>
     readonly scrollPatientPageBy: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['scrollPatientPageBy']>
     readonly setInterval: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/interval')['setInterval']>
     readonly setPageLayout: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['setPageLayout']>
@@ -425,18 +716,29 @@ declare module 'vue' {
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
     readonly shouldShowUserMessageText: UnwrapRef<typeof import('../../utils/bella-message-format')['shouldShowUserMessageText']>
+    readonly shouldUseBackendVideoUpload: UnwrapRef<typeof import('../../utils/video-provider')['shouldUseBackendVideoUpload']>
     readonly showError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['showError']>
+    readonly slugify: UnwrapRef<typeof import('../../utils/course-slug')['slugify']>
     readonly splitMealItemDisplay: UnwrapRef<typeof import('../../utils/meal-item-display')['splitMealItemDisplay']>
+    readonly storePdfBytes: UnwrapRef<typeof import('../../utils/pdf-bytes')['storePdfBytes']>
+    readonly stripUncountedMacros: UnwrapRef<typeof import('../../utils/meal-diary')['stripUncountedMacros']>
     readonly sumMealItems: UnwrapRef<typeof import('../../utils/meal-diary')['sumMealItems']>
+    readonly summarizeCheckinAnswers: UnwrapRef<typeof import('../../utils/checkin-answers')['summarizeCheckinAnswers']>
+    readonly toInternationalPhone: UnwrapRef<typeof import('../../utils/phone-countries')['toInternationalPhone']>
+    readonly toPdfByteArray: UnwrapRef<typeof import('../../utils/pdf-bytes')['toPdfByteArray']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
     readonly topicToTone: UnwrapRef<typeof import('../../utils/course-tile')['topicToTone']>
+    readonly transcriptionToCaptionCues: UnwrapRef<typeof import('../../utils/transcription')['transcriptionToCaptionCues']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly tryUseNuxtApp: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/nuxt')['tryUseNuxtApp']>
+    readonly unlockPatientScroll: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['unlockPatientScroll']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly updateAppConfig: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/config')['updateAppConfig']>
+    readonly uploadVideoToCloudinary: UnwrapRef<typeof import('../../utils/cloudinary-video-upload')['uploadVideoToCloudinary']>
+    readonly uploadVideoToCloudinaryWithRetry: UnwrapRef<typeof import('../../utils/cloudinary-video-upload')['uploadVideoToCloudinaryWithRetry']>
     readonly useApiBase: UnwrapRef<typeof import('../../composables/useApiBase')['useApiBase']>
     readonly useAppConfig: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/config')['useAppConfig']>
     readonly useAppToast: UnwrapRef<typeof import('../../composables/useAppToast')['useAppToast']>
@@ -444,15 +746,18 @@ declare module 'vue' {
     readonly useAppleSplashScreenPwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useAppleSplashScreenPwaIcon']>
     readonly useAsyncData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['useAsyncData']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
+    readonly useConfetti: UnwrapRef<typeof import('../../composables/useConfetti')['useConfetti']>
     readonly useConfirm: UnwrapRef<typeof import('../../composables/useConfirm')['useConfirm']>
     readonly useCookie: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/cookie')['useCookie']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
     readonly useDietaProgress: UnwrapRef<typeof import('../../composables/useDietaProgress')['useDietaProgress']>
+    readonly useDocumentUploadLimits: UnwrapRef<typeof import('../../composables/useUploadConfig')['useDocumentUploadLimits']>
     readonly useError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['useError']>
     readonly useFaviconPwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useFaviconPwaIcon']>
     readonly useFetch: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/fetch')['useFetch']>
     readonly useFoodBank: UnwrapRef<typeof import('../../composables/useFoodBank')['useFoodBank']>
+    readonly useFoodSubstitution: UnwrapRef<typeof import('../../composables/useFoodSubstitution')['useFoodSubstitution']>
     readonly useHead: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/head')['useHead']>
     readonly useHeadSafe: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/head')['useHeadSafe']>
     readonly useHydration: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/hydrate')['useHydration']>
@@ -471,10 +776,18 @@ declare module 'vue' {
     readonly usePWA: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['usePWA']>
     readonly usePatientApp: UnwrapRef<typeof import('../../composables/usePatientApp')['usePatientApp']>
     readonly usePatientAuth: UnwrapRef<typeof import('../../composables/usePatientAuth')['usePatientAuth']>
+    readonly usePatientDocument: UnwrapRef<typeof import('../../composables/usePatientDocument')['usePatientDocument']>
+    readonly usePatientGoals: UnwrapRef<typeof import('../../composables/usePatientGoals')['usePatientGoals']>
     readonly usePatientHorizontalWheelBridge: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['usePatientHorizontalWheelBridge']>
     readonly usePatientLocalTime: UnwrapRef<typeof import('../../composables/usePatientLocalTime')['usePatientLocalTime']>
     readonly usePatientMealPlan: UnwrapRef<typeof import('../../composables/usePatientMealPlan')['usePatientMealPlan']>
+    readonly usePatientNavigationLoading: UnwrapRef<typeof import('../../composables/usePatientNavigationLoading')['usePatientNavigationLoading']>
+    readonly usePatientNotifications: UnwrapRef<typeof import('../../composables/usePatientNotifications')['usePatientNotifications']>
+    readonly usePatientOnboarding: UnwrapRef<typeof import('../../composables/usePatientOnboarding')['usePatientOnboarding']>
+    readonly usePatientScrollLock: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['usePatientScrollLock']>
+    readonly usePatientTabBar: UnwrapRef<typeof import('../../composables/usePatientTabBar')['usePatientTabBar']>
     readonly usePreviewMode: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/preview')['usePreviewMode']>
+    readonly usePushNotifications: UnwrapRef<typeof import('../../composables/usePushNotifications')['usePushNotifications']>
     readonly useRequestEvent: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/ssr')['useRequestEvent']>
     readonly useRequestFetch: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/ssr')['useRequestFetch']>
     readonly useRequestHeader: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/ssr')['useRequestHeader']>
@@ -528,6 +841,9 @@ declare module 'vue' {
     readonly useTransitionState: UnwrapRef<typeof import('vue')['useTransitionState']>
     readonly useTransparentPwaIcon: UnwrapRef<typeof import('../../node_modules/@vite-pwa/nuxt/dist/runtime/composables/index')['useTransparentPwaIcon']>
     readonly useVerticalWheelPassthrough: UnwrapRef<typeof import('../../composables/useVerticalWheelPassthrough')['useVerticalWheelPassthrough']>
+    readonly useVideoUploadQueue: UnwrapRef<typeof import('../../composables/useVideoUploadQueue')['useVideoUploadQueue']>
+    readonly useVirtualKeyboard: UnwrapRef<typeof import('../../composables/useVirtualKeyboard')['useVirtualKeyboard']>
+    readonly useWeeklyCheckInPrompt: UnwrapRef<typeof import('../../composables/useWeeklyCheckInPrompt')['useWeeklyCheckInPrompt']>
     readonly watch: UnwrapRef<typeof import('vue')['watch']>
     readonly watchEffect: UnwrapRef<typeof import('vue')['watchEffect']>
     readonly watchPostEffect: UnwrapRef<typeof import('vue')['watchPostEffect']>

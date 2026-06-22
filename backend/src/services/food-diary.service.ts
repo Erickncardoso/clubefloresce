@@ -35,6 +35,29 @@ function subtractMacros(targets: NutritionTargets, consumed: MacroTotals): Macro
   };
 }
 
+async function prepareEntryItems(items: MealItemDraft[]) {
+  const rawItems = items.map((item) => ({
+    id: item.id || randomUUID(),
+    name: String(item.name || "").trim(),
+    grams: Math.max(1, Math.round(Number(item.grams) || 0)),
+    caloriesKcal: Math.max(0, Math.round(Number(item.caloriesKcal) || 0)),
+    carbsG: round1(Number(item.carbsG) || 0),
+    proteinG: round1(Number(item.proteinG) || 0),
+    fatG: round1(Number(item.fatG) || 0),
+    foodId: item.foodId ? String(item.foodId) : null,
+    source: item.source || (item.foodId ? "food_bank" : "ai"),
+    originalName: item.originalName ? String(item.originalName) : null,
+  }));
+
+  if (!rawItems.length) throw new Error("Adicione pelo menos um alimento.");
+  if (rawItems.some((item) => !item.name)) {
+    throw new Error("Preencha o nome de todos os alimentos.");
+  }
+
+  const enriched = await enrichMealItemsWithFoodBank(rawItems);
+  return { items: enriched, totals: sumItems(enriched) };
+}
+
 function parseItems(raw: unknown): MealItemDraft[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -223,26 +246,7 @@ export class FoodDiaryService {
     },
     dateKey?: string,
   ) {
-    const rawItems = payload.items.map((item) => ({
-      id: item.id || randomUUID(),
-      name: String(item.name || "").trim(),
-      grams: Math.max(1, Math.round(Number(item.grams) || 0)),
-      caloriesKcal: Math.max(0, Math.round(Number(item.caloriesKcal) || 0)),
-      carbsG: round1(Number(item.carbsG) || 0),
-      proteinG: round1(Number(item.proteinG) || 0),
-      fatG: round1(Number(item.fatG) || 0),
-      foodId: item.foodId ? String(item.foodId) : null,
-      source: item.source || (item.foodId ? "food_bank" : "ai"),
-      originalName: item.originalName ? String(item.originalName) : null,
-    }));
-
-    if (!rawItems.length) throw new Error("Adicione pelo menos um alimento.");
-    if (rawItems.some((item) => !item.name)) {
-      throw new Error("Preencha o nome de todos os alimentos.");
-    }
-
-    const items = await enrichMealItemsWithFoodBank(rawItems);
-    const totals = sumItems(items);
+    const { items, totals } = await prepareEntryItems(payload.items);
     const key = dateKey || getDateKeyInTimeZone("UTC");
     const entryDate = entryDateFromKey(key);
     const mealLabel = payload.mealLabel?.trim() || "Refeição";
@@ -275,5 +279,49 @@ export class FoodDiaryService {
       dailySummary,
       message: assistantMsg,
     };
+  }
+
+  async updateEntry(
+    userId: string,
+    entryId: string,
+    payload: {
+      items: MealItemDraft[];
+      mealType?: string;
+      mealLabel?: string;
+      imageUrl?: string;
+    },
+  ) {
+    const repo = getFoodDiaryRepository();
+    const existing = await repo.findEntryByIdForUser(userId, entryId);
+    if (!existing) throw new Error("Refeição não encontrada.");
+
+    const { items, totals } = await prepareEntryItems(payload.items);
+    const mealLabel = payload.mealLabel?.trim() || existing.mealLabel || "Refeição";
+
+    const entry = await repo.updateEntry(entryId, {
+      mealType: payload.mealType || existing.mealType,
+      mealLabel,
+      imageUrl: payload.imageUrl !== undefined ? payload.imageUrl : existing.imageUrl || undefined,
+      items,
+      ...totals,
+    });
+
+    const key = existing.entryDate.toISOString().slice(0, 10);
+    const dailySummary = await this.getDailySummary(userId, key);
+
+    return { entry, dailySummary };
+  }
+
+  async deleteEntry(userId: string, entryId: string) {
+    const repo = getFoodDiaryRepository();
+    const existing = await repo.findEntryByIdForUser(userId, entryId);
+    if (!existing) throw new Error("Refeição não encontrada.");
+
+    await repo.deleteEntry(entryId);
+
+    const key = existing.entryDate.toISOString().slice(0, 10);
+    const dailySummary = await this.getDailySummary(userId, key);
+
+    return { dailySummary };
   }
 }

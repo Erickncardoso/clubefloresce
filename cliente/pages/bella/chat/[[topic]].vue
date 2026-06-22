@@ -13,7 +13,10 @@
         v-if="chatTopic === 'meal' && dailySummary"
         :summary="dailySummary"
         collapsible
+        manageable
         class="bella-diary-bar"
+        @edit-entry="editDiaryEntry"
+        @delete-entry="deleteDiaryEntry"
       />
     </div>
 
@@ -106,14 +109,6 @@
                 @click="onMessageContentClick"
                 v-html="formatMessageContent(msg.content)"
               />
-              <BellaMealSlotPicker
-                v-if="chatTopic === 'meal' && isWelcomeMessage(msg)"
-                v-model="selectedMealId"
-                :meals="mealSlotOptions"
-                :logged-meal-ids="loggedMealIds"
-                :disabled="sending"
-                inline
-              />
               <BellaSwapButtons
                 v-if="chatTopic === 'swap' && (shouldShowSwapButtons(msg) || shouldShowSwapRestart(msg))"
                 :message="msg"
@@ -162,6 +157,17 @@
         </div>
 
         <form class="bella-input-bar" @submit.prevent="sendMessage">
+          <div v-if="chatTopic === 'meal' && mealSelectOptions.length" class="bella-meal-select">
+            <label class="bella-meal-select-label" for="bella-meal-select">Refeição</label>
+            <SharedCfSelect
+              id="bella-meal-select"
+              v-model="selectedMealId"
+              class="bella-meal-select-control"
+              :options="mealSelectOptions"
+              :disabled="sending"
+            />
+          </div>
+
           <input
             ref="cameraInputEl"
             type="file"
@@ -210,16 +216,6 @@
 
             <div class="bella-input-row">
               <div v-if="showCameraButton || showGalleryButton" class="bella-input-tools">
-                <button
-                  v-if="showCameraButton && chatTopic === 'meal'"
-                  type="button"
-                  class="bella-tool-btn bella-tool-btn--tips"
-                  :disabled="sending"
-                  aria-label="Ver dicas de foto"
-                  @click="openPhotoGuide"
-                >
-                  <img src="/imgs/iconelampada.png" alt="" class="bella-tool-tip-icon" />
-                </button>
                 <button
                   v-if="showCameraButton"
                   type="button"
@@ -393,10 +389,12 @@ const selectedMeal = computed(() => {
   return options.find((meal) => meal.id === selectedMealId.value) || options[0]
 })
 
-const loggedMealIds = computed(() => {
-  const entries = dailySummary.value?.entries || []
-  return [...new Set(entries.map((entry) => entry.mealType).filter(Boolean))]
-})
+const mealSelectOptions = computed(() =>
+  mealSlotOptions.value.map((meal) => ({
+    value: meal.id,
+    label: meal.label || meal.short || 'Refeição',
+  })),
+)
 
 const { patientTimeHeaders } = usePatientLocalTime()
 
@@ -554,10 +552,6 @@ async function fetchBellaChat(options) {
     }
     throw err
   }
-}
-
-function isWelcomeMessage(msg) {
-  return msg?.id === `welcome-${chatTopic.value}`
 }
 
 function seedWelcomeMessage() {
@@ -856,11 +850,12 @@ function mergeUserMessageResponse(tempMsg, serverMsg, localPreviewUrl) {
 function getWelcomeContent() {
   const fromDieta = route.query.from === 'dieta'
   const mealLabel = typeof route.query.label === 'string' ? route.query.label.trim() : ''
+  const selectedLabel = selectedMeal.value?.label || mealLabel || 'sua refeição'
   if (chatTopic.value === 'meal' && fromDieta && mealLabel) {
-    return `Olá, ${userName()}! 📸 Escolhi ${mealLabel.toLowerCase()} nos botões abaixo — confira e envie a foto do prato.`
+    return `Olá, ${userName()}! 📸 Vamos registrar **${mealLabel.toLowerCase()}**. Confira a refeição selecionada abaixo e envie a foto do prato.`
   }
   if (chatTopic.value === 'meal') {
-    return `Olá, ${userName()}! 📸 Escolha a refeição logo abaixo (pode ser almoço mesmo sem ter registrado o café) e envie a foto do prato de cima, com boa luz.`
+    return `Olá, ${userName()}! 📸 Registrando **${selectedLabel.toLowerCase()}** — troque no seletor abaixo se precisar e envie a foto do prato de cima, com boa luz.`
   }
   return topicConfig.value.welcome(userName())
 }
@@ -1345,32 +1340,92 @@ const cancelMealConfirm = () => {
   mealConfirmError.value = ''
 }
 
+const editDiaryEntry = (entry) => {
+  if (!entry?.id) return
+  mealDraft.value = {
+    mealType: entry.mealType,
+    mealLabel: entry.mealLabel,
+    imageUrl: entry.imageUrl,
+    items: entry.items || [],
+    editingEntryId: entry.id,
+    previousTotals: {
+      caloriesKcal: entry.caloriesKcal,
+      carbsG: entry.carbsG,
+      proteinG: entry.proteinG,
+      fatG: entry.fatG,
+    },
+  }
+  mealConfirmError.value = ''
+  showMealModal.value = true
+}
+
+const deleteDiaryEntry = async (entry) => {
+  if (!entry?.id || confirmingMeal.value) return
+  const { confirm } = useConfirm()
+  const accepted = await confirm({
+    title: 'Remover refeição?',
+    message: `Deseja remover ${entry.mealLabel || 'esta refeição'} do diário? As calorias do dia serão recalculadas.`,
+    confirmLabel: 'Remover',
+    variant: 'danger',
+  })
+  if (!accepted) return
+
+  try {
+    const res = await $fetch(`${apiBase}/food-diary/entries/${entry.id}`, {
+      method: 'DELETE',
+      headers: patientTimeHeaders(),
+    })
+    if (res.dailySummary) dailySummary.value = res.dailySummary
+    nutritionRefresh.value += 1
+  } catch (err) {
+    chatError.value = err.data?.message || 'Não foi possível remover a refeição.'
+  }
+}
+
 const confirmMeal = async (items) => {
   if (!mealDraft.value || confirmingMeal.value) return
   confirmingMeal.value = true
   mealConfirmError.value = ''
+  const editingEntryId = mealDraft.value.editingEntryId
 
   try {
-    const res = await $fetch(`${apiBase}/food-diary/confirm`, {
-      method: 'POST',
-      headers: patientTimeHeaders(),
-      body: {
-        items: normalizeMealItemsForSave(items),
-        mealType: mealDraft.value.mealType,
-        mealLabel: mealDraft.value.mealLabel,
-        imageUrl: mealDraft.value.imageUrl,
-        userMessageId: mealDraft.value.userMessageId,
-        topic: chatTopic.value,
-      },
-    })
+    const body = {
+      items: normalizeMealItemsForSave(items),
+      mealType: mealDraft.value.mealType,
+      mealLabel: mealDraft.value.mealLabel,
+      imageUrl: mealDraft.value.imageUrl,
+    }
 
-    if (res.message) messages.value.push(res.message)
+    let res
+    if (editingEntryId) {
+      res = await $fetch(`${apiBase}/food-diary/entries/${editingEntryId}`, {
+        method: 'PUT',
+        headers: patientTimeHeaders(),
+        body,
+      })
+    } else {
+      res = await $fetch(`${apiBase}/food-diary/confirm`, {
+        method: 'POST',
+        headers: patientTimeHeaders(),
+        body: {
+          ...body,
+          userMessageId: mealDraft.value.userMessageId,
+          topic: chatTopic.value,
+        },
+      })
+      if (res.message) messages.value.push(res.message)
+    }
+
     if (res.dailySummary) dailySummary.value = res.dailySummary
     nutritionRefresh.value += 1
     cancelMealConfirm()
     await scrollToBottomAfterLayout()
   } catch (err) {
-    mealConfirmError.value = err.data?.message || 'Não foi possível registrar a refeição.'
+    mealConfirmError.value = err.data?.message || (
+      editingEntryId
+        ? 'Não foi possível atualizar a refeição.'
+        : 'Não foi possível registrar a refeição.'
+    )
   } finally {
     confirmingMeal.value = false
   }
@@ -2438,11 +2493,29 @@ html.vk-open .bella-messages {
   stroke-width: 1.75;
 }
 
-.bella-tool-tip-icon {
-  width: 1.15rem;
-  height: 1.15rem;
-  object-fit: contain;
-  display: block;
+.bella-meal-select {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+  padding: 0 0.15rem;
+}
+
+.bella-meal-select-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--cf-text-muted);
+  white-space: nowrap;
+}
+
+.bella-meal-select-control {
+  min-width: 0;
+}
+
+.bella-meal-select-control :deep(.cf-select-trigger) {
+  min-height: 2.35rem;
+  font-size: 0.82rem;
 }
 
 .bella-input-row input[type='text'] {

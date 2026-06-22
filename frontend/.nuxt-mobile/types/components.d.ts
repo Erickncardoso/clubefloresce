@@ -18,10 +18,20 @@ interface _GlobalComponents {
   CfConfirmModal: typeof import("../../components/CfConfirmModal.vue")['default']
   GoalMiniPie: typeof import("../../components/GoalMiniPie.vue")['default']
   PatientAvatar: typeof import("../../components/PatientAvatar.vue")['default']
+  PatientBrandMark: typeof import("../../components/PatientBrandMark.vue")['default']
   PatientHeader: typeof import("../../components/PatientHeader.vue")['default']
+  PatientLoadingLogo: typeof import("../../components/PatientLoadingLogo.vue")['default']
+  PatientMealPlanGate: typeof import("../../components/PatientMealPlanGate.vue")['default']
+  PatientMealPlanUploadOverlay: typeof import("../../components/PatientMealPlanUploadOverlay.vue")['default']
   PatientMenuDrawer: typeof import("../../components/PatientMenuDrawer.vue")['default']
+  PatientNavigationLoader: typeof import("../../components/PatientNavigationLoader.vue")['default']
+  PatientNotificationsPanel: typeof import("../../components/PatientNotificationsPanel.vue")['default']
+  PatientPageSkeleton: typeof import("../../components/PatientPageSkeleton.vue")['default']
+  PatientPdfViewer: typeof import("../../components/PatientPdfViewer.vue")['default']
+  PatientPushSettings: typeof import("../../components/PatientPushSettings.vue")['default']
   PatientPwaPrompt: typeof import("../../components/PatientPwaPrompt.vue")['default']
   PatientPwaUpdate: typeof import("../../components/PatientPwaUpdate.vue")['default']
+  PatientSkeleton: typeof import("../../components/PatientSkeleton.vue")['default']
   PatientTabBar: typeof import("../../components/PatientTabBar.vue")['default']
   PlayerHeader: typeof import("../../components/PlayerHeader.vue")['default']
   PlayerNavigation: typeof import("../../components/PlayerNavigation.vue")['default']
@@ -29,25 +39,56 @@ interface _GlobalComponents {
   BellaDailyDiaryBar: typeof import("../../components/bella/DailyDiaryBar.vue")['default']
   BellaFoodSearchPicker: typeof import("../../components/bella/FoodSearchPicker.vue")['default']
   BellaMealConfirmModal: typeof import("../../components/bella/MealConfirmModal.vue")['default']
+  BellaMealPhotoGuideSheet: typeof import("../../components/bella/MealPhotoGuideSheet.vue")['default']
+  BellaMealSlotPicker: typeof import("../../components/bella/MealSlotPicker.vue")['default']
+  BellaPhotoGuideTipIcon: typeof import("../../components/bella/PhotoGuideTipIcon.vue")['default']
+  BellaRestaurantIntentButtons: typeof import("../../components/bella/RestaurantIntentButtons.vue")['default']
+  BellaSwapButtons: typeof import("../../components/bella/SwapButtons.vue")['default']
   BibliotecaScrollRow: typeof import("../../components/biblioteca/BibliotecaScrollRow.vue")['default']
+  CheckinFridayPrompt: typeof import("../../components/checkin/CheckinFridayPrompt.vue")['default']
+  CheckinTemplateEditorPreview: typeof import("../../components/checkin/CheckinTemplateEditorPreview.vue")['default']
   CheckinTypeformFlow: typeof import("../../components/checkin/CheckinTypeformFlow.vue")['default']
   CheckinFoodMoodPicker: typeof import("../../components/checkin/FoodMoodPicker.vue")['default']
   CheckinNotoEmojiLottie: typeof import("../../components/checkin/NotoEmojiLottie.client.vue")['default']
   CommunityFeed: typeof import("../../components/community/CommunityFeed.vue")['default']
   CoursesAulaPlayerIcons: typeof import("../../components/courses/AulaPlayerIcons.vue")['default']
   CoursesCourseVideoPlayer: typeof import("../../components/courses/CourseVideoPlayer.vue")['default']
+  CoursesFlorescerPlayerIcons: typeof import("../../components/courses/FlorescerPlayerIcons.vue")['default']
   CoursesLessonFormModal: typeof import("../../components/courses/LessonFormModal.vue")['default']
   CoursesLessonNotesPanel: typeof import("../../components/courses/LessonNotesPanel.vue")['default']
+  CoursesLessonSummaryContent: typeof import("../../components/courses/LessonSummaryContent.vue")['default']
+  CoursesLessonSummaryPanel: typeof import("../../components/courses/LessonSummaryPanel.vue")['default']
+  CoursesLessonTranscriptionPanel: typeof import("../../components/courses/LessonTranscriptionPanel.vue")['default']
+  CoursesVideoUploadQueuePanel: typeof import("../../components/courses/VideoUploadQueuePanel.vue")['default']
+  DietaCheckIcon: typeof import("../../components/dieta/CheckIcon.vue")['default']
   DietaMealPlanUploadCard: typeof import("../../components/dieta/MealPlanUploadCard.vue")['default']
   DietaMealSubstitutionsModal: typeof import("../../components/dieta/MealSubstitutionsModal.vue")['default']
+  EvolucaoExerciseArm: typeof import("../../components/evolucao/ExerciseArm.vue")['default']
+  EvolucaoFoodPlate: typeof import("../../components/evolucao/FoodPlate.vue")['default']
+  EvolucaoGoalsPanel: typeof import("../../components/evolucao/GoalsPanel.vue")['default']
+  EvolucaoNutritionMonthView: typeof import("../../components/evolucao/NutritionMonthView.vue")['default']
+  EvolucaoSleepChart: typeof import("../../components/evolucao/SleepChart.vue")['default']
+  EvolucaoWaterBottle: typeof import("../../components/evolucao/WaterBottle.vue")['default']
+  EvolucaoWeightPanel: typeof import("../../components/evolucao/WeightPanel.vue")['default']
   HomeCurrentMealCard: typeof import("../../components/home/CurrentMealCard.vue")['default']
   HomeJourneyMacroRing: typeof import("../../components/home/JourneyMacroRing.vue")['default']
   HomeMacroBar: typeof import("../../components/home/MacroBar.vue")['default']
   HomeMacroPizzaRing: typeof import("../../components/home/MacroPizzaRing.vue")['default']
   HomeNutritionPanel: typeof import("../../components/home/NutritionPanel.vue")['default']
   HomeNutritionStatCarousel: typeof import("../../components/home/NutritionStatCarousel.vue")['default']
+  OnboardingHeightPicker: typeof import("../../components/onboarding/OnboardingHeightPicker.vue")['default']
+  OnboardingOptionCard: typeof import("../../components/onboarding/OnboardingOptionCard.vue")['default']
+  OnboardingShell: typeof import("../../components/onboarding/OnboardingShell.vue")['default']
+  PatientsPatientGoalsPanel: typeof import("../../components/patients/PatientGoalsPanel.vue")['default']
+  PatientsPatientNutritionSection: typeof import("../../components/patients/PatientNutritionSection.vue")['default']
+  PatientsPatientPhotosPanel: typeof import("../../components/patients/PatientPhotosPanel.vue")['default']
+  SharedCfDateInput: typeof import("../../components/shared/CfDateInput.vue")['default']
+  SharedCfDateTimeInput: typeof import("../../components/shared/CfDateTimeInput.vue")['default']
+  SharedCfPhoneInput: typeof import("../../components/shared/CfPhoneInput.vue")['default']
+  SharedCfSelect: typeof import("../../components/shared/CfSelect.vue")['default']
   SharedCfTileActionsMenu: typeof import("../../components/shared/CfTileActionsMenu.vue")['default']
   SharedCfTileCarousel: typeof import("../../components/shared/CfTileCarousel.vue")['default']
+  SharedWeightRulerPicker: typeof import("../../components/shared/WeightRulerPicker.vue")['default']
   WhatsappBusinessProfileModal: typeof import("../../components/whatsapp/BusinessProfileModal.vue")['default']
   WhatsappChatBody: typeof import("../../components/whatsapp/ChatBody.vue")['default']
   WhatsappChatFooter: typeof import("../../components/whatsapp/ChatFooter.vue")['default']
@@ -105,10 +146,20 @@ interface _GlobalComponents {
   LazyCfConfirmModal: LazyComponent<typeof import("../../components/CfConfirmModal.vue")['default']>
   LazyGoalMiniPie: LazyComponent<typeof import("../../components/GoalMiniPie.vue")['default']>
   LazyPatientAvatar: LazyComponent<typeof import("../../components/PatientAvatar.vue")['default']>
+  LazyPatientBrandMark: LazyComponent<typeof import("../../components/PatientBrandMark.vue")['default']>
   LazyPatientHeader: LazyComponent<typeof import("../../components/PatientHeader.vue")['default']>
+  LazyPatientLoadingLogo: LazyComponent<typeof import("../../components/PatientLoadingLogo.vue")['default']>
+  LazyPatientMealPlanGate: LazyComponent<typeof import("../../components/PatientMealPlanGate.vue")['default']>
+  LazyPatientMealPlanUploadOverlay: LazyComponent<typeof import("../../components/PatientMealPlanUploadOverlay.vue")['default']>
   LazyPatientMenuDrawer: LazyComponent<typeof import("../../components/PatientMenuDrawer.vue")['default']>
+  LazyPatientNavigationLoader: LazyComponent<typeof import("../../components/PatientNavigationLoader.vue")['default']>
+  LazyPatientNotificationsPanel: LazyComponent<typeof import("../../components/PatientNotificationsPanel.vue")['default']>
+  LazyPatientPageSkeleton: LazyComponent<typeof import("../../components/PatientPageSkeleton.vue")['default']>
+  LazyPatientPdfViewer: LazyComponent<typeof import("../../components/PatientPdfViewer.vue")['default']>
+  LazyPatientPushSettings: LazyComponent<typeof import("../../components/PatientPushSettings.vue")['default']>
   LazyPatientPwaPrompt: LazyComponent<typeof import("../../components/PatientPwaPrompt.vue")['default']>
   LazyPatientPwaUpdate: LazyComponent<typeof import("../../components/PatientPwaUpdate.vue")['default']>
+  LazyPatientSkeleton: LazyComponent<typeof import("../../components/PatientSkeleton.vue")['default']>
   LazyPatientTabBar: LazyComponent<typeof import("../../components/PatientTabBar.vue")['default']>
   LazyPlayerHeader: LazyComponent<typeof import("../../components/PlayerHeader.vue")['default']>
   LazyPlayerNavigation: LazyComponent<typeof import("../../components/PlayerNavigation.vue")['default']>
@@ -116,25 +167,56 @@ interface _GlobalComponents {
   LazyBellaDailyDiaryBar: LazyComponent<typeof import("../../components/bella/DailyDiaryBar.vue")['default']>
   LazyBellaFoodSearchPicker: LazyComponent<typeof import("../../components/bella/FoodSearchPicker.vue")['default']>
   LazyBellaMealConfirmModal: LazyComponent<typeof import("../../components/bella/MealConfirmModal.vue")['default']>
+  LazyBellaMealPhotoGuideSheet: LazyComponent<typeof import("../../components/bella/MealPhotoGuideSheet.vue")['default']>
+  LazyBellaMealSlotPicker: LazyComponent<typeof import("../../components/bella/MealSlotPicker.vue")['default']>
+  LazyBellaPhotoGuideTipIcon: LazyComponent<typeof import("../../components/bella/PhotoGuideTipIcon.vue")['default']>
+  LazyBellaRestaurantIntentButtons: LazyComponent<typeof import("../../components/bella/RestaurantIntentButtons.vue")['default']>
+  LazyBellaSwapButtons: LazyComponent<typeof import("../../components/bella/SwapButtons.vue")['default']>
   LazyBibliotecaScrollRow: LazyComponent<typeof import("../../components/biblioteca/BibliotecaScrollRow.vue")['default']>
+  LazyCheckinFridayPrompt: LazyComponent<typeof import("../../components/checkin/CheckinFridayPrompt.vue")['default']>
+  LazyCheckinTemplateEditorPreview: LazyComponent<typeof import("../../components/checkin/CheckinTemplateEditorPreview.vue")['default']>
   LazyCheckinTypeformFlow: LazyComponent<typeof import("../../components/checkin/CheckinTypeformFlow.vue")['default']>
   LazyCheckinFoodMoodPicker: LazyComponent<typeof import("../../components/checkin/FoodMoodPicker.vue")['default']>
   LazyCheckinNotoEmojiLottie: LazyComponent<typeof import("../../components/checkin/NotoEmojiLottie.client.vue")['default']>
   LazyCommunityFeed: LazyComponent<typeof import("../../components/community/CommunityFeed.vue")['default']>
   LazyCoursesAulaPlayerIcons: LazyComponent<typeof import("../../components/courses/AulaPlayerIcons.vue")['default']>
   LazyCoursesCourseVideoPlayer: LazyComponent<typeof import("../../components/courses/CourseVideoPlayer.vue")['default']>
+  LazyCoursesFlorescerPlayerIcons: LazyComponent<typeof import("../../components/courses/FlorescerPlayerIcons.vue")['default']>
   LazyCoursesLessonFormModal: LazyComponent<typeof import("../../components/courses/LessonFormModal.vue")['default']>
   LazyCoursesLessonNotesPanel: LazyComponent<typeof import("../../components/courses/LessonNotesPanel.vue")['default']>
+  LazyCoursesLessonSummaryContent: LazyComponent<typeof import("../../components/courses/LessonSummaryContent.vue")['default']>
+  LazyCoursesLessonSummaryPanel: LazyComponent<typeof import("../../components/courses/LessonSummaryPanel.vue")['default']>
+  LazyCoursesLessonTranscriptionPanel: LazyComponent<typeof import("../../components/courses/LessonTranscriptionPanel.vue")['default']>
+  LazyCoursesVideoUploadQueuePanel: LazyComponent<typeof import("../../components/courses/VideoUploadQueuePanel.vue")['default']>
+  LazyDietaCheckIcon: LazyComponent<typeof import("../../components/dieta/CheckIcon.vue")['default']>
   LazyDietaMealPlanUploadCard: LazyComponent<typeof import("../../components/dieta/MealPlanUploadCard.vue")['default']>
   LazyDietaMealSubstitutionsModal: LazyComponent<typeof import("../../components/dieta/MealSubstitutionsModal.vue")['default']>
+  LazyEvolucaoExerciseArm: LazyComponent<typeof import("../../components/evolucao/ExerciseArm.vue")['default']>
+  LazyEvolucaoFoodPlate: LazyComponent<typeof import("../../components/evolucao/FoodPlate.vue")['default']>
+  LazyEvolucaoGoalsPanel: LazyComponent<typeof import("../../components/evolucao/GoalsPanel.vue")['default']>
+  LazyEvolucaoNutritionMonthView: LazyComponent<typeof import("../../components/evolucao/NutritionMonthView.vue")['default']>
+  LazyEvolucaoSleepChart: LazyComponent<typeof import("../../components/evolucao/SleepChart.vue")['default']>
+  LazyEvolucaoWaterBottle: LazyComponent<typeof import("../../components/evolucao/WaterBottle.vue")['default']>
+  LazyEvolucaoWeightPanel: LazyComponent<typeof import("../../components/evolucao/WeightPanel.vue")['default']>
   LazyHomeCurrentMealCard: LazyComponent<typeof import("../../components/home/CurrentMealCard.vue")['default']>
   LazyHomeJourneyMacroRing: LazyComponent<typeof import("../../components/home/JourneyMacroRing.vue")['default']>
   LazyHomeMacroBar: LazyComponent<typeof import("../../components/home/MacroBar.vue")['default']>
   LazyHomeMacroPizzaRing: LazyComponent<typeof import("../../components/home/MacroPizzaRing.vue")['default']>
   LazyHomeNutritionPanel: LazyComponent<typeof import("../../components/home/NutritionPanel.vue")['default']>
   LazyHomeNutritionStatCarousel: LazyComponent<typeof import("../../components/home/NutritionStatCarousel.vue")['default']>
+  LazyOnboardingHeightPicker: LazyComponent<typeof import("../../components/onboarding/OnboardingHeightPicker.vue")['default']>
+  LazyOnboardingOptionCard: LazyComponent<typeof import("../../components/onboarding/OnboardingOptionCard.vue")['default']>
+  LazyOnboardingShell: LazyComponent<typeof import("../../components/onboarding/OnboardingShell.vue")['default']>
+  LazyPatientsPatientGoalsPanel: LazyComponent<typeof import("../../components/patients/PatientGoalsPanel.vue")['default']>
+  LazyPatientsPatientNutritionSection: LazyComponent<typeof import("../../components/patients/PatientNutritionSection.vue")['default']>
+  LazyPatientsPatientPhotosPanel: LazyComponent<typeof import("../../components/patients/PatientPhotosPanel.vue")['default']>
+  LazySharedCfDateInput: LazyComponent<typeof import("../../components/shared/CfDateInput.vue")['default']>
+  LazySharedCfDateTimeInput: LazyComponent<typeof import("../../components/shared/CfDateTimeInput.vue")['default']>
+  LazySharedCfPhoneInput: LazyComponent<typeof import("../../components/shared/CfPhoneInput.vue")['default']>
+  LazySharedCfSelect: LazyComponent<typeof import("../../components/shared/CfSelect.vue")['default']>
   LazySharedCfTileActionsMenu: LazyComponent<typeof import("../../components/shared/CfTileActionsMenu.vue")['default']>
   LazySharedCfTileCarousel: LazyComponent<typeof import("../../components/shared/CfTileCarousel.vue")['default']>
+  LazySharedWeightRulerPicker: LazyComponent<typeof import("../../components/shared/WeightRulerPicker.vue")['default']>
   LazyWhatsappBusinessProfileModal: LazyComponent<typeof import("../../components/whatsapp/BusinessProfileModal.vue")['default']>
   LazyWhatsappChatBody: LazyComponent<typeof import("../../components/whatsapp/ChatBody.vue")['default']>
   LazyWhatsappChatFooter: LazyComponent<typeof import("../../components/whatsapp/ChatFooter.vue")['default']>

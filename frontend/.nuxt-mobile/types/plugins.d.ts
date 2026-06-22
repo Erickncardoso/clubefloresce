@@ -20,14 +20,20 @@ type NuxtAppInjections =
   InjectionType<typeof import("../pwa-icons-plugin")> &
   InjectionType<typeof import("../../node_modules/nuxt/dist/app/plugins/warn.dev.server.js")> &
   InjectionType<typeof import("../../node_modules/nuxt/dist/app/plugins/check-if-layout-used.js")> &
+  InjectionType<typeof import("../../plugins/patient-meal-plan.client")> &
+  InjectionType<typeof import("../../plugins/patient-navigation-loading.client")> &
+  InjectionType<typeof import("../../plugins/patient-route.client")> &
+  InjectionType<typeof import("../../plugins/pwa-standalone.client")> &
+  InjectionType<typeof import("../../node_modules/@vite-pwa/nuxt/dist/runtime/plugins/pwa.client.js")> &
+  InjectionType<typeof import("../../plugins/patient-notifications.client")> &
   InjectionType<typeof import("../../plugins/patient-session.client")> &
-  InjectionType<typeof import("../../node_modules/@vite-pwa/nuxt/dist/runtime/plugins/pwa.client.js")>
+  InjectionType<typeof import("../../plugins/push-notifications.client")>
 
 declare module '#app' {
   interface NuxtApp extends NuxtAppInjections { }
 
   interface NuxtAppLiterals {
-    pluginName: 'nuxt:revive-payload:client' | 'nuxt:head' | 'nuxt:router' | 'nuxt:browser-devtools-timing' | 'api-base' | 'nuxt:revive-payload:server' | 'nuxt:chunk-reload' | 'nuxt:global-components' | 'nuxt:prefetch' | 'nuxt:checkIfPageUnused' | 'vite-pwa:nuxt:pwa-icons-plugin' | 'nuxt:checkIfLayoutUsed' | 'vite-pwa:nuxt:client:plugin'
+    pluginName: 'nuxt:revive-payload:client' | 'nuxt:head' | 'nuxt:router' | 'nuxt:browser-devtools-timing' | 'api-base' | 'nuxt:revive-payload:server' | 'nuxt:chunk-reload' | 'nuxt:global-components' | 'nuxt:prefetch' | 'nuxt:checkIfPageUnused' | 'vite-pwa:nuxt:pwa-icons-plugin' | 'nuxt:checkIfLayoutUsed' | 'vite-pwa:nuxt:client:plugin' | 'patient-notifications' | 'patient-session' | 'push-notifications'
   }
 }
 

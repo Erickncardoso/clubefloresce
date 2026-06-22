@@ -2,7 +2,14 @@
   <div class="patient-page dieta-page">
     <PatientHeader title="Minha dieta" show-back back-to="/inicio" :show-bell="false" />
 
-    <BellaDailyDiaryBar v-if="dailySummary" :summary="dailySummary" class="dieta-diary-bar" />
+    <BellaDailyDiaryBar
+      v-if="dailySummary"
+      :summary="dailySummary"
+      manageable
+      class="dieta-diary-bar"
+      @edit-entry="editDiaryEntry"
+      @delete-entry="deleteDiaryEntry"
+    />
 
     <PatientPageSkeleton v-if="planLoading" layout="plan" />
 
@@ -136,6 +143,16 @@
       :meal-label="currentMeal.label"
       :groups="substitutionGroups"
     />
+
+    <BellaMealConfirmModal
+      :open="showMealModal"
+      :draft="mealDraft"
+      :daily-summary="dailySummary"
+      :saving="confirmingMeal"
+      :error="mealConfirmError"
+      @cancel="cancelMealConfirm"
+      @confirm="confirmMealEdit"
+    />
   </div>
 </template>
 
@@ -146,6 +163,7 @@ import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 import { useMealPlan } from '~/composables/useMealPlan'
 import { useMealSubstitutions } from '~/composables/useMealSubstitutions'
 import { usePatientMealPlan } from '~/composables/usePatientMealPlan'
+import { normalizeMealItemsForSave } from '~/utils/meal-diary'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
@@ -154,6 +172,10 @@ const view = ref('today')
 const activeMeal = ref('lunch')
 const checkedItems = ref([])
 const dailySummary = ref(null)
+const showMealModal = ref(false)
+const mealDraft = ref(null)
+const confirmingMeal = ref(false)
+const mealConfirmError = ref('')
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
@@ -280,6 +302,80 @@ async function loadDailySummary() {
     })
   } catch {
     dailySummary.value = null
+  }
+}
+
+function cancelMealConfirm() {
+  showMealModal.value = false
+  mealDraft.value = null
+  mealConfirmError.value = ''
+}
+
+function editDiaryEntry(entry) {
+  if (!entry?.id) return
+  mealDraft.value = {
+    mealType: entry.mealType,
+    mealLabel: entry.mealLabel,
+    imageUrl: entry.imageUrl,
+    items: entry.items || [],
+    editingEntryId: entry.id,
+    previousTotals: {
+      caloriesKcal: entry.caloriesKcal,
+      carbsG: entry.carbsG,
+      proteinG: entry.proteinG,
+      fatG: entry.fatG,
+    },
+  }
+  mealConfirmError.value = ''
+  showMealModal.value = true
+}
+
+async function deleteDiaryEntry(entry) {
+  if (!entry?.id || confirmingMeal.value) return
+  const { confirm } = useConfirm()
+  const accepted = await confirm({
+    title: 'Remover refeição?',
+    message: `Deseja remover ${entry.mealLabel || 'esta refeição'} do diário? As calorias do dia serão recalculadas.`,
+    confirmLabel: 'Remover',
+    variant: 'danger',
+  })
+  if (!accepted) return
+
+  try {
+    const res = await $fetch(`${apiBase}/food-diary/entries/${entry.id}`, {
+      method: 'DELETE',
+      headers: patientTimeHeaders(),
+    })
+    if (res.dailySummary) dailySummary.value = res.dailySummary
+    nutritionRefresh.value += 1
+  } catch (err) {
+    mealConfirmError.value = err.data?.message || 'Não foi possível remover a refeição.'
+  }
+}
+
+async function confirmMealEdit(items) {
+  if (!mealDraft.value?.editingEntryId || confirmingMeal.value) return
+  confirmingMeal.value = true
+  mealConfirmError.value = ''
+
+  try {
+    const res = await $fetch(`${apiBase}/food-diary/entries/${mealDraft.value.editingEntryId}`, {
+      method: 'PUT',
+      headers: patientTimeHeaders(),
+      body: {
+        items: normalizeMealItemsForSave(items),
+        mealType: mealDraft.value.mealType,
+        mealLabel: mealDraft.value.mealLabel,
+        imageUrl: mealDraft.value.imageUrl,
+      },
+    })
+    if (res.dailySummary) dailySummary.value = res.dailySummary
+    nutritionRefresh.value += 1
+    cancelMealConfirm()
+  } catch (err) {
+    mealConfirmError.value = err.data?.message || 'Não foi possível atualizar a refeição.'
+  } finally {
+    confirmingMeal.value = false
   }
 }
 

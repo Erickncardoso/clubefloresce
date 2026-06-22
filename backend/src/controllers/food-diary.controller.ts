@@ -57,4 +57,41 @@ export class FoodDiaryController {
       return res.status(400).json({ message: error.message });
     }
   }
+
+  async updateEntry(req: Request, res: Response): Promise<any> {
+    try {
+      const entryId = String(req.params.id || "").trim();
+      if (!entryId) return res.status(400).json({ message: "Refeição inválida." });
+
+      const body = req.body || {};
+      const items = Array.isArray(body.items) ? body.items : [];
+      const result = await foodDiaryService.updateEntry(
+        req.user!.id,
+        entryId,
+        {
+          items,
+          mealType: typeof body.mealType === "string" ? body.mealType : undefined,
+          mealLabel: typeof body.mealLabel === "string" ? body.mealLabel : undefined,
+          imageUrl: typeof body.imageUrl === "string" ? body.imageUrl : undefined,
+        },
+      );
+      return res.json(result);
+    } catch (error: any) {
+      const status = error.message === "Refeição não encontrada." ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async deleteEntry(req: Request, res: Response): Promise<any> {
+    try {
+      const entryId = String(req.params.id || "").trim();
+      if (!entryId) return res.status(400).json({ message: "Refeição inválida." });
+
+      const result = await foodDiaryService.deleteEntry(req.user!.id, entryId);
+      return res.json(result);
+    } catch (error: any) {
+      const status = error.message === "Refeição não encontrada." ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
 }

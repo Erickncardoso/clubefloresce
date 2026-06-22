@@ -247,7 +247,7 @@
               C {{ mealTotals.carbsG }} g · P {{ mealTotals.proteinG }} g · G {{ mealTotals.fatG }} g
             </p>
             <p v-if="dailySummary" class="bite-totals-day">
-              Após confirmar: {{ projectedCalories }} / {{ dailySummary.targets.caloriesKcal }} kcal no dia
+              {{ isEditing ? 'Após salvar' : 'Após confirmar' }}: {{ projectedCalories }} / {{ dailySummary.targets.caloriesKcal }} kcal no dia
             </p>
           </div>
 
@@ -262,7 +262,7 @@
             :disabled="saving || !items.length"
             @click="confirm"
           >
-            {{ saving ? 'Salvando…' : 'Confirmar' }}
+            {{ saving ? 'Salvando…' : (isEditing ? 'Salvar alterações' : 'Confirmar') }}
             <ChevronRight class="bite-confirm-icon" aria-hidden="true" />
           </button>
         </footer>
@@ -354,6 +354,8 @@ const backdropStyle = computed(() => {
 
 const mealTotals = computed(() => sumMealItems(items.value))
 
+const isEditing = computed(() => Boolean(props.draft?.editingEntryId))
+
 const uncountedItems = computed(() => items.value.filter((item) => !isItemCounted(item)))
 
 const uncountedNames = computed(() => {
@@ -364,7 +366,12 @@ const uncountedNames = computed(() => {
 
 const projectedCalories = computed(() => {
   if (!props.dailySummary) return mealTotals.value.caloriesKcal
-  return props.dailySummary.consumed.caloriesKcal + mealTotals.value.caloriesKcal
+  const consumed = Number(props.dailySummary.consumed.caloriesKcal) || 0
+  const previous = props.draft?.previousTotals?.caloriesKcal
+  if (isEditing.value && previous != null) {
+    return Math.max(0, consumed - Number(previous) + mealTotals.value.caloriesKcal)
+  }
+  return consumed + mealTotals.value.caloriesKcal
 })
 
 const timeLabel = computed(() => {
