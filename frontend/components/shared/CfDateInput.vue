@@ -2,9 +2,47 @@
   <div
     ref="rootRef"
     class="cf-date-input"
-    :class="{ 'cf-date-input--open': open, 'cf-date-input--disabled': disabled }"
+    :class="{
+      'cf-date-input--open': open,
+      'cf-date-input--disabled': disabled,
+      'cf-date-input--editable': editable,
+    }"
   >
+    <div
+      v-if="editable"
+      class="cf-date-input-trigger cf-date-input-trigger--editable cf-squircle cf-squircle--control"
+      :class="{ 'cf-date-input-trigger--focused': textFocused }"
+    >
+      <input
+        :id="id"
+        type="text"
+        class="cf-date-input-text"
+        inputmode="numeric"
+        autocomplete="bday"
+        :placeholder="placeholder"
+        :disabled="disabled"
+        :value="textValue"
+        maxlength="10"
+        aria-label="Data"
+        @input="onTextInput"
+        @blur="onTextBlur"
+        @focus="textFocused = true"
+      >
+      <button
+        type="button"
+        class="cf-date-calendar-btn"
+        :disabled="disabled"
+        aria-label="Abrir calendário"
+        :aria-expanded="open"
+        aria-haspopup="dialog"
+        @click="toggle"
+      >
+        <Calendar class="cf-date-input-icon" aria-hidden="true" />
+      </button>
+    </div>
+
     <button
+      v-else
       :id="id"
       type="button"
       class="cf-date-input-trigger cf-squircle cf-squircle--control"
@@ -114,6 +152,10 @@ const props = defineProps({
     type: String,
     default: 'dd/mm/aaaa',
   },
+  editable: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -127,6 +169,8 @@ const monthNames = [
 const open = ref(false)
 const rootRef = ref(null)
 const panelRef = ref(null)
+const textValue = ref('')
+const textFocused = ref(false)
 const panelStyle = ref({})
 const viewYear = ref(new Date().getFullYear())
 const viewMonth = ref(new Date().getMonth())
@@ -195,6 +239,73 @@ function formatDisplay(value) {
   return date.toLocaleDateString('pt-BR')
 }
 
+function maskDigits(digits) {
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+}
+
+function parseBrazilianToIso(display) {
+  const match = display.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!match) return null
+
+  const day = Number(match[1])
+  const month = Number(match[2])
+  const year = Number(match[3])
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000) return null
+
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return null
+  }
+
+  return toIsoDate(date)
+}
+
+function syncTextFromModel() {
+  textValue.value = props.modelValue ? formatDisplay(props.modelValue) : ''
+}
+
+function onTextInput(event) {
+  const digits = event.target.value.replace(/\D/g, '').slice(0, 8)
+  textValue.value = maskDigits(digits)
+  event.target.value = textValue.value
+
+  if (digits.length === 8) {
+    const iso = parseBrazilianToIso(textValue.value)
+    if (iso && !isDisabled(iso)) {
+      emit('update:modelValue', iso)
+      return
+    }
+  }
+
+  if (!digits.length) {
+    emit('update:modelValue', '')
+  }
+}
+
+function onTextBlur() {
+  textFocused.value = false
+
+  if (!textValue.value.trim()) {
+    if (!props.required) emit('update:modelValue', '')
+    return
+  }
+
+  const iso = parseBrazilianToIso(textValue.value)
+  if (iso && !isDisabled(iso)) {
+    emit('update:modelValue', iso)
+    textValue.value = formatDisplay(iso)
+    return
+  }
+
+  textValue.value = props.modelValue ? formatDisplay(props.modelValue) : ''
+}
+
 function isDisabled(iso) {
   if (props.min && iso < props.min) return true
   if (props.max && iso > props.max) return true
@@ -242,12 +353,16 @@ function toggle() {
 function selectDate(iso) {
   if (isDisabled(iso)) return
   emit('update:modelValue', iso)
+  if (props.editable) {
+    textValue.value = formatDisplay(iso)
+  }
   close()
 }
 
 function clearDate() {
   if (props.required) return
   emit('update:modelValue', '')
+  if (props.editable) textValue.value = ''
   close()
 }
 
@@ -255,6 +370,9 @@ function selectToday() {
   const iso = todayIso.value
   if (isDisabled(iso)) return
   emit('update:modelValue', iso)
+  if (props.editable) {
+    textValue.value = formatDisplay(iso)
+  }
   close()
 }
 
@@ -289,7 +407,16 @@ function onKeydown(event) {
 
 watch(() => props.modelValue, () => {
   if (open.value) syncViewToValue()
+  if (props.editable && !textFocused.value) syncTextFromModel()
 })
+
+watch(
+  () => props.editable,
+  (value) => {
+    if (value) syncTextFromModel()
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
@@ -325,6 +452,71 @@ onBeforeUnmount(() => {
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cf-date-input-trigger--editable {
+  padding: 0;
+  gap: 0;
+  cursor: default;
+}
+
+.cf-date-input-trigger--editable.cf-date-input-trigger--focused,
+.cf-date-input--open .cf-date-input-trigger--editable {
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+}
+
+.cf-date-input-text {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.9rem 0.35rem 0.9rem 1rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--cf-text, #1a2e24);
+  outline: none;
+}
+
+.cf-date-input-text::placeholder {
+  color: #9aa8a2;
+}
+
+.cf-date-input-text:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cf-date-calendar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 100%;
+  min-height: 3rem;
+  border: none;
+  background: transparent;
+  color: #8a9a92;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cf-date-calendar-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cf-date-calendar-btn:focus-visible {
+  outline: 2px solid #9fc499;
+  outline-offset: -2px;
 }
 
 .field--float .cf-date-input-trigger {

@@ -140,6 +140,15 @@ html:has(.patient-login-mode):not(:has(.patient-shell)) #__nuxt {
   line-height: var(--cf-leading-body);
 }
 
+html:has(.onboarding-layout),
+html:has(.onboarding-layout) body,
+html:has(.onboarding-layout) #__nuxt,
+html:has(.onboarding-layout) .patient-app-shell,
+html:has(.onboarding-layout) .patient-app-shell__main {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 html:has(.patient-shell),
 html:has(.patient-shell) body,
 html:has(.patient-shell) #__nuxt {
