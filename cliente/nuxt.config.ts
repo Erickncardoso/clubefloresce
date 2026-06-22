@@ -153,6 +153,9 @@ export default defineNuxtConfig({
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/api\//],
       globPatterns: ['**/*.{js,css,png,svg,ico,webp,woff2,woff,webmanifest}'],
+      // Tutorial asset ~2.1MB — acima do limite padrão do Workbox (2 MiB); carrega sob demanda.
+      globIgnores: ['**/meal-photo-guide-plate.png'],
+      maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       cleanupOutdatedCaches: true,
       clientsClaim: true,
       importScripts: ['/push-sw.js'],

@@ -1,0 +1,15 @@
+node_modules
+.nuxt
+.output
+dist
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.log
+coverage
+.DS_Store
+.cursor
+.agents
+.claude

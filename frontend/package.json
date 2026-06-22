@@ -31,5 +31,8 @@
     "@vite-pwa/nuxt": "^1.1.1",
     "cross-env": "^7.0.3",
     "sharp": "^0.34.5"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
