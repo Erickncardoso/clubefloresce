@@ -18,7 +18,7 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo('/inicio')
   }
 
-  const noPatientLayoutPaths = ['/', '/register']
+  const noPatientLayoutPaths = ['/', '/register', '/esqueci-senha', '/redefinir-senha']
   if (!noPatientLayoutPaths.includes(to.path)) {
     setPageLayout('patient')
   }

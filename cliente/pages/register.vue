@@ -11,7 +11,7 @@
             Recebemos seus dados. Quando a nutricionista aprovar seu acesso,
             você já poderá entrar com o e-mail e a senha que escolheu.
           </p>
-          <p class="success-note">Avisaremos você por e-mail assim que estiver tudo pronto.</p>
+          <p class="success-note">Avisaremos você por e-mail e WhatsApp assim que estiver tudo pronto.</p>
           <NuxtLink to="/" class="btn-auth-submit patient-auth-submit cf-squircle--control success-back-btn">
             Voltar para o login
           </NuxtLink>
@@ -117,7 +117,8 @@
               v-model="patientForm.phone"
               input-id="req-phone"
               label="WhatsApp"
-              hint="Opcional"
+              hint="Obrigatório — usaremos para avisar sobre sua aprovação"
+              required
               :focused="focusedField === 'phone'"
               @focus="focusedField = 'phone'"
               @blur="focusedField = ''"
@@ -168,6 +169,7 @@ import {
   Mail,
   User,
 } from 'lucide-vue-next'
+import { parseInternationalPhone } from '~/utils/phone-countries.js'
 
 definePageMeta({ layout: false, pageTransition: false })
 
@@ -203,6 +205,18 @@ const handlePatientRequest = async () => {
     return
   }
 
+  const phone = patientForm.phone.trim()
+  if (!phone) {
+    error.value = 'Informe seu WhatsApp.'
+    return
+  }
+
+  const parsedPhone = parseInternationalPhone(phone)
+  if (!parsedPhone.nationalDigits || parsedPhone.nationalDigits.length < 10) {
+    error.value = 'Informe um WhatsApp válido com DDD.'
+    return
+  }
+
   loading.value = true
   try {
     await $fetch(`${authApiBase.value}/patient-registration-request`, {
@@ -212,7 +226,7 @@ const handlePatientRequest = async () => {
         email: patientForm.email,
         password: patientForm.password,
         passwordConfirm: patientForm.passwordConfirm,
-        phone: patientForm.phone || null,
+        phone,
         message: patientForm.message || null,
       },
     })

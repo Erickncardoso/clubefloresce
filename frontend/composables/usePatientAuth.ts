@@ -8,6 +8,9 @@ import {
 
 const TOKEN_KEY = 'auth_token'
 const TOKEN_BACKUP_KEY = 'auth_token_backup'
+const PATIENT_ROLE = 'PACIENTE'
+
+let sessionValidationFlight: Promise<boolean> | null = null
 
 function readStorageToken(): string | null {
   if (import.meta.server) return null
@@ -127,6 +130,10 @@ export function usePatientAuth() {
         if (data.user?.role) {
           localStorage.setItem('user_role', data.user.role)
         }
+        if (data.user?.role && data.user.role !== PATIENT_ROLE) {
+          clearSession()
+          return false
+        }
         if (data.user) {
           const { persistSession } = usePatientApp()
           persistSession({
@@ -146,12 +153,48 @@ export function usePatientAuth() {
     }
   }
 
-  async function ensureSession(): Promise<boolean> {
+  function assertPatientRole(): boolean {
+    if (import.meta.server) return false
+    return localStorage.getItem('user_role') === PATIENT_ROLE
+  }
+
+  function rejectNonPatientSession(): void {
+    clearSession()
+  }
+
+  async function runPatientSessionValidation(): Promise<boolean> {
     if (!config.public.mobileApp) return true
+
     bootstrapToken()
     sessionReady.value = true
+
     if (!getToken()) return false
-    return refreshSession()
+
+    const refreshed = await refreshSession()
+    if (!refreshed) return false
+
+    if (!assertPatientRole()) {
+      rejectNonPatientSession()
+      return false
+    }
+
+    return true
+  }
+
+  async function ensurePatientSession(): Promise<boolean> {
+    if (!config.public.mobileApp) return true
+
+    if (!sessionValidationFlight) {
+      sessionValidationFlight = runPatientSessionValidation().finally(() => {
+        sessionValidationFlight = null
+      })
+    }
+
+    return sessionValidationFlight
+  }
+
+  async function ensureSession(): Promise<boolean> {
+    return ensurePatientSession()
   }
 
   return {
@@ -162,10 +205,13 @@ export function usePatientAuth() {
     bootstrapToken,
     clearSession,
     authHeaders,
+    assertPatientRole,
+    rejectNonPatientSession,
     isUnauthorizedError,
     isSessionExpiredError,
     isPatientAccessRevokedError,
     refreshSession,
+    ensurePatientSession,
     ensureSession,
   }
 }

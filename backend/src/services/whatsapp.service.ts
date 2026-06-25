@@ -1,9 +1,11 @@
 import dotenv from "dotenv";
+import { readEnv } from "../utils/env";
 dotenv.config();
 
 const UAZAPI_URL = process.env.UAZAPI_SERVER_URL || "";
 // Em muitas documentações da UazAPI/Evolution, o header correto é 'apikey' e não 'admintoken'.
 const API_KEY = process.env.UAZAPI_ADMIN_TOKEN || process.env.UAZAPI_API_KEY || "";
+const UAZAPI_INSTANCE_NAME = String(process.env.UAZAPI_INSTANCE_NAME || "").trim();
 
 // Cache de token de instância por usuário — evita chamar /instance/all a cada proxy request.
 // TTL de 5 minutos; invalidado explicitamente ao criar/deletar instâncias.
@@ -13,6 +15,14 @@ const INSTANCE_TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutos
 /** Foto do perfil da sessão: cache curto para não chamar /chat/details a cada poll de status. */
 const instanceProfilePicCache = new Map<string, { url: string; at: number }>();
 const PROFILE_PIC_ENRICH_CACHE_TTL_MS = 90_000;
+
+/** Reaplica presença "unavailable" para o celular continuar recebendo push do WhatsApp. */
+const mobilePresenceAppliedAt = new Map<string, number>();
+const MOBILE_PRESENCE_REFRESH_MS = 90_000;
+
+/** Evita reconfigurar webhook da instância a cada poll de status. */
+const webhookEnsureAppliedAt = new Map<string, number>();
+const WEBHOOK_ENSURE_REFRESH_MS = 5 * 60 * 1000;
 
 export class WhatsappService {
   private async sleep(ms: number): Promise<void> {
@@ -67,13 +77,296 @@ export class WhatsappService {
     }
   }
 
-  private _findInstance(instances: any[], userId: string): any | null {
-    const byName = instances.find((i: any) => 
-      i.name === `instancia_${userId}` || 
-      i.instanceName === `instancia_${userId}` ||
-      i.instance?.name === `instancia_${userId}`
+  private _defaultInstanceName(userId: string): string {
+    return `instancia_${userId}`;
+  }
+
+  private _instanceAdminField(inst: any): string {
+    return String(inst?.adminField01 || inst?.instance?.adminField01 || "").trim();
+  }
+
+  private _instanceDisplayName(inst: any): string {
+    return String(
+      inst?.name ||
+      inst?.instanceName ||
+      inst?.instance?.name ||
+      ""
+    ).trim();
+  }
+
+  private _instanceToken(inst: any): string {
+    return String(
+      inst?.token || inst?.hash || inst?.apikey || inst?.instance?.token || "",
+    ).trim();
+  }
+
+  /** Instância pertence à nutricionista (adminField01 ou nome padrão instancia_{userId}). */
+  private _instanceOwnedByUser(inst: any, userId: string): boolean {
+    if (this._instanceAdminField(inst) === userId) return true;
+
+    const name = this._instanceDisplayName(inst);
+    if (name === this._defaultInstanceName(userId)) return true;
+
+    if (UAZAPI_INSTANCE_NAME && name === UAZAPI_INSTANCE_NAME) {
+      const admin = this._instanceAdminField(inst);
+      return !admin || admin === userId;
+    }
+
+    return false;
+  }
+
+  private _listInstancesForUser(instances: any[], userId: string): any[] {
+    return instances.filter((inst) => this._instanceOwnedByUser(inst, userId));
+  }
+
+  private _instanceRank(inst: any, userId: string): number {
+    let score = 0;
+    if (this._instanceAdminField(inst) === userId) score += 1000;
+
+    const status = this._normalizeConnectionStatus(inst);
+    if (status === "connected") score += 500;
+    else if (status === "connecting") score += 300;
+    else if (status === "disconnected") score += 100;
+
+    if (this._instanceDisplayName(inst) === this._defaultInstanceName(userId)) score += 50;
+    if (String(inst?.systemName || inst?.instance?.systemName || "").trim() === "Clube Florescer") {
+      score += 25;
+    }
+
+    const stamp = Date.parse(String(inst?.updated || inst?.created || ""));
+    if (Number.isFinite(stamp)) score += stamp / 1e12;
+
+    return score;
+  }
+
+  private _sameInstance(a: any, b: any): boolean {
+    const tokenA = this._instanceToken(a);
+    const tokenB = this._instanceToken(b);
+    if (tokenA && tokenB) return tokenA === tokenB;
+    return this._instanceDisplayName(a) === this._instanceDisplayName(b);
+  }
+
+  /** Escolhe a melhor instância entre duplicatas do mesmo usuário. */
+  private _pickCanonicalInstance(instances: any[], userId: string): any | null {
+    const owned = this._listInstancesForUser(instances, userId);
+    if (owned.length) {
+      return [...owned].sort((a, b) => this._instanceRank(b, userId) - this._instanceRank(a, userId))[0];
+    }
+
+    if (UAZAPI_INSTANCE_NAME) {
+      const pinned = instances.find((i) => this._instanceDisplayName(i) === UAZAPI_INSTANCE_NAME);
+      if (pinned) return pinned;
+    }
+
+    const clubeInstances = instances.filter(
+      (i) => String(i?.systemName || i?.instance?.systemName || "").trim() === "Clube Florescer",
     );
-    return byName ?? null;
+    if (clubeInstances.length === 1) return clubeInstances[0];
+
+    if (instances.length === 1) return instances[0];
+
+    return null;
+  }
+
+  /** Vincula instância UAZAPI à nutricionista (adminField01 = userId). */
+  private _findInstance(instances: any[], userId: string): any | null {
+    return this._pickCanonicalInstance(instances, userId);
+  }
+
+  private async _disconnectInstanceRecord(inst: any): Promise<void> {
+    const token = this._instanceToken(inst);
+    if (!token) return;
+
+    const status = this._normalizeConnectionStatus(inst);
+    if (status !== "connected" && status !== "connecting") return;
+
+    try {
+      await fetch(`${UAZAPI_URL}/instance/disconnect`, {
+        method: "POST",
+        headers: this.getInstanceHeaders(token),
+      });
+    } catch {
+      /* best effort */
+    }
+  }
+
+  private async _deleteInstanceRecord(inst: any): Promise<{ success: boolean; message?: string }> {
+    const token = this._instanceToken(inst);
+    const name = this._instanceDisplayName(inst) || "sem-nome";
+
+    if (!token) {
+      return { success: false, message: `Token ausente para "${name}".` };
+    }
+
+    const res = await fetch(`${UAZAPI_URL}/instance`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        token,
+      },
+    });
+
+    const text = await res.text();
+    console.log(`[UazAPI] DELETE /instance "${name}" → ${res.status}: ${text.slice(0, 160)}`);
+
+    if (res.ok) return { success: true };
+    return { success: false, message: `Erro ${res.status}: ${text}` };
+  }
+
+  /** Remove duplicatas do usuário, mantendo apenas a instância canônica. */
+  async cleanupDuplicateInstancesForUser(userId: string, keepCanonical = true): Promise<number> {
+    const all = await this._fetchAllInstances();
+    const owned = this._listInstancesForUser(all, userId);
+    if (owned.length <= 1) return 0;
+
+    const canonical = this._pickCanonicalInstance(all, userId);
+    let deleted = 0;
+
+    for (const inst of owned) {
+      if (keepCanonical && canonical && this._sameInstance(inst, canonical)) continue;
+
+      await this._disconnectInstanceRecord(inst);
+      await this.sleep(300);
+
+      const result = await this._deleteInstanceRecord(inst);
+      if (result.success) deleted += 1;
+    }
+
+    if (deleted > 0) {
+      this.invalidateInstanceTokenCache(userId);
+      instanceProfilePicCache.delete(userId);
+    }
+
+    return deleted;
+  }
+
+  /** Encerra sessão e remove todas as instâncias vinculadas ao usuário na UAZAPI. */
+  async removeAllInstancesForUser(userId: string): Promise<{ deletedCount: number }> {
+    const all = await this._fetchAllInstances();
+    let owned = this._listInstancesForUser(all, userId);
+
+    if (!owned.length) {
+      const legacy = this._pickCanonicalInstance(all, userId);
+      if (legacy) {
+        const admin = this._instanceAdminField(legacy);
+        if (!admin || admin === userId) owned = [legacy];
+      }
+    }
+
+    let deletedCount = 0;
+
+    for (const inst of owned) {
+      await this._disconnectInstanceRecord(inst);
+      await this.sleep(300);
+
+      const result = await this._deleteInstanceRecord(inst);
+      if (result.success) deletedCount += 1;
+    }
+
+    this.invalidateInstanceTokenCache(userId);
+    instanceProfilePicCache.delete(userId);
+
+    return { deletedCount };
+  }
+
+  private _resolveConnectionStatus(payload: any): string {
+    if (!payload || typeof payload !== "object") return "";
+
+    const raw =
+      payload.connectionStatus ??
+      payload.state ??
+      payload.status ??
+      payload.instance?.status ??
+      payload.instance?.connectionStatus ??
+      "";
+
+    if (raw && typeof raw === "object") {
+      if (raw.connected === true || raw.loggedIn === true) return "connected";
+      if (raw.connecting === true) return "connecting";
+      return "disconnected";
+    }
+
+    const normalized = String(raw || "").trim().toLowerCase();
+    if (normalized) return normalized;
+
+    if (payload.connected === true || payload.loggedIn === true) return "connected";
+    if (payload.status?.connected === true || payload.status?.loggedIn === true) return "connected";
+
+    return "";
+  }
+
+  private _extractQrCode(payload: any): string {
+    if (!payload || typeof payload !== "object") return "";
+    const candidates = [
+      payload.qrcode,
+      payload.qr,
+      payload.base64,
+      payload.instance?.qrcode,
+      payload.instance?.qr,
+      payload.status?.qrcode,
+    ];
+    for (const candidate of candidates) {
+      const value = typeof candidate === "string" ? candidate.trim() : "";
+      if (value) return value;
+    }
+    return "";
+  }
+
+  private _normalizeConnectionStatus(payload: any): string {
+    return this._resolveConnectionStatus(payload);
+  }
+
+  private async _ensureInstanceForUser(userId: string): Promise<{ token: string; name: string }> {
+    await this.cleanupDuplicateInstancesForUser(userId, true);
+
+    let info = await this.getInstanceInfo(userId);
+    if (info?.token) {
+      const instances = await this._fetchAllInstances();
+      const inst = this._pickCanonicalInstance(instances, userId);
+      if (inst?.id && this._instanceAdminField(inst) !== userId) {
+        await this.updateAdminFields(String(inst.id), userId);
+      }
+      return info;
+    }
+
+    const created = await this.createInstanceManual(userId);
+    this.invalidateInstanceTokenCache(userId);
+
+    const token = this._instanceToken(created?.instance || created) || created?.token || created?.hash || "";
+    const name =
+      this._instanceDisplayName(created?.instance || created) ||
+      created?.name ||
+      this._defaultInstanceName(userId);
+
+    if (token) {
+      return { token: String(token), name: String(name) };
+    }
+
+    info = await this.getInstanceInfo(userId);
+    if (!info?.token) {
+      throw new Error("Não foi possível preparar a instância WhatsApp.");
+    }
+    return info;
+  }
+
+  private async _waitForQrCode(userId: string, attempts = 10, delayMs = 1500): Promise<string> {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const statusData: any = await this.getStatus(userId);
+      const qr =
+        this._extractQrCode(statusData?.instance) ||
+        this._extractQrCode(statusData?.status) ||
+        this._extractQrCode(statusData);
+
+      if (qr) return qr;
+
+      const state = this._normalizeConnectionStatus(statusData?.instance || statusData?.status);
+      if (state === "connected") break;
+
+      if (attempt < attempts - 1) {
+        await this.sleep(delayMs);
+      }
+    }
+    return "";
   }
 
   async getInstanceInfo(userId: string): Promise<{ token: string, name: string } | null> {
@@ -82,8 +375,8 @@ export class WhatsappService {
       const inst = this._findInstance(instances, userId);
       if (!inst) return null;
       return {
-        token: inst.token || inst.hash || inst.instance?.token || '',
-        name: inst.name || inst.instanceName || inst.instance?.name || ''
+        token: this._instanceToken(inst),
+        name: this._instanceDisplayName(inst),
       };
     } catch(err) {
       console.error("Erro ao buscar instância UazAPI:", err);
@@ -150,14 +443,45 @@ export class WhatsappService {
     if (!statusData || typeof statusData !== "object") {
       return { ...myInst };
     }
+
     const nested = statusData.instance;
     const nestedObj = nested && typeof nested === "object" && !Array.isArray(nested) ? nested : null;
-    const { instance: _drop, ...statusFlat } = statusData;
-    return {
+    const statusBlock =
+      statusData.status && typeof statusData.status === "object" && !Array.isArray(statusData.status)
+        ? statusData.status
+        : null;
+    const { instance: _dropInstance, status: _dropStatus, ...statusFlat } = statusData;
+
+    const merged = {
       ...myInst,
       ...(nestedObj || {}),
-      ...statusFlat
+      ...statusFlat,
     };
+
+    const connectionStatus =
+      this._resolveConnectionStatus(nestedObj || {}) ||
+      this._resolveConnectionStatus(statusBlock || {}) ||
+      this._resolveConnectionStatus(myInst || {});
+
+    if (connectionStatus) {
+      merged.connectionStatus = connectionStatus;
+      merged.status = connectionStatus;
+    } else if (typeof merged.status === "object") {
+      merged.status = this._resolveConnectionStatus(merged.status) || "disconnected";
+      merged.connectionStatus = merged.status;
+    }
+
+    if (statusBlock) {
+      merged.connection = statusBlock;
+      merged.loggedIn = statusBlock.loggedIn ?? merged.loggedIn;
+      merged.connected = statusBlock.connected ?? merged.connected;
+      if (statusBlock.jid && !merged.jid) merged.jid = statusBlock.jid;
+    }
+
+    const qrcode = this._extractQrCode(nestedObj || {}) || this._extractQrCode(merged);
+    if (qrcode) merged.qrcode = qrcode;
+
+    return merged;
   }
 
   /** Identificador (JID ou telefone) da própria conta para /chat/details. */
@@ -221,6 +545,71 @@ export class WhatsappService {
     return merged;
   }
 
+  /** Resolve nutricionista a partir de id/nome/token da instância UAZAPI (webhook). */
+  async resolveUserIdByInstanceRef(instanceRef: string): Promise<string | null> {
+    const ref = String(instanceRef || "").trim();
+    if (!ref) return null;
+
+    try {
+      const instances = await this._fetchAllInstances();
+      for (const inst of instances) {
+        const admin = this._instanceAdminField(inst);
+        if (admin) {
+          const ids = [
+            String(inst?.id || "").trim(),
+            this._instanceDisplayName(inst),
+            this._instanceToken(inst),
+          ];
+          if (ids.includes(ref)) return admin;
+        }
+
+        const name = this._instanceDisplayName(inst);
+        const nameMatch = /^instancia_(.+)$/.exec(name);
+        const ids = [
+          String(inst?.id || "").trim(),
+          name,
+          this._instanceToken(inst),
+        ];
+        if (ids.includes(ref) && nameMatch?.[1]) return nameMatch[1];
+      }
+    } catch (error) {
+      console.warn("[WhatsApp] Falha ao resolver userId do webhook:", error);
+    }
+
+    return null;
+  }
+
+  private _resolveWebhookUrl(): string | null {
+    const explicit = readEnv("WHATSAPP_WEBHOOK_URL");
+    if (explicit) return explicit.replace(/\/+$/, "");
+
+    const backendPublic = readEnv("BACKEND_PUBLIC_URL");
+    if (!backendPublic) return null;
+    return `${backendPublic.replace(/\/+$/, "")}/api/whatsapp/webhook`;
+  }
+
+  /** Garante webhook da instância apontando para a API (eventos → Pusher). */
+  async ensureRealtimeWebhook(userId: string): Promise<void> {
+    const webhookUrl = this._resolveWebhookUrl();
+    if (!webhookUrl) return;
+
+    const last = webhookEnsureAppliedAt.get(userId) || 0;
+    if (Date.now() - last < WEBHOOK_ENSURE_REFRESH_MS) return;
+
+    try {
+      await this.setInstanceWebhook(userId, {
+        enabled: true,
+        url: webhookUrl,
+        events: ["messages", "messages_update", "chats", "connection"],
+        excludeMessages: ["wasSentByApi"],
+      });
+      webhookEnsureAppliedAt.set(userId, Date.now());
+      console.log(`[WhatsApp] Webhook tempo real OK (${userId.slice(0, 8)}…)`);
+    } catch (error) {
+      console.warn("[WhatsApp] Falha ao configurar webhook da instância:", error);
+    }
+  }
+
   async getAllInstances(): Promise<any[]> {
     return this._fetchAllInstances();
   }
@@ -237,16 +626,33 @@ export class WhatsappService {
   }
 
   async createInstanceManual(userId: string, customName?: string): Promise<any> {
-    const instanceName = customName || `instancia_${userId}`;
+    await this.cleanupDuplicateInstancesForUser(userId, true);
+
+    const existingInstances = await this._fetchAllInstances();
+    const existing = this._pickCanonicalInstance(existingInstances, userId);
+    const existingToken = existing ? this._instanceToken(existing) : "";
+    if (existingToken) {
+      const existingName = this._instanceDisplayName(existing);
+      console.log(`[UazAPI] Reutilizando instância existente: ${existingName}`);
+      return {
+        token: existingToken,
+        name: existingName,
+        instance: existing,
+        reused: true,
+      };
+    }
+
+    const instanceName = customName?.trim() || this._defaultInstanceName(userId);
     console.log(`[UazAPI] Criando instância: ${instanceName}`);
-    
-    // POST /instance/create com admintoken no header
+
+    // POST /instance/create — doc: https://docs.uazapi.com/endpoint/post/instance~create
     const res = await fetch(`${UAZAPI_URL}/instance/create`, {
       method: "POST",
       headers: this.getAdminHeaders(),
       body: JSON.stringify({
         name: instanceName,
-        systemName: "Clube Florescer"
+        systemName: "Clube Florescer",
+        adminField01: userId,
       })
     });
 
@@ -278,90 +684,91 @@ export class WhatsappService {
     }
   }
 
-  async deleteInstance(instanceName: string): Promise<{ success: boolean, message?: string }> {
+  async deleteInstance(instanceName: string, userId?: string): Promise<{ success: boolean, message?: string, deletedCount?: number }> {
     try {
-      // Busca todas as instâncias para achar o token específico da que queremos deletar
       const allInst = await this._fetchAllInstances();
-      const inst = allInst.find((i: any) =>
-        i.name === instanceName || i.instanceName === instanceName ||
-        i.instance?.name === instanceName
-      );
-      
-      // O token da instância é necessário para o DELETE /instance
-      const instanceToken = inst?.token || inst?.hash || inst?.apikey || inst?.instance?.token;
-      
-      console.log(`[UazAPI] Deletando "${instanceName}" com token: ${instanceToken ? '✓' : 'não encontrado'}`);
-      
-      if (!instanceToken) {
-        return { success: false, message: `Token da instância "${instanceName}" não encontrado. Instâncias disponíveis: ${allInst.map((i:any) => i.name || i.instanceName).join(', ')}` };
+      const matches = allInst.filter((i: any) => this._instanceDisplayName(i) === instanceName);
+
+      if (!matches.length) {
+        return {
+          success: false,
+          message: `Instância "${instanceName}" não encontrada na UAZAPI.`,
+        };
       }
 
-      // DELETE /instance com o token da INSTÂNCIA no header "token"
-      const res = await fetch(`${UAZAPI_URL}/instance`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "token": instanceToken   // token da instância específica
-        }
-      });
-      
-      const text = await res.text();
-      console.log(`[UazAPI] DELETE /instance → ${res.status}: ${text}`);
-      
-      if (res.ok) {
-        this.invalidateInstanceTokenCache();
-        return { success: true };
+      const toDelete = userId
+        ? matches.filter((inst) => this._instanceOwnedByUser(inst, userId))
+        : matches;
+
+      if (!toDelete.length) {
+        return { success: false, message: "Não autorizado a deletar esta instância." };
       }
-      return { success: false, message: `Erro ${res.status}: ${text}` };
+
+      let deletedCount = 0;
+      for (const inst of toDelete) {
+        await this._disconnectInstanceRecord(inst);
+        await this.sleep(300);
+        const result = await this._deleteInstanceRecord(inst);
+        if (result.success) deletedCount += 1;
+      }
+
+      if (deletedCount > 0) {
+        if (userId) this.invalidateInstanceTokenCache(userId);
+        else this.invalidateInstanceTokenCache();
+        return { success: true, deletedCount };
+      }
+
+      return { success: false, message: "Não foi possível remover a instância na UAZAPI." };
     } catch (err: any) {
       console.error("Erro ao deletar instância:", err);
       return { success: false, message: err.message };
     }
   }
 
-  async connect(userId: string, customName?: string, phone?: string): Promise<any> {
-    try {
-      const instanceInfo = await this.getInstanceInfo(userId);
-      
-      let instanceToken = instanceInfo?.token;
-      let instanceName = customName || instanceInfo?.name || `instancia_${userId}`;
-      
-      // Se não tem instância, cria uma
-      if (!instanceToken) {
-         console.log(`[UazAPI] Sem instância ativa, criando: ${instanceName}`);
-         const createData = await this.createInstanceManual(userId, customName);
-         instanceToken = createData?.token || createData?.hash || createData?.instance?.token;
-         instanceName = createData?.name || createData?.instance?.name || instanceName;
-      }
+  async deleteInstancesForUser(userId: string): Promise<{ success: boolean; deletedCount: number; message?: string }> {
+    const { deletedCount } = await this.removeAllInstancesForUser(userId);
+    return {
+      success: deletedCount > 0,
+      deletedCount,
+      message:
+        deletedCount > 0
+          ? `${deletedCount} instância(s) removida(s) da UAZAPI.`
+          : "Nenhuma instância WhatsApp vinculada encontrada.",
+    };
+  }
 
-      if (!instanceToken) {
-        throw new Error("Não foi possível obter o token da instância WhatsApp.");
-      }
+  async connect(userId: string, phone?: string): Promise<any> {
+    try {
+      const instanceInfo = await this._ensureInstanceForUser(userId);
+      const instanceToken = instanceInfo.token;
+      const instanceName = instanceInfo.name;
 
       console.log(`[UazAPI] Conectando instância "${instanceName}"...`);
-      
-      // POST /instance/connect com token da instância no header
-      const body: any = {};
-      if (phone) body.phone = phone;
-      
+
+      // POST /instance/connect — sem phone gera QR code (doc UAZAPI).
+      const body: Record<string, string> = {};
+      if (phone?.trim()) body.phone = phone.trim();
+
       const res = await fetch(`${UAZAPI_URL}/instance/connect`, {
         method: "POST",
         headers: this.getInstanceHeaders(instanceToken),
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
       });
-      
+
       const text = await res.text();
       console.log(`[UazAPI] POST /instance/connect → ${res.status}: ${text.substring(0, 200)}`);
-      
+
       if (!res.ok) {
-        if(res.status === 429) throw new Error("Limite de conexões simultâneas atingido. Delete instâncias antigas.");
-        if(res.status === 401) throw new Error("Token de instância inválido ou expirado.");
-        if(res.status === 404) throw new Error(`Instância não encontrada: ${text}`);
+        if (res.status === 429) throw new Error("Limite de conexões simultâneas atingido na UAZAPI.");
+        if (res.status === 401) throw new Error("Token de instância inválido ou expirado.");
+        if (res.status === 404) throw new Error("Instância WhatsApp não encontrada na UAZAPI.");
         throw new Error(`Erro ao conectar WhatsApp. Status ${res.status}: ${text}`);
       }
-      
-      return JSON.parse(text);
-    } catch(err) {
+
+      const data = JSON.parse(text || "{}");
+      const qrcode = this._extractQrCode(data);
+      return qrcode ? { ...data, qrcode } : data;
+    } catch (err) {
       console.error("Erro no connect da UazAPI:", err);
       throw err;
     }
@@ -369,11 +776,12 @@ export class WhatsappService {
 
   async getStatus(userId: string): Promise<any> {
     try {
+      await this.cleanupDuplicateInstancesForUser(userId, true);
       const instances = await this._fetchAllInstances();
       const myInst = this._findInstance(instances, userId);
 
       if (!myInst) {
-        return { status: "disconnected", instance: null, allInstances: instances };
+        return { status: "disconnected", instance: null };
       }
 
       const instanceToken = myInst.token || myInst.hash || myInst.instance?.token;
@@ -389,10 +797,18 @@ export class WhatsappService {
             const statusData: any = await statusRes.json();
             console.log(`[UazAPI] GET /instance/status →`, JSON.stringify(statusData).substring(0, 200));
             const merged = await this._hydrateInstanceProfilePic(userId, myInst, statusData);
+            const qrcode = this._extractQrCode(merged) || this._extractQrCode(statusData);
+            if (qrcode && !merged.qrcode) merged.qrcode = qrcode;
+            const connectionStatus = this._normalizeConnectionStatus(merged);
+            if (this._isConnectedStatus(connectionStatus)) {
+              void this.ensureMobileNotificationsFriendly(userId);
+              void this.ensureRealtimeWebhook(userId);
+            }
             return {
               instance: merged,
-              allInstances: instances,
-              status: statusData
+              status: statusData,
+              connectionStatus,
+              qrcode,
             };
           }
         } catch(e) {
@@ -401,10 +817,15 @@ export class WhatsappService {
       }
 
       const mergedFallback = await this._hydrateInstanceProfilePic(userId, myInst, null);
+      const connectionStatus = this._normalizeConnectionStatus(mergedFallback);
+      if (this._isConnectedStatus(connectionStatus)) {
+        void this.ensureMobileNotificationsFriendly(userId);
+        void this.ensureRealtimeWebhook(userId);
+      }
       return {
         instance: mergedFallback,
-        allInstances: instances,
-        status: myInst
+        status: myInst,
+        connectionStatus,
       };
     } catch (err: any) {
       console.error("Erro ao pegar status da instância:", err);
@@ -412,46 +833,82 @@ export class WhatsappService {
     }
   }
   
-  async disconnect(userId: string): Promise<any> {
-    try {
-      const instanceInfo = await this.getInstanceInfo(userId);
-      if (!instanceInfo) throw new Error("Instância não encontrada para desconectar.");
+  /** Encerra a sessão WhatsApp sem remover a instância na UAZAPI (uso interno / regenerar QR). */
+  async disconnectSession(userId: string): Promise<any> {
+    const instanceInfo = await this.getInstanceInfo(userId);
+    if (!instanceInfo?.token) {
+      throw new Error("Nenhuma instância WhatsApp vinculada.");
+    }
 
-      // POST /instance/disconnect com token da instância no header
-      const res = await fetch(`${UAZAPI_URL}/instance/disconnect`, {
-        method: "POST",
-        headers: this.getInstanceHeaders(instanceInfo.token)
-      });
-      
-      const text = await res.text();
-      console.log(`[UazAPI] POST /instance/disconnect → ${res.status}: ${text}`);
-      
-      if (!res.ok) {
-        if(res.status === 401) throw new Error("Token de instância inválido.");
-        if(res.status === 404) throw new Error("Instância não encontrada.");
-        throw new Error(`Erro ao desconectar. Status: ${res.status}`);
-      }
-      instanceProfilePicCache.delete(userId);
-      return JSON.parse(text);
-    } catch (err: any) {
-      console.error("Erro ao desconectar:", err);
-      return { success: false, message: err.message };
+    const res = await fetch(`${UAZAPI_URL}/instance/disconnect`, {
+      method: "POST",
+      headers: this.getInstanceHeaders(instanceInfo.token),
+    });
+
+    const text = await res.text();
+    console.log(`[UazAPI] POST /instance/disconnect → ${res.status}: ${text}`);
+
+    if (!res.ok) {
+      if (res.status === 401) throw new Error("Token de instância inválido.");
+      if (res.status === 404) throw new Error("Instância não encontrada na UAZAPI.");
+      throw new Error(`Erro ao desconectar. Status: ${res.status}`);
+    }
+
+    this.invalidateInstanceTokenCache(userId);
+    instanceProfilePicCache.delete(userId);
+
+    try {
+      return text ? JSON.parse(text) : { ok: true };
+    } catch {
+      return { ok: true, response: text || "Disconnected" };
     }
   }
 
-  async regenerateQrCode(userId: string, customName?: string): Promise<any> {
-    const instanceInfo = await this.getInstanceInfo(userId);
-    const instanceName = customName || instanceInfo?.name;
+  /** Desconecta e remove a instância (e duplicatas) da UAZAPI. */
+  async disconnect(userId: string): Promise<any> {
+    const hadInstance = Boolean(await this.getInstanceInfo(userId));
+    const { deletedCount } = await this.removeAllInstancesForUser(userId);
 
-    // Conforme a doc da UAZAPI, para novo QR é necessário desconectar e reconectar.
-    await this.disconnect(userId);
+    if (!hadInstance && deletedCount === 0) {
+      throw new Error("Nenhuma instância WhatsApp vinculada.");
+    }
 
-    // Evita corrida imediata entre disconnect e connect na UAZAPI.
-    await this.sleep(1500);
+    return {
+      ok: true,
+      deletedCount,
+      message:
+        deletedCount > 0
+          ? "WhatsApp desconectado e instância removida da UAZAPI."
+          : "WhatsApp desconectado.",
+    };
+  }
+
+  async regenerateQrCode(userId: string): Promise<any> {
+    await this._ensureInstanceForUser(userId);
+
+    const currentStatus: any = await this.getStatus(userId);
+    const connectionStatus =
+      currentStatus?.connectionStatus ||
+      this._normalizeConnectionStatus(currentStatus?.instance || currentStatus?.status);
+
+    if (connectionStatus === "connected" || connectionStatus === "open" || connectionStatus === "online") {
+      throw new Error("WhatsApp já está conectado. Desconecte antes de gerar um novo QR.");
+    }
+
+    if (connectionStatus === "connecting" || connectionStatus === "qrreadsuccess") {
+      try {
+        await this.disconnectSession(userId);
+        await this.sleep(1500);
+      } catch (err: any) {
+        const message = String(err?.message || "").toLowerCase();
+        if (!message.includes("nenhuma instância")) throw err;
+      }
+    }
 
     try {
-      // Sem o campo phone, /instance/connect retorna fluxo de QR code.
-      return await this.connect(userId, instanceName);
+      const connectData = await this.connect(userId);
+      const qrcode = this._extractQrCode(connectData);
+      if (qrcode) return { ...connectData, qrcode, connectionStatus: "connecting" };
     } catch (err: any) {
       const message = String(err?.message || "").toLowerCase();
       const retryable =
@@ -460,14 +917,20 @@ export class WhatsappService {
         message.includes("connecting");
 
       if (!retryable) throw err;
-
-      // Fallback: consulta status atual; em muitos casos o QR já está disponível após o cancelamento.
-      const statusData: any = await this.getStatus(userId);
-      return {
-        ...statusData,
-        qrcode: statusData?.instance?.qrcode || statusData?.instance?.qr || statusData?.status?.qrcode || ""
-      };
     }
+
+    const qrcode = await this._waitForQrCode(userId);
+    const statusData: any = await this.getStatus(userId);
+
+    if (!qrcode) {
+      throw new Error("Não foi possível obter o QR Code. Tente novamente em alguns segundos.");
+    }
+
+    return {
+      ...statusData,
+      qrcode,
+      connectionStatus: "connecting",
+    };
   }
 
   async getGlobalWebhook(): Promise<any> {
@@ -720,6 +1183,82 @@ export class WhatsappService {
     } catch(err: any) {
       console.error("Erro updatePresence:", err);
       throw err;
+    }
+  }
+
+  private _isConnectedStatus(status: string): boolean {
+    const normalized = String(status || "").trim().toLowerCase();
+    return normalized === "connected" || normalized === "open" || normalized === "online";
+  }
+
+  private _mobilePresenceCacheKey(userId: string, token?: string): string {
+    return userId || String(token || "").slice(0, 24);
+  }
+
+  /**
+   * A UAZAPI/Baileys mantém a sessão como "online", o que faz o WhatsApp silenciar
+   * notificações no celular. Presença "unavailable" devolve os pushes ao aparelho.
+   */
+  async ensureMobileNotificationsFriendly(userId: string, force = false): Promise<void> {
+    if (!UAZAPI_URL) return;
+
+    const token = await this.getInstanceToken(userId);
+    if (!token) return;
+
+    const cacheKey = this._mobilePresenceCacheKey(userId, token);
+    const now = Date.now();
+    if (!force) {
+      const lastApplied = mobilePresenceAppliedAt.get(cacheKey) || 0;
+      if (now - lastApplied < MOBILE_PRESENCE_REFRESH_MS) return;
+    }
+
+    try {
+      const res = await fetch(`${UAZAPI_URL}/instance/presence`, {
+        method: "POST",
+        headers: this.getInstanceHeaders(token),
+        body: JSON.stringify({ presence: "unavailable" }),
+      });
+
+      if (res.ok) {
+        mobilePresenceAppliedAt.set(cacheKey, now);
+        console.log(`[UazAPI] Presença unavailable — notificações no celular preservadas (${cacheKey.slice(0, 12)}…)`);
+      }
+    } catch (err) {
+      console.error("[UazAPI] Falha ao aplicar presença unavailable:", err);
+    }
+  }
+
+  /** Reaplica presença unavailable em todas as instâncias Clube Florescer conectadas. */
+  async refreshMobilePresenceForAllConnectedInstances(): Promise<void> {
+    if (!UAZAPI_URL) return;
+
+    const all = await this._fetchAllInstances();
+    for (const inst of all) {
+      const systemName = String(inst?.systemName || inst?.instance?.systemName || "").trim();
+      if (systemName !== "Clube Florescer") continue;
+      if (!this._isConnectedStatus(this._normalizeConnectionStatus(inst))) continue;
+
+      const token = this._instanceToken(inst);
+      if (!token) continue;
+
+      const userId = this._instanceAdminField(inst);
+      const cacheKey = this._mobilePresenceCacheKey(userId, token);
+      const now = Date.now();
+      const lastApplied = mobilePresenceAppliedAt.get(cacheKey) || 0;
+      if (now - lastApplied < MOBILE_PRESENCE_REFRESH_MS) continue;
+
+      try {
+        const res = await fetch(`${UAZAPI_URL}/instance/presence`, {
+          method: "POST",
+          headers: this.getInstanceHeaders(token),
+          body: JSON.stringify({ presence: "unavailable" }),
+        });
+        if (res.ok) {
+          mobilePresenceAppliedAt.set(cacheKey, now);
+        }
+      } catch {
+        /* best effort */
+      }
     }
   }
 

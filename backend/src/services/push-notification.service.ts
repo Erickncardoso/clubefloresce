@@ -1,7 +1,9 @@
 import { PushSubscriptionRepository } from "../repositories/push-subscription.repository";
 import { ensureVapidConfigured, getVapidPublicKey, webpush } from "../utils/vapid-config";
+import { PatientPreferencesService } from "./patient-preferences.service";
 
 const repo = new PushSubscriptionRepository();
+const preferencesService = new PatientPreferencesService();
 
 export type PushMessage = {
   title: string;
@@ -53,11 +55,25 @@ export class PushNotificationService {
 
   async getStatus(userId: string) {
     const count = await repo.countByUser(userId);
+    const preferences = await preferencesService.getPreferences(userId);
     return {
       enabled: this.isEnabled(),
       subscribed: count > 0,
       deviceCount: count,
+      mealRemindersEnabled: preferences.mealRemindersEnabled,
+      timezone: preferences.timezone,
     };
+  }
+
+  async syncTimezone(userId: string, timeZone?: string | null) {
+    await preferencesService.syncTimezone(userId, timeZone);
+  }
+
+  async updatePreferences(userId: string, input: { mealRemindersEnabled?: boolean }) {
+    if (typeof input.mealRemindersEnabled === "boolean") {
+      await preferencesService.setMealRemindersEnabled(userId, input.mealRemindersEnabled);
+    }
+    return preferencesService.getPreferences(userId);
   }
 
   async sendToUser(userId: string, message: PushMessage) {

@@ -31,6 +31,12 @@ enum RegistrationRequestStatus {
   RECUSADO
 }
 
+model AppSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
 model PatientRegistrationRequest {
   id           String                    @id @default(uuid())
   name         String
@@ -51,11 +57,15 @@ model User {
   email         String    @unique
   password      String
   name          String
+  phone         String?
   role          Role       @default(PACIENTE)
   avatar        String?
   status        UserStatus @default(ATIVO)
   plan          UserPlan   @default(FREE)
   accessExpiresAt DateTime?
+  approvalEmailSentAt DateTime?
+  approvalWhatsappSentAt DateTime?
+  approvalWhatsappMessage String? @db.Text
   patientGoalsData Json?
   patientProfileData Json?
   onboardingCompletedAt DateTime?
@@ -84,6 +94,20 @@ model User {
   nutritionTarget NutritionTarget?
   foodDiaryEntries FoodDiaryEntry[]
   patientMealPlan PatientMealPlan?
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model PatientMealPlan {

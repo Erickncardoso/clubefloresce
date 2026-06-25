@@ -35,52 +35,60 @@ export const getWhatsappApiBase = () => getBase()
  */
 export const isWhatsappConnectedFromStatusPayload = (data) => {
   if (!data || typeof data !== 'object') return false
+
+  if (data.connectionStatus) {
+    const normalized = String(data.connectionStatus).toLowerCase()
+    return normalized === 'connected' || normalized === 'open' || normalized === 'online'
+  }
+
   const inst = data.instance || null
+
+  const resolveStatus = (value) => {
+    if (!value) return ''
+    if (typeof value === 'object') {
+      if (value.connected === true || value.loggedIn === true) return 'connected'
+      if (value.connecting === true) return 'connecting'
+      return 'disconnected'
+    }
+    return String(value).toLowerCase()
+  }
+
   const rawStatus = (
+    inst?.connectionStatus ||
     inst?.status ||
     inst?.instance?.status ||
-    inst?.connectionStatus ||
-    inst?.instance?.connectionStatus ||
     inst?.state ||
-    inst?.instance?.state ||
     data.status?.status ||
-    data.status?.connectionStatus ||
-    data.status?.state ||
     ''
   )
-  const normalizedStatus = String(rawStatus).toLowerCase()
+  const normalizedStatus = resolveStatus(rawStatus)
   const isExplicitlyDisconnected = normalizedStatus === 'disconnected'
 
   const statusInner = data.status?.instance || data.status || {}
   const hasProviderJid = Boolean(
-    data.status?.jid || statusInner?.jid || inst?.instance?.jid || inst?.jid
+    data.status?.jid ||
+    statusInner?.jid ||
+    inst?.jid ||
+    inst?.connection?.jid
   )
   const isLoggedIn =
     data.status?.loggedIn === true ||
     statusInner?.loggedIn === true ||
-    inst?.instance?.loggedIn === true ||
-    inst?.loggedIn === true
+    inst?.loggedIn === true ||
+    inst?.connection?.loggedIn === true
 
   const isConnectedByStatus =
     normalizedStatus === 'connected' ||
     normalizedStatus === 'open' ||
     normalizedStatus === 'online'
 
-  const anyInstanceConnected = Array.isArray(data.allInstances) && data.allInstances.some(
-    (i) => i.status === 'connected' || i.status === 'open' || i.status === 'online' ||
-           i.connected === true || i.loggedIn === true
-  )
-
   return !isExplicitlyDisconnected && (
     isConnectedByStatus ||
     data.status?.connected === true ||
     statusInner?.connected === true ||
     isLoggedIn ||
-    data.status?.statusCode === 200 ||
     hasProviderJid ||
-    inst?.connected === true ||
-    inst?.instance?.connected === true ||
-    anyInstanceConnected
+    inst?.connected === true
   )
 }
 
@@ -116,8 +124,8 @@ export const getAuthToken = () =>
   typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || '') : ''
 
 // ─── Polling intervals ────────────────────────────────────────────────────────
-export const CHATS_POLL_INTERVAL_MS = 6000
-export const MESSAGES_POLL_INTERVAL_MS = 4000
+export const CHATS_POLL_INTERVAL_MS = 5000
+export const MESSAGES_POLL_INTERVAL_MS = 2000
 export const CONTACTS_SYNC_MIN_INTERVAL_MS = 60000
 export const UNKNOWN_SENDER_ENRICH_POLL_MIN_MS = 35000
 

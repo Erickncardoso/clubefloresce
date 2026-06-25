@@ -19,6 +19,7 @@ router.get("/contact-directory", authenticate, authorize(["NUTRICIONISTA"]), wha
 router.post("/contact-directory", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.upsertContactDirectory);
 router.get("/group-observed-senders", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getGroupObservedSenders);
 router.post("/group-observed-senders", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.mergeGroupObservedSenders);
+router.get("/sse", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.sse);
 router.post("/group/create", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.createGroup);
 router.post("/group/info", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getGroupInfo);
 router.post("/group/inviteInfo", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getGroupInviteInfo);

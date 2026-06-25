@@ -23,10 +23,14 @@ const route = useRoute()
 const config = useRuntimeConfig()
 useVirtualKeyboard()
 
+if (import.meta.client && config.public.mobileApp) {
+  document.documentElement.classList.add('cf-mobile-app')
+}
+
 const { getToken, bootstrapToken } = usePatientAuth()
 const { hasPlan, planChecked, loading: planLoading } = usePatientMealPlan()
 
-const hideTabBarPaths = ['/', '/register', '/documento', '/onboarding']
+const hideTabBarPaths = ['/', '/register', '/documento', '/onboarding', '/esqueci-senha', '/redefinir-senha', '/abrir']
 const publicPaths = hideTabBarPaths
 
 const isAuthenticatedRoute = computed(() => {
@@ -54,11 +58,11 @@ const showTabBar = computed(() => {
 </script>
 
 <style>
-html,
-body,
-#__nuxt {
+html.cf-mobile-app,
+html.cf-mobile-app body,
+html.cf-mobile-app #__nuxt {
   margin: 0;
-  min-height: 100%;
+  min-height: 0;
   max-width: 100%;
   overflow-x: hidden;
 }

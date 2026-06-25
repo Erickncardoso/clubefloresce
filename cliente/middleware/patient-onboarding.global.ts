@@ -3,7 +3,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const config = useRuntimeConfig()
   if (!config.public.mobileApp) return
 
-  const publicPaths = ['/', '/register', '/documento']
+  const publicPaths = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha']
   if (publicPaths.includes(to.path)) return
 
   if (import.meta.server) return

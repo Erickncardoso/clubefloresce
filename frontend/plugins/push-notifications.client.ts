@@ -13,6 +13,7 @@ export default defineNuxtPlugin({
       checkServerEnabled,
       refreshStatus,
       syncSubscriptionIfGranted,
+      syncTimezone,
     } = usePushNotifications()
 
     void detectPushSupport()
@@ -27,6 +28,7 @@ export default defineNuxtPlugin({
 
     const trySync = async () => {
       if (!bootstrapToken()) return
+      await syncTimezone()
       await refreshStatus()
       const dismissed = localStorage.getItem('push_prompt_dismissed') === '1'
       if (!dismissed && Notification.permission === 'default') return

@@ -23,8 +23,10 @@ export function usePushNotifications() {
   const enabledOnServer = useState('push-server-enabled', () => false)
   const permission = useState('push-permission', () => 'default')
   const subscribed = useState('push-subscribed', () => false)
+  const mealRemindersEnabled = useState('push-meal-reminders', () => true)
   const loading = useState('push-loading', () => false)
   const error = useState('push-error', () => '')
+  const { patientTimeHeaders } = usePatientLocalTime()
 
   const canSubscribe = computed(() => (
     supported.value
@@ -126,6 +128,18 @@ export function usePushNotifications() {
     }
   }
 
+  async function syncTimezone() {
+    if (!bootstrapToken()) return
+    try {
+      await $fetch(`${apiBase.value}/push/sync-timezone`, {
+        method: 'POST',
+        headers: patientTimeHeaders(),
+      })
+    } catch {
+      // timezone sync is best-effort
+    }
+  }
+
   async function refreshStatus() {
     await detectPushSupport()
     await checkServerEnabled()
@@ -133,10 +147,13 @@ export function usePushNotifications() {
 
     try {
       const status = await $fetch(`${apiBase.value}/push/status`, {
-        headers: authHeaders(),
+        headers: patientTimeHeaders(),
       })
       enabledOnServer.value = Boolean(status?.enabled)
       subscribed.value = Boolean(status?.subscribed)
+      if (typeof status?.mealRemindersEnabled === 'boolean') {
+        mealRemindersEnabled.value = status.mealRemindersEnabled
+      }
     } catch {
       subscribed.value = false
     }
@@ -151,9 +168,12 @@ export function usePushNotifications() {
       if (bootstrapToken()) {
         try {
           const status = await $fetch(`${apiBase.value}/push/status`, {
-            headers: authHeaders(),
+            headers: patientTimeHeaders(),
           })
           subscribed.value = Boolean(status?.subscribed)
+          if (typeof status?.mealRemindersEnabled === 'boolean') {
+            mealRemindersEnabled.value = status.mealRemindersEnabled
+          }
         } catch {
           subscribed.value = false
         }
@@ -204,7 +224,7 @@ export function usePushNotifications() {
       const json = subscription.toJSON()
       await $fetch(`${apiBase.value}/push/subscribe`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: patientTimeHeaders(),
         body: {
           endpoint: json.endpoint,
           keys: json.keys,
@@ -212,6 +232,7 @@ export function usePushNotifications() {
       })
 
       subscribed.value = true
+      mealRemindersEnabled.value = true
       return true
     } catch (err) {
       error.value = err?.data?.message || err?.message || 'Não foi possível ativar as notificações.'
@@ -232,7 +253,7 @@ export function usePushNotifications() {
         const endpoint = subscription.endpoint
         await $fetch(`${apiBase.value}/push/unsubscribe`, {
           method: 'POST',
-          headers: authHeaders(),
+          headers: patientTimeHeaders(),
           body: { endpoint },
         })
         await subscription.unsubscribe()
@@ -247,9 +268,30 @@ export function usePushNotifications() {
     }
   }
 
+  async function updateMealReminders(enabled) {
+    error.value = ''
+    loading.value = true
+
+    try {
+      const data = await $fetch(`${apiBase.value}/push/preferences`, {
+        method: 'PATCH',
+        headers: patientTimeHeaders(),
+        body: { mealRemindersEnabled: enabled },
+      })
+      mealRemindersEnabled.value = Boolean(data?.mealRemindersEnabled)
+      return true
+    } catch (err) {
+      error.value = err?.data?.message || err?.message || 'Não foi possível salvar a preferência.'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function syncSubscriptionIfGranted() {
     await detectPushSupport()
     if (!supported.value || !bootstrapToken()) return
+    await syncTimezone()
     if (Notification.permission !== 'granted') return
     await refreshStatus()
     if (!enabledOnServer.value) return
@@ -266,6 +308,7 @@ export function usePushNotifications() {
     enabledOnServer,
     permission,
     subscribed,
+    mealRemindersEnabled,
     loading,
     error,
     canSubscribe,
@@ -273,9 +316,11 @@ export function usePushNotifications() {
     detectPushSupport,
     checkServerEnabled,
     refreshStatus,
+    syncTimezone,
     initPushState,
     subscribe,
     unsubscribe,
+    updateMealReminders,
     syncSubscriptionIfGranted,
   }
 }

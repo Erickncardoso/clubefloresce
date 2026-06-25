@@ -3,7 +3,9 @@
     class="cf-phone-field form-group field--float"
     :class="{ focused: focused || countryMenuOpen }"
   >
-    <label :for="inputId">{{ label }}</label>
+    <label :for="inputId">
+      {{ label }}<span v-if="required" class="label-required"> *</span>
+    </label>
     <div class="cf-phone-input cf-squircle--control">
       <div ref="countryRef" class="cf-phone-country">
         <button
@@ -41,6 +43,7 @@
         autocomplete="tel"
         :value="displayValue"
         :placeholder="selectedCountry.mask.replace(/#/g, '0')"
+        :required="required"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"
@@ -65,6 +68,7 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   label: { type: String, default: 'WhatsApp' },
   hint: { type: String, default: '' },
+  required: { type: Boolean, default: false },
   focused: { type: Boolean, default: false },
   inputId: { type: String, default: 'cf-phone-input' },
 })

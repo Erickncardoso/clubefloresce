@@ -6,6 +6,36 @@ body {
   max-width: 100%;
 }
 
+html.cf-mobile-app {
+  touch-action: manipulation;
+}
+
+html.cf-mobile-app,
+html.cf-mobile-app body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.cf-mobile-app #__nuxt {
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+html.cf-ios-pwa .patient-shell-body {
+  scroll-behavior: auto;
+}
+
 /* Modais — scroll interno sem vazar para o shell */
 .patient-shell .modal-overlay,
 .patient-shell .courses-modal-overlay,

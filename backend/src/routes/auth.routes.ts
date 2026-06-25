@@ -17,9 +17,11 @@ function handleProfileAvatarUpload(req: Request, res: Response, next: NextFuncti
   });
 }
 
-router.post("/register", credentialRateLimiter, authController.register.bind(authController));
 router.post("/patient-registration-request", credentialRateLimiter, authController.requestPatientRegistration.bind(authController));
 router.post("/login", credentialRateLimiter, authController.login.bind(authController));
+router.post("/forgot-password", credentialRateLimiter, authController.forgotPassword.bind(authController));
+router.get("/password-reset/validate", authController.validatePasswordReset.bind(authController));
+router.post("/reset-password", credentialRateLimiter, authController.resetPassword.bind(authController));
 router.post("/refresh", authController.refresh.bind(authController));
 router.get("/me", authController.me.bind(authController));
 router.post(

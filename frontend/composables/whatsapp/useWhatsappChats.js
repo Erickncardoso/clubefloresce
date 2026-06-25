@@ -17,6 +17,14 @@ import {
 } from './useWhatsappUtils.js'
 import { getAuthToken, getProxyBase, CHATS_POLL_INTERVAL_MS, MESSAGES_POLL_INTERVAL_MS } from './useWhatsappApi.js'
 import {
+  connectWhatsappPusher,
+  disconnectWhatsappPusher,
+} from './useWhatsappPusher.js'
+import {
+  connectWhatsappSse,
+  disconnectWhatsappSse,
+} from './useWhatsappSse.js'
+import {
   loadGroupParticipantsDirectory, syncContactsDirectoryIfNeeded, learnObservedSenderNames,
   ingestLidPnHintsFromMessages, enrichUnknownSenderNames, ensureGroupSenderAvatars, resolveChatListSenderLabel,
   loadPersistedGroupObservedSenders, schedulePersistGroupObservedSenders, cancelScheduledGroupObservedPersist
@@ -470,15 +478,30 @@ export const isChatBodyNearBottom = () => {
 
 let lastPollUnknownEnrichAt = 0
 const UNKNOWN_ENRICH_MIN_MS = 35000
+let pendingMessageRefresh = false
 
-export const refreshSelectedChatMessages = async (enrichSharedFns = {}) => {
+const jidsReferToSameChat = (a, b) => {
+  const left = normalizeJid(a)
+  const right = normalizeJid(b)
+  if (!left || !right) return false
+  if (left === right) return true
+  return canonicalChatListKey({ chatJid: left }) === canonicalChatListKey({ chatJid: right })
+}
+
+export const refreshSelectedChatMessages = async (enrichSharedFns = {}, options = {}) => {
+  const { force = false, light = false } = options
   const currentChatJid = normalizeJid(selectedChat.value?.chatJid)
-  if (!currentChatJid || loadingMessages.value || isRefreshingMessages.value) return
+  if (!currentChatJid) return
+  if (loadingMessages.value && !force) return
+  if (isRefreshingMessages.value) {
+    pendingMessageRefresh = true
+    return
+  }
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
   const seqSnapshot = selectChatLoadSeq.value
   try {
     isRefreshingMessages.value = true
-    await syncContactsDirectoryIfNeeded(false)
+    if (!light) await syncContactsDirectoryIfNeeded(false)
     if (selectChatLoadSeq.value !== seqSnapshot) return
     const wasNearBottom = isChatBodyNearBottom()
     const pageResult = await fetchChatMessages(currentChatJid, 120, 0)
@@ -492,14 +515,16 @@ export const refreshSelectedChatMessages = async (enrichSharedFns = {}) => {
       enrichUnknownSenderNames(pageResult.messages).catch(() => {})
     }
     const normalizedIncoming = pageResult.messages.map((incoming) => normalizeMessage(incoming))
-    if (enrichSharedFns.hydratePersistedContactStatesFromMessages) await enrichSharedFns.hydratePersistedContactStatesFromMessages(normalizedIncoming)
-    const hasSharedContact = normalizedIncoming.some((msg) => msg.isContactShare && msg.sharedContact?.phone)
-    if (hasSharedContact) {
-      await syncContactsDirectoryIfNeeded(true)
-      if (enrichSharedFns.persistSavedStatesFromMessages) await enrichSharedFns.persistSavedStatesFromMessages(normalizedIncoming)
+    if (!light) {
+      if (enrichSharedFns.hydratePersistedContactStatesFromMessages) await enrichSharedFns.hydratePersistedContactStatesFromMessages(normalizedIncoming)
+      const hasSharedContact = normalizedIncoming.some((msg) => msg.isContactShare && msg.sharedContact?.phone)
+      if (hasSharedContact) {
+        await syncContactsDirectoryIfNeeded(true)
+        if (enrichSharedFns.persistSavedStatesFromMessages) await enrichSharedFns.persistSavedStatesFromMessages(normalizedIncoming)
+      }
+      if (enrichSharedFns.enrichSharedContactAvatars) enrichSharedFns.enrichSharedContactAvatars(normalizedIncoming)
+      if (enrichSharedFns.enrichSharedContactBusinessProfiles) enrichSharedFns.enrichSharedContactBusinessProfiles(normalizedIncoming)
     }
-    if (enrichSharedFns.enrichSharedContactAvatars) enrichSharedFns.enrichSharedContactAvatars(normalizedIncoming)
-    if (enrichSharedFns.enrichSharedContactBusinessProfiles) enrichSharedFns.enrichSharedContactBusinessProfiles(normalizedIncoming)
 
     const mergedById = new Map()
     for (const current of messages.value) { const n = normalizeMessage(current); mergedById.set(getMessageMergeKey(n), n) }
@@ -550,7 +575,13 @@ export const refreshSelectedChatMessages = async (enrichSharedFns = {}) => {
       return
     }
     console.error('Erro ao atualizar mensagens em tempo real', error)
-  } finally { isRefreshingMessages.value = false }
+  } finally {
+    isRefreshingMessages.value = false
+    if (pendingMessageRefresh) {
+      pendingMessageRefresh = false
+      refreshSelectedChatMessages(enrichSharedFns, { force: true }).catch(() => {})
+    }
+  }
 }
 
 // ─── markCurrentChatAsRead ────────────────────────────────────────────────────
@@ -674,27 +705,109 @@ export const loadChats = async (forceRefresh = false, options = {}) => {
 
 // ─── selectChat ───────────────────────────────────────────────────────────────
 
+const SELECT_CHAT_FIRST_PAGE = 60
+const SELECT_CHAT_PAGE_LIMIT = 120
+const SELECT_CHAT_MAX_PAGES = 3
+
+const appendRawMessagesToAggregate = (aggregated, seenIds, rawByMergeKey, rawMessages = []) => {
+  for (const rawMessage of rawMessages) {
+    const normalized = normalizeMessage(rawMessage)
+    const key = getMessageMergeKey(normalized)
+    if (seenIds.has(key)) {
+      const idx = aggregated.findIndex((m) => getMessageMergeKey(m) === key)
+      if (idx >= 0) {
+        const winner = key.startsWith('reaction:')
+          ? ((normalized.timestamp || 0) >= (aggregated[idx].timestamp || 0) ? normalized : aggregated[idx])
+          : pickRicherDuplicateBaseMessage(aggregated[idx], normalized)
+        aggregated[idx] = winner
+        if (winner === normalized) rawByMergeKey.set(key, rawMessage)
+      }
+      continue
+    }
+    seenIds.add(key)
+    aggregated.push(normalized)
+    rawByMergeKey.set(key, rawMessage)
+  }
+  return aggregated
+}
+
+const applySelectChatScroll = (unreadCountAtOpen) => {
+  nextTick(() => {
+    const chatBodyEl = chatBodyRef.value
+    if (!chatBodyEl) return
+    const total = messages.value.length
+    if (!unreadCountAtOpen || unreadCountAtOpen <= 0 || total === 0) {
+      scrollToBottom()
+      return
+    }
+    const firstUnreadIndex = Math.max(total - unreadCountAtOpen, 0)
+    const target = chatBodyEl.querySelector(`[data-message-index="${firstUnreadIndex}"]`)
+    if (!target) { scrollToBottom(); return }
+    target.scrollIntoView({ block: 'start', behavior: 'auto' })
+  })
+}
+
+const runSelectChatBackgroundEnrichment = (activeFetchJid, aggregated, rawByMergeKey, enrichSharedFns, chat, unreadCountAtOpen) => {
+  const rawForLearn = aggregated.map((m) => rawByMergeKey.get(getMessageMergeKey(m)) || m)
+  ingestLidPnHintsFromMessages(rawForLearn)
+  learnObservedSenderNames(rawForLearn)
+  enrichUnknownSenderNames(rawForLearn).catch(() => {})
+
+  if (enrichSharedFns.enrichSharedContactAvatars) enrichSharedFns.enrichSharedContactAvatars(aggregated)
+  if (enrichSharedFns.enrichSharedContactBusinessProfiles) enrichSharedFns.enrichSharedContactBusinessProfiles(aggregated)
+
+  if (enrichSharedFns.hydratePersistedContactStatesFromMessages) {
+    enrichSharedFns.hydratePersistedContactStatesFromMessages(aggregated).catch(() => {})
+  }
+
+  const hasSharedContact = aggregated.some((msg) => msg.isContactShare && msg.sharedContact?.phone)
+  if (hasSharedContact) {
+    syncContactsDirectoryIfNeeded(true)
+      .then(() => {
+        if (enrichSharedFns.persistSavedStatesFromMessages) {
+          return enrichSharedFns.persistSavedStatesFromMessages(aggregated)
+        }
+        return undefined
+      })
+      .catch(() => {})
+  }
+
+  preloadMessageMediaIfNeeded(messages.value).catch(() => {})
+  ensureGroupSenderAvatars(messages.value, { forceRefresh: Boolean(chat?.isGroup) }).catch(() => {})
+
+  if (normalizeJid(activeFetchJid).endsWith('@g.us')) {
+    schedulePersistGroupObservedSenders(activeFetchJid, rawForLearn)
+  }
+
+  markCurrentChatAsRead({ ...selectedChat.value, chatJid: activeFetchJid }, aggregated).catch(() => {})
+}
+
+const loadOlderSelectChatPages = async (activeFetchJid, mySeq, startOffset, aggregated, seenIds, rawByMergeKey) => {
+  let offset = startOffset
+  let hasMore = true
+
+  for (let page = 1; page < SELECT_CHAT_MAX_PAGES && hasMore; page += 1) {
+    if (mySeq !== selectChatLoadSeq.value) return
+    const pageResult = await fetchChatMessages(activeFetchJid, SELECT_CHAT_PAGE_LIMIT, offset)
+    if (mySeq !== selectChatLoadSeq.value) return
+    appendRawMessagesToAggregate(aggregated, seenIds, rawByMergeKey, pageResult.messages)
+
+    const normalizedMessages = [...aggregated].sort((a, b) => a.timestamp - b.timestamp)
+    messages.value = normalizedMessages
+    messagesCacheByChatJid.set(activeFetchJid, [...normalizedMessages])
+
+    hasMore = pageResult.hasMore && pageResult.messages.length > 0
+    offset = pageResult.nextOffset
+    if (!hasMore || pageResult.messages.length < SELECT_CHAT_PAGE_LIMIT) break
+  }
+}
+
 export const selectChat = async (chat, enrichSharedFns = {}) => {
   const mySeq = ++selectChatLoadSeq.value
   const chatJid = chat.chatJid
   const unreadCountAtOpen = Number(chat.unreadCount || 0)
 
   cancelScheduledGroupObservedPersist()
-
-  if (chat?.isGroup && chatJid) {
-    // Limpa cache antigo para evitar "herdar" avatar de outro participante/grupo.
-    senderAvatarDirectory.value = {}
-    await loadGroupParticipantsDirectory(chatJid)
-    if (mySeq !== selectChatLoadSeq.value) return
-    await loadPersistedGroupObservedSenders(chatJid)
-  } else {
-    groupParticipantsDirectory.value = {}
-    groupParticipantsByJid.value = {}
-    groupParticipantsByLid.value = {}
-    lidToJidMap.value = {}
-    observedSenderDirectory.value = {}
-  }
-  if (mySeq !== selectChatLoadSeq.value) return
 
   const openKey = canonicalChatListKey(chat)
   chats.value = chats.value.map((item) => {
@@ -711,89 +824,57 @@ export const selectChat = async (chat, enrichSharedFns = {}) => {
 
   const activeFetchJid = normalizeJid(selectedChat.value?.chatJid) || normalizeJid(chatJid) || String(chatJid || '').trim()
   const cachedMessages = messagesCacheByChatJid.get(activeFetchJid)
-  if (Array.isArray(cachedMessages) && cachedMessages.length > 0) {
-    messages.value = [...cachedMessages]
+  messages.value = Array.isArray(cachedMessages) && cachedMessages.length > 0 ? [...cachedMessages] : []
+
+  if (chat?.isGroup && chatJid) {
+    senderAvatarDirectory.value = {}
+    void loadGroupParticipantsDirectory(chatJid, { force: false }).then(() => {
+      if (mySeq !== selectChatLoadSeq.value) return
+      return loadPersistedGroupObservedSenders(chatJid)
+    }).catch(() => {})
+    window.setTimeout(() => {
+      if (mySeq !== selectChatLoadSeq.value) return
+      loadGroupParticipantsDirectory(chatJid, { force: true }).catch(() => {})
+    }, 2000)
+  } else {
+    groupParticipantsDirectory.value = {}
+    groupParticipantsByJid.value = {}
+    groupParticipantsByLid.value = {}
+    lidToJidMap.value = {}
+    observedSenderDirectory.value = {}
   }
+
+  if (messages.value.length > 0) {
+    applySelectChatScroll(unreadCountAtOpen)
+  }
+
   try {
     loadingMessages.value = true
-    const pageLimit = 120, maxPages = 3
-    const aggregated = [], seenIds = new Set()
+    const pageResult = await fetchChatMessages(activeFetchJid, SELECT_CHAT_FIRST_PAGE, 0)
+    if (mySeq !== selectChatLoadSeq.value) return
+
+    const aggregated = []
+    const seenIds = new Set()
     const rawByMergeKey = new Map()
-    let offset = 0, hasMore = true
-
-    for (let page = 0; page < maxPages && hasMore; page++) {
-      if (mySeq !== selectChatLoadSeq.value) return
-      const pageResult = await fetchChatMessages(activeFetchJid, pageLimit, offset)
-      if (mySeq !== selectChatLoadSeq.value) return
-      for (const rawMessage of pageResult.messages) {
-        const normalized = normalizeMessage(rawMessage)
-        const key = getMessageMergeKey(normalized)
-        if (seenIds.has(key)) {
-          const idx = aggregated.findIndex((m) => getMessageMergeKey(m) === key)
-          if (idx >= 0) {
-            const winner = key.startsWith('reaction:')
-              ? ((normalized.timestamp || 0) >= (aggregated[idx].timestamp || 0) ? normalized : aggregated[idx])
-              : pickRicherDuplicateBaseMessage(aggregated[idx], normalized)
-            aggregated[idx] = winner
-            if (winner === normalized) rawByMergeKey.set(key, rawMessage)
-          }
-          continue
-        }
-        seenIds.add(key)
-        aggregated.push(normalized)
-        rawByMergeKey.set(key, rawMessage)
-      }
-      hasMore = pageResult.hasMore && pageResult.messages.length > 0
-      offset = pageResult.nextOffset
-      if (!hasMore || pageResult.messages.length < pageLimit) break
-    }
-    if (mySeq !== selectChatLoadSeq.value) return
-
-    const rawForLearn = aggregated.map((m) => rawByMergeKey.get(getMessageMergeKey(m)) || m)
-    ingestLidPnHintsFromMessages(rawForLearn)
-    learnObservedSenderNames(rawForLearn)
-    // Payload bruto da API preserva campos que às vezes somem na cópia normalizada; melhora nomes em grupo.
-    enrichUnknownSenderNames(rawForLearn).catch(() => {})
-    if (mySeq !== selectChatLoadSeq.value) return
-
-    if (enrichSharedFns.enrichSharedContactAvatars) enrichSharedFns.enrichSharedContactAvatars(aggregated)
-    if (enrichSharedFns.enrichSharedContactBusinessProfiles) enrichSharedFns.enrichSharedContactBusinessProfiles(aggregated)
+    appendRawMessagesToAggregate(aggregated, seenIds, rawByMergeKey, pageResult.messages)
 
     const normalizedMessages = aggregated.sort((a, b) => a.timestamp - b.timestamp)
-    if (enrichSharedFns.hydratePersistedContactStatesFromMessages) await enrichSharedFns.hydratePersistedContactStatesFromMessages(normalizedMessages)
-    if (mySeq !== selectChatLoadSeq.value) return
-
-    const hasSharedContact = normalizedMessages.some((msg) => msg.isContactShare && msg.sharedContact?.phone)
-    if (hasSharedContact) {
-      await syncContactsDirectoryIfNeeded(true)
-      if (mySeq !== selectChatLoadSeq.value) return
-      if (enrichSharedFns.persistSavedStatesFromMessages) await enrichSharedFns.persistSavedStatesFromMessages(normalizedMessages)
-    }
-    if (mySeq !== selectChatLoadSeq.value) return
-
     messages.value = normalizedMessages
     messagesCacheByChatJid.set(activeFetchJid, [...normalizedMessages])
-    preloadMessageMediaIfNeeded(messages.value).catch(() => {})
-    ensureGroupSenderAvatars(messages.value, { forceRefresh: Boolean(chat?.isGroup) }).catch(() => {})
-    if (normalizeJid(activeFetchJid).endsWith('@g.us')) {
-      schedulePersistGroupObservedSenders(activeFetchJid, rawForLearn)
-    }
-    markCurrentChatAsRead({ ...selectedChat.value, chatJid: activeFetchJid }, normalizedMessages)
+    applySelectChatScroll(unreadCountAtOpen)
 
-    // scrollToFirstUnreadOrBottom
-    nextTick(() => {
-      const chatBodyEl = chatBodyRef.value
-      if (!chatBodyEl) return
-      const total = messages.value.length
-      if (!unreadCountAtOpen || unreadCountAtOpen <= 0 || total === 0) {
-        scrollToBottom()
-        return
-      }
-      const firstUnreadIndex = Math.max(total - unreadCountAtOpen, 0)
-      const target = chatBodyEl.querySelector(`[data-message-index="${firstUnreadIndex}"]`)
-      if (!target) { scrollToBottom(); return }
-      target.scrollIntoView({ block: 'start', behavior: 'auto' })
-    })
+    const needsMorePages = pageResult.hasMore && pageResult.messages.length >= SELECT_CHAT_FIRST_PAGE
+    runSelectChatBackgroundEnrichment(activeFetchJid, aggregated, rawByMergeKey, enrichSharedFns, chat, unreadCountAtOpen)
+    if (needsMorePages) {
+      void loadOlderSelectChatPages(
+        activeFetchJid,
+        mySeq,
+        pageResult.nextOffset,
+        aggregated,
+        seenIds,
+        rawByMergeKey,
+      )
+    }
   } catch (e) {
     if (e?.message === 'BAD_REQUEST_MESSAGE_FIND' || e?.message === 'CHAT_ID_INVALID') return
     if (mySeq === selectChatLoadSeq.value) console.error('Erro ao carregar mensagens', e)
@@ -892,17 +973,43 @@ export const forceRealtimeSync = (enrichSharedFns = {}) => {
   if (forceRealtimeSyncDebounceTimer) clearTimeout(forceRealtimeSyncDebounceTimer)
   forceRealtimeSyncDebounceTimer = setTimeout(async () => {
     forceRealtimeSyncDebounceTimer = null
-    try { await loadChats(false, { silent: true }); await refreshSelectedChatMessages(enrichSharedFns) }
-    catch (err) { console.error('Sincronizacao em tempo real', err) }
+    try {
+      await loadChats(false, { silent: true, lightSync: true })
+      await refreshSelectedChatMessages(enrichSharedFns, { light: true })
+    } catch (err) { console.error('Sincronizacao em tempo real', err) }
   }, 550)
 }
 
-export const startRealtimeSync = (enrichSharedFns = {}) => {
+export const handleWhatsappRealtimeEvent = (payload = {}, enrichSharedFns = {}) => {
+  const eventChatJid = String(payload?.chatJid || '').trim()
+  const selectedJid = normalizeJid(selectedChat.value?.chatJid)
+  const affectsOpenChat = !eventChatJid || !selectedJid || jidsReferToSameChat(eventChatJid, selectedJid)
+
+  loadChats(false, { silent: true, lightSync: true }).catch(() => {})
+
+  if (affectsOpenChat && selectedJid) {
+    refreshSelectedChatMessages(enrichSharedFns, { force: true, light: true }).catch(() => {})
+  }
+}
+
+/** @deprecated use handleWhatsappRealtimeEvent */
+export const handleWhatsappPusherEvent = handleWhatsappRealtimeEvent
+
+export const startRealtimeSync = async (enrichSharedFns = {}) => {
+  const realtimeHandler = (payload) => handleWhatsappRealtimeEvent(payload, enrichSharedFns)
+
+  connectWhatsappSse(realtimeHandler)
+  void connectWhatsappPusher(realtimeHandler)
+
   if (chatsPollingTimer.value) clearInterval(chatsPollingTimer.value)
-  chatsPollingTimer.value = setInterval(() => { loadChats(false, { silent: true, lightSync: true }) }, CHATS_POLL_INTERVAL_MS)
+  chatsPollingTimer.value = setInterval(() => {
+    loadChats(false, { silent: true, lightSync: true })
+  }, CHATS_POLL_INTERVAL_MS)
 
   if (messagesPollingTimer.value) clearInterval(messagesPollingTimer.value)
-  messagesPollingTimer.value = setInterval(() => { refreshSelectedChatMessages(enrichSharedFns) }, MESSAGES_POLL_INTERVAL_MS)
+  messagesPollingTimer.value = setInterval(() => {
+    refreshSelectedChatMessages(enrichSharedFns, { light: true })
+  }, MESSAGES_POLL_INTERVAL_MS)
 
   if (!visibilitySyncHandler.value) {
     visibilitySyncHandler.value = () => { if (document.visibilityState === 'visible') forceRealtimeSync(enrichSharedFns) }
@@ -919,6 +1026,8 @@ export const startRealtimeSync = (enrichSharedFns = {}) => {
 }
 
 export const stopRealtimeSync = () => {
+  disconnectWhatsappSse()
+  disconnectWhatsappPusher()
   if (forceRealtimeSyncDebounceTimer) { clearTimeout(forceRealtimeSyncDebounceTimer); forceRealtimeSyncDebounceTimer = null }
   if (chatsPollingTimer.value) { clearInterval(chatsPollingTimer.value); chatsPollingTimer.value = null }
   if (messagesPollingTimer.value) { clearInterval(messagesPollingTimer.value); messagesPollingTimer.value = null }
@@ -939,6 +1048,7 @@ export function useWhatsappChats() {
     loadChats, selectChat, sendMessage, scrollToBottom, isChatBodyNearBottom,
     refreshSelectedChatMessages, refreshChatPreview, markCurrentChatAsRead, markAllChatsAsRead,
     toggleChatPinned, startRealtimeSync, stopRealtimeSync, resetWhatsappAfterDisconnect, forceRealtimeSync,
+    handleWhatsappRealtimeEvent, handleWhatsappPusherEvent,
     enrichMissingChatAvatars, mergeChatsSliceIntoList, sortChatsByPriority,
     canonicalChatListKey, preferWhatsappNetPrivateJid, isActiveChatListItem,
     normalizeChat, mergeDuplicateChatRows, chatListPreviewPrefix,

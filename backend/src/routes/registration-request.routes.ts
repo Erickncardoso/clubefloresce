@@ -12,4 +12,11 @@ router.get(
   controller.listRegistrationRequests.bind(controller),
 );
 
+router.patch(
+  "/:id/reject",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.rejectRegistrationRequest.bind(controller),
+);
+
 export default router;

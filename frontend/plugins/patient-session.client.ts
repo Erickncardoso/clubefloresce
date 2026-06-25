@@ -1,4 +1,6 @@
 /** Mantém a sessão do app paciente ativa entre aberturas do PWA. */
+const PUBLIC_PATHS = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha']
+
 export default defineNuxtPlugin({
   name: 'patient-session',
   enforce: 'post',
@@ -6,7 +8,7 @@ export default defineNuxtPlugin({
   const config = useRuntimeConfig()
   if (!config.public.mobileApp) return
 
-  const { bootstrapToken, refreshSession, isSessionExpiredError, isPatientAccessRevokedError, clearSession } = usePatientAuth()
+  const { bootstrapToken, refreshSession, isSessionExpiredError, isPatientAccessRevokedError, clearSession, assertPatientRole } = usePatientAuth()
   const router = useRouter()
 
   bootstrapToken()
@@ -16,14 +18,22 @@ export default defineNuxtPlugin({
 
     clearSession()
     const path = router.currentRoute.value.path
-    if (path !== '/' && path !== '/register') {
+    if (!PUBLIC_PATHS.includes(path)) {
       void navigateTo({ path: '/', query: { access: 'expired' } })
     }
   }
 
   const renew = () => {
     if (!bootstrapToken()) return
-    void refreshSession().catch(handleAuthFailure)
+    void refreshSession().then((ok) => {
+      if (!ok || !assertPatientRole()) {
+        clearSession()
+        const path = router.currentRoute.value.path
+        if (!PUBLIC_PATHS.includes(path)) {
+          void navigateTo({ path: '/', query: { access: 'expired' } })
+        }
+      }
+    }).catch(handleAuthFailure)
   }
 
   renew()

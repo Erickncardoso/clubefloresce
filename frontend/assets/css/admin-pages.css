@@ -7,26 +7,81 @@
   --text-muted: #66706e;
 }
 
-/* Botões secundários / cancelar em modais — visíveis em fundo branco */
+/* Botões — mesmo padrão visual do login (btn-auth-submit) */
+.btn-auth-submit,
+.btn-primary,
+.admin-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  padding: 0.65rem 1.15rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: var(--primary, #8B967C);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.btn-auth-submit:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.admin-btn-primary:hover:not(:disabled) {
+  background: var(--primary-light, #a3ad98);
+}
+
+.btn-auth-submit:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.admin-btn-primary:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.btn-auth-submit:disabled,
+.btn-primary:disabled,
+.admin-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-form .btn-auth-submit,
+.modal-form .btn-auth-submit {
+  width: 100%;
+}
+
+/* Botões secundários / cancelar em modais */
 .btn-cancel,
+.btn-secondary,
+.admin-btn-secondary,
 .modal-actions .btn-secondary,
 .modal-card .btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  gap: 0.45rem;
+  min-height: 3rem;
+  padding: 0.65rem 1.15rem;
   border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
   color: #555;
-  padding: 0.65rem 1.1rem;
-  border-radius: var(--cf-radius-pill);
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .btn-cancel:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.admin-btn-secondary:hover:not(:disabled),
 .modal-actions .btn-secondary:hover:not(:disabled),
 .modal-card .btn-secondary:hover:not(:disabled) {
   background: #f8faf8;
@@ -34,10 +89,31 @@
 }
 
 .btn-cancel:disabled,
+.btn-secondary:disabled,
+.admin-btn-secondary:disabled,
 .modal-actions .btn-secondary:disabled,
 .modal-card .btn-secondary:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+@supports (corner-shape: squircle) {
+  .btn-auth-submit,
+  .btn-primary,
+  .admin-btn-primary,
+  .btn-cancel,
+  .btn-secondary,
+  .admin-btn-secondary {
+    corner-shape: squircle;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-auth-submit:active:not(:disabled),
+  .btn-primary:active:not(:disabled),
+  .admin-btn-primary:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 /* Painel nutricionista — shell compartilhado (light) */
@@ -85,52 +161,6 @@
   border: 1px solid var(--admin-border);
   border-radius: var(--cf-radius-surface);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-}
-
-.admin-btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--cf-radius-pill);
-  padding: 0.65rem 1.1rem;
-  background: var(--admin-primary);
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.88rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-
-.admin-btn-primary:hover:not(:disabled) {
-  background: #a3ad98;
-}
-
-.admin-btn-primary:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.admin-btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  border: 1px solid var(--admin-border);
-  border-radius: var(--cf-radius-pill);
-  padding: 0.65rem 1.1rem;
-  background: #fff;
-  color: #444;
-  font-weight: 700;
-  font-size: 0.88rem;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.admin-btn-secondary:hover:not(:disabled) {
-  background: #f8faf8;
-  border-color: #c8dcc4;
 }
 
 @media (max-width: 768px) {

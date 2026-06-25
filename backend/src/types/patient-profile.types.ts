@@ -17,6 +17,10 @@ export interface PatientProfileData {
   targetWeightKg?: number | null;
   primaryGoal?: PatientPrimaryGoal | null;
   workoutsPerWeek?: PatientWorkoutsPerWeek | null;
+  /** IANA timezone (ex.: America/Sao_Paulo) — usada nos lembretes de refeição. */
+  timezone?: string | null;
+  /** Lembretes push nos horários do plano alimentar (padrão: true). */
+  mealRemindersEnabled?: boolean | null;
 }
 
 export interface PatientProfileResponse {

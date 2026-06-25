@@ -188,6 +188,10 @@ const waApplyInlineToEscaped = (escapedLine, { allowBr = false } = {}) => {
     const safeName = waEscapeHtml(name)
     return `<span class="wa-mention" data-mention-number="${digits}">@${safeName}</span>`
   })
+  t = t.replace(
+    /(https?:\/\/[^\s<&]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="wa-link">$1</a>',
+  )
   return t
 }
 
@@ -210,10 +214,23 @@ const waFormatPlainSegmentWithBulletLists = (chunk) => {
   for (const line of lines) {
     const m = line.match(WA_LIST_LINE)
     if (m) { listBuf.push(m[2]) }
-    else { flushList(); if (strTrim(line)) blocks.push({ type: 'p', text: line }) }
+    else {
+      flushList()
+      if (!strTrim(line)) {
+        if (blocks.length && blocks[blocks.length - 1].type !== 'gap') {
+          blocks.push({ type: 'gap' })
+        }
+      } else {
+        blocks.push({ type: 'p', text: line })
+      }
+    }
   }
   flushList()
-  return blocks.map((b) => b.type === 'ul' ? b.html : waApplyInlineToEscaped(b.text, { allowBr: true })).join('<br>')
+  return blocks.map((b) => {
+    if (b.type === 'ul') return b.html
+    if (b.type === 'gap') return '<br>'
+    return waApplyInlineToEscaped(b.text, { allowBr: true })
+  }).join('<br>')
 }
 
 export const formatWhatsappTextForDisplay = (raw) => {

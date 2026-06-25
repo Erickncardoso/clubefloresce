@@ -41,6 +41,13 @@ export class RegistrationRequestRepository {
     });
   }
 
+  async markRejected(id: string) {
+    return prisma.patientRegistrationRequest.update({
+      where: { id },
+      data: { status: RegistrationRequestStatus.RECUSADO },
+    });
+  }
+
   async create(data: {
     name: string;
     email: string;

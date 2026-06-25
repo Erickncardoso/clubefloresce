@@ -136,7 +136,7 @@
               </div>
               <div class="blog-txt">
                 <h5>Músculos e Proteína Vegetal</h5>
-                <p>�0 possível ganhar massa sendo vegano? Especialistas respondem.</p>
+                <p>É possível ganhar massa sendo vegano? Especialistas respondem.</p>
               </div>
             </div>
           </div>

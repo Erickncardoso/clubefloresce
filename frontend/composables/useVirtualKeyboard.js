@@ -18,8 +18,9 @@ export function useVirtualKeyboard() {
       const layoutHeight = window.innerHeight
       const overlap = layoutHeight - visibleHeight - offsetTop
       const shrink = baselineHeight - visibleHeight
+      const inputFocused = isTextInputFocused()
 
-      const isOpen = overlap > THRESHOLD || shrink > THRESHOLD
+      const isOpen = inputFocused && (overlap > THRESHOLD || shrink > THRESHOLD)
 
       if (isOpen !== keyboardOpen.value) {
         keyboardOpen.value = isOpen
@@ -31,8 +32,20 @@ export function useVirtualKeyboard() {
       }
     }
 
+    function isTextInputFocused() {
+      const active = document.activeElement
+      if (!(active instanceof HTMLElement)) return false
+      if (active.isContentEditable) return true
+
+      const tag = active.tagName
+      if (tag === 'TEXTAREA') return true
+      if (tag !== 'INPUT') return false
+
+      const type = (active.getAttribute('type') || 'text').toLowerCase()
+      return !['button', 'checkbox', 'radio', 'submit', 'reset', 'file', 'hidden', 'range', 'color'].includes(type)
+    }
+
     vv.addEventListener('resize', sync, { passive: true })
-    vv.addEventListener('scroll', sync, { passive: true })
     window.addEventListener('orientationchange', () => {
       baselineHeight = vv.height
       setTimeout(sync, 150)
@@ -40,7 +53,6 @@ export function useVirtualKeyboard() {
 
     cleanup = () => {
       vv.removeEventListener('resize', sync)
-      vv.removeEventListener('scroll', sync)
       document.documentElement.classList.remove('vk-open')
     }
   })

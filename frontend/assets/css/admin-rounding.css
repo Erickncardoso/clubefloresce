@@ -1,28 +1,46 @@
 /**
  * Painel nutricionista — arredondamento global (tokens --cf-radius-*).
- * Inputs: cantos generosos (--cf-radius-control). Botões: pill (--cf-radius-pill).
+ * Inputs e botões de ação: cantos generosos (--cf-radius-control), como no login.
  */
 
-/* ── Botões pill ── */
+/* ── Botões de ação (login / primários / secundários) ── */
 .admin-shell :is(
+  .btn-auth-submit,
   .btn-primary,
   .btn-cancel,
   .btn-secondary,
-  .btn-ghost,
   .admin-btn-primary,
   .admin-btn-secondary
 ) {
-  border-radius: var(--cf-radius-pill) !important;
+  border-radius: var(--cf-radius-control) !important;
 }
 
 .dashboard-layout :is(
+  .btn-auth-submit,
   .btn-primary,
   .btn-cancel,
   .btn-secondary,
-  .btn-ghost,
   .admin-btn-primary,
   .admin-btn-secondary,
-  .lesson-modal-foot button,
+  .lesson-modal-foot button
+),
+.courses-modal-overlay :is(
+  .btn-primary,
+  .btn-cancel,
+  .btn-secondary
+),
+.modal-overlay :is(
+  .btn-primary,
+  .btn-secondary,
+  .btn-cancel
+),
+.lesson-modal-overlay .lesson-modal-foot :is(button) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+/* Chips / toggles compactos — pill */
+.dashboard-layout :is(
+  .btn-ghost,
   .banner-editor-tab,
   .banner-edit-btn,
   .banner-position-preset,
@@ -35,13 +53,7 @@
   .btn-nav-control,
   .btn-theater-mode,
   .btn-side-list-toggle
-),
-.courses-modal-overlay :is(
-  .btn-primary,
-  .btn-cancel,
-  .btn-secondary
-),
-.lesson-modal-overlay .lesson-modal-foot :is(button) {
+) {
   border-radius: var(--cf-radius-pill) !important;
 }
 
@@ -134,7 +146,13 @@
     .upload-area,
     .pdf-upload-box,
     .admin-shell-card,
-    .top-nav-mega-dropdown
+    .top-nav-mega-dropdown,
+    .btn-auth-submit,
+    .btn-primary,
+    .btn-secondary,
+    .btn-cancel,
+    .admin-btn-primary,
+    .admin-btn-secondary
   ),
   .courses-modal-overlay :is(
     .modal-card,

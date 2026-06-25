@@ -4,12 +4,14 @@
       <div class="patient-auth-inner">
         <div class="patient-auth-card cf-squircle cf-squircle--surface">
           <header class="patient-auth-header patient-auth-header--login">
-            <PatientLoadingLogo
-              size="xl"
-              :animated="loading || firstAccessLoading"
-              class="patient-auth-logo-mark"
-            />
-            <h2>Entrar</h2>
+            <div class="patient-auth-header__center">
+              <PatientLoadingLogo
+                size="xl"
+                :animated="loading || firstAccessLoading"
+                class="patient-auth-logo-mark"
+              />
+              <h2>Entrar</h2>
+            </div>
           </header>
 
           <form @submit.prevent="handleLogin" class="auth-form patient-auth-form">
@@ -54,7 +56,7 @@
                   <Eye v-else class="password-toggle-icon" />
                 </button>
               </div>
-              <button type="button" class="forgot-link forgot-link-btn">Esqueci a senha</button>
+              <NuxtLink to="/esqueci-senha" class="forgot-link forgot-link-btn">Esqueci a senha</NuxtLink>
             </div>
 
             <button type="submit" :disabled="loading" class="btn-auth-submit patient-auth-submit cf-squircle--control">
@@ -165,7 +167,12 @@ onMounted(async () => {
   if (!localStorage.getItem('auth_token')) return
 
   try {
-    patientAuth.bootstrapToken()
+    const { ensurePatientSession } = usePatientAuth()
+    const sessionValid = await ensurePatientSession()
+    if (!sessionValid) {
+      clearPatientSession()
+      return
+    }
     const { resolvePostLoginRoute } = usePatientOnboarding()
     const nextRoute = await resolvePostLoginRoute()
     await navigateTo(nextRoute, { replace: true })
@@ -267,16 +274,6 @@ const handleFirstAccessPasswordChange = async () => {
 </script>
 
 <style scoped>
-.patient-auth-header--login {
-  text-align: center;
-  margin-bottom: 1.35rem;
-}
-
-.patient-auth-header--login .patient-auth-logo-mark {
-  display: block;
-  margin: 0 auto 0.85rem;
-}
-
 .patient-auth-header--login h2 {
   margin: 0;
   font-size: 1.35rem;

@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import { Role, UserStatus, RegistrationRequestStatus } from "@prisma/client";
 import { RegistrationRequestRepository } from "../repositories/registration-request.repository";
 import { UserRepository } from "../repositories/user.repository";
+import { dispatchEmail, emailService } from "./email/email.service";
+import { isValidWhatsappPhone } from "../utils/phone";
 
 const requestRepo = new RegistrationRequestRepository();
 const userRepo = new UserRepository();
@@ -28,7 +30,7 @@ export class RegistrationRequestService {
   }) {
     const name = data.name?.trim();
     const email = data.email?.trim().toLowerCase();
-    const phone = data.phone?.trim() || null;
+    const phoneRaw = data.phone?.trim() || "";
     const message = data.message?.trim() || null;
     const password = data.password || "";
     const passwordConfirm = data.passwordConfirm ?? data.password ?? "";
@@ -41,10 +43,18 @@ export class RegistrationRequestService {
       throw new Error("Informe um e-mail válido.");
     }
 
+    if (!phoneRaw) {
+      throw new Error("Informe seu WhatsApp.");
+    }
+
+    if (!isValidWhatsappPhone(phoneRaw)) {
+      throw new Error("Informe um WhatsApp válido com DDD.");
+    }
+
     this.validatePassword(password, passwordConfirm);
 
-    if (phone && phone.length > 30) {
-      throw new Error("Telefone inválido.");
+    if (phoneRaw.length > 30) {
+      throw new Error("WhatsApp inválido.");
     }
 
     if (message && message.length > 1000) {
@@ -68,7 +78,19 @@ export class RegistrationRequestService {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    return requestRepo.create({ name, email, phone, message, passwordHash });
+    const request = await requestRepo.create({ name, email, phone: phoneRaw, message, passwordHash });
+
+    dispatchEmail(
+      emailService.sendRegistrationRequestCreated({
+        name,
+        email,
+        phone: phoneRaw,
+        message,
+      }),
+      "solicitação de cadastro",
+    );
+
+    return request;
   }
 
   async listPendingRequests() {
@@ -87,5 +109,24 @@ export class RegistrationRequestService {
     const pending = await requestRepo.findPendingByEmail(email);
     if (!pending) return null;
     return requestRepo.markApproved(pending.id);
+  }
+
+  async rejectRequest(id: string) {
+    const request = await this.getRequestForApproval(id);
+    if (!request) {
+      throw new Error("Solicitação inválida ou já processada.");
+    }
+
+    await requestRepo.markRejected(id);
+
+    dispatchEmail(
+      emailService.sendRegistrationRejected({
+        name: request.name,
+        email: request.email,
+      }),
+      "reprovação de cadastro",
+    );
+
+    return request;
   }
 }

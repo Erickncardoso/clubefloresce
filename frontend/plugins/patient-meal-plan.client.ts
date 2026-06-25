@@ -1,6 +1,6 @@
 /** Carrega o plano alimentar do paciente ao entrar no app autenticado. */
 
-const PUBLIC_PATHS = ['/', '/register', '/documento']
+const PUBLIC_PATHS = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha']
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()

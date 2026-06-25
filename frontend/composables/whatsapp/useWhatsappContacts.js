@@ -690,10 +690,11 @@ export const ensureGroupSenderAvatars = async (items = [], options = {}) => {
 
 // ─── Carregamento de participantes do grupo ───────────────────────────────────
 
-export const loadGroupParticipantsDirectory = async (groupJid) => {
+export const loadGroupParticipantsDirectory = async (groupJid, options = {}) => {
+  const { force = true } = options
   try {
     // force: true evita cache da UAZAPI com lista incompleta (comum em grupos grandes / modo LID)
-    const data = await getGroupInfo({ groupjid: groupJid, getInviteLink: false, getRequestsParticipants: false, force: true })
+    const data = await getGroupInfo({ groupjid: groupJid, getInviteLink: false, getRequestsParticipants: false, force })
 
     const participants = Array.isArray(data?.Participants)
       ? data.Participants

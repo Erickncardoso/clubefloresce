@@ -67,7 +67,7 @@
                 <Eye v-else class="password-toggle-icon" />
               </button>
             </div>
-            <a href="#" class="forgot-link">Esqueci a senha</a>
+            <NuxtLink to="/esqueci-senha" class="forgot-link">Esqueci a senha</NuxtLink>
           </div>
 
           <button type="submit" :disabled="loading" class="btn-auth-submit cf-squircle cf-squircle--control">
@@ -549,33 +549,6 @@ const handleFirstAccessPasswordChange = async () => {
   color: var(--auth-green);
 }
 
-.btn-auth-submit {
-  width: 100%;
-  min-height: 3rem;
-  margin-top: 0.15rem;
-  border: none;
-  background: var(--auth-green);
-  color: #fff;
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
-}
-
-.btn-auth-submit:hover:not(:disabled) {
-  background: var(--auth-green-light);
-}
-
-.btn-auth-submit:active:not(:disabled) {
-  transform: scale(0.99);
-}
-
-.btn-auth-submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .error-banner {
   display: flex;
   align-items: center;
@@ -659,6 +632,10 @@ const handleFirstAccessPasswordChange = async () => {
   flex-direction: column;
   gap: 1.35rem;
   margin-top: 0.85rem;
+}
+
+.auth-form .btn-auth-submit {
+  margin-top: 0.15rem;
 }
 
 @supports (corner-shape: squircle) {

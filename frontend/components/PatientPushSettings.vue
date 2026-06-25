@@ -15,7 +15,9 @@
       </p>
       <p v-else-if="!pushEnabledOnServer">Conectando ao servidor de push…</p>
       <p v-else-if="pushPermission === 'denied'">Permissão bloqueada. Libere nas configurações do navegador ou do app.</p>
-      <p v-else-if="pushSubscribed">Você receberá alertas de check-in, Bella e comunidade.</p>
+      <p v-else-if="pushSubscribed">
+        Você receberá alertas de check-in, Bella, comunidade e lembretes nos horários das refeições.
+      </p>
       <p v-else>Receba alertas mesmo com o app fechado.</p>
     </div>
     <button
@@ -27,6 +29,31 @@
     >
       {{ pushLoading ? 'Aguarde…' : pushSubscribed ? 'Desativar push' : 'Ativar push' }}
     </button>
+
+    <div
+      v-if="pushSubscribed && pushEnabledOnServer"
+      class="push-meal-row"
+    >
+      <button
+        type="button"
+        class="push-meal-label"
+        :disabled="pushLoading"
+        @click="toggleMealReminders"
+      >
+        Lembretes de refeição (café, almoço, jantar…)
+      </button>
+      <button
+        type="button"
+        class="push-meal-check"
+        :aria-pressed="mealRemindersEnabled"
+        :disabled="pushLoading"
+        :aria-label="mealRemindersEnabled ? 'Desativar lembretes de refeição' : 'Ativar lembretes de refeição'"
+        @click="toggleMealReminders"
+      >
+        <DietaCheckIcon :completed="mealRemindersEnabled" />
+      </button>
+    </div>
+
     <p v-if="pushError" class="push-settings-error">{{ pushError }}</p>
   </div>
 </template>
@@ -40,15 +67,19 @@ const {
   enabledOnServer: pushEnabledOnServer,
   permission: pushPermission,
   subscribed: pushSubscribed,
+  mealRemindersEnabled,
   loading: pushLoading,
   error: pushError,
   initPushState,
   subscribe: subscribePush,
   unsubscribe: unsubscribePush,
+  updateMealReminders,
+  syncTimezone,
 } = usePushNotifications()
 
 onMounted(() => {
   void initPushState()
+  void syncTimezone()
 })
 
 async function togglePush() {
@@ -58,6 +89,10 @@ async function togglePush() {
   }
   const ok = await subscribePush()
   if (ok) localStorage.removeItem('push_prompt_dismissed')
+}
+
+async function toggleMealReminders() {
+  await updateMealReminders(!mealRemindersEnabled.value)
 }
 </script>
 
@@ -99,6 +134,58 @@ async function togglePush() {
 .push-settings-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.push-meal-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--cf-border, var(--pa-border));
+}
+
+.push-meal-label {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  color: var(--cf-text, var(--pa-text));
+  cursor: pointer;
+}
+
+.push-meal-label:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.push-meal-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.push-meal-check:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.push-meal-check :deep(.dieta-status-icon) {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .push-settings-error {

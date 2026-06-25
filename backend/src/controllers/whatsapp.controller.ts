@@ -5,6 +5,7 @@ import { WhatsappContactStateRepository } from "../repositories/whatsapp_contact
 import { WhatsappContactDirectoryRepository } from "../repositories/whatsapp_contact_directory.repository";
 import { WhatsappGroupObservedSendersRepository } from "../repositories/whatsapp_group_observed_senders.repository";
 import { sendNormalizedUazapiError } from "../utils/uazapi-error.util";
+import whatsappPusherService from "../services/whatsapp-pusher.service";
 
 const whatsappService = new WhatsappService();
 const whatsappChatSyncService = new WhatsappChatSyncService();
@@ -39,7 +40,7 @@ export class WhatsappController {
       }
 
       console.log(`[Controller] Deletando instância: ${name}`);
-      const result = await whatsappService.deleteInstance(name);
+      const result = await whatsappService.deleteInstance(name, user.id);
       if (!result.success) {
         return res.status(400).json({ success: false, message: result.message || "Falha ao deletar instância." });
       }
@@ -54,9 +55,8 @@ export class WhatsappController {
       const user = (req as any).user;
       if (!user) return res.status(401).json({ message: "Não autorizado" });
 
-      const { phone, name } = req.body; // Aceita o phone opcionalmente
-
-      const result = await whatsappService.connect(user.id, name, phone);
+      const { phone } = req.body || {};
+      const result = await whatsappService.connect(user.id, phone);
       return res.json(result);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
@@ -68,8 +68,7 @@ export class WhatsappController {
       const user = (req as any).user;
       if (!user) return res.status(401).json({ message: "Não autorizado" });
 
-      const { name } = req.body || {};
-      const result = await whatsappService.regenerateQrCode(user.id, name);
+      const result = await whatsappService.regenerateQrCode(user.id);
       return res.json(result);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
@@ -121,6 +120,7 @@ export class WhatsappController {
       if (!user) return res.status(401).json({ message: "Não autorizado" });
 
       const result = await whatsappService.disconnect(user.id);
+      whatsappService.invalidateInstanceTokenCache(user.id);
       return res.json(result);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
@@ -446,6 +446,81 @@ export class WhatsappController {
     }
   }
 
+  async sse(req: Request, res: Response): Promise<any> {
+    const user = req.user;
+    if (!user) return res.status(401).json({ message: "Não autorizado." });
+
+    if (!UAZAPI_BASE_URL) {
+      return res.status(503).json({ message: "UAZAPI_SERVER_URL não configurada." });
+    }
+
+    let instanceToken: string | null = null;
+    try {
+      instanceToken = await whatsappService.getInstanceToken(user.id);
+    } catch (error) {
+      console.warn("[WhatsApp SSE] Token indisponível:", error);
+      return res.status(503).json({ message: "Instância WhatsApp indisponível." });
+    }
+
+    if (!instanceToken) {
+      return res.status(503).json({ message: "WhatsApp não conectado." });
+    }
+
+    const baseUrl = UAZAPI_BASE_URL.replace(/\/+$/, "");
+    const events = ["messages", "messages_update", "chats"];
+    const sseUrl = `${baseUrl}/sse?token=${encodeURIComponent(instanceToken)}&events=${events.join(",")}&excludeMessages=${encodeURIComponent("wasSentByApi")}`;
+
+    let upstream: globalThis.Response;
+    try {
+      upstream = await fetch(sseUrl, {
+        headers: { Accept: "text/event-stream" },
+      });
+    } catch (error) {
+      console.error("[WhatsApp SSE] Falha ao conectar UAZAPI:", error);
+      return res.status(502).json({ message: "Falha ao conectar stream UAZAPI." });
+    }
+
+    if (!upstream.ok || !upstream.body) {
+      const text = await upstream.text().catch(() => "");
+      return res.status(upstream.status).json({ message: text || "Stream UAZAPI indisponível." });
+    }
+
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+
+    const reader = upstream.body.getReader();
+    let closed = false;
+
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      reader.cancel().catch(() => {});
+      if (!res.writableEnded) res.end();
+    };
+
+    req.on("close", close);
+    req.on("aborted", close);
+
+    try {
+      while (!closed) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (closed) break;
+        const chunk = Buffer.from(value);
+        const canContinue = res.write(chunk);
+        if (!canContinue) {
+          await new Promise<void>((resolve) => res.once("drain", resolve));
+        }
+      }
+    } catch (error) {
+      if (!closed) console.warn("[WhatsApp SSE] Encerrado:", error);
+    } finally {
+      close();
+    }
+  }
+
   async webhook(req: Request, res: Response): Promise<any> {
     const webhookSecret = process.env.WHATSAPP_WEBHOOK_SECRET;
     if (webhookSecret) {
@@ -461,21 +536,16 @@ export class WhatsappController {
 
     try {
       const event = req.body;
-      const eventType = event?.event || event?.type || 'unknown';
+      const eventType = event?.event || event?.type || "unknown";
 
-      // Log condensado — apenas eventos relevantes em detalhes
-      const relevantEvents = ['messages.upsert', 'messages.update', 'chats.update', 'chats.upsert'];
+      const relevantEvents = ["messages.upsert", "messages.update", "chats.update", "chats.upsert"];
       if (relevantEvents.includes(eventType)) {
         console.log(`[Webhook] ${eventType}`, JSON.stringify(event).substring(0, 200));
       } else {
         console.log(`[Webhook] ${eventType} recebido`);
       }
 
-      // TODO: Implementar processamento de eventos para push em tempo real ao frontend.
-      // Eventos de leitura (chats.update com unreadCount=0) deveriam invalidar o cache
-      // de unreadCount no frontend via WebSocket ou Server-Sent Events.
-      // Por enquanto, o frontend polled UAZAPI a cada 6s e o mergeDuplicateChatRows
-      // preserva o estado lido local após o usuário abrir o chat.
+      void whatsappPusherService.handleWebhook(event);
     } catch (error) {
       console.error("Erro ao processar webhook:", error);
     }

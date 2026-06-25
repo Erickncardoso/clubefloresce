@@ -36,15 +36,6 @@ export class AuthController {
     }
   }
 
-  async register(req: Request, res: Response): Promise<any> {
-    try {
-      const user = await authService.register(req.body);
-      return res.status(201).json(user);
-    } catch (error: any) {
-      return res.status(400).json({ message: error.message });
-    }
-  }
-
   async requestPatientRegistration(req: Request, res: Response): Promise<any> {
     try {
       const request = await registrationRequestService.createPatientRequest(req.body);
@@ -183,6 +174,47 @@ export class AuthController {
       const message = error?.message || "Não foi possível atualizar a foto.";
       const status = message.includes("Cloudinary") ? 503 : 400;
       return res.status(status).json({ message });
+    }
+  }
+
+  async forgotPassword(req: Request, res: Response): Promise<any> {
+    try {
+      const email = req.body?.email;
+      const app = req.body?.app === "admin" ? "admin" : "patient";
+
+      await authService.requestPasswordReset(email, app);
+
+      return res.json({
+        message:
+          "Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha em instantes.",
+      });
+    } catch (error: any) {
+      const message = error?.message || "Não foi possível processar sua solicitação.";
+      return res.status(400).json({ message });
+    }
+  }
+
+  async validatePasswordReset(req: Request, res: Response): Promise<any> {
+    try {
+      const token = typeof req.query.token === "string" ? req.query.token : "";
+      await authService.validatePasswordResetToken(token);
+      return res.json({ valid: true });
+    } catch (error: any) {
+      return res.status(400).json({
+        valid: false,
+        message: error?.message || "Link inválido ou expirado.",
+      });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response): Promise<any> {
+    try {
+      const { token, newPassword } = req.body || {};
+      await authService.resetPasswordWithToken(token, newPassword);
+      return res.json({ message: "Senha redefinida com sucesso. Você já pode entrar." });
+    } catch (error: any) {
+      const message = error?.message || "Não foi possível redefinir a senha.";
+      return res.status(400).json({ message });
     }
   }
 }

@@ -36,3 +36,16 @@ export function readPatientTimeHeaders(req: {
     patientTimeZone: req.header("x-patient-timezone"),
   };
 }
+
+export function isValidTimeZone(timeZone: string): boolean {
+  const zone = timeZone?.trim();
+  if (!zone) return false;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export const DEFAULT_PATIENT_TIMEZONE = "America/Sao_Paulo";

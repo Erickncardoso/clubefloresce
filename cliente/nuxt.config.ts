@@ -55,6 +55,7 @@ export default defineNuxtConfig({
     join(frontendRoot, 'plugins/patient-meal-plan.client.ts'),
     join(frontendRoot, 'plugins/patient-notifications.client.ts'),
     join(frontendRoot, 'plugins/pwa-standalone.client.ts'),
+    join(frontendRoot, 'plugins/ios-pwa-chrome.client.ts'),
     join(frontendRoot, 'plugins/push-notifications.client.ts'),
   ],
 
@@ -79,7 +80,8 @@ export default defineNuxtConfig({
       meta: [
         {
           name: 'viewport',
-          content: 'width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1',
+          content:
+            'width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no, interactive-widget=overlays-content',
         },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
@@ -143,6 +145,13 @@ export default defineNuxtConfig({
       display_override: ['standalone', 'fullscreen'],
       scope: '/',
       start_url: '/?source=pwa',
+      related_applications: [
+        {
+          platform: 'webapp',
+          url: '/manifest.webmanifest',
+          id: 'clube-florescer-paciente',
+        },
+      ],
       icons: [
         { src: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
         { src: '/pwa/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

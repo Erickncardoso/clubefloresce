@@ -1,6 +1,6 @@
 import type { ParsedMeal } from "../types/meal-plan.types";
 
-const DEFAULT_MEALS: Array<{ id: string; label: string; time: string }> = [
+export const DEFAULT_MEALS: Array<{ id: string; label: string; time: string }> = [
   { id: "breakfast", label: "Café da manhã", time: "07:00" },
   { id: "snack1", label: "Lanche da manhã", time: "10:00" },
   { id: "lunch", label: "Almoço", time: "12:30" },
@@ -8,10 +8,36 @@ const DEFAULT_MEALS: Array<{ id: string; label: string; time: string }> = [
   { id: "dinner", label: "Jantar", time: "19:30" },
 ];
 
-function parseTimeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return 0;
+export function normalizeMealTime(time: string): string | null {
+  const match = String(time || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+export function parseTimeToMinutes(time: string): number {
+  const normalized = normalizeMealTime(time);
+  if (!normalized) return 0;
+  const [hours, minutes] = normalized.split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+export function getMealsForReminder(planMeals: ParsedMeal[] = []): Array<{ id: string; label: string; time: string }> {
+  if (planMeals.length > 0) {
+    const fromPlan = planMeals
+      .map((meal) => {
+        const time = normalizeMealTime(meal.time || "");
+        if (!time) return null;
+        return { id: meal.id, label: meal.label, time };
+      })
+      .filter(Boolean) as Array<{ id: string; label: string; time: string }>;
+
+    if (fromPlan.length > 0) return fromPlan;
+  }
+
+  return DEFAULT_MEALS;
 }
 
 export function inferMealSlotFromTime(

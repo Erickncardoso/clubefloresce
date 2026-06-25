@@ -823,7 +823,7 @@ const lessonThumbPreview = ref(null)
 const lessonThumbInput = ref(null)
 const lessonThumbFile = ref(null)
 
-// ���� Novos estados: Upload de Vídeo + Captura de Frame ����������������������
+// Novos estados: Upload de Vídeo + Captura de Frame
 const videoSourceTab = ref('link') // 'link' | 'upload'
 const thumbSourceTab = ref('upload') // 'upload' | 'frame' | 'youtube'
 const videoFileLocal = ref(null) // File do vídeo
@@ -3049,7 +3049,7 @@ watch(
   transform: scale(0.95);
 }
 
-/* ���� Modal Lição (maior para caber os controles) ���� */
+/* Modal Lição (maior para caber os controles) */
 .modal-card--lesson {
   max-width: 620px;
   max-height: 90vh;
@@ -3173,7 +3173,7 @@ watch(
   }
 }
 
-/* â”€â”€ Tab Pills â”€â”€ */
+/* Tab Pills */
 .tab-pills {
   display: flex;
   gap: 0.5rem;
@@ -3226,7 +3226,7 @@ watch(
   margin-top: 0;
 }
 
-/* ���� Área de Upload de Vídeo ���� */
+/* Área de Upload de Vídeo */
 .video-upload-area {
   border: 2px dashed #d8d8d8;
   border-radius: 12px;
@@ -3298,7 +3298,7 @@ watch(
   color: #111;
 }
 
-/* â”€â”€ Barra de Progresso de Upload â”€â”€ */
+/* Barra de Progresso de Upload */
 .upload-progress-bar {
   margin-top: 0.75rem;
   border-radius: 8px;
@@ -3343,7 +3343,7 @@ watch(
   font-weight: 700;
 }
 
-/* â”€â”€ Frame Capture â”€â”€ */
+/* Frame Capture */
 .frame-capture-area {
   display: flex;
   flex-direction: column;

@@ -20,6 +20,7 @@ import mealPlanRoutes from "./routes/meal-plan.routes";
 import patientRoutes from "./routes/patient.routes";
 import notificationRoutes from "./routes/notification.routes";
 import pushRoutes from "./routes/push.routes";
+import pusherRoutes from "./routes/pusher.routes";
 import patientGoalsRoutes from "./routes/patient-goals.routes";
 import patientProfileRoutes from "./routes/patient-profile.routes";
 import registrationRequestRoutes from "./routes/registration-request.routes";
@@ -33,8 +34,16 @@ import {
 } from "./utils/media/media-config";
 import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "./utils/media/bunny-config";
 import { startCheckInDispatchScheduler } from "./jobs/checkin-weekly-dispatch.job";
+import { startMealReminderDispatchScheduler } from "./jobs/meal-reminder-dispatch.job";
+import { startWhatsappMobilePresenceScheduler } from "./jobs/whatsapp-mobile-presence.job";
 import { assertJwtSecretOnBoot } from "./utils/jwt";
 import { isVapidConfigured } from "./utils/vapid-config";
+import { isPusherConfigured } from "./utils/pusher-config";
+import {
+  getEmailFromContact,
+  getEmailFromNoreply,
+  isResendConfigured,
+} from "./utils/email-config";
 
 dotenv.config();
 assertJwtSecretOnBoot();
@@ -109,6 +118,7 @@ app.use("/api/patient-goals", patientGoalsRoutes);
 app.use("/api/patient-profile", patientProfileRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/push", pushRoutes);
+app.use("/api/pusher", pusherRoutes);
 app.use("/api/registration-requests", registrationRequestRoutes);
 
 // Basic Route for testing
@@ -157,6 +167,18 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   } else {
     console.warn("[Push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes — push desativado.");
   }
+  if (isPusherConfigured()) {
+    console.log("[Pusher] Channels configurado — WhatsApp tempo real ativo.");
+  } else {
+    console.warn("[Pusher] PUSHER_* ausente — WhatsApp usará apenas polling.");
+  }
+  if (isResendConfigured()) {
+    console.log(
+      `[Email] Resend configurado — contato: ${getEmailFromContact()} | noreply: ${getEmailFromNoreply()}`
+    );
+  } else {
+    console.warn("[Email] RESEND_API_KEY ausente — envios de e-mail desativados.");
+  }
   const videoProvider = getVideoUploadProvider();
   const documentProvider = getDocumentUploadProvider();
 
@@ -198,6 +220,10 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
 
   startCheckInDispatchScheduler();
   console.log("[CheckIn] Agendador ativo — disparo automático às sextas 11h (Brasília).");
+  startMealReminderDispatchScheduler();
+  console.log("[MealReminder] Agendador ativo — lembretes nos horários do plano alimentar.");
+  startWhatsappMobilePresenceScheduler();
+  console.log("[WhatsApp] Presença unavailable ativa — celular continua recebendo notificações.");
 });
 
 server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;

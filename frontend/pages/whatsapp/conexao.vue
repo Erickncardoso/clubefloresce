@@ -1,177 +1,204 @@
 ﻿<template>
   <NuxtLayout name="dashboard">
-    <div class="whatsapp-container animate-fade-in">
-      <header class="page-header">
-        <div>
-          <h1 class="text-gradient">Conexão WhatsApp</h1>
-          <p class="subtitle">Conecte seu WhatsApp para automatizar suas mensagens e gerenciar alunos.</p>
+    <div class="wa-page admin-shell">
+      <header class="admin-shell-header wa-header">
+        <div class="wa-header-copy">
+          <div class="wa-title-row">
+            <span class="wa-brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+            </span>
+            <h1>Conexão WhatsApp</h1>
+          </div>
+          <p>Conecte seu número para atender alunas, enviar check-ins e usar o chat integrado.</p>
         </div>
+        <span class="wa-status-pill" :class="`wa-status-pill--${status}`">
+          <span class="wa-status-dot" aria-hidden="true" />
+          {{ statusLabel }}
+        </span>
       </header>
-      
-      <div class="grid-layout">
-        <!-- Card Principal de Status -->
-        <div class="card glass-card status-card" :class="statusClass">
-          <!-- State: Loading -->
-          <div v-if="loading" class="state-content">
-            <Loader class="spin icon-xl text-primary" />
-            <h3>Analisando Conexão...</h3>
-            <p>Estabelecendo comunicação segura com a API do WhatsApp.</p>
-          </div>
-          
-          <!-- State: Connected -->
-          <div v-else-if="status === 'connected'" class="state-content slide-up">
-            <div class="profile-avatar-wrapper">
-               <img v-if="instanceProfilePicUrl" :src="instanceProfilePicUrl" class="profile-avatar" alt="Foto Perfil" />
-               <div v-else class="icon-circle success">
-                 <CheckCircle class="icon-xl" />
-               </div>
-               <div class="status-badge online"></div>
-            </div>
-            
-            <h3>{{ instanceData?.profileName || 'WhatsApp Conectado!' }}</h3>
-            <p class="phone-number">{{ instanceData?.name || 'Sessão Ativa' }}</p>
-            
-            <div class="connection-stats">
-               <div class="stat-item">
-                 <span class="stat-label">Plataforma</span>
-                 <span class="stat-value">{{ instanceData?.plataform || 'Desconhecida' }}</span>
-               </div>
-               <div class="stat-item">
-                 <span class="stat-label">Conta Business</span>
-                 <span class="stat-value">{{ instanceData?.isBusiness ? 'Sim' : 'Não' }}</span>
-               </div>
-            </div>
 
-            <div class="actions mt-4">
-              <button class="btn btn-outline-danger" @click="disconnectWhatsApp" :disabled="actionLoading">
-                <Loader v-if="actionLoading" class="spin icon-small" />
-                <LogOut v-else class="icon-small" />
-                Desconectar Sessão
-              </button>
-            </div>
+      <div class="wa-grid">
+        <section class="admin-shell-card wa-main">
+          <div v-if="loading" class="wa-state">
+            <div class="wa-loader" aria-hidden="true" />
+            <h2>Verificando conexão</h2>
+            <p>Consultando o status da sua sessão WhatsApp…</p>
           </div>
 
-          <!-- State: Connecting (QR Code) -->
-          <div v-else-if="status === 'connecting'" class="state-content slide-up">
-            <div class="icon-circle warning">
-              <Scan class="icon-xl" />
-            </div>
-            <h3>Sincronização Segura</h3>
-            <p>1. Abra o WhatsApp no celular<br/>2. Vá em <strong>Aparelhos Conectados</strong><br/>3. Escaneie o código abaixo:</p>
-            
-            <div class="qr-wrapper">
-              <div class="qr-corners top-left"></div>
-              <div class="qr-corners top-right"></div>
-              <div class="qr-corners bottom-left"></div>
-              <div class="qr-corners bottom-right"></div>
-              
-              <img v-if="qrcode" :src="qrcode" alt="QR Code WhatsApp" class="qr-image" />
-              <div v-else class="qr-placeholder">
-                <Loader class="spin text-primary" />
-                <span>Gerando chave de pareamento...</span>
+          <div v-else-if="status === 'connected'" class="wa-state wa-state--connected">
+            <div class="wa-connected-hero">
+              <div class="wa-avatar-wrap">
+                <img
+                  v-if="instanceProfilePicUrl"
+                  :src="instanceProfilePicUrl"
+                  class="wa-avatar"
+                  alt=""
+                >
+                <div v-else class="wa-avatar wa-avatar--fallback">
+                  <CheckCircle class="wa-icon-lg" />
+                </div>
+                <span class="wa-avatar-badge" aria-hidden="true" />
+              </div>
+              <div class="wa-connected-copy">
+                <p class="wa-kicker">Sessão ativa</p>
+                <h2>{{ instanceData?.profileName || 'WhatsApp conectado' }}</h2>
+                <p class="wa-subline">{{ connectedLineLabel }}</p>
               </div>
             </div>
 
-            <div class="actions">
-              <button class="btn btn-primary" @click="fetchStatus" :disabled="actionLoading">
-                <RefreshCw :class="{ 'spin': actionLoading }" class="icon-small" />
+            <div class="wa-stats">
+              <div class="wa-stat">
+                <span class="wa-stat-label">Plataforma</span>
+                <span class="wa-stat-value">{{ instanceData?.plataform || 'WhatsApp' }}</span>
+              </div>
+              <div class="wa-stat">
+                <span class="wa-stat-label">Conta Business</span>
+                <span class="wa-stat-value">{{ instanceData?.isBusiness ? 'Sim' : 'Pessoal' }}</span>
+              </div>
+            </div>
+
+            <div class="wa-actions">
+              <NuxtLink to="/whatsapp/chat" class="btn-primary wa-btn">
+                Abrir conversas
+              </NuxtLink>
+              <button
+                type="button"
+                class="btn-secondary wa-btn wa-btn--danger"
+                :disabled="actionLoading"
+                @click="disconnectWhatsApp"
+              >
+                <Loader v-if="actionLoading" class="wa-spin wa-icon-sm" />
+                <LogOut v-else class="wa-icon-sm" />
+                Desconectar
+              </button>
+            </div>
+          </div>
+
+          <div v-else-if="status === 'connecting'" class="wa-state wa-state--qr">
+            <div class="wa-state-head">
+              <h2>Escaneie o QR Code</h2>
+              <p>Use o WhatsApp do celular para concluir a conexão.</p>
+            </div>
+
+            <ol class="wa-steps">
+              <li><span>1</span> Abra o WhatsApp no celular</li>
+              <li><span>2</span> Menu → Aparelhos conectados</li>
+              <li><span>3</span> Conectar aparelho → escaneie</li>
+            </ol>
+
+            <div class="wa-qr-frame">
+              <img v-if="qrcode" :src="qrcode" alt="QR Code para conectar WhatsApp" class="wa-qr-img">
+              <div v-else class="wa-qr-loading">
+                <Loader class="wa-spin wa-icon-lg" />
+                <span>Gerando QR Code…</span>
+              </div>
+            </div>
+
+            <div class="wa-actions wa-actions--center">
+              <button type="button" class="btn-primary wa-btn" :disabled="actionLoading" @click="generateQrCode">
+                <RefreshCw :class="{ 'wa-spin': actionLoading }" class="wa-icon-sm" />
                 Atualizar QR Code
               </button>
-              <button class="btn btn-ghost" @click="disconnectWhatsApp" :disabled="actionLoading">
+              <button type="button" class="btn-secondary wa-btn" :disabled="actionLoading" @click="cancelConnection">
                 Cancelar
               </button>
             </div>
           </div>
 
-          <!-- State: Disconnected -->
-          <div v-else class="state-content slide-up">
-            <div class="icon-circle muted">
-              <Smartphone class="icon-xl" />
+          <div v-else class="wa-state wa-state--empty">
+            <div class="wa-empty-icon" aria-hidden="true">
+              <Smartphone class="wa-icon-xl" />
             </div>
-            <h3>Aparelho Desconectado</h3>
-            <p>Seu assistente virtual está inativo. Vincule um aparelho para iniciar as automações.</p>
-            
-            <div v-if="lastDisconnectReasonLabel" class="disconnect-reason">
-              �altima queda: {{ lastDisconnectReasonLabel }}
+            <h2>Nenhum aparelho conectado</h2>
+            <p>O chat e as automações ficam pausados até você vincular seu WhatsApp.</p>
+
+            <div v-if="lastDisconnectReasonLabel" class="wa-alert">
+              {{ lastDisconnectReasonLabel }}
             </div>
 
-            <!-- Campo para Nome da Instância -->
-            <div class="mt-4 text-start">
-              <label class="form-label">Nome da Instância (Opcional)</label>
-              <input v-model="customInstanceName" type="text" class="form-control" placeholder="Ex: minha_instancia">
-            </div>
+            <button type="button" class="btn-primary wa-btn wa-btn--wide" :disabled="actionLoading" @click="generateQrCode">
+              <Loader v-if="actionLoading" class="wa-spin wa-icon-sm" />
+              <Scan v-else class="wa-icon-sm" />
+              Gerar QR Code
+            </button>
+          </div>
+        </section>
 
-            <div class="actions mt-4" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
-              <button class="btn btn-primary btn-lg pulse-btn" @click="connectWhatsApp" :disabled="actionLoading">
-                <Loader v-if="actionLoading" class="spin icon-small" />
-                <Link2 v-else class="icon-small" />
-                Conectar Agora
-              </button>
-              <button class="btn btn-outline-primary" @click="generateQrCode" :disabled="actionLoading">
-                <Loader v-if="actionLoading" class="spin icon-small" />
-                <Scan v-else class="icon-small" />
-                Gerar QR Code
-              </button>
-              <button class="btn btn-outline-primary" @click="createInstance" :disabled="actionLoading">
-                <Loader v-if="actionLoading" class="spin icon-small" />
-                <Plus v-else class="icon-small" />
-                Criar Instância
-              </button>
-            </div>
-
-            <!-- Lista de Instâncias Existentes (Para Limpeza) -->
-            <div v-if="allInstances.length > 0" class="mt-5 text-start">
-              <h6 class="mb-3 text-muted">Gerenciar Instâncias (UazAPI)</h6>
-              <div class="list-group">
-                <div v-for="inst in allInstances" :key="inst.name || inst.instanceName" class="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>{{ inst.name || inst.instanceName }}</strong>
-                    <span class="badge ms-2" :class="inst.status === 'connected' ? 'bg-success' : 'bg-secondary'">
-                      {{ inst.status }}
-                    </span>
-                  </div>
-                  <button class="btn btn-sm btn-outline-danger" @click="deleteInstance(inst.name || inst.instanceName)" :disabled="actionLoading">
-                    <Trash2 class="icon-small" />
-                  </button>
-                </div>
-              </div>
+        <aside v-if="status === 'connected'" class="admin-shell-card wa-side">
+          <div class="wa-side-head">
+            <Settings class="wa-icon-md" />
+            <div>
+              <h3>Automação</h3>
+              <p>Regras do assistente nesta linha.</p>
             </div>
           </div>
-        </div>
 
-        <!-- Painel Lateral: Configurações da Instância -->
-        <div class="card glass-card config-panel" v-if="status === 'connected'">
-           <h3 class="panel-title"><Settings class="icon-medium"/> Automação (Chatbot)</h3>
-           <p class="panel-desc">Gerencie as regras do assistente automático para esta linha.</p>
-           
-           <div class="form-group mt-4">
-              <label class="toggle-switch">
-                <input type="checkbox" v-model="formSettings.chatbot_enabled" @change="saveSettings">
-                <span class="slider round"></span>
-                <span class="toggle-label">Habilitar IA e Fluxos Automáticos</span>
-              </label>
-           </div>
-           
-           <div class="form-group">
-              <label class="toggle-switch">
-                <input type="checkbox" v-model="formSettings.chatbot_ignoreGroups" @change="saveSettings">
-                <span class="slider round"></span>
-                <span class="toggle-label">Ignorar mensagens em Grupos</span>
-              </label>
-           </div>
+          <label class="wa-toggle">
+            <input v-model="formSettings.chatbot_enabled" type="checkbox" @change="saveSettings">
+            <span class="wa-toggle-track" aria-hidden="true" />
+            <span class="wa-toggle-copy">
+              <strong>IA e fluxos automáticos</strong>
+              <small>Respostas automáticas da Bella e fluxos configurados.</small>
+            </span>
+          </label>
 
-           <div class="form-group config-input">
-              <label>Palavra-chave para Pausa</label>
-              <input type="text" v-model="formSettings.chatbot_stopConversation" class="form-control" @blur="saveSettings" placeholder="Ex: parar, cancelar, atendente">
-              <small>Ao digitar isso, o robô silencia por X minutos.</small>
-           </div>
+          <label class="wa-toggle">
+            <input v-model="formSettings.chatbot_ignoreGroups" type="checkbox" @change="saveSettings">
+            <span class="wa-toggle-track" aria-hidden="true" />
+            <span class="wa-toggle-copy">
+              <strong>Ignorar grupos</strong>
+              <small>O robô não responde em conversas de grupo.</small>
+            </span>
+          </label>
 
-           <div class="form-group config-input">
-              <label>Tempo de Pausa Automática (Minutos)</label>
-              <input type="number" v-model="formSettings.chatbot_stopMinutes" class="form-control" @blur="saveSettings">
-              <small>Silencia o robô automaticamente se você (humano) responder a pessoa.</small>
-           </div>
-        </div>
+          <div class="wa-field">
+            <label for="wa-stop-word">Palavra para pausar</label>
+            <input
+              id="wa-stop-word"
+              v-model="formSettings.chatbot_stopConversation"
+              type="text"
+              class="wa-input"
+              placeholder="parar, cancelar, atendente"
+              @blur="saveSettings"
+            >
+            <small>Quando a aluna digitar isso, o robô silencia.</small>
+          </div>
+
+          <div class="wa-field">
+            <label for="wa-stop-min">Pausa automática (minutos)</label>
+            <input
+              id="wa-stop-min"
+              v-model="formSettings.chatbot_stopMinutes"
+              type="number"
+              min="1"
+              class="wa-input"
+              @blur="saveSettings"
+            >
+            <small>Se você responder manualmente, o robô pausa por esse tempo.</small>
+          </div>
+        </aside>
+
+        <aside v-else-if="!loading" class="admin-shell-card wa-side wa-side--tips">
+          <h3>Como funciona</h3>
+          <ul class="wa-tips">
+            <li>
+              <strong>Notificações no celular</strong>
+              <span>Seu aparelho continua recebendo alertas normalmente após conectar.</span>
+            </li>
+            <li>
+              <strong>Seguro</strong>
+              <span>Conexão oficial via QR Code, igual ao WhatsApp Web.</span>
+            </li>
+            <li>
+              <strong>Rápido</strong>
+              <span>O código expira em poucos minutos — gere outro se precisar.</span>
+            </li>
+            <li>
+              <strong>Seu número</strong>
+              <span>As mensagens saem do seu WhatsApp, não de um número genérico.</span>
+            </li>
+          </ul>
+        </aside>
       </div>
     </div>
   </NuxtLayout>
@@ -179,12 +206,11 @@
 
 <script setup>
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
-import { 
-  CheckCircle, Smartphone, Scan, Loader, RefreshCw, LogOut, Link2, Settings, Plus, Trash2
+import {
+  CheckCircle, Smartphone, Scan, Loader, RefreshCw, LogOut, Settings,
 } from 'lucide-vue-next'
 import { resetWhatsappAfterDisconnect } from '~/composables/whatsapp/useWhatsappChats.js'
 import { isWhatsappConnectedFromStatusPayload } from '~/composables/whatsapp/useWhatsappApi.js'
@@ -199,53 +225,74 @@ const status = ref('disconnected')
 const qrcode = ref('')
 const manualDisconnectRequested = ref(false)
 const qrStickyUntil = ref(0)
-// Timestamp até o qual devemos manter polling ativo independente do status.
-// Setado por generateQrCode para garantir que detecção de conexão após scan continue.
 const awaitingQrScanUntil = ref(0)
 const instanceData = ref(null)
 const pollInterval = ref(null)
-const allInstances = ref([]) // Lista de todas as instâncias
-const customInstanceName = ref('') // Nome customizado
-const phone = ref('') // Número para pareamento
 
 const formSettings = reactive({
-  chatbot_enabled: true,
+  chatbot_enabled: false,
   chatbot_ignoreGroups: true,
   chatbot_stopConversation: 'parar',
-  chatbot_stopMinutes: 60
+  chatbot_stopMinutes: 60,
 })
 
-const deleteInstance = async (name) => {
-  if (!confirm(`Deseja mesmo DELETAR a instância "${name}"? Isso liberará espaço na sua conta.`)) return
-  try {
-    actionLoading.value = true
-    const res = await fetch(`${API_BASE}/instance/${encodeURIComponent(name)}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json().catch(() => ({}))
-    if (res.ok && data.success) {
-       alert(`�S& Instância "${name}" deletada com sucesso!`)
-       fetchStatus()
-    } else {
-       alert(`âŒ Falha ao deletar: ${data.message || 'Erro desconhecido'}`)
-    }
-  } catch(e) {
-    alert(`�R Erro de conexão: ${e?.message || e}`)
-  } finally {
-    actionLoading.value = false
+const statusLabel = computed(() => {
+  if (loading.value) return 'Verificando'
+  if (status.value === 'connected') return 'Conectado'
+  if (status.value === 'connecting') return 'Aguardando scan'
+  if (status.value === 'error') return 'Erro'
+  return 'Desconectado'
+})
+
+function formatPhoneLine(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.length === 13 && digits.startsWith('55')) {
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`
   }
+  if (digits.length === 12 && digits.startsWith('55')) {
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`
+  }
+  return digits.startsWith('55') ? `+${digits}` : digits
 }
 
-const statusClass = computed(() => {
-  return {
-    'is-connected': status.value === 'connected',
-    'is-connecting': status.value === 'connecting',
-    'is-disconnected': status.value === 'disconnected' || status.value === 'error',
-  }
-})
+function pickConnectedLineLabel(instance) {
+  if (!instance) return 'Sessão ativa'
+  const profileName = String(instance.profileName || instance.profile?.name || '').trim()
+  const jid = String(
+    instance.jid ||
+    instance.phone ||
+    instance.owner ||
+    instance.ownerJid ||
+    instance.userId ||
+    '',
+  ).trim()
+  const phoneLine = formatPhoneLine(jid.replace(/@.+$/, ''))
+  if (profileName && phoneLine && profileName !== phoneLine) return phoneLine
+  if (phoneLine) return phoneLine
+  if (profileName) return profileName
+  return 'Sessão ativa'
+}
 
-/** Foto do perfil: UAZAPI pode enviar em vários campos ou só após o backend enriquecer o /status. */
+const connectedLineLabel = computed(() => pickConnectedLineLabel(instanceData.value))
+
+function extractQrFromPayload(data) {
+  if (!data || typeof data !== 'object') return ''
+  const candidates = [
+    data.qrcode,
+    data.qr,
+    data.base64,
+    data.instance?.qrcode,
+    data.instance?.qr,
+    data.status?.qrcode,
+  ]
+  for (const candidate of candidates) {
+    const value = typeof candidate === 'string' ? candidate.trim() : ''
+    if (value) return value
+  }
+  return ''
+}
+
 const instanceProfilePicUrl = computed(() => {
   const i = instanceData.value
   if (!i) return ''
@@ -257,7 +304,7 @@ const instanceProfilePicUrl = computed(() => {
     i.instance?.profilePicUrl,
     i.instance?.profilePictureUrl,
     i.me?.profilePictureUrl,
-    i.me?.imgUrl
+    i.me?.imgUrl,
   ]
   for (const c of candidates) {
     if (typeof c !== 'string') continue
@@ -273,13 +320,10 @@ const lastDisconnectReasonLabel = computed(() => {
   if (!reason || typeof reason !== 'string') return ''
 
   const normalized = reason.toLowerCase().trim()
-
-  // Ruído comum durante regeneração de QR na UAZAPI; não deve ser exibido como erro real.
   if (normalized.includes('connection attempt canceled by api')) return ''
-
-  if (normalized.includes('logged out')) return 'Sessão encerrada no celular'
-  if (normalized.includes('timed out')) return 'Tempo de conexão expirado'
-  if (normalized.includes('connection closed')) return 'Conexão encerrada'
+  if (normalized.includes('logged out')) return 'Última sessão encerrada no celular.'
+  if (normalized.includes('timed out')) return 'O tempo para escanear o QR expirou.'
+  if (normalized.includes('connection closed')) return 'A conexão foi encerrada.'
 
   return reason
 })
@@ -287,7 +331,6 @@ const lastDisconnectReasonLabel = computed(() => {
 const updateQrCodeIfAvailable = (nextQr) => {
   if (nextQr && typeof nextQr === 'string' && nextQr.trim().length > 0) {
     qrcode.value = nextQr
-    // Mantém o QR estável por alguns segundos para evitar flicker entre polls.
     qrStickyUntil.value = Date.now() + 20000
   }
 }
@@ -299,43 +342,41 @@ const fetchStatus = async () => {
     actionLoading.value = true
     const res = await fetch(`${API_BASE}/status`, {
       headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal
+      signal: controller.signal,
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       throw new Error(data.message || `Falha ao consultar status (${res.status})`)
     }
-    
-    // Atualiza lista de instâncias
-    if (Array.isArray(data.allInstances)) {
-      allInstances.value = data.allInstances
-    }
-    
+
     const inst = data.instance || null
     instanceData.value = inst
 
-    // Determina o status de conexão
-    // A UazAPI retorna status como objeto ou string
+    const resolveStatus = (value) => {
+      if (!value) return ''
+      if (typeof value === 'object') {
+        if (value.connected === true || value.loggedIn === true) return 'connected'
+        if (value.connecting === true) return 'connecting'
+        return 'disconnected'
+      }
+      return String(value).toLowerCase()
+    }
+
     const rawStatus = (
-      inst?.status ||
-      inst?.instance?.status ||
+      data.connectionStatus ||
       inst?.connectionStatus ||
-      inst?.instance?.connectionStatus ||
+      inst?.status ||
       inst?.state ||
-      inst?.instance?.state ||
       data.status?.status ||
-      data.status?.connectionStatus ||
-      data.status?.state ||
       ''
     )
-    const normalizedStatus = String(rawStatus).toLowerCase()
+    const normalizedStatus = resolveStatus(rawStatus)
 
     const isConnected = isWhatsappConnectedFromStatusPayload(data)
     const isQrAlreadyRead = normalizedStatus === 'qrreadsuccess'
 
-    const nextQr = inst?.qrcode || inst?.qr || data.status?.qrcode || ''
+    const nextQr = data.qrcode || extractQrFromPayload(data) || extractQrFromPayload(inst)
     if (isQrAlreadyRead) {
-      // QR já foi escaneado: não manter QR antigo visível.
       qrcode.value = ''
     } else {
       updateQrCodeIfAvailable(nextQr)
@@ -355,21 +396,19 @@ const fetchStatus = async () => {
     } else if (normalizedStatus === 'connecting' || isQrAlreadyRead) {
       status.value = 'connecting'
     } else if (shouldKeepStickyQr || Date.now() < awaitingQrScanUntil.value) {
-      // Mantém "connecting" enquanto: há QR visível OU aguardamos scan recente.
       status.value = 'connecting'
     } else {
       status.value = 'disconnected'
       if (!shouldKeepStickyQr) qrcode.value = ''
     }
 
-    // Configurações do chatbot
     if (inst) {
-      formSettings.chatbot_enabled = inst.chatbot_enabled ?? true
+      formSettings.chatbot_enabled = inst.chatbot_enabled ?? false
       formSettings.chatbot_ignoreGroups = inst.chatbot_ignoreGroups ?? true
       formSettings.chatbot_stopConversation = inst.chatbot_stopConversation || 'parar'
       formSettings.chatbot_stopMinutes = inst.chatbot_stopMinutes || 60
     }
-  } catch(e) {
+  } catch (e) {
     console.error('fetchStatus error:', e)
     status.value = 'error'
   } finally {
@@ -382,96 +421,50 @@ const fetchStatus = async () => {
 
 const saveSettings = async () => {
   try {
-    // Usamos a rota proxy pra atualizar as configurações da instância na UazAPI
     await fetch(`${PROXY_BASE}/instance/settings`, {
-       method: 'POST',
-       headers: { 
-         'Content-Type': 'application/json',
-         Authorization: `Bearer ${token}` 
-       },
-       body: JSON.stringify(formSettings)
-    });
-  } catch(e) {
-    console.error("Falha ao salvar config", e);
-  }
-}
-
-const connectWhatsApp = async () => {
-  try {
-    actionLoading.value = true
-    manualDisconnectRequested.value = false
-    const res = await fetch(`${API_BASE}/connect`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ 
-        name: customInstanceName.value,
-        phone: phone.value 
-      })
+      body: JSON.stringify(formSettings),
     })
-    const data = await res.json()
-    if(!res.ok) throw new Error(data.message || "Falha ao conectar")
-    
-    if(data.qrcode || data.base64) {
-       qrcode.value = data.qrcode || data.base64 || ''
-       status.value = 'connecting'
-       awaitingQrScanUntil.value = Date.now() + 180_000
-    }
-    fetchStatus()
-  } catch(e) {
-    alert(e.message)
-  } finally {
-    actionLoading.value = false
+  } catch (e) {
+    console.error('Falha ao salvar config', e)
   }
 }
 
 const generateQrCode = async () => {
   try {
     if (status.value === 'connected') {
-      alert("Você já está conectado. Para gerar novo QR, desconecte a sessão primeiro.")
+      alert('Você já está conectado. Desconecte a sessão antes de gerar um novo QR.')
       return
     }
 
     actionLoading.value = true
     manualDisconnectRequested.value = false
 
-    // Força desconexão prévia para garantir que a sessão em cache seja limpa
-    // antes de gerar o QR, evitando reconexão automática indesejada.
-    await fetch(`${API_BASE}/disconnect`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` }
-    }).catch(() => {})
-    resetWhatsappAfterDisconnect()
-
-    // Pequena pausa para a UAZAPI processar a desconexão
-    await new Promise(resolve => setTimeout(resolve, 800))
-
     const res = await fetch(`${API_BASE}/connect/regenerate-qr`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ name: customInstanceName.value })
     })
 
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || "Falha ao gerar QR Code")
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message || 'Falha ao gerar QR Code')
 
-    const qr = data?.qrcode || data?.base64 || data?.instance?.qrcode || data?.instance?.qr || data?.status?.qrcode || ''
+    const qr = extractQrFromPayload(data)
     updateQrCodeIfAvailable(qr)
     status.value = 'connecting'
-    // Garante polling ativo por 3 minutos após QR gerado, mesmo sem QR no response
-    // ou se poll intermediário retornar "disconnected" antes do scan ser detectado.
     awaitingQrScanUntil.value = Date.now() + 180_000
+
     if (!qr) {
-      alert("Solicitação enviada. Aguarde alguns segundos e clique em Atualizar QR Code.")
+      await fetchStatus()
     } else {
-      alert("QR Code gerado. Escaneie no WhatsApp para reconectar.")
+      handlePolling()
     }
-    fetchStatus()
   } catch (e) {
     alert(e.message)
   } finally {
@@ -479,48 +472,29 @@ const generateQrCode = async () => {
   }
 }
 
-const createInstance = async () => {
-  try {
-    actionLoading.value = true
-    const res = await fetch(`${API_BASE}/create`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
-      body: JSON.stringify({ name: customInstanceName.value })
-    })
-    const data = await res.json()
-    if(!res.ok) throw new Error(data.message || "Erro ao criar")
-    alert("Instância criada com sucesso!")
-    fetchStatus()
-  } catch(e) {
-    alert(e.message)
-  } finally {
-    actionLoading.value = false
-  }
-}
-
 const disconnectWhatsApp = async () => {
-  if(!confirm("Tem certeza que deseja desconectar o WhatsApp?")) return
+  if (!confirm('Tem certeza que deseja desconectar o WhatsApp?')) return
   try {
     actionLoading.value = true
     manualDisconnectRequested.value = true
-    await fetch(`${API_BASE}/disconnect`, {
+
+    const res = await fetch(`${API_BASE}/disconnect`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message || 'Falha ao desconectar')
+
     resetWhatsappAfterDisconnect()
-    // Força status desconectado localmente imediatamente
     status.value = 'disconnected'
     qrcode.value = ''
     qrStickyUntil.value = 0
     awaitingQrScanUntil.value = 0
-    // Aguarda e busca status real da API para confirmar desconexão
-    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    await new Promise((resolve) => setTimeout(resolve, 1000))
     await fetchStatus()
-  } catch(e) {
-    console.error(e)
+  } catch (e) {
+    alert(e.message || 'Não foi possível desconectar.')
     status.value = 'disconnected'
   } finally {
     actionLoading.value = false
@@ -528,11 +502,15 @@ const disconnectWhatsApp = async () => {
   }
 }
 
+const cancelConnection = async () => {
+  if (!confirm('Cancelar a conexão e voltar?')) return
+  await disconnectWhatsApp()
+}
+
 const handlePolling = () => {
   const isAwaitingQrScan = Date.now() < awaitingQrScanUntil.value
   if (status.value === 'connecting' || isAwaitingQrScan) {
     if (!pollInterval.value) {
-      // Intervalo mais curto enquanto aguardamos conexão após QR scan
       pollInterval.value = setInterval(fetchStatus, 3000)
     }
   } else {
@@ -548,9 +526,9 @@ const stopPolling = () => {
 }
 
 onMounted(() => {
-  if(!token) {
-     navigateTo('/')
-     return
+  if (!token) {
+    navigateTo('/')
+    return
   }
   fetchStatus()
 })
@@ -559,349 +537,672 @@ onUnmounted(() => stopPolling())
 </script>
 
 <style scoped>
-.whatsapp-container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 1rem;
-}
-
-.text-gradient {
-  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 800;
-  font-size: 2.2rem;
-  letter-spacing: -0.5px;
-}
-
-.subtitle {
-  color: #64748b;
-  font-size: 1.05rem;
-  margin-top: 0.5rem;
-}
-
-.grid-layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-  margin-top: 2rem;
-}
-
-@media (min-width: 900px) {
-  .grid-layout {
-    grid-template-columns: 1.2fr 1fr;
-  }
-}
-
-.card {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  border-radius: 24px;
-  padding: 2.5rem;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.6);
-  border: 1px solid rgba(0,0,0,0.05);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.status-card.is-connected {
-  box-shadow: 0 20px 40px rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.2);
-}
-
-.state-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 1rem;
-}
-
-.profile-avatar-wrapper {
-  position: relative;
-  margin-bottom: 1rem;
-}
-
-.profile-avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 4px solid white;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-}
-
-.status-badge.online {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  width: 20px;
-  height: 20px;
-  background: #22c55e;
-  border: 3px solid white;
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
-}
-
-.phone-number {
-  color: #64748b;
-  font-weight: 500;
-  background: #f1f5f9;
-  padding: 0.4rem 1rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
-}
-
-.connection-stats {
-  display: flex;
-  gap: 2rem;
-  margin-top: 1.5rem;
-  background: #f8fafc;
-  padding: 1.2rem;
-  border-radius: 16px;
+.wa-page {
   width: 100%;
-  justify-content: center;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: clip;
+  animation: wa-fade-in 0.35s ease-out;
 }
 
-.stat-item {
-  display: flex;
-  flex-direction: column;
+.wa-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.85rem;
 }
 
-.stat-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #94a3b8;
-  font-weight: 700;
+.wa-header-copy {
+  flex: 1 1 220px;
+  min-width: 0;
 }
 
-.stat-value {
-  font-size: 1rem;
-  color: #334155;
-  font-weight: 600;
-  margin-top: 0.2rem;
-}
-
-.icon-circle {
-  width: 80px;
-  height: 80px;
-  border-radius: 24px;
+.wa-title-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 1rem;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+  min-width: 0;
 }
 
-.icon-circle.success { background: #dcfce7; color: #16a34a; }
-.icon-circle.warning { background: #e0e7ff; color: #4f46e5; }
-.icon-circle.muted { background: #f1f5f9; color: #64748b; }
-
-.icon-xl { width: 36px; height: 36px; }
-.icon-medium { width: 22px; height: 22px; vertical-align: middle; margin-right: 8px;}
-.icon-small { width: 18px; height: 18px; margin-right: 6px; }
-
-h3 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #1e293b;
+.wa-title-row h1 {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.qr-wrapper {
-  position: relative;
-  background: white;
-  padding: 1rem;
-  border-radius: 20px;
-  width: 100%;
-  max-width: 280px;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  margin: 1.5rem 0;
-}
-
-.qr-corners {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border: 3px solid #6366f1;
-}
-
-.top-left { top: -2px; left: -2px; border-right: none; border-bottom: none; border-top-left-radius: 12px; }
-.top-right { top: -2px; right: -2px; border-left: none; border-bottom: none; border-top-right-radius: 12px; }
-.bottom-left { bottom: -2px; left: -2px; border-right: none; border-top: none; border-bottom-left-radius: 12px; }
-.bottom-right { bottom: -2px; right: -2px; border-left: none; border-top: none; border-bottom-right-radius: 12px; }
-
-.qr-image {
-  width: 100%;
-  border-radius: 12px;
-}
-
-.qr-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.disconnect-reason {
-  background: #fef2f2;
-  color: #ef4444;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-top: 1rem;
-}
-
-/* Painel Lateral */
-.panel-title {
-  font-size: 1.25rem;
-  color: #1e293b;
-  margin-bottom: 0.2rem;
-}
-.panel-desc {
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
-.form-group {
-  margin-top: 1.5rem;
-}
-
-.config-input label {
-  display: block;
-  font-weight: 600;
-  color: #334155;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
-.config-input .form-control {
-  width: 100%;
-  padding: 0.8rem 1rem;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  transition: all 0.2s;
-}
-.config-input .form-control:focus {
-  outline: none;
-  border-color: #6366f1;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-.config-input small {
-  display: block;
-  margin-top: 0.4rem;
-  color: #94a3b8;
-  font-size: 0.8rem;
-}
-
-/* Toggle Switch */
-.toggle-switch {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-.toggle-switch input { display: none; }
-.slider {
-  position: relative;
-  display: inline-block;
-  width: 46px;
-  height: 24px;
-  background-color: #cbd5e1;
-  border-radius: 34px;
-  transition: .3s;
-}
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  border-radius: 50%;
-  transition: .3s;
-}
-input:checked + .slider { background-color: #22c55e; }
-input:checked + .slider:before { transform: translateX(22px); }
-.toggle-label {
-  margin-left: 12px;
-  font-weight: 600;
-  color: #334155;
-}
-
-/* Botões */
-.btn {
+.wa-brand-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.8rem 1.5rem;
-  border-radius: 14px;
-  font-weight: 600;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 12px;
+  background: #e8f5e9;
+  color: #128c7e;
+  flex-shrink: 0;
+}
+
+.wa-brand-mark svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.wa-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--admin-border);
+  background: #fff;
+  color: var(--admin-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.wa-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #94a3b8;
+  flex-shrink: 0;
+}
+
+.wa-status-pill--connected {
+  border-color: #c8e6c9;
+  background: #f1f8f1;
+  color: #2e7d32;
+}
+
+.wa-status-pill--connected .wa-status-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.wa-status-pill--connecting {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.wa-status-pill--connecting .wa-status-dot {
+  background: #f59e0b;
+  animation: wa-pulse 1.4s ease-in-out infinite;
+}
+
+.wa-status-pill--disconnected,
+.wa-status-pill--error {
+  border-color: var(--admin-border);
+  background: #fafafa;
+}
+
+.wa-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.wa-main,
+.wa-side {
+  padding: 1.25rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.wa-state {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.25rem;
+  min-height: 280px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.wa-state-head {
+  text-align: center;
+}
+
+.wa-state h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--admin-ink);
+  letter-spacing: -0.03em;
+}
+
+.wa-state p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.wa-loader {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 2rem auto 0.5rem;
+  border-radius: 50%;
+  border: 3px solid #eef0eb;
+  border-top-color: var(--admin-primary);
+  animation: wa-spin 0.8s linear infinite;
+}
+
+.wa-connected-hero {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  padding: 1rem;
+  border-radius: var(--cf-radius-surface);
+  background: linear-gradient(135deg, #f7faf7 0%, #fff 100%);
+  border: 1px solid #e8f0e8;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.wa-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.wa-avatar {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.wa-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef0eb;
+  color: var(--admin-primary);
+}
+
+.wa-avatar-badge {
+  position: absolute;
+  right: 0.15rem;
+  bottom: 0.15rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #fff;
+}
+
+.wa-connected-copy {
+  min-width: 0;
+}
+
+.wa-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2e7d32;
+}
+
+.wa-connected-copy h2 {
+  text-align: left;
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.wa-subline {
+  margin: 0.15rem 0 0;
+  color: var(--admin-muted);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.wa-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.wa-stat {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #fafafa;
+  border: 1px solid var(--admin-border);
+  min-width: 0;
+}
+
+.wa-stat-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.wa-stat-value {
+  display: block;
+  margin-top: 0.25rem;
   font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: none;
-}
-.btn:disabled { opacity: 0.7; cursor: not-allowed; }
-.btn-lg { padding: 1rem 2.5rem; font-size: 1.05rem; }
-
-.btn-primary {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+  font-weight: 700;
+  color: var(--admin-ink);
+  overflow-wrap: anywhere;
 }
 
-.btn-outline-danger {
-  background: transparent;
-  color: #ef4444;
-  border: 1.5px solid #fecaca;
+.wa-actions {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: auto;
+  width: 100%;
 }
-.btn-outline-danger:hover:not(:disabled) {
+
+.wa-btn {
+  min-height: 2.75rem;
+  text-decoration: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: normal;
+  text-align: center;
+}
+
+.wa-actions--center {
+  align-items: stretch;
+}
+
+.wa-btn--wide {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.wa-btn--danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.wa-btn--danger:hover:not(:disabled) {
   background: #fef2f2;
-  border-color: #ef4444;
+  border-color: #fca5a5;
 }
 
-.btn-ghost {
-  background: transparent;
-  color: #64748b;
-}
-.btn-ghost:hover {
-  background: #f1f5f9;
-  color: #334155;
-}
-
-/* Animations */
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
-
-.animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.wa-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
 }
 
-.slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
+.wa-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  background: #fafafa;
+  border: 1px solid var(--admin-border);
+  font-size: 0.86rem;
+  color: var(--admin-ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wa-steps li span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--admin-primary-soft);
+  color: var(--admin-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.wa-qr-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 100%;
+  max-width: 260px;
+  aspect-ratio: 1;
+  padding: 0.85rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--admin-border);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  box-sizing: border-box;
+}
+
+.wa-qr-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.wa-qr-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.wa-state--empty {
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+  padding: 1rem 0.5rem 0.25rem;
+}
+
+.wa-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 18px;
+  background: #eef0eb;
+  color: var(--admin-muted);
+}
+
+.wa-alert {
+  width: 100%;
+  max-width: 420px;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.wa-side-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.wa-side-head h3 {
+  margin: 0 0 0.15rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--admin-ink);
+}
+
+.wa-side-head p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+}
+
+.wa-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+}
+
+.wa-toggle:last-of-type {
+  border-bottom: none;
+}
+
+.wa-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wa-toggle-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 1.45rem;
+  margin-top: 0.1rem;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.2s ease;
+}
+
+.wa-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 0.18rem;
+  left: 0.18rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.wa-toggle input:checked + .wa-toggle-track {
+  background: var(--admin-primary);
+}
+
+.wa-toggle input:checked + .wa-toggle-track::after {
+  transform: translateX(1.05rem);
+}
+
+.wa-toggle-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.wa-toggle-copy strong {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--admin-ink);
+}
+
+.wa-toggle-copy small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--admin-muted);
+}
+
+.wa-field {
+  margin-top: 1rem;
+}
+
+.wa-field label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--admin-ink);
+}
+
+.wa-input {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.wa-input:focus {
+  outline: none;
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+}
+
+.wa-field small {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--admin-muted);
+}
+
+.wa-side--tips h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--admin-ink);
+}
+
+.wa-tips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.wa-tips li {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.wa-tips strong {
+  font-size: 0.86rem;
+  color: var(--admin-ink);
+}
+
+.wa-tips span {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--admin-muted);
+}
+
+.wa-icon-sm { width: 1rem; height: 1rem; flex-shrink: 0; }
+.wa-icon-md { width: 1.15rem; height: 1.15rem; flex-shrink: 0; color: var(--admin-primary); }
+.wa-icon-lg { width: 1.5rem; height: 1.5rem; }
+.wa-icon-xl { width: 2rem; height: 2rem; }
+
+.wa-spin { animation: wa-spin 0.9s linear infinite; }
+
+@keyframes wa-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes wa-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.pulse-btn { animation: pulse 2s infinite; }
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+@keyframes wa-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (min-width: 640px) {
+  .wa-actions {
+    flex-direction: row;
+  }
+
+  .wa-btn {
+    width: auto;
+    flex: 1 1 auto;
+  }
+
+  .wa-btn--wide {
+    flex: 1 1 100%;
+    max-width: 320px;
+  }
+
+  .wa-actions--center {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .wa-actions--center .wa-btn {
+    flex: 0 1 auto;
+    width: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .wa-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+
+  .wa-main,
+  .wa-side {
+    padding: 1.5rem;
+  }
+
+  .wa-header {
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .wa-page.admin-shell {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .wa-title-row h1 {
+    font-size: 1.35rem;
+  }
+
+  .wa-main,
+  .wa-side {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .wa-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .wa-connected-hero {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .wa-connected-copy h2,
+  .wa-kicker {
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wa-page,
+  .wa-spin,
+  .wa-status-pill--connecting .wa-status-dot {
+    animation: none;
+  }
 }
 </style>
-

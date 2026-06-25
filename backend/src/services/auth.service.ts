@@ -1,12 +1,24 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository";
+import { PasswordResetRepository } from "../repositories/password-reset.repository";
 import { Role, UserStatus } from "@prisma/client";
 import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
 import { cloudinaryUpload } from "../utils/cloudinary";
+import {
+  buildPasswordResetUrl,
+  type PasswordResetApp,
+} from "../utils/email-config";
+import {
+  createPasswordResetToken,
+  getPasswordResetTtlMs,
+  hashPasswordResetToken,
+} from "../utils/password-reset-token";
+import { dispatchEmail, emailService } from "./email/email.service";
 
 const userRepository = new UserRepository();
+const passwordResetRepository = new PasswordResetRepository();
 
 const PATIENT_TOKEN_TTL = "90d";
 const STAFF_TOKEN_TTL = "30d";
@@ -96,23 +108,6 @@ export class AuthService {
       email: String(data.email).trim().toLowerCase(),
       password: data.password,
       role: Role.NUTRICIONISTA,
-      status: UserStatus.PENDENTE,
-    });
-  }
-
-  /** Cadastro público — apenas pacientes; role/status ignorados do body. */
-  async register(data: any): Promise<any> {
-    if (!data?.name || !data?.email || !data?.password) {
-      throw new Error("Nome, e-mail e senha são obrigatórios.");
-    }
-
-    this.validatePassword(data.password);
-
-    return this.createUser({
-      name: String(data.name).trim(),
-      email: String(data.email).trim().toLowerCase(),
-      password: data.password,
-      role: Role.PACIENTE,
       status: UserStatus.PENDENTE,
     });
   }
@@ -236,5 +231,71 @@ export class AuthService {
     const updatedUser = await userRepository.update(userId, { avatar: avatarUrl });
     const { password, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword;
+  }
+
+  async requestPasswordReset(email: string, app: PasswordResetApp): Promise<void> {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error("Informe um e-mail válido.");
+    }
+
+    const user = await userRepository.findByEmail(normalizedEmail);
+    if (!user || user.status === UserStatus.INATIVO) {
+      return;
+    }
+
+    if (app === "admin" && user.role !== Role.NUTRICIONISTA) {
+      return;
+    }
+
+    if (app === "patient" && user.role !== Role.PACIENTE) {
+      return;
+    }
+
+    const rawToken = createPasswordResetToken();
+    const tokenHash = hashPasswordResetToken(rawToken);
+    const expiresAt = new Date(Date.now() + getPasswordResetTtlMs());
+
+    await passwordResetRepository.replaceForUser(user.id, tokenHash, expiresAt);
+
+    const resetUrl = buildPasswordResetUrl(app, rawToken);
+    dispatchEmail(
+      emailService.sendPasswordReset({
+        name: user.name,
+        email: user.email,
+        resetUrl,
+      }),
+      "password-reset",
+    );
+  }
+
+  async validatePasswordResetToken(token: string): Promise<{ valid: true }> {
+    const record = await this.findValidPasswordResetRecord(token);
+    if (!record) {
+      throw new Error("Link inválido ou expirado. Solicite um novo e-mail de recuperação.");
+    }
+    return { valid: true };
+  }
+
+  async resetPasswordWithToken(token: string, newPassword: string): Promise<void> {
+    this.validatePassword(newPassword);
+
+    const record = await this.findValidPasswordResetRecord(token);
+    if (!record) {
+      throw new Error("Link inválido ou expirado. Solicite um novo e-mail de recuperação.");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await userRepository.update(record.userId, { password: hashedPassword });
+    await passwordResetRepository.markUsed(record.id);
+    await passwordResetRepository.deleteByUserId(record.userId);
+  }
+
+  private async findValidPasswordResetRecord(token: string) {
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedToken) return null;
+    return passwordResetRepository.findValidByTokenHash(
+      hashPasswordResetToken(normalizedToken),
+    );
   }
 }
