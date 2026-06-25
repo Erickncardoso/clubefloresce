@@ -13,3 +13,4 @@ coverage
 .cursor
 .agents
 .claude
+pnpm-lock.yaml
