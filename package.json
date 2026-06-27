@@ -3,6 +3,10 @@
   "private": true,
   "scripts": {
     "dev:backend": "npm run dev --prefix backend",
+    "dev:backend:tunnel": "node scripts/dev-with-tunnel.mjs",
+    "dev:backend:tunnel:named": "node scripts/dev-with-tunnel.mjs --named",
+    "dev:tunnel": "node scripts/cloudflare-tunnel.mjs",
+    "dev:tunnel:named": "node scripts/cloudflare-tunnel.mjs --named",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:cliente": "npm run dev --prefix cliente",
     "dev:paciente": "npm run dev --prefix cliente",

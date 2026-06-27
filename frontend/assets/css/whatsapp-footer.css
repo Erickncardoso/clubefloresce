@@ -1,22 +1,218 @@
 /* =========================================================
-   Rodapé do chat (input de mensagem)
-   chat-footer, input-wrapper, send-btn, hidden-input
+   Rodapé do chat (input de mensagem) — estilo WhatsApp Web
    ========================================================= */
 
 .chat-footer-shell {
   position: relative;
+  flex-shrink: 0;
+  overflow: visible;
+  z-index: 25;
 }
+
 .chat-footer {
-  height: 80px; display: flex; align-items: center; gap: 1rem;
-  padding: 0 1.5rem; border-top: 1px solid #f1f5f9; background: white;
+  position: relative;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  padding: 8px 16px 10px;
+  border-top: none;
+  background: #f0f2f5;
+  box-sizing: border-box;
 }
+
+.chat-footer--multiline {
+  align-items: flex-end;
+}
+
+.chat-footer--locked {
+  justify-content: center;
+  background: #f0f2f5;
+}
+
+.chat-footer--blocked {
+  justify-content: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: #f0f2f5;
+}
+
+.chat-footer-blocked-btn {
+  flex: 1;
+  max-width: 220px;
+  min-height: 44px;
+  border: 1px solid rgba(11, 20, 26, 0.08);
+  border-radius: 999px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0 16px;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.06);
+}
+
+.chat-footer-blocked-btn-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.chat-footer-blocked-btn--danger {
+  color: #ea0038;
+}
+
+.chat-footer-blocked-btn--danger:hover {
+  background: #fff5f7;
+}
+
+.chat-footer-blocked-btn--unblock {
+  color: #008069;
+}
+
+.chat-footer-blocked-btn--unblock:hover {
+  background: #f0faf7;
+}
+
+.chat-footer-locked-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #667781;
+  text-align: center;
+}
+
+.chat-footer-locked-text strong {
+  color: #008069;
+  font-weight: 600;
+}
+
+.compose-pill {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 42px;
+  padding: 5px 6px 5px 8px;
+  background: #fff;
+  border-radius: 24px;
+  border: 1px solid #e9edef;
+  box-shadow: 0 1px 0 rgba(11, 20, 26, 0.04);
+  box-sizing: border-box;
+}
+
+.compose-pill--multiline {
+  align-items: flex-end;
+  border-radius: 18px;
+  padding-bottom: 5px;
+}
+
+.compose-pill-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  color: #54656f;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.compose-pill-btn:hover:not(:disabled) {
+  background: rgba(11, 20, 26, 0.06);
+}
+
+.compose-pill-btn:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.compose-pill-btn--send {
+  color: #fff;
+  background: #00a884;
+}
+
+.compose-pill-btn--send:hover:not(:disabled) {
+  background: #008f72;
+}
+
+.compose-pill-btn--send:disabled {
+  background: #aebac1;
+  color: #fff;
+  opacity: 1;
+}
+
+.compose-pill-btn--active {
+  color: #008069;
+  background: rgba(0, 168, 132, 0.1);
+}
+
+.compose-pill-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.compose-pill-input,
+.input-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  max-height: 120px;
+  box-sizing: border-box;
+}
+
+.compose-pill-input--multiline,
+.input-wrapper--multiline {
+  align-items: flex-end;
+}
+
+.compose-pill-input textarea,
+.input-wrapper input,
+.input-wrapper textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.35;
+  color: #111b21;
+  font-family: inherit;
+}
+
+.compose-pill-input textarea,
+.input-wrapper textarea {
+  resize: none;
+  max-height: 120px;
+  padding: 2px 4px;
+  margin: 0;
+  overflow-y: hidden;
+}
+
+.compose-pill-input textarea::placeholder,
+.input-wrapper input::placeholder,
+.input-wrapper textarea::placeholder {
+  color: #8696a0;
+}
+
 .footer-plus-wrap {
   position: relative;
+  flex-shrink: 0;
 }
+
 .footer-plus-menu {
   position: absolute;
   left: 0;
-  bottom: 54px;
+  bottom: calc(100% + 8px);
   width: 220px;
   border-radius: 14px;
   background: #111827;
@@ -25,6 +221,7 @@
   padding: 8px;
   z-index: 20;
 }
+
 .footer-plus-item {
   width: 100%;
   border: none;
@@ -39,38 +236,176 @@
   font-size: 0.9rem;
   text-align: left;
 }
+
 .footer-plus-item:hover {
   background: rgba(255, 255, 255, 0.08);
 }
+
 .footer-plus-item-icon {
   width: 16px;
   height: 16px;
   color: #60a5fa;
 }
+
 .footer-menu-fade-enter-active,
 .footer-menu-fade-leave-active {
   transition: opacity 0.12s ease, transform 0.12s ease;
 }
+
 .footer-menu-fade-enter-from,
 .footer-menu-fade-leave-to {
   opacity: 0;
   transform: translateY(4px);
 }
-.input-wrapper {
-  flex: 1; background: #f1f5f9; border-radius: 24px; padding: 0 1.5rem;
-  display: flex; align-items: center; height: 48px;
-}
-.input-wrapper input {
-  width: 100%; border: none; background: transparent; outline: none;
-  font-size: 0.95rem; color: #334155;
-}
-.send-btn {
-  width: 48px; height: 48px; border-radius: 24px; border: none;
-  display: flex; align-items: center; justify-content: center;
-  background: #0ea5e9; color: white; cursor: pointer; transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
-}
-.send-btn:hover:not(:disabled) { transform: scale(1.05); }
-.send-btn:disabled { background: #94a3b8; cursor: not-allowed; box-shadow: none; }
 
 .hidden-input { display: none; }
+
+.footer-emoji-picker-wrap {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  z-index: 45;
+  width: min(352px, calc(100vw - 32px));
+  height: 380px;
+  max-height: min(380px, calc(100dvh - 160px));
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(11, 20, 26, 0.18);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.footer-emoji-picker-wrap em-emoji-picker {
+  --rgb-accent: 0, 168, 132;
+  --border-radius: 12px;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.footer-emoji-picker-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.footer-emoji-picker-loading-icon {
+  width: 28px;
+  height: 28px;
+  color: #00a884;
+}
+
+/* Barra de gravação de voz (PTT) — estilo WhatsApp Web */
+.voice-compose-bar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08);
+}
+
+.voice-compose-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: #54656f;
+}
+
+.voice-compose-btn:hover {
+  background: rgba(11, 20, 26, 0.05);
+}
+
+.voice-compose-btn--danger {
+  color: #ea0038;
+}
+
+.voice-compose-btn--send {
+  background: #111b21;
+  color: #fff;
+}
+
+.voice-compose-btn--send:hover:not(:disabled) {
+  background: #0b141a;
+}
+
+.voice-compose-btn--send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.voice-compose-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.voice-compose-icon--send {
+  width: 20px;
+  height: 20px;
+}
+
+.voice-compose-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.voice-compose-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ea0038;
+  flex-shrink: 0;
+  animation: voice-compose-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes voice-compose-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.voice-compose-timer {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: #111b21;
+  min-width: 34px;
+  flex-shrink: 0;
+}
+
+.voice-compose-wave {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.voice-compose-wave-bar {
+  width: 3px;
+  height: 18px;
+  border-radius: 999px;
+  background: #8696a0;
+  transform-origin: center center;
+  transition: transform 0.08s linear;
+}

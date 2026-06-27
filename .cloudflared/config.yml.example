@@ -1,0 +1,15 @@
+# Cloudflare Tunnel (dev local) — copie para config.yml e ajuste.
+#
+# 1. cloudflared tunnel login
+# 2. cloudflared tunnel create clubeflorescer-dev
+# 3. Copie o .json gerado para credentials-file abaixo
+# 4. No DNS do Cloudflare: CNAME dev-apiclube -> <tunnel-id>.cfargotunnel.com
+# 5. npm run dev:tunnel:named   (ou dev:backend:tunnel:named)
+
+tunnel: clubeflorescer-dev
+credentials-file: C:/Users/erick/.cloudflared/SEU_TUNNEL_ID.json
+
+ingress:
+  - hostname: dev-apiclube.nutrisabellajardim.com.br
+    service: http://localhost:3001
+  - service: http_status:404

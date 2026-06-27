@@ -2,6 +2,7 @@
  * Pusher Channels — tempo real do WhatsApp no painel admin.
  * Fallback: polling em useWhatsappChats quando Pusher não está configurado.
  */
+import { ref, readonly } from 'vue'
 import Pusher from 'pusher-js'
 import { getAuthToken } from './useWhatsappApi.js'
 

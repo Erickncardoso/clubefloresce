@@ -1,12 +1,54 @@
 /* =========================================================
    Cabeçalho do chat ativo
-   chat-header, chat-contact-info, chat-actions
    ========================================================= */
 
 .chat-header {
-  height: 70px; display: flex; justify-content: space-between; align-items: center;
-  padding: 0 1.5rem; border-bottom: 1px solid #f1f5f9; background: white;
+  min-height: 59px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e9edef;
+  background: #f0f2f5;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
-.chat-contact-info { display: flex; align-items: center; gap: 1rem; }
-.chat-contact-info h3 { margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 700; }
-.chat-actions { display: flex; gap: 0.5rem; }
+
+.chat-contact-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.chat-contact-info h3,
+.chat-contact-text h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #111b21;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.chat-header-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  background: #dfe5e7 !important;
+  color: #54656f !important;
+}
+
+.chat-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.chat-header-action {
+  color: #54656f;
+}
+
+.chat-header-action:hover {
+  background: rgba(11, 20, 26, 0.06);
+}

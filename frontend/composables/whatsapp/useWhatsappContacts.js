@@ -443,6 +443,94 @@ export const resolveChatListSenderLabel = (chat = {}) => {
     sanitizeSenderLabelCandidate(chat.lastSenderName) || ''
 }
 
+export const resolvePrivateChatPhoneJid = (chat = {}) => {
+  let jid = normalizeJid(chat.chatJid || chat.wa_chatid || chat.id || '')
+  const lid = normalizeJid(chat.wa_chatlid || '')
+
+  if (jid.endsWith('@lid')) {
+    const mapped = lidToJidMap.value?.[jid]
+    if (mapped) jid = normalizeJid(mapped)
+  }
+  if (!jid.endsWith('@s.whatsapp.net') && lid) {
+    const mapped = lidToJidMap.value?.[lid]
+    if (mapped) jid = normalizeJid(mapped)
+  }
+
+  const phoneRaw = strTrim(chat.phone)
+  if (!jid.endsWith('@s.whatsapp.net') && phoneRaw) {
+    const digits = extractDigitsFromJid(phoneRaw)
+    if (digits.length >= 8) jid = normalizeJid(`${digits}@s.whatsapp.net`)
+  }
+
+  if (!jid.endsWith('@s.whatsapp.net')) {
+    const digits = extractDigitsFromJid(jid)
+    if (digits.length >= 8) jid = normalizeJid(`${digits}@s.whatsapp.net`)
+  }
+
+  return jid
+}
+
+/** Título da conversa na sidebar: nome da agenda se salvo; senão telefone formatado. */
+export const resolveChatListDisplayName = (chat = {}) => {
+  const chatJid = normalizeJid(chat.chatJid || chat.wa_chatid || chat.id || '')
+  const isGroup = Boolean(
+    chat.isGroup ?? chat.wa_isGroup ?? chatJid.endsWith('@g.us')
+  )
+
+  if (isGroup) {
+    return strTrim(chat.pushName || chat.name || chat.wa_name) || chatJid || 'Grupo'
+  }
+
+  const lookupKeys = buildLookupKeys(chatJid, chat.wa_chatlid, chat.phone)
+  const savedFromDirectory = strTrim(pickNameFromDirectory(contactsDirectory.value, lookupKeys))
+  const waContactName = strTrim(chat.wa_contactName)
+  const hasSavedIndex = lookupKeys.some((key) => Boolean(savedContactsIndex.value?.[key]))
+
+  const savedName = strTrim(waContactName || savedFromDirectory)
+  if (savedName && !isLikelyPhoneDisplayLabel(savedName)) return savedName
+  if (hasSavedIndex && savedFromDirectory && !isLikelyPhoneDisplayLabel(savedFromDirectory)) {
+    return savedFromDirectory
+  }
+
+  const phoneJid = resolvePrivateChatPhoneJid(chat)
+  const phoneLine = formatJidAsPhoneLine(phoneJid)
+  if (phoneLine) return phoneLine
+
+  const fallbackDigits = extractDigitsFromJid(chatJid)
+  if (fallbackDigits.length >= 8) {
+    return formatJidAsPhoneLine(`${fallbackDigits}@s.whatsapp.net`) || `+${fallbackDigits}`
+  }
+
+  return strTrim(chat.pushName || chat.name || chat.wa_name) || 'Contato'
+}
+
+/** Avatar da conversa na sidebar: chat → diretório de contatos → cache de remetentes. */
+export const resolveChatListAvatarUrl = (chat = {}) => {
+  const fromChat = normalizeAvatarCandidate(
+    chat.avatarUrl || chat.image || chat.imagePreview || chat.wa_avatar || chat.wa_avatarUrl || ''
+  )
+  if (fromChat) return fromChat
+
+  const chatJid = normalizeJid(chat.chatJid || chat.wa_chatid || chat.id || '')
+  const lookupKeys = buildLookupKeys(chatJid, chat.wa_chatlid, chat.phone, chat.wa_chatid, chat.chatid)
+  if (lookupKeys.length) {
+    const fromSenderDir = pickAvatarFromDirectory(senderAvatarDirectory.value, lookupKeys)
+    if (fromSenderDir) return normalizeAvatarCandidate(fromSenderDir)
+
+    const fromChatsList = getAvatarFromChatsList(lookupKeys)
+    if (fromChatsList) return fromChatsList
+  }
+
+  const phoneJid = resolvePrivateChatPhoneJid(chat)
+  if (phoneJid) {
+    const phoneKeys = buildLookupKeys(phoneJid)
+    const fromPhone = pickAvatarFromDirectory(senderAvatarDirectory.value, phoneKeys)
+    if (fromPhone) return normalizeAvatarCandidate(fromPhone)
+  }
+
+  return ''
+}
+
 export const resolveMentionDisplayName = (rawMentionNumber) => {
   const digits = String(rawMentionNumber || '').replace(/\D/g, '')
   if (!digits) return ''
@@ -544,6 +632,154 @@ const resolveParticipantPnJid = (jid, phone) => {
   if (ph && ph.includes('@')) return ph
   const d = extractDigitsFromJid(ph || phone || jid)
   return d.length >= 8 ? normalizeJid(`${d}@s.whatsapp.net`) : ''
+}
+
+const isLikelyPhoneDisplayLabel = (value) => {
+  const raw = strTrim(value)
+  if (!raw) return false
+  return looksLikePhoneNumber(raw.replace(/[+\s()-]/g, ''))
+}
+
+const pickAvatarFromDirectory = (directory, keys) => {
+  for (const key of keys) {
+    const url = strTrim(directory?.[key] || '')
+    if (url) return url
+  }
+  return ''
+}
+
+/** Item normalizado para o painel "Dados do grupo" (nome salvo, displayName ou telefone). */
+export const buildGroupMemberPanelItem = (participant, index, context = {}) => {
+  const {
+    contactsDirectory: contactsDir = {},
+    groupParticipantsDirectory: groupDir = {},
+    groupParticipantsByJid: groupByJid = {},
+    groupParticipantsByLid: groupByLid = {},
+    observedSenderDirectory: observedDir = {},
+    senderAvatarDirectory: avatarDir = {},
+    lidToJidMap: lidMap = {}
+  } = context
+
+  const { jid, lid, phone, displayName: payloadDisplayName } = normalizeGroupParticipantRow(participant)
+  const expandedKeys = expandParticipantLookupKeys(jid, lid, phone, lidMap)
+  const resolvedJid = resolveParticipantPnJid(jid, phone)
+  const digits = extractDigitsFromJid(resolvedJid || phone || jid)
+  const phoneLine = digits ? (formatJidAsPhoneLine(`${digits}@s.whatsapp.net`) || `+${digits}`) : ''
+
+  const savedName = pickNameFromDirectory(contactsDir, expandedKeys)
+  const groupName =
+    pickNameFromDirectory(groupByJid, expandedKeys) ||
+    pickNameFromDirectory(groupByLid, expandedKeys) ||
+    pickNameFromDirectory(groupDir, expandedKeys) ||
+    pickNameFromDirectory(observedDir, expandedKeys)
+
+  const payloadName = strTrim(payloadDisplayName)
+  const resolvedName = strTrim(savedName || groupName || payloadName)
+
+  let title = ''
+  let subtitle = ''
+  let phoneRight = ''
+
+  if (!resolvedName || isLikelyPhoneDisplayLabel(resolvedName)) {
+    title = phoneLine || resolvedName || `Membro ${index + 1}`
+    if (payloadName && !isLikelyPhoneDisplayLabel(payloadName) && payloadName.toLowerCase() !== title.toLowerCase()) {
+      subtitle = payloadName
+    }
+  } else {
+    title = resolvedName
+    phoneRight = phoneLine
+    if (
+      payloadName &&
+      !isLikelyPhoneDisplayLabel(payloadName) &&
+      payloadName.toLowerCase() !== resolvedName.toLowerCase()
+    ) {
+      subtitle = payloadName
+    }
+  }
+
+  const avatarUrl =
+    pickAvatarFromDirectory(avatarDir, expandedKeys) ||
+    strTrim(participant?.image || participant?.imagePreview || participant?.Image || participant?.ImagePreview || '')
+
+  const memberId = String(jid || lid || resolvedJid || participant?.id || `member-${index}`)
+
+  return {
+    id: memberId,
+    jid: jid || resolvedJid || '',
+    title,
+    subtitle,
+    phoneLine: phoneRight,
+    initial: String(title || '?').charAt(0).toUpperCase(),
+    avatarUrl,
+    isAdmin: Boolean(
+      participant?.IsAdmin ||
+      participant?.isAdmin ||
+      participant?.admin ||
+      participant?.IsSuperAdmin ||
+      participant?.isSuperAdmin
+    )
+  }
+}
+
+export const buildGroupMemberPanelItems = (participants, context = {}) => {
+  if (!Array.isArray(participants)) return []
+  return participants.map((participant, index) => buildGroupMemberPanelItem(participant, index, context))
+}
+
+export const isGroupParticipantAdmin = (participant) =>
+  Boolean(
+    participant?.IsAdmin ||
+    participant?.isAdmin ||
+    participant?.admin ||
+    participant?.IsSuperAdmin ||
+    participant?.isSuperAdmin
+  )
+
+const participantKeysOverlapSession = (participant, sessionKeys, lidMap = {}) => {
+  const { jid, lid, phone } = normalizeGroupParticipantRow(participant)
+  const keys = expandParticipantLookupKeys(jid, lid, phone, lidMap)
+  if (keys.some((key) => sessionKeys.has(key))) return true
+  const sessionDigits = extractDigitsFromJid(Array.from(sessionKeys)[0] || '')
+  const participantDigits = extractDigitsFromJid(resolveParticipantPnJid(jid, phone))
+  return Boolean(sessionDigits && participantDigits && sessionDigits === participantDigits)
+}
+
+/** Resolve se a sessão conectada é admin (ou dono) no grupo. */
+export const resolveViewerGroupMembership = (participants, sessionJid, options = {}) => {
+  const { lidMap = {}, groupInfo = null } = options
+  if (Boolean(groupInfo?.OwnerIsAdmin ?? groupInfo?.ownerIsAdmin)) {
+    return { found: true, isAdmin: true }
+  }
+  const normalizedSession = normalizeJid(sessionJid)
+  if (!normalizedSession) return { found: false, isAdmin: false }
+
+  const sessionKeys = new Set(buildLookupKeys(normalizedSession))
+  const ownerCandidates = [
+    groupInfo?.OwnerJID,
+    groupInfo?.OwnerPN,
+    groupInfo?.ownerJid,
+    groupInfo?.owner
+  ]
+  for (const owner of ownerCandidates) {
+    const ownerKeys = buildLookupKeys(owner)
+    if (ownerKeys.some((key) => sessionKeys.has(key))) {
+      return { found: true, isAdmin: true }
+    }
+  }
+
+  if (!Array.isArray(participants) || !participants.length) {
+    return { found: false, isAdmin: false }
+  }
+
+  for (const participant of participants) {
+    if (!participantKeysOverlapSession(participant, sessionKeys, lidMap)) continue
+    return {
+      found: true,
+      isAdmin: isGroupParticipantAdmin(participant)
+    }
+  }
+
+  return { found: false, isAdmin: false }
 }
 
 // ─── Carregamento de avatares de participantes ────────────────────────────────
@@ -963,10 +1199,13 @@ export function useWhatsappContacts() {
     learnObservedSenderNames, ingestLidPnHintsFromMessages, extractLikelySenderNameFromMessage,
     getMessageSenderCandidates, getMessageSenderJid,
     getMessageSenderLookupKeys, resolveDigitsForChatDetails, resolveSenderName, resolveChatListSenderLabel,
+    resolveChatListDisplayName,
+    resolveChatListAvatarUrl,
     resolveMentionDisplayName, getAvatarFromChatsList, getMessageSenderAvatarUrl,
     getMessageSenderInitial, loadGroupParticipantAvatars, ensureGroupSenderAvatars,
     loadGroupParticipantsDirectory, loadContactsDirectory, restoreContactsFromCache,
     syncContactsDirectoryIfNeeded, enrichUnknownSenderNames, isGroupJidCheck,
+    resolveViewerGroupMembership, isGroupParticipantAdmin,
     isGroupMessageContext, sanitizeSenderLabelCandidate: undefined,
     loadPersistedGroupObservedSenders, schedulePersistGroupObservedSenders, cancelScheduledGroupObservedPersist,
     buildGroupObservedPersistPatch

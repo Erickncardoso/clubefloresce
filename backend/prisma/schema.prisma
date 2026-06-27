@@ -86,6 +86,7 @@ model User {
   whatsappContactStates WhatsappContactState[]
   whatsappContactDirectory WhatsappContactDirectory?
   whatsappGroupObservedSenders WhatsappGroupObservedSenders[]
+  whatsappMediaArchives WhatsappMediaArchive[]
   weeklyCheckIns WeeklyCheckIn[]
   checkInTemplates CheckInTemplate[] @relation("CheckInTemplateAuthor")
   checkInDispatchSchedules CheckInDispatchSchedule[] @relation("CheckInDispatchAuthor")
@@ -459,16 +460,40 @@ model WhatsappGroupObservedSenders {
 }
 
 model WhatsappContactState {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contactJid    String
-  isSaved       Boolean  @default(false)
-  isBusiness    Boolean  @default(false)
-  lastCheckedAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contactJid      String
+  isSaved         Boolean   @default(false)
+  isBusiness      Boolean   @default(false)
+  phone           String?
+  displayName     String?
+  avatarUrl       String?
+  details         Json?
+  detailsSyncedAt DateTime?
+  lastCheckedAt   DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([userId, contactJid])
   @@index([userId, updatedAt])
+}
+
+// Mídia do WhatsApp arquivada no Backblaze B2 (links da UAZAPI expiram).
+model WhatsappMediaArchive {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId  String
+  chatJid    String?
+  mimeType   String?
+  storageKey String
+  publicUrl  String
+  sourceUrl  String?
+  sizeBytes  Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, messageId])
+  @@index([userId, chatJid])
 }

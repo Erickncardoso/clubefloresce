@@ -132,29 +132,32 @@ export const UNKNOWN_SENDER_ENRICH_POLL_MIN_MS = 35000
 // ─── fetchChatDetailsSafe ─────────────────────────────────────────────────────
 
 export const fetchChatDetailsSafe = async (number, options = {}) => {
-  const { preview = true, timeoutMs = 6000, cacheTtlMs = 120000 } = options
+  const { preview = true, timeoutMs = 6000, cacheTtlMs = 120000, force = false } = options
   const key = String(number || '').trim()
   if (!key) return null
 
-  const cached = chatDetailsCache.value[key]
-  if (cached && (Date.now() - cached.at) < cacheTtlMs) return cached.data
+  if (!force) {
+    const cached = chatDetailsCache.value[key]
+    if (cached && (Date.now() - cached.at) < cacheTtlMs) return cached.data
 
-  if (chatDetailsInflight.value[key]) return chatDetailsInflight.value[key]
+    if (chatDetailsInflight.value[key]) return chatDetailsInflight.value[key]
+  }
 
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
   const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
-  const proxyBase = getProxyBase()
+  const apiBase = getWhatsappApiBase()
 
   const request = (async () => {
     try {
-      const res = await fetch(`${proxyBase}/chat/details`, {
+      const res = await fetch(`${apiBase}/chat/details`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
-        body: JSON.stringify({ number: key, preview }),
+        body: JSON.stringify({ number: key, preview, force }),
         signal: controller?.signal
       })
-      const data = await parseJsonBodySafe(res)
+      const body = await parseJsonBodySafe(res)
       if (!res.ok) return null
+      const data = body?.details && typeof body.details === 'object' ? body.details : body
       chatDetailsCache.value = { ...chatDetailsCache.value, [key]: { at: Date.now(), data } }
       return data
     } catch {

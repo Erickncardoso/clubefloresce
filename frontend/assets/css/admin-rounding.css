@@ -34,6 +34,12 @@
   .btn-secondary,
   .btn-cancel
 ),
+.poll-modal-backdrop :is(
+  .btn-primary,
+  .btn-secondary,
+  .btn-cancel,
+  .btn-auth-submit
+),
 .lesson-modal-overlay .lesson-modal-foot :is(button) {
   border-radius: var(--cf-radius-control) !important;
 }
@@ -92,6 +98,14 @@
   .field input,
   .field textarea,
   .field select
+),
+.poll-modal-backdrop :is(
+  .field input,
+  .field textarea,
+  .field select,
+  .field--float input,
+  .field--float textarea,
+  .input-wrapper
 ),
 .lesson-modal-overlay :is(
   .field input,
@@ -166,6 +180,13 @@
     .field input,
     .field textarea,
     .field select
+  ),
+  .poll-modal-backdrop :is(
+    .field input,
+    .field textarea,
+    .input-wrapper,
+    .btn-primary,
+    .btn-secondary
   ),
   .lesson-modal-overlay :is(
     .lesson-modal,

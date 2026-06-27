@@ -7,44 +7,41 @@
       :style="hostStyle"
     >
       <div class="message-actions-floater-inner">
-        <div
-          v-show="!openMessage.fromMe"
-          class="message-reaction-bar message-reaction-bar--floater"
-          :style="reactionStyle"
-          role="group"
-          aria-label="Reacoes rapidas"
-          @click.stop
-          @mousedown.stop
-          @pointerdown.stop
-        >
-          <button
-            v-for="em in quickReactions"
-            :key="em"
-            type="button"
-            class="reaction-chip"
-            :aria-label="`Reagir com ${em}`"
-            @click="emit('react-quick', { message: openMessage, emoji: em })"
-          >{{ em }}</button>
-          <button
-            type="button"
-            class="reaction-chip reaction-chip-more"
-            aria-label="Mais reacoes"
-            @click="toggleReactionPicker"
-          >+</button>
-        </div>
-        <div v-if="reactionPickerOpen && !openMessage.fromMe" class="message-reaction-picker-pop">
-          <em-emoji-picker
-            locale="pt"
-            per-line="10"
-            preview-position="none"
-            skin-tone-position="none"
-            @emoji-select="onPickerSelect"
-            @emoji-click="onPickerSelect"
-            @click="onPickerDomClick"
-          />
-        </div>
+        <Transition name="reaction-bar-fade" appear>
+          <div
+            :key="`${openMessage.id}-${actionMenuMode}`"
+            class="message-reaction-bar message-reaction-bar--floater message-reaction-bar--wa-light"
+            :style="reactionStyle"
+            role="group"
+            aria-label="Reacoes rapidas"
+            @click.stop
+            @mousedown.stop
+            @pointerdown.stop
+          >
+            <button
+              v-for="em in quickReactions"
+              :key="em"
+              type="button"
+              class="reaction-chip"
+              :aria-label="`Reagir com ${em}`"
+              @click="onQuickReact(em)"
+            >{{ em }}</button>
+            <button
+              ref="moreButtonRef"
+              type="button"
+              class="reaction-chip reaction-chip-more"
+              data-reaction-more-btn
+              aria-label="Mais reacoes"
+              :aria-expanded="reactionEmojiPickerOpen ? 'true' : 'false'"
+              @click.stop="toggleReactionPicker"
+            >
+              <Plus class="reaction-chip-plus-icon" aria-hidden="true" />
+            </button>
+          </div>
+        </Transition>
 
         <div
+          v-show="actionMenuMode !== 'reactions'"
           class="message-actions-menu-panel"
           :style="menuStyle"
           @click.stop
@@ -66,8 +63,7 @@
               <button
                 type="button"
                 class="ma-item"
-                :disabled="openMessage.fromMe"
-                @click="toggleReactionPicker"
+                @click="emit('open-reactions-mode', openMessage)"
               >
                 <Smile class="ma-ico" /> Reagir
               </button>
@@ -106,6 +102,25 @@
           </ul>
         </div>
       </div>
+    </div>
+  </Teleport>
+
+  <!-- Picker de emoji fora do floater — não empurra a barra de reações -->
+  <Teleport to="body">
+    <div
+      v-if="reactionEmojiPickerOpen && openMessage"
+      data-wa-reaction-picker-portal="true"
+      class="message-reaction-picker-portal message-reaction-picker-pop"
+      :style="reactionPickerFixedStyle"
+      @wheel.stop
+    >
+      <em-emoji-picker
+        locale="pt"
+        per-line="10"
+        preview-position="none"
+        skin-tone-position="none"
+        @click="onPickerDomClick"
+      />
     </div>
   </Teleport>
 
@@ -178,13 +193,22 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { init as initEmojiMart } from 'emoji-mart'
 import emojiData from '@emoji-mart/data'
-import { Reply, Copy, Smile, Ban, Forward, Pin, Star, Pencil, Trash2 } from 'lucide-vue-next'
+import { Reply, Copy, Smile, Ban, Forward, Pin, Star, Pencil, Trash2, Plus } from 'lucide-vue-next'
+import {
+  closeReactionEmojiPicker,
+  openReactionEmojiPicker,
+} from '~/composables/whatsapp/useWhatsappMessageActions.js'
+import {
+  reactionEmojiPickerOpen,
+  reactionPickerFixedStyle,
+} from '~/composables/whatsapp/useWhatsappState.js'
 
 const props = defineProps({
   openMessage: { type: Object, default: null },
+  actionMenuMode: { type: String, default: 'full' },
   hostStyle: { type: [String, Object], default: '' },
   reactionStyle: { type: [String, Object], default: '' },
   menuStyle: { type: [String, Object], default: '' },
@@ -198,17 +222,30 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
-  'reply', 'copy', 'react-quick', 'react-open', 'react-remove',
+  'reply', 'copy', 'react-quick', 'react-open', 'react-remove', 'open-reactions-mode',
   'forward', 'pin', 'star', 'edit', 'delete',
   'close-reactions-detail', 'reactions-tab-change', 'reactions-row-click',
 ])
 
-const reactionPickerOpen = ref(false)
+const moreButtonRef = ref(null)
 const lastEmojiSelection = ref({ value: '', ts: 0 })
 
+watch(
+  () => [props.openMessage?.id, props.actionMenuMode],
+  () => { closeReactionEmojiPicker() },
+)
+
 const toggleReactionPicker = () => {
-  if (props?.openMessage?.fromMe) return
-  reactionPickerOpen.value = !reactionPickerOpen.value
+  if (reactionEmojiPickerOpen.value) {
+    closeReactionEmojiPicker()
+    return
+  }
+  openReactionEmojiPicker(moreButtonRef.value)
+}
+
+const onQuickReact = (emoji) => {
+  closeReactionEmojiPicker()
+  emit('react-quick', { message: props.openMessage, emoji })
 }
 
 const unifiedToNative = (value) => String(value || '')
@@ -218,32 +255,7 @@ const unifiedToNative = (value) => String(value || '')
   .map((code) => String.fromCodePoint(code))
   .join('')
 
-const onPickerSelect = (event) => {
-  const pickFromSkins = (value) => {
-    const skinNative = value?.skins?.[0]?.native
-    return String(skinNative || '').trim()
-  }
-
-  const detail = event?.detail || event || {}
-  const emojiNative = String(
-    detail?.native ||
-    detail?.emoji?.native ||
-    pickFromSkins(detail?.emoji) ||
-    detail?.emoji ||
-    pickFromSkins(detail) ||
-    unifiedToNative(detail?.unified || detail?.emoji?.unified || '') ||
-    ''
-  ).trim()
-  if (!emojiNative || !props?.openMessage) return
-  const now = Date.now()
-  if (lastEmojiSelection.value.value === emojiNative && now - lastEmojiSelection.value.ts < 80) return
-  lastEmojiSelection.value = { value: emojiNative, ts: now }
-  emit('react-quick', { message: props.openMessage, emoji: emojiNative })
-  reactionPickerOpen.value = false
-}
-
 const onPickerDomClick = (event) => {
-  if (!props?.openMessage) return
   const path = Array.isArray(event?.composedPath?.()) ? event.composedPath() : []
   let emojiNative = ''
   for (const node of path) {
@@ -258,13 +270,18 @@ const onPickerDomClick = (event) => {
       emojiNative = String(emoji).trim()
       break
     }
+    const unified = node?.getAttribute?.('data-unified') || node?.getAttribute?.('unified')
+    if (unified) {
+      emojiNative = unifiedToNative(unified)
+      if (emojiNative) break
+    }
   }
-  if (!emojiNative) return
+  if (!emojiNative || !props?.openMessage) return
   const now = Date.now()
   if (lastEmojiSelection.value.value === emojiNative && now - lastEmojiSelection.value.ts < 80) return
   lastEmojiSelection.value = { value: emojiNative, ts: now }
   emit('react-quick', { message: props.openMessage, emoji: emojiNative })
-  reactionPickerOpen.value = false
+  closeReactionEmojiPicker()
 }
 
 onMounted(() => {
@@ -274,13 +291,3 @@ onMounted(() => {
   }
 })
 </script>
-
-<style scoped>
-.message-reaction-picker-pop {
-  margin-top: 6px;
-  align-self: flex-end;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
-}
-</style>

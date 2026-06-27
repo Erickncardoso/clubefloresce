@@ -3,19 +3,26 @@
  * Normalização de mensagens, anexação de reações, computed renderedMessages,
  * download de mídia e funções de suporte a exibição.
  */
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import {
-  messages, optimisticReactionsByNormalizedId,
+  messages, optimisticReactionsByNormalizedId, optimisticPinnedByChatJid, pinnedSnapshotsByChatJid,
   contactsDirectory, groupParticipantsDirectory, groupParticipantsByJid, groupParticipantsByLid,
-  observedSenderDirectory,
+  observedSenderDirectory, unknownProfilesDirectory, lidToJidMap, senderAvatarDirectory,
   downloadingMediaById, autoMediaLoadAttemptedById, chatBodyRef, selectedChat
 } from './useWhatsappState.js'
 import {
   strTrim, normalizeTimestampToMs, normalizeJid, looksLikeEmojiSummaryField,
   normalizeProviderMessageId, buildLookupKeys, pickNameFromDirectory,
-  formatJidAsPhoneLine, bytesToJpegDataUrl
+  formatJidAsPhoneLine, bytesToJpegDataUrl, parseLooseMessageContent, isPinSystemMessageText,
+  extractUazapiSharedContact, isUazapiContactShareMessage
 } from './useWhatsappUtils.js'
+import {
+  extractListMessagePayload,
+  extractIncomingMenuInteractive,
+  extractInteractiveBodyText
+} from './useWhatsappInteractive.js'
 import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { stickChatScrollToBottomIfNeeded } from './useWhatsappScroll.js'
 import {
   resolveSenderName, getMessageSenderJid, getMessageSenderLookupKeys, isGroupMessageContext
 } from './useWhatsappContacts.js'
@@ -29,14 +36,28 @@ const pickNestedCaption = (node) => {
 }
 
 export const buildMessageContentText = (msg) => {
-  const c = msg?.content ?? msg?.Content
+  const c = parseLooseMessageContent(msg)
   const fromEphemeral = c?.ephemeralMessage?.message
   const fromViewOnce = c?.viewOnceMessage?.message || c?.viewOnceMessageV2?.message
   const mediaCaption = pickNestedCaption(c) || pickNestedCaption(fromEphemeral) || pickNestedCaption(fromViewOnce)
+  const listNode = extractListMessagePayload(c) ||
+    extractListMessagePayload(fromEphemeral) ||
+    extractListMessagePayload(fromViewOnce)
+  const listBody = extractInteractiveBodyText(c) ||
+    extractInteractiveBodyText(fromEphemeral) ||
+    extractInteractiveBodyText(fromViewOnce) ||
+    strTrim(listNode?.description) ||
+    strTrim(listNode?.Description) ||
+    strTrim(listNode?.title) ||
+    strTrim(listNode?.Title) ||
+    strTrim(c?.description) ||
+    strTrim(c?.title) ||
+    ''
   return strTrim(msg.text) || strTrim(msg.body) || strTrim(msg.caption) ||
-    strTrim(c?.conversation) || strTrim(c?.extendedTextMessage?.text) ||
-    strTrim(fromEphemeral?.conversation) || strTrim(fromEphemeral?.extendedTextMessage?.text) ||
-    strTrim(fromViewOnce?.extendedTextMessage?.text) || strTrim(fromViewOnce?.conversation) ||
+    listBody ||
+    strTrim(c?.text) || strTrim(c?.conversation) || strTrim(c?.extendedTextMessage?.text) ||
+    strTrim(fromEphemeral?.text) || strTrim(fromEphemeral?.conversation) || strTrim(fromEphemeral?.extendedTextMessage?.text) ||
+    strTrim(fromViewOnce?.text) || strTrim(fromViewOnce?.extendedTextMessage?.text) || strTrim(fromViewOnce?.conversation) ||
     mediaCaption || ''
 }
 
@@ -58,14 +79,32 @@ export const extractUazapiMediaUrl = (content) => {
 
 export const extractUazapiJpegThumbDataUrl = (content) => {
   if (!content || typeof content !== 'object') return ''
+  const roots = [content]
+  if (content.message && typeof content.message === 'object') roots.push(content.message)
   const documentWithCaption =
     content.documentWithCaptionMessage?.message?.documentMessage ||
     content.ephemeralMessage?.message?.documentWithCaptionMessage?.message?.documentMessage ||
     content.viewOnceMessage?.message?.documentWithCaptionMessage?.message?.documentMessage ||
     content.viewOnceMessageV2?.message?.documentWithCaptionMessage?.message?.documentMessage ||
     null
-  const nested = [
-    content.imageMessage?.jpegThumbnail,
+  const nested = []
+  for (const root of roots) {
+    nested.push(
+      root.imageMessage?.jpegThumbnail,
+      root.imageMessage?.thumbnail,
+      root.stickerMessage?.jpegThumbnail,
+      root.stickerMessage?.pngThumbnail,
+      root.videoMessage?.jpegThumbnail,
+      root.videoMessage?.thumbnail,
+    )
+  }
+  nested.push(
+    content.JPEGThumbnail,
+    content.jpegThumbnail,
+    content.thumbnail,
+    content.extendedTextMessage?.JPEGThumbnail,
+    content.extendedTextMessage?.jpegThumbnail,
+    content.extendedTextMessage?.thumbnail,
     content.videoMessage?.jpegThumbnail,
     content.videoMessage?.thumbnail,
     content.documentMessage?.jpegThumbnail,
@@ -105,8 +144,68 @@ export const extractUazapiJpegThumbDataUrl = (content) => {
     content.viewOnceMessageV2?.message?.documentMessage?.previewThumbnail,
     content.viewOnceMessageV2?.message?.documentMessage?.thumbnailUrl,
     content.viewOnceMessageV2?.message?.documentMessage?.thumbnailDirectPath
-  ]
+  )
   for (const raw of nested) {
+    const asString = String(raw || '').trim()
+    if (asString.startsWith('http://') || asString.startsWith('https://') || asString.startsWith('data:image/')) {
+      return asString
+    }
+    const url = bytesToJpegDataUrl(raw)
+    if (url) return url
+  }
+  return ''
+}
+
+export const isHttpMediaUrl = (value) => /^https?:\/\//i.test(String(value || '').trim())
+
+/** URL de exibição na galeria — prioriza mídia full-res; thumb só como fallback. */
+export const resolveMediaGalleryPreviewUrl = (msg) => {
+  if (!msg || typeof msg !== 'object') {
+    return { previewUrl: '', mediaUrl: '', thumbUrl: '' }
+  }
+  const mediaType = String(msg.mediaType || msg.type || '').toLowerCase()
+  const mediaUrl = String(msg.mediaUrl || msg.fileURL || msg.fileUrl || msg.url || '').trim()
+  const thumbUrl = String(
+    msg.mediaThumbUrl || extractUazapiJpegThumbDataUrl(msg.content) || extractMessageThumbDataUrl(msg, msg.content) || ''
+  ).trim()
+  const fullUrl = isHttpMediaUrl(mediaUrl) ? mediaUrl : (mediaUrl.startsWith('data:image/') ? mediaUrl : '')
+  const isVideo = mediaType.includes('video')
+  const isImageLike = mediaType.includes('image') || mediaType.includes('sticker') ||
+    /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(fullUrl)
+
+  if (isVideo) {
+    return {
+      previewUrl: thumbUrl || fullUrl,
+      mediaUrl: fullUrl || thumbUrl,
+      thumbUrl
+    }
+  }
+  if (isImageLike && fullUrl) {
+    return { previewUrl: fullUrl, mediaUrl: fullUrl, thumbUrl }
+  }
+  return {
+    previewUrl: fullUrl || thumbUrl,
+    mediaUrl: fullUrl || thumbUrl,
+    thumbUrl
+  }
+}
+
+export const extractMessageThumbDataUrl = (msg, content) => {
+  const fromContent = extractUazapiJpegThumbDataUrl(content)
+  if (fromContent) return fromContent
+  if (!msg || typeof msg !== 'object') return ''
+  const rootCandidates = [
+    msg.jpegThumbnail,
+    msg.thumbnail,
+    msg.thumb,
+    msg.mediaThumb,
+    msg.previewUrl,
+    msg.imageMessage?.jpegThumbnail,
+    msg.imageMessage?.thumbnail,
+    msg.videoMessage?.jpegThumbnail,
+    msg.videoMessage?.thumbnail,
+  ]
+  for (const raw of rootCandidates) {
     const asString = String(raw || '').trim()
     if (asString.startsWith('http://') || asString.startsWith('https://') || asString.startsWith('data:image/')) {
       return asString
@@ -131,6 +230,11 @@ const extractReactionMessageNode = (content) => {
   if (!content || typeof content !== 'object') return null
   if (content.reactionMessage && typeof content.reactionMessage === 'object') return content.reactionMessage
   if (content.ReactionMessage && typeof content.ReactionMessage === 'object') return content.ReactionMessage
+  const flatKey = content.key || content.Key
+  const flatText = strTrim(content.text || content.reaction)
+  if (flatKey && (flatText || flatKey.ID || flatKey.id)) {
+    return { key: flatKey, text: flatText }
+  }
   const wrapped = content.message
   if (wrapped && typeof wrapped === 'object') { const nested = extractReactionMessageNode(wrapped); if (nested) return nested }
   const pr = content.protocolMessage
@@ -140,13 +244,68 @@ const extractReactionMessageNode = (content) => {
   return null
 }
 
+const extractPinMessageNode = (content) => {
+  if (!content || typeof content !== 'object') return null
+  if (content.pinInChatMessage && typeof content.pinInChatMessage === 'object') return content.pinInChatMessage
+  if (content.PinInChatMessage && typeof content.PinInChatMessage === 'object') return content.PinInChatMessage
+  const wrapped = content.message
+  if (wrapped && typeof wrapped === 'object') {
+    const nested = extractPinMessageNode(wrapped)
+    if (nested) return nested
+  }
+  const pr = content.protocolMessage
+  if (pr?.pinInChatMessage && typeof pr.pinInChatMessage === 'object') return pr.pinInChatMessage
+  if (pr?.PinInChatMessage && typeof pr.PinInChatMessage === 'object') return pr.PinInChatMessage
+  const em = content.ephemeralMessage?.message
+  if (em && typeof em === 'object') return extractPinMessageNode(em)
+  return null
+}
+
+const isTruthyPinnedFlag = (value) => {
+  if (value === true || value === 1) return true
+  const text = String(value ?? '').trim().toLowerCase()
+  return text === 'true' || text === '1'
+}
+
+const isPinUnpinSystemText = (text) => /desfixou|unpinned|you unpinned/i.test(String(text || '').trim())
+
+const extractPinTargetMessageId = (msg, content, pinNode) => {
+  const candidates = [
+    msg?.targetMessageID,
+    msg?.targetMessageId,
+    msg?.targetMessageid,
+    msg?.quoted,
+    msg?.quotedMessageId,
+    msg?.quotedmessageid,
+    content?.targetMessageID,
+    content?.targetMessageId,
+    content?.targetMessageid,
+    pinNode?.key?.id,
+    pinNode?.key?.ID,
+    pinNode?.messageKey?.id,
+    pinNode?.messageKey?.ID,
+    pinNode?.stanzaId,
+    pinNode?.stanzaID,
+    pinNode?.targetMessageID,
+    pinNode?.targetMessageId,
+    pinNode?.targetMessageid,
+  ]
+  for (const candidate of candidates) {
+    const id = normalizeProviderMessageId(candidate)
+    if (id) return id
+  }
+  return ''
+}
+
 const pickReactionTargetIdFromMessage = (msg, content) => {
   const rm = extractReactionMessageNode(content)
   const fromRmKey = strTrim(rm?.key?.id || rm?.key?.ID)
   const reactionStr = typeof msg.reaction === 'string' ? strTrim(msg.reaction) : ''
   const reactionAsTargetId = reactionStr && !looksLikeEmojiSummaryField(reactionStr) ? reactionStr : ''
   const flat = [
-    fromRmKey, reactionAsTargetId, msg.reactionMessageId, msg.reactionmessageid,
+    fromRmKey,
+    strTrim(content?.key?.id || content?.key?.ID),
+    reactionAsTargetId, msg.reactionMessageId, msg.reactionmessageid,
     msg.targetMessageID, msg.targetMessageId, msg.targetID, msg.reactionTargetId,
     msg.reactionTargetMessageId,
     typeof msg.reaction === 'object' && msg.reaction
@@ -161,6 +320,11 @@ const pickReactionTargetIdFromMessage = (msg, content) => {
 const pickReactionEmojiFromMessage = (msg, content) => {
   const rm = extractReactionMessageNode(content)
   const ro = msg.reaction
+  const msgType = String(msg?.type || msg?.messageType || msg?.MessageType || '').toLowerCase()
+  const fromFlatContent = strTrim(content?.text)
+  if (msgType.includes('reaction') && fromFlatContent && looksLikeEmojiSummaryField(fromFlatContent)) {
+    return fromFlatContent
+  }
   const fromReactionObject = () => {
     if (!ro || typeof ro !== 'object') return ''
     const maybeRx = typeof ro.reaction === 'string' ? strTrim(ro.reaction) : ''
@@ -171,6 +335,7 @@ const pickReactionEmojiFromMessage = (msg, content) => {
   const rmExtra = typeof rm?.reaction === 'string' && !looksLikeEmojiSummaryField(strTrim(rm.reaction))
     ? '' : strTrim(typeof rm?.reaction === 'string' ? rm.reaction : typeof rm?.reaction === 'number' ? String(rm.reaction) : '')
   return strTrim(
+    fromFlatContent ||
     msg.text || msg.body || msg.emoji || fromReactionObject() || reactionMaybeEmoji ||
     msg.reaction?.text || msg.reaction?.emoji || rm?.text || rm?.emoji || rm?.unicode ||
     (rmExtra && looksLikeEmojiSummaryField(rmExtra) ? rmExtra : '') || strTrim(rm?.conversation || '') ||
@@ -182,21 +347,17 @@ const pickReactionEmojiFromMessage = (msg, content) => {
 
 // ─── Contatos compartilhados ──────────────────────────────────────────────────
 
-export const extractSharedContactData = (msg) => {
-  const vcardText = msg.vcard || msg.content?.vcard || msg.content?.contactMessage?.vcard || msg.content?.contactsArrayMessage?.contacts?.[0]?.vcard || ''
-  const displayName = msg.content?.contactMessage?.displayName || msg.content?.contactsArrayMessage?.contacts?.[0]?.displayName || ''
-  const plainText = msg.text || msg.body || msg.content?.conversation || msg.content?.extendedTextMessage?.text || ''
-  const plainNamePhoneMatch = String(plainText).match(/^(.+?)\s+Phone:\s*(.+)$/i)
-  const vcardNameMatch = String(vcardText).match(/FN:([^\n\r]+)/)
-  const vcardPhoneMatch = String(vcardText).match(/TEL[^:]*:([+\d][\d\s-]+)/)
-  const name = String(displayName || vcardNameMatch?.[1] || plainNamePhoneMatch?.[1] || '').trim()
-  const phone = String(vcardPhoneMatch?.[1] || plainNamePhoneMatch?.[2] || '').replace(/[^\d+]/g, '').trim()
+export const extractSharedContactData = (msg, contentOverride = null) => {
+  const contact = extractUazapiSharedContact(msg, contentOverride)
+  if (!contact) return null
+  const name = strTrim(contact.name)
+  const phone = strTrim(contact.phone)
   if (!name && !phone) return null
   return { name, phone }
 }
 
-export const extractSharedContactText = (msg) => {
-  const contact = extractSharedContactData(msg)
+export const extractSharedContactText = (msg, contentOverride = null) => {
+  const contact = extractSharedContactData(msg, contentOverride)
   if (!contact) return ''
   const { name, phone } = contact
   if (name && phone) return `👤 ${name}\n📞 ${phone}`
@@ -217,13 +378,89 @@ export const replaceMentionNumbersByNames = (text, resolveFn) => {
   })
 }
 
+const extractExtendedTextPayload = (content) => {
+  if (!content || typeof content !== 'object') return null
+  const nested = [
+    content.extendedTextMessage,
+    content.ExtendedTextMessage,
+    content.message?.extendedTextMessage,
+    content.message?.ExtendedTextMessage,
+    content.ephemeralMessage?.message?.extendedTextMessage,
+    content.viewOnceMessage?.message?.extendedTextMessage,
+    content.viewOnceMessageV2?.message?.extendedTextMessage
+  ].find(Boolean)
+  if (nested) return nested
+  if (
+    content.text || content.matchedText || content.title || content.description ||
+    content.previewType != null || content.JPEGThumbnail || content.jpegThumbnail
+  ) {
+    return content
+  }
+  return null
+}
+
+const extractForwardedFlag = (msg, content) => {
+  const ctxSources = [
+    msg?.contextInfo,
+    content?.contextInfo,
+    extractExtendedTextPayload(content)?.contextInfo,
+    content?.imageMessage?.contextInfo,
+    content?.videoMessage?.contextInfo,
+    content?.documentMessage?.contextInfo
+  ]
+  for (const ctx of ctxSources) {
+    if (!ctx || typeof ctx !== 'object') continue
+    if (ctx.isForwarded === true) return true
+    if (Number(ctx.forwardingScore || 0) > 0) return true
+  }
+  return Boolean(msg?.isForwarded)
+}
+
+const stripUrlFromMessageText = (fullText, url) => {
+  const text = strTrim(fullText)
+  const link = strTrim(url)
+  if (!text || !link) return text
+  return strTrim(text.replace(link, '').replace(/\n{3,}/g, '\n\n'))
+}
+
+const extractLinkPreviewImage = (ext) => {
+  if (!ext || typeof ext !== 'object') return ''
+  const candidates = [
+    ext.JPEGThumbnail, ext.jpegThumbnail, ext.thumbnail, ext.thumb,
+    ext.previewThumbnail, ext.canonicalThumbnail, ext.thumbnailUrl
+  ]
+  for (const raw of candidates) {
+    const asString = strTrim(raw)
+    if (/^https?:\/\//i.test(asString) || asString.startsWith('data:image/')) return asString
+    const dataUrl = bytesToJpegDataUrl(raw)
+    if (dataUrl) return dataUrl
+  }
+  return ''
+}
+
+const extractLinkPreviewFromMessage = (msg, content, contentText) => {
+  const ext = extractExtendedTextPayload(content)
+  if (!ext) return null
+  const url = strTrim(ext.matchedText || ext.canonicalUrl || ext.url)
+  if (!/^https?:\/\//i.test(url)) return null
+  const title = strTrim(ext.title || ext.canonicalTitle)
+  const description = strTrim(ext.description)
+  const imageUrl = extractLinkPreviewImage(ext)
+  const previewType = ext.previewType
+  const hasRichPreview = Boolean(title || description || imageUrl || previewType === 1 || previewType === '1')
+  if (!hasRichPreview) return null
+  const fullText = strTrim(ext.text || contentText || msg?.text || msg?.body)
+  const bodyText = stripUrlFromMessageText(fullText, url)
+  let source = ''
+  try { source = new URL(url).hostname.replace(/^www\./i, '') } catch { source = '' }
+  return { url, title: title || source || url, description, imageUrl, bodyText, source }
+}
+
 // ─── normalizeMessage ─────────────────────────────────────────────────────────
 
 export const normalizeMessage = (msg, resolveMentionFn = null) => {
   const type = String(msg.type || msg.messageType || msg.MessageType || '').toLowerCase()
-  const rawContent = msg?.content ?? msg?.Content
-  const content = rawContent && typeof rawContent === 'object' ? rawContent
-    : typeof rawContent === 'string' ? tryParseQuotedPayload(rawContent) || {} : {}
+  const content = parseLooseMessageContent(msg)
 
   const reactionMessageNode = extractReactionMessageNode(content)
   const reactionTargetIdRaw = pickReactionTargetIdFromMessage(msg, content)
@@ -237,9 +474,11 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
 
   const contentText = isReaction ? '' : buildMessageContentText(msg)
   const mediaFromContent = extractUazapiMediaUrl(content)
-  const thumbDataUrl = extractUazapiJpegThumbDataUrl(content)
-  const mediaUrl = strTrim(msg.fileURL || msg.fileUrl || msg.url || msg.mediaUrl ||
-    content?.fileURL || content?.fileUrl || content?.url || mediaFromContent || '') || thumbDataUrl
+  const mediaThumbUrl = extractMessageThumbDataUrl(msg, content)
+  const fullMediaUrl = strTrim(msg.fileURL || msg.fileUrl || msg.url || msg.mediaUrl ||
+    content?.fileURL || content?.fileUrl || content?.url || mediaFromContent || '')
+  const mediaUrl = isHttpMediaUrl(fullMediaUrl) ? fullMediaUrl : ''
+  const isMediaThumbOnly = !mediaUrl && Boolean(mediaThumbUrl)
 
   const mimeType = strTrim(msg?.mimetype || msg?.mimeType || content?.mimetype || content?.mimeType ||
     content?.imageMessage?.mimetype || content?.videoMessage?.mimetype ||
@@ -253,8 +492,11 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
   const isAudio = type.includes('audio') || type.includes('ptt') || type.includes('myaudio') || mimeType.startsWith('audio/')
   const isVideo = type.includes('video') || Boolean(content?.videoMessage) || mimeType.startsWith('video/')
   const isDocument = type.includes('document') || Boolean(content?.documentMessage) || mimeType.includes('application/')
-  const looksLikeContactSharedText = /\bphone:\s*\+?\d[\d\s-]{7,}/i.test(String(contentText || ''))
-  const sharedContact = extractSharedContactData(msg)
+  const audioNode = content?.audioMessage || content?.pttMessage || content?.ptt || null
+  const audioDurationSeconds = isAudio
+    ? Number(audioNode?.seconds || msg.seconds || msg.duration || 0)
+    : 0
+  const sharedContact = extractSharedContactData(msg, content)
   const hasSharedContactData = Boolean(sharedContact?.name || sharedContact?.phone)
 
   const hasEditedInPayload = () => {
@@ -264,8 +506,7 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
     return Boolean(c.editedMessage || c.message?.editedMessage || c.protocolMessage?.editedMessage || c.ephemeralMessage?.message?.editedMessage)
   }
 
-  const isContactShare = type.includes('contact') || type.includes('vcard') ||
-    Boolean(msg.vcard || content?.contactMessage || content?.contactsArrayMessage || looksLikeContactSharedText || hasSharedContactData)
+  let isContactShare = false
   const isMedia = isImage || isAudio || isVideo || isDocument || isSticker
 
   const documentNode = (
@@ -325,7 +566,9 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
         try {
           const bytes = new Uint8Array(raw.map((item) => Number(item)))
           if (typeof TextDecoder !== 'undefined') return strTrim(new TextDecoder('utf-8').decode(bytes))
-          return strTrim(String.fromCharCode(...bytes))
+          let binary = ''
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+          return strTrim(binary)
         } catch {
           return ''
         }
@@ -454,65 +697,8 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
       .filter(Boolean)
 
     if (!pollLike && options.length === 0) {
-      const interactiveTypeRaw = strTrim(
-        msg?.typeInteractive ||
-        msg?.interactiveType ||
-        msg?.sendPayload?.type ||
-        content?.interactiveMessage?.type ||
-        content?.buttonsMessage?.type ||
-        content?.listMessage?.type ||
-        ''
-      ).toLowerCase()
-      const interactiveText = strTrim(
-        msg?.sendPayload?.text ||
-        msg?.sendPayload?.title ||
-        content?.buttonsMessage?.contentText ||
-        content?.listMessage?.description ||
-        contentText ||
-        msg?.text ||
-        msg?.body ||
-        ''
-      )
-      const interactiveListButton = strTrim(
-        msg?.sendPayload?.listButton ||
-        content?.listMessage?.buttonText ||
-        content?.listMessage?.title ||
-        ''
-      )
-      const parseMenuChoice = (choice, index) => {
-        const raw = strTrim(choice)
-        if (!raw) return null
-        if (raw.startsWith('[') && raw.endsWith(']')) return { isSection: true, label: raw.slice(1, -1).trim(), id: `section-${index}` }
-        const parts = raw.split('|').map((v) => strTrim(v))
-        const label = parts[0] || ''
-        const id = parts[1] || label || `choice-${index}`
-        const possibleType = String(parts[2] || '').toUpperCase()
-        const hasType = ['REPLY', 'URL', 'COPY', 'CALL'].includes(possibleType)
-        const description = hasType ? (parts[3] || '') : (parts[2] || '')
-        if (!label) return null
-        return { isSection: false, label, id, description, buttonType: hasType ? possibleType : 'REPLY' }
-      }
-      const menuChoicesRaw = [
-        ...(Array.isArray(msg?.choices) ? msg.choices : []),
-        ...(Array.isArray(msg?.options) ? msg.options : []),
-        ...(Array.isArray(msg?.sendPayload?.choices) ? msg.sendPayload.choices : []),
-        ...(Array.isArray(content?.choices) ? content.choices : []),
-        ...(Array.isArray(content?.options) ? content.options : []),
-      ].map((v) => (typeof v === 'string' ? v : strTrim(v?.label || v?.text || v?.name || '')))
-      const menuOptions = menuChoicesRaw
-        .map((choice, index) => parseMenuChoice(choice, index))
-        .filter(Boolean)
-
-      const isMenuType = ['button', 'list', 'carousel'].includes(interactiveTypeRaw)
-      if (isMenuType && menuOptions.length > 0) {
-        return {
-          kind: 'menu',
-          menuType: interactiveTypeRaw,
-          title: interactiveText || 'Mensagem interativa',
-          listButton: interactiveListButton,
-          options: menuOptions
-        }
-      }
+      const menu = extractIncomingMenuInteractive(msg, content, contentText, convertOptions)
+      if (menu) return menu
       return null
     }
     // Eventos de voto sem opções não devem virar "mensagem nova" na timeline.
@@ -545,6 +731,12 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
     }
   }
   const interactive = parseInteractivePayload()
+  isContactShare = isUazapiContactShareMessage(msg, content) &&
+    hasSharedContactData &&
+    !interactive &&
+    !isMedia &&
+    !isReaction
+  const resolvedSharedContact = isContactShare ? sharedContact : null
 
   const extractPollVoteEvent = () => {
     const parseDynamicNode = (raw) => {
@@ -637,9 +829,26 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
   const isPollVoteEvent = Boolean(pollVoteEvent)
   const isPollAuxEvent = hasPollSignals() && !interactive
 
-  const sharedContactText = extractSharedContactText(msg)
+  const sharedContactText = extractSharedContactText(msg, content)
   const rawContentText = contentText || sharedContactText
   const resolvedContentText = resolveMentionFn ? replaceMentionNumbersByNames(rawContentText, resolveMentionFn) : rawContentText
+
+  const pinTypeLower = String(type || msg.messageType || msg.MessageType || '').toLowerCase()
+  const pinNode = extractPinMessageNode(content) || content?.pinInChatMessage || content?.message?.pinInChatMessage || null
+  const hasPinMetadata = msg.targetMessageID != null || msg.targetMessageId != null || msg.targetMessageid != null || typeof msg.pinned === 'boolean'
+  const isPinSystemText = isPinSystemMessageText(resolvedContentText) || isPinSystemMessageText(msg?.text) || isPinSystemMessageText(msg?.body)
+  const isPinEvent = Boolean(pinNode) || pinTypeLower.includes('pininchat') || pinTypeLower.includes('pin_in_chat') || (hasPinMetadata && pinTypeLower.includes('pin')) || isPinSystemText
+  let pinEvent = null
+  if (isPinEvent) {
+    const targetMessageId = extractPinTargetMessageId(msg, content, pinNode)
+    let pinned = !isPinUnpinSystemText(resolvedContentText || msg?.text || msg?.body)
+    if (typeof msg.pinned === 'boolean') pinned = msg.pinned
+    else if (typeof pinNode?.type === 'number') pinned = pinNode.type === 1
+    else if (typeof pinNode?.type === 'string') pinned = !/unpin/i.test(pinNode.type)
+    else if (pinNode?.pinned != null) pinned = Boolean(pinNode.pinned)
+    else if (isPinSystemText) pinned = !isPinUnpinSystemText(resolvedContentText || msg?.text || msg?.body)
+    if (targetMessageId) pinEvent = { targetMessageId, pinned }
+  }
 
   let mediaLabel = ''
   if (!contentText) {
@@ -653,10 +862,35 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
     else mediaLabel = 'Mensagem sem texto'
   }
 
+  const linkPreviewRaw = (!isReaction && !isContactShare)
+    ? extractLinkPreviewFromMessage(msg, content, contentText)
+    : null
+  const linkPreview = linkPreviewRaw
+    ? {
+      ...linkPreviewRaw,
+      bodyText: resolveMentionFn
+        ? replaceMentionNumbersByNames(linkPreviewRaw.bodyText, resolveMentionFn)
+        : linkPreviewRaw.bodyText
+    }
+    : null
+  const isForwarded = !isReaction ? extractForwardedFlag(msg, content) : false
+  const resolvedDisplayText = linkPreview
+    ? (linkPreview.bodyText || '')
+    : (resolvedContentText || mediaLabel)
+
   const senderDisplayName = resolveSenderName(msg, selectedChat)
   const status = String(msg.status || msg.messageStatus || '').trim().toLowerCase()
-  const deliveryIndicator = status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' :
-    (status === 'sent' || status === 'serverack') ? '✓' : (status === 'queued' || status === 'pending') ? '⏳' : ''
+  let deliveryStatus = ''
+  if (status === 'read' || status === 'readreceipt') deliveryStatus = 'read'
+  else if (status === 'delivered') deliveryStatus = 'delivered'
+  else if (status === 'sent' || status === 'serverack') deliveryStatus = 'sent'
+  else if (status === 'queued' || status === 'pending') deliveryStatus = 'pending'
+  else if (Boolean(msg.fromMe)) deliveryStatus = 'delivered'
+  const audioPlayed = !Boolean(msg.fromMe) && isAudio && (
+    status === 'played' || status === 'play' || status === 'audio_played'
+  )
+  const deliveryIndicator = deliveryStatus === 'read' || deliveryStatus === 'delivered' ? '✓✓'
+    : deliveryStatus === 'sent' ? '✓' : deliveryStatus === 'pending' ? '⏳' : ''
 
   const quoted = !isReaction && !isContactShare ? buildQuotedPreview(msg) : null
   const ctxForReply = !isReaction && !isContactShare ? extractContextInfoFromMessage(msg) : null
@@ -679,19 +913,81 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
     messageid: msg.messageid || '',
     type: type || 'text',
     fromMe: Boolean(msg.fromMe),
-    text: (isReaction || interactive?.kind === 'poll' || isPollVoteEvent || isPollAuxEvent) ? '' : (isContactShare ? '' : (resolvedContentText || mediaLabel)),
+    text: (isReaction || interactive?.kind === 'poll' || interactive?.kind === 'menu' || isPollVoteEvent || isPollAuxEvent || isPinEvent) ? '' : (isContactShare ? '' : resolvedDisplayText),
+    isForwarded,
+    linkPreview,
     timestamp: normalizeTimestampToMs(msg.timestamp || msg.messageTimestamp || msg.time),
-    mediaUrl, isMedia,
+    mediaUrl, mediaThumbUrl, isMediaThumbOnly, isMedia,
     mediaType: isVideo ? 'video' : isSticker ? 'sticker' : (isGif || isImage) ? 'image' : isAudio ? 'audio' : isDocument ? 'document' : 'other',
+    audioDurationSeconds: Number.isFinite(audioDurationSeconds) && audioDurationSeconds > 0 ? audioDurationSeconds : 0,
     documentFileName,
     documentSizeBytes: Number.isFinite(documentSizeBytes) && documentSizeBytes > 0 ? documentSizeBytes : 0,
     isReaction, reactionEmoji, reactionTargetId: normalizedReactionTargetId,
     normalizedMessageId: normalizeProviderMessageId(msg.messageid || msg.id),
     normalizedInternalId: normalizeProviderMessageId(msg.id),
     senderDisplayName: String(senderDisplayName || '').trim(),
-    status, deliveryIndicator, isContactShare, sharedContact, isEdited: hasEditedInPayload(),
-    quoted, replyParentMessageId, interactive, pollVoteEvent, isPollVoteEvent, isPollAuxEvent
+    status, deliveryStatus, deliveryIndicator, audioPlayed, isContactShare, sharedContact: resolvedSharedContact, isEdited: hasEditedInPayload(),
+    quoted, replyParentMessageId, interactive, pollVoteEvent, isPollVoteEvent, isPollAuxEvent,
+    isPinEvent, pinEvent,
   }
+}
+
+/** Mensagem já passou por normalizeMessage (selectChat/poll) — não reprocessar. */
+export const isStoredNormalizedMessage = (item) => {
+  if (!item || typeof item !== 'object') return false
+  if (!item.id || item.timestamp == null) return false
+
+  const content = parseLooseMessageContent(item)
+  const looksLikeContact = isUazapiContactShareMessage(item, content)
+
+  if (looksLikeContact) {
+    return Boolean(
+      item.isContactShare &&
+      item.sharedContact &&
+      (item.sharedContact.name || item.sharedContact.phone)
+    )
+  }
+
+  return Boolean(
+    item.normalizedMessageId != null ||
+    item.normalizedInternalId != null ||
+    'mediaType' in item ||
+    item.linkPreview != null ||
+    item.interactive != null ||
+    item.isReaction != null ||
+    item.isPinEvent != null
+  )
+}
+
+/** Normaliza payload bruto da API; falhas isoladas não derrubam o lote. */
+export const normalizeIncomingMessage = (raw) => {
+  try {
+    return normalizeMessage(raw)
+  } catch (error) {
+    console.warn('[WhatsApp] Falha ao normalizar mensagem recebida:', error?.message || error)
+    return null
+  }
+}
+
+/** Reutiliza objeto já normalizado ou normaliza payload bruto. */
+export const normalizeMessageForDisplay = (item) => {
+  if (isStoredNormalizedMessage(item)) {
+    const content = parseLooseMessageContent(item)
+    const pinNode = extractPinMessageNode(content)
+    const hasPinMeta = Boolean(
+      item.targetMessageID ||
+      item.targetMessageId ||
+      item.targetMessageid ||
+      pinNode ||
+      isPinSystemMessageText(item.text) ||
+      isPinSystemMessageText(item.body)
+    )
+    if (item.isPinEvent && item.pinEvent?.targetMessageId) return item
+    if (!hasPinMeta) return item
+    const refreshed = normalizeIncomingMessage(item)
+    return refreshed || item
+  }
+  return normalizeIncomingMessage(item)
 }
 
 // ─── Quoted preview ───────────────────────────────────────────────────────────
@@ -965,6 +1261,9 @@ const rawReactionPayloadScore = (m) => {
 }
 
 export const pickRicherDuplicateBaseMessage = (prev, next) => {
+  const prevHasPin = Boolean(prev?.isPinEvent && prev?.pinEvent?.targetMessageId)
+  const nextHasPin = Boolean(next?.isPinEvent && next?.pinEvent?.targetMessageId)
+  if (prevHasPin !== nextHasPin) return nextHasPin ? next : prev
   const prevPoll = prev?.interactive?.kind === 'poll' ? prev.interactive : null
   const nextPoll = next?.interactive?.kind === 'poll' ? next.interactive : null
   if (prevPoll || nextPoll) {
@@ -1037,17 +1336,27 @@ const pickOptimisticReactionForMessage = (m, snap) => {
   const keys = [m.normalizedMessageId, m.normalizedInternalId, normalizeProviderMessageId(m.messageid || m.id || ''), normalizeProviderMessageId(m.id || ''), String(m.messageid || '').trim(), String(m.id || '').trim()].filter(Boolean)
   for (const k of keys) {
     const hit = snap[k]
-    if (hit && typeof hit === 'object' && strTrim(String(hit.emoji || ''))) return hit
+    if (hit && typeof hit === 'object') {
+      if (hit.removed) return hit
+      if (strTrim(String(hit.emoji || ''))) return hit
+    }
     const nk = normalizeProviderMessageId(k)
     const hit2 = nk ? snap[nk] : null
-    if (hit2 && typeof hit2 === 'object' && strTrim(String(hit2.emoji || ''))) return hit2
+    if (hit2 && typeof hit2 === 'object') {
+      if (hit2.removed) return hit2
+      if (strTrim(String(hit2.emoji || ''))) return hit2
+    }
   }
   return null
 }
 
+const normalizeForReactionPass = (item) => normalizeMessageForDisplay(item)
+
 export const attachReactionsToMessages = (items) => {
-  const normalizedItems = items.map((item) => normalizeMessage(item))
-  const baseMessages = normalizedItems.filter((item) => !item.isReaction && !item.isPollVoteEvent && !item.isPollAuxEvent)
+  const normalizedItems = (Array.isArray(items) ? items : [])
+    .map(normalizeForReactionPass)
+    .filter(Boolean)
+  const baseMessages = normalizedItems.filter((item) => !item.isReaction && !item.isPollVoteEvent && !item.isPollAuxEvent && !item.isPinEvent)
   const reactions = normalizedItems.filter((item) => item.isReaction)
   const pollVoteEvents = normalizedItems.filter((item) => item.isPollVoteEvent && item.pollVoteEvent)
   const byId = new Map()
@@ -1223,9 +1532,10 @@ export const attachReactionsToMessages = (items) => {
 
   const list = Array.from(unique.values()).sort((a, b) => a.timestamp - b.timestamp)
     .filter((msg) => {
+      if (isPinSystemMessageText(msg?.text)) return false
       const isPlaceholderOnly = strTrim(msg?.text || '').toLowerCase() === 'mensagem sem texto'
       if (!isPlaceholderOnly) return true
-      if (msg?.isMedia || msg?.isContactShare || msg?.interactive || msg?.isReaction) return true
+      if (msg?.isMedia || msg?.isContactShare || msg?.sharedContact || msg?.interactive || msg?.isReaction) return true
       return false
     })
   const optSnap = optimisticReactionsByNormalizedId.value
@@ -1237,14 +1547,14 @@ export const attachReactionsToMessages = (items) => {
       return !m.reactions.some((x) => x !== r && x.fromMe && strTrim(x.emoji) === strTrim(r.emoji) && x.reactorKey !== 'opt:local-me')
     })
     const optEntry = pickOptimisticReactionForMessage(m, optSnap)
-    if (optEntry && strTrim(String(optEntry.emoji || ''))) {
+    if (optEntry?.removed) {
+      m.reactions = m.reactions.filter((r) => !r.fromMe && r.reactorKey !== 'opt:local-me')
+    } else if (optEntry && strTrim(String(optEntry.emoji || ''))) {
       const em = strTrim(String(optEntry.emoji))
-      const hasServerDup = m.reactions.some((r) => r.fromMe && strTrim(r.emoji) === em && r.reactorKey !== 'opt:local-me')
-      if (!hasServerDup) {
-        const row = { reactorKey: 'opt:local-me', emoji: em, fromMe: true, senderLabel: 'Você', senderJid: '', timestamp: Number(optEntry.ts) || Date.now() }
-        const ix = m.reactions.findIndex((r) => r.reactorKey === 'opt:local-me')
-        if (ix >= 0) m.reactions[ix] = row; else m.reactions.push(row)
-      }
+      m.reactions = m.reactions.filter((r) => !(r.fromMe && r.reactorKey !== 'opt:local-me'))
+      const row = { reactorKey: 'opt:local-me', emoji: em, fromMe: true, senderLabel: 'Você', senderJid: '', timestamp: Number(optEntry.ts) || Date.now() }
+      const ix = m.reactions.findIndex((r) => r.reactorKey === 'opt:local-me')
+      if (ix >= 0) m.reactions[ix] = row; else m.reactions.push(row)
     }
     if (Array.isArray(m.reactions)) { m.reactions.sort((a, b) => a.timestamp - b.timestamp); m.reactionEmoji = m.reactions.length ? m.reactions[m.reactions.length - 1].emoji : '' }
     else { m.reactions = []; m.reactionEmoji = '' }
@@ -1253,27 +1563,228 @@ export const attachReactionsToMessages = (items) => {
   return list
 }
 
-// ─── Computed renderedMessages ────────────────────────────────────────────────
+// ─── Mensagens fixadas no topo da conversa ────────────────────────────────────
 
-import {
-  contactsDirectory as _cd, groupParticipantsDirectory as _gpd, groupParticipantsByJid as _gpj,
-  groupParticipantsByLid as _gpl, observedSenderDirectory as _osd, unknownProfilesDirectory as _upd,
-  lidToJidMap as _ltm, senderAvatarDirectory as _sad
-} from './useWhatsappState.js'
+const registerMessageInPinMap = (map, msg) => {
+  if (!msg || msg.isPinEvent || msg.isReaction || msg.isPollVoteEvent || msg.isPollAuxEvent) return
+  const keys = [
+    msg.normalizedMessageId,
+    msg.normalizedInternalId,
+    msg.messageid,
+    msg.id,
+  ]
+    .map((value) => normalizeProviderMessageId(value))
+    .filter(Boolean)
+  for (const key of keys) {
+    if (!map.has(key)) map.set(key, msg)
+  }
+}
+
+const resolvePinnedMessageFromMap = (targetId, baseById) => {
+  const target = normalizeProviderMessageId(targetId)
+  if (!target) return null
+  if (baseById.has(target)) return baseById.get(target)
+  for (const [key, msg] of baseById.entries()) {
+    if (!key) continue
+    if (key === target || key.endsWith(target) || target.endsWith(key)) return msg
+  }
+  return null
+}
+
+export const resolvePinnedMessagesFromThread = (
+  rawItems = [],
+  optimisticEntry = null,
+  renderedItems = [],
+  snapshotCatalog = {},
+) => {
+  const normalized = (Array.isArray(rawItems) ? rawItems : [])
+    .map((item) => normalizeMessageForDisplay(item))
+    .filter(Boolean)
+  const rendered = (Array.isArray(renderedItems) ? renderedItems : []).filter(Boolean)
+
+  const pinEvents = normalized
+    .filter((m) => m.isPinEvent && m.pinEvent?.targetMessageId)
+    .sort((a, b) => a.timestamp - b.timestamp)
+
+  const pinOrder = []
+  const pinnedSet = new Set()
+
+  const pushPinnedId = (rawId) => {
+    const id = normalizeProviderMessageId(rawId)
+    if (!id || pinnedSet.has(id)) return
+    pinnedSet.add(id)
+    pinOrder.push(id)
+  }
+
+  const removePinnedId = (rawId) => {
+    const id = normalizeProviderMessageId(rawId)
+    if (!id) return
+    pinnedSet.delete(id)
+    const idx = pinOrder.indexOf(id)
+    if (idx >= 0) pinOrder.splice(idx, 1)
+  }
+
+  for (const evt of pinEvents) {
+    const { targetMessageId, pinned } = evt.pinEvent
+    if (pinned) pushPinnedId(targetMessageId)
+    else removePinnedId(targetMessageId)
+  }
+
+  for (const msg of normalized) {
+    if (msg.isPinEvent || msg.isReaction || msg.isPollVoteEvent || msg.isPollAuxEvent) continue
+    if (isTruthyPinnedFlag(msg.pinned) || isTruthyPinnedFlag(msg.pin) || isTruthyPinnedFlag(msg.isPinnedMessage)) {
+      pushPinnedId(msg.normalizedMessageId || msg.messageid || msg.id)
+    }
+  }
+
+  if (optimisticEntry?.messageId) {
+    const id = normalizeProviderMessageId(optimisticEntry.messageId)
+    if (optimisticEntry.pinned) pushPinnedId(id)
+    else removePinnedId(id)
+  }
+
+  const baseById = new Map()
+  for (const msg of rendered) registerMessageInPinMap(baseById, msg)
+  for (const msg of normalized) registerMessageInPinMap(baseById, msg)
+
+  const snapshot = optimisticEntry?.snapshot && optimisticEntry.pinned !== false
+    ? optimisticEntry.snapshot
+    : null
+  const catalog = snapshotCatalog && typeof snapshotCatalog === 'object' ? snapshotCatalog : {}
+
+  const enrichResolvedPinnedMessage = (msg, targetId) => {
+    if (!msg) return null
+    const preview = String(msg.text || msg.body || msg.caption || '').trim()
+    if (preview) return msg
+    const cached = catalog[normalizeProviderMessageId(targetId)]
+    if (cached) return { ...cached, ...msg, text: cached.text || msg.text || '', body: cached.body || msg.body || '' }
+    if (
+      snapshot &&
+      normalizeProviderMessageId(optimisticEntry?.messageId) === normalizeProviderMessageId(targetId)
+    ) {
+      return { ...snapshot, ...msg, text: snapshot.text || msg.text || '', body: snapshot.body || msg.body || '' }
+    }
+    return msg
+  }
+
+  return pinOrder
+    .map((targetId) => {
+      const resolved = resolvePinnedMessageFromMap(targetId, baseById)
+      if (resolved) return enrichResolvedPinnedMessage(resolved, targetId)
+      const cachedOnly = catalog[normalizeProviderMessageId(targetId)]
+      if (cachedOnly) return cachedOnly
+      if (
+        snapshot &&
+        normalizeProviderMessageId(optimisticEntry?.messageId) === normalizeProviderMessageId(targetId)
+      ) {
+        return snapshot
+      }
+      return null
+    })
+    .filter(Boolean)
+    .slice(-3)
+}
+
+// ─── Computed renderedMessages ────────────────────────────────────────────────
 
 export const renderedMessages = computed(() => {
   // Lê versões das dependências para disparar reatividade quando diretórios mudam
-  void Object.keys(_cd.value).length
-  void Object.keys(_gpd.value).length
-  void Object.keys(_gpj.value).length
-  void Object.keys(_gpl.value).length
-  void Object.keys(_osd.value).length
-  void Object.keys(_upd.value).length
-  void Object.keys(_ltm.value).length
-  void Object.keys(_sad.value || {}).length
+  void Object.keys(contactsDirectory.value).length
+  void Object.keys(groupParticipantsDirectory.value).length
+  void Object.keys(groupParticipantsByJid.value).length
+  void Object.keys(groupParticipantsByLid.value).length
+  void Object.keys(observedSenderDirectory.value).length
+  void Object.keys(unknownProfilesDirectory.value).length
+  void Object.keys(lidToJidMap.value).length
+  void Object.keys(senderAvatarDirectory.value || {}).length
   void optimisticReactionsByNormalizedId.value
-  return hydrateQuotedFromThread(attachReactionsToMessages(messages.value))
+  const list = Array.isArray(messages.value) ? messages.value : []
+  if (!list.length) return []
+  try {
+    return hydrateQuotedFromThread(attachReactionsToMessages(list))
+  } catch (error) {
+    console.warn('[WhatsApp] renderedMessages indisponível:', error?.message || error)
+    return list
+  }
 })
+
+const buildPinnedMessagesSignature = (rawItems = []) =>
+  (Array.isArray(rawItems) ? rawItems : [])
+    .map((m) => `${m?.isPinEvent}:${m?.pinEvent?.targetMessageId}:${m?.pinEvent?.pinned}:${m?.pinned}:${m?.normalizedMessageId}:${m?.messageid}`)
+    .join('|')
+
+export const syncPinnedSnapshotsForOpenChat = () => {
+  const chatJid = normalizeJid(selectedChat.value?.chatJid || '')
+  if (!chatJid) return
+  const optimistic = optimisticPinnedByChatJid.value[chatJid] || null
+  let rendered = []
+  try {
+    rendered = Array.isArray(renderedMessages.value) ? renderedMessages.value : []
+  } catch {
+    rendered = []
+  }
+  const resolved = resolvePinnedMessagesFromThread(messages.value, optimistic, rendered)
+  const prev = pinnedSnapshotsByChatJid.value[chatJid] || {}
+  const next = { ...prev }
+  const activeIds = new Set()
+  for (const msg of resolved) {
+    const id = normalizeProviderMessageId(msg.normalizedMessageId || msg.messageid || msg.id)
+    if (!id) continue
+    activeIds.add(id)
+    const preview = String(msg.text || msg.body || msg.caption || '').trim()
+    if (preview || msg.mediaType || msg.isContactShare || msg.interactive) {
+      next[id] = msg
+    }
+  }
+  for (const id of Object.keys(next)) {
+    if (!activeIds.has(id)) delete next[id]
+  }
+  pinnedSnapshotsByChatJid.value = {
+    ...pinnedSnapshotsByChatJid.value,
+    [chatJid]: next,
+  }
+}
+
+export const pinnedMessagesInChat = computed(() => {
+  const chatJid = normalizeJid(selectedChat.value?.chatJid || '')
+  if (!chatJid) return []
+  void buildPinnedMessagesSignature(messages.value)
+  void optimisticPinnedByChatJid.value[chatJid]
+  void pinnedSnapshotsByChatJid.value[chatJid]
+  let rendered = []
+  try {
+    rendered = Array.isArray(renderedMessages.value) ? renderedMessages.value : []
+  } catch {
+    rendered = []
+  }
+  const optimistic = optimisticPinnedByChatJid.value[chatJid] || null
+  const catalog = pinnedSnapshotsByChatJid.value[chatJid] || {}
+  return resolvePinnedMessagesFromThread(messages.value, optimistic, rendered, catalog)
+})
+
+watch(
+  () => {
+    const chatJid = normalizeJid(selectedChat.value?.chatJid || '')
+    if (!chatJid) return ''
+    const optimistic = optimisticPinnedByChatJid.value[chatJid] || null
+    let renderedSig = ''
+    try {
+      renderedSig = buildPinnedMessagesSignature(renderedMessages.value)
+    } catch {
+      renderedSig = ''
+    }
+    return [
+      chatJid,
+      buildPinnedMessagesSignature(messages.value),
+      renderedSig,
+      String(optimistic?.messageId || ''),
+      String(optimistic?.pinned ?? ''),
+    ].join('::')
+  },
+  () => {
+    syncPinnedSnapshotsForOpenChat()
+  },
+)
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
@@ -1314,28 +1825,40 @@ export const isAutoMediaLabelText = (text) => {
 }
 
 export const shouldHideAutoMediaLabelInBubble = (msg) => {
-  if (!msg?.isMedia || !msg?.mediaUrl) return false
+  if (!msg?.isMedia) return false
   return isAutoMediaLabelText(msg?.text)
 }
 
 // ─── Download de mídia ────────────────────────────────────────────────────────
 
 export const downloadMessageMedia = async (msg) => {
-  if (msg?.isPendingUpload) return
+  if (msg?.isPendingUpload) return false
   const mediaId = msg.messageid || msg.id
-  if (!mediaId || String(mediaId).startsWith('pending-doc-')) return
+  if (!mediaId || String(mediaId).startsWith('pending-doc-')) return false
   const proxyBase = getProxyBase()
+  const chatJid = String(
+    selectedChat.value?.chatJid ||
+    msg?.chatJid ||
+    msg?.chatid ||
+    msg?.wa_chatid ||
+    ''
+  ).trim()
   try {
     downloadingMediaById.value = { ...downloadingMediaById.value, [msg.id]: true }
     const res = await fetch(`${proxyBase}/message/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
-      body: JSON.stringify({ id: mediaId, return_link: true, return_base64: false })
+      body: JSON.stringify({
+        id: mediaId,
+        chatid: chatJid || undefined,
+        return_link: true,
+        return_base64: false,
+      })
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data?.message || data?.error || 'Falha ao baixar mídia')
     const fileURL = data?.fileURL || data?.fileUrl || ''
-    if (!fileURL) return
+    if (!fileURL) return false
     let pdfPreviewUrl = ''
     if (String(msg?.mediaType || '').toLowerCase() === 'document') {
       const maybePdf = /\.(pdf)(\?|#|$)/i.test(String(fileURL || '')) ||
@@ -1347,11 +1870,19 @@ export const downloadMessageMedia = async (msg) => {
     }
     messages.value = messages.value.map((item) =>
       item.id === msg.id
-        ? { ...item, mediaUrl: fileURL, previewUrl: String(pdfPreviewUrl || item.previewUrl || '').trim() }
+        ? {
+          ...item,
+          mediaUrl: fileURL,
+          isMediaThumbOnly: false,
+          previewUrl: String(pdfPreviewUrl || item.previewUrl || item.mediaThumbUrl || '').trim(),
+        }
         : item
     )
+    stickChatScrollToBottomIfNeeded()
+    return true
   } catch (e) {
     console.error('Erro ao baixar mídia', e)
+    return false
   } finally {
     downloadingMediaById.value = { ...downloadingMediaById.value, [msg.id]: false }
   }
@@ -1362,28 +1893,30 @@ export const preloadMessageMediaIfNeeded = async (items = []) => {
     .filter((m) =>
       m &&
       m.isMedia &&
-      !m.mediaUrl &&
+      !isHttpMediaUrl(m.mediaUrl) &&
       (m.mediaType === 'image' || m.mediaType === 'video' || m.mediaType === 'sticker') &&
       !autoMediaLoadAttemptedById.value[m.id] &&
       !downloadingMediaById.value[m.id]
     )
-    .slice(0, 10)
+    .slice(0, 32)
   if (candidates.length === 0) return
-  const marks = { ...autoMediaLoadAttemptedById.value }
-  for (const m of candidates) marks[m.id] = true
-  autoMediaLoadAttemptedById.value = marks
-  await Promise.allSettled(candidates.map((m) => downloadMessageMedia(m)))
+  await Promise.allSettled(candidates.map(async (m) => {
+    const ok = await downloadMessageMedia(m)
+    if (ok) {
+      autoMediaLoadAttemptedById.value = { ...autoMediaLoadAttemptedById.value, [m.id]: true }
+    }
+  }))
 }
 
 export function useWhatsappMessages() {
   return {
     normalizeMessage, attachReactionsToMessages, hydrateQuotedFromThread,
-    renderedMessages, parseInlineReactionsFromMessage, getMessageMergeKey,
+    renderedMessages, pinnedMessagesInChat, resolvePinnedMessagesFromThread, parseInlineReactionsFromMessage, getMessageMergeKey,
     pickRicherDuplicateBaseMessage, extractSharedContactData, extractSharedContactText,
     replaceMentionNumbersByNames, extractUazapiMediaUrl, extractUazapiJpegThumbDataUrl,
     extractContextInfoFromMessage, buildMessageContentText, tryParseQuotedPayload,
     reactionEmojiDisplaysInPill, getReactionPillEmojis, hasRenderableReactionPill,
     showReactionPillCount, shouldHideAutoMediaLabelInBubble,
-    downloadMessageMedia, preloadMessageMediaIfNeeded
+    downloadMessageMedia, preloadMessageMediaIfNeeded, resolveMediaGalleryPreviewUrl
   }
 }

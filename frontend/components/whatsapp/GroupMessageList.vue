@@ -1,8 +1,29 @@
 <template>
   <div class="messages-container">
-    <div
-      v-for="entry in groupedEntries"
-      :key="entry.key"
+    <div v-if="loadingOlderMessages" class="chat-timeline-row chat-timeline-row--center chat-timeline-row--sync">
+      <div class="chat-sync-banner" role="status">
+        <RefreshCw class="chat-sync-banner__icon" aria-hidden="true" />
+        <span>Sincronizando mensagens mais antigas. Clique para ver o progresso.</span>
+      </div>
+    </div>
+
+    <template v-for="entry in displayEntries" :key="timelineEntryKey(entry)">
+      <div
+        v-if="entry.kind === '__timeline' && entry.timelineKind === 'date'"
+        class="chat-timeline-row chat-timeline-row--center"
+      >
+        <div class="chat-date-pill" role="status">{{ entry.label }}</div>
+      </div>
+
+      <div
+        v-else-if="entry.kind === '__timeline' && entry.timelineKind === 'system'"
+        class="chat-timeline-row chat-timeline-row--center"
+      >
+        <div class="chat-system-pill" role="status">{{ entry.label }}</div>
+      </div>
+
+      <div
+        v-else
       :data-message-index="entry.startIndex"
       :data-message-id="String(entry.primary.id)"
       :data-message-provider-id="String(entry.primary.normalizedMessageId || entry.primary.messageid || '')"
@@ -33,7 +54,12 @@
           'message-bubble--poll-out': entry.primary.fromMe && entry.primary.interactive?.kind === 'poll',
           'message-bubble--menu': entry.primary.interactive?.kind === 'menu',
           'message-bubble--contact-out': entry.primary.fromMe && entry.primary.isContactShare,
-          'message-bubble--document': entry.primary.mediaType === 'document'
+          'message-bubble--document': entry.primary.mediaType === 'document',
+          'message-bubble--link-preview': Boolean(entry.primary.linkPreview),
+          'message-bubble--album': entry.kind === 'album',
+          'message-bubble--image': entry.primary.mediaType === 'image' && entry.kind !== 'album',
+          'message-bubble--video': entry.primary.mediaType === 'video',
+          'message-bubble--audio': entry.primary.mediaType === 'audio'
         }"
       >
         <!-- Nome do remetente — re-resolve no render + fallback API (sender_pn / senderName) -->
@@ -76,37 +102,57 @@
           </div>
         </div>
 
+        <WhatsappRichMessageBlock
+          :is-forwarded="entry.primary.isForwarded"
+          :link-preview="entry.primary.linkPreview"
+        />
+
         <!-- Mídia -->
         <div v-if="entry.kind === 'album'" class="msg-image-album" :class="`msg-image-album--${Math.min(entry.items.length, 4)}`">
-          <button
+          <div
             v-for="(albumItem, albumIndex) in albumVisibleItems(entry.items)"
             :key="`album-${entry.primary.id}-${albumItem.id}`"
-            type="button"
             class="msg-image-album-item"
-            @click.stop="openImageViewer(entry.items, albumIndex, entry)"
           >
-            <img :src="albumItem.mediaUrl" class="msg-image-album-photo" alt="Imagem enviada" />
+            <MessageImagePreview
+              :thumb-url="albumItem.mediaThumbUrl"
+              :full-url="albumItem.mediaUrl"
+              :loading="Boolean(downloadingMediaById[albumItem.id])"
+              @request-load="onDownloadMedia(albumItem)"
+              @open="handleImageOpen(albumItem, entry.items, albumIndex, entry)"
+            />
             <span
               v-if="albumOverflowCount(entry.items.length, albumIndex)"
               class="msg-image-album-overflow"
             >+{{ albumOverflowCount(entry.items.length, albumIndex) }}</span>
-          </button>
+          </div>
         </div>
-        <button
-          v-else-if="entry.primary.mediaType === 'image' && entry.primary.mediaUrl"
-          type="button"
-          class="msg-image-trigger"
-          @click.stop="openImageViewer([entry.primary], 0, entry)"
-        >
-          <img
-            :src="entry.primary.mediaUrl"
-            class="msg-image"
-            alt="Imagem enviada"
-          />
-        </button>
+        <MessageImagePreview
+          v-else-if="hasImagePreview(entry.primary)"
+          :thumb-url="entry.primary.mediaThumbUrl"
+          :full-url="entry.primary.mediaUrl"
+          :loading="Boolean(downloadingMediaById[entry.primary.id])"
+          @request-load="onDownloadMedia(entry.primary)"
+          @open="handleImageOpen(entry.primary, [entry.primary], 0, entry)"
+        />
         <img v-if="entry.primary.mediaType === 'sticker' && entry.primary.mediaUrl" :src="entry.primary.mediaUrl" class="msg-sticker" alt="Figurinha enviada" />
         <video v-if="entry.primary.mediaType === 'video' && entry.primary.mediaUrl" :src="entry.primary.mediaUrl" controls class="msg-video"></video>
-        <audio v-if="entry.primary.mediaType === 'audio' && entry.primary.mediaUrl" :src="entry.primary.mediaUrl" controls class="msg-audio"></audio>
+        <WhatsappAudioMessage
+          v-if="entry.primary.mediaType === 'audio'"
+          :src="entry.primary.mediaUrl || ''"
+          :from-me="Boolean(entry.primary.fromMe)"
+          :timestamp="formatTime(entry.primary.timestamp)"
+          :delivery-status="entry.primary.deliveryStatus || ''"
+          :is-edited="Boolean(entry.primary.isEdited)"
+          :avatar-url="getSenderAvatar(entry.primary) || ''"
+          :show-avatar="!entry.primary.fromMe"
+          :duration-seconds="Number(entry.primary.audioDurationSeconds || 0)"
+          :initial-listened="Boolean(entry.primary.audioPlayed)"
+          :waveform-seed="String(entry.primary.id || entry.primary.messageid || '')"
+          :loading="Boolean(downloadingMediaById[entry.primary.id])"
+          @request-load="onDownloadMedia(entry.primary)"
+          @listened="() => onAudioListened?.(entry.primary)"
+        />
         <button
           v-if="entry.primary.mediaType === 'document'"
           class="msg-document-card"
@@ -169,7 +215,7 @@
             <span class="msg-time msg-time--poll">
               {{ formatTime(entry.primary.timestamp) }}
               <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-              <span v-if="entry.primary.fromMe && entry.primary.deliveryIndicator" class="msg-status-indicator">{{ entry.primary.deliveryIndicator }}</span>
+              <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
             </span>
           </div>
           <button type="button" class="msg-poll-show-votes" @click.stop="togglePollVotes(entry.primary.id)">
@@ -178,18 +224,54 @@
         </div>
 
         <div v-else-if="entry.primary.interactive?.kind === 'menu'" class="msg-menu-card">
-          <div class="msg-menu-header">
-            <p class="msg-menu-title">{{ entry.primary.interactive.title }}</p>
+          <div
+            v-if="entry.primary.interactive.menuType !== 'pix-button' && entry.primary.interactive.menuType !== 'request-payment'"
+            class="msg-menu-header"
+          >
+            <div class="msg-menu-copy">
+              <p class="msg-menu-title">{{ entry.primary.interactive.title }}</p>
+              <p v-if="entry.primary.interactive.footerText" class="msg-menu-footer">{{ entry.primary.interactive.footerText }}</p>
+            </div>
             <span class="msg-time msg-time--menu">
               {{ formatTime(entry.primary.timestamp) }}
               <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-              <span v-if="entry.primary.fromMe && entry.primary.deliveryIndicator" class="msg-status-indicator">{{ entry.primary.deliveryIndicator }}</span>
+              <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
             </span>
           </div>
+          <img
+            v-if="entry.primary.interactive.imageButton && isMenuButtonImage(entry.primary.interactive.imageButton)"
+            :src="entry.primary.interactive.imageButton"
+            alt=""
+            class="msg-menu-button-media"
+          />
+          <WhatsappPixMessageCard
+            v-if="entry.primary.interactive.menuType === 'request-payment' || entry.primary.interactive.menuType === 'pix-button'"
+            :variant="entry.primary.interactive.menuType"
+            :pix-name="entry.primary.interactive.pixName"
+            :pix-type="entry.primary.interactive.pixType"
+            :pix-key="entry.primary.interactive.pixKey"
+            :amount="entry.primary.interactive.amount"
+            @action="onPixMenuAction(entry.primary)"
+          >
+            <template #meta>
+              <span class="msg-time msg-time--menu">
+                {{ formatTime(entry.primary.timestamp) }}
+                <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
+                <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
+              </span>
+            </template>
+          </WhatsappPixMessageCard>
+          <p
+            v-if="(entry.primary.interactive.menuType === 'pix-button' || entry.primary.interactive.menuType === 'request-payment') && entry.primary.interactive.footerText"
+            class="msg-menu-footer msg-menu-footer--pix"
+          >
+            {{ entry.primary.interactive.footerText }}
+          </p>
           <button
-            v-if="entry.primary.interactive?.menuType === 'list'"
+            v-else-if="entry.primary.interactive?.menuType === 'list'"
             type="button"
             class="msg-menu-list-btn"
+            @click.stop="openListMenu(entry.primary)"
           >
             <span class="msg-menu-list-btn-ico" aria-hidden="true">≣</span>
             <span>{{ menuListButtonLabel(entry.primary) }}</span>
@@ -200,7 +282,12 @@
               :key="`carousel-card-${entry.primary.id}-${cardIdx}`"
               class="msg-menu-carousel-card"
             >
-              <div class="msg-menu-carousel-media" />
+              <WhatsappRemoteImage
+                v-if="card.image"
+                :src="card.image"
+                class="msg-menu-carousel-media msg-menu-carousel-media--img"
+              />
+              <div v-else class="msg-menu-carousel-media" />
               <p class="msg-menu-carousel-title">{{ card.title }}</p>
               <button
                 v-for="(action, actionIdx) in card.actions"
@@ -208,6 +295,7 @@
                 type="button"
                 class="msg-menu-carousel-action"
                 :class="{ 'is-copy-action': action.type === 'COPY' }"
+                @click.stop="onMenuOptionClick(entry.primary, action)"
               >
                 <span v-if="action.type === 'COPY'" class="msg-menu-copy-ico" aria-hidden="true" />
                 <img v-else src="/icons/curva-seta-para-a-esquerda.svg" alt="" aria-hidden="true" class="msg-menu-action-ico" />
@@ -215,22 +303,28 @@
               </button>
             </article>
           </div>
-          <div v-else class="msg-menu-actions">
-            <div
+          <div v-else-if="entry.primary.interactive.options?.length" class="msg-menu-actions">
+            <template
               v-for="(opt, idx) in entry.primary.interactive.options"
               :key="`menu-opt-${entry.primary.id}-${idx}`"
-              class="msg-menu-action-row"
-              :class="{ 'is-section': opt.isSection }"
             >
-              <template v-if="opt.isSection">
+              <div
+                v-if="opt.isSection"
+                class="msg-menu-action-row is-section"
+              >
                 <span class="msg-menu-section-label">{{ opt.label }}</span>
-              </template>
-              <template v-else>
+              </div>
+              <button
+                v-else
+                type="button"
+                class="msg-menu-action-row"
+                @click.stop="onMenuOptionClick(entry.primary, opt)"
+              >
                 <span v-if="opt.buttonType === 'COPY'" class="msg-menu-copy-ico" aria-hidden="true" />
                 <img v-else src="/icons/curva-seta-para-a-esquerda.svg" alt="" aria-hidden="true" class="msg-menu-action-ico" />
                 <span class="msg-menu-action-label" :class="{ 'is-copy-label': opt.buttonType === 'COPY' }">{{ opt.label }}</span>
-              </template>
-            </div>
+              </button>
+            </template>
           </div>
         </div>
 
@@ -252,7 +346,7 @@
           <span class="msg-time msg-time--contact">
             {{ formatTime(entry.primary.timestamp) }}
             <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-            <span v-if="entry.primary.fromMe && entry.primary.deliveryIndicator" class="msg-status-indicator">{{ entry.primary.deliveryIndicator }}</span>
+            <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
           </span>
           <div class="shared-contact-actions">
             <button class="shared-contact-action" type="button" @click.stop="onOpenConversation(entry.primary.sharedContact)">Conversar</button>
@@ -281,15 +375,25 @@
         <p
           v-if="displayText(entry) && !entry.primary.interactive"
           class="msg-text wa-formatted"
+          :class="{ 'msg-text--after-preview': entry.primary.linkPreview, 'msg-text--after-media': entry.kind === 'album' || entry.primary.mediaType === 'image' || entry.primary.mediaType === 'video' }"
           v-html="formatText(displayText(entry))"
           @click="onTextClick"
         />
 
+        <a
+          v-if="entry.primary.linkPreview?.url"
+          :href="entry.primary.linkPreview.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="msg-link-url-line wa-link"
+          @click.stop
+        >{{ entry.primary.linkPreview.url }}</a>
+
         <!-- Metadados -->
-        <span v-if="entry.primary.interactive?.kind !== 'poll' && entry.primary.interactive?.kind !== 'menu' && !entry.primary.isContactShare" class="msg-time" :class="{ 'msg-time--document': entry.primary.mediaType === 'document' }">
+        <span v-if="entry.primary.interactive?.kind !== 'poll' && entry.primary.interactive?.kind !== 'menu' && !entry.primary.isContactShare && entry.primary.mediaType !== 'audio'" class="msg-time" :class="{ 'msg-time--document': entry.primary.mediaType === 'document', 'msg-time--media': entry.kind === 'album' || entry.primary.mediaType === 'image' || entry.primary.mediaType === 'video' }">
           {{ formatTime(entry.primary.timestamp) }}
           <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-          <span v-if="entry.primary.fromMe && entry.primary.deliveryIndicator" class="msg-status-indicator">{{ entry.primary.deliveryIndicator }}</span>
+          <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
         </span>
 
         <!-- Pílula de reações -->
@@ -320,7 +424,19 @@
           <ChevronDown class="icon-tiny" />
         </button>
       </div>
+
+      <button
+        v-if="!entry.primary.isContactShare"
+        type="button"
+        class="msg-reaction-hint"
+        :class="{ 'is-visible': actionMenuMessageId === entry.primary.id && actionMenuMode === 'reactions' }"
+        aria-label="Reagir à mensagem"
+        @click.stop="onToggleReactionMenu($event, entry.primary)"
+      >
+        <Smile class="msg-reaction-hint-icon" aria-hidden="true" />
+      </button>
     </div>
+    </template>
   </div>
 
   <div
@@ -340,8 +456,8 @@
     <div class="msg-image-viewer-stage">
       <button type="button" class="msg-image-viewer-nav msg-image-viewer-nav--prev" @click="prevImageViewerImage">‹</button>
       <img
-        v-if="imageViewer.current?.mediaUrl"
-        :src="imageViewer.current.mediaUrl"
+        v-if="imageViewerDisplayUrl(imageViewer.current)"
+        :src="imageViewerDisplayUrl(imageViewer.current)"
         class="msg-image-viewer-photo"
         alt="Imagem ampliada"
       />
@@ -359,20 +475,39 @@
         :class="{ 'is-active': idx === imageViewer.index }"
         @click="setImageViewerIndex(idx)"
       >
-        <img :src="item.mediaUrl" alt="Miniatura da imagem" />
+        <img :src="imageViewerDisplayUrl(item)" alt="Miniatura da imagem" />
       </button>
     </div>
   </div>
+
+  <WhatsappListPickerModal
+    :open="Boolean(activeListMenuMessage)"
+    :title="menuListButtonLabel(activeListMenuMessage)"
+    :options="menuListSelectableOptions(activeListMenuMessage)"
+    @close="closeListMenu"
+    @select="onListOptionSelect"
+  />
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue'
-import { Image, Video, Mic, Smile, FileText, User, ChevronDown, Loader } from 'lucide-vue-next'
+import { computed, reactive, ref, toRef } from 'vue'
+import { Image, Video, Mic, Smile, FileText, User, ChevronDown, Loader, RefreshCw } from 'lucide-vue-next'
 import { formatJidAsPhoneLine, extractDigitsFromJid, normalizeJid, bytesToJpegDataUrl } from '~/composables/whatsapp/useWhatsappUtils.js'
+import MessageImagePreview from './MessageImagePreview.vue'
+import WhatsappRichMessageBlock from './WhatsappRichMessageBlock.vue'
+import WhatsappRemoteImage from './WhatsappRemoteImage.vue'
+import WhatsappDeliveryTicks from './WhatsappDeliveryTicks.vue'
+import WhatsappAudioMessage from './WhatsappAudioMessage.vue'
+import WhatsappListPickerModal from './WhatsappListPickerModal.vue'
+import WhatsappPixMessageCard from './WhatsappPixMessageCard.vue'
+import { handleInteractiveMenuOptionClick } from '~/composables/whatsapp/useWhatsappInteractive.js'
+import { useWhatsappImageAlbumEntries } from '~/composables/useWhatsappImageAlbumEntries.js'
+import { expandGroupEntriesWithTimeline } from '~/composables/whatsapp/useWhatsappChatTimeline.js'
 
 const props = defineProps({
   messages: { type: Array, default: () => [] },
   actionMenuMessageId: { type: String, default: null },
+  actionMenuMode: { type: String, default: 'full' },
   downloadingMediaById: { type: Object, default: () => ({}) },
   // Resolvers de nome e avatar (exclusivos de grupos)
   getSenderName: { type: Function, required: true },
@@ -395,6 +530,7 @@ const props = defineProps({
   onTouchEnd: { type: Function, required: true },
   onContextMenu: { type: Function, required: true },
   onToggleActionMenu: { type: Function, required: true },
+  onToggleReactionMenu: { type: Function, required: true },
   onDownloadMedia: { type: Function, required: true },
   onOpenReactionsDetail: { type: Function, required: true },
   onOpenConversation: { type: Function, required: true },
@@ -404,8 +540,29 @@ const props = defineProps({
   onTextClick: { type: Function, required: true },
   onJumpToRepliedMessage: { type: Function, required: true },
   onPollVote: { type: Function, required: true },
+  onMenuOptionClick: { type: Function, required: true },
   onOpenDocument: { type: Function, required: true },
+  onAudioListened: { type: Function, default: null },
+  pinTimelineEvents: { type: Array, default: () => [] },
+  loadingOlderMessages: { type: Boolean, default: false },
 })
+
+const { groupedEntries, albumVisibleItems, albumOverflowCount } = useWhatsappImageAlbumEntries(
+  toRef(props, 'messages'),
+  {
+    mode: 'group',
+    shouldHideLabel: (msg) => props.shouldHideLabel(msg)
+  }
+)
+
+const displayEntries = computed(() =>
+  expandGroupEntriesWithTimeline(groupedEntries.value, props.pinTimelineEvents)
+)
+
+const timelineEntryKey = (entry) => {
+  if (entry?.kind === '__timeline') return `${entry.timelineKind}-${entry.key}`
+  return entry?.key || `group-${entry?.primary?.id}`
+}
 
 const strTrim = (v) => (v == null ? '' : String(v).trim())
 
@@ -419,6 +576,7 @@ const imageViewer = reactive({
 })
 
 const pollVotesExpandedByMessageId = reactive({})
+const activeListMenuMessage = ref(null)
 
 const togglePollVotes = (messageId) => {
   const key = String(messageId || '').trim()
@@ -432,7 +590,71 @@ const menuListButtonLabel = (message) => {
   return 'Abrir lista de opções'
 }
 
+const menuListSelectableOptions = (message) => {
+  if (!message?.interactive) return []
+  return (Array.isArray(message.interactive.options) ? message.interactive.options : [])
+    .filter((opt) => !opt?.isSection)
+    .map((opt) => ({
+      id: String(opt?.id || opt?.label || '').trim(),
+      label: String(opt?.label || '').trim(),
+      description: String(opt?.description || '').trim()
+    }))
+    .filter((opt) => opt.label)
+}
+
+const openListMenu = (message) => {
+  activeListMenuMessage.value = message || null
+}
+
+const closeListMenu = () => {
+  activeListMenuMessage.value = null
+}
+
+const onMenuOptionClick = (message, opt) => {
+  if (!message || !opt || opt.isSection) return
+  props.onMenuOptionClick(message, opt)
+}
+
+const onPixMenuAction = (message) => {
+  const interactive = message?.interactive
+  if (!interactive) return
+  if (interactive.menuType === 'pix-button') {
+    handleInteractiveMenuOptionClick({
+      buttonType: 'COPY',
+      id: interactive.pixKey,
+      label: 'Copiar chave Pix'
+    })
+    return
+  }
+  if (interactive.menuType === 'request-payment' && interactive.paymentLink) {
+    handleInteractiveMenuOptionClick({
+      buttonType: 'URL',
+      id: interactive.paymentLink,
+      label: 'Revisar e pagar'
+    })
+  }
+}
+
+const onListOptionSelect = (opt) => {
+  const message = activeListMenuMessage.value
+  closeListMenu()
+  if (!message || !opt?.label) return
+  props.onMenuOptionClick(message, {
+    label: opt.label,
+    id: opt.id || opt.label,
+    description: opt.description || '',
+    buttonType: 'REPLY',
+  })
+}
+
+const isMenuButtonImage = (value) => {
+  const src = String(value || '').trim()
+  return /^https?:\/\//i.test(src) || src.startsWith('data:image/')
+}
+
 const menuCarouselCards = (message) => {
+  const fromPayload = Array.isArray(message?.interactive?.carouselCards) ? message.interactive.carouselCards : []
+  if (fromPayload.length) return fromPayload.slice(0, 6)
   const options = Array.isArray(message?.interactive?.options) ? message.interactive.options.filter((opt) => !opt?.isSection) : []
   const cards = []
   const size = Math.max(1, Math.ceil(options.length / 2))
@@ -531,86 +753,23 @@ const groupSenderSecondaryLabel = (msg) => {
   return ''
 }
 
-const buildSenderKey = (msg) => {
-  const keys = [
-    msg?.senderJid,
-    msg?.sender,
-    msg?.participant,
-    msg?.sender_pn,
-    msg?.participant_pn,
-    msg?.sender_lid,
-    msg?.participant_lid,
-    msg?.senderDisplayName
-  ].map((v) => strTrim(v)).filter(Boolean)
-  return keys[0] || 'unknown-sender'
+const hasImagePreview = (msg) => Boolean(msg) && msg.mediaType === 'image'
+
+const resolveFreshMessage = (msg) =>
+  (Array.isArray(props.messages) ? props.messages : []).find((item) => item?.id === msg?.id) || msg
+
+const handleImageOpen = async (msg, items, startIndex, entry) => {
+  let current = resolveFreshMessage(msg)
+  if (!imageViewerDisplayUrl(current)) {
+    await props.onDownloadMedia(current)
+    current = resolveFreshMessage(msg)
+  }
+  const freshItems = (Array.isArray(items) ? items : []).map((item) => resolveFreshMessage(item))
+  openImageViewer(freshItems, startIndex, entry)
 }
 
-const canJoinImageAlbum = (msg) =>
-  Boolean(msg) &&
-  !msg.fromMe &&
-  msg.mediaType === 'image' &&
-  Boolean(msg.mediaUrl) &&
-  !msg.quoted &&
-  !msg.isContactShare
-
-const groupedEntries = computed(() => {
-  const result = []
-  const items = Array.isArray(props.messages) ? props.messages : []
-  const maxGapMs = 90 * 1000
-
-  for (let i = 0; i < items.length; i++) {
-    const current = items[i]
-    if (!canJoinImageAlbum(current)) {
-      result.push({
-        kind: 'single',
-        key: `single-${current?.id || i}`,
-        startIndex: i,
-        primary: current,
-        items: [current]
-      })
-      continue
-    }
-
-    const senderKey = buildSenderKey(current)
-    const albumItems = [current]
-    let j = i + 1
-    while (j < items.length) {
-      const next = items[j]
-      if (!canJoinImageAlbum(next)) break
-      if (buildSenderKey(next) !== senderKey) break
-      const gap = Math.abs(Number(next?.timestamp || 0) - Number(albumItems[albumItems.length - 1]?.timestamp || 0))
-      if (gap > maxGapMs) break
-      albumItems.push(next)
-      j += 1
-    }
-
-    if (albumItems.length > 1) {
-      result.push({
-        kind: 'album',
-        key: `album-${albumItems[0]?.id || i}`,
-        startIndex: i,
-        primary: albumItems[0],
-        items: albumItems
-      })
-      i = j - 1
-      continue
-    }
-
-    result.push({
-      kind: 'single',
-      key: `single-${current?.id || i}`,
-      startIndex: i,
-      primary: current,
-      items: [current]
-    })
-  }
-
-  return result
-})
-
-const albumVisibleItems = (items) => (Array.isArray(items) ? items.slice(0, 4) : [])
-
-const albumOverflowCount = (length, index) => (length > 4 && index === 3 ? length - 4 : 0)
+const imageViewerDisplayUrl = (item) =>
+  String(item?.mediaUrl || item?.mediaThumbUrl || '').trim()
 
 const entryRelatedIds = (entry) => {
   const items = Array.isArray(entry?.items) ? entry.items : []
@@ -626,11 +785,13 @@ const displayText = (entry) => {
   const fromPrimary = strTrim(entry?.primary?.text)
   if (fromPrimary && !entry?.primary?.isContactShare && !props.shouldHideLabel(entry.primary)) return fromPrimary
   if (!Array.isArray(entry?.items) || entry.items.length <= 1) return ''
-  const withText = entry.items.find((item) => {
+  // Legenda de álbum costuma vir na última imagem do lote.
+  for (let k = entry.items.length - 1; k >= 0; k -= 1) {
+    const item = entry.items[k]
     const text = strTrim(item?.text)
-    return text && !item?.isContactShare && !props.shouldHideLabel(item)
-  })
-  return withText ? strTrim(withText.text) : ''
+    if (text && !item?.isContactShare && !props.shouldHideLabel(item)) return text
+  }
+  return ''
 }
 
 const syncImageViewerCurrent = () => {
@@ -638,7 +799,7 @@ const syncImageViewerCurrent = () => {
 }
 
 const openImageViewer = (items, startIndex, entry) => {
-  const safeItems = (Array.isArray(items) ? items : []).filter((item) => item?.mediaUrl)
+  const safeItems = (Array.isArray(items) ? items : []).filter((item) => imageViewerDisplayUrl(item))
   if (!safeItems.length) return
   imageViewer.items = safeItems
   imageViewer.index = Math.max(0, Math.min(Number(startIndex) || 0, safeItems.length - 1))

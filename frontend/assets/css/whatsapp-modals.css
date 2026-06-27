@@ -544,6 +544,217 @@
   }
 }
 
+/* --- Bloquear / desbloquear contato (estilo WhatsApp Web claro) --- */
+.wa-block-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(11, 20, 26, 0.35);
+}
+.wa-block-modal {
+  width: min(440px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(11, 20, 26, 0.18);
+  padding: 24px 24px 20px;
+  color: #111b21;
+}
+.wa-block-modal--compact {
+  padding: 22px 24px 18px;
+}
+.wa-block-modal-title {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #111b21;
+}
+.wa-block-modal-question {
+  margin: 0 0 22px;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: #111b21;
+}
+.wa-block-modal-text {
+  margin: 0 0 18px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #667781;
+}
+.wa-block-report-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 22px;
+  cursor: pointer;
+}
+.wa-block-report-checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: #008069;
+}
+.wa-block-report-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #111b21;
+}
+.wa-block-report-copy strong {
+  font-weight: 600;
+}
+.wa-block-report-sub {
+  color: #667781;
+  font-size: 0.86rem;
+}
+.wa-block-report-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #008069;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.wa-block-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+.wa-block-modal-cancel {
+  border: none;
+  background: transparent;
+  color: #008069;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.wa-block-modal-cancel:hover:not(:disabled) {
+  background: rgba(0, 128, 105, 0.08);
+}
+.wa-block-modal-cancel:disabled,
+.wa-block-modal-danger:disabled,
+.wa-block-modal-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.wa-block-modal-danger {
+  border: none;
+  background: #ea0038;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.wa-block-modal-primary {
+  border: none;
+  background: #111b21;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.wa-block-modal-fade-enter-active,
+.wa-block-modal-fade-leave-active {
+  transition: opacity 0.12s ease;
+}
+.wa-block-modal-fade-enter-active .wa-block-modal,
+.wa-block-modal-fade-leave-active .wa-block-modal {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.wa-block-modal-fade-enter-from,
+.wa-block-modal-fade-leave-to {
+  opacity: 0;
+}
+.wa-block-modal-fade-enter-from .wa-block-modal,
+.wa-block-modal-fade-leave-to .wa-block-modal {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.wa-block-snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  z-index: 10070;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 12px 14px 12px 18px;
+  border-radius: 8px;
+  background: #111b21;
+  color: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+.wa-block-snackbar-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wa-block-snackbar-undo {
+  border: none;
+  background: transparent;
+  color: #ffd279;
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.wa-block-snackbar-undo:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.wa-block-snackbar-close {
+  border: none;
+  background: transparent;
+  color: #8696a0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.wa-block-snackbar-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.wa-block-snackbar-close-icon {
+  width: 16px;
+  height: 16px;
+}
+.wa-block-snackbar-fade-enter-active,
+.wa-block-snackbar-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.wa-block-snackbar-fade-enter-from,
+.wa-block-snackbar-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
+}
+
 .business-profile-empty {
   color: #94a3b8;
   font-size: 0.88rem;

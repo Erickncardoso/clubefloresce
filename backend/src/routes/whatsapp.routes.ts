@@ -8,6 +8,7 @@ const whatsappController = new WhatsappController();
 // Apenas Nutricionistas conseguem gerenciar conexões do WhatsApp
 router.get("/status", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.status);
 router.get("/chats", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.listChats);
+router.post("/chat/details", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getChatDetails.bind(whatsappController));
 router.post("/create", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.create);
 router.post("/connect", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.connect);
 router.post("/connect/regenerate-qr", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.regenerateQrCode);
@@ -20,6 +21,7 @@ router.post("/contact-directory", authenticate, authorize(["NUTRICIONISTA"]), wh
 router.get("/group-observed-senders", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getGroupObservedSenders);
 router.post("/group-observed-senders", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.mergeGroupObservedSenders);
 router.get("/sse", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.sse);
+router.post("/message/markplayed", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.markMessagePlayed.bind(whatsappController));
 router.post("/group/create", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.createGroup);
 router.post("/group/info", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getGroupInfo);
 router.post("/group/inviteInfo", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getGroupInviteInfo);
@@ -40,6 +42,6 @@ router.post("/webhook", whatsappController.webhook);
 
 // --- ROTA PROXY (Repasse automático para todos os endpoints da UazAPI) ---
 // Usa um curinga * para repassar qualquer coisa após /proxy/ com qualquer método HTTP.
-router.all("/proxy/*", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.proxyRequest);
+router.all("/proxy/*", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.proxyRequest.bind(whatsappController));
 
 export default router;

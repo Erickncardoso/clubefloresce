@@ -15,18 +15,39 @@ function parseSsePayload(raw) {
   try {
     const body = JSON.parse(raw)
     const data = body?.data && typeof body.data === 'object' ? body.data : body
+    const chat = body?.chat && typeof body.chat === 'object'
+      ? body.chat
+      : (data?.chat && typeof data.chat === 'object' ? data.chat : undefined)
+    const message = body?.message && typeof body.message === 'object'
+      ? body.message
+      : (data?.message && typeof data.message === 'object' ? data.message : undefined)
     const chatJid = String(
       data?.chatid
       || data?.chatId
       || data?.wa_chatid
       || data?.remoteJid
       || data?.from
+      || chat?.wa_chatid
+      || chat?.chatid
+      || chat?.chatJid
+      || message?.chatid
+      || message?.chatJid
+      || message?.wa_chatid
+      || data?.id
       || data?.key?.remoteJid
       || data?.message?.key?.remoteJid
       || '',
     ).trim()
-    const eventType = String(body?.event || body?.type || 'messages').trim().toLowerCase()
-    return { eventType, chatJid: chatJid || null, at: Date.now() }
+    const eventType = String(body?.event || body?.EventType || body?.type || 'messages').trim().toLowerCase()
+    return {
+      eventType,
+      chatJid: chatJid || null,
+      chat,
+      message,
+      event: body?.event && typeof body.event === 'object' ? body.event : undefined,
+      data: body?.data && typeof body.data === 'object' ? body.data : data,
+      at: Date.now()
+    }
   } catch {
     return null
   }
@@ -36,6 +57,7 @@ function shouldHandleSseEvent(eventType) {
   if (!eventType || eventType === 'ping' || eventType === 'heartbeat') return false
   if (eventType.includes('message')) return true
   if (eventType.includes('chat')) return true
+  if (eventType.includes('presence')) return true
   if (eventType === 'connection') return true
   return false
 }

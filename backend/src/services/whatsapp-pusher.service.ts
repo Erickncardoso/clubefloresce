@@ -1,5 +1,10 @@
 import { WhatsappService } from "./whatsapp.service";
 import { getPusherClient, isPusherConfigured, whatsappPusherChannel } from "../utils/pusher-config";
+import {
+  extractUazapiWebhookChatJid,
+  normalizeUazapiWebhookEventType,
+  parseUazapiGroupMembershipChange,
+} from "../utils/uazapi-webhook-event.util";
 
 const SYNC_EVENT_TYPES = new Set([
   "messages",
@@ -13,6 +18,7 @@ const SYNC_EVENT_TYPES = new Set([
   "chat.update",
   "connection",
   "groups",
+  "group",
   "presence",
   "contacts",
 ]);
@@ -21,9 +27,7 @@ const whatsappService = new WhatsappService();
 
 export class WhatsappPusherService {
   normalizeEventType(payload: unknown): string {
-    if (!payload || typeof payload !== "object") return "unknown";
-    const body = payload as Record<string, unknown>;
-    return String(body.event || body.type || "unknown").trim().toLowerCase();
+    return normalizeUazapiWebhookEventType(payload);
   }
 
   shouldTriggerSync(eventType: string): boolean {
@@ -33,65 +37,7 @@ export class WhatsappPusherService {
   }
 
   extractChatJid(payload: unknown): string | null {
-    if (!payload || typeof payload !== "object") return null;
-    const body = payload as Record<string, unknown>;
-    const data = body.data;
-
-    const pick = (value: unknown): string | null => {
-      const text = typeof value === "string" ? value.trim() : "";
-      return text || null;
-    };
-
-    const rootCandidates = [
-      body.chatid,
-      body.chatId,
-      body.wa_chatid,
-      body.remoteJid,
-    ];
-    for (const candidate of rootCandidates) {
-      const value = pick(candidate);
-      if (value) return value;
-    }
-
-    const nestedCandidates: unknown[] = [];
-
-    if (data && typeof data === "object" && !Array.isArray(data)) {
-      const obj = data as Record<string, unknown>;
-      nestedCandidates.push(
-        obj.chatid,
-        obj.chatId,
-        obj.wa_chatid,
-        obj.remoteJid,
-        obj.from,
-        (obj.key as Record<string, unknown> | undefined)?.remoteJid,
-        (obj.message as Record<string, unknown> | undefined)?.key,
-      );
-      const messageKey = (obj.message as Record<string, unknown> | undefined)?.key;
-      if (messageKey && typeof messageKey === "object") {
-        nestedCandidates.push((messageKey as Record<string, unknown>).remoteJid);
-      }
-    }
-
-    if (Array.isArray(data)) {
-      for (const item of data) {
-        if (!item || typeof item !== "object") continue;
-        const row = item as Record<string, unknown>;
-        nestedCandidates.push(
-          row.chatid,
-          row.chatId,
-          row.wa_chatid,
-          row.remoteJid,
-          (row.key as Record<string, unknown> | undefined)?.remoteJid,
-        );
-      }
-    }
-
-    for (const candidate of nestedCandidates) {
-      const value = pick(candidate);
-      if (value) return value;
-    }
-
-    return null;
+    return extractUazapiWebhookChatJid(payload);
   }
 
   async resolveUserIdFromWebhook(payload: unknown): Promise<string | null> {
@@ -147,14 +93,29 @@ export class WhatsappPusherService {
     if (!pusher) return;
 
     const chatJid = this.extractChatJid(payload);
+    const groupChange = parseUazapiGroupMembershipChange(payload);
+
+    const body = payload as Record<string, unknown>;
+    const chat = body.chat && typeof body.chat === "object" ? body.chat : undefined;
+    const message = body.message && typeof body.message === "object" ? body.message : undefined;
+    const eventPayload = body.event && typeof body.event === "object" && !Array.isArray(body.event) ? body.event : undefined;
+    const dataPayload = body.data && typeof body.data === "object" ? body.data : undefined;
 
     try {
       await pusher.trigger(whatsappPusherChannel(userId), "whatsapp-sync", {
         eventType,
         chatJid,
+        groupChange,
+        chat,
+        message,
+        event: eventPayload,
+        data: dataPayload,
         at: Date.now(),
       });
-      console.log(`[Pusher] whatsapp-sync → ${userId.slice(0, 8)}… (${eventType}${chatJid ? `, ${chatJid}` : ""})`);
+      const groupHint = groupChange
+        ? `, ${groupChange.action}@${groupChange.groupJid}`
+        : (chatJid ? `, ${chatJid}` : "");
+      console.log(`[Pusher] whatsapp-sync → ${userId.slice(0, 8)}… (${eventType}${groupHint})`);
     } catch (error) {
       console.error("[Pusher] Falha ao disparar whatsapp-sync:", error);
     }

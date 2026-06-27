@@ -1,10 +1,18 @@
 <template>
-  <div class="chat-body" ref="chatBodyRef">
-    <!-- Chat de GRUPO: exibe nome e avatar do remetente -->
+  <div class="chat-body">
+    <div class="chat-body-scroll" ref="chatBodyRef">
+    <div v-if="showLoading" class="chat-body-loading" aria-busy="true">
+      <Loader class="spin chat-body-loading-icon" />
+      <span>Carregando mensagens…</span>
+    </div>
+
     <GroupMessageList
-      v-if="isGroup"
-      :messages="messages"
+      v-else-if="isGroup"
+      :messages="displayMessages"
+      :pin-timeline-events="pinTimelineEvents"
+      :loading-older-messages="loadingOlderMessages"
       :action-menu-message-id="actionMenuMessageId"
+      :action-menu-mode="actionMenuMode"
       :downloading-media-by-id="downloadingMediaById"
       :get-sender-name="getSenderName"
       :get-sender-avatar="getSenderAvatar"
@@ -24,6 +32,7 @@
       :on-touch-end="onTouchEnd"
       :on-context-menu="onContextMenu"
       :on-toggle-action-menu="onToggleActionMenu"
+      :on-toggle-reaction-menu="onToggleReactionMenu"
       :on-download-media="onDownloadMedia"
       :on-open-reactions-detail="onOpenReactionsDetail"
       :on-open-conversation="onOpenConversation"
@@ -33,14 +42,19 @@
       :on-text-click="onTextClick"
       :on-jump-to-replied-message="onJumpToRepliedMessage"
       :on-poll-vote="onPollVote"
+      :on-menu-option-click="onMenuOptionClick"
       :on-open-document="onOpenDocument"
+      :on-audio-listened="onAudioListened"
     />
 
-    <!-- Chat PRIVADO: sem nome nem avatar de remetente -->
     <PrivateMessageList
       v-else
-      :messages="messages"
+      :messages="displayMessages"
+      :pin-timeline-events="pinTimelineEvents"
+      :loading-older-messages="loadingOlderMessages"
+      :contact-avatar-url="contactAvatarUrl"
       :action-menu-message-id="actionMenuMessageId"
+      :action-menu-mode="actionMenuMode"
       :downloading-media-by-id="downloadingMediaById"
       :get-shared-contact-avatar="getSharedContactAvatar"
       :is-contact-saved="isContactSaved"
@@ -57,6 +71,7 @@
       :on-touch-end="onTouchEnd"
       :on-context-menu="onContextMenu"
       :on-toggle-action-menu="onToggleActionMenu"
+      :on-toggle-reaction-menu="onToggleReactionMenu"
       :on-download-media="onDownloadMedia"
       :on-open-reactions-detail="onOpenReactionsDetail"
       :on-open-conversation="onOpenConversation"
@@ -66,12 +81,17 @@
       :on-text-click="onTextClick"
       :on-jump-to-replied-message="onJumpToRepliedMessage"
       :on-poll-vote="onPollVote"
+      :on-menu-option-click="onMenuOptionClick"
       :on-open-document="onOpenDocument"
+      :on-audio-listened="onAudioListened"
     />
+
+    </div>
 
     <!-- Painel de ações flutuante e modal de reações -->
     <ChatMessageActionsPanel
       :open-message="openMessage"
+      :action-menu-mode="actionMenuMode"
       :host-style="hostStyle"
       :reaction-style="reactionStyle"
       :menu-style="menuStyle"
@@ -86,6 +106,7 @@
       @copy="$emit('copy', $event)"
       @react-quick="$emit('react-quick', $event)"
       @react-open="$emit('react-open', $event)"
+      @open-reactions-mode="$emit('open-reactions-mode', $event)"
       @react-remove="$emit('react-remove', $event)"
       @forward="$emit('forward', $event)"
       @pin="$emit('pin', $event)"
@@ -104,16 +125,27 @@
 </template>
 
 <script setup>
+import { computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { Loader } from 'lucide-vue-next'
 import GroupMessageList from './GroupMessageList.vue'
 import PrivateMessageList from './PrivateMessageList.vue'
 import ChatMessageActionsPanel from './ChatMessageActionsPanel.vue'
 import { chatBodyRef } from '~/composables/whatsapp/useWhatsappState.js'
+import {
+  stickChatScrollToBottomIfNeeded,
+  bindChatBodyScrollListeners,
+  unbindChatBodyScrollListeners,
+} from '~/composables/whatsapp/useWhatsappScroll.js'
 
 const props = defineProps({
   messages: { type: Array, default: () => [] },
+  pinTimelineEvents: { type: Array, default: () => [] },
+  loadingOlderMessages: { type: Boolean, default: false },
   isGroup: { type: Boolean, default: false },
+  contactAvatarUrl: { type: String, default: '' },
   loadingMessages: { type: Boolean, default: false },
   actionMenuMessageId: { type: String, default: null },
+  actionMenuMode: { type: String, default: 'full' },
   downloadingMediaById: { type: Object, default: () => ({}) },
   chatActionFeedback: { type: String, default: '' },
   // Action panel props
@@ -146,6 +178,7 @@ const props = defineProps({
   onTouchEnd: { type: Function, required: true },
   onContextMenu: { type: Function, required: true },
   onToggleActionMenu: { type: Function, required: true },
+  onToggleReactionMenu: { type: Function, required: true },
   onDownloadMedia: { type: Function, required: true },
   onOpenReactionsDetail: { type: Function, required: true },
   onOpenConversation: { type: Function, required: true },
@@ -155,14 +188,37 @@ const props = defineProps({
   onTextClick: { type: Function, required: true },
   onJumpToRepliedMessage: { type: Function, required: true },
   onPollVote: { type: Function, required: true },
-  onOpenDocument: { type: Function, required: true }
+  onMenuOptionClick: { type: Function, required: true },
+  onOpenDocument: { type: Function, required: true },
+  onAudioListened: { type: Function, default: null }
 })
 
+const displayMessages = computed(() => (Array.isArray(props.messages) ? props.messages : []))
+const showLoading = computed(() => Boolean(props.loadingMessages) && displayMessages.value.length === 0)
+
 defineEmits([
-  'reply', 'copy', 'react-quick', 'react-open', 'react-remove',
+  'reply', 'copy', 'react-quick', 'react-open', 'react-remove', 'open-reactions-mode',
   'forward', 'pin', 'star', 'edit', 'delete',
   'close-reactions-detail', 'reactions-tab-change', 'reactions-row-click'
 ])
 
-// chatBodyRef é importado do state e usado como ref do DOM diretamente
+onMounted(() => {
+  nextTick(() => bindChatBodyScrollListeners())
+})
+
+onUnmounted(() => {
+  unbindChatBodyScrollListeners()
+})
+
+watch(chatBodyRef, (el) => {
+  if (el) nextTick(() => bindChatBodyScrollListeners())
+})
+
+watch(
+  () => displayMessages.value.length,
+  (nextLen, prevLen) => {
+    if (nextLen > prevLen) stickChatScrollToBottomIfNeeded()
+  },
+  { flush: 'post' },
+)
 </script>

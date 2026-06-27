@@ -29,38 +29,40 @@ defineProps({
 .interactive-preview-side {
   position: fixed;
   top: 50%;
-  right: 14px;
+  right: 16px;
   transform: translateY(-50%);
   z-index: 10081;
-  width: clamp(280px, 32vw, 400px);
+  width: clamp(300px, 28vw, 380px);
   pointer-events: none;
 }
 .interactive-preview-side-card {
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: #0b1220;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+  border: 1px solid #e9edef;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(11, 20, 26, 0.12);
   pointer-events: auto;
 }
 .interactive-preview-side-header {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 12px 14px;
+  border-bottom: 1px solid #e9edef;
+  background: #f0f2f5;
 }
 .interactive-preview-side-header h4 {
   margin: 0;
-  font-size: 0.92rem;
-  color: #e2e8f0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #111b21;
 }
 .interactive-preview-side-body {
-  max-height: min(82vh, 760px);
+  max-height: min(78vh, 720px);
   overflow: auto;
-  padding: 4px 8px 8px;
+  padding: 8px 10px 12px;
+  background: #e5ddd5;
 }
 @media (max-width: 1380px) {
   .interactive-preview-side {
-    right: 10px;
-    width: clamp(260px, 40vw, 340px);
+    display: none;
   }
 }
 </style>

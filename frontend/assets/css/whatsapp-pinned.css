@@ -1,0 +1,85 @@
+/* Barra de mensagens fixadas — estilo WhatsApp Web */
+
+.chat-pinned-bar {
+  flex-shrink: 0;
+  background: #f0f2f5;
+  border-bottom: 1px solid #e9edef;
+}
+
+.chat-pinned-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 46px;
+  margin: 0;
+  padding: 0.45rem 1rem 0.45rem 0.75rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s ease;
+}
+
+.chat-pinned-item:hover {
+  background: rgba(11, 20, 26, 0.04);
+}
+
+.chat-pinned-accent {
+  flex-shrink: 0;
+  width: 4px;
+  align-self: stretch;
+  min-height: 30px;
+  border-radius: 2px;
+  background: #8696a0;
+}
+
+.chat-pinned-pin {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: #8696a0;
+}
+
+.chat-pinned-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.chat-pinned-media-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: #667781;
+  stroke-width: 2;
+}
+
+.chat-pinned-text {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: #667781;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-pinned-counter {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #8696a0;
+  letter-spacing: 0.02em;
+  padding-left: 0.2rem;
+}
+
+.chat-pinned-chevron {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  color: #8696a0;
+  margin-left: auto;
+}

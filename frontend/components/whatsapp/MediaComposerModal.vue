@@ -200,7 +200,6 @@ onMounted(() => {
 .media-composer-caption-row { display: flex; align-items: center; gap: 8px; }
 .media-composer-caption { flex: 1; height: 40px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 0 12px; background: #1f2c34; color: #e9edef; }
 .media-composer-emoji-btn { width: 40px; height: 40px; border: none; border-radius: 8px; background: #1f2c34; color: #e9edef; cursor: pointer; }
-.media-composer-emoji-picker { border-radius: 10px; overflow: hidden; max-width: min(360px, 92vw); }
 .media-composer-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .media-composer-file-strip { display: flex; align-items: center; gap: 8px; overflow-x: auto; max-width: calc(100% - 84px); padding-bottom: 2px; }
 .media-composer-file-pill { min-width: 48px; height: 48px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; background: #202c33; color: #e9edef; font-size: 0.76rem; font-weight: 700; cursor: pointer; }

@@ -4,16 +4,18 @@
  */
 import { computed, nextTick } from 'vue'
 import {
-  actionMenuMessageId, messageActionsCoords, replyingTo, reactionsDetailMessage,
-  reactionsDetailTab, optimisticReactionsByNormalizedId, chatActionFeedback,
-  chatBodyRef, messageInputRef, selectedChat, messages
+  actionMenuMessageId, actionMenuMode, messageActionsCoords, replyingTo, reactionsDetailMessage,
+  reactionsDetailTab, optimisticReactionsByNormalizedId, optimisticPinnedByChatJid, optimisticPinTimelineByChatJid, pinnedSnapshotsByChatJid,
+  chatBodyRef, messageInputRef, selectedChat, messages, showChatFeedback,
+  reactionEmojiPickerOpen, reactionPickerFixedStyle, registerReactionPickerOutsideCleanup,
 } from './useWhatsappState.js'
 import { strTrim, normalizeJid, normalizeProviderMessageId, formatJidAsPhoneLine } from './useWhatsappUtils.js'
 import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
 import { parseJsonBodySafe } from './useWhatsappUtils.js'
 import { resolveSenderName, getMessageSenderJid } from './useWhatsappContacts.js'
 import { renderedMessages, extractUazapiJpegThumbDataUrl } from './useWhatsappMessages.js'
-import { refreshSelectedChatMessages } from './useWhatsappChats.js'
+import { refreshSelectedChatMessages, refreshChatPreviewForUserReaction, mergeIncomingWhatsappMessage } from './useWhatsappChats.js'
+import { createOptimisticPinTimelineEvent } from './useWhatsappChatTimeline.js'
 
 // ─── Constantes de layout ─────────────────────────────────────────────────────
 const MESSAGE_ACTIONS_GAP = 10
@@ -26,18 +28,12 @@ const REACTION_OVERLAP_BUBBLE_TOP = 4
 
 export const messageQuickReactions = Object.freeze(['👍', '❤️', '😂', '😮', '😢', '🙏'])
 
-let chatActionFeedbackTimer = null
 const touchMenuState = { timer: null, startX: 0, startY: 0, moved: false }
 const LONG_PRESS_MS = 500
 const LONG_PRESS_MOVE_PX = 12
 
-// ─── Feedback toast ───────────────────────────────────────────────────────────
-
-export const showChatFeedback = (message) => {
-  chatActionFeedback.value = message
-  if (chatActionFeedbackTimer) clearTimeout(chatActionFeedbackTimer)
-  chatActionFeedbackTimer = setTimeout(() => { chatActionFeedback.value = ''; chatActionFeedbackTimer = null }, 3200)
-}
+// Re-export para consumidores que importam deste módulo
+export { showChatFeedback } from './useWhatsappState.js'
 
 // ─── Layout do painel flutuante ───────────────────────────────────────────────
 
@@ -47,7 +43,95 @@ export const messageActionsPreHostStyle = Object.freeze({ position: 'fixed', rig
 export const messageActionsPreReactionStyle = Object.freeze({ width: '100%', visibility: 'hidden', pointerEvents: 'none' })
 export const messageActionsPreMenuStyle = Object.freeze({ width: '100%', maxHeight: '0', overflow: 'hidden', visibility: 'hidden' })
 
+const REACTION_PICKER_W = 352
+const REACTION_PICKER_H = 380
+const REACTION_PICKER_OPEN_GUARD_MS = 400
+
+let reactionPickerOutsideListener = null
+let reactionPickerOpenGuardUntil = 0
+
+const detachReactionPickerOutsideListener = () => {
+  if (typeof document === 'undefined' || !reactionPickerOutsideListener) return
+  document.removeEventListener('pointerdown', reactionPickerOutsideListener, false)
+  reactionPickerOutsideListener = null
+}
+
+const getReactionPickerPortalEl = () => {
+  if (typeof document === 'undefined') return null
+  return document.querySelector('[data-wa-reaction-picker-portal]')
+}
+
+const isReactionPickerMoreButton = (event) => {
+  const el = event?.target
+  if (el && typeof el.closest === 'function' && el.closest('[data-reaction-more-btn]')) return true
+  const path = typeof event?.composedPath === 'function' ? event.composedPath() : []
+  for (const node of path) {
+    if (!node || typeof node !== 'object') continue
+    if (node?.dataset?.reactionMoreBtn != null) return true
+    if (typeof node.closest === 'function' && node.closest('[data-reaction-more-btn]')) return true
+  }
+  return false
+}
+
+export const closeReactionEmojiPicker = () => {
+  reactionEmojiPickerOpen.value = false
+  reactionPickerFixedStyle.value = null
+  reactionPickerOpenGuardUntil = 0
+  detachReactionPickerOutsideListener()
+}
+
+export const openReactionEmojiPicker = (anchorEl) => {
+  reactionEmojiPickerOpen.value = true
+  reactionPickerOpenGuardUntil = Date.now() + REACTION_PICKER_OPEN_GUARD_MS
+  nextTick(() => {
+    updateReactionPickerPosition(anchorEl)
+    detachReactionPickerOutsideListener()
+    reactionPickerOutsideListener = (event) => {
+      if (!reactionEmojiPickerOpen.value) return
+      if (Date.now() < reactionPickerOpenGuardUntil) return
+      if (isInsideReactionPickerPortal(event)) return
+      if (isReactionPickerMoreButton(event)) return
+      closeReactionEmojiPicker()
+    }
+    document.addEventListener('pointerdown', reactionPickerOutsideListener, false)
+  })
+}
+
+export const updateReactionPickerPosition = (anchorEl) => {
+  if (!anchorEl || typeof window === 'undefined') {
+    reactionPickerFixedStyle.value = null
+    return
+  }
+  const rect = anchorEl.getBoundingClientRect()
+  const pickerW = Math.min(REACTION_PICKER_W, window.innerWidth - 16)
+  const pickerH = Math.min(REACTION_PICKER_H, Math.floor(window.innerHeight * 0.42))
+  let left = rect.right - pickerW
+  left = Math.max(8, Math.min(left, window.innerWidth - pickerW - 8))
+  const spaceBelow = window.innerHeight - rect.bottom - 12
+  const openUp = spaceBelow < pickerH && rect.top > spaceBelow + 40
+  reactionPickerFixedStyle.value = openUp
+    ? {
+      position: 'fixed',
+      left: `${left}px`,
+      bottom: `${window.innerHeight - rect.top + 6}px`,
+      width: `${pickerW}px`,
+      height: `${pickerH}px`,
+      '--wa-picker-h': `${pickerH}px`,
+      zIndex: 10055,
+    }
+    : {
+      position: 'fixed',
+      left: `${left}px`,
+      top: `${rect.bottom + 6}px`,
+      width: `${pickerW}px`,
+      height: `${pickerH}px`,
+      '--wa-picker-h': `${pickerH}px`,
+      zIndex: 10055,
+    }
+}
+
 export const layoutMessageActionsPanel = () => {
+  if (reactionEmojiPickerOpen.value) return
   const id = actionMenuMessageId.value
   if (!id || typeof document === 'undefined') { messageActionsCoords.value = null; return }
   const wrap = document.querySelector(`[data-message-actions-anchor="${escapeMessageActionsAnchor(id)}"]`)
@@ -57,31 +141,60 @@ export const layoutMessageActionsPanel = () => {
 
   const rect = bubble.getBoundingClientRect()
   const isOutgoing = wrap.classList.contains('message-out')
+  const reactionsOnly = actionMenuMode.value === 'reactions'
   const vw = window.innerWidth, vh = window.innerHeight
   const menuW = Math.min(MESSAGE_ACTIONS_MENU_W, vw - MESSAGE_ACTIONS_GAP * 2)
   const reactionBarExtra = Math.min(MESSAGE_REACTION_BAR_EXTRA_W, Math.max(0, vw - MESSAGE_ACTIONS_GAP * 2 - menuW - 8))
-  const reactionBarW = isOutgoing ? menuW : menuW + reactionBarExtra
-  const hostW = reactionBarW
+  const reactionBarW = isOutgoing ? Math.max(menuW, 300) : menuW + reactionBarExtra
+  const hostW = reactionsOnly ? reactionBarW : (isOutgoing ? menuW : reactionBarW)
 
-  let stackRight = isOutgoing ? rect.right + MESSAGE_ACTIONS_SIDE_PUSH : rect.right + MESSAGE_ACTIONS_GAP + MESSAGE_ACTIONS_SIDE_PUSH
+  let stackRight = isOutgoing
+    ? rect.right + MESSAGE_ACTIONS_SIDE_PUSH
+    : rect.right + MESSAGE_ACTIONS_GAP + MESSAGE_ACTIONS_SIDE_PUSH
+  if (reactionsOnly) {
+    stackRight = isOutgoing
+      ? rect.right
+      : Math.min(rect.right, vw - MESSAGE_ACTIONS_GAP)
+  }
   stackRight = Math.max(MESSAGE_ACTIONS_GAP + hostW, Math.min(stackRight, vw - MESSAGE_ACTIONS_GAP))
   const rightPx = vw - stackRight
 
   const reactionEl = document.querySelector('.message-actions-floater-host .message-reaction-bar--floater')
-  let hostTop, reactionStyle
-  if (isOutgoing) {
-    hostTop = Math.max(MESSAGE_ACTIONS_TOP_SAFE, rect.top)
-    reactionStyle = { display: 'none' }
+  const reactionBarVisibleStyle = {
+    width: '100%',
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '2px',
+    padding: '6px 8px',
+    visibility: 'visible',
+    pointerEvents: 'auto',
+    flexShrink: 0,
+    alignSelf: isOutgoing ? 'flex-end' : 'stretch',
+  }
+
+  let hostTop, reactionStyle, menuPanelStyle
+  if (reactionsOnly) {
+    let hr = reactionEl?.offsetHeight || 44
+    if (hr < 22) hr = 44
+    hostTop = Math.max(MESSAGE_ACTIONS_GAP, rect.top - hr - 6)
+    reactionStyle = reactionBarVisibleStyle
+    menuPanelStyle = { display: 'none', visibility: 'hidden', pointerEvents: 'none', maxHeight: '0', overflow: 'hidden' }
   } else {
     let hr = reactionEl?.offsetHeight || 46
     if (hr < 22) hr = 46
-    hostTop = Math.max(MESSAGE_ACTIONS_TOP_SAFE, rect.top + REACTION_OVERLAP_BUBBLE_TOP - hr)
-    reactionStyle = { width: '100%', boxSizing: 'border-box', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '7px 10px', visibility: 'visible', pointerEvents: 'auto', flexShrink: 0, alignSelf: 'stretch' }
+    const overlap = isOutgoing ? 0 : REACTION_OVERLAP_BUBBLE_TOP
+    hostTop = Math.max(MESSAGE_ACTIONS_TOP_SAFE, rect.top + overlap - hr)
+    reactionStyle = reactionBarVisibleStyle
   }
 
-  const reactionStackH = isOutgoing ? 0 : (reactionEl?.offsetHeight || 46) + REACTION_MENU_STACK_GAP
-  let menuMaxH = Math.max(160, vh - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 10)
-  if (menuPanelEl) {
+  const reactionStackH = (reactionEl?.offsetHeight || 44) + (reactionsOnly ? 0 : REACTION_MENU_STACK_GAP)
+  let menuMaxH = reactionsOnly
+    ? 0
+    : Math.max(160, vh - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 10)
+  if (!reactionsOnly && menuPanelEl) {
     const mh = menuPanelEl.getBoundingClientRect().height
     const totalH = reactionStackH + mh
     if (totalH > 40 && hostTop + totalH > vh - MESSAGE_ACTIONS_GAP) {
@@ -89,12 +202,45 @@ export const layoutMessageActionsPanel = () => {
       menuMaxH = Math.max(160, vh - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
     }
   }
-  menuMaxH = Math.min(520, menuMaxH)
+  if (!reactionsOnly) menuMaxH = Math.min(520, menuMaxH)
+
+  if (!reactionsOnly) {
+    menuPanelStyle = {
+      width: isOutgoing ? '100%' : `${menuW}px`,
+      maxWidth: isOutgoing ? '100%' : `${menuW}px`,
+      alignSelf: isOutgoing ? 'stretch' : 'flex-end',
+      maxHeight: `${menuMaxH}px`,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      flex: '1 1 auto',
+      minHeight: 0,
+      boxSizing: 'border-box',
+      visibility: 'visible',
+      pointerEvents: 'auto',
+    }
+  }
 
   messageActionsCoords.value = {
-    hostStyle: { position: 'fixed', right: `${rightPx}px`, left: 'auto', top: `${hostTop}px`, width: `${hostW}px`, minWidth: `${hostW}px`, maxWidth: `${hostW}px`, display: 'flex', flexDirection: 'column', alignItems: isOutgoing ? 'stretch' : 'flex-end', gap: `${REACTION_MENU_STACK_GAP}px`, zIndex: 10040, visibility: 'visible', pointerEvents: 'auto', boxSizing: 'border-box' },
+    hostStyle: {
+      position: 'fixed',
+      right: `${rightPx}px`,
+      left: 'auto',
+      top: `${hostTop}px`,
+      width: `${hostW}px`,
+      minWidth: `${hostW}px`,
+      maxWidth: `${hostW}px`,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: reactionsOnly ? (isOutgoing ? 'flex-end' : 'flex-end') : (isOutgoing ? 'stretch' : 'flex-end'),
+      gap: `${REACTION_MENU_STACK_GAP}px`,
+      zIndex: 10040,
+      visibility: 'visible',
+      pointerEvents: 'none',
+      boxSizing: 'border-box',
+    },
     reactionStyle,
-    menuPanelStyle: { width: isOutgoing ? '100%' : `${menuW}px`, maxWidth: isOutgoing ? '100%' : `${menuW}px`, alignSelf: isOutgoing ? 'stretch' : 'flex-end', maxHeight: `${menuMaxH}px`, overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, boxSizing: 'border-box', visibility: 'visible', pointerEvents: 'auto' }
+    menuPanelStyle,
   }
 }
 
@@ -148,14 +294,39 @@ export const clearTouchMenuTimer = () => {
 export const openMessageActionMenu = (e, msg) => {
   e?.preventDefault?.()
   if (msg?.isContactShare) return
+  actionMenuMode.value = 'full'
   actionMenuMessageId.value = msg.id
 }
 
 export const toggleMessageActionMenu = (e, msg) => {
   e?.stopPropagation?.()
   e?.preventDefault?.()
-  if (actionMenuMessageId.value === msg.id) actionMenuMessageId.value = null
-  else actionMenuMessageId.value = msg.id
+  if (actionMenuMessageId.value === msg.id && actionMenuMode.value === 'full') {
+    actionMenuMessageId.value = null
+    actionMenuMode.value = 'full'
+    return
+  }
+  actionMenuMode.value = 'full'
+  actionMenuMessageId.value = msg.id
+}
+
+export const toggleMessageReactionMenu = (e, msg) => {
+  e?.stopPropagation?.()
+  e?.preventDefault?.()
+  if (msg?.isContactShare) return
+  if (actionMenuMessageId.value === msg.id && actionMenuMode.value === 'reactions') {
+    actionMenuMessageId.value = null
+    actionMenuMode.value = 'full'
+    return
+  }
+  actionMenuMode.value = 'reactions'
+  actionMenuMessageId.value = msg.id
+}
+
+export const openMessageReactionMenu = (msg) => {
+  if (msg?.isContactShare) return
+  actionMenuMode.value = 'reactions'
+  actionMenuMessageId.value = msg.id
 }
 
 export const onMessageTouchStart = (e, msg) => {
@@ -178,27 +349,106 @@ export const onMessageTouchMove = (e) => {
 
 export const onMessageTouchEnd = () => clearTouchMenuTimer()
 
+const isInsideReactionPickerPortal = (event) => {
+  const portal = getReactionPickerPortalEl()
+  if (portal) {
+    const path = typeof event?.composedPath === 'function' ? event.composedPath() : []
+    if (path.includes(portal)) return true
+    for (const node of path) {
+      if (node === portal) return true
+    }
+  }
+
+  const el = event?.target
+  if (el && typeof el.closest === 'function') {
+    if (el.closest('[data-wa-reaction-picker-portal]')) return true
+    if (el.closest('.message-reaction-picker-portal')) return true
+  }
+  if (portal && el && (portal === el || portal.contains(el))) return true
+
+  const path = typeof event?.composedPath === 'function' ? event.composedPath() : []
+  for (const node of path) {
+    if (!node || typeof node !== 'object') continue
+    if (node.classList?.contains?.('message-reaction-picker-portal')) return true
+    if (String(node.tagName || '').toUpperCase() === 'EM-EMOJI-PICKER') return true
+    if (String(node.getAttribute?.('data-wa-reaction-picker-portal') || '') === 'true') return true
+  }
+  return false
+}
+
+export const isInsideAnyEmojiPicker = (event) => {
+  if (isInsideReactionPickerPortal(event)) return true
+  const path = typeof event?.composedPath === 'function' ? event.composedPath() : []
+  for (const node of path) {
+    if (!node || typeof node !== 'object') continue
+    if (node.classList?.contains?.('footer-emoji-picker-wrap')) return true
+    if (String(node.tagName || '').toUpperCase() === 'EM-EMOJI-PICKER') return true
+  }
+  const el = event?.target
+  if (el && typeof el.closest === 'function') {
+    if (el.closest('.footer-emoji-picker-wrap')) return true
+    if (el.closest('em-emoji-picker')) return true
+  }
+  return false
+}
+
+export const isInsideMessageActionsUi = (event) => {
+  if (isInsideAnyEmojiPicker(event)) return true
+  if (isInsideReactionPickerPortal(event)) return true
+  const el = event?.target
+  if (el && typeof el.closest === 'function') {
+    if (
+      el.closest('.message-actions-floater-host') ||
+      el.closest('.message-reaction-picker-pop') ||
+      el.closest('.message-bubble-wrapper.is-actions-open') ||
+      el.closest('.msg-reaction-hint')
+    ) return true
+  }
+  const path = typeof event?.composedPath === 'function' ? event.composedPath() : []
+  for (const node of path) {
+    if (!node || typeof node !== 'object') continue
+    const tag = String(node.tagName || '').toUpperCase()
+    if (tag === 'EM-EMOJI-PICKER') return true
+    if (node.classList?.contains?.('message-actions-floater-host')) return true
+    if (node.classList?.contains?.('message-reaction-picker-pop')) return true
+    if (node.classList?.contains?.('message-actions-floater-inner')) return true
+  }
+  return false
+}
+
 export const onGlobalPointerDown = (e) => {
+  if (isInsideAnyEmojiPicker(e)) return
   const el = e.target
   if (reactionsDetailMessage.value) {
     if (el && typeof el.closest === 'function' && el.closest('.reactions-detail-modal')) return
     reactionsDetailMessage.value = null
   }
   if (actionMenuMessageId.value == null) return
-  if (el && typeof el.closest === 'function') {
-    if (el.closest('.message-bubble-wrapper.is-actions-open') || el.closest('.message-actions-floater-host')) return
-  }
+  if (isInsideMessageActionsUi(e)) return
+  if (reactionEmojiPickerOpen.value) closeReactionEmojiPicker()
   actionMenuMessageId.value = null
+  actionMenuMode.value = 'full'
 }
 
 export const onGlobalKeydown = (e) => {
   if (e.key !== 'Escape') return
   if (reactionsDetailMessage.value) { reactionsDetailMessage.value = null; return }
-  if (actionMenuMessageId.value) { actionMenuMessageId.value = null; return }
+  if (reactionEmojiPickerOpen.value) { closeReactionEmojiPicker(); return }
+  if (actionMenuMessageId.value) {
+    closeReactionEmojiPicker()
+    actionMenuMessageId.value = null
+    actionMenuMode.value = 'full'
+    return
+  }
   if (replyingTo.value) replyingTo.value = null
 }
 
 export const onMessageActionsWindowResize = () => {
+  if (reactionEmojiPickerOpen.value) {
+    const btn = document.querySelector('[data-reaction-more-btn]')
+    if (btn) updateReactionPickerPosition(btn)
+    return
+  }
   if (actionMenuMessageId.value) layoutMessageActionsPanel()
 }
 
@@ -217,12 +467,72 @@ const buildChatNumberForReact = () => {
   return number
 }
 
-export const sendMessageReaction = async (msg, emoji) => {
+const applyOptimisticReaction = (msg, id, payload) => {
+  const optKey = normalizeProviderMessageId(id)
+  const rawTrim = String(id).trim()
+  const aliasKeys = [optKey, rawTrim, msg.normalizedMessageId, msg.normalizedInternalId, String(msg.id || '').trim()]
+    .map((k) => strTrim(k))
+    .filter(Boolean)
+  const uniqueAliases = [...new Set(aliasKeys)]
+
+  if (!payload || payload.removed) {
+    const entry = { removed: true, ts: Date.now() }
+    const patch = {}
+    for (const k of uniqueAliases) patch[k] = entry
+    optimisticReactionsByNormalizedId.value = { ...optimisticReactionsByNormalizedId.value, ...patch }
+    return
+  }
+
+  const entry = { emoji: payload.emoji, ts: payload.ts || Date.now() }
+  const patch = {}
+  for (const k of uniqueAliases) patch[k] = entry
+  optimisticReactionsByNormalizedId.value = { ...optimisticReactionsByNormalizedId.value, ...patch }
+}
+
+const clearOptimisticReaction = (msg, id) => {
+  const optKey = normalizeProviderMessageId(id)
+  const rawTrim = String(id).trim()
+  const next = { ...optimisticReactionsByNormalizedId.value }
+  for (const k of [optKey, rawTrim, msg.normalizedMessageId, msg.normalizedInternalId, String(msg.id || '').trim()]) {
+    const key = strTrim(k)
+    if (key) delete next[key]
+  }
+  optimisticReactionsByNormalizedId.value = next
+}
+
+const resolveReactionToggleText = (msg, emoji) => {
   const text = emoji === undefined || emoji === null ? '' : String(emoji)
+  if (text === '') return ''
+  const id = String(msg.messageid || msg.id || '').trim()
+  const optKey = normalizeProviderMessageId(id)
+  const optEntry = optKey ? optimisticReactionsByNormalizedId.value[optKey] : null
+  if (optEntry?.removed) return text
+  const optEmoji = strTrim(String(optEntry?.emoji || ''))
+  const myRow = Array.isArray(msg.reactions) ? msg.reactions.find((r) => r.fromMe) : null
+  const currentEmoji = optEmoji || strTrim(String(myRow?.emoji || ''))
+  return currentEmoji === strTrim(text) ? '' : text
+}
+
+export const sendMessageReaction = async (msg, emoji) => {
+  const text = resolveReactionToggleText(msg, emoji)
   if (text !== '' && msg.fromMe) { showChatFeedback('Só é possível reagir a mensagens enviadas por outras pessoas'); return }
   const id = String(msg.messageid || msg.id || '').trim()
   const number = buildChatNumberForReact()
   if (!id || !number) { showChatFeedback('Chat ou ID da mensagem inválido para reagir'); return }
+
+  actionMenuMessageId.value = null
+  actionMenuMode.value = 'full'
+  if (reactionsDetailMessage.value?.id === msg.id) reactionsDetailMessage.value = null
+
+  const previousSnap = { ...optimisticReactionsByNormalizedId.value }
+  applyOptimisticReaction(msg, id, text === '' ? { removed: true } : { emoji: text, ts: Date.now() })
+
+  if (text === '') {
+    refreshChatPreviewForUserReaction(msg, '', { removed: true })
+  } else {
+    refreshChatPreviewForUserReaction(msg, text, { removed: false })
+  }
+
   const proxyBase = getProxyBase()
   try {
     const res = await fetch(`${proxyBase}/message/react`, {
@@ -233,28 +543,33 @@ export const sendMessageReaction = async (msg, emoji) => {
     const data = await parseJsonBodySafe(res)
     if (typeof data?.success === 'boolean' && data.success === false) throw new Error(data?.message || data?.error || 'Falha ao enviar reação')
     if (!res.ok) throw new Error(data?.message || data?.error || 'Falha ao enviar reação')
-    actionMenuMessageId.value = null
-    if (reactionsDetailMessage.value?.id === msg.id) reactionsDetailMessage.value = null
+
     const optKey = normalizeProviderMessageId(id)
-    let optimisticEmoji = text, optimisticTs = Date.now()
     const rx = data && typeof data === 'object' ? data.reaction : null
-    if (rx && typeof rx === 'object' && strTrim(String(rx.emoji || ''))) { optimisticEmoji = String(rx.emoji); optimisticTs = Number(rx.timestamp) || Date.now() }
-    if (text !== '') {
-      const extraKeys = {}
-      const rid = rx?.id != null ? normalizeProviderMessageId(String(rx.id)) : ''
-      if (rid && rid !== optKey) extraKeys[rid] = { emoji: optimisticEmoji, ts: optimisticTs }
-      const rawTrim = String(id).trim()
-      if (rawTrim && rawTrim !== optKey && rawTrim !== rid) extraKeys[rawTrim] = { emoji: optimisticEmoji, ts: optimisticTs }
-      optimisticReactionsByNormalizedId.value = { ...optimisticReactionsByNormalizedId.value, ...(optKey ? { [optKey]: { emoji: optimisticEmoji, ts: optimisticTs } } : {}), ...extraKeys }
+    if (text === '') {
+      clearOptimisticReaction(msg, id)
     } else {
-      const next = { ...optimisticReactionsByNormalizedId.value }
-      if (optKey) delete next[optKey]
-      delete next[String(id).trim()]
-      optimisticReactionsByNormalizedId.value = next
+      let optimisticEmoji = text
+      let optimisticTs = Date.now()
+      if (rx && typeof rx === 'object' && strTrim(String(rx.emoji || ''))) {
+        optimisticEmoji = String(rx.emoji)
+        optimisticTs = Number(rx.timestamp) || Date.now()
+      }
+      applyOptimisticReaction(msg, id, { emoji: optimisticEmoji, ts: optimisticTs })
+      const rid = rx?.id != null ? normalizeProviderMessageId(String(rx.id)) : ''
+      if (rid && rid !== optKey) {
+        optimisticReactionsByNormalizedId.value = {
+          ...optimisticReactionsByNormalizedId.value,
+          [rid]: { emoji: optimisticEmoji, ts: optimisticTs },
+        }
+      }
     }
-    await refreshSelectedChatMessages()
-    showChatFeedback(text === '' ? 'Reação removida' : 'Reação enviada')
-  } catch (err) { console.error('Erro ao reagir', err); showChatFeedback(err instanceof Error ? err.message : 'Não foi possível reagir') }
+    void refreshSelectedChatMessages()
+  } catch (err) {
+    optimisticReactionsByNormalizedId.value = previousSnap
+    console.error('Erro ao reagir', err)
+    showChatFeedback(err instanceof Error ? err.message : 'Não foi possível reagir')
+  }
 }
 
 export const onReactionsDetailRowClick = async (row) => {
@@ -346,15 +661,69 @@ export const editThisMessageText = async (msg) => {
 }
 
 export const pinThisMessageInChat = async (msg) => {
-  const id = msg.messageid || msg.id
+  const id = msg.normalizedMessageId || msg.messageid || msg.id
   if (!id) return
+  const chatJid = normalizeJid(selectedChat.value?.chatJid || '')
   const proxyBase = getProxyBase()
   try {
     const res = await fetch(`${proxyBase}/message/pin`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }, body: JSON.stringify({ id }) })
     const data = await parseJsonBodySafe(res)
     if (!res.ok) throw new Error(data?.message || data?.error || 'Falha ao fixar')
+    const targetId = normalizeProviderMessageId(data.targetMessageID || data.targetMessageId || id)
+    const pinned = data.pinned !== false
+    if (chatJid && targetId) {
+      const snapshot = pinned ? { ...msg, normalizedMessageId: targetId } : null
+      optimisticPinnedByChatJid.value = {
+        ...optimisticPinnedByChatJid.value,
+        [chatJid]: {
+          messageId: targetId,
+          pinned,
+          snapshot,
+        },
+      }
+      if (snapshot) {
+        pinnedSnapshotsByChatJid.value = {
+          ...pinnedSnapshotsByChatJid.value,
+          [chatJid]: {
+            ...(pinnedSnapshotsByChatJid.value[chatJid] || {}),
+            [targetId]: snapshot,
+          },
+        }
+      } else {
+        const prev = { ...(pinnedSnapshotsByChatJid.value[chatJid] || {}) }
+        delete prev[targetId]
+        pinnedSnapshotsByChatJid.value = {
+          ...pinnedSnapshotsByChatJid.value,
+          [chatJid]: prev,
+        }
+      }
+      const timelineEvent = createOptimisticPinTimelineEvent(pinned)
+      optimisticPinTimelineByChatJid.value = {
+        ...optimisticPinTimelineByChatJid.value,
+        [chatJid]: [
+          ...(Array.isArray(optimisticPinTimelineByChatJid.value[chatJid])
+            ? optimisticPinTimelineByChatJid.value[chatJid]
+            : []),
+          timelineEvent,
+        ],
+      }
+    }
     actionMenuMessageId.value = null
+    showChatFeedback(pinned ? 'Mensagem fixada' : 'Mensagem desafixada')
+    if (data && typeof data === 'object') {
+      mergeIncomingWhatsappMessage(data, chatJid)
+    }
     await refreshSelectedChatMessages()
+    if (chatJid && !pinned) {
+      const { [chatJid]: _removed, ...rest } = optimisticPinnedByChatJid.value
+      optimisticPinnedByChatJid.value = rest
+      const prev = { ...(pinnedSnapshotsByChatJid.value[chatJid] || {}) }
+      delete prev[targetId]
+      pinnedSnapshotsByChatJid.value = {
+        ...pinnedSnapshotsByChatJid.value,
+        [chatJid]: prev,
+      }
+    }
   } catch (err) { console.error('Erro ao fixar mensagem', err); showChatFeedback('Não foi possível fixar') }
 }
 
@@ -436,13 +805,16 @@ export function useWhatsappMessageActions() {
     messageActionsHostInlineStyle, messageActionsReactionInlineStyle, messageActionsMenuInlineStyle,
     messageActionsPreHostStyle, messageActionsPreReactionStyle, messageActionsPreMenuStyle,
     openActionMenuMessage, reactionsDetailEmojiTabs, reactionsDetailListRows,
-    clearTouchMenuTimer, openMessageActionMenu, toggleMessageActionMenu,
+    clearTouchMenuTimer, openMessageActionMenu, toggleMessageActionMenu, toggleMessageReactionMenu, openMessageReactionMenu,
     onMessageTouchStart, onMessageTouchMove, onMessageTouchEnd,
-    onGlobalPointerDown, onGlobalKeydown, onMessageActionsWindowResize,
+    onGlobalPointerDown, onGlobalKeydown, onMessageActionsWindowResize, isInsideMessageActionsUi, isInsideAnyEmojiPicker,
     openReactionsDetail, sendMessageReaction, onReactionsDetailRowClick, onReactMenuItem,
     startReplyToMessage, clearReplyingTo, copyMessagePlain,
     deleteThisMessageForAll, editThisMessageText, pinThisMessageInChat,
     forwardMessageStub, starMessageStub, onFormattedMessageClick,
-    triggerFilePicker, handleMediaSelection
+    triggerFilePicker, handleMediaSelection,
+    openReactionEmojiPicker, closeReactionEmojiPicker,
   }
 }
+
+registerReactionPickerOutsideCleanup(closeReactionEmojiPicker)

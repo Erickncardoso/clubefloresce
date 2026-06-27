@@ -36,9 +36,12 @@ import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "./utils/media
 import { startCheckInDispatchScheduler } from "./jobs/checkin-weekly-dispatch.job";
 import { startMealReminderDispatchScheduler } from "./jobs/meal-reminder-dispatch.job";
 import { startWhatsappMobilePresenceScheduler } from "./jobs/whatsapp-mobile-presence.job";
+import { startWhatsappDevMessageLog } from "./jobs/whatsapp-dev-message-log.job";
 import { assertJwtSecretOnBoot } from "./utils/jwt";
 import { isVapidConfigured } from "./utils/vapid-config";
 import { isPusherConfigured } from "./utils/pusher-config";
+import { getDevTunnelWebhookUrl } from "./utils/dev-tunnel-url";
+import { isBackblazeB2Configured } from "./utils/media/backblaze-config";
 import {
   getEmailFromContact,
   getEmailFromNoreply,
@@ -172,6 +175,13 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   } else {
     console.warn("[Pusher] PUSHER_* ausente — WhatsApp usará apenas polling.");
   }
+  const tunnelWebhook = getDevTunnelWebhookUrl();
+  if (tunnelWebhook) {
+    console.log(`[Tunnel] Cloudflare ativo — webhook: ${tunnelWebhook}`);
+  }
+  if (isBackblazeB2Configured()) {
+    console.log("[WhatsApp Media] Backblaze B2 ativo — mídias do chat serão arquivadas.");
+  }
   if (isResendConfigured()) {
     console.log(
       `[Email] Resend configurado — contato: ${getEmailFromContact()} | noreply: ${getEmailFromNoreply()}`
@@ -224,6 +234,7 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   console.log("[MealReminder] Agendador ativo — lembretes nos horários do plano alimentar.");
   startWhatsappMobilePresenceScheduler();
   console.log("[WhatsApp] Presença unavailable ativa — celular continua recebendo notificações.");
+  startWhatsappDevMessageLog();
 });
 
 server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;

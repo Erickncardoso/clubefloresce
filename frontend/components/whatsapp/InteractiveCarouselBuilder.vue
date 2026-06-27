@@ -10,30 +10,53 @@
         <strong>Cartão {{ cardIdx + 1 }}</strong>
         <button type="button" class="carousel-remove-card" :disabled="disabled || cards.length === 1" @click="removeCard(cardIdx)">Remover</button>
       </div>
-      <input v-model="card.text" class="carousel-input" type="text" placeholder="Texto do cartão" :disabled="disabled" @input="syncOut" />
-      <input v-model="card.image" class="carousel-input" type="text" placeholder="URL da imagem (opcional)" :disabled="disabled" @input="syncOut" />
+      <div class="field field--float carousel-field">
+        <label :for="`carousel-text-${cardIdx}`">Texto do cartão</label>
+        <input :id="`carousel-text-${cardIdx}`" v-model="card.text" class="cf-squircle cf-squircle--control" type="text" placeholder="Texto do cartão" :disabled="disabled" @input="syncOut" />
+      </div>
+      <div class="field field--float carousel-field">
+        <label :for="`carousel-image-${cardIdx}`">URL da imagem</label>
+        <input :id="`carousel-image-${cardIdx}`" v-model="card.image" class="cf-squircle cf-squircle--control" type="text" placeholder="Opcional" :disabled="disabled" @input="syncOut" />
+      </div>
 
       <div class="carousel-actions">
         <div v-for="(btn, btnIdx) in card.buttons" :key="`btn-${cardIdx}-${btnIdx}`" class="carousel-action-row">
-          <input v-model="btn.text" class="carousel-input" type="text" placeholder="Texto do botão" :disabled="disabled" @input="syncOut" />
-          <select v-model="btn.type" class="carousel-input carousel-select" :disabled="disabled" @change="syncOut">
-            <option value="REPLY">REPLY</option>
-            <option value="URL">URL</option>
-            <option value="COPY">COPY</option>
-            <option value="CALL">CALL</option>
-          </select>
-          <input v-model="btn.id" class="carousel-input" type="text" placeholder="ID/URL/telefone" :disabled="disabled" @input="syncOut" />
-          <button type="button" class="carousel-remove-btn" :disabled="disabled || card.buttons.length === 1" @click="removeButton(cardIdx, btnIdx)">-</button>
+          <div class="field field--float carousel-field">
+            <label :for="`carousel-btn-text-${cardIdx}-${btnIdx}`">Texto</label>
+            <input :id="`carousel-btn-text-${cardIdx}-${btnIdx}`" v-model="btn.text" class="cf-squircle cf-squircle--control" type="text" placeholder="Texto do botão" :disabled="disabled" @input="syncOut" />
+          </div>
+          <div class="field field--float carousel-field carousel-field--type">
+            <label :for="`carousel-btn-type-${cardIdx}-${btnIdx}`">Tipo</label>
+            <SharedCfSelect
+              :id="`carousel-btn-type-${cardIdx}-${btnIdx}`"
+              v-model="btn.type"
+              :options="actionTypeOptions"
+              :disabled="disabled"
+              @update:model-value="syncOut"
+            />
+          </div>
+          <div class="field field--float carousel-field">
+            <label :for="`carousel-btn-id-${cardIdx}-${btnIdx}`">Valor</label>
+            <input :id="`carousel-btn-id-${cardIdx}-${btnIdx}`" v-model="btn.id" class="cf-squircle cf-squircle--control" type="text" placeholder="ID/URL/telefone" :disabled="disabled" @input="syncOut" />
+          </div>
+          <button type="button" class="carousel-remove-btn" :disabled="disabled || card.buttons.length === 1" @click="removeButton(cardIdx, btnIdx)">−</button>
         </div>
-        <button type="button" class="carousel-add-btn" :disabled="disabled" @click="addButton(cardIdx)">+ Botão</button>
+        <button type="button" class="btn-secondary carousel-add-btn" :disabled="disabled" @click="addButton(cardIdx)">+ Botão</button>
       </div>
     </div>
-    <button type="button" class="carousel-add-card" :disabled="disabled" @click="addCard">+ Cartão</button>
+    <button type="button" class="btn-primary carousel-add-card" :disabled="disabled" @click="addCard">+ Cartão</button>
   </section>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
+
+const actionTypeOptions = [
+  { value: 'REPLY', label: 'REPLY' },
+  { value: 'URL', label: 'URL' },
+  { value: 'COPY', label: 'COPY' },
+  { value: 'CALL', label: 'CALL' }
+]
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -92,44 +115,91 @@ const removeButton = (cardIdx, btnIdx) => {
 </script>
 
 <style scoped>
-.carousel-builder { display: grid; gap: 12px; margin-top: 8px; }
-.carousel-builder-hint { margin: 0; color: #94a3b8; font-size: .82rem; }
+.carousel-builder { display: grid; gap: 12px; min-width: 0; }
+.carousel-builder-hint { margin: 0; color: #66706e; font-size: 0.82rem; }
 .carousel-builder-help {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: flex-start;
   gap: 8px;
-  color: #cbd5e1;
-  font-size: 0.8rem;
+  color: #66706e;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  padding: 10px 12px;
+  background: #f4f7f6;
+  border-radius: var(--cf-radius-md);
+  border: 1.5px solid #e8ece9;
 }
 .carousel-builder-help-badge {
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(34,197,94,.2);
-  color: #22c55e;
-  font-weight: 800;
+  background: rgba(139, 150, 124, 0.18);
+  color: var(--primary, #8B967C);
+  font-weight: 700;
+  font-size: 0.72rem;
 }
-.carousel-card-editor { border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 10px; display: grid; gap: 8px; }
-.carousel-card-head { display: flex; align-items: center; justify-content: space-between; }
-.carousel-input { width: 100%; height: 40px; border: 1px solid rgba(255,255,255,.18); border-radius: 10px; background: transparent; color: #f3f4f6; padding: 0 10px; outline: none; }
-.carousel-input:focus { border-color: #22c55e; }
-.carousel-select {
-  max-width: 120px;
-  background: #0b1220;
-  color: #f3f4f6;
+.carousel-card-editor {
+  border: 1.5px solid #e8ece9;
+  border-radius: var(--cf-radius-md);
+  padding: 14px 12px 12px;
+  display: grid;
+  gap: 10px;
+  background: #f4f7f6;
+  min-width: 0;
 }
-.carousel-select option {
-  background: #f8fafc;
-  color: #0f172a;
+.carousel-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #333d3b;
+  font-size: 0.88rem;
 }
-.carousel-actions { display: grid; gap: 8px; }
-.carousel-action-row { display: grid; grid-template-columns: 1fr 120px 1fr 34px; gap: 8px; align-items: center; }
-.carousel-remove-btn,.carousel-add-btn,.carousel-add-card,.carousel-remove-card {
-  border: 0; border-radius: 8px; cursor: pointer; padding: 0 10px; height: 34px;
-  background: rgba(34,197,94,.2); color: #22c55e; font-weight: 700;
+.carousel-field { margin-top: 0; min-width: 0; }
+.carousel-field :deep(label) { background: #f4f7f6; }
+.carousel-field--type :deep(.cf-select-trigger) { min-height: 2.75rem; }
+.carousel-actions { display: grid; gap: 10px; min-width: 0; }
+.carousel-action-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 10px 10px;
+  background: #fff;
+  border-radius: var(--cf-radius-sm);
+  border: 1.5px solid #e8ece9;
 }
-.carousel-remove-btn,.carousel-remove-card { background: rgba(148,163,184,.2); color: #cbd5e1; }
+@media (min-width: 640px) {
+  .carousel-action-row {
+    grid-template-columns: 1fr 120px 1fr 34px;
+    padding: 12px 10px 8px;
+  }
+}
+.carousel-remove-btn {
+  border: 0;
+  background: transparent;
+  color: #8696a0;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  height: 34px;
+  align-self: center;
+}
+.carousel-remove-btn:hover:not(:disabled) { color: #b3261e; }
+.carousel-add-btn,
+.carousel-add-card { min-height: 2.5rem; font-size: 0.88rem; }
+.carousel-add-card { width: 100%; }
+.carousel-remove-card {
+  border: 0;
+  background: transparent;
+  color: #8696a0;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 6px;
+}
+.carousel-remove-card:hover:not(:disabled) { color: #b3261e; }
 </style>

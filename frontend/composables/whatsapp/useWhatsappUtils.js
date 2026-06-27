@@ -30,6 +30,14 @@ export const extractDigitsFromJid = (value) => {
 
 export const isGroupJid = (jid) => normalizeJid(jid).endsWith('@g.us')
 
+export const getStoredSessionJid = () => {
+  if (typeof window === 'undefined') return ''
+  return normalizeJid(String(localStorage.getItem('wa_session_jid') || '').trim())
+}
+
+export const isGroupAnnounceRestricted = (groupInfo) =>
+  Boolean(groupInfo?.IsAnnounce ?? groupInfo?.isAnnounce ?? groupInfo?.announce)
+
 export const extractWhatsappNumber = (value) => {
   const jid = normalizeJid(value)
   if (!jid) return ''
@@ -71,10 +79,220 @@ export const parseLooseMessageContent = (msg) => {
       const o = JSON.parse(t)
       return o && typeof o === 'object' ? o : {}
     } catch {
-      return {}
+      // UAZAPI envia Conversation/ContactMessage como texto plano em content
+      return { conversation: t }
     }
   }
   return {}
+}
+
+/** Parseia sendPayload / convertOptions quando vem string JSON (UAZAPI). */
+export const parseLooseJsonNode = (raw) => {
+  if (raw == null) return null
+  if (typeof raw === 'object') return raw
+  const text = strTrim(raw)
+  if (!text) return null
+  try {
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+const normalizeContactPhoneDigits = (value) => {
+  const raw = strTrim(value)
+  if (!raw) return ''
+  const waidMatch = raw.match(/waid=(\d{8,})/i)
+  if (waidMatch?.[1]) return waidMatch[1]
+  return raw.replace(/[^\d+]/g, '').replace(/^\+/, '').trim()
+}
+
+const pickFirstContactPhone = (value) => {
+  const text = strTrim(value)
+  if (!text) return ''
+  const first = text.split(/[,;]/).map((part) => part.trim()).find(Boolean) || ''
+  return normalizeContactPhoneDigits(first)
+}
+
+const parseVcardContactFields = (vcardText) => {
+  const vcard = String(vcardText || '').trim()
+  if (!vcard) return { name: '', phone: '' }
+  const fnMatch = vcard.match(/^FN:([^\n\r]+)/im)
+  const nMatch = vcard.match(/^N:([^\n\r]+)/im)
+  let name = strTrim(fnMatch?.[1])
+  if (!name && nMatch?.[1]) {
+    const parts = nMatch[1].split(';').map((part) => strTrim(part)).filter(Boolean)
+    name = parts.length >= 2 ? `${parts[1]} ${parts[0]}`.trim() : parts[0] || ''
+  }
+  const waidMatch = vcard.match(/waid=(\d{8,})/i)
+  const telMatch = vcard.match(/TEL[^:\n]*:([+\d][\d\s().-]{6,})/i)
+  const phone = waidMatch?.[1] || normalizeContactPhoneDigits(telMatch?.[1])
+  return { name, phone }
+}
+
+const parsePlainContactShareText = (text) => {
+  const plain = strTrim(text)
+  if (!plain) return { name: '', phone: '' }
+  const phoneLine = plain.match(/^(.+?)\s+Phone:\s*(.+)$/i)
+  if (!phoneLine) return { name: '', phone: '' }
+  return {
+    name: strTrim(phoneLine[1]),
+    phone: normalizeContactPhoneDigits(phoneLine[2])
+  }
+}
+
+const collectUazapiContactNodes = (content) => {
+  if (!content || typeof content !== 'object') return []
+  const nodes = [
+    content.contactMessage,
+    content.ContactMessage,
+    content.message?.contactMessage,
+    content.message?.ContactMessage,
+    content.ephemeralMessage?.message?.contactMessage,
+    content.ephemeralMessage?.message?.ContactMessage,
+    content.viewOnceMessage?.message?.contactMessage,
+    content.viewOnceMessage?.message?.ContactMessage,
+    content.viewOnceMessageV2?.message?.contactMessage,
+    content.viewOnceMessageV2?.message?.ContactMessage
+  ].filter(Boolean)
+
+  const arrayNodes = [
+    content.contactsArrayMessage,
+    content.ContactsArrayMessage,
+    content.message?.contactsArrayMessage,
+    content.message?.ContactsArrayMessage,
+    content.ephemeralMessage?.message?.contactsArrayMessage,
+    content.viewOnceMessage?.message?.contactsArrayMessage,
+    content.viewOnceMessageV2?.message?.contactsArrayMessage
+  ].filter(Boolean)
+
+  for (const arr of arrayNodes) {
+    const contacts = arr.contacts || arr.Contacts
+    if (Array.isArray(contacts)) {
+      for (const contact of contacts) {
+        if (contact && typeof contact === 'object') nodes.push(contact)
+      }
+    }
+  }
+
+  return nodes
+}
+
+const hasUazapiContactProto = (content) => {
+  if (!content || typeof content !== 'object') return false
+  if (content.contactMessage || content.ContactMessage || content.contactsArrayMessage || content.ContactsArrayMessage) {
+    return true
+  }
+  return collectUazapiContactNodes(content).length > 0
+}
+
+const isUazapiContactSendContext = (msg) => {
+  const type = strTrim(msg?.type || msg?.messageType || msg?.MessageType).toLowerCase()
+  const sendFn = strTrim(msg?.sendFunction).toLowerCase()
+  return type.includes('contact') || type.includes('vcard') || sendFn.includes('contact')
+}
+
+/**
+ * Extrai contato compartilhado conforme payload UAZAPI / WhatsApp proto.
+ * Campos documentados: messageType, text, content, sendPayload (fullName, phoneNumber, organization, email, url).
+ */
+export const extractUazapiSharedContact = (msg, contentOverride = null) => {
+  const content = contentOverride || parseLooseMessageContent(msg)
+  const sendPayload = parseLooseJsonNode(msg?.sendPayload) ||
+    (typeof msg?.sendPayload === 'object' ? msg.sendPayload : null)
+  const contactContext = isUazapiContactSendContext(msg)
+
+  if (msg?.sharedContact && typeof msg.sharedContact === 'object') {
+    const name = strTrim(msg.sharedContact.name || msg.sharedContact.displayName || msg.sharedContact.fullName)
+    const phone = normalizeContactPhoneDigits(
+      msg.sharedContact.phone || msg.sharedContact.number || msg.sharedContact.phoneNumber
+    )
+    if (name || phone) {
+      return {
+        name,
+        phone,
+        organization: strTrim(msg.sharedContact.organization),
+        email: strTrim(msg.sharedContact.email),
+        url: strTrim(msg.sharedContact.url)
+      }
+    }
+  }
+
+  if (sendPayload && contactContext) {
+    const name = strTrim(sendPayload.fullName || sendPayload.FullName)
+    const phone = pickFirstContactPhone(sendPayload.phoneNumber || sendPayload.PhoneNumber)
+    if (name || phone) {
+      return {
+        name,
+        phone,
+        organization: strTrim(sendPayload.organization || sendPayload.Organization),
+        email: strTrim(sendPayload.email || sendPayload.Email),
+        url: strTrim(sendPayload.url || sendPayload.URL)
+      }
+    }
+  }
+
+  for (const node of collectUazapiContactNodes(content)) {
+    const vcardText = strTrim(node.vcard || node.Vcard)
+    const displayName = strTrim(node.displayName || node.DisplayName)
+    const fromVcard = parseVcardContactFields(vcardText)
+    const name = displayName || fromVcard.name
+    const phone = fromVcard.phone
+    if (name || phone) {
+      return { name, phone, organization: '', email: '', url: '' }
+    }
+  }
+
+  const topVcard = strTrim(msg?.vcard || content?.vcard || content?.Vcard)
+  if (topVcard && /BEGIN:VCARD/i.test(topVcard)) {
+    const fromVcard = parseVcardContactFields(topVcard)
+    if (fromVcard.name || fromVcard.phone) {
+      return { ...fromVcard, organization: '', email: '', url: '' }
+    }
+  }
+
+  const plainSources = [
+    msg?.text,
+    msg?.body,
+    content?.conversation,
+    content?.text,
+    content?.extendedTextMessage?.text,
+    content?.ExtendedTextMessage?.text
+  ]
+  for (const source of plainSources) {
+    const parsed = parsePlainContactShareText(source)
+    if (parsed.name || parsed.phone) {
+      return { ...parsed, organization: '', email: '', url: '' }
+    }
+  }
+
+  return null
+}
+
+/** Detecta mensagem de contato compartilhado (UAZAPI messageType + proto + send/contact). */
+export const isUazapiContactShareMessage = (msg, contentOverride = null) => {
+  const content = contentOverride || parseLooseMessageContent(msg)
+  const type = strTrim(msg?.type || msg?.messageType || msg?.MessageType).toLowerCase()
+  const sendFn = strTrim(msg?.sendFunction).toLowerCase()
+
+  if (type.includes('button') || type.includes('list') || type.includes('interactive') || type.includes('poll')) {
+    return false
+  }
+  if (type.includes('contact') || type.includes('vcard')) return true
+  if (sendFn.includes('contact')) return true
+
+  const vcardRaw = strTrim(msg?.vcard || content?.vcard || content?.Vcard)
+  if (vcardRaw && /BEGIN:VCARD/i.test(vcardRaw)) return true
+  if (hasUazapiContactProto(content)) return true
+
+  if (isUazapiContactSendContext(msg)) {
+    const sendPayload = parseLooseJsonNode(msg?.sendPayload)
+    if (sendPayload?.fullName || sendPayload?.phoneNumber || sendPayload?.PhoneNumber) return true
+  }
+
+  const plain = strTrim(msg?.text || msg?.body || content?.conversation || content?.text)
+  return /^(.+?)\s+Phone:\s*\+?\d[\d\s-]{7,}$/i.test(plain)
 }
 
 export const formatJidAsPhoneLine = (jid) => {
@@ -141,6 +359,17 @@ export const pickNameFromDirectory = (directory, keys) => {
 
 export const strTrim = (v) => (v == null ? '' : String(v).trim())
 
+export const parseListMessageTextVote = (raw = '') => {
+  const normalized = String(raw || '').replace(/\r\n/g, '\n').trim()
+  if (!normalized.includes('\n')) return { body: normalized, listButton: '' }
+  const parts = normalized.split('\n').map((line) => line.trim()).filter(Boolean)
+  if (parts.length < 2) return { body: normalized, listButton: '' }
+  return {
+    body: parts.slice(0, -1).join('\n'),
+    listButton: parts[parts.length - 1]
+  }
+}
+
 export const waEscapeHtml = (s) =>
   String(s || '')
     .replace(/&/g, '&amp;')
@@ -172,6 +401,79 @@ export const formatTime = (timestamp) => {
   const d = new Date(ms)
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
+
+/** Silenciado se muteEndTime = -1 (sempre) ou timestamp futuro. */
+export const isChatMutedByEndTime = (muteEndTime) => {
+  const end = Number(muteEndTime ?? 0)
+  if (!Number.isFinite(end)) return false
+  if (end === -1) return true
+  if (end <= 0) return false
+  const ms = end > 1e12 ? end : end * 1000
+  return ms > Date.now()
+}
+
+export const resolveChatIsMuted = (chat) => {
+  if (!chat) return false
+  if (Boolean(chat.isMuted)) return true
+  return isChatMutedByEndTime(chat.muteEndTime ?? chat.wa_muteEndTime)
+}
+
+/** Horário na lista de conversas — hoje: HH:mm; ontem: Ontem; semana: dia da semana; +7 dias: DD/MM/YYYY */
+export const formatChatListTime = (timestamp) => {
+  if (!timestamp) return ''
+  const ms = normalizeTimestampToMs(timestamp)
+  if (!ms) return ''
+  const date = new Date(ms)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfMessageDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.floor((startOfToday.getTime() - startOfMessageDay.getTime()) / 86400000)
+
+  if (diffDays === 0) {
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
+  if (diffDays === 1) return 'Ontem'
+  if (diffDays >= 2 && diffDays < 7) {
+    const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' })
+    return weekday.charAt(0).toLowerCase() + weekday.slice(1)
+  }
+
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+/** Etiqueta de data no corpo da conversa — Hoje, Ontem, dia da semana ou DD/MM/AAAA */
+export const formatConversationDateLabel = (timestamp) => {
+  const ms = normalizeTimestampToMs(timestamp)
+  if (!ms) return 'Hoje'
+  const date = new Date(ms)
+  if (Number.isNaN(date.getTime())) return 'Hoje'
+
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfMessageDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.floor((startOfToday.getTime() - startOfMessageDay.getTime()) / 86400000)
+
+  if (diffDays === 0) return 'Hoje'
+  if (diffDays === 1) return 'Ontem'
+  if (diffDays >= 2 && diffDays < 7) {
+    const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' })
+    return weekday.charAt(0).toUpperCase() + weekday.slice(1)
+  }
+
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+const PIN_SYSTEM_TEXT_RE = /voc[eê]\s+fixou\s+uma\s+mensagem|voc[eê]\s+desfixou\s+uma\s+mensagem|fixou\s+uma\s+mensagem|desfixou\s+uma\s+mensagem|pinned\s+a\s+message|unpinned\s+a\s+message|you\s+pinned\s+a\s+message|you\s+unpinned\s+a\s+message/i
+
+export const isPinSystemMessageText = (text) => PIN_SYSTEM_TEXT_RE.test(String(text || '').trim())
 
 // ─── WhatsApp Text Formatting ─────────────────────────────────────────────────
 
@@ -486,7 +788,7 @@ export function useWhatsappUtils() {
     normalizeJid, extractDigitsFromJid, isGroupJid, extractWhatsappNumber,
     toUazapiChatNumber, allNormalizedPrivateJidVariants, formatJidAsPhoneLine,
     buildLookupKeys, filterSenderLookupCandidates, pickNameFromDirectory, strTrim, waEscapeHtml,
-    looksLikePhoneNumber, extractPhoneDigits, normalizeTimestampToMs, formatTime,
+    looksLikePhoneNumber, extractPhoneDigits, normalizeTimestampToMs, formatTime, formatChatListTime, formatConversationDateLabel, isPinSystemMessageText, isChatMutedByEndTime, resolveChatIsMuted,
     formatWhatsappTextForDisplay, normalizeContactPhone, buildPhoneVariants,
     toLocalBrPhoneMask, buildFullPhone, normalizeNumberForContactAdd, toPersonalJid,
     normalizeAvatarCandidate, deepFindAvatarCandidate, extractAvatarFromDetailsPayload,

@@ -65,4 +65,32 @@ export class WhatsappChatRepository {
       }
     });
   }
+
+  async upsertFromDetails(userId: string, chat: UpsertWhatsappChatInput): Promise<void> {
+    if (!chat.chatJid) return;
+    await prisma.whatsappChat.upsert({
+      where: {
+        userId_chatJid: {
+          userId,
+          chatJid: chat.chatJid
+        }
+      },
+      update: {
+        name: chat.name ?? undefined,
+        pushName: chat.pushName ?? undefined,
+        avatarUrl: chat.avatarUrl ?? undefined,
+        isGroup: Boolean(chat.isGroup),
+        raw: chat.raw ?? undefined
+      },
+      create: {
+        userId,
+        chatJid: chat.chatJid,
+        name: chat.name ?? null,
+        pushName: chat.pushName ?? null,
+        avatarUrl: chat.avatarUrl ?? null,
+        isGroup: Boolean(chat.isGroup),
+        raw: chat.raw ?? null
+      }
+    });
+  }
 }

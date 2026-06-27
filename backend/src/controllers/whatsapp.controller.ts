@@ -6,9 +6,13 @@ import { WhatsappContactDirectoryRepository } from "../repositories/whatsapp_con
 import { WhatsappGroupObservedSendersRepository } from "../repositories/whatsapp_group_observed_senders.repository";
 import { sendNormalizedUazapiError } from "../utils/uazapi-error.util";
 import whatsappPusherService from "../services/whatsapp-pusher.service";
+import webhookLogService from "../services/webhook-log.service";
+import whatsappMediaArchiveService from "../services/whatsapp-media-archive.service";
+import { WhatsappChatDetailsService } from "../services/whatsapp-chat-details.service";
 
 const whatsappService = new WhatsappService();
 const whatsappChatSyncService = new WhatsappChatSyncService();
+const whatsappChatDetailsService = new WhatsappChatDetailsService();
 const whatsappContactStateRepository = new WhatsappContactStateRepository();
 const whatsappContactDirectoryRepository = new WhatsappContactDirectoryRepository();
 const whatsappGroupObservedSendersRepository = new WhatsappGroupObservedSendersRepository();
@@ -114,6 +118,33 @@ export class WhatsappController {
     }
   }
 
+  async getChatDetails(req: Request, res: Response): Promise<any> {
+    try {
+      const user = (req as any).user;
+      if (!user) return res.status(401).json({ message: "Não autorizado" });
+
+      const number = String(req.body?.number || req.body?.chatJid || "").trim();
+      if (!number) {
+        return res.status(400).json({ message: "Informe o número ou JID do contato." });
+      }
+
+      const preview = Boolean(req.body?.preview);
+      const force = Boolean(req.body?.force);
+
+      if (!force) {
+        const cached = await whatsappChatDetailsService.getCached(user.id, number);
+        if (cached) {
+          return res.json({ details: cached, cached: true });
+        }
+      }
+
+      const details = await whatsappChatDetailsService.fetchAndPersist(user.id, number, preview);
+      return res.json({ details, cached: false });
+    } catch (error: any) {
+      return sendNormalizedUazapiError(res, error, "Falha ao obter detalhes do contato.");
+    }
+  }
+
   async disconnect(req: Request, res: Response): Promise<any> {
     try {
       const user = (req as any).user;
@@ -138,6 +169,10 @@ export class WhatsappController {
           contactJid: row.contactJid,
           isSaved: row.isSaved,
           isBusiness: row.isBusiness,
+          phone: row.phone,
+          displayName: row.displayName,
+          avatarUrl: row.avatarUrl,
+          detailsSyncedAt: row.detailsSyncedAt,
           updatedAt: row.updatedAt
         }))
       });
@@ -545,6 +580,7 @@ export class WhatsappController {
         console.log(`[Webhook] ${eventType} recebido`);
       }
 
+      void webhookLogService.logWebhookEvent(event);
       void whatsappPusherService.handleWebhook(event);
     } catch (error) {
       console.error("Erro ao processar webhook:", error);
@@ -552,16 +588,123 @@ export class WhatsappController {
   }
 
   // --- PROXY GENÉRICO PARA UAZAPI (todos os métodos HTTP) ---
+  async markMessagePlayed(req: Request, res: Response): Promise<any> {
+    try {
+      const user = (req as any).user;
+      if (!user) return res.status(401).json({ message: "Não autorizado" });
+
+      const rawIds = Array.isArray(req.body?.id)
+        ? req.body.id
+        : (req.body?.messageId || req.body?.messageid ? [req.body.messageId || req.body.messageid] : []);
+      const ids = rawIds.map((id: unknown) => String(id || '').trim()).filter(Boolean);
+      if (!ids.length) return res.status(400).json({ message: "Informe ao menos um ID de mensagem." });
+
+      const data = await whatsappService.markMessagePlayed(user.id, ids);
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message || "Falha ao marcar áudio como ouvido." });
+    }
+  }
+
   async proxyRequest(req: Request, res: Response): Promise<any> {
     try {
       const user = (req as any).user;
       if (!user) return res.status(401).json({ message: "Não autorizado" });
 
+      const endpoint = "/" + req.params[0];
+      const method = req.method.toUpperCase();
+      if (endpoint === "/message/download" && method === "POST") {
+        return this.downloadMessageMedia(req, res);
+      }
+
+      return this.forwardUazapiProxy(req, res, user, endpoint, method);
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        return res.status(504).json({ message: "Timeout ao conectar com a UAZAPI.", error: "UAZAPI_TIMEOUT" });
+      }
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
+  private async downloadMessageMedia(req: Request, res: Response): Promise<any> {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ message: "Não autorizado." });
+    if (!UAZAPI_BASE_URL) {
+      return res.status(503).json({ message: "UAZAPI_SERVER_URL não configurada." });
+    }
+
+    const body = req.body || {};
+    const messageId = String(body.id || body.messageid || body.messageId || "").trim();
+    const chatJid = String(body.chatid || body.chatId || body.wa_chatid || "").trim();
+
+    if (whatsappMediaArchiveService.isEnabled() && messageId) {
+      const cachedUrl = await whatsappMediaArchiveService.findCachedPublicUrl(user.id, messageId);
+      if (cachedUrl) {
+        return res.json(whatsappMediaArchiveService.withArchivedFileUrl({ ok: true }, cachedUrl));
+      }
+    }
+
+    const instanceToken = await whatsappService.getInstanceToken(user.id);
+    if (!instanceToken) {
+      return res.status(503).json({ message: "Instância não configurada.", error: "INSTANCE_NOT_FOUND" });
+    }
+
+    const fetchController = new AbortController();
+    const fetchTimer = setTimeout(() => fetchController.abort(), 60000);
+    let apiRes: globalThis.Response;
+    try {
+      apiRes = await fetch(`${UAZAPI_BASE_URL}/message/download`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          token: instanceToken,
+        },
+        body: JSON.stringify(body),
+        signal: fetchController.signal,
+      });
+    } finally {
+      clearTimeout(fetchTimer);
+    }
+
+    const result: any = await apiRes.json().catch(async () => ({ raw: await apiRes.text() }));
+    if (!apiRes.ok) {
+      return res.status(apiRes.status).json(result);
+    }
+
+    const remoteUrl = String(result?.fileURL || result?.fileUrl || result?.url || "").trim();
+    if (!remoteUrl || !whatsappMediaArchiveService.isEnabled() || !messageId) {
+      return res.json(result);
+    }
+
+    try {
+      const archivedUrl = await whatsappMediaArchiveService.archiveFromRemoteUrl(
+        user.id,
+        messageId,
+        remoteUrl,
+        {
+          chatJid: chatJid || undefined,
+          mimeType: String(result?.mimetype || result?.mimeType || body?.mimetype || "").trim() || undefined,
+        },
+      );
+      return res.json(whatsappMediaArchiveService.withArchivedFileUrl(result, archivedUrl));
+    } catch (error: any) {
+      console.warn("[WhatsApp Media] Falha ao arquivar no B2, usando URL da UAZAPI:", error?.message || error);
+      return res.json(result);
+    }
+  }
+
+  private async forwardUazapiProxy(
+    req: Request,
+    res: Response,
+    user: any,
+    endpoint: string,
+    method: string,
+  ): Promise<any> {
+    try {
       if (!UAZAPI_BASE_URL) {
         return res.status(503).json({ message: "UAZAPI_SERVER_URL não configurada." });
       }
 
-      const endpoint = "/" + req.params[0];
       const instanceToken = await whatsappService.getInstanceToken(user.id);
       if (!instanceToken) {
         // Retorna 503 (Service Unavailable) em vez de 400 para indicar ao frontend
@@ -572,7 +715,6 @@ export class WhatsappController {
 
       const queryParams = new URLSearchParams(req.query as Record<string, string>).toString();
       const fullUrl = `${UAZAPI_BASE_URL}${endpoint}${queryParams ? "?" + queryParams : ""}`;
-      const method = req.method.toUpperCase();
       let normalizedBody: any = req.body;
       if (endpoint === "/send/contact" && method === "POST") {
         const raw = req.body || {};

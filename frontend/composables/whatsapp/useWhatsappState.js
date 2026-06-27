@@ -15,6 +15,9 @@ export const searchQuery = ref('')
 export const selectedChat = ref(null)
 export const messages = ref([])
 export const loadingMessages = ref(false)
+export const loadingOlderMessages = ref(false)
+/** Há mensagens mais antigas para carregar ao rolar até o topo */
+export const chatMessagesHasMore = ref(false)
 /** Incrementa a cada selectChat; evita resposta lenta de um chat sobrescrever o ativo. */
 export const selectChatLoadSeq = ref(0)
 export const chatBodyRef = ref(null)
@@ -27,12 +30,39 @@ export const mediaInputRef = ref(null)
 
 // ─── Action menu / reactions ──────────────────────────────────────────────────
 export const actionMenuMessageId = ref(null)
+/** 'full' = menu ⋮ | 'reactions' = barra rápida ao clicar no smiley */
+export const actionMenuMode = ref('full')
+export const reactionEmojiPickerOpen = ref(false)
+export const reactionPickerFixedStyle = ref(null)
+/** Cleanup do listener externo do picker (registrado por useWhatsappMessageActions). */
+let reactionPickerOutsideCleanup = null
+export const registerReactionPickerOutsideCleanup = (fn) => {
+  reactionPickerOutsideCleanup = typeof fn === 'function' ? fn : null
+}
 export const messageActionsCoords = ref(null)
 export const replyingTo = ref(null)
 export const reactionsDetailMessage = ref(null)
 export const reactionsDetailTab = ref('all')
 export const optimisticReactionsByNormalizedId = ref({})
+/** { [chatJid]: { messageId: string, pinned: boolean, snapshot?: object } } */
+export const optimisticPinnedByChatJid = ref({})
+/** { [chatJid]: Array<{ id, timestamp, label }> } */
+export const optimisticPinTimelineByChatJid = ref({})
+/** { [chatJid]: { [targetMessageId]: normalizedMessageSnapshot } } */
+export const pinnedSnapshotsByChatJid = ref({})
 export const chatActionFeedback = ref('')
+
+let chatActionFeedbackTimer = null
+
+/** Toast flutuante no corpo do chat (copiar, apagar, etc.) */
+export const showChatFeedback = (message) => {
+  chatActionFeedback.value = message
+  if (chatActionFeedbackTimer) clearTimeout(chatActionFeedbackTimer)
+  chatActionFeedbackTimer = setTimeout(() => {
+    chatActionFeedback.value = ''
+    chatActionFeedbackTimer = null
+  }, 3200)
+}
 
 // ─── Media loading ────────────────────────────────────────────────────────────
 export const downloadingMediaById = ref({})
@@ -107,6 +137,9 @@ export const chatDetailsInflight = ref({})
 export const chatsBackendOfflineLogged = ref(false)
 export const messagesBackendOfflineLogged = ref(false)
 
+/** Presença em tempo real na sidebar: digitando / gravando áudio. */
+export const chatPresenceByKey = ref({})
+
 /**
  * Zera estado em memória do módulo WhatsApp (chats, mensagens, diretórios, modais).
  * Chame após desconectar na UAZAPI para não misturar sessão antiga com número novo.
@@ -119,16 +152,26 @@ export const clearWhatsappSessionState = () => {
   selectedChat.value = null
   messages.value = []
   loadingMessages.value = false
+  loadingOlderMessages.value = false
+  chatMessagesHasMore.value = false
   selectChatLoadSeq.value += 1
   newMessage.value = ''
   sending.value = false
   replyingTo.value = null
   actionMenuMessageId.value = null
+  actionMenuMode.value = 'full'
+  reactionPickerOutsideCleanup?.()
+  reactionEmojiPickerOpen.value = false
+  reactionPickerFixedStyle.value = null
   messageActionsCoords.value = null
   reactionsDetailMessage.value = null
   reactionsDetailTab.value = 'all'
   optimisticReactionsByNormalizedId.value = {}
+  optimisticPinnedByChatJid.value = {}
+  optimisticPinTimelineByChatJid.value = {}
+  pinnedSnapshotsByChatJid.value = {}
   chatActionFeedback.value = ''
+  chatPresenceByKey.value = {}
   downloadingMediaById.value = {}
   autoMediaLoadAttemptedById.value = {}
   isRefreshingMessages.value = false
@@ -194,7 +237,8 @@ export function useWhatsappState() {
     chats, loadingChats, searchQuery,
     selectedChat, messages, loadingMessages, selectChatLoadSeq, chatBodyRef,
     newMessage, messageInputRef, sending, mediaInputRef,
-    actionMenuMessageId, messageActionsCoords, replyingTo,
+    actionMenuMessageId, actionMenuMode, reactionEmojiPickerOpen, reactionPickerFixedStyle,
+    messageActionsCoords, replyingTo,
     reactionsDetailMessage, reactionsDetailTab, optimisticReactionsByNormalizedId, chatActionFeedback,
     downloadingMediaById, autoMediaLoadAttemptedById,
     chatsPollingTimer, messagesPollingTimer, isRefreshingMessages,

@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { readEnv } from "../utils/env";
+import { getDevTunnelWebhookUrl } from "../utils/dev-tunnel-url";
 dotenv.config();
 
 const UAZAPI_URL = process.env.UAZAPI_SERVER_URL || "";
@@ -580,6 +581,9 @@ export class WhatsappService {
   }
 
   private _resolveWebhookUrl(): string | null {
+    const tunnelWebhook = getDevTunnelWebhookUrl();
+    if (tunnelWebhook) return tunnelWebhook;
+
     const explicit = readEnv("WHATSAPP_WEBHOOK_URL");
     if (explicit) return explicit.replace(/\/+$/, "");
 
@@ -1226,6 +1230,28 @@ export class WhatsappService {
     } catch (err) {
       console.error("[UazAPI] Falha ao aplicar presença unavailable:", err);
     }
+  }
+
+  /** Instâncias Clube Florescer conectadas (log dev SSE no terminal local). */
+  async listConnectedClubInstances(): Promise<Array<{ userId: string; token: string }>> {
+    if (!UAZAPI_URL) return [];
+
+    const all = await this._fetchAllInstances();
+    const rows: Array<{ userId: string; token: string }> = [];
+
+    for (const inst of all) {
+      const systemName = String(inst?.systemName || inst?.instance?.systemName || "").trim();
+      if (systemName !== "Clube Florescer") continue;
+      if (!this._isConnectedStatus(this._normalizeConnectionStatus(inst))) continue;
+
+      const token = this._instanceToken(inst);
+      const userId = this._instanceAdminField(inst);
+      if (!token || !userId) continue;
+
+      rows.push({ userId, token });
+    }
+
+    return rows;
   }
 
   /** Reaplica presença unavailable em todas as instâncias Clube Florescer conectadas. */
@@ -1875,6 +1901,20 @@ export class WhatsappService {
 
   async markRead(userId: string, ids: string[]): Promise<any> {
     return this._sendToApi(userId, '/message/markread', { id: ids });
+  }
+
+  async markMessagePlayed(userId: string, ids: string[]): Promise<any> {
+    const uniqueIds = [...new Set(
+      (ids || []).map((id) => String(id || '').trim()).filter(Boolean)
+    )];
+    if (!uniqueIds.length) throw new Error('IDs de mensagem inválidos');
+
+    try {
+      return await this._sendToApi(userId, '/message/markplayed', { id: uniqueIds });
+    } catch (primaryError: any) {
+      console.warn('[WhatsApp] /message/markplayed indisponível, usando markread:', primaryError?.message || primaryError);
+      return this.markRead(userId, uniqueIds);
+    }
   }
 
   async reactMessage(userId: string, data: { number: string; text: string; id: string }): Promise<any> {
