@@ -99,6 +99,7 @@ import {
 const props = defineProps({
   chat: { type: Object, default: null },
   anchorRect: { type: Object, default: null },
+  archivedView: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['select', 'close'])
@@ -116,23 +117,30 @@ const staticMenuItems = computed(() => {
   const isArchived = Boolean(chat.isArchived || chat.wa_archived)
   const isGroup = Boolean(chat.isGroup) || String(chat.chatJid || '').endsWith('@g.us')
 
-  const items = [
+  const items = []
+
+  if (!props.archivedView) {
+    items.push(
+      {
+        id: 'mute',
+        label: isMuted ? 'Reativar notificações' : 'Silenciar notificações',
+        subtitle: isMuted ? getChatMuteSubtitle(chat) : '',
+        icon: isMuted ? BellOff : Bell,
+        isMuted,
+      },
+      {
+        id: 'pin',
+        label: isPinned ? 'Desafixar conversa' : 'Fixar conversa',
+        icon: Pin,
+      },
+    )
+  }
+
+  items.push(
     {
       id: 'archive',
       label: isArchived ? 'Desarquivar conversa' : 'Arquivar conversa',
       icon: Archive,
-    },
-    {
-      id: 'mute',
-      label: isMuted ? 'Reativar notificações' : 'Silenciar notificações',
-      subtitle: isMuted ? getChatMuteSubtitle(chat) : '',
-      icon: isMuted ? BellOff : Bell,
-      isMuted,
-    },
-    {
-      id: 'pin',
-      label: isPinned ? 'Desafixar conversa' : 'Fixar conversa',
-      icon: Pin,
     },
     {
       id: 'label',
@@ -149,7 +157,7 @@ const staticMenuItems = computed(() => {
       label: 'Adicionar aos Favoritos',
       icon: Heart,
     },
-  ]
+  )
 
   if (!isGroup) {
     items.push({

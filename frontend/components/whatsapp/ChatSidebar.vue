@@ -263,6 +263,7 @@ const chatHeaderMenuItems = [
   { id: 'favorites', label: 'Mensagens favoritas', icon: Star },
   { id: 'labels', label: 'Etiquetas', icon: Tag },
   { id: 'mark-all-read', label: 'Marcar todas como lidas', icon: CheckCheck },
+  { id: 'wallpaper', label: 'Papel de parede', icon: ImageIcon },
   { type: 'separator' },
   { id: 'app-lock', label: 'Bloqueio do app', icon: Lock },
   { id: 'disconnect', label: 'Desconectar', icon: LogOut }

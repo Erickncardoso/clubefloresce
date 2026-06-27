@@ -30,8 +30,7 @@ export default defineNuxtPlugin({
       if (!bootstrapToken()) return
       await syncTimezone()
       await refreshStatus()
-      const dismissed = localStorage.getItem('push_prompt_dismissed') === '1'
-      if (!dismissed && Notification.permission === 'default') return
+      if (Notification.permission === 'default') return
       await syncSubscriptionIfGranted()
     }
 

@@ -5,6 +5,12 @@ import {
   chats, selectedChat, showChatFeedback,
 } from './useWhatsappState.js'
 import { refreshChatPreview, loadChats, canonicalChatListKey } from './useWhatsappChats.js'
+import {
+  archivedSidebarOpen,
+  loadArchivedChats,
+  removeArchivedChatFromList,
+  patchArchivedChatIfPresent,
+} from './useWhatsappArchivedChats.js'
 import { requestToggleBlockDialog } from './useWhatsappBlockContact.js'
 import { normalizeJid, parseJsonBodySafe } from './useWhatsappUtils.js'
 import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
@@ -65,8 +71,15 @@ export const archiveChatFromList = async (chat) => {
   if (!chatJid) return
   const shouldArchive = !Boolean(chat?.isArchived || chat?.wa_archived)
   try {
-    if (shouldArchive) removeChatFromList(chatJid)
-    else refreshChatPreview(chatJid, { isArchived: false, wa_archived: false })
+    if (shouldArchive) {
+      removeChatFromList(chatJid)
+      if (archivedSidebarOpen.value) {
+        void loadArchivedChats({ showLoading: false })
+      }
+    } else {
+      refreshChatPreview(chatJid, { isArchived: false, wa_archived: false })
+      removeArchivedChatFromList(chat)
+    }
     await postChatAction('/chat/archive', { number: chatJid, archive: shouldArchive })
     if (shouldArchive) showChatFeedback('Conversa arquivada')
     else showChatFeedback('Conversa desarquivada')
@@ -95,11 +108,21 @@ export const setChatMuteFromList = (chat, muteEndTimeCode) => {
     muteEndTime: optimisticEnd,
     wa_muteEndTime: optimisticEnd,
   })
+  patchArchivedChatIfPresent(chatJid, {
+    isMuted: optimisticMuted,
+    muteEndTime: optimisticEnd,
+    wa_muteEndTime: optimisticEnd,
+  })
 
   void postChatAction('/chat/mute', { number: chatJid, muteEndTime: code })
     .catch((error) => {
       console.error('Erro ao silenciar conversa', error)
       refreshChatPreview(chatJid, {
+        isMuted: snapshot.isMuted,
+        muteEndTime: snapshot.muteEndTime,
+        wa_muteEndTime: snapshot.wa_muteEndTime,
+      })
+      patchArchivedChatIfPresent(chatJid, {
         isMuted: snapshot.isMuted,
         muteEndTime: snapshot.muteEndTime,
         wa_muteEndTime: snapshot.wa_muteEndTime,
@@ -123,6 +146,7 @@ export const markChatUnreadFromList = (chat) => {
   const chatJid = normalizeJid(chat?.chatJid)
   if (!chatJid) return
   refreshChatPreview(chatJid, { unreadCount: 1, wa_unreadCount: 1 })
+  patchArchivedChatIfPresent(chatJid, { unreadCount: 1, wa_unreadCount: 1 })
 }
 
 export const blockChatFromList = (chat) => {
@@ -134,6 +158,7 @@ export const deleteChatFromList = async (chat) => {
   if (!chatJid) return
   if (typeof window !== 'undefined' && !window.confirm('Apagar esta conversa?')) return
   removeChatFromList(chatJid)
+  removeArchivedChatFromList(chat)
   try {
     await postChatAction('/chat/delete', { number: chatJid })
   } catch (error) {

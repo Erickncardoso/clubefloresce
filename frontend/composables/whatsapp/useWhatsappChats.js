@@ -66,6 +66,7 @@ import { normalizeMessage, getMessageMergeKey, pickRicherDuplicateBaseMessage, p
 import { handleInteractiveMenuOptionClick } from './useWhatsappInteractive.js'
 import {
   scrollToBottom,
+  scrollToBottomOnChatOpen,
   isChatBodyNearBottom,
   stickChatScrollToBottomIfNeeded,
   captureChatScrollSnapshot,
@@ -1622,8 +1623,7 @@ const appendRawMessagesToAggregate = (aggregated, seenIds, rawByMergeKey, rawMes
 }
 
 const applySelectChatScroll = () => {
-  resetChatScrollBehavior()
-  restoreChatScrollAfterMessagesUpdate(captureChatScrollSnapshot(), { forceBottom: true })
+  scrollToBottomOnChatOpen()
 }
 
 const loadOlderMessagesPage = async (activeFetchJid, mySeq) => {
@@ -1859,7 +1859,10 @@ export const selectChat = async (chat, enrichSharedFns = {}) => {
     if (e?.message === 'BAD_REQUEST_MESSAGE_FIND' || e?.message === 'CHAT_ID_INVALID') return
     console.error('Erro ao carregar mensagens', e)
   } finally {
-    if (mySeq === selectChatLoadSeq.value) loadingMessages.value = false
+    if (mySeq === selectChatLoadSeq.value) {
+      loadingMessages.value = false
+      applySelectChatScroll()
+    }
   }
 }
 
@@ -2168,7 +2171,7 @@ export const resetWhatsappAfterDisconnect = () => {
 export function useWhatsappChats() {
   return {
     loadChats, selectChat, sendMessage, sendInteractiveMenuReply, loadOlderChatMessages,
-    scrollToBottom, isChatBodyNearBottom, stickChatScrollToBottomIfNeeded,
+    scrollToBottom, scrollToBottomOnChatOpen, isChatBodyNearBottom, stickChatScrollToBottomIfNeeded,
     captureChatScrollSnapshot, restoreChatScrollAfterMessagesUpdate,
     refreshSelectedChatMessages, refreshChatPreview, markCurrentChatAsRead, markMessageAsPlayed, markAllChatsAsRead,
     toggleChatPinned, startRealtimeSync, stopRealtimeSync, resetWhatsappAfterDisconnect, forceRealtimeSync,
@@ -2188,6 +2191,7 @@ export function useWhatsappChats() {
 
 export {
   scrollToBottom,
+  scrollToBottomOnChatOpen,
   isChatBodyNearBottom,
   stickChatScrollToBottomIfNeeded,
   captureChatScrollSnapshot,

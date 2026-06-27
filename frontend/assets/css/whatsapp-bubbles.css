@@ -31,7 +31,7 @@
 .message-bubble-wrapper.has-reaction-pill {
   position: relative;
   z-index: 2;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .message-out { justify-content: flex-end; }
 .message-in { justify-content: flex-start; }
@@ -138,7 +138,9 @@
   max-width: min(400px, 74%);
   width: min(400px, 74%);
 }
-.message-bubble--has-reactions { padding-bottom: 1.15rem; }
+.message-bubble--has-reactions {
+  overflow: visible;
+}
 
 /* Bolhas com mídia — largura definida pela imagem, padding interno estilo WhatsApp Web */
 .message-bubble.message-bubble--image,
@@ -1823,19 +1825,32 @@
   color: #64748b;
 }
 
-/* Pílula de reações */
+/* Pílula de reações — metade para fora do balão (estilo WhatsApp Web) */
 .msg-reaction-pill {
-  position: absolute; bottom: -11px; z-index: 4;
-  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-  min-height: 26px; padding: 2px 9px 3px; border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.1); background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14); cursor: pointer;
-  font-size: 1.02rem; line-height: 1; color: inherit;
+  position: absolute;
+  bottom: 0;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 26px;
+  padding: 2px 9px 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
+  cursor: pointer;
+  font-size: 1.02rem;
+  line-height: 1;
+  color: inherit;
+  transform: translateY(50%);
   transition: background 0.12s ease, transform 0.12s ease;
 }
 .msg-reaction-pill:hover { background: #f8faf9; }
 .message-out .msg-reaction-pill {
-  right: 10px; left: auto;
+  right: 8px;
+  left: auto;
   background: #ffffff;
   border-color: rgba(15, 23, 42, 0.1);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
@@ -1843,13 +1858,17 @@
 .message-out .msg-reaction-pill:hover { background: #f8faf9; }
 .message-out .msg-reaction-pill-count { color: #667781; }
 .message-in .msg-reaction-pill {
-  left: 10px; right: auto;
+  left: 8px;
+  right: auto;
   background: #ffffff;
   border-color: rgba(15, 23, 42, 0.12);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
 }
 .message-in .msg-reaction-pill:hover { background: #f8faf9; }
 .message-in .msg-reaction-pill-count { color: #667781; }
+.message-in:has(.msg-sender-avatar-wrap) .msg-reaction-pill {
+  left: calc(34px + 8px + 8px);
+}
 .msg-reaction-pill-emoji { display: inline-flex; align-items: center; justify-content: center; }
 .msg-reaction-pill-count {
   margin-left: 2px; font-size: 0.72rem; font-weight: 600;
@@ -1859,7 +1878,14 @@
 /* =========================================================
    Painel flutuante de ações de mensagem (ChatMessageActionsPanel)
    ========================================================= */
-.message-actions-floater-inner { position: relative; width: 100%; display: flex; flex-direction: column; align-items: flex-end; max-height: calc(100vh - 12px); }
+.message-actions-floater-inner {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-height: calc(100vh - 12px);
+}
 .message-actions-floater-host { pointer-events: none; }
 .message-actions-floater-host .message-reaction-bar--floater,
 .message-actions-floater-host .message-actions-menu-panel { pointer-events: auto; }
@@ -1904,8 +1930,8 @@
   --border-radius: 10px;
 }
 .message-reaction-bar--floater {
-  width: 100%; max-width: 100%;
-  filter: drop-shadow(0 2px 8px rgba(11, 20, 26, 0.16));
+  width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 .reaction-chip-plus-icon {
@@ -1917,8 +1943,11 @@
 .message-reaction-bar--floater .reaction-chip-more { font-size: 1.05rem; }
 .message-actions-floater-host .message-actions-menu { min-width: 0; width: 100%; }
 .message-actions-menu-panel {
-  position: relative; filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.2));
-  border-radius: 12px; box-sizing: border-box;
+  position: relative;
+  border-radius: 8px;
+  box-sizing: border-box;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(11, 20, 26, 0.08), 0 2px 10px rgba(11, 20, 26, 0.06);
 }
 .message-reaction-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px;
@@ -1926,15 +1955,15 @@
 }
 .message-reaction-bar.message-reaction-bar--wa-light {
   background: #fff;
-  border: 1px solid rgba(11, 20, 26, 0.08);
+  border: 1px solid rgba(11, 20, 26, 0.06);
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(11, 20, 26, 0.12);
+  box-shadow: 0 2px 5px rgba(11, 20, 26, 0.08), 0 2px 10px rgba(11, 20, 26, 0.06);
 }
 .message-reaction-bar.message-reaction-bar--wa-light .reaction-chip {
   color: inherit;
-  font-size: 1.35rem;
+  font-size: 1.28rem;
   line-height: 1;
-  padding: 4px 6px;
+  padding: 4px 5px;
   border-radius: 999px;
 }
 .message-reaction-bar.message-reaction-bar--wa-light .reaction-chip:hover {
@@ -1977,21 +2006,46 @@
 }
 .ma-item:disabled { opacity: 0.45; cursor: not-allowed; }
 .message-actions-menu {
-  list-style: none; margin: 0; padding: 6px 0; border-radius: 12px;
-  background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.08); color: #f8fafc;
-  min-width: 220px; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  border-radius: 8px;
+  background: #fff;
+  border: none;
+  color: #111b21;
+  min-width: 280px;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .message-actions-menu li { margin: 0; }
 .ma-item {
-  display: flex; width: 100%; align-items: center; gap: 10px; padding: 10px 14px;
-  border: none; background: transparent; color: inherit; font-size: 0.9rem;
-  text-align: left; cursor: pointer; border-radius: 6px;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  padding: 11px 24px;
+  border: none;
+  background: transparent;
+  color: #111b21;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
 }
-.ma-item:hover { background: rgba(255, 255, 255, 0.06); }
-.ma-item-danger { color: #fda4af; }
-.ma-item-danger:hover { background: rgba(244, 63, 94, 0.12); }
-.ma-ico { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.95; }
-.ma-sep { height: 1px; margin: 4px 10px; background: rgba(255, 255, 255, 0.12); list-style: none; }
+.ma-item:hover { background: #f5f6f6; }
+.ma-ico { width: 20px; height: 20px; flex-shrink: 0; color: #54656f; opacity: 1; stroke-width: 1.75; }
+.ma-sep {
+  display: block;
+  height: 1px;
+  margin: 4px 0;
+  background: #e9edef;
+  list-style: none;
+}
 
 /* =========================================================
    Modal de detalhes de reações (ChatMessageActionsPanel)

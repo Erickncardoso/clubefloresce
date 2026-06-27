@@ -9,6 +9,8 @@ let userPinnedAwayFromBottom = false
 let scrollListenerEl = null
 let nearTopLoadTimer = null
 let onNearTopLoad = null
+let suppressNearTopLoadUntil = 0
+let chatOpenScrollToken = 0
 
 export const isChatBodyNearBottom = () => {
   const el = chatBodyRef.value
@@ -25,15 +27,22 @@ export const resetChatScrollBehavior = () => {
   lastScrollTop = 0
 }
 
+export const suppressChatNearTopLoad = (ms = 900) => {
+  suppressNearTopLoadUntil = Date.now() + Math.max(0, Number(ms) || 0)
+}
+
+const isNearTopLoadSuppressed = () => Date.now() < suppressNearTopLoadUntil
+
 export const setChatScrollNearTopHandler = (handler) => {
   onNearTopLoad = typeof handler === 'function' ? handler : null
 }
 
 const scheduleNearTopLoad = () => {
-  if (!onNearTopLoad) return
+  if (!onNearTopLoad || isNearTopLoadSuppressed()) return
   if (nearTopLoadTimer) return
   nearTopLoadTimer = window.setTimeout(() => {
     nearTopLoadTimer = null
+    if (isNearTopLoadSuppressed()) return
     onNearTopLoad?.()
   }, 120)
 }
@@ -42,10 +51,12 @@ const handleChatBodyScroll = () => {
   const el = chatBodyRef.value
   if (!el) return
 
-  if (el.scrollTop < lastScrollTop - 4) {
-    userPinnedAwayFromBottom = true
-  } else if (isChatBodyNearBottom()) {
-    userPinnedAwayFromBottom = false
+  if (!isNearTopLoadSuppressed()) {
+    if (el.scrollTop < lastScrollTop - 4) {
+      userPinnedAwayFromBottom = true
+    } else if (isChatBodyNearBottom()) {
+      userPinnedAwayFromBottom = false
+    }
   }
   lastScrollTop = el.scrollTop
 
@@ -79,9 +90,10 @@ export const scrollToBottom = ({ resetPin = true } = {}) => {
   }
   const run = () => {
     const el = chatBodyRef.value
-    if (!el) return
+    if (!el) return false
     el.scrollTop = el.scrollHeight
     lastScrollTop = el.scrollTop
+    return (el.scrollHeight - el.clientHeight - el.scrollTop) <= 4
   }
   nextTick(() => {
     run()
@@ -92,6 +104,40 @@ export const scrollToBottom = ({ resetPin = true } = {}) => {
       })
     }
   })
+}
+
+/** Ao abrir conversa: rola até a mensagem mais recente e evita paginação antiga prematura. */
+export const scrollToBottomOnChatOpen = () => {
+  const token = ++chatOpenScrollToken
+  suppressChatNearTopLoad(1200)
+  userPinnedAwayFromBottom = false
+  lastScrollTop = 0
+
+  const attempt = (remaining = 10) => {
+    if (token !== chatOpenScrollToken) return
+    scrollToBottom({ resetPin: true })
+    if (remaining <= 0) return
+
+    const retry = () => {
+      if (token !== chatOpenScrollToken) return
+      const el = chatBodyRef.value
+      if (!el) {
+        if (remaining > 0) window.setTimeout(() => attempt(remaining - 1), 40)
+        return
+      }
+      const maxScroll = el.scrollHeight - el.clientHeight
+      if (maxScroll <= 4 || (maxScroll - el.scrollTop) <= 8) return
+      attempt(remaining - 1)
+    }
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(retry))
+    } else {
+      window.setTimeout(retry, 50)
+    }
+  }
+
+  attempt()
 }
 
 export const stickChatScrollToBottomIfNeeded = () => {

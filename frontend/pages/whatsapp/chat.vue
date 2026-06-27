@@ -6,7 +6,7 @@
         <!-- Sidebar: Lista de Chats -->
         <div
           class="chat-sidebar-shell"
-          :class="{ 'chat-sidebar-shell--labels-panel': labelsSidebarOpen }"
+          :class="{ 'chat-sidebar-shell--labels-panel': labelsSidebarOpen || archivedSidebarOpen }"
         >
           <ChatSidebar
             v-model="searchQuery"
@@ -22,6 +22,17 @@
             @refresh="loadChats(true)"
             @header-menu-action="handleSidebarHeaderMenuAction"
           />
+          <Transition name="labels-panel-slide">
+            <ArchivedChatsSidebarPanel
+              v-if="archivedSidebarOpen"
+              class="archived-manage-panel"
+              :chats="archivedChats"
+              :loading="archivedChatsLoading"
+              :format-list-time="formatChatListTime"
+              @close="closeArchivedSidebar"
+              @select="handleArchivedChatSelect"
+            />
+          </Transition>
           <Transition name="labels-panel-slide">
             <LabelsSidebarPanel
               v-if="labelsSidebarOpen && !hasActiveLabelView"
@@ -56,7 +67,7 @@
         </div>
 
         <!-- Main: Janela de Mensagens -->
-        <main class="chat-main">
+        <main class="chat-main" :style="chatWallpaperStyle">
           <WhatsappWebEmpty v-if="!selectedChat" />
 
           <div
@@ -81,12 +92,14 @@
               v-if="pinnedMessagesInChat.length"
               :items="pinnedMessagesInChat"
               @jump="jumpToPinnedMessage"
+              @unpin="pinThisMessageInChat"
             />
 
             <!-- Corpo de Mensagens + painel de ações -->
             <!-- chatBodyRef do estado é preenchido dentro de ChatBody.vue -->
             <ChatBody
               :messages="chatBodyDisplayMessages"
+              :wallpaper-style="chatWallpaperStyle"
               :pin-timeline-events="chatPinTimelineEvents"
               :loading-older-messages="loadingOlderMessages"
               :is-group="Boolean(selectedChat.isGroup)"
@@ -147,6 +160,9 @@
               @forward="forwardMessageStub"
               @pin="pinThisMessageInChat"
               @star="starMessageStub"
+              @message-info="openMessageInfoModal"
+              @commercial-broadcast="commercialBroadcastStub"
+              @add-to-notes="addMessageToNotesStub"
               @edit="editThisMessageText"
               @delete="deleteThisMessageForAll"
               @close-reactions-detail="reactionsDetailMessage = null"
@@ -469,6 +485,22 @@
           @cancel="closeQuickReplyDeleteModal"
           @confirm="confirmQuickReplyDelete"
         />
+        <WallpaperPickerModal
+          :open="wallpaperPickerOpen"
+          :selected-id="wallpaperSelectedId"
+          :custom-preview-url="wallpaperCustomDataUrl"
+          :upload-error="wallpaperUploadError"
+          @cancel="closeWallpaperPicker"
+          @apply="applyWallpaperSelection"
+          @select-preset="selectWallpaperPreset"
+          @upload="handleWallpaperUpload"
+        />
+        <MessageInfoModal
+          :open="messageInfoModalOpen"
+          :message="messageInfoTarget"
+          :format-time="formatTime"
+          @close="closeMessageInfoModal"
+        />
         <BlockContactSnackbar
           :snackbar="blockContactSnackbar"
           @undo="handleUndoBlockContact"
@@ -512,12 +544,15 @@ import BlockContactSnackbar from '~/components/whatsapp/BlockContactSnackbar.vue
 import QuickRepliesSidebarPanel from '~/components/whatsapp/QuickRepliesSidebarPanel.vue'
 import LabelsSidebarPanel from '~/components/whatsapp/LabelsSidebarPanel.vue'
 import LabelChatsSidebarPanel from '~/components/whatsapp/LabelChatsSidebarPanel.vue'
+import ArchivedChatsSidebarPanel from '~/components/whatsapp/ArchivedChatsSidebarPanel.vue'
 import LabelAssignPickerModal from '~/components/whatsapp/LabelAssignPickerModal.vue'
 import LabelFormModal from '~/components/whatsapp/LabelFormModal.vue'
 import LabelColorPickerModal from '~/components/whatsapp/LabelColorPickerModal.vue'
 import LabelDeleteConfirmModal from '~/components/whatsapp/LabelDeleteConfirmModal.vue'
 import QuickReplyFormModal from '~/components/whatsapp/QuickReplyFormModal.vue'
 import QuickReplyDeleteConfirmModal from '~/components/whatsapp/QuickReplyDeleteConfirmModal.vue'
+import WallpaperPickerModal from '~/components/whatsapp/WallpaperPickerModal.vue'
+import MessageInfoModal from '~/components/whatsapp/MessageInfoModal.vue'
 
 // ─── Composables ──────────────────────────────────────────────────────────────
 import { useWhatsappState, messageActionsCoords, replyingTo } from '~/composables/whatsapp/useWhatsappState.js'
@@ -601,6 +636,28 @@ import {
   closeLabelAssignPicker,
   listAssignableWhatsappLabels,
 } from '~/composables/whatsapp/useWhatsappLabelChats.js'
+import {
+  archivedSidebarOpen,
+  archivedChats,
+  archivedChatsLoading,
+  openArchivedSidebar,
+  closeArchivedSidebar,
+  loadArchivedChats,
+  clearArchivedChatsCache,
+} from '~/composables/whatsapp/useWhatsappArchivedChats.js'
+import {
+  wallpaperPickerOpen,
+  wallpaperSelectedId,
+  wallpaperCustomDataUrl,
+  wallpaperUploadError,
+  chatWallpaperStyle,
+  loadWhatsappWallpaper,
+  openWallpaperPicker,
+  closeWallpaperPicker,
+  selectWallpaperPreset,
+  applyWallpaperSelection,
+  setCustomWallpaperFromFile,
+} from '~/composables/whatsapp/useWhatsappWallpaper.js'
 import {
   createGroup as createGroupApi,
   getGroupInfo as getGroupInfoApi,
@@ -708,6 +765,8 @@ const {
   startReplyToMessage, clearReplyingTo, copyMessagePlain,
   deleteThisMessageForAll, editThisMessageText, pinThisMessageInChat,
   forwardMessageStub, starMessageStub, onFormattedMessageClick,
+  openMessageInfoModal, closeMessageInfoModal, messageInfoModalOpen, messageInfoTarget,
+  commercialBroadcastStub, addMessageToNotesStub,
   triggerFilePicker,
   layoutMessageActionsPanel
 } = useWhatsappMessageActions()
@@ -980,6 +1039,12 @@ const handleLabelChatOpen = (chat) => {
   selectChat(chat)
 }
 
+const handleArchivedChatSelect = (chat) => {
+  if (!chat) return
+  closeArchivedSidebar()
+  selectChat(chat)
+}
+
 const handleBulkRemoveActiveLabel = async () => {
   if (!labelChatSelection.value.length) return
   try {
@@ -1164,6 +1229,7 @@ watchEffect(() => {
 
 const filteredChats = computed(() => {
   let list = Array.isArray(chats.value) ? chats.value : []
+  list = list.filter((c) => !Boolean(c?.isArchived || c?.wa_archived))
   if (chatListFilter.value === 'unread') {
     list = list.filter((c) => Number(c?.unreadCount || 0) > 0)
   } else if (chatListFilter.value === 'groups') {
@@ -2771,6 +2837,7 @@ const handleSidebarHeaderMenuAction = async (actionId) => {
   }
   if (actionId === 'quick-replies') {
     closeLabelsSidebar()
+    closeArchivedSidebar()
     await openQuickRepliesManagePanel({ reload: true })
     return
   }
@@ -2778,6 +2845,7 @@ const handleSidebarHeaderMenuAction = async (actionId) => {
     try {
       await disconnectWhatsappSession()
       resetWhatsappAfterDisconnect()
+      clearArchivedChatsCache()
       await navigateTo('/dashboard/whatsapp/conexao')
     } catch (error) {
       chatActionFeedback.value = String(error?.message || 'Falha ao desconectar')
@@ -2789,18 +2857,34 @@ const handleSidebarHeaderMenuAction = async (actionId) => {
     return
   }
   if (actionId === 'archived') {
-    chatActionFeedback.value = 'Conversas arquivadas sera disponibilizado em breve.'
+    closeLabelsSidebar()
+    closeQuickRepliesSidebar()
+    closeQuickRepliesPicker()
+    await openArchivedSidebar({ reload: true })
     return
   }
   if (actionId === 'labels') {
     closeQuickRepliesSidebar()
     closeQuickRepliesPicker()
+    closeArchivedSidebar()
     await openLabelsManagePanel({ reload: true })
+    return
+  }
+  if (actionId === 'wallpaper') {
+    openWallpaperPicker()
     return
   }
   if (actionId === 'app-lock') {
     chatActionFeedback.value = 'Bloqueio do app sera disponibilizado em breve.'
     return
+  }
+}
+
+const handleWallpaperUpload = async (file) => {
+  try {
+    await setCustomWallpaperFromFile(file)
+  } catch {
+    // erro exposto em wallpaperUploadError
   }
 }
 
@@ -2813,6 +2897,7 @@ watch(
     closeQuickRepliesSidebar()
     closeQuickRepliesPicker()
     closeLabelsSidebar()
+    closeArchivedSidebar()
   }
 )
 
@@ -3430,6 +3515,7 @@ const unlockPageScroll = () => {
 onMounted(async () => {
   lockPageScroll()
   restoreAvatarCache()
+  loadWhatsappWallpaper()
   if (typeof document !== 'undefined') {
     document.addEventListener('pointerdown', onGlobalPointerDown, false)
     document.addEventListener('keydown', onGlobalKeydown, true)
@@ -3459,11 +3545,13 @@ onMounted(async () => {
   const connected = statusPayload.ok ? isWhatsappConnectedFromStatusPayload(statusData) : await fetchWhatsappSessionConnected()
   if (!connected) {
     resetWhatsappAfterDisconnect()
+    clearArchivedChatsCache()
     return
   }
   if (typeof window !== 'undefined' && connectedSessionJid && prevSessionJid && connectedSessionJid !== prevSessionJid) {
     // Sessão trocou (escaneou outro WhatsApp): limpa estado e caches para não “misturar” chats.
     resetWhatsappAfterDisconnect()
+    clearArchivedChatsCache()
     resetChatsRuntimeCaches()
   }
   if (typeof window !== 'undefined' && connectedSessionJid) localStorage.setItem('wa_session_jid', connectedSessionJid)

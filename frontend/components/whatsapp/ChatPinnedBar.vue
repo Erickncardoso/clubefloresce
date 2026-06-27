@@ -1,12 +1,26 @@
 <template>
   <div v-if="items.length" class="chat-pinned-bar" role="region" aria-label="Mensagens fixadas">
+    <div v-if="items.length > 1" class="chat-pinned-rail" aria-hidden="true">
+      <button
+        v-for="(_, idx) in items"
+        :key="`pinned-rail-${idx}`"
+        type="button"
+        class="chat-pinned-rail-segment"
+        :class="{ 'is-active': activeIndex === idx }"
+        :aria-label="`Mensagem fixada ${idx + 1} de ${items.length}`"
+        :aria-current="activeIndex === idx ? 'true' : undefined"
+        @click.stop="selectIndex(idx)"
+      />
+    </div>
+
+    <span v-else class="chat-pinned-accent" aria-hidden="true" />
+
     <button
       type="button"
-      class="chat-pinned-item"
+      class="chat-pinned-main"
       :aria-label="ariaLabel"
-      @click="onItemClick"
+      @click="onMainClick"
     >
-      <span class="chat-pinned-accent" aria-hidden="true" />
       <Pin class="chat-pinned-pin" aria-hidden="true" />
       <span class="chat-pinned-preview">
         <component
@@ -17,19 +31,56 @@
         />
         <span class="chat-pinned-text">{{ previewText(currentItem) }}</span>
       </span>
-      <span v-if="items.length > 1" class="chat-pinned-counter" aria-hidden="true">
-        {{ activeIndex + 1 }}/{{ items.length }}
-      </span>
-      <ChevronDown class="chat-pinned-chevron" aria-hidden="true" />
     </button>
+
+    <div ref="menuRoot" class="chat-pinned-menu-wrap">
+      <button
+        type="button"
+        class="chat-pinned-menu-trigger"
+        aria-label="Opções da mensagem fixada"
+        :aria-expanded="menuOpen ? 'true' : 'false'"
+        @click.stop="toggleMenu"
+      >
+        <ChevronDown class="chat-pinned-chevron" aria-hidden="true" />
+      </button>
+
+      <div
+        v-if="menuOpen"
+        class="chat-pinned-menu"
+        role="menu"
+        @click.stop
+        @mousedown.stop
+      >
+        <button
+          type="button"
+          class="chat-pinned-menu-item"
+          role="menuitem"
+          @click="onUnpin"
+        >
+          <PinOff class="chat-pinned-menu-icon" aria-hidden="true" />
+          <span>Desafixar</span>
+        </button>
+        <button
+          type="button"
+          class="chat-pinned-menu-item"
+          role="menuitem"
+          @click="onGoToMessage"
+        >
+          <CornerUpRight class="chat-pinned-menu-icon" aria-hidden="true" />
+          <span>Ir para a mensagem</span>
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import {
   Pin,
+  PinOff,
   ChevronDown,
+  CornerUpRight,
   Mic,
   Image,
   Video,
@@ -44,28 +95,42 @@ const props = defineProps({
   items: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['jump'])
+const emit = defineEmits(['jump', 'unpin'])
 
 const activeIndex = ref(0)
+const menuOpen = ref(false)
+const menuRoot = ref(null)
 
 watch(
-  () => props.items.map((item) => String(item?.id || item?.messageid || '')).join('|'),
+  () => props.items.map((item) => String(item?.id || item?.messageid || item?.normalizedMessageId || '')).join('|'),
   () => { activeIndex.value = 0 },
+)
+
+watch(
+  () => props.items.length,
+  (len) => {
+    if (!len) {
+      activeIndex.value = 0
+      menuOpen.value = false
+      return
+    }
+    if (activeIndex.value >= len) activeIndex.value = len - 1
+  },
 )
 
 const currentItem = computed(() => {
   const list = props.items
   if (!list.length) return null
-  const idx = Math.min(activeIndex.value, list.length - 1)
+  const idx = Math.min(Math.max(activeIndex.value, 0), list.length - 1)
   return list[idx] || list[list.length - 1]
 })
 
 const ariaLabel = computed(() => {
   const text = previewText(currentItem.value)
   if (props.items.length > 1) {
-    return `Mensagem fixada ${activeIndex.value + 1} de ${props.items.length}: ${text}`
+    return `Mensagem fixada ${activeIndex.value + 1} de ${props.items.length}: ${text}. Clique para ir até a mensagem.`
   }
-  return `Mensagem fixada: ${text}`
+  return `Mensagem fixada: ${text}. Clique para ir até a mensagem.`
 })
 
 const formatAudioDuration = (seconds) => {
@@ -113,12 +178,59 @@ const previewText = (msg) => {
   return 'Mensagem'
 }
 
-const onItemClick = () => {
+const selectIndex = (idx) => {
+  if (idx < 0 || idx >= props.items.length) return
+  activeIndex.value = idx
+}
+
+const closeMenu = () => {
+  menuOpen.value = false
+}
+
+const toggleMenu = () => {
+  menuOpen.value = !menuOpen.value
+}
+
+const onMainClick = () => {
   const item = currentItem.value
   if (!item) return
   emit('jump', item)
-  if (props.items.length > 1) {
-    activeIndex.value = (activeIndex.value + 1) % props.items.length
-  }
 }
+
+const onGoToMessage = () => {
+  const item = currentItem.value
+  closeMenu()
+  if (!item) return
+  emit('jump', item)
+}
+
+const onUnpin = () => {
+  const item = currentItem.value
+  closeMenu()
+  if (!item) return
+  emit('unpin', item)
+}
+
+const onGlobalPointerDown = (event) => {
+  if (!menuOpen.value) return
+  const root = menuRoot.value
+  if (root?.contains(event.target)) return
+  closeMenu()
+}
+
+const onGlobalKeydown = (event) => {
+  if (event.key === 'Escape') closeMenu()
+}
+
+onMounted(() => {
+  if (typeof document === 'undefined') return
+  document.addEventListener('pointerdown', onGlobalPointerDown, true)
+  document.addEventListener('keydown', onGlobalKeydown, true)
+})
+
+onUnmounted(() => {
+  if (typeof document === 'undefined') return
+  document.removeEventListener('pointerdown', onGlobalPointerDown, true)
+  document.removeEventListener('keydown', onGlobalKeydown, true)
+})
 </script>

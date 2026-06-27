@@ -396,22 +396,6 @@
           <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
         </span>
 
-        <!-- Pílula de reações -->
-        <button
-          v-if="hasReactionPill(entry.primary)"
-          type="button"
-          class="msg-reaction-pill"
-          :aria-label="`Reações: ${entry.primary.reactions.length}`"
-          @click.stop="onOpenReactionsDetail(entry.primary)"
-        >
-          <span
-            v-for="(em, emIdx) in getReactionPillEmojis(entry.primary)"
-            :key="`${entry.primary.id}-pill-${emIdx}`"
-            class="msg-reaction-pill-emoji"
-          >{{ em }}</span>
-          <span v-if="showReactionPillCount(entry.primary)" class="msg-reaction-pill-count">{{ entry.primary.reactions.length }}</span>
-        </button>
-
         <!-- Botão de ações -->
         <button
           v-if="!entry.primary.isContactShare"
@@ -424,6 +408,21 @@
           <ChevronDown class="icon-tiny" />
         </button>
       </div>
+
+      <button
+        v-if="hasReactionPill(entry.primary)"
+        type="button"
+        class="msg-reaction-pill"
+        :aria-label="`Reações: ${entry.primary.reactions.length}`"
+        @click.stop="onOpenReactionsDetail(entry.primary)"
+      >
+        <span
+          v-for="(em, emIdx) in getReactionPillEmojis(entry.primary)"
+          :key="`${entry.primary.id}-pill-${emIdx}`"
+          class="msg-reaction-pill-emoji"
+        >{{ em }}</span>
+        <span v-if="showReactionPillCount(entry.primary)" class="msg-reaction-pill-count">{{ entry.primary.reactions.length }}</span>
+      </button>
 
       <button
         v-if="!entry.primary.isContactShare"

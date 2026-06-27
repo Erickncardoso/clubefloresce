@@ -2,7 +2,7 @@
  * useWhatsappMessageActions
  * Menu de ações de mensagens: reações, resposta, cópia, deleção, layout do painel flutuante.
  */
-import { computed, nextTick } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import {
   actionMenuMessageId, actionMenuMode, messageActionsCoords, replyingTo, reactionsDetailMessage,
   reactionsDetailTab, optimisticReactionsByNormalizedId, optimisticPinnedByChatJid, optimisticPinTimelineByChatJid, pinnedSnapshotsByChatJid,
@@ -19,14 +19,15 @@ import { createOptimisticPinTimelineEvent } from './useWhatsappChatTimeline.js'
 
 // ─── Constantes de layout ─────────────────────────────────────────────────────
 const MESSAGE_ACTIONS_GAP = 10
-const MESSAGE_ACTIONS_SIDE_PUSH = 18
 const MESSAGE_REACTION_BAR_EXTRA_W = 40
-const MESSAGE_ACTIONS_MENU_W = 256
+const MESSAGE_ACTIONS_MENU_W = 280
 const MESSAGE_ACTIONS_TOP_SAFE = 78
-const REACTION_MENU_STACK_GAP = 6
-const REACTION_OVERLAP_BUBBLE_TOP = 4
+const REACTION_MENU_STACK_GAP = 4
 
 export const messageQuickReactions = Object.freeze(['👍', '❤️', '😂', '😮', '😢', '🙏'])
+
+export const messageInfoModalOpen = ref(false)
+export const messageInfoTarget = ref(null)
 
 const touchMenuState = { timer: null, startX: 0, startY: 0, moved: false }
 const LONG_PRESS_MS = 500
@@ -38,6 +39,19 @@ export { showChatFeedback } from './useWhatsappState.js'
 // ─── Layout do painel flutuante ───────────────────────────────────────────────
 
 const escapeMessageActionsAnchor = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+
+const resolveChatActionsBounds = () => {
+  if (typeof document === 'undefined') return null
+  const chatBody = document.querySelector('.chat-body') || document.querySelector('.chat-main')
+  return chatBody?.getBoundingClientRect?.() || null
+}
+
+const clampStackRight = (stackRight, hostW, chatBounds, vw) => {
+  const pad = MESSAGE_ACTIONS_GAP
+  const maxRight = chatBounds ? chatBounds.right - pad : vw - pad
+  const minRight = chatBounds ? chatBounds.left + pad + hostW : pad + hostW
+  return Math.max(minRight, Math.min(stackRight, maxRight))
+}
 
 export const messageActionsPreHostStyle = Object.freeze({ position: 'fixed', right: '-12000px', top: '0', visibility: 'hidden', pointerEvents: 'none', zIndex: 10040 })
 export const messageActionsPreReactionStyle = Object.freeze({ width: '100%', visibility: 'hidden', pointerEvents: 'none' })
@@ -143,20 +157,30 @@ export const layoutMessageActionsPanel = () => {
   const isOutgoing = wrap.classList.contains('message-out')
   const reactionsOnly = actionMenuMode.value === 'reactions'
   const vw = window.innerWidth, vh = window.innerHeight
-  const menuW = Math.min(MESSAGE_ACTIONS_MENU_W, vw - MESSAGE_ACTIONS_GAP * 2)
-  const reactionBarExtra = Math.min(MESSAGE_REACTION_BAR_EXTRA_W, Math.max(0, vw - MESSAGE_ACTIONS_GAP * 2 - menuW - 8))
-  const reactionBarW = isOutgoing ? Math.max(menuW, 300) : menuW + reactionBarExtra
-  const hostW = reactionsOnly ? reactionBarW : (isOutgoing ? menuW : reactionBarW)
+  const chatBounds = resolveChatActionsBounds()
+  const chatTop = chatBounds ? chatBounds.top + MESSAGE_ACTIONS_GAP : MESSAGE_ACTIONS_TOP_SAFE
+  const chatBottom = chatBounds ? chatBounds.bottom - MESSAGE_ACTIONS_GAP : vh - MESSAGE_ACTIONS_GAP
+  const menuW = Math.min(
+    MESSAGE_ACTIONS_MENU_W,
+    (chatBounds ? chatBounds.width : vw) - MESSAGE_ACTIONS_GAP * 2,
+  )
+  const reactionBarExtra = Math.min(
+    MESSAGE_REACTION_BAR_EXTRA_W,
+    Math.max(0, (chatBounds ? chatBounds.width : vw) - MESSAGE_ACTIONS_GAP * 2 - menuW - 8),
+  )
+  const reactionBarW = isOutgoing ? menuW : menuW + reactionBarExtra
+  const hostW = reactionsOnly ? Math.max(menuW, 280) : (isOutgoing ? menuW : reactionBarW)
 
-  let stackRight = isOutgoing
-    ? rect.right + MESSAGE_ACTIONS_SIDE_PUSH
-    : rect.right + MESSAGE_ACTIONS_GAP + MESSAGE_ACTIONS_SIDE_PUSH
-  if (reactionsOnly) {
-    stackRight = isOutgoing
-      ? rect.right
-      : Math.min(rect.right, vw - MESSAGE_ACTIONS_GAP)
+  let stackRight = rect.right
+  if (reactionsOnly && !isOutgoing) {
+    stackRight = Math.min(rect.right, (chatBounds?.right ?? vw) - MESSAGE_ACTIONS_GAP)
   }
-  stackRight = Math.max(MESSAGE_ACTIONS_GAP + hostW, Math.min(stackRight, vw - MESSAGE_ACTIONS_GAP))
+  stackRight = clampStackRight(stackRight, hostW, chatBounds, vw)
+  if (rect.right <= (chatBounds?.right ?? vw) - MESSAGE_ACTIONS_GAP
+    && rect.right >= (chatBounds?.left ?? 0) + MESSAGE_ACTIONS_GAP + hostW) {
+    stackRight = rect.right
+    stackRight = clampStackRight(stackRight, hostW, chatBounds, vw)
+  }
   const rightPx = vw - stackRight
 
   const reactionEl = document.querySelector('.message-actions-floater-host .message-reaction-bar--floater')
@@ -172,43 +196,42 @@ export const layoutMessageActionsPanel = () => {
     visibility: 'visible',
     pointerEvents: 'auto',
     flexShrink: 0,
-    alignSelf: isOutgoing ? 'flex-end' : 'stretch',
+    alignSelf: 'stretch',
   }
 
   let hostTop, reactionStyle, menuPanelStyle
   if (reactionsOnly) {
     let hr = reactionEl?.offsetHeight || 44
     if (hr < 22) hr = 44
-    hostTop = Math.max(MESSAGE_ACTIONS_GAP, rect.top - hr - 6)
+    hostTop = Math.max(chatTop, rect.top - hr - 6)
     reactionStyle = reactionBarVisibleStyle
     menuPanelStyle = { display: 'none', visibility: 'hidden', pointerEvents: 'none', maxHeight: '0', overflow: 'hidden' }
   } else {
     let hr = reactionEl?.offsetHeight || 46
     if (hr < 22) hr = 46
-    const overlap = isOutgoing ? 0 : REACTION_OVERLAP_BUBBLE_TOP
-    hostTop = Math.max(MESSAGE_ACTIONS_TOP_SAFE, rect.top + overlap - hr)
+    hostTop = Math.max(chatTop, rect.top - hr - 4)
     reactionStyle = reactionBarVisibleStyle
   }
 
   const reactionStackH = (reactionEl?.offsetHeight || 44) + (reactionsOnly ? 0 : REACTION_MENU_STACK_GAP)
   let menuMaxH = reactionsOnly
     ? 0
-    : Math.max(160, vh - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 10)
+    : Math.max(160, chatBottom - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
   if (!reactionsOnly && menuPanelEl) {
     const mh = menuPanelEl.getBoundingClientRect().height
     const totalH = reactionStackH + mh
-    if (totalH > 40 && hostTop + totalH > vh - MESSAGE_ACTIONS_GAP) {
-      hostTop = Math.max(MESSAGE_ACTIONS_GAP, vh - totalH - MESSAGE_ACTIONS_GAP)
-      menuMaxH = Math.max(160, vh - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
+    if (totalH > 40 && hostTop + totalH > chatBottom) {
+      hostTop = Math.max(chatTop, chatBottom - totalH)
+      menuMaxH = Math.max(160, chatBottom - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
     }
   }
   if (!reactionsOnly) menuMaxH = Math.min(520, menuMaxH)
 
   if (!reactionsOnly) {
     menuPanelStyle = {
-      width: isOutgoing ? '100%' : `${menuW}px`,
-      maxWidth: isOutgoing ? '100%' : `${menuW}px`,
-      alignSelf: isOutgoing ? 'stretch' : 'flex-end',
+      width: '100%',
+      maxWidth: '100%',
+      alignSelf: 'stretch',
       maxHeight: `${menuMaxH}px`,
       overflow: 'hidden',
       display: 'flex',
@@ -730,6 +753,29 @@ export const pinThisMessageInChat = async (msg) => {
 export const forwardMessageStub = (msg) => { void msg; showChatFeedback('Encaminhar: em breve'); actionMenuMessageId.value = null }
 export const starMessageStub = (msg) => { void msg; showChatFeedback('Favoritar: em breve'); actionMenuMessageId.value = null }
 
+export const openMessageInfoModal = (msg) => {
+  messageInfoTarget.value = msg || null
+  messageInfoModalOpen.value = Boolean(msg)
+  actionMenuMessageId.value = null
+}
+
+export const closeMessageInfoModal = () => {
+  messageInfoModalOpen.value = false
+  messageInfoTarget.value = null
+}
+
+export const commercialBroadcastStub = (msg) => {
+  void msg
+  showChatFeedback('Nova transmissão comercial: em breve')
+  actionMenuMessageId.value = null
+}
+
+export const addMessageToNotesStub = (msg) => {
+  void msg
+  showChatFeedback('Adicionar texto às notas: em breve')
+  actionMenuMessageId.value = null
+}
+
 // ─── onFormattedMessageClick ──────────────────────────────────────────────────
 
 export const onFormattedMessageClick = (event, openConversationFn) => {
@@ -812,6 +858,8 @@ export function useWhatsappMessageActions() {
     startReplyToMessage, clearReplyingTo, copyMessagePlain,
     deleteThisMessageForAll, editThisMessageText, pinThisMessageInChat,
     forwardMessageStub, starMessageStub, onFormattedMessageClick,
+    openMessageInfoModal, closeMessageInfoModal, messageInfoModalOpen, messageInfoTarget,
+    commercialBroadcastStub, addMessageToNotesStub,
     triggerFilePicker, handleMediaSelection,
     openReactionEmojiPicker, closeReactionEmojiPicker,
   }

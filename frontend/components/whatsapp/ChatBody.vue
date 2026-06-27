@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-body">
+  <div class="chat-body" :style="wallpaperStyle">
     <div class="chat-body-scroll" ref="chatBodyRef">
     <div v-if="showLoading" class="chat-body-loading" aria-busy="true">
       <Loader class="spin chat-body-loading-icon" />
@@ -111,6 +111,9 @@
       @forward="$emit('forward', $event)"
       @pin="$emit('pin', $event)"
       @star="$emit('star', $event)"
+      @message-info="$emit('message-info', $event)"
+      @commercial-broadcast="$emit('commercial-broadcast', $event)"
+      @add-to-notes="$emit('add-to-notes', $event)"
       @edit="$emit('edit', $event)"
       @delete="$emit('delete', $event)"
       @close-reactions-detail="$emit('close-reactions-detail')"
@@ -135,6 +138,7 @@ import {
   stickChatScrollToBottomIfNeeded,
   bindChatBodyScrollListeners,
   unbindChatBodyScrollListeners,
+  scrollToBottomOnChatOpen,
 } from '~/composables/whatsapp/useWhatsappScroll.js'
 
 const props = defineProps({
@@ -144,6 +148,7 @@ const props = defineProps({
   isGroup: { type: Boolean, default: false },
   contactAvatarUrl: { type: String, default: '' },
   loadingMessages: { type: Boolean, default: false },
+  wallpaperStyle: { type: Object, default: () => ({}) },
   actionMenuMessageId: { type: String, default: null },
   actionMenuMode: { type: String, default: 'full' },
   downloadingMediaById: { type: Object, default: () => ({}) },
@@ -198,7 +203,7 @@ const showLoading = computed(() => Boolean(props.loadingMessages) && displayMess
 
 defineEmits([
   'reply', 'copy', 'react-quick', 'react-open', 'react-remove', 'open-reactions-mode',
-  'forward', 'pin', 'star', 'edit', 'delete',
+  'forward', 'pin', 'star', 'message-info', 'commercial-broadcast', 'add-to-notes', 'edit', 'delete',
   'close-reactions-detail', 'reactions-tab-change', 'reactions-row-click'
 ])
 
@@ -217,8 +222,22 @@ watch(chatBodyRef, (el) => {
 watch(
   () => displayMessages.value.length,
   (nextLen, prevLen) => {
-    if (nextLen > prevLen) stickChatScrollToBottomIfNeeded()
+    if (nextLen <= prevLen) return
+    if (prevLen === 0 || props.loadingMessages) {
+      scrollToBottomOnChatOpen()
+      return
+    }
+    stickChatScrollToBottomIfNeeded()
   },
   { flush: 'post' },
+)
+
+watch(
+  () => props.loadingMessages,
+  (loading, wasLoading) => {
+    if (wasLoading && !loading && displayMessages.value.length > 0) {
+      scrollToBottomOnChatOpen()
+    }
+  },
 )
 </script>

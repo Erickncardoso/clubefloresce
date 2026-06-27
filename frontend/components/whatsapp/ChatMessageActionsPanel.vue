@@ -9,6 +9,7 @@
       <div class="message-actions-floater-inner">
         <Transition name="reaction-bar-fade" appear>
           <div
+            v-if="showReactionBar"
             :key="`${openMessage.id}-${actionMenuMode}`"
             class="message-reaction-bar message-reaction-bar--floater message-reaction-bar--wa-light"
             :style="reactionStyle"
@@ -49,55 +50,18 @@
           @pointerdown.stop
         >
           <ul class="message-actions-menu" role="menu">
-            <li>
-              <button type="button" class="ma-item" @click="emit('reply', openMessage)">
-                <Reply class="ma-ico" /> Responder
-              </button>
-            </li>
-            <li>
-              <button type="button" class="ma-item" @click="emit('copy', openMessage)">
-                <Copy class="ma-ico" /> Copiar
-              </button>
-            </li>
-            <li>
+            <li v-for="item in menuItems" :key="item.id">
               <button
+                v-if="item.id !== 'sep'"
                 type="button"
                 class="ma-item"
-                @click="emit('open-reactions-mode', openMessage)"
+                role="menuitem"
+                @click="onMenuAction(item.id)"
               >
-                <Smile class="ma-ico" /> Reagir
+                <component :is="item.icon" class="ma-ico" aria-hidden="true" />
+                <span>{{ item.label }}</span>
               </button>
-            </li>
-            <li v-if="!openMessage.fromMe">
-              <button type="button" class="ma-item" @click="emit('react-remove', openMessage)">
-                <Ban class="ma-ico" /> Remover reação
-              </button>
-            </li>
-            <li>
-              <button type="button" class="ma-item" @click="emit('forward', openMessage)">
-                <Forward class="ma-ico" /> Encaminhar
-              </button>
-            </li>
-            <li>
-              <button type="button" class="ma-item" @click="emit('pin', openMessage)">
-                <Pin class="ma-ico" /> Fixar
-              </button>
-            </li>
-            <li>
-              <button type="button" class="ma-item" @click="emit('star', openMessage)">
-                <Star class="ma-ico" /> Favoritar
-              </button>
-            </li>
-            <li v-if="openMessage.fromMe && openMessage.text && !openMessage.isMedia">
-              <button type="button" class="ma-item" @click="emit('edit', openMessage)">
-                <Pencil class="ma-ico" /> Editar
-              </button>
-            </li>
-            <li class="ma-sep" role="separator" />
-            <li>
-              <button type="button" class="ma-item ma-item-danger" @click="emit('delete', openMessage)">
-                <Trash2 class="ma-ico" /> Apagar
-              </button>
+              <span v-else class="ma-sep" role="separator" />
             </li>
           </ul>
         </div>
@@ -193,10 +157,22 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { init as initEmojiMart } from 'emoji-mart'
 import emojiData from '@emoji-mart/data'
-import { Reply, Copy, Smile, Ban, Forward, Pin, Star, Pencil, Trash2, Plus } from 'lucide-vue-next'
+import {
+  Reply,
+  Copy,
+  Smile,
+  Forward,
+  Pin,
+  Star,
+  Trash2,
+  Plus,
+  Info,
+  MessageSquareReply,
+  FileText,
+} from 'lucide-vue-next'
 import {
   closeReactionEmojiPicker,
   openReactionEmojiPicker,
@@ -223,12 +199,31 @@ const props = defineProps({
 
 const emit = defineEmits([
   'reply', 'copy', 'react-quick', 'react-open', 'react-remove', 'open-reactions-mode',
-  'forward', 'pin', 'star', 'edit', 'delete',
+  'forward', 'pin', 'star', 'edit', 'delete', 'message-info', 'commercial-broadcast', 'add-to-notes',
   'close-reactions-detail', 'reactions-tab-change', 'reactions-row-click',
 ])
 
 const moreButtonRef = ref(null)
 const lastEmojiSelection = ref({ value: '', ts: 0 })
+
+const showReactionBar = computed(() => Boolean(props.openMessage))
+
+const menuItems = computed(() => {
+  const items = [
+    { id: 'message-info', label: 'Dados da mensagem', icon: Info },
+    { id: 'reply', label: 'Responder', icon: Reply },
+    { id: 'copy', label: 'Copiar', icon: Copy },
+    { id: 'react', label: 'Reagir', icon: Smile },
+    { id: 'forward', label: 'Encaminhar', icon: Forward },
+    { id: 'commercial-broadcast', label: 'Nova transmissão comercial', icon: MessageSquareReply },
+    { id: 'pin', label: 'Fixar', icon: Pin },
+    { id: 'star', label: 'Favoritar', icon: Star },
+    { id: 'add-to-notes', label: 'Adicionar texto às notas', icon: FileText },
+    { id: 'sep' },
+    { id: 'delete', label: 'Apagar', icon: Trash2 },
+  ]
+  return items
+})
 
 watch(
   () => [props.openMessage?.id, props.actionMenuMode],
@@ -246,6 +241,45 @@ const toggleReactionPicker = () => {
 const onQuickReact = (emoji) => {
   closeReactionEmojiPicker()
   emit('react-quick', { message: props.openMessage, emoji })
+}
+
+const onMenuAction = (actionId) => {
+  const msg = props.openMessage
+  if (!msg) return
+  switch (actionId) {
+    case 'message-info':
+      emit('message-info', msg)
+      break
+    case 'reply':
+      emit('reply', msg)
+      break
+    case 'copy':
+      emit('copy', msg)
+      break
+    case 'react':
+      emit('open-reactions-mode', msg)
+      break
+    case 'forward':
+      emit('forward', msg)
+      break
+    case 'commercial-broadcast':
+      emit('commercial-broadcast', msg)
+      break
+    case 'pin':
+      emit('pin', msg)
+      break
+    case 'star':
+      emit('star', msg)
+      break
+    case 'add-to-notes':
+      emit('add-to-notes', msg)
+      break
+    case 'delete':
+      emit('delete', msg)
+      break
+    default:
+      break
+  }
 }
 
 const unifiedToNative = (value) => String(value || '')

@@ -1,7 +1,7 @@
 <template>
-  <div class="patient-app-shell" :class="{ 'patient-app-shell--gated': showMealPlanGate }">
+  <div class="patient-app-shell" :class="{ 'patient-app-shell--gated': showAppGate }">
     <NuxtPwaManifest />
-    <div class="patient-app-shell__main" :inert="showMealPlanGate">
+    <div class="patient-app-shell__main" :inert="showAppGate">
       <NuxtPage />
     </div>
     <PatientNavigationLoader />
@@ -11,6 +11,7 @@
     <CfConfirmModal />
     <AppToast />
     <PatientMealPlanUploadOverlay />
+    <PatientPushPrompt :open="showPushPrompt" />
     <PatientMealPlanGate :open="showMealPlanGate" />
   </div>
 </template>
@@ -29,6 +30,14 @@ if (import.meta.client && config.public.mobileApp) {
 
 const { getToken, bootstrapToken } = usePatientAuth()
 const { hasPlan, planChecked, loading: planLoading } = usePatientMealPlan()
+const {
+  subscribed: pushSubscribed,
+  checking: pushChecking,
+  enabledOnServer: pushEnabledOnServer,
+  supported: pushSupported,
+  standalone: pushStandalone,
+  initPushState,
+} = usePushNotifications()
 
 const hideTabBarPaths = ['/', '/register', '/documento', '/onboarding', '/esqueci-senha', '/redefinir-senha', '/abrir']
 const publicPaths = hideTabBarPaths
@@ -40,16 +49,37 @@ const isAuthenticatedRoute = computed(() => {
   return Boolean(getToken())
 })
 
+if (import.meta.client && config.public.mobileApp) {
+  void initPushState()
+
+  watch(isAuthenticatedRoute, (authenticated) => {
+    if (authenticated) void initPushState()
+  })
+}
+
+const showPushPrompt = computed(() => {
+  if (!isAuthenticatedRoute.value) return false
+  if (route.path.startsWith('/onboarding')) return false
+  if (pushChecking.value) return false
+  if (!pushEnabledOnServer.value) return false
+  if (pushSubscribed.value) return false
+  if (!pushSupported.value && !pushStandalone.value) return false
+  return true
+})
+
 const showMealPlanGate = computed(() => {
+  if (showPushPrompt.value) return false
   if (!isAuthenticatedRoute.value) return false
   if (!planChecked.value || planLoading.value) return false
   return !hasPlan.value
 })
 
+const showAppGate = computed(() => showPushPrompt.value || showMealPlanGate.value)
+
 const { suppressed: tabBarSuppressed } = usePatientTabBar()
 
 const showTabBar = computed(() => {
-  if (showMealPlanGate.value) return false
+  if (showAppGate.value) return false
   if (tabBarSuppressed.value) return false
   if (hideTabBarPaths.includes(route.path)) return false
   if (route.path.startsWith('/modulos/')) return false
