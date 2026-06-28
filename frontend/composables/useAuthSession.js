@@ -1,9 +1,11 @@
 /** Sessão autenticada via cookie httpOnly — role sempre validada no backend. */
 
 import { PROD_API_BASE } from '~/utils/api-env.mjs'
+import { isApiConnectionError } from '~/utils/resolve-api-base.mjs'
 
 const LEGACY_TOKEN_KEY = 'auth_token'
 const USER_ID_KEY = 'user_id'
+const SESSION_HINT_KEY = 'cf_session_active'
 const LEGACY_ROLE_KEY = 'user_role'
 const VERIFY_TTL_MS = 60_000
 
@@ -89,11 +91,33 @@ export function getLegacyAuthToken() {
   return localStorage.getItem(LEGACY_TOKEN_KEY) || ''
 }
 
-/** Indica possível sessão local (cookie + id) — não substitui verifyAuthSession(). */
+export function markAuthSessionHint() {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(SESSION_HINT_KEY, '1')
+  } catch {
+    /* storage indisponível */
+  }
+}
+
+/** Indica possível sessão local (cookie + metadados) — não substitui verifyAuthSession(). */
 export function hasAuthSession() {
   if (typeof window === 'undefined') return false
   if (verifiedUserState().value?.id) return true
-  return Boolean(localStorage.getItem(USER_ID_KEY))
+  return Boolean(localStorage.getItem(USER_ID_KEY) || localStorage.getItem(SESSION_HINT_KEY))
+}
+
+export function isTransientAuthFailure(err) {
+  const status = err?.statusCode ?? err?.status ?? err?.response?.status
+  if (status === 503 || status === 502 || status === 504) return true
+  return isApiConnectionError(err)
+}
+
+/** Falha que invalida a sessão (401/403 reais) — não inclui rede instável. */
+export function isDefinitiveAuthFailure(err) {
+  if (isTransientAuthFailure(err)) return false
+  const status = err?.statusCode ?? err?.status ?? err?.response?.status
+  return status === 401 || status === 403
 }
 
 export function getVerifiedUser() {
@@ -152,6 +176,7 @@ export function clearAuthSessionMeta() {
   verifiedAtState().value = 0
   localStorage.removeItem(LEGACY_TOKEN_KEY)
   localStorage.removeItem(USER_ID_KEY)
+  localStorage.removeItem(SESSION_HINT_KEY)
   localStorage.removeItem('user_name')
   localStorage.removeItem('user_avatar')
   localStorage.removeItem('user_created_at')
@@ -169,6 +194,7 @@ export function persistDisplayMeta(user) {
   localStorage.removeItem(LEGACY_TOKEN_KEY)
   purgeLegacyRoleStorage()
   if (user.id) localStorage.setItem(USER_ID_KEY, user.id)
+  markAuthSessionHint()
   if (user.name) localStorage.setItem('user_name', user.name)
   if (user.avatar) localStorage.setItem('user_avatar', user.avatar)
   if (user.createdAt) localStorage.setItem('user_created_at', user.createdAt)
@@ -225,8 +251,11 @@ export async function verifyAuthSession(options = {}) {
       clearFreshLogin()
       if (requiredRole && user.role !== requiredRole) return null
       return user
-    } catch {
+    } catch (err) {
       if (genAtStart !== getVerifyGeneration()) {
+        return verifiedUserState().value
+      }
+      if (!isDefinitiveAuthFailure(err)) {
         return verifiedUserState().value
       }
       clearAuthSessionMeta()
@@ -328,6 +357,9 @@ export function useAuthSession() {
     getVerifiedRole,
     isVerifiedRole,
     hasAuthSession,
+    markAuthSessionHint,
+    isTransientAuthFailure,
+    isDefinitiveAuthFailure,
     clearAuthSessionMeta,
     persistDisplayMeta,
     persistAuthSessionMeta,

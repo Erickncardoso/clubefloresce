@@ -14,8 +14,11 @@ import {
   getLegacyAuthToken,
   getVerifiedRole,
   hasAuthSession,
+  isDefinitiveAuthFailure,
+  isTransientAuthFailure,
   persistDisplayMeta,
   readFreshLogin,
+  verifyAuthSession,
 } from '~/composables/useAuthSession.js'
 
 const TOKEN_KEY = 'auth_token'
@@ -54,7 +57,7 @@ export function usePatientAuth() {
 
   function markSessionActive() {
     if (import.meta.server) return
-    token.value = readStorageToken()
+    token.value = getToken()
   }
 
   /** @deprecated Cookie httpOnly — use markSessionActive após login. */
@@ -113,14 +116,7 @@ export function usePatientAuth() {
   }
 
   function isTransientAuthError(err: unknown): boolean {
-    const status = (err as { statusCode?: number; status?: number })?.statusCode
-      ?? (err as { status?: number })?.status
-    if (status === 503 || status === 502 || status === 504) return true
-    const message = getFetchErrorMessage(err).toLowerCase()
-    return message.includes('network')
-      || message.includes('fetch')
-      || message.includes('timeout')
-      || message.includes('ocupado')
+    return isTransientAuthFailure(err)
   }
 
   function isPatientAccessRevokedError(err: unknown): boolean {
@@ -134,16 +130,10 @@ export function usePatientAuth() {
     bootstrapToken()
     if (!hasAuthSession()) return false
 
-    const legacy = getLegacyAuthToken()
-
     try {
       const data = await $fetch<{ user?: { role?: string; name?: string; avatar?: string; createdAt?: string } }>(
         `${config.public.apiBase}/auth/refresh`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          ...(legacy ? { headers: { Authorization: `Bearer ${legacy}` } } : {}),
-        },
+        authFetchInit({ method: 'POST' }),
       )
       if (data?.user?.role) {
         applyVerifiedSessionUser(data.user)
@@ -164,8 +154,8 @@ export function usePatientAuth() {
       }
       return false
     } catch (err) {
-      if (isTransientAuthError(err)) return false
-      if (isSessionExpiredError(err) || isPatientAccessRevokedError(err)) {
+      if (isTransientAuthFailure(err)) return false
+      if (isDefinitiveAuthFailure(err) || isSessionExpiredError(err) || isPatientAccessRevokedError(err)) {
         clearSession()
       }
       return false
@@ -193,18 +183,25 @@ export function usePatientAuth() {
       return true
     }
 
+    if (assertPatientRole()) {
+      return true
+    }
+
     const refreshed = await refreshSession()
-    if (!refreshed) {
-      if (readFreshLogin() && assertPatientRole()) return true
-      return false
+    if (refreshed && assertPatientRole()) {
+      return true
     }
 
-    if (!assertPatientRole()) {
-      rejectNonPatientSession()
-      return false
+    if (readFreshLogin() && assertPatientRole()) {
+      return true
     }
 
-    return true
+    const user = await verifyAuthSession({ force: true })
+    if (user?.role === PATIENT_ROLE) {
+      return true
+    }
+
+    return false
   }
 
   async function ensurePatientSession(): Promise<boolean> {

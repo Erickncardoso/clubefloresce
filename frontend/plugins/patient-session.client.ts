@@ -17,8 +17,8 @@ export default defineNuxtPlugin({
       clearSession,
       assertPatientRole,
     } = usePatientAuth()
-    const router = useRouter()
     const { readFreshLogin } = useAuthSession()
+    const router = useRouter()
 
     bootstrapToken()
 
@@ -39,18 +39,12 @@ export default defineNuxtPlugin({
       redirectToLogin(err)
     }
 
+    /** Renova cookie em background — nunca desloga só porque o refresh falhou. */
     const renew = () => {
       if (!bootstrapToken()) return
       if (readFreshLogin() && assertPatientRole()) return
 
-      void refreshSession().then((ok) => {
-        if (ok && assertPatientRole()) return
-        if (readFreshLogin() && assertPatientRole()) return
-        if (!ok) {
-          clearSession()
-          redirectToLogin()
-        }
-      }).catch(handleAuthFailure)
+      void refreshSession().catch(handleAuthFailure)
     }
 
     renew()
