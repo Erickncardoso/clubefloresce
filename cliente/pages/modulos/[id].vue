@@ -412,6 +412,7 @@ import { useRoute, useRouter, navigateTo } from '#app'
 import { getVideoCaptionUrl } from '~/utils/video-provider'
 import { parseTranscriptionTimeToSeconds } from '~/utils/cloudinary-video'
 import { buildModuleUrl, findLessonBySlug } from '~/utils/course-slug'
+import { authFetchInit } from '~/composables/useAuthSession.js'
 import FlorescerPlayerIcons from '~/components/courses/FlorescerPlayerIcons.vue'
 
 const route = useRoute()
@@ -527,23 +528,20 @@ const { showToast } = useAppToast()
 
 const toggleProgress = async (lessonId, field) => {
   try {
-    const token = localStorage.getItem('auth_token')
     const lesson = moduleData.value.lessons?.find(l => l.id === lessonId)
     if (!lesson) return
 
     const currentProgress = (lesson.progress && lesson.progress[0]) || {}
     const newValue = !currentProgress[field]
-    
-    // Regra de exclusão Like/Dislike
+
     let payload = { [field]: newValue }
     if (field === 'liked' && newValue) payload.disliked = false
     if (field === 'disliked' && newValue) payload.liked = false
 
-    const res = await $fetch(`${apiBase}/courses/lessons/${lessonId}/progress`, {
+    const res = await $fetch(`${apiBase}/courses/lessons/${lessonId}/progress`, authFetchInit({
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
       body: payload
-    })
+    }))
     
     // Atualiza localmente no moduleData para refletir na UI
     if (!lesson.progress) lesson.progress = [{}]
@@ -674,10 +672,7 @@ const newCommentText = ref('')
 
 const fetchComments = async (lessonId) => {
   try {
-    const token = localStorage.getItem('auth_token')
-    const data = await $fetch(`${apiBase}/courses/lessons/${lessonId}/comments`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const data = await $fetch(`${apiBase}/courses/lessons/${lessonId}/comments`, authFetchInit())
     activeLessonComments.value = data
   } catch (err) { console.error('Erro ao buscar comentários:', err) }
 }
@@ -686,15 +681,13 @@ const sendComment = async () => {
   if (!newCommentText.value.trim() || !activeLesson.value) return
   
   try {
-    const token = localStorage.getItem('auth_token')
     const content = newCommentText.value
-    newCommentText.value = '' // Limpa antes para feedback rápido
-    
-    const res = await $fetch(`${apiBase}/courses/lessons/${activeLesson.value.id}/comments`, {
+    newCommentText.value = ''
+
+    const res = await $fetch(`${apiBase}/courses/lessons/${activeLesson.value.id}/comments`, authFetchInit({
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
       body: { content }
-    })
+    }))
     
     activeLessonComments.value.push(res)
   } catch (err) { 
@@ -708,12 +701,8 @@ const editingCommentId = ref(null)
 const editingContent = ref('')
 
 const isAuthor = (comment) => {
-  const token = localStorage.getItem('auth_token')
-  if (!token) return false
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return comment.authorId === payload.id
-  } catch { return false }
+  if (!currentUser.value?.id) return false
+  return comment.authorId === currentUser.value.id
 }
 
 const startEdit = (comment) => {
@@ -729,12 +718,10 @@ const cancelEdit = () => {
 const saveEdit = async (commentId) => {
   if (!editingContent.value.trim()) return
   try {
-    const token = localStorage.getItem('auth_token')
-    const res = await $fetch(`${apiBase}/courses/comments/${commentId}`, {
+    const res = await $fetch(`${apiBase}/courses/comments/${commentId}`, authFetchInit({
       method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
       body: { content: editingContent.value }
-    })
+    }))
     
     // Atualiza localmente
     const idx = activeLessonComments.value.findIndex(c => c.id === commentId)
@@ -746,11 +733,7 @@ const saveEdit = async (commentId) => {
 
 const toggleCommentLike = async (commentId) => {
   try {
-    const token = localStorage.getItem('auth_token')
-    const res = await $fetch(`${apiBase}/courses/comments/${commentId}/toggle-like`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const res = await $fetch(`${apiBase}/courses/comments/${commentId}/toggle-like`, authFetchInit({ method: 'POST' }))
     
     // Atualiza localmente o comentário na lista
     const idx = activeLessonComments.value.findIndex(c => c.id === commentId)
@@ -764,11 +747,7 @@ const toggleCommentLike = async (commentId) => {
 const deleteComment = async (commentId) => {
   if (!confirm('Tem certeza que deseja excluir seu comentário?')) return
   try {
-    const token = localStorage.getItem('auth_token')
-    await $fetch(`${apiBase}/courses/comments/${commentId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await $fetch(`${apiBase}/courses/comments/${commentId}`, authFetchInit({ method: 'DELETE' }))
     activeLessonComments.value = activeLessonComments.value.filter(c => c.id !== commentId)
   } catch (err) { console.error('Erro ao excluir:', err) }
 }
@@ -778,16 +757,14 @@ const fetchModule = async () => {
   try {
     if (!isRefetch) loading.value = true
     loadError.value = ''
-    const token = localStorage.getItem('auth_token')
     const courseId = route.query.curso ? String(route.query.curso) : undefined
     const lessonSlug = route.query.aula ? String(route.query.aula) : undefined
-    const data = await $fetch(`${apiBase}/courses/modules/${encodeURIComponent(moduleParam.value)}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const data = await $fetch(`${apiBase}/courses/modules/${encodeURIComponent(moduleParam.value)}`, authFetchInit({
       query: {
         ...(courseId ? { courseId } : {}),
         ...(lessonSlug ? { aula: lessonSlug } : {}),
       },
-    })
+    }))
     moduleData.value = data
     applyLessonFromRoute(data)
     if (activeLesson.value) {
@@ -829,11 +806,7 @@ const currentUser = ref(null)
 
 const fetchCurrentUser = async () => {
   try {
-    const token = localStorage.getItem('auth_token')
-    if (!token) return
-    const user = await $fetch(`${authApiBase}/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const user = await $fetch(`${authApiBase}/me`, authFetchInit())
     currentUser.value = user
   } catch (err) { console.error('Erro ao buscar perfil:', err) }
 }

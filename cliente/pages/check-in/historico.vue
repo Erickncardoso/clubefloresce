@@ -59,7 +59,7 @@ import {
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const config = useRuntimeConfig()
-const { patientTimeHeaders } = usePatientLocalTime()
+const { patientFetchInit } = usePatientLocalTime()
 const history = ref([])
 const activeFilter = ref('all')
 const pageLoading = ref(true)
@@ -113,9 +113,7 @@ const statusClass = (item) => {
 onMounted(async () => {
   pageLoading.value = true
   try {
-    const data = await $fetch(`${config.public.apiBase}/checkin/me/responses`, {
-      headers: patientTimeHeaders(),
-    })
+    const data = await $fetch(`${config.public.apiBase}/checkin/me/responses`, patientFetchInit())
     history.value = data.responses || []
   } catch {
     history.value = []

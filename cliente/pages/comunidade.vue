@@ -110,20 +110,13 @@ const postImagePreviewUrl = ref('')
 const lightboxImageUrl = ref('')
 
 const { userInitials } = usePatientApp()
+const { authFetchInit } = usePatientAuth()
 const userInitial = computed(() => userInitials().charAt(0))
-
-const authHeaders = () => {
-  if (import.meta.server) return {}
-  const token = localStorage.getItem('auth_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 const fetchPosts = async () => {
   if (import.meta.server) return
   try {
-    const data = await $fetch(`${apiBase}/posts`, {
-      headers: authHeaders(),
-    })
+    const data = await $fetch(`${apiBase}/posts`, authFetchInit())
     posts.value = data.map((p) => ({
       ...p,
       likes: p.likes ?? p.likesCount ?? 0,
@@ -141,10 +134,7 @@ const handleToggleLike = async (post) => {
   if (likingPostId.value === post.id) return
   likingPostId.value = post.id
   try {
-    const result = await $fetch(`${apiBase}/posts/${post.id}/toggle-like`, {
-      method: 'POST',
-      headers: authHeaders(),
-    })
+    const result = await $fetch(`${apiBase}/posts/${post.id}/toggle-like`, authFetchInit({ method: 'POST' }))
     post.likes = result.likes
     post.likedByMe = result.likedByMe
   } catch (err) {
@@ -163,11 +153,7 @@ const handleCreatePost = async () => {
     if (selectedPostImageFile.value) {
       formData.append('image', selectedPostImageFile.value)
     }
-    await $fetch(`${apiBase}/posts`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: formData,
-    })
+    await $fetch(`${apiBase}/posts`, authFetchInit({ method: 'POST', body: formData }))
     newPostContent.value = ''
     clearPostImage()
     fetchPosts()
@@ -213,11 +199,10 @@ const clearPostImage = () => {
 const handleAddComment = async (post) => {
   if (!post.newComment?.trim()) return
   try {
-    await $fetch(`${apiBase}/posts/${post.id}/comments`, {
+    await $fetch(`${apiBase}/posts/${post.id}/comments`, authFetchInit({
       method: 'POST',
-      headers: authHeaders(),
       body: { content: post.newComment },
-    })
+    }))
     post.newComment = ''
     if (!expandedComments.value.includes(post.id)) {
       expandedComments.value.push(post.id)
@@ -239,10 +224,7 @@ const handleDeletePost = async (id) => {
   })
   if (!ok) return
   try {
-    await $fetch(`${apiBase}/posts/${id}`, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    })
+    await $fetch(`${apiBase}/posts/${id}`, authFetchInit({ method: 'DELETE' }))
     expandedComments.value = expandedComments.value.filter((postId) => postId !== id)
     await fetchPosts()
   } catch (err) {

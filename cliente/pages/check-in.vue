@@ -222,8 +222,8 @@ definePageMeta({
 
 const config = useRuntimeConfig()
 const isPatientApp = computed(() => Boolean(config.public.mobileApp))
-const { patientTimeHeaders } = usePatientLocalTime()
-const { authHeaders, bootstrapToken } = usePatientAuth()
+const { patientFetchInit } = usePatientLocalTime()
+const { bootstrapToken } = usePatientAuth()
 const { showToast } = useAppToast()
 
 const route = useRoute()
@@ -432,7 +432,7 @@ function frequencyLabel(freq) {
 const loadPatientTemplates = async () => {
   loadingTemplates.value = true
   try {
-    const data = await $fetch(`${apiBase}/checkin/templates/active`, { headers: patientTimeHeaders() })
+    const data = await $fetch(`${apiBase}/checkin/templates/active`, patientFetchInit())
     activeTemplates.value = data.templates || []
     checkInStatus.value = data.status || {}
 
@@ -467,7 +467,7 @@ const startTemplate = (tpl) => {
 }
 
 const loadPatientData = async () => {
-  const data = await $fetch(`${apiBase}/checkin/me`, { headers: patientTimeHeaders() })
+  const data = await $fetch(`${apiBase}/checkin/me`, patientFetchInit())
   current.value = data.current
   history.value = data.history || []
   if (data.weekStart) weekLabel.value = `Semana de ${formatWeek(data.weekStart)}`
@@ -481,9 +481,7 @@ const loadPatientData = async () => {
 }
 
 const loadNutriData = async () => {
-  const list = await $fetch(`${apiBase}/checkin/patients`, {
-    headers: patientTimeHeaders(),
-  })
+  const list = await $fetch(`${apiBase}/checkin/patients`, patientFetchInit())
   patientCheckIns.value = (Array.isArray(list) ? list : []).map((item) => ({
     ...item,
     extras: parseCheckInNotes(item.notes),
@@ -507,18 +505,14 @@ const submitPatientCheckIn = async (answers) => {
 
   try {
     await bootstrapToken()
-    await $fetch(`${apiBase}/checkin/responses`, {
+    await $fetch(`${apiBase}/checkin/responses`, patientFetchInit({
       method: 'POST',
-      headers: {
-        ...authHeaders(),
-        ...patientTimeHeaders(),
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: {
         templateId: selectedTemplate.value.id,
         answers,
       },
-    })
+    }))
 
     checkInSubmitted.value = true
     showToast({
@@ -553,9 +547,8 @@ const submitCheckIn = async () => {
   formSuccess.value = ''
   saving.value = true
   try {
-    await $fetch(`${apiBase}/checkin`, {
+    await $fetch(`${apiBase}/checkin`, patientFetchInit({
       method: 'POST',
-      headers: patientTimeHeaders(),
       body: {
         mood: form.mood,
         energy: form.energy,
@@ -563,7 +556,7 @@ const submitCheckIn = async () => {
         weightKg: form.weightKg || null,
         notes: form.notes,
       },
-    })
+    }))
 
     formSuccess.value = 'Check-in salvo com sucesso!'
     await loadPatientData()

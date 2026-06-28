@@ -104,11 +104,10 @@ export function usePatientApp() {
       name: string
       avatar?: string | null
       createdAt?: string
-    }>(`${config.public.apiBase}/auth/me/avatar`, {
+    }>(`${config.public.apiBase}/auth/me/avatar`, patientAuth.authFetchInit({
       method: 'POST',
-      headers: patientAuth.authHeaders(),
       body: formData,
-    })
+    }))
 
     persistSession(user)
     return user

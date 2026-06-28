@@ -446,6 +446,7 @@ import {
 } from '~/utils/bunny-seek-thumbnails'
 import { getVideoCaptionCandidates } from '~/utils/video-provider'
 import { getActiveCaptionCue, parseVttToCaptionCues, transcriptionToCaptionCues } from '~/utils/transcription'
+import { authFetchInit } from '~/composables/useAuthSession.js'
 import FlorescerPlayerIcons from './FlorescerPlayerIcons.vue'
 
 const props = defineProps({
@@ -985,10 +986,7 @@ async function loadBunnyPlayMetadata() {
   if (!props.lessonId || !isBunnySource.value || !import.meta.client) return
 
   try {
-    const token = localStorage.getItem('auth_token')
-    const result = await $fetch(`${apiBase}/courses/lessons/${props.lessonId}/video-metadata`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
+    const result = await $fetch(`${apiBase}/courses/lessons/${props.lessonId}/video-metadata`, authFetchInit())
 
     if (result?.available && result?.metadata) {
       bunnyPlayMetadata.value = result.metadata

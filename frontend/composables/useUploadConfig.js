@@ -1,3 +1,4 @@
+import { authFetchInit } from '~/composables/useAuthSession.js'
 import { resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 import { EBOOK_PDF_MAX_BYTES as DEFAULT_DOCUMENT_MAX_BYTES } from '~/utils/upload-file-kind'
 
@@ -8,10 +9,7 @@ export async function fetchUploadConfig(apiBase) {
   if (cachedConfig) return cachedConfig
   if (configPromise) return configPromise
 
-  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null
-  configPromise = $fetch(resolveUploadApiUrl('/upload/config', apiBase), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  }).then((config) => {
+  configPromise = $fetch(resolveUploadApiUrl('/upload/config', apiBase), authFetchInit()).then((config) => {
     cachedConfig = config
     return config
   }).finally(() => {

@@ -450,6 +450,7 @@ import {
 } from 'lucide-vue-next'
 import { buildModuleUrl } from '~/utils/course-slug'
 import { openPatientCourse } from '~/utils/open-patient-course'
+import { authFetchInit } from '~/composables/useAuthSession.js'
 
 definePageMeta({
   middleware: ['patient-course-player-redirect'],
@@ -763,19 +764,17 @@ const parseCompletionFromProgress = (progressData) => {
   )
 }
 
-const fetchLessonsProgress = async (courseData, token) => {
+const fetchLessonsProgress = async (courseData) => {
   const lessonIds = (courseData?.modules || [])
     .flatMap((module) => module?.lessons || [])
     .map((lesson) => lesson?.id)
     .filter(Boolean)
 
-  if (!lessonIds.length || !token) return
+  if (!lessonIds.length) return
 
   const entries = await Promise.all(lessonIds.map(async (lessonId) => {
     try {
-      const progressData = await $fetch(`${apiBase}/courses/lessons/${lessonId}/progress`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const progressData = await $fetch(`${apiBase}/courses/lessons/${lessonId}/progress`, authFetchInit())
       return [lessonId, parseCompletionFromProgress(progressData)]
     } catch {
       return [lessonId, undefined]
@@ -908,7 +907,6 @@ const applyYoutubeThumb = () => {
 
 const handleVideoUpload = async () => {
   if (!videoFileLocal.value) return
-  const token = localStorage.getItem('auth_token')
   videoUploadStatus.value = 'uploading'
   videoUploadProgress.value = 0
 
@@ -917,7 +915,7 @@ const handleVideoUpload = async () => {
     formData.append('file', videoFileLocal.value)
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${apiBase}/upload/video`)
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.withCredentials = true
     xhr.timeout = 1000 * 60 * 30 // 30min
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {
@@ -978,7 +976,6 @@ const handleCreateLessonFromDetail = async () => {
 
   uploading.value = true
   try {
-    const token = localStorage.getItem('auth_token')
     if (videoSourceTab.value === 'upload' && videoFileLocal.value && !newLesson.videoUrl) {
       await handleVideoUpload()
     }
@@ -987,19 +984,17 @@ const handleCreateLessonFromDetail = async () => {
     if (lessonThumbFile.value) {
       const formData = new FormData()
       formData.append('file', lessonThumbFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
+      const uploadRes = await $fetch(`${apiBase}/upload`, authFetchInit({
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData
-      })
+      }))
       finalThumbnail = uploadRes.url
     }
 
     if (!newLesson.videoUrl) throw new Error('Não foi possível obter URL do vídeo.')
 
-    await $fetch(`${apiBase}/courses/lessons`, {
+    await $fetch(`${apiBase}/courses/lessons`, authFetchInit({
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
       body: {
         moduleId: currentModuleIdForLesson.value,
         title: newLesson.title,
@@ -1008,7 +1003,7 @@ const handleCreateLessonFromDetail = async () => {
         thumbnail: finalThumbnail || null,
         order: 0
       }
-    })
+    }))
 
     showLessonModal.value = false
     resetLessonVideoState()
@@ -1022,13 +1017,10 @@ const handleCreateLessonFromDetail = async () => {
 
 const fetchCourse = async () => {
   try {
-    const token = localStorage.getItem('auth_token')
-    const data = await $fetch(`${apiBase}/courses/${route.params.id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const data = await $fetch(`${apiBase}/courses/${route.params.id}`, authFetchInit())
     course.value = data
     expandedModuleIds.value = new Set(data.modules?.[0]?.id ? [data.modules[0].id] : [])
-    await fetchLessonsProgress(data, token)
+    await fetchLessonsProgress(data)
   } catch (err) {
     console.error('Erro ao carregar curso:', err)
   }

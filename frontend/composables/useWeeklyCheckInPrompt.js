@@ -1,7 +1,7 @@
 /** Check-in semanal (sex–seg): status, banner e popup de sexta. */
 export function useWeeklyCheckInPrompt() {
   const config = useRuntimeConfig()
-  const { patientTimeHeaders } = usePatientLocalTime()
+  const { patientFetchInit } = usePatientLocalTime()
 
   const checkInStatus = ref({})
   const activeTemplates = ref([])
@@ -33,9 +33,7 @@ export function useWeeklyCheckInPrompt() {
   async function loadCheckInAccess() {
     loading.value = true
     try {
-      const data = await $fetch(`${config.public.apiBase}/checkin/templates/active`, {
-        headers: patientTimeHeaders(),
-      })
+      const data = await $fetch(`${config.public.apiBase}/checkin/templates/active`, patientFetchInit())
       activeTemplates.value = data.templates || []
       checkInStatus.value = data.status || {}
 

@@ -1,3 +1,4 @@
+import { authFetchInit } from '~/composables/useAuthSession.js'
 import { apiConnectionErrorMessage, isApiConnectionError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 
 function showUploadResultToast({ successTitle, errorMessage }) {
@@ -24,6 +25,7 @@ function showUploadResultToast({ successTitle, errorMessage }) {
 
 export function usePatientMealPlan() {
   const config = useRuntimeConfig()
+  const { hasPatientSession } = usePatientAuth()
   const planRecord = useState('patient-meal-plan', () => null)
   const planChecked = useState('patient-meal-plan-checked', () => false)
   const loading = useState('patient-meal-plan-loading', () => false)
@@ -32,17 +34,17 @@ export function usePatientMealPlan() {
 
   const hasPlan = computed(() => Boolean(planRecord.value?.plan?.meals?.length))
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-  })
-
   async function fetchPlan() {
+    if (!hasPatientSession()) {
+      planRecord.value = null
+      planChecked.value = true
+      return
+    }
+
     loading.value = true
     error.value = ''
     try {
-      const res = await $fetch(`${config.public.apiBase}/meal-plan/me`, {
-        headers: authHeaders(),
-      })
+      const res = await $fetch(`${config.public.apiBase}/meal-plan/me`, authFetchInit())
       planRecord.value = res.plan ?? null
 
       const planName = planRecord.value?.patientName || planRecord.value?.plan?.patientName
@@ -92,8 +94,7 @@ export function usePatientMealPlan() {
   async function uploadPdf(file) {
     if (!file) return null
 
-    const token = localStorage.getItem('auth_token')
-    if (!token) {
+    if (!hasPatientSession()) {
       error.value = 'Faça login para importar seu plano alimentar.'
       return null
     }
@@ -112,11 +113,10 @@ export function usePatientMealPlan() {
     let errorMessage = null
 
     try {
-      const res = await $fetch(resolveUploadApiUrl('/meal-plan/upload', config.public.apiBase), {
+      const res = await $fetch(resolveUploadApiUrl('/meal-plan/upload', config.public.apiBase), authFetchInit({
         method: 'POST',
-        headers: authHeaders(),
         body: formData,
-      })
+      }))
       planRecord.value = res.plan ?? null
       planChecked.value = true
 

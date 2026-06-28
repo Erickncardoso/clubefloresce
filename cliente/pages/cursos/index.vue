@@ -764,9 +764,10 @@ import { useDocumentUploadLimits } from '~/composables/useUploadConfig'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { openPatientCourse } from '~/utils/open-patient-course'
 import { buildModuleUrl } from '~/utils/course-slug'
-import { clearAuthSessionMeta, hasAuthSession, verifyAuthSession } from '~/composables/useAuthSession.js'
+import { clearAuthSessionMeta, hasAuthSession, verifyAuthSession, authFetchInit } from '~/composables/useAuthSession.js'
 
 const config = useRuntimeConfig()
+const { hasPatientSession } = usePatientAuth()
 const { openDocument } = usePatientDocument()
 const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
 const isPatientApp = computed(() => Boolean(config.public.mobileApp))
@@ -775,24 +776,16 @@ const apiBase = config.public.apiBase
 const whatsappApiBase = config.public.whatsappApiBase
 const { documentMaxBytes, documentMaxLabel, documentUploadHint } = useDocumentUploadLimits()
 
-async function uploadImageToCloudinary(file, token) {
+async function uploadImageToCloudinary(file) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(`${apiBase}/upload`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  })
+  return $fetch(`${apiBase}/upload`, authFetchInit({ method: 'POST', body: formData }))
 }
 
-async function uploadDocumentToCloudinary(file, token) {
+async function uploadDocumentToCloudinary(file) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(`${apiBase}/upload/file`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  })
+  return $fetch(`${apiBase}/upload/file`, authFetchInit({ method: 'POST', body: formData }))
 }
 const route = useRoute()
 const courses = ref([])
@@ -1114,11 +1107,7 @@ const closeCreateCourseModal = () => {
 const openAddLessonFromCourse = async (course) => {
   if (!course?.id) return
   try {
-    const token = localStorage.getItem('auth_token')
-    const ensuredModule = await $fetch(`${apiBase}/courses/${course.id}/modules/ensure-first`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const ensuredModule = await $fetch(`${apiBase}/courses/${course.id}/modules/ensure-first`, authFetchInit({ method: 'POST' }))
     if (!ensuredModule?.id) {
       throw new Error('Não foi possível preparar o módulo inicial do curso.')
     }
@@ -1231,15 +1220,12 @@ const handleCourseMobileImageSelect = async (e) => {
 const fetchCourses = async () => {
   try {
     coursesLoadError.value = ''
-    const token = localStorage.getItem('auth_token')
-    if (!token) {
+    if (!hasPatientSession()) {
       coursesLoadError.value = 'Sessão expirada. Faça login novamente.'
       handleAuthTokenInvalid()
       return
     }
-    const data = await $fetch(`${apiBase}/courses`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const data = await $fetch(`${apiBase}/courses`, authFetchInit())
     if (Array.isArray(data)) {
       courses.value = data
       handlePendingAddLessonAction()
@@ -1303,14 +1289,11 @@ const shouldFallbackLegacyPayload = (err) => {
 
 const fetchEbooks = async () => {
   try {
-    const token = localStorage.getItem('auth_token')
-    if (!token) {
+    if (!hasPatientSession()) {
       ebooks.value = []
       return
     }
-    const data = await $fetch(`${apiBase}/ebooks`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const data = await $fetch(`${apiBase}/ebooks`, authFetchInit())
     ebooks.value = Array.isArray(data) ? data : []
   } catch (err) {
     console.error('Erro ao buscar ebooks:', err)
@@ -1359,15 +1342,11 @@ const handleDeleteEbookFromCourses = async (ebookId) => {
   })
   if (!ok) return
   try {
-    const token = localStorage.getItem('auth_token')
-    if (!token) {
+    if (!hasPatientSession()) {
       handleAuthTokenInvalid()
       return
     }
-    await $fetch(`${apiBase}/ebooks/${ebookId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await $fetch(`${apiBase}/ebooks/${ebookId}`, authFetchInit({ method: 'DELETE' }))
     await fetchEbooks()
   } catch (err) {
     alert(err?.data?.message || err?.message || 'Erro ao excluir ebook.')
@@ -1464,30 +1443,28 @@ const handleCreateEbookFromCourses = async () => {
   if (!selectedEbookPdfFile.value) return alert('Selecione o arquivo PDF do ebook.')
   ebookUploading.value = true
   try {
-    const token = localStorage.getItem('auth_token')
-    if (!token) {
+    if (!hasPatientSession()) {
       handleAuthTokenInvalid()
       return
     }
 
     if (selectedEbookCoverFile.value) {
-      const coverUploadRes = await uploadImageToCloudinary(selectedEbookCoverFile.value, token)
+      const coverUploadRes = await uploadImageToCloudinary(selectedEbookCoverFile.value)
       newEbook.thumbnail = coverUploadRes.url
     }
 
-    const pdfUploadRes = await uploadDocumentToCloudinary(selectedEbookPdfFile.value, token)
+    const pdfUploadRes = await uploadDocumentToCloudinary(selectedEbookPdfFile.value)
     newEbook.fileUrl = pdfUploadRes.url
 
-    await $fetch(`${apiBase}/ebooks`, {
+    await $fetch(`${apiBase}/ebooks`, authFetchInit({
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
       body: {
         title: newEbook.title.trim(),
         description: newEbook.description?.trim() || '',
         fileUrl: newEbook.fileUrl,
         thumbnail: newEbook.thumbnail || null,
       }
-    })
+    }))
 
     closeCreateEbookModal()
     await fetchEbooks()
@@ -1541,8 +1518,7 @@ const handleUpdateEbookFromCourses = async () => {
   if (!editingEbook.title?.trim()) return alert('O título do ebook é obrigatório.')
   ebookUploading.value = true
   try {
-    const token = localStorage.getItem('auth_token')
-    if (!token) {
+    if (!hasPatientSession()) {
       handleAuthTokenInvalid()
       return
     }
@@ -1555,20 +1531,19 @@ const handleUpdateEbookFromCourses = async () => {
     }
 
     if (selectedEditEbookCoverFile.value) {
-      const coverUploadRes = await uploadImageToCloudinary(selectedEditEbookCoverFile.value, token)
+      const coverUploadRes = await uploadImageToCloudinary(selectedEditEbookCoverFile.value)
       payload.thumbnail = coverUploadRes.url
     }
 
     if (selectedEditEbookPdfFile.value) {
-      const pdfUploadRes = await uploadDocumentToCloudinary(selectedEditEbookPdfFile.value, token)
+      const pdfUploadRes = await uploadDocumentToCloudinary(selectedEditEbookPdfFile.value)
       payload.fileUrl = pdfUploadRes.url
     }
 
-    await $fetch(`${apiBase}/ebooks/${editingEbook.id}`, {
+    await $fetch(`${apiBase}/ebooks/${editingEbook.id}`, authFetchInit({
       method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
       body: payload
-    })
+    }))
 
     closeEditEbookModal()
     await fetchEbooks()
@@ -1583,46 +1558,33 @@ const handleCreateCourse = async () => {
   if (!newCourse.title) return alert('Informe o título do curso.')
   uploading.value = true
   try {
-    const token = localStorage.getItem('auth_token')
-
-    // Upload local da capa desktop
     if (courseFile.value) {
       const formData = new FormData()
       formData.append('file', courseFile.value)
       try {
-        const uploadRes = await $fetch(`${apiBase}/upload`, {
+        const uploadRes = await $fetch(`${apiBase}/upload`, authFetchInit({
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
           body: formData
-        })
+        }))
         newCourse.thumbnail = uploadRes.url
       } catch (e) {
         console.warn('Falha no upload da imagem (curso continuará sem capa):', e?.data?.message || e)
       }
     }
 
-    // No modal de criação usamos apenas uma capa principal.
     newCourse.thumbnailMobile = ''
 
     try {
-      await $fetch(`${apiBase}/courses`, {
+      await $fetch(`${apiBase}/courses`, authFetchInit({
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(buildCoursePayload(newCourse))
-      })
+        body: buildCoursePayload(newCourse)
+      }))
     } catch (err) {
       if (!shouldFallbackLegacyPayload(err)) throw err
-      await $fetch(`${apiBase}/courses`, {
+      await $fetch(`${apiBase}/courses`, authFetchInit({
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(buildLegacyCoursePayload(newCourse))
-      })
+        body: buildLegacyCoursePayload(newCourse)
+      }))
     }
     closeCreateCourseModal()
     fetchCourses()
@@ -1646,16 +1608,13 @@ const handleUpdateCourse = async () => {
   if (!editingCourse.title) return alert('Informe o título do curso.')
   uploading.value = true
   try {
-    const token = localStorage.getItem('auth_token')
-    
     if (courseFile.value) {
       const formData = new FormData()
       formData.append('file', courseFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
+      const uploadRes = await $fetch(`${apiBase}/upload`, authFetchInit({
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData
-      })
+      }))
       if (!uploadRes?.url) {
         throw new Error('Upload da capa desktop não retornou URL válida.')
       }
@@ -1669,11 +1628,10 @@ const handleUpdateCourse = async () => {
     if (courseMobileFile.value) {
       const formData = new FormData()
       formData.append('file', courseMobileFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
+      const uploadRes = await $fetch(`${apiBase}/upload`, authFetchInit({
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData
-      })
+      }))
       if (!uploadRes?.url) {
         throw new Error('Upload da capa mobile não retornou URL válida.')
       }
@@ -1685,24 +1643,16 @@ const handleUpdateCourse = async () => {
     }
 
     try {
-      await $fetch(`${apiBase}/courses/${editingCourse.id}`, {
+      await $fetch(`${apiBase}/courses/${editingCourse.id}`, authFetchInit({
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(buildCoursePayload(editingCourse))
-      })
+        body: buildCoursePayload(editingCourse)
+      }))
     } catch (err) {
       if (!shouldFallbackLegacyPayload(err)) throw err
-      await $fetch(`${apiBase}/courses/${editingCourse.id}`, {
+      await $fetch(`${apiBase}/courses/${editingCourse.id}`, authFetchInit({
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(buildLegacyCoursePayload(editingCourse))
-      })
+        body: buildLegacyCoursePayload(editingCourse)
+      }))
     }
     
     showEditCourseModal.value = false
@@ -1721,12 +1671,10 @@ const handleUpdateCourse = async () => {
 const handleCreateModule = async () => {
   if (!newModule.title) return alert('Informe o título do módulo.')
   try {
-    const token = localStorage.getItem('auth_token')
-    await $fetch(`${apiBase}/courses/${selectedCourse.value.id}/modules`, {
+    await $fetch(`${apiBase}/courses/${selectedCourse.value.id}/modules`, authFetchInit({
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
       body: newModule
-    })
+    }))
     showModuleModal.value = false
     await fetchCourses()
     if (selectedCourseDetails.value && selectedCourseDetails.value.id === selectedCourse.value.id) {
@@ -1747,11 +1695,7 @@ const handleDeleteCourse = async (id) => {
   })
   if (!ok) return
   try {
-    const token = localStorage.getItem('auth_token')
-    await $fetch(`${apiBase}/courses/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await $fetch(`${apiBase}/courses/${id}`, authFetchInit({ method: 'DELETE' }))
     fetchCourses()
   } catch (err) {
     console.error('Erro ao excluir curso:', err)
@@ -1871,7 +1815,6 @@ const captureVideoFrame = () => {
 
 const handleVideoUpload = async () => {
   if (!videoFileLocal.value) return
-  const token = localStorage.getItem('auth_token')
   videoUploadStatus.value = 'uploading'
   videoUploadProgress.value = 0
 
@@ -1880,7 +1823,7 @@ const handleVideoUpload = async () => {
     formData.append('file', videoFileLocal.value)
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${apiBase}/upload/video`)
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.withCredentials = true
     // Upload de vídeo grande pode demorar no Cloudinary (upload_large).
     xhr.timeout = 1000 * 60 * 30 // 30min
     xhr.upload.addEventListener('progress', (e) => {
@@ -1959,30 +1902,25 @@ const handleCreateLesson = async () => {
   if (videoSourceTab.value === 'upload' && !videoFileLocal.value && !newLesson.videoUrl) return alert('Selecione um vídeo para fazer upload.')
   try {
     uploading.value = true
-    const token = localStorage.getItem('auth_token')
-    
-    // 1. Upload do vídeo local (se necessário)
+
     if (videoSourceTab.value === 'upload' && videoFileLocal.value && !newLesson.videoUrl) {
       await handleVideoUpload()
     }
     if (!newLesson.videoUrl) throw new Error('Não foi possível obter URL do vídeo (Cloudinary).')
 
-    // 2. Upload da miniatura (se existir arquivo)
     let finalThumbnail = newLesson.thumbnail
     if (lessonThumbFile.value) {
       const formData = new FormData()
       formData.append('file', lessonThumbFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
+      const uploadRes = await $fetch(`${apiBase}/upload`, authFetchInit({
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData
-      })
+      }))
       finalThumbnail = uploadRes.url
     }
 
-    await $fetch(`${apiBase}/courses/lessons`, {
+    await $fetch(`${apiBase}/courses/lessons`, authFetchInit({
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
       body: {
         title: newLesson.title,
         videoUrl: newLesson.videoUrl,
@@ -1991,7 +1929,7 @@ const handleCreateLesson = async () => {
         moduleId: currentModuleIdForLesson.value,
         order: 0
       }
-    })
+    }))
     showLessonModal.value = false
     uploading.value = false
     resetLessonVideoState()
@@ -2033,23 +1971,20 @@ const handleUpdateLesson = async () => {
   if (!editingLesson.videoUrl) return alert('Informe o link ou faça upload de um vídeo.')
   try {
     uploading.value = true
-    const token = localStorage.getItem('auth_token')
 
     let finalThumbnail = editingLesson.thumbnail
     if (lessonThumbFile.value) {
       const formData = new FormData()
       formData.append('file', lessonThumbFile.value)
-      const uploadRes = await $fetch(`${apiBase}/upload`, {
+      const uploadRes = await $fetch(`${apiBase}/upload`, authFetchInit({
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData
-      })
+      }))
       finalThumbnail = uploadRes.url
     }
 
-    await $fetch(`${apiBase}/courses/lessons/${editingLesson.id}`, {
+    await $fetch(`${apiBase}/courses/lessons/${editingLesson.id}`, authFetchInit({
       method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
       body: {
         title: editingLesson.title,
         videoUrl: editingLesson.videoUrl,
@@ -2057,7 +1992,7 @@ const handleUpdateLesson = async () => {
         thumbnail: finalThumbnail,
         order: 0
       }
-    })
+    }))
     showEditLessonModal.value = false
     uploading.value = false
     resetLessonVideoState()
@@ -2108,11 +2043,7 @@ const handleDeleteLesson = async (lessonId, moduleId) => {
   })
   if (!ok) return
   try {
-    const token = localStorage.getItem('auth_token')
-    await $fetch(`${apiBase}/courses/lessons/${lessonId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await $fetch(`${apiBase}/courses/lessons/${lessonId}`, authFetchInit({ method: 'DELETE' }))
     await fetchCourses()
     if (selectedCourseDetails.value) {
         selectedCourseDetails.value = courses.value.find(c => c.id === selectedCourseDetails.value.id)
@@ -2132,11 +2063,7 @@ const handleDeleteModule = async (moduleId, courseId) => {
   })
   if (!ok) return
   try {
-    const token = localStorage.getItem('auth_token')
-    await $fetch(`${apiBase}/courses/${courseId}/modules/${moduleId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await $fetch(`${apiBase}/courses/${courseId}/modules/${moduleId}`, authFetchInit({ method: 'DELETE' }))
     fetchCourses()
   } catch (err) {
     alert('Erro ao excluir módulo.')

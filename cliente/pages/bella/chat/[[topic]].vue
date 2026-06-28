@@ -396,7 +396,8 @@ const mealSelectOptions = computed(() =>
   })),
 )
 
-const { patientTimeHeaders } = usePatientLocalTime()
+const { patientFetchInit } = usePatientLocalTime()
+const { hasPatientSession } = usePatientAuth()
 
 const showCameraButton = computed(() => topicConfig.value.acceptImages)
 const showGalleryButton = computed(() => topicConfig.value.acceptImages || topicConfig.value.acceptPdf)
@@ -915,10 +916,9 @@ const loadMessages = async () => {
   chatError.value = ''
   loadingMessages.value = true
   try {
-    const data = await $fetch(`${apiBase}/bella/messages`, {
-      headers: patientTimeHeaders(),
+    const data = await $fetch(`${apiBase}/bella/messages`, patientFetchInit({
       query: { topic: chatTopic.value },
-    })
+    }))
     historyMessages.value = normalizeLoadedMessages(data.messages)
     showPreviousHistory.value = historyMessages.value.length > 0
     messages.value = []
@@ -956,11 +956,10 @@ async function postSwapChat(body, userLabel = '') {
   }
 
   try {
-    const res = await fetchBellaChat({
+    const res = await fetchBellaChat(patientFetchInit({
       method: 'POST',
-      headers: patientTimeHeaders(),
       body: { topic: 'swap', ...body },
-    })
+    }))
 
     if (userLabel) {
       const tempIndex = messages.value.findIndex((m) => m.id === tempId)
@@ -1049,16 +1048,15 @@ async function sendHandoffMessage(handoff) {
   await stickScrollToBottom()
 
   try {
-    const res = await fetchBellaChat({
+    const res = await fetchBellaChat(patientFetchInit({
       method: 'POST',
-      headers: patientTimeHeaders(),
       body: {
         message: text,
         topic: chatTopic.value,
         contextImageUrl: imageUrl || undefined,
         handoffFromTopic: handoff.sourceTopic || undefined,
       },
-    })
+    }))
 
     const tempIndex = messages.value.findIndex((m) => m.id === tempId)
     if (tempIndex >= 0 && res.userMessage) {
@@ -1192,15 +1190,14 @@ async function handleRestaurantIntent(assistantMsg, option) {
   resolveRestaurantIntentMessage(assistantMsg)
 
   try {
-    const res = await fetchBellaChat({
+    const res = await fetchBellaChat(patientFetchInit({
       method: 'POST',
-      headers: patientTimeHeaders(),
       body: {
         topic: 'restaurant',
         restaurantIntent: option.id,
         continueFromUserMessageId,
       },
-    })
+    }))
 
     if (res.userMessage) {
       const [userMsg] = normalizeLoadedMessages([res.userMessage])
@@ -1328,7 +1325,7 @@ const onFileSelected = (event) => {
 const loadDailySummary = async () => {
   if (chatTopic.value !== 'meal') return
   try {
-    dailySummary.value = await $fetch(`${apiBase}/food-diary/today`, { headers: patientTimeHeaders() })
+    dailySummary.value = await $fetch(`${apiBase}/food-diary/today`, patientFetchInit())
   } catch {
     /* ignore */
   }
@@ -1371,10 +1368,7 @@ const deleteDiaryEntry = async (entry) => {
   if (!accepted) return
 
   try {
-    const res = await $fetch(`${apiBase}/food-diary/entries/${entry.id}`, {
-      method: 'DELETE',
-      headers: patientTimeHeaders(),
-    })
+    const res = await $fetch(`${apiBase}/food-diary/entries/${entry.id}`, patientFetchInit({ method: 'DELETE' }))
     if (res.dailySummary) dailySummary.value = res.dailySummary
     nutritionRefresh.value += 1
   } catch (err) {
@@ -1398,21 +1392,19 @@ const confirmMeal = async (items) => {
 
     let res
     if (editingEntryId) {
-      res = await $fetch(`${apiBase}/food-diary/entries/${editingEntryId}`, {
+      res = await $fetch(`${apiBase}/food-diary/entries/${editingEntryId}`, patientFetchInit({
         method: 'PUT',
-        headers: patientTimeHeaders(),
         body,
-      })
+      }))
     } else {
-      res = await $fetch(`${apiBase}/food-diary/confirm`, {
+      res = await $fetch(`${apiBase}/food-diary/confirm`, patientFetchInit({
         method: 'POST',
-        headers: patientTimeHeaders(),
         body: {
           ...body,
           userMessageId: mealDraft.value.userMessageId,
           topic: chatTopic.value,
         },
-      })
+      }))
       if (res.message) messages.value.push(res.message)
     }
 
@@ -1504,22 +1496,20 @@ const sendMessage = async () => {
       if (chatTopic.value === 'meal') appendMealPayloadToForm(form)
       form.append('file', outgoingFile)
 
-      res = await fetchBellaChat({
+      res = await fetchBellaChat(patientFetchInit({
         method: 'POST',
-        headers: patientTimeHeaders(),
         body: form,
-      })
+      }))
     } else {
-      res = await fetchBellaChat({
+      res = await fetchBellaChat(patientFetchInit({
         method: 'POST',
-        headers: patientTimeHeaders(),
         body: {
           message: text,
           topic: chatTopic.value,
           taskHint: hint,
           ...(chatTopic.value === 'meal' ? getSelectedMealPayload() : {}),
         },
-      })
+      }))
     }
 
     const tempIndex = messages.value.findIndex((m) => m.id === tempId)
@@ -1575,8 +1565,7 @@ async function bootstrapChat() {
 
   if (!import.meta.client) return
 
-  const token = localStorage.getItem('auth_token')
-  if (!token) {
+  if (!hasPatientSession()) {
     chatError.value = 'Faça login para conversar com a Bella.'
     if (chatTopic.value === 'meal') initMealSelection()
     seedWelcomeMessage()

@@ -60,7 +60,7 @@
 import { formatPatientDateLabel } from '~/utils/local-date'
 
 const config = useRuntimeConfig()
-const { patientTimeHeaders } = usePatientLocalTime()
+const { patientFetchInit } = usePatientLocalTime()
 
 const loading = ref(true)
 const saving = ref(false)
@@ -91,7 +91,7 @@ function deltaClass(delta) {
 async function loadHistory({ silent = false } = {}) {
   if (!silent) loading.value = true
   try {
-    const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: patientTimeHeaders() })
+    const data = await $fetch(`${config.public.apiBase}/checkin/me`, patientFetchInit())
     const seen = new Set()
     const rows = []
 
@@ -141,10 +141,9 @@ async function saveWeight() {
 
   saving.value = true
   try {
-    const current = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: patientTimeHeaders() })
-    await $fetch(`${config.public.apiBase}/checkin`, {
+    const current = await $fetch(`${config.public.apiBase}/checkin/me`, patientFetchInit())
+    await $fetch(`${config.public.apiBase}/checkin`, patientFetchInit({
       method: 'POST',
-      headers: patientTimeHeaders(),
       body: {
         mood: current.current?.mood || 3,
         energy: current.current?.energy || 3,
@@ -152,7 +151,7 @@ async function saveWeight() {
         weightKg: weight,
         notes: current.current?.notes || '',
       },
-    })
+    }))
     await loadHistory({ silent: true })
     saveSuccess.value = true
     if (saveSuccessTimer) clearTimeout(saveSuccessTimer)

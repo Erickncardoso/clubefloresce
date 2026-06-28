@@ -128,6 +128,7 @@ import {
 } from 'lucide-vue-next'
 import { isPdfFile } from '~/utils/upload-file-kind'
 import { useDocumentUploadLimits } from '~/composables/useUploadConfig'
+import { authFetchInit } from '~/composables/useAuthSession.js'
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
@@ -135,24 +136,16 @@ const whatsappApiBase = config.public.whatsappApiBase
 const route = useRoute()
 const { documentMaxBytes, documentMaxLabel, documentUploadHint } = useDocumentUploadLimits()
 
-async function uploadImageToCloudinary(file, token) {
+async function uploadImageToCloudinary(file) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(`${apiBase}/upload`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  })
+  return $fetch(`${apiBase}/upload`, authFetchInit({ method: 'POST', body: formData }))
 }
 
-async function uploadDocumentToCloudinary(file, token) {
+async function uploadDocumentToCloudinary(file) {
   const formData = new FormData()
   formData.append('file', file)
-  return $fetch(`${apiBase}/upload/file`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  })
+  return $fetch(`${apiBase}/upload/file`, authFetchInit({ method: 'POST', body: formData }))
 }
 
 const ebooks = ref([])
@@ -174,10 +167,7 @@ const newEbook = reactive({
 
 const fetchEbooks = async () => {
   try {
-    const token = localStorage.getItem('auth_token')
-    const data = await $fetch(`${apiBase}/ebooks`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const data = await $fetch(`${apiBase}/ebooks`, authFetchInit())
     ebooks.value = data
   } catch (err) {
     console.error('Erro ao buscar ebooks:', err)
@@ -232,29 +222,27 @@ const handleCreateEbook = async () => {
   if (!selectedPdfFile.value && !newEbook.fileUrl) return alert('Selecione um arquivo PDF ou insira um link.')
   
   uploading.value = true
-  const token = localStorage.getItem('auth_token')
-  
+
   try {
     if (selectedFile.value) {
-      const uploadRes = await uploadImageToCloudinary(selectedFile.value, token)
+      const uploadRes = await uploadImageToCloudinary(selectedFile.value)
       newEbook.thumbnail = uploadRes.url
     }
 
     if (selectedPdfFile.value) {
-      const uploadRes = await uploadDocumentToCloudinary(selectedPdfFile.value, token)
+      const uploadRes = await uploadDocumentToCloudinary(selectedPdfFile.value)
       newEbook.fileUrl = uploadRes.url
     }
 
-    await $fetch(`${apiBase}/ebooks`, {
+    await $fetch(`${apiBase}/ebooks`, authFetchInit({
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
       body: {
         title: newEbook.title.trim(),
         description: newEbook.description?.trim() || '',
         fileUrl: newEbook.fileUrl,
         thumbnail: newEbook.thumbnail || null,
       }
-    })
+    }))
 
     closeCreateEbookModal()
     fetchEbooks()
@@ -276,11 +264,7 @@ const handleDeleteEbook = async (id) => {
   })
   if (!ok) return
   try {
-    const token = localStorage.getItem('auth_token')
-    await $fetch(`${apiBase}/ebooks/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await $fetch(`${apiBase}/ebooks/${id}`, authFetchInit({ method: 'DELETE' }))
     fetchEbooks()
   } catch (err) {
     alert('Erro ao excluir ebook.')

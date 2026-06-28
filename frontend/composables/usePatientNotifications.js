@@ -58,7 +58,7 @@ export function mapNotificationItem(item) {
 
 export function usePatientNotifications() {
   const apiBase = useApiBase()
-  const { authHeaders } = usePatientAuth()
+  const { authFetchInit } = usePatientAuth()
 
   const items = useState('patient-notifications', () => [])
   const unreadCount = useState('patient-notifications-unread', () => 0)
@@ -82,9 +82,7 @@ export function usePatientNotifications() {
     loading.value = true
     error.value = ''
     try {
-      const data = await $fetch(`${apiBase.value}/notifications`, {
-        headers: authHeaders(),
-      })
+      const data = await $fetch(`${apiBase.value}/notifications`, authFetchInit())
       items.value = data?.items || []
       const serverCount = data?.unreadCount
       unreadCount.value = typeof serverCount === 'number'
@@ -98,10 +96,7 @@ export function usePatientNotifications() {
   }
 
   async function markRead(notificationId) {
-    const data = await $fetch(`${apiBase.value}/notifications/${notificationId}/read`, {
-      method: 'PATCH',
-      headers: authHeaders(),
-    })
+    const data = await $fetch(`${apiBase.value}/notifications/${notificationId}/read`, authFetchInit({ method: 'PATCH' }))
     items.value = items.value.map((item) => (
       item.id === notificationId ? { ...item, read: true } : item
     ))
@@ -109,10 +104,7 @@ export function usePatientNotifications() {
   }
 
   async function markAllRead() {
-    const data = await $fetch(`${apiBase.value}/notifications/read-all`, {
-      method: 'PATCH',
-      headers: authHeaders(),
-    })
+    const data = await $fetch(`${apiBase.value}/notifications/read-all`, authFetchInit({ method: 'PATCH' }))
     items.value = items.value.map((item) => ({ ...item, read: true }))
     unreadCount.value = data?.unreadCount ?? 0
   }

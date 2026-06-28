@@ -40,7 +40,7 @@ defineProps({
 const emit = defineEmits(['dismiss', 'start'])
 
 const config = useRuntimeConfig()
-const { patientTimeHeaders } = usePatientLocalTime()
+const { patientFetchInit } = usePatientLocalTime()
 
 const reminderLoading = ref(false)
 const reminderEnabled = ref(false)
@@ -55,10 +55,7 @@ async function activateReminder() {
   if (reminderEnabled.value) return
   reminderLoading.value = true
   try {
-    await $fetch(`${config.public.apiBase}/checkin/reminders/subscribe`, {
-      method: 'POST',
-      headers: patientTimeHeaders(),
-    })
+    await $fetch(`${config.public.apiBase}/checkin/reminders/subscribe`, patientFetchInit({ method: 'POST' }))
     localStorage.setItem('cf-checkin-reminder', '1')
     reminderEnabled.value = true
   } catch {

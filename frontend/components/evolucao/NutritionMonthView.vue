@@ -106,13 +106,15 @@
 <script setup>
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
+import { authFetchInit } from '~/composables/useAuthSession.js'
+
 const props = defineProps({
   patientId: { type: String, default: null },
   compact: { type: Boolean, default: false },
 })
 
 const config = useRuntimeConfig()
-const { patientTimeHeaders } = usePatientLocalTime()
+const { patientFetchInit } = usePatientLocalTime()
 
 const loading = ref(true)
 const error = ref('')
@@ -201,22 +203,19 @@ function barColor(day) {
   return '#5ba4d9'
 }
 
-function authHeaders() {
-  const token = import.meta.client ? localStorage.getItem('auth_token') : null
-  return token ? { Authorization: `Bearer ${token}` } : {}
+function monthFetchUrl() {
+  if (props.patientId) {
+    return `${config.public.apiBase}/patients/${props.patientId}/food-diary/month`
+  }
+  return `${config.public.apiBase}/food-diary/month`
 }
 
 function monthFetchOptions() {
+  const query = { year: viewYear.value, month: viewMonth.value }
   if (props.patientId) {
-    return {
-      url: `${config.public.apiBase}/patients/${props.patientId}/food-diary/month`,
-      headers: authHeaders(),
-    }
+    return authFetchInit({ query })
   }
-  return {
-    url: `${config.public.apiBase}/food-diary/month`,
-    headers: patientTimeHeaders(),
-  }
+  return patientFetchInit({ query })
 }
 
 async function loadDayEntries(date) {
@@ -230,10 +229,9 @@ async function loadDayEntries(date) {
   }
   loadingDay.value = true
   try {
-    const data = await $fetch(`${config.public.apiBase}/patients/${props.patientId}/food-diary/day`, {
-      headers: authHeaders(),
+    const data = await $fetch(`${config.public.apiBase}/patients/${props.patientId}/food-diary/day`, authFetchInit({
       query: { date },
-    })
+    }))
     dayEntries.value = data.entries || []
   } catch {
     dayEntries.value = []
@@ -265,11 +263,7 @@ async function loadMonth() {
   loading.value = true
   error.value = ''
   try {
-    const { url, headers } = monthFetchOptions()
-    summary.value = await $fetch(url, {
-      headers,
-      query: { year: viewYear.value, month: viewMonth.value },
-    })
+    summary.value = await $fetch(monthFetchUrl(), monthFetchOptions())
     const todayInView = summary.value.days.find((day) => day.date === todayKey.value)
     selectedDate.value = todayInView?.date || summary.value.days[summary.value.days.length - 1]?.date || ''
   } catch {

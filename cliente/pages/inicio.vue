@@ -306,12 +306,12 @@ const calorieConsumedPct = computed(() => {
   return Math.min(100, Math.round((consumed.value.caloriesKcal / targets.value.caloriesKcal) * 100))
 })
 
-const { patientTimeHeaders } = usePatientLocalTime()
+const { patientFetchInit } = usePatientLocalTime()
 const nutritionRefresh = useState('patient-nutrition-refresh', () => 0)
 
 async function loadDailyNutrition() {
   try {
-    dailySummary.value = await $fetch(`${config.public.apiBase}/food-diary/today`, { headers: patientTimeHeaders() })
+    dailySummary.value = await $fetch(`${config.public.apiBase}/food-diary/today`, patientFetchInit())
   } catch {
     dailySummary.value = null
   }
@@ -337,7 +337,7 @@ onMounted(async () => {
   try {
     await fetchPlan()
     try {
-      const courses = await $fetch(`${config.public.apiBase}/courses`, { headers: patientTimeHeaders() })
+      const courses = await $fetch(`${config.public.apiBase}/courses`, patientFetchInit())
       featuredCourse.value = courses?.[0] || null
     } catch {
       featuredCourse.value = null
@@ -348,7 +348,7 @@ onMounted(async () => {
       dailySummary.value = null
     }
     try {
-      const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers: patientTimeHeaders() })
+      const data = await $fetch(`${config.public.apiBase}/checkin/me`, patientFetchInit())
       streakDays.value = Math.max(1, (data.history?.length || 0) + (data.current ? 1 : 0))
     } catch {
       /* defaults */

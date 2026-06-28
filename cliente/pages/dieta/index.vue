@@ -185,7 +185,7 @@ const { fetchPlan, uploadPdf, uploading: planUploading, planRecord } = usePatien
 const { mealList, mealOrder, getMealById, getMealIdForTime, hasPlan } = useMealPlan()
 const { getSubstitutionGroupsForMeal, mealHasSubstitutions } = useMealSubstitutions()
 
-const { patientTimeHeaders } = usePatientLocalTime()
+const { patientFetchInit } = usePatientLocalTime()
 
 const planLoading = ref(true)
 const substitutionsOpen = ref(false)
@@ -297,9 +297,7 @@ function takePhotoNow() {
 
 async function loadDailySummary() {
   try {
-    dailySummary.value = await $fetch(`${apiBase}/food-diary/today`, {
-      headers: patientTimeHeaders(),
-    })
+    dailySummary.value = await $fetch(`${apiBase}/food-diary/today`, patientFetchInit())
   } catch {
     dailySummary.value = null
   }
@@ -342,10 +340,7 @@ async function deleteDiaryEntry(entry) {
   if (!accepted) return
 
   try {
-    const res = await $fetch(`${apiBase}/food-diary/entries/${entry.id}`, {
-      method: 'DELETE',
-      headers: patientTimeHeaders(),
-    })
+    const res = await $fetch(`${apiBase}/food-diary/entries/${entry.id}`, patientFetchInit({ method: 'DELETE' }))
     if (res.dailySummary) dailySummary.value = res.dailySummary
     nutritionRefresh.value += 1
   } catch (err) {
@@ -359,16 +354,15 @@ async function confirmMealEdit(items) {
   mealConfirmError.value = ''
 
   try {
-    const res = await $fetch(`${apiBase}/food-diary/entries/${mealDraft.value.editingEntryId}`, {
+    const res = await $fetch(`${apiBase}/food-diary/entries/${mealDraft.value.editingEntryId}`, patientFetchInit({
       method: 'PUT',
-      headers: patientTimeHeaders(),
       body: {
         items: normalizeMealItemsForSave(items),
         mealType: mealDraft.value.mealType,
         mealLabel: mealDraft.value.mealLabel,
         imageUrl: mealDraft.value.imageUrl,
       },
-    })
+    }))
     if (res.dailySummary) dailySummary.value = res.dailySummary
     nutritionRefresh.value += 1
     cancelMealConfirm()

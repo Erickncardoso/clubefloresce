@@ -127,6 +127,7 @@ import {
   Sparkles,
   Utensils,
 } from 'lucide-vue-next'
+import { authFetchInit } from '~/composables/useAuthSession.js'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { openPatientCourse } from '~/utils/open-patient-course'
 
@@ -266,13 +267,10 @@ function openItem(item) {
 async function loadLibrary() {
   loading.value = true
   loadError.value = ''
-  const token = localStorage.getItem('auth_token')
-  const headers = token ? { Authorization: `Bearer ${token}` } : {}
-
   try {
     const [coursesData, ebooksData] = await Promise.all([
-      $fetch(`${apiBase}/courses`, { headers }),
-      $fetch(`${apiBase}/ebooks`, { headers }),
+      $fetch(`${apiBase}/courses`, authFetchInit()),
+      $fetch(`${apiBase}/ebooks`, authFetchInit()),
     ])
     courses.value = Array.isArray(coursesData) ? coursesData : []
     ebooks.value = Array.isArray(ebooksData) ? ebooksData : []

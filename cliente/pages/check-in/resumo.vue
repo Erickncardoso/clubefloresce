@@ -52,7 +52,7 @@ import {
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const config = useRuntimeConfig()
-const { patientTimeHeaders } = usePatientLocalTime()
+const { patientFetchInit } = usePatientLocalTime()
 const current = ref(null)
 const weekRange = ref('')
 const loading = ref(true)
@@ -100,9 +100,7 @@ const summaryItems = computed(() => {
 onMounted(async () => {
   loading.value = true
   try {
-    const data = await $fetch(`${config.public.apiBase}/checkin/me/responses`, {
-      headers: patientTimeHeaders(),
-    })
+    const data = await $fetch(`${config.public.apiBase}/checkin/me/responses`, patientFetchInit())
     const responses = data.responses || []
     current.value = responses[0] || null
 

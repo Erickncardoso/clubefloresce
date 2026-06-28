@@ -14,7 +14,7 @@ function urlBase64ToUint8Array(base64String) {
 
 export function usePushNotifications() {
   const apiBase = useApiBase()
-  const { authHeaders, bootstrapToken } = usePatientAuth()
+  const { bootstrapToken } = usePatientAuth()
 
   const supported = useState('push-supported', () => false)
   const standalone = useState('push-standalone', () => false)
@@ -26,7 +26,7 @@ export function usePushNotifications() {
   const mealRemindersEnabled = useState('push-meal-reminders', () => true)
   const loading = useState('push-loading', () => false)
   const error = useState('push-error', () => '')
-  const { patientTimeHeaders } = usePatientLocalTime()
+  const { patientFetchInit } = usePatientLocalTime()
 
   const canSubscribe = computed(() => (
     supported.value
@@ -131,10 +131,7 @@ export function usePushNotifications() {
   async function syncTimezone() {
     if (!bootstrapToken()) return
     try {
-      await $fetch(`${apiBase.value}/push/sync-timezone`, {
-        method: 'POST',
-        headers: patientTimeHeaders(),
-      })
+      await $fetch(`${apiBase.value}/push/sync-timezone`, patientFetchInit({ method: 'POST' }))
     } catch {
       // timezone sync is best-effort
     }
@@ -146,9 +143,7 @@ export function usePushNotifications() {
     if (!bootstrapToken()) return
 
     try {
-      const status = await $fetch(`${apiBase.value}/push/status`, {
-        headers: patientTimeHeaders(),
-      })
+      const status = await $fetch(`${apiBase.value}/push/status`, patientFetchInit())
       enabledOnServer.value = Boolean(status?.enabled)
       subscribed.value = Boolean(status?.subscribed)
       if (typeof status?.mealRemindersEnabled === 'boolean') {
@@ -167,9 +162,7 @@ export function usePushNotifications() {
       await checkServerEnabled()
       if (bootstrapToken()) {
         try {
-          const status = await $fetch(`${apiBase.value}/push/status`, {
-            headers: patientTimeHeaders(),
-          })
+          const status = await $fetch(`${apiBase.value}/push/status`, patientFetchInit())
           subscribed.value = Boolean(status?.subscribed)
           if (typeof status?.mealRemindersEnabled === 'boolean') {
             mealRemindersEnabled.value = status.mealRemindersEnabled
@@ -222,14 +215,13 @@ export function usePushNotifications() {
       }
 
       const json = subscription.toJSON()
-      await $fetch(`${apiBase.value}/push/subscribe`, {
+      await $fetch(`${apiBase.value}/push/subscribe`, patientFetchInit({
         method: 'POST',
-        headers: patientTimeHeaders(),
         body: {
           endpoint: json.endpoint,
           keys: json.keys,
         },
-      })
+      }))
 
       subscribed.value = true
       mealRemindersEnabled.value = true
@@ -251,11 +243,10 @@ export function usePushNotifications() {
       const subscription = await registration?.pushManager?.getSubscription()
       if (subscription) {
         const endpoint = subscription.endpoint
-        await $fetch(`${apiBase.value}/push/unsubscribe`, {
+        await $fetch(`${apiBase.value}/push/unsubscribe`, patientFetchInit({
           method: 'POST',
-          headers: patientTimeHeaders(),
           body: { endpoint },
-        })
+        }))
         await subscription.unsubscribe()
       }
       subscribed.value = false
@@ -273,11 +264,10 @@ export function usePushNotifications() {
     loading.value = true
 
     try {
-      const data = await $fetch(`${apiBase.value}/push/preferences`, {
+      const data = await $fetch(`${apiBase.value}/push/preferences`, patientFetchInit({
         method: 'PATCH',
-        headers: patientTimeHeaders(),
         body: { mealRemindersEnabled: enabled },
-      })
+      }))
       mealRemindersEnabled.value = Boolean(data?.mealRemindersEnabled)
       return true
     } catch (err) {

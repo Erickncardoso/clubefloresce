@@ -121,6 +121,7 @@ import {
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const config = useRuntimeConfig()
+const { authFetchInit } = usePatientAuth()
 const {
   clearPatientSession,
   userFullName,
@@ -145,9 +146,8 @@ const avatarError = ref('')
 onMounted(async () => {
   pageLoading.value = true
   flowers.value = 12 + Math.floor(Math.random() * 20)
-  const headers = { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
   try {
-    const data = await $fetch(`${config.public.apiBase}/checkin/me`, { headers })
+    const data = await $fetch(`${config.public.apiBase}/checkin/me`, authFetchInit())
     checkInWeeks.value = (data.history?.length || 0) + (data.current ? 1 : 0)
     flowers.value = Math.max(flowers.value, checkInWeeks.value * 2)
   } catch { /* ignore */ } finally {

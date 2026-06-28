@@ -1,3 +1,4 @@
+import { authFetchInit } from '~/composables/useAuthSession.js'
 import { mapFoodItemFromApi, macrosForFoodRecord } from '~/utils/food-bank'
 
 const matchCache = new Map()
@@ -7,22 +8,13 @@ export function useFoodBank() {
   const config = useRuntimeConfig()
   const apiBase = config.public.apiBase
 
-  function authHeaders() {
-    if (!import.meta.client) return {}
-    const token = localStorage.getItem('auth_token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  }
-
   async function matchFoodByName(name) {
     const normalized = String(name || '').trim().toLowerCase()
     if (!normalized) return null
     if (matchCache.has(normalized)) return matchCache.get(normalized)
 
     try {
-      const res = await $fetch(`${apiBase}/foods/match`, {
-        headers: authHeaders(),
-        query: { name },
-      })
+      const res = await $fetch(`${apiBase}/foods/match`, authFetchInit({ query: { name } }))
       const item = mapFoodItemFromApi(res.item)
       matchCache.set(normalized, item)
       return item
@@ -37,10 +29,7 @@ export function useFoodBank() {
     if (searchCache.has(key)) return searchCache.get(key)
 
     try {
-      const res = await $fetch(`${apiBase}/foods/search`, {
-        headers: authHeaders(),
-        query: { q: query || '', limit },
-      })
+      const res = await $fetch(`${apiBase}/foods/search`, authFetchInit({ query: { q: query || '', limit } }))
       const items = (res.items || []).map(mapFoodItemFromApi).filter(Boolean)
       searchCache.set(key, items)
       return items
@@ -53,9 +42,7 @@ export function useFoodBank() {
   async function getFoodById(id) {
     if (!id) return null
     try {
-      const res = await $fetch(`${apiBase}/foods/${id}`, {
-        headers: authHeaders(),
-      })
+      const res = await $fetch(`${apiBase}/foods/${id}`, authFetchInit())
       return mapFoodItemFromApi(res.item)
     } catch {
       return null
