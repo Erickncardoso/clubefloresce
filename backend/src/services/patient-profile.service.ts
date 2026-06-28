@@ -189,8 +189,8 @@ export class PatientProfileService {
       throw new Error(`Preencha os campos obrigatórios: ${missing.join(", ")}`);
     }
 
-    const markComplete = Boolean(complete);
-    const onboardingCompletedAt = markComplete
+    const shouldMarkComplete = Boolean(complete) || missing.length === 0;
+    const onboardingCompletedAt = shouldMarkComplete
       ? user.onboardingCompletedAt ?? new Date()
       : user.onboardingCompletedAt ?? null;
 

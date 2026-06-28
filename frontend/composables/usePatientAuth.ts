@@ -7,12 +7,15 @@ import {
 } from '~/utils/patient-access'
 import {
   applyVerifiedSessionUser,
+  authFetchInit,
   authHeaders,
   clearAuthSessionMeta,
+  getAuthToken,
   getLegacyAuthToken,
   getVerifiedRole,
   hasAuthSession,
   persistDisplayMeta,
+  readFreshLogin,
 } from '~/composables/useAuthSession.js'
 
 const TOKEN_KEY = 'auth_token'
@@ -34,10 +37,19 @@ export function usePatientAuth() {
   function getToken(): string | null {
     if (import.meta.server) return null
     if (token.value) return token.value
-    if (hasAuthSession()) return readStorageToken()
+    const resolved = getAuthToken()
+    if (resolved) {
+      token.value = resolved
+      return resolved
+    }
     const stored = readStorageToken()
     if (stored) token.value = stored
     return stored
+  }
+
+  function hasPatientSession(): boolean {
+    if (import.meta.server) return false
+    return Boolean(getToken())
   }
 
   function markSessionActive() {
@@ -59,20 +71,8 @@ export function usePatientAuth() {
 
   function bootstrapToken() {
     if (import.meta.server) return null
-
-    if (hasAuthSession()) {
-      token.value = readStorageToken()
-      return token.value || TOKEN_KEY
-    }
-
-    const stored = readStorageToken()
-    if (!stored) {
-      token.value = null
-      return null
-    }
-
-    token.value = stored
-    return stored
+    const resolved = getToken()
+    return resolved || null
   }
 
   function clearSession() {
@@ -101,15 +101,26 @@ export function usePatientAuth() {
 
     if (!isUnauthorizedError(err)) return false
     const message = getFetchErrorMessage(err).toLowerCase()
-    return message.includes('token')
-      || message.includes('sessão')
-      || message.includes('sessao')
-      || message.includes('expirad')
-      || message.includes('expirou')
-      || message.includes('autenticad')
-      || message.includes('não autorizado')
-      || message.includes('nao autorizado')
+    return message.includes('sessão expirada')
+      || message.includes('sessao expirada')
+      || message.includes('token inválido')
+      || message.includes('token invalido')
       || message.includes('acesso expirado')
+      || message.includes('faça login novamente')
+      || message.includes('faca login novamente')
+      || message.includes('usuário inválido')
+      || message.includes('usuario invalido')
+  }
+
+  function isTransientAuthError(err: unknown): boolean {
+    const status = (err as { statusCode?: number; status?: number })?.statusCode
+      ?? (err as { status?: number })?.status
+    if (status === 503 || status === 502 || status === 504) return true
+    const message = getFetchErrorMessage(err).toLowerCase()
+    return message.includes('network')
+      || message.includes('fetch')
+      || message.includes('timeout')
+      || message.includes('ocupado')
   }
 
   function isPatientAccessRevokedError(err: unknown): boolean {
@@ -153,6 +164,7 @@ export function usePatientAuth() {
       }
       return false
     } catch (err) {
+      if (isTransientAuthError(err)) return false
       if (isSessionExpiredError(err) || isPatientAccessRevokedError(err)) {
         clearSession()
       }
@@ -177,8 +189,15 @@ export function usePatientAuth() {
 
     if (!hasAuthSession()) return false
 
+    if (readFreshLogin() && assertPatientRole()) {
+      return true
+    }
+
     const refreshed = await refreshSession()
-    if (!refreshed) return false
+    if (!refreshed) {
+      if (readFreshLogin() && assertPatientRole()) return true
+      return false
+    }
 
     if (!assertPatientRole()) {
       rejectNonPatientSession()
@@ -208,11 +227,14 @@ export function usePatientAuth() {
     token,
     sessionReady,
     getToken,
+    hasPatientSession,
     saveToken,
     markSessionActive,
     bootstrapToken,
     clearSession,
     authHeaders: authHeadersForRequest,
+    authFetchInit,
+    isTransientAuthError,
     assertPatientRole,
     rejectNonPatientSession,
     isUnauthorizedError,

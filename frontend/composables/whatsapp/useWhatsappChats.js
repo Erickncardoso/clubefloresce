@@ -10,6 +10,7 @@ import {
   visibilitySyncHandler, windowFocusSyncHandler, windowOnlineSyncHandler,
   groupParticipantsDirectory, groupParticipantsByJid, groupParticipantsByLid,
   lidToJidMap, observedSenderDirectory, senderAvatarDirectory, chatPresenceByKey,
+  chatDetailsCache, chatDetailsInflight, deletedChatKeys,
   clearWhatsappSessionState
 } from './useWhatsappState.js'
 import {
@@ -86,6 +87,90 @@ const playedMarkInflight = new Set()
 export const resetChatsRuntimeCaches = () => {
   try { messagesCacheByChatJid.clear() } catch {}
   try { messagePreviewTextById.clear() } catch {}
+  try { chatOlderPaginationByJid.clear() } catch {}
+}
+
+const collectDeletedChatKeys = (chatOrJid = {}) => {
+  const keys = new Set()
+  if (typeof chatOrJid === 'string') {
+    const norm = normalizeJid(chatOrJid)
+    const key = canonicalChatListKey({ chatJid: norm })
+    if (key) keys.add(key)
+    return keys
+  }
+  const key = canonicalChatListKey(chatOrJid)
+  if (key) keys.add(key)
+  for (const variant of [chatOrJid?.chatJid, chatOrJid?.wa_chatid, chatOrJid?.chatid, chatOrJid?.id]) {
+    const variantKey = canonicalChatListKey({ chatJid: variant })
+    if (variantKey) keys.add(variantKey)
+  }
+  return keys
+}
+
+export const isChatDeletedLocally = (chat = {}) => {
+  const key = canonicalChatListKey(chat)
+  return Boolean(key && deletedChatKeys.value?.[key])
+}
+
+export const markChatDeletedLocally = (chatOrJid = {}) => {
+  const next = { ...(deletedChatKeys.value || {}) }
+  for (const key of collectDeletedChatKeys(chatOrJid)) {
+    next[key] = Date.now()
+  }
+  deletedChatKeys.value = next
+}
+
+export const unmarkChatDeletedLocally = (chatOrJid = {}) => {
+  const next = { ...(deletedChatKeys.value || {}) }
+  for (const key of collectDeletedChatKeys(chatOrJid)) {
+    delete next[key]
+  }
+  deletedChatKeys.value = next
+}
+
+const purgeChatRuntimeCaches = (chatOrJid = {}) => {
+  const variants = typeof chatOrJid === 'string'
+    ? [normalizeJid(chatOrJid)]
+    : [chatOrJid?.chatJid, chatOrJid?.wa_chatid, chatOrJid?.chatid, chatOrJid?.id]
+      .map((value) => normalizeJid(value))
+      .filter(Boolean)
+
+  for (const jid of variants) {
+    messagesCacheByChatJid.delete(jid)
+    chatOlderPaginationByJid.delete(jid)
+    if (chatDetailsCache.value?.[jid]) {
+      const next = { ...chatDetailsCache.value }
+      delete next[jid]
+      chatDetailsCache.value = next
+    }
+    if (chatDetailsInflight.value?.[jid]) {
+      const next = { ...chatDetailsInflight.value }
+      delete next[jid]
+      chatDetailsInflight.value = next
+    }
+  }
+}
+
+export const removeChatFromLocalState = (chatOrJid = {}) => {
+  markChatDeletedLocally(chatOrJid)
+  const norm = normalizeJid(typeof chatOrJid === 'string' ? chatOrJid : chatOrJid?.chatJid)
+  const key = canonicalChatListKey(typeof chatOrJid === 'string' ? { chatJid: norm } : chatOrJid)
+
+  chats.value = (chats.value || []).filter((item) => {
+    if (norm && normalizeJid(item.chatJid) === norm) return false
+    if (key && canonicalChatListKey(item) === key) return false
+    return true
+  })
+
+  if (selectedChat.value && (
+    (norm && normalizeJid(selectedChat.value.chatJid) === norm) ||
+    (key && canonicalChatListKey(selectedChat.value) === key)
+  )) {
+    selectedChat.value = null
+    messages.value = []
+  }
+
+  purgeChatRuntimeCaches(chatOrJid)
 }
 
 // ─── Funções auxiliares ───────────────────────────────────────────────────────
@@ -515,6 +600,22 @@ const extractLastMessageMetaFromWebhookMessage = (message = {}) => {
 
 export const applyWhatsappRealtimePayload = (payload = {}) => {
   const chat = payload?.chat
+  if (chat && typeof chat === 'object') {
+    const deletedCandidate = normalizeChat({
+      ...chat,
+      chatJid: chat.wa_chatid || chat.chatid || chat.chatJid || payload?.chatJid || '',
+    })
+    if (isChatDeletedLocally(deletedCandidate)) return true
+    if (
+      chat.deleted === true ||
+      chat.wa_deleted === true ||
+      chat.isDeleted === true
+    ) {
+      removeChatFromLocalState(deletedCandidate)
+      return true
+    }
+  }
+
   if (!chat || typeof chat !== 'object') return false
 
   const message = payload?.message
@@ -969,10 +1070,12 @@ export const mergeChatsSliceIntoList = (rawIncoming) => {
   const byKey = new Map()
   for (const chat of (chats.value || [])) {
     const key = canonicalChatListKey(chat)
+    if (key && isChatDeletedLocally(chat)) continue
     if (key) byKey.set(key, chat)
   }
   for (const rawChat of rawIncoming) {
     const normalized = normalizeChat(rawChat)
+    if (isChatDeletedLocally(normalized)) continue
     const key = canonicalChatListKey(normalized)
     if (!key) continue
     byKey.set(key, mergeDuplicateChatRows(byKey.get(key) || null, normalized))
@@ -1579,7 +1682,9 @@ export const loadChats = async (forceRefresh = false, options = {}) => {
       if (prev) Object.assign(next, mergeChatMuteState(prev, next))
       return next
     })
-    chats.value = sortChatsByPriority(chatsWithPinSynced)
+    chats.value = sortChatsByPriority(
+      chatsWithPinSynced.filter((chat) => !isChatDeletedLocally(chat)),
+    )
     syncSelectedChatAfterChatsMutation()
     enrichMissingChatAvatars().catch(() => {})
   } catch (e) {
@@ -2075,6 +2180,19 @@ const isChatMetadataEvent = (eventType = '') => {
 
 export const handleWhatsappRealtimeEvent = (payload = {}, enrichSharedFns = {}) => {
   const eventType = String(payload?.eventType || '').trim().toLowerCase()
+  const deletedJid = String(payload?.deletedChatJid || '').trim()
+  if (payload?.chatDeleted && deletedJid) {
+    removeChatFromLocalState({ chatJid: deletedJid })
+    return
+  }
+  if (eventType === 'chats.delete' || eventType.endsWith('.delete')) {
+    const jid = deletedJid || String(payload?.chatJid || payload?.chat?.wa_chatid || '').trim()
+    if (jid) {
+      removeChatFromLocalState({ chatJid: jid })
+      return
+    }
+  }
+
   const isPresenceEvent = eventType === 'presence' || eventType.endsWith('.presence')
 
   let appliedChatFromPayload = false

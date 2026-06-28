@@ -1,6 +1,11 @@
 <template>
   <div class="auth-container patient-login-mode">
-    <main class="patient-auth">
+    <main v-if="guestResolving" class="patient-auth patient-auth--boot">
+      <PatientLoadingLogo size="xl" :animated="true" class="patient-auth-logo-mark" />
+      <p class="patient-auth-boot-text">Carregando sua conta…</p>
+    </main>
+
+    <main v-else class="patient-auth">
       <div class="patient-auth-inner">
         <div class="patient-auth-card cf-squircle cf-squircle--surface">
           <header class="patient-auth-header patient-auth-header--login">
@@ -137,7 +142,7 @@
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError, sanitizeUserFacingError } from '~/utils/resolve-api-base.mjs'
 import { PATIENT_ACCESS_EXPIRED_MESSAGE } from '~/utils/patient-access'
-import { hasAuthSession, persistAuthSessionMeta, getLegacyAuthToken, applyVerifiedSessionUser } from '~/composables/useAuthSession.js'
+import { getLegacyAuthToken, applyVerifiedSessionUser } from '~/composables/useAuthSession.js'
 
 definePageMeta({ layout: false, pageTransition: false })
 
@@ -159,26 +164,11 @@ const firstAccessError = ref('')
 const firstAccessForm = reactive({ newPassword: '', confirmPassword: '' })
 
 const route = useRoute()
+const guestResolving = useState('patient-guest-resolving', () => false)
 
-onMounted(async () => {
+onMounted(() => {
   if (route.query.access === 'expired') {
     error.value = PATIENT_ACCESS_EXPIRED_MESSAGE
-    return
-  }
-  if (!hasAuthSession()) return
-
-  try {
-    const { ensurePatientSession } = usePatientAuth()
-    const sessionValid = await ensurePatientSession()
-    if (!sessionValid) {
-      clearPatientSession()
-      return
-    }
-    const { resolvePostLoginRoute } = usePatientOnboarding()
-    const nextRoute = await resolvePostLoginRoute()
-    await navigateTo(nextRoute, { replace: true })
-  } catch {
-    clearPatientSession()
   }
 })
 
@@ -211,8 +201,7 @@ const handleLogin = async () => {
       return
     }
 
-    const { resetOnboardingState, resolvePostLoginRoute } = usePatientOnboarding()
-    resetOnboardingState()
+    const { resolvePostLoginRoute } = usePatientOnboarding()
     await navigateTo(await resolvePostLoginRoute())
   } catch (err) {
     if (isApiConnectionError(err)) {
@@ -280,6 +269,21 @@ const handleFirstAccessPasswordChange = async () => {
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--cf-text);
+}
+
+.patient-auth--boot {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.patient-auth-boot-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--cf-text-muted);
 }
 
 .field--float-password .forgot-link {

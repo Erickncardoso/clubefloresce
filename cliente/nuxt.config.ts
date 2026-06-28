@@ -48,6 +48,7 @@ export default defineNuxtConfig({
   },
 
   plugins: [
+    join(frontendRoot, 'plugins/auth-session-bootstrap.client.ts'),
     join(frontendRoot, 'plugins/api-base.client.js'),
     join(frontendRoot, 'plugins/patient-session.client.ts'),
     join(frontendRoot, 'plugins/patient-route.client.ts'),

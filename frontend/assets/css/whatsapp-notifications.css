@@ -2,7 +2,7 @@
   position: fixed;
   right: 20px;
   bottom: 20px;
-  width: min(300px, calc(100vw - 32px));
+  width: 300px;
   height: 56px;
   z-index: 99999;
   pointer-events: none;
@@ -13,7 +13,6 @@
   position: relative;
   z-index: 99999;
   pointer-events: none;
-  overflow: visible;
 }
 
 .wa-notif-stack:not(.wa-notif-stack--expanded) .wa-notif-card:not(:first-child) {
@@ -143,12 +142,6 @@
   transition: opacity 0.2s ease, background 0.2s ease;
 }
 
-.wa-notif-card:hover .wa-notif-card__close,
-.wa-notif-stack--expanded .wa-notif-card__close {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .wa-notif-card__close:hover {
   background: rgba(15, 23, 42, 0.1);
   color: #334155;
@@ -159,10 +152,16 @@
   height: 12px;
 }
 
+.wa-notif-card:hover .wa-notif-card__close,
+.wa-notif-stack--expanded .wa-notif-card__close {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 @media (max-width: 640px) {
   .wa-notif-stack {
     right: 12px;
     bottom: 12px;
-    width: min(280px, calc(100vw - 24px));
+    width: min(280px, calc(100% - 24px));
   }
 }

@@ -82,7 +82,7 @@ onMounted(() => {
   const ua = window.navigator.userAgent || ''
   isIos.value = /iPad|iPhone|iPod/.test(ua) && !window.MSStream
 
-  if (sessionStorage.getItem(dismissedKey)) return
+  if (sessionStorage.getItem(dismissedKey) && (isIos.value ? isStandalonePwa() : true)) return
 
   watch(
     () => isPwaUpdating(),
@@ -131,7 +131,13 @@ onMounted(() => {
         <button v-if="canInstall" type="button" class="pwa-prompt-install" @click="install">
           Instalar
         </button>
-        <button type="button" class="pwa-prompt-dismiss" aria-label="Fechar aviso" @click="dismiss">
+        <button
+          v-if="!isIos || isStandalonePwa()"
+          type="button"
+          class="pwa-prompt-dismiss"
+          aria-label="Fechar aviso"
+          @click="dismiss"
+        >
           <X class="pwa-prompt-dismiss-icon" />
         </button>
       </div>
@@ -157,6 +163,11 @@ onMounted(() => {
   box-shadow: var(--cf-shadow-lg);
   backdrop-filter: blur(8px);
   box-sizing: border-box;
+}
+
+html.cf-safari-inline .pwa-prompt {
+  top: calc(0.65rem + env(safe-area-inset-top, 0px));
+  bottom: auto;
 }
 
 .pwa-prompt-copy {

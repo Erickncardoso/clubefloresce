@@ -62,15 +62,16 @@ export function usePatientOnboarding() {
     }
 
     patientAuth.bootstrapToken()
-    if (!patientAuth.getToken()) {
+    if (!patientAuth.hasPatientSession()) {
       loaded.value = true
       isComplete.value = false
       return null
     }
 
-    const data = await $fetch<PatientProfileResponse>(`${config.public.apiBase}/patient-profile/me`, {
-      headers: patientAuth.authHeaders(),
-    })
+    const data = await $fetch<PatientProfileResponse>(
+      `${config.public.apiBase}/patient-profile/me`,
+      patientAuth.authFetchInit(),
+    )
 
     applyResponse(data)
     return data
@@ -79,11 +80,13 @@ export function usePatientOnboarding() {
   async function saveProfile(partial: Partial<PatientProfileData>, { complete = false } = {}) {
     patientAuth.bootstrapToken()
 
-    const data = await $fetch<PatientProfileResponse>(`${config.public.apiBase}/patient-profile/me`, {
-      method: 'PUT',
-      headers: patientAuth.authHeaders(),
-      body: { ...partial, complete },
-    })
+    const data = await $fetch<PatientProfileResponse>(
+      `${config.public.apiBase}/patient-profile/me`,
+      patientAuth.authFetchInit({
+        method: 'PUT',
+        body: { ...partial, complete },
+      }),
+    )
 
     applyResponse(data)
     profile.value = { ...profile.value, ...partial }

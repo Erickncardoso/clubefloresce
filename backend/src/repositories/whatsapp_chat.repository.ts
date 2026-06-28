@@ -66,6 +66,27 @@ export class WhatsappChatRepository {
     });
   }
 
+  async deleteByChatJid(userId: string, chatJid: string): Promise<void> {
+    const normalized = String(chatJid || "").trim();
+    if (!normalized) return;
+
+    const digits = normalized.split("@")[0]?.replace(/\D/g, "") || "";
+    const jids = new Set<string>([normalized]);
+    if (digits.length >= 8) {
+      jids.add(`${digits}@s.whatsapp.net`);
+    }
+    if (normalized.endsWith("@g.us")) {
+      jids.add(normalized);
+    }
+
+    await prisma.whatsappChat.deleteMany({
+      where: {
+        userId,
+        chatJid: { in: Array.from(jids) },
+      },
+    });
+  }
+
   async upsertFromDetails(userId: string, chat: UpsertWhatsappChatInput): Promise<void> {
     if (!chat.chatJid) return;
     await prisma.whatsappChat.upsert({

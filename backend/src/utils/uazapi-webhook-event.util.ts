@@ -108,6 +108,60 @@ export function extractUazapiWebhookChatJid(payload: unknown): string | null {
   return null;
 }
 
+const isTruthyDeleteFlag = (value: unknown): boolean => {
+  if (value === true || value === 1) return true;
+  const text = String(value ?? "").trim().toLowerCase();
+  return text === "true" || text === "1" || text === "delete" || text === "deleted" || text === "remove";
+};
+
+/** Detecta exclusão de conversa (painel ou celular) em payloads UAZAPI. */
+export function parseUazapiChatDeletion(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const body = payload as JsonObject;
+
+  const eventType = normalizeUazapiWebhookEventType(payload);
+  if (eventType === "chats.delete" || eventType.endsWith(".delete")) {
+    return extractUazapiWebhookChatJid(payload);
+  }
+
+  const eventObj = body.event;
+  if (eventObj && typeof eventObj === "object" && !Array.isArray(eventObj)) {
+    const ev = eventObj as JsonObject;
+    const action = String(ev.Action || ev.action || ev.Type || ev.type || ev.Event || ev.event || "").trim().toLowerCase();
+    if (action.includes("delete") || action === "remove" || action === "removed") {
+      const fromEvent = pickJid(ev.Chat) || pickJid(ev.chatid) || pickJid(ev.JID) || pickJid(ev.jid);
+      if (fromEvent) return fromEvent;
+      return extractUazapiWebhookChatJid(payload);
+    }
+  }
+
+  const chatObj = body.chat;
+  if (chatObj && typeof chatObj === "object" && !Array.isArray(chatObj)) {
+    const chat = chatObj as JsonObject;
+    if (
+      isTruthyDeleteFlag(chat.deleted)
+      || isTruthyDeleteFlag(chat.wa_deleted)
+      || isTruthyDeleteFlag(chat.isDeleted)
+    ) {
+      return pickJid(chat.wa_chatid) || pickJid(chat.chatid) || pickJid(chat.chatJid) || extractUazapiWebhookChatJid(payload);
+    }
+  }
+
+  const dataObj = body.data;
+  if (dataObj && typeof dataObj === "object" && !Array.isArray(dataObj)) {
+    const data = dataObj as JsonObject;
+    if (
+      isTruthyDeleteFlag(data.deleted)
+      || isTruthyDeleteFlag(data.wa_deleted)
+      || isTruthyDeleteFlag(data.isDeleted)
+    ) {
+      return extractUazapiWebhookChatJid(payload);
+    }
+  }
+
+  return null;
+}
+
 export type UazapiGroupMembershipChange = {
   groupJid: string;
   action: "join" | "leave" | "promote" | "demote" | "unknown";

@@ -3,22 +3,21 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const config = useRuntimeConfig()
   if (!config.public.mobileApp) return
 
-  const publicPaths = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha']
+  const publicPaths = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha', '/abrir']
   if (publicPaths.includes(to.path)) return
 
   if (import.meta.server) return
 
   const patientAuth = usePatientAuth()
-  patientAuth.bootstrapToken()
-  if (!patientAuth.getToken()) return
+  const sessionValid = await patientAuth.ensurePatientSession()
+  if (!sessionValid) return
 
-  const { fetchStatus, isComplete } = usePatientOnboarding()
+  const { fetchStatus, isComplete, loaded } = usePatientOnboarding()
 
   try {
-    await fetchStatus({ force: true })
+    await fetchStatus({ force: !loaded.value })
   } catch {
-    if (to.path.startsWith('/onboarding')) return
-    return navigateTo('/onboarding', { replace: true })
+    return
   }
 
   if (to.path.startsWith('/onboarding')) {

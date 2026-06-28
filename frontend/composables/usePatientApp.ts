@@ -129,8 +129,7 @@ export function usePatientApp() {
     if (import.meta.server) return
 
     patientAuth.bootstrapToken()
-    const token = patientAuth.getToken()
-    if (!token) {
+    if (!patientAuth.hasPatientSession()) {
       hydrateProfile()
       return
     }
@@ -140,9 +139,7 @@ export function usePatientApp() {
         name: string
         avatar?: string | null
         createdAt?: string
-      }>(`${config.public.apiBase}/auth/me`, {
-        headers: patientAuth.authHeaders(),
-      })
+      }>(`${config.public.apiBase}/auth/me`, patientAuth.authFetchInit())
       persistSession(user)
       await patientAuth.refreshSession()
     } catch (err) {

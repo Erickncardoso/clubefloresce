@@ -110,6 +110,7 @@ export default defineNuxtConfig({
     '~/assets/css/whatsapp-modals.css',
     '~/assets/css/whatsapp-bubbles.css',
     '~/assets/css/whatsapp-notifications.css',
+    '~/assets/css/whatsapp-broadcast.css',
     '~/assets/css/patient-app.css',
     '~/assets/css/course-video-player.css',
     '~/assets/css/lesson-player-page.css',

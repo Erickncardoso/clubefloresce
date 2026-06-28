@@ -7,6 +7,11 @@
   --text-muted: #66706e;
 }
 
+html,
+body {
+  overflow-x: hidden;
+}
+
 /* Botões — mesmo padrão visual do login (btn-auth-submit) */
 .btn-auth-submit,
 .btn-primary,

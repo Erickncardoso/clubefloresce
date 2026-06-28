@@ -503,6 +503,25 @@ export const resolveChatListDisplayName = (chat = {}) => {
   return strTrim(chat.pushName || chat.name || chat.wa_name) || 'Contato'
 }
 
+/** true quando o chat exibe nome da agenda/contato salvo (não só telefone). */
+export const resolveChatHasSavedContactName = (chat = {}) => {
+  const chatJid = normalizeJid(chat.chatJid || chat.wa_chatid || chat.id || '')
+  const isGroup = Boolean(
+    chat.isGroup ?? chat.wa_isGroup ?? chatJid.endsWith('@g.us')
+  )
+  if (isGroup) return false
+
+  const lookupKeys = buildLookupKeys(chatJid, chat.wa_chatlid, chat.phone)
+  const savedFromDirectory = strTrim(pickNameFromDirectory(contactsDirectory.value, lookupKeys))
+  const waContactName = strTrim(chat.wa_contactName)
+  const hasSavedIndex = lookupKeys.some((key) => Boolean(savedContactsIndex.value?.[key]))
+
+  const savedName = strTrim(waContactName || savedFromDirectory)
+  if (savedName && !isLikelyPhoneDisplayLabel(savedName)) return true
+  if (hasSavedIndex && savedFromDirectory && !isLikelyPhoneDisplayLabel(savedFromDirectory)) return true
+  return false
+}
+
 /** Avatar da conversa na sidebar: chat → diretório de contatos → cache de remetentes. */
 export const resolveChatListAvatarUrl = (chat = {}) => {
   const fromChat = normalizeAvatarCandidate(

@@ -9,6 +9,8 @@ import whatsappPusherService from "../services/whatsapp-pusher.service";
 import webhookLogService from "../services/webhook-log.service";
 import whatsappMediaArchiveService from "../services/whatsapp-media-archive.service";
 import { WhatsappChatDetailsService } from "../services/whatsapp-chat-details.service";
+import { WhatsappChatRepository } from "../repositories/whatsapp_chat.repository";
+import { parseUazapiChatDeletion } from "../utils/uazapi-webhook-event.util";
 
 const whatsappService = new WhatsappService();
 const whatsappChatSyncService = new WhatsappChatSyncService();
@@ -16,6 +18,7 @@ const whatsappChatDetailsService = new WhatsappChatDetailsService();
 const whatsappContactStateRepository = new WhatsappContactStateRepository();
 const whatsappContactDirectoryRepository = new WhatsappContactDirectoryRepository();
 const whatsappGroupObservedSendersRepository = new WhatsappGroupObservedSendersRepository();
+const whatsappChatRepository = new WhatsappChatRepository();
 const UAZAPI_BASE_URL = process.env.UAZAPI_SERVER_URL || "";
 
 export class WhatsappController {
@@ -581,6 +584,15 @@ export class WhatsappController {
       }
 
       void webhookLogService.logWebhookEvent(event);
+      const deletedChatJid = parseUazapiChatDeletion(event);
+      if (deletedChatJid) {
+        const userId = await whatsappPusherService.resolveUserIdFromWebhook(event);
+        if (userId) {
+          void whatsappChatRepository.deleteByChatJid(userId, deletedChatJid).catch((err) => {
+            console.warn("[WhatsApp] Falha ao remover chat local após webhook delete:", err?.message || err);
+          });
+        }
+      }
       void whatsappPusherService.handleWebhook(event);
     } catch (error) {
       console.error("Erro ao processar webhook:", error);
@@ -773,6 +785,14 @@ export class WhatsappController {
       }).finally(() => clearTimeout(fetchTimer));
       
       const result = await apiRes.json().catch(async () => ({ raw: await apiRes.text() }));
+      if (endpoint === "/chat/delete" && apiRes.ok) {
+        const chatJid = String(normalizedBody?.number || normalizedBody?.chatid || "").trim();
+        if (chatJid) {
+          void whatsappChatRepository.deleteByChatJid(user.id, chatJid).catch((err) => {
+            console.warn("[WhatsApp] Falha ao remover chat local após /chat/delete:", err?.message || err);
+          });
+        }
+      }
       if (
         endpoint === "/business/get/profile" ||
         endpoint === "/business/catalog/list" ||

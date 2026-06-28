@@ -140,6 +140,9 @@ export const messagesBackendOfflineLogged = ref(false)
 /** Presença em tempo real na sidebar: digitando / gravando áudio. */
 export const chatPresenceByKey = ref({})
 
+/** Chats removidos localmente (painel ou celular) — evita reaparecer no lightSync. */
+export const deletedChatKeys = ref({})
+
 /**
  * Zera estado em memória do módulo WhatsApp (chats, mensagens, diretórios, modais).
  * Chame após desconectar na UAZAPI para não misturar sessão antiga com número novo.
@@ -172,6 +175,7 @@ export const clearWhatsappSessionState = () => {
   pinnedSnapshotsByChatJid.value = {}
   chatActionFeedback.value = ''
   chatPresenceByKey.value = {}
+  deletedChatKeys.value = {}
   downloadingMediaById.value = {}
   autoMediaLoadAttemptedById.value = {}
   isRefreshingMessages.value = false

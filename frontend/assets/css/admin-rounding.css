@@ -34,6 +34,10 @@
   .btn-secondary,
   .btn-cancel
 ),
+.broadcast-modal-overlay :is(
+  .btn-primary,
+  .btn-secondary
+),
 .poll-modal-backdrop :is(
   .btn-primary,
   .btn-secondary,
@@ -61,6 +65,13 @@
   .btn-side-list-toggle
 ) {
   border-radius: var(--cf-radius-pill) !important;
+}
+
+.dashboard-layout .broadcast-page :is(
+  .tab-pill,
+  .tab-pills
+) {
+  border-radius: var(--cf-radius-control) !important;
 }
 
 /* ── Inputs e superfícies de formulário ── */
@@ -114,6 +125,16 @@
   .upload-zone,
   .video-drop,
   .cover-drop
+),
+.broadcast-modal-overlay :is(
+  .form-group input,
+  .form-group textarea,
+  .form-group select,
+  .field input,
+  .field textarea,
+  .cf-select-trigger,
+  .cf-dt-trigger,
+  .wa-contact-picker__search
 ) {
   border-radius: var(--cf-radius-control) !important;
 }
@@ -130,6 +151,7 @@
 .modal-overlay .modal-card,
 .courses-modal-overlay .modal-card,
 .lesson-modal-overlay .lesson-modal,
+.broadcast-modal-overlay .broadcast-modal,
 .modal-card--ebook,
 .modal-card--lesson,
 .modal-card--banner .banner-editor-preview {
@@ -166,7 +188,9 @@
     .btn-secondary,
     .btn-cancel,
     .admin-btn-primary,
-    .admin-btn-secondary
+    .admin-btn-secondary,
+    .broadcast-page .tab-pill,
+    .broadcast-page .tab-pills
   ),
   .courses-modal-overlay :is(
     .modal-card,

@@ -2056,7 +2056,7 @@ watch(
 .courses-page {
   padding: 3rem;
   width: 100%;
-  max-width: 1440px; /* Expande mais a largura, mas mantém limite para TVs 4K */
+  max-width: 1440px;
   margin: 0 auto;
 }
 

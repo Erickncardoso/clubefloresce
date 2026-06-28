@@ -347,7 +347,7 @@ onMounted(async () => {
       children: [
         { label: 'Conexão', path: '/whatsapp/conexao', icon: MessageCircle },
         { label: 'Chat ao Vivo', path: '/whatsapp/chat', icon: MessageCircle },
-        { label: 'Disparo em Massa', path: '/whatsapp/disparos', icon: Send },
+        { label: 'Transmissão', path: '/whatsapp/disparos', icon: Send },
       ]
     },
   ]

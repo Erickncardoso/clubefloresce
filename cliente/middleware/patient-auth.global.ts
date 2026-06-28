@@ -12,6 +12,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const sessionValid = await ensurePatientSession()
 
   if (!sessionValid) {
-    return navigateTo({ path: '/', query: { access: 'expired' } })
+    return navigateTo('/')
   }
 })

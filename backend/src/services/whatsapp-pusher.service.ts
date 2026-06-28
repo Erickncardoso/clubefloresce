@@ -3,6 +3,7 @@ import { getPusherClient, isPusherConfigured, whatsappPusherChannel } from "../u
 import {
   extractUazapiWebhookChatJid,
   normalizeUazapiWebhookEventType,
+  parseUazapiChatDeletion,
   parseUazapiGroupMembershipChange,
 } from "../utils/uazapi-webhook-event.util";
 
@@ -93,6 +94,7 @@ export class WhatsappPusherService {
     if (!pusher) return;
 
     const chatJid = this.extractChatJid(payload);
+    const deletedChatJid = parseUazapiChatDeletion(payload);
     const groupChange = parseUazapiGroupMembershipChange(payload);
 
     const body = payload as Record<string, unknown>;
@@ -105,6 +107,8 @@ export class WhatsappPusherService {
       await pusher.trigger(whatsappPusherChannel(userId), "whatsapp-sync", {
         eventType,
         chatJid,
+        chatDeleted: Boolean(deletedChatJid),
+        deletedChatJid: deletedChatJid || null,
         groupChange,
         chat,
         message,

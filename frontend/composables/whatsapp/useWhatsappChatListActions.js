@@ -4,7 +4,13 @@
 import {
   chats, selectedChat, showChatFeedback,
 } from './useWhatsappState.js'
-import { refreshChatPreview, loadChats, canonicalChatListKey } from './useWhatsappChats.js'
+import {
+  refreshChatPreview,
+  loadChats,
+  removeChatFromLocalState,
+  unmarkChatDeletedLocally,
+  canonicalChatListKey,
+} from './useWhatsappChats.js'
 import {
   archivedSidebarOpen,
   loadArchivedChats,
@@ -12,7 +18,7 @@ import {
   patchArchivedChatIfPresent,
 } from './useWhatsappArchivedChats.js'
 import { requestToggleBlockDialog } from './useWhatsappBlockContact.js'
-import { normalizeJid, parseJsonBodySafe } from './useWhatsappUtils.js'
+import { normalizeJid, parseJsonBodySafe, toUazapiChatNumber } from './useWhatsappUtils.js'
 import { getProxyBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 import { formatMuteEndLabel } from './useWhatsappChatDetails.js'
 
@@ -43,19 +49,33 @@ const postChatAction = async (path, body) => {
   return data
 }
 
-const removeChatFromList = (chatJid) => {
-  const norm = normalizeJid(chatJid)
-  const key = canonicalChatListKey({ chatJid: norm })
+const hideChatFromList = (chatOrJid) => {
+  const norm = normalizeJid(typeof chatOrJid === 'string' ? chatOrJid : chatOrJid?.chatJid)
+  const key = canonicalChatListKey(typeof chatOrJid === 'string' ? { chatJid: norm } : chatOrJid)
   chats.value = (chats.value || []).filter((item) => {
-    if (normalizeJid(item.chatJid) === norm) return false
+    if (norm && normalizeJid(item.chatJid) === norm) return false
     if (key && canonicalChatListKey(item) === key) return false
     return true
   })
   if (selectedChat.value && (
-    normalizeJid(selectedChat.value.chatJid) === norm ||
+    (norm && normalizeJid(selectedChat.value.chatJid) === norm) ||
     (key && canonicalChatListKey(selectedChat.value) === key)
   )) {
     selectedChat.value = null
+  }
+}
+
+const buildDeleteChatPayload = (chat) => {
+  const chatJid = normalizeJid(chat?.chatJid || chat?.wa_chatid || chat?.chatid)
+  const number = toUazapiChatNumber(chatJid) || chatJid
+  const isGroup = chatJid.endsWith('@g.us')
+  return {
+    number,
+    deleteChatDB: true,
+    deleteMessagesDB: true,
+    ...(isGroup
+      ? { clearChatWhatsApp: true }
+      : { deleteChatWhatsApp: true }),
   }
 }
 
@@ -72,7 +92,7 @@ export const archiveChatFromList = async (chat) => {
   const shouldArchive = !Boolean(chat?.isArchived || chat?.wa_archived)
   try {
     if (shouldArchive) {
-      removeChatFromList(chatJid)
+      hideChatFromList(chat)
       if (archivedSidebarOpen.value) {
         void loadArchivedChats({ showLoading: false })
       }
@@ -157,12 +177,16 @@ export const deleteChatFromList = async (chat) => {
   const chatJid = normalizeJid(chat?.chatJid)
   if (!chatJid) return
   if (typeof window !== 'undefined' && !window.confirm('Apagar esta conversa?')) return
-  removeChatFromList(chatJid)
+
+  removeChatFromLocalState(chat)
   removeArchivedChatFromList(chat)
+
   try {
-    await postChatAction('/chat/delete', { number: chatJid })
+    await postChatAction('/chat/delete', buildDeleteChatPayload(chat))
+    showChatFeedback('Conversa apagada')
   } catch (error) {
     console.error('Erro ao apagar conversa', error)
+    unmarkChatDeletedLocally(chat)
     showChatFeedback('Não foi possível apagar a conversa')
     void loadChats(false, { silent: true })
   }
