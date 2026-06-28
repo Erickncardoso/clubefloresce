@@ -1,7 +1,7 @@
 /**
  * Detalhes completos do contato via POST /api/whatsapp/chat/details (UAZAPI).
  */
-import { getWhatsappApiBase, getAuthToken } from './useWhatsappApi.js'
+import { getWhatsappApiBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 import { chatDetailsCache, chatDetailsInflight } from './useWhatsappState.js'
 import { parseJsonBodySafe } from './useWhatsappUtils.js'
 
@@ -120,10 +120,7 @@ export const fetchContactChatDetails = async (number, options = {}) => {
     try {
       const res = await fetch(`${apiBase}/chat/details`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`
-        },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify({ number: key, preview, force }),
         signal: controller?.signal
       })

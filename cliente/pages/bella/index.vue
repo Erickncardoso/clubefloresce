@@ -61,8 +61,10 @@ function handleAction(action) {
   navigateBellaAction(action)
 }
 
-onMounted(() => {
-  if (localStorage.getItem('user_role') === 'NUTRICIONISTA') navigateTo('/cursos')
+onMounted(async () => {
+  const { ensurePatientSession } = usePatientAuth()
+  await ensurePatientSession()
+  if (getVerifiedRole() === 'NUTRICIONISTA') navigateTo('/cursos')
 })
 </script>
 

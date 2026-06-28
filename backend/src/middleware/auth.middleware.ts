@@ -4,6 +4,7 @@ import { Role, UserStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
+import { extractAuthToken } from "../utils/auth-cookie";
 
 const PENDING_NUTRI_ALLOWED_PREFIXES = [
   "/api/auth/me",
@@ -20,7 +21,7 @@ export const authenticate = async (
   res: Response,
   next: NextFunction
 ): Promise<any> => {
-  const token = req.headers.authorization?.split(" ")[1];
+  const token = extractAuthToken(req);
 
   if (!token) {
     return res.status(401).json({ message: "Usuário não autenticado." });

@@ -336,10 +336,14 @@
 }
 
 .chat-top-meta {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   flex-shrink: 0;
   margin-left: 8px;
+  min-width: 40px;
+  height: 22px;
 }
 
 .chat-time {
@@ -348,6 +352,13 @@
   font-size: 12px;
   line-height: 16px;
   white-space: nowrap;
+  transition: opacity 0.12s ease;
+}
+
+.chat-item:hover .chat-time,
+.chat-item.is-context-open .chat-time {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .chat-item.has-unread .chat-display-name,
@@ -372,9 +383,12 @@
 .chat-meta-right {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
   flex-shrink: 0;
   align-self: center;
+  min-width: 22px;
+  min-height: 22px;
 }
 
 .chat-item.is-context-open {
@@ -382,7 +396,11 @@
 }
 
 .chat-item-chevron {
-  display: none;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 22px;
@@ -394,6 +412,10 @@
   color: #54656f;
   cursor: pointer;
   flex-shrink: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, background 0.12s ease;
 }
 
 .chat-item-chevron-icon {
@@ -403,7 +425,9 @@
 
 .chat-item:hover .chat-item-chevron,
 .chat-item.is-context-open .chat-item-chevron {
-  display: inline-flex;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .chat-item:hover .chat-item-chevron:hover,

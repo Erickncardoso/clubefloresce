@@ -573,6 +573,7 @@ import { Search, UserPlus, Edit3, Trash2 } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
 import { isPatientAccessExpired } from '~/utils/patient-access'
 import { formatWhatsappTextForDisplay } from '~/composables/whatsapp/useWhatsappUtils.js'
+import { verifyAuthSession } from '~/composables/useAuthSession.js'
 
 const users = ref([])
 const registrationRequests = ref([])
@@ -731,13 +732,12 @@ const fetchPatients = async () => {
 }
 
 const fetchUsers = async () => {
-  const token = localStorage.getItem('auth_token')
-  const role = localStorage.getItem('user_role')
+  const user = await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' })
 
-  if (!token || role !== 'NUTRICIONISTA') {
+  if (!user) {
     usersLoading.value = false
     requestsLoading.value = false
-    const sessionError = 'Sess?o expirada. Fa?a login novamente como nutricionista.'
+    const sessionError = 'Sessão expirada. Faça login novamente como nutricionista.'
     usersError.value = sessionError
     requestsError.value = sessionError
     return

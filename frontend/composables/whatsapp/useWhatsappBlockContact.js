@@ -5,7 +5,7 @@ import { ref } from 'vue'
 import { refreshChatPreview } from './useWhatsappChats.js'
 import { showChatFeedback } from './useWhatsappState.js'
 import { normalizeJid, parseJsonBodySafe } from './useWhatsappUtils.js'
-import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { getProxyBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 
 export const blockConfirmOpen = ref(false)
 export const unblockConfirmOpen = ref(false)
@@ -86,10 +86,7 @@ const postBlockAction = async (chatJid, block) => {
   const proxyBase = getProxyBase()
   const res = await fetch(`${proxyBase}/chat/block`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getAuthToken()}`,
-    },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify({ number: chatJid, block }),
   })
   const data = await parseJsonBodySafe(res)

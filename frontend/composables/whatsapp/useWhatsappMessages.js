@@ -21,7 +21,7 @@ import {
   extractIncomingMenuInteractive,
   extractInteractiveBodyText
 } from './useWhatsappInteractive.js'
-import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { getProxyBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 import { stickChatScrollToBottomIfNeeded } from './useWhatsappScroll.js'
 import {
   resolveSenderName, getMessageSenderJid, getMessageSenderLookupKeys, isGroupMessageContext
@@ -1762,6 +1762,21 @@ export const pinnedMessagesInChat = computed(() => {
   return resolvePinnedMessagesFromThread(messages.value, optimistic, rendered, catalog)
 })
 
+export const pinnedMessageIdSet = computed(() => {
+  const set = new Set()
+  for (const msg of pinnedMessagesInChat.value) {
+    const id = normalizeProviderMessageId(msg?.normalizedMessageId || msg?.messageid || msg?.id)
+    if (id) set.add(id)
+  }
+  return set
+})
+
+export const isMessageCurrentlyPinned = (msg, pinnedSet = pinnedMessageIdSet.value) => {
+  if (!msg || msg.__timelineKind) return false
+  const id = normalizeProviderMessageId(msg?.normalizedMessageId || msg?.messageid || msg?.id)
+  return Boolean(id && pinnedSet?.has?.(id))
+}
+
 watch(
   () => {
     const chatJid = normalizeJid(selectedChat.value?.chatJid || '')
@@ -1847,7 +1862,7 @@ export const downloadMessageMedia = async (msg) => {
     downloadingMediaById.value = { ...downloadingMediaById.value, [msg.id]: true }
     const res = await fetch(`${proxyBase}/message/download`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({
         id: mediaId,
         chatid: chatJid || undefined,
@@ -1911,7 +1926,8 @@ export const preloadMessageMediaIfNeeded = async (items = []) => {
 export function useWhatsappMessages() {
   return {
     normalizeMessage, attachReactionsToMessages, hydrateQuotedFromThread,
-    renderedMessages, pinnedMessagesInChat, resolvePinnedMessagesFromThread, parseInlineReactionsFromMessage, getMessageMergeKey,
+    renderedMessages, pinnedMessagesInChat, pinnedMessageIdSet, isMessageCurrentlyPinned,
+    resolvePinnedMessagesFromThread, parseInlineReactionsFromMessage, getMessageMergeKey,
     pickRicherDuplicateBaseMessage, extractSharedContactData, extractSharedContactText,
     replaceMentionNumbersByNames, extractUazapiMediaUrl, extractUazapiJpegThumbDataUrl,
     extractContextInfoFromMessage, buildMessageContentText, tryParseQuotedPayload,

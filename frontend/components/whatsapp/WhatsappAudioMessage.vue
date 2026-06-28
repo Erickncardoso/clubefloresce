@@ -48,6 +48,7 @@
       <div class="wa-audio-meta">
         <span class="wa-audio-duration">{{ displayTime }}</span>
         <span class="wa-audio-time">
+          <Pin v-if="pinned" class="msg-pin-icon" aria-hidden="true" />
           {{ timestamp }}
           <span v-if="isEdited" class="msg-edited-label">Editada</span>
           <WhatsappDeliveryTicks v-if="fromMe && deliveryStatus" :status="deliveryStatus" />
@@ -92,7 +93,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { User } from 'lucide-vue-next'
+import { User, Pin } from 'lucide-vue-next'
 import WhatsappDeliveryTicks from './WhatsappDeliveryTicks.vue'
 import WhatsappPttMicIcon from './WhatsappPttMicIcon.vue'
 
@@ -107,7 +108,8 @@ const props = defineProps({
   durationSeconds: { type: Number, default: 0 },
   initialListened: { type: Boolean, default: false },
   waveformSeed: { type: String, default: 'audio' },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  pinned: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['request-load', 'listened'])

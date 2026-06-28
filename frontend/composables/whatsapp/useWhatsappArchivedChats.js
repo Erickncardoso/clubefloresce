@@ -9,7 +9,7 @@ import {
   sortChatsByPriority,
   enrichMissingChatAvatars,
 } from './useWhatsappChats.js'
-import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { getProxyBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 import { normalizeJid, parseJsonBodySafe, isChatMutedByEndTime } from './useWhatsappUtils.js'
 
 export const archivedSidebarOpen = ref(false)
@@ -39,10 +39,7 @@ const fetchArchivedChatsPage = async (limit = 200, offset = 0) => {
     try {
       res = await fetch(`${proxyBase}/chat/find`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify(bodyPayload),
       })
     } catch {

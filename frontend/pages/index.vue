@@ -167,6 +167,7 @@
 <script setup>
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
+import { persistAuthSessionMeta, getLegacyAuthToken, hasAuthSession, applyVerifiedSessionUser, verifyAuthSession, getVerifiedUser } from '~/composables/useAuthSession.js'
 
 definePageMeta({
   layout: false
@@ -199,7 +200,8 @@ const handleLogin = async () => {
   try {
     const data = await $fetch(`${authApiBase.value}/login`, {
       method: 'POST',
-      body: form
+      body: form,
+      credentials: 'include',
     })
     
     if (data.user.role !== 'NUTRICIONISTA') {
@@ -207,16 +209,14 @@ const handleLogin = async () => {
       return
     }
 
-    localStorage.setItem('auth_token', data.token)
-    localStorage.setItem('user_role', data.user.role)
-    localStorage.setItem('user_id', data.user.id)
+    applyVerifiedSessionUser(data.user)
 
     if (data.mustChangePassword) {
       showFirstAccessModal.value = true
       return
     }
 
-    navigateTo('/cursos')
+    await navigateTo('/cursos', { replace: true })
   } catch (err) {
     console.error('Erro completo:', err)
     if (isApiConnectionError(err)) {
@@ -253,8 +253,8 @@ const handleFirstAccessPasswordChange = async () => {
     return
   }
 
-  const token = localStorage.getItem('auth_token')
-  if (!token) {
+  const token = getLegacyAuthToken()
+  if (!hasAuthSession() && !token) {
     firstAccessError.value = 'Sessão inválida. Faça login novamente.'
     return
   }
@@ -263,7 +263,8 @@ const handleFirstAccessPasswordChange = async () => {
   try {
     await $fetch(`${authApiBase.value}/first-access/change-password`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
       body: {
         newPassword: firstAccessForm.newPassword
       }
@@ -272,7 +273,7 @@ const handleFirstAccessPasswordChange = async () => {
     showFirstAccessModal.value = false
     firstAccessForm.newPassword = ''
     firstAccessForm.confirmPassword = ''
-    navigateTo('/cursos')
+    await navigateTo('/cursos', { replace: true })
   } catch (err) {
     if (err.data && err.data.message) {
       firstAccessError.value = err.data.message
@@ -283,6 +284,17 @@ const handleFirstAccessPasswordChange = async () => {
     firstAccessLoading.value = false
   }
 }
+
+onMounted(async () => {
+  if (!hasAuthSession()) return
+  const cached = getVerifiedUser()
+  if (cached?.role === 'NUTRICIONISTA') {
+    await navigateTo('/cursos', { replace: true })
+    return
+  }
+  const user = await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' })
+  if (user) await navigateTo('/cursos', { replace: true })
+})
 </script>
 
 <style scoped>

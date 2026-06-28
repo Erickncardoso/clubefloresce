@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import path from "path";
 import multer from "multer";
@@ -84,10 +85,31 @@ const corsOptions: cors.CorsOptions = {
   optionsSuccessStatus: 204,
 };
 
+const isProd = process.env.NODE_ENV === "production";
+
 // Middlewares
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
+  ...(isProd
+    ? {
+        contentSecurityPolicy: {
+          useDefaults: true,
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "blob:", "https:"],
+            connectSrc: ["'self'", "https:", "wss:"],
+            mediaSrc: ["'self'", "blob:", "https:"],
+            fontSrc: ["'self'", "data:"],
+            frameAncestors: ["'none'"],
+          },
+        },
+        referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      }
+    : {}),
 }));
+app.use(cookieParser());
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));

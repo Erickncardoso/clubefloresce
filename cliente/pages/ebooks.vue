@@ -156,7 +156,7 @@ async function uploadDocumentToCloudinary(file, token) {
 }
 
 const ebooks = ref([])
-const isNutri = ref(false)
+const isNutri = useVerifiedRole().isNutricionista
 const showCreateEbookModal = ref(false)
 const uploading = ref(false)
 const previewUrl = ref(null)
@@ -288,7 +288,7 @@ const handleDeleteEbook = async (id) => {
 }
 
 onMounted(() => {
-  isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
+  void verifyAuthSession()
   if (config.public.mobileApp) {
     navigateTo('/cursos#ebooks', { replace: true })
     return

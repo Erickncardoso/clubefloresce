@@ -13,7 +13,7 @@ import {
 } from './useWhatsappArchivedChats.js'
 import { requestToggleBlockDialog } from './useWhatsappBlockContact.js'
 import { normalizeJid, parseJsonBodySafe } from './useWhatsappUtils.js'
-import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { getProxyBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 import { formatMuteEndLabel } from './useWhatsappChatDetails.js'
 
 /** Códigos UAZAPI: 0=off, 8=8h, 168=1 semana, -1=sempre */
@@ -35,7 +35,7 @@ const postChatAction = async (path, body) => {
   const proxyBase = getProxyBase()
   const res = await fetch(`${proxyBase}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify(body),
   })
   const data = await parseJsonBodySafe(res)

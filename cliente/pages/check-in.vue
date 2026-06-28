@@ -229,7 +229,7 @@ const { showToast } = useAppToast()
 const route = useRoute()
 const { suppress: suppressTabBar, release: releaseTabBar } = usePatientTabBar()
 const apiBase = config.public.apiBase
-const isNutri = ref(false)
+const isNutri = useVerifiedRole().isNutricionista
 const saving = ref(false)
 const formError = ref('')
 const formSuccess = ref('')
@@ -588,7 +588,7 @@ onUnmounted(() => {
 })
 
 onMounted(async () => {
-  isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
+  await verifyAuthSession()
   try {
     if (isNutri.value) await loadNutriData()
     else await loadPatientTemplates()

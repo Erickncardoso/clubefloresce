@@ -4,13 +4,14 @@
  */
 import { ref, readonly } from 'vue'
 import Pusher from 'pusher-js'
-import { getAuthToken } from './useWhatsappApi.js'
+import { whatsappHasAuth } from './useWhatsappApi.js'
+import { authFetchInit, authHeaders } from '~/composables/useAuthSession.js'
+import { dispatchWhatsappRealtime } from './whatsapp-realtime-bus.js'
 
 let pusherClient = null
 let pusherChannel = null
 let connectPromise = null
-/** @type {((payload: Record<string, unknown>) => void) | null} */
-let onSyncHandler = null
+let pusherConnectionRefs = 0
 
 const pusherConnected = ref(false)
 const pusherEnabled = ref(false)
@@ -60,13 +61,12 @@ function waitForChannelSubscription(channel, timeoutMs = 8000) {
 }
 
 /**
- * Conecta ao canal privado da nutricionista e chama `onSync` a cada evento do webhook UAZAPI.
- * @param {(payload: Record<string, unknown>) => void} onSync
+ * Conecta ao canal privado da nutricionista e despacha eventos no bus compartilhado.
  * @returns {Promise<boolean>} true se inscrito no canal privado
  */
-export async function connectWhatsappPusher(onSync) {
+export async function connectWhatsappPusher() {
   if (typeof window === 'undefined') return false
-  onSyncHandler = typeof onSync === 'function' ? onSync : null
+  pusherConnectionRefs += 1
 
   if (pusherConnected.value && pusherClient && pusherChannel?.subscribed) {
     return true
@@ -76,16 +76,14 @@ export async function connectWhatsappPusher(onSync) {
 
   connectPromise = (async () => {
     const apiBase = getApiBase()
-    const token = getAuthToken()
-    if (!apiBase || !token) {
+    if (!apiBase || !whatsappHasAuth()) {
       pusherEnabled.value = false
+      pusherConnectionRefs = Math.max(0, pusherConnectionRefs - 1)
       return false
     }
 
     try {
-      const config = await $fetch(`${apiBase}/pusher/config`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const config = await $fetch(`${apiBase}/pusher/config`, authFetchInit())
 
       if (!config?.enabled || !config?.key || !config?.cluster || !config?.channel) {
         pusherEnabled.value = false
@@ -100,9 +98,7 @@ export async function connectWhatsappPusher(onSync) {
         cluster: String(config.cluster),
         authEndpoint: `${apiBase}/pusher/auth`,
         auth: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: Object.fromEntries(authHeaders().entries()),
         },
       })
 
@@ -121,7 +117,7 @@ export async function connectWhatsappPusher(onSync) {
 
       pusherChannel = pusherClient.subscribe(String(config.channel))
       pusherChannel.bind('whatsapp-sync', (payload) => {
-        if (onSyncHandler) onSyncHandler(payload || {})
+        dispatchWhatsappRealtime(payload || {})
       })
 
       pusherChannel.bind('pusher:subscription_succeeded', () => {
@@ -148,7 +144,8 @@ export async function connectWhatsappPusher(onSync) {
 }
 
 export function disconnectWhatsappPusher() {
-  onSyncHandler = null
+  pusherConnectionRefs = Math.max(0, pusherConnectionRefs - 1)
+  if (pusherConnectionRefs > 0) return
   teardownPusher()
   pusherEnabled.value = false
 }

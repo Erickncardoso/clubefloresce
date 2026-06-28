@@ -101,7 +101,7 @@ const pageLoading = ref(true)
 const expandedComments = ref([])
 const openMenuPostId = ref(null)
 const likingPostId = ref(null)
-const isNutri = ref(false)
+const isNutri = useVerifiedRole().isNutricionista
 const userId = ref('')
 const activeTab = ref('feed')
 const activePostType = ref('achievement')
@@ -315,7 +315,7 @@ onBeforeRouteLeave(() => {
 
 onMounted(() => {
   if (import.meta.client) {
-    isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
+    void verifyAuthSession()
     userId.value = localStorage.getItem('user_id') || ''
     const { hydrateProfile } = usePatientApp()
     hydrateProfile()

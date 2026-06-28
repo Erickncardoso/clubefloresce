@@ -48,7 +48,8 @@ export const mergePinTimelineEvents = (...groups) => {
     for (const evt of Array.isArray(group) ? group : []) {
       if (!evt?.label) continue
       const ts = Number(evt.timestamp || 0)
-      const dedupeKey = strTrim(evt.id) || `${evt.label}-${Math.floor(ts / 15000)}`
+      const label = strTrim(evt.label)
+      const dedupeKey = strTrim(evt.id) || `${label}|${Math.floor(ts / 12000)}`
       if (seen.has(dedupeKey)) continue
       seen.add(dedupeKey)
       merged.push({

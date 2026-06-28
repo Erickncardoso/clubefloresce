@@ -1,13 +1,11 @@
 /** Rotas exclusivas da nutricionista no painel admin. */
-export default defineNuxtRouteMiddleware(() => {
+import { verifyAuthSession } from '~/composables/useAuthSession.js'
+
+export default defineNuxtRouteMiddleware(async () => {
   const config = useRuntimeConfig()
   if (config.public.mobileApp) return
   if (import.meta.server) return
 
-  const token = localStorage.getItem('auth_token')
-  const role = localStorage.getItem('user_role')
-
-  if (!token || role !== 'NUTRICIONISTA') {
-    return navigateTo('/')
-  }
+  const user = await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' })
+  if (!user) return navigateTo('/')
 })

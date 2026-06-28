@@ -101,11 +101,12 @@
               :messages="chatBodyDisplayMessages"
               :wallpaper-style="chatWallpaperStyle"
               :pin-timeline-events="chatPinTimelineEvents"
+              :pinned-message-id-set="pinnedMessageIdSet"
               :loading-older-messages="loadingOlderMessages"
               :is-group="Boolean(selectedChat.isGroup)"
               :contact-avatar-url="String(selectedChat?.avatarUrl || selectedChat?.image || selectedChat?.imagePreview || '')"
+              :contact-display-name="resolveChatDisplayName(selectedChat)"
               :loading-messages="loadingMessages"
-              :action-menu-message-id="actionMenuMessageId"
               :action-menu-mode="actionMenuMode"
               :downloading-media-by-id="downloadingMediaById"
               :chat-action-feedback="chatActionFeedback"
@@ -557,8 +558,7 @@ import MessageInfoModal from '~/components/whatsapp/MessageInfoModal.vue'
 // ─── Composables ──────────────────────────────────────────────────────────────
 import { useWhatsappState, messageActionsCoords, replyingTo } from '~/composables/whatsapp/useWhatsappState.js'
 import { useWhatsappUtils } from '~/composables/whatsapp/useWhatsappUtils.js'
-import { getAuthToken, getProxyBase, fetchWhatsappSessionConnected } from '~/composables/whatsapp/useWhatsappApi.js'
-import { getWhatsappApiBase, isWhatsappConnectedFromStatusPayload } from '~/composables/whatsapp/useWhatsappApi.js'
+import { getProxyBase, fetchWhatsappSessionConnected, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders, whatsappFetchInit, getWhatsappApiBase, isWhatsappConnectedFromStatusPayload } from '~/composables/whatsapp/useWhatsappApi.js'
 import { useWhatsappChats, canonicalChatListKey } from '~/composables/whatsapp/useWhatsappChats.js'
 import { useWhatsappContacts } from '~/composables/whatsapp/useWhatsappContacts.js'
 import { useWhatsappMessages } from '~/composables/whatsapp/useWhatsappMessages.js'
@@ -712,7 +712,7 @@ const resolveMessageSenderDisplayName = (msg) => resolveSenderNameBase(msg, sele
 
 // ─── Mensagens ────────────────────────────────────────────────────────────────
 const {
-  renderedMessages, pinnedMessagesInChat, getMessageMergeKey, downloadMessageMedia,
+  renderedMessages, pinnedMessagesInChat, pinnedMessageIdSet, getMessageMergeKey, downloadMessageMedia,
   hasRenderableReactionPill, getReactionPillEmojis, showReactionPillCount,
   shouldHideAutoMediaLabelInBubble,
   extractUazapiJpegThumbDataUrl,
@@ -768,7 +768,8 @@ const {
   openMessageInfoModal, closeMessageInfoModal, messageInfoModalOpen, messageInfoTarget,
   commercialBroadcastStub, addMessageToNotesStub,
   triggerFilePicker,
-  layoutMessageActionsPanel
+  layoutMessageActionsPanel,
+  scheduleMessageActionsLayoutRefine,
 } = useWhatsappMessageActions()
 
 // ─── Perfil comercial ─────────────────────────────────────────────────────────
@@ -1724,7 +1725,7 @@ const sendMediaWithTimeout = async (proxyBase, payload, timeoutMs = 45000) => {
   try {
     const response = await fetch(`${proxyBase}/send/media`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(payload),
       signal: controller?.signal
     })
@@ -2046,8 +2047,7 @@ const submitPollComposer = async () => {
   pollComposerSending.value = true
   try {
     const proxyBase = getProxyBase()
-    const token = getAuthToken()
-    const selectableCount = Boolean(pollComposerForm.value?.allowMultiple) ? choices.length : 1
+        const selectableCount = Boolean(pollComposerForm.value?.allowMultiple) ? choices.length : 1
     let endpoint = '/send/menu'
     let requestPayload = {}
 
@@ -2123,7 +2123,7 @@ const submitPollComposer = async () => {
       for (const payloadCandidate of payloadCandidates) {
         response = await fetch(`${proxyBase}${endpointCandidate}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: whatsappJsonHeaders(),
           body: JSON.stringify(payloadCandidate)
         })
         responsePayload = await response.json().catch(() => ({}))
@@ -2342,7 +2342,7 @@ const fetchContactAvatarByNumber = async (number) => {
   const proxyBase = getProxyBase()
   const response = await fetch(`${proxyBase}/chat/details`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify({ number: digits, preview: true })
   })
   const payload = await response.json().catch(() => ({}))
@@ -2392,7 +2392,7 @@ const fetchContactAvatarByCandidate = async (candidate) => {
   for (const requestValue of uniqueValues) {
     const response = await fetch(`${proxyBase}/chat/details`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ number: requestValue, preview: true })
     })
     const payload = await response.json().catch(() => ({}))
@@ -2499,7 +2499,7 @@ const fetchAddressBookContacts = async () => {
   // Fonte primária e rápida: agenda do WhatsApp (contatos salvos)
   const savedRes = await fetch(`${proxyBase}/contacts?contactScope=address_book`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }
+    headers: whatsappJsonHeaders()
   })
   const savedPayload = await savedRes.json().catch(() => ([]))
   if (!savedRes.ok) throw new Error(savedPayload?.message || savedPayload?.error || 'Falha ao carregar contatos')
@@ -2701,7 +2701,7 @@ const toggleSendContactSelection = (id) => {
 
 const sendContactWithFallbackPayloads = async (contact) => {
   const proxyBase = getProxyBase()
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }
+  const headers = whatsappJsonHeaders()
   const targetRaw = String(selectedChat.value?.chatJid || '').trim()
   const targetDigits = targetRaw.includes('@') ? targetRaw.split('@')[0].replace(/\D/g, '') : targetRaw.replace(/\D/g, '')
   const contactJid = String(contact?.jid || '').trim()
@@ -2824,7 +2824,7 @@ const disconnectWhatsappSession = async () => {
   const base = getProxyBase().replace(/\/proxy$/, '')
   const response = await fetch(`${base}/disconnect`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }
+    headers: whatsappJsonHeaders()
   })
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(payload?.message || payload?.error || 'Falha ao desconectar WhatsApp')
@@ -3146,22 +3146,46 @@ const handleContactInfoOpenGroup = (group) => {
   const jid = String(group?.jid || '').trim()
   if (!jid) return
   closeContactInfoModal()
-  const existing = chats.value.find((chat) => String(chat?.chatJid || '') === jid)
+  openChatByJid(jid, { name: String(group?.name || 'Grupo').trim(), isGroup: true })
+}
+
+const openChatByJid = async (rawJid, fallback = {}) => {
+  const jid = normalizeJid(String(rawJid || '').trim())
+  if (!jid) return
+
+  const existing = (Array.isArray(chats.value) ? chats.value : []).find(
+    (chat) => normalizeJid(chat?.chatJid || '') === jid,
+  )
   if (existing) {
-    selectChat(existing)
+    await selectChat(existing)
     return
   }
-  selectChat({
+
+  await selectChat({
     id: jid,
     chatJid: jid,
-    name: String(group?.name || 'Grupo').trim(),
-    pushName: String(group?.name || 'Grupo').trim(),
+    name: String(fallback.name || formatJidAsPhoneLine(jid) || 'Contato').trim(),
+    pushName: String(fallback.name || formatJidAsPhoneLine(jid) || 'Contato').trim(),
     avatarUrl: '',
-    isGroup: true,
+    isGroup: Boolean(fallback.isGroup ?? jid.endsWith('@g.us')),
     lastMessage: '',
     lastMessageTime: Date.now(),
-    unreadCount: 0
+    unreadCount: 0,
   })
+}
+
+const openChatFromDeepLink = async () => {
+  const route = useRoute()
+  const pendingJid = typeof sessionStorage !== 'undefined'
+    ? String(sessionStorage.getItem('wa_pending_open_chat') || '').trim()
+    : ''
+  const queryJid = String(route.query.jid || '').trim()
+  const jid = queryJid || pendingJid
+  if (!jid) return
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem('wa_pending_open_chat')
+  }
+  await openChatByJid(jid)
 }
 
 const requireGroupJid = () => {
@@ -3474,12 +3498,15 @@ watch(
 )
 
 watch(actionMenuMessageId, (newId) => {
-  if (newId) nextTick(() => layoutMessageActionsPanel())
-  else if (messageActionsCoords?.value) messageActionsCoords.value = null
+  if (!newId) {
+    if (messageActionsCoords?.value) messageActionsCoords.value = null
+    return
+  }
+  scheduleMessageActionsLayoutRefine()
 })
 
 watch(actionMenuMode, () => {
-  if (actionMenuMessageId.value) nextTick(() => layoutMessageActionsPanel())
+  if (actionMenuMessageId.value) scheduleMessageActionsLayoutRefine()
 })
 
 watch(
@@ -3521,14 +3548,13 @@ onMounted(async () => {
     document.addEventListener('keydown', onGlobalKeydown, true)
     window.addEventListener('resize', onMessageActionsWindowResize)
   }
-  if (!getAuthToken()) {
+  if (!whatsappHasAuth()) {
     navigateTo('/')
     return
   }
   const base = getWhatsappApiBase()
-  const token = getAuthToken()
-  const statusPayload = base && token
-    ? await fetch(`${base}/status`, { headers: { Authorization: `Bearer ${token}` } })
+  const statusPayload = base
+    ? await fetch(`${base}/status`, whatsappFetchInit())
       .then((r) => r.text().then((t) => ({ ok: r.ok, raw: t })))
       .catch(() => ({ ok: false, raw: '' }))
     : { ok: false, raw: '' }
@@ -3560,6 +3586,7 @@ onMounted(async () => {
   await syncContactsDirectoryIfNeeded(true)
   await loadChats(true, { lightSync: true })
   loadChats(true, { silent: true }).catch(() => {})
+  await openChatFromDeepLink()
   startRealtimeSync()
 })
 

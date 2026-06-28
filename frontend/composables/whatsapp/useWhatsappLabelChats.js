@@ -14,7 +14,7 @@ import {
 } from './useWhatsappLabels.js'
 import { canonicalChatListKey, refreshChatPreview, syncSelectedChatAfterChatsMutation } from './useWhatsappChats.js'
 import { normalizeJid, parseJsonBodySafe } from './useWhatsappUtils.js'
-import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { getProxyBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 
 export const resolveChatLabelsApiNumber = (chat = {}) => {
   const jid = normalizeJid(chat?.chatJid || chat?.wa_chatid || chat?.chatid || chat?.id || '')
@@ -87,10 +87,7 @@ const postChatLabelChange = async (chat = {}, { addLabelId, removeLabelId } = {}
   const proxyBase = getProxyBase()
   const res = await fetch(`${proxyBase}/chat/labels`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getAuthToken()}`,
-    },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify(body),
   })
   const data = await parseJsonBodySafe(res)

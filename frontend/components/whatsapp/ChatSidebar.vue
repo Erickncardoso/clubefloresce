@@ -122,6 +122,15 @@
             </div>
             <div class="chat-top-meta">
               <span class="chat-time text-muted text-xs">{{ formatListTime(chat.lastMessageTime || chat.timestamp) }}</span>
+              <button
+                type="button"
+                class="chat-item-chevron"
+                aria-label="Opções da conversa"
+                :aria-expanded="contextMenuChat?.id === chat.id ? 'true' : 'false'"
+                @click.stop="openContextMenu(chat, $event)"
+              >
+                <ChevronDown class="chat-item-chevron-icon" />
+              </button>
             </div>
           </div>
           <div class="chat-bottom">
@@ -149,15 +158,6 @@
               >{{ chat.unreadCount > 99 ? '99+' : chat.unreadCount }}</span>
               <Pin v-if="chat.isPinned" class="chat-pin-icon is-active" aria-label="Conversa fixada" />
               <BellOff v-if="isChatMuted(chat)" class="chat-mute-icon" aria-label="Conversa silenciada" />
-              <button
-                type="button"
-                class="chat-item-chevron"
-                aria-label="Opções da conversa"
-                :aria-expanded="contextMenuChat?.id === chat.id ? 'true' : 'false'"
-                @click.stop="openContextMenu(chat, $event)"
-              >
-                <ChevronDown class="chat-item-chevron-icon" />
-              </button>
             </div>
           </div>
         </div>

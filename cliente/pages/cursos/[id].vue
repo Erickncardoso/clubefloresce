@@ -460,7 +460,7 @@ const config = useRuntimeConfig()
 const layoutName = computed(() => (config.public.mobileApp ? 'patient' : 'dashboard'))
 const apiBase = config.public.apiBase
 const course = ref(null)
-const isNutri = ref(false)
+const isNutri = useVerifiedRole().isNutricionista
 const showLessonModal = ref(false)
 const uploading = ref(false)
 const currentModuleIdForLesson = ref(null)
@@ -1040,7 +1040,7 @@ const updateIsMobile = () => {
 }
 
 onMounted(() => {
-  isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
+  void verifyAuthSession()
   updateIsMobile()
   window.addEventListener('resize', updateIsMobile)
   fetchCourse()

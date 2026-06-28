@@ -764,6 +764,7 @@ import { useDocumentUploadLimits } from '~/composables/useUploadConfig'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { openPatientCourse } from '~/utils/open-patient-course'
 import { buildModuleUrl } from '~/utils/course-slug'
+import { clearAuthSessionMeta, hasAuthSession, verifyAuthSession } from '~/composables/useAuthSession.js'
 
 const config = useRuntimeConfig()
 const { openDocument } = usePatientDocument()
@@ -796,7 +797,7 @@ async function uploadDocumentToCloudinary(file, token) {
 const route = useRoute()
 const courses = ref([])
 const ebooks = ref([])
-const isNutri = ref(false)
+const isNutri = useVerifiedRole().isNutricionista
 const coursesLoadError = ref('')
 const showCreateCourseModal = ref(false)
 const showModuleModal = ref(false)
@@ -1278,10 +1279,7 @@ const buildLegacyCoursePayload = (courseData) => ({
 })
 
 const handleAuthTokenInvalid = () => {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('user_role')
-  localStorage.removeItem('user_name')
-  localStorage.removeItem('user_id')
+  clearAuthSessionMeta()
   navigateTo('/')
 }
 
@@ -2146,16 +2144,16 @@ const handleDeleteModule = async (moduleId, courseId) => {
 }
 
 if (import.meta.client) {
-  isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
+  void verifyAuthSession()
 }
 
 onMounted(async () => {
-  if (!localStorage.getItem('auth_token')) {
+  if (!hasAuthSession()) {
     handleAuthTokenInvalid()
     pageLoading.value = false
     return
   }
-  isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
+  await verifyAuthSession()
   pageLoading.value = true
   try {
     await Promise.all([fetchCourses(), fetchEbooks()])

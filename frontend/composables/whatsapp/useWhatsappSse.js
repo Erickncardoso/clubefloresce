@@ -1,11 +1,14 @@
 /**
  * SSE da UAZAPI (via proxy autenticado) — mensagens em tempo real no painel.
  */
-import { getAuthToken, getWhatsappApiBase } from './useWhatsappApi.js'
+import { getWhatsappApiBase, whatsappHasAuth } from './useWhatsappApi.js'
+import { authFetchInit } from '~/composables/useAuthSession.js'
+import { dispatchWhatsappRealtime } from './whatsapp-realtime-bus.js'
 
 let sseAbortController = null
 let sseReconnectTimer = null
 let sseRunning = false
+let sseConnectionRefs = 0
 
 function getApiBase() {
   return getWhatsappApiBase()
@@ -62,7 +65,7 @@ function shouldHandleSseEvent(eventType) {
   return false
 }
 
-async function consumeSseStream(response, onEvent) {
+async function consumeSseStream(response) {
   const reader = response.body?.getReader?.()
   if (!reader) throw new Error('SSE sem body')
 
@@ -90,27 +93,23 @@ async function consumeSseStream(response, onEvent) {
       if (!raw || raw === '[DONE]') continue
 
       const payload = parseSsePayload(raw)
-      if (payload && shouldHandleSseEvent(payload.eventType) && onEvent) {
-        onEvent(payload)
+      if (payload && shouldHandleSseEvent(payload.eventType)) {
+        dispatchWhatsappRealtime(payload)
       }
     }
   }
 }
 
-/**
- * @param {(payload: Record<string, unknown>) => void} onEvent
- */
-export function connectWhatsappSse(onEvent) {
+function startSseLoop() {
   if (typeof window === 'undefined') return
-  disconnectWhatsappSse()
+  if (sseRunning) return
   sseRunning = true
 
   const run = async () => {
     if (!sseRunning) return
 
     const base = getApiBase()
-    const token = getAuthToken()
-    if (!base || !token) {
+    if (!base || !whatsappHasAuth()) {
       scheduleReconnect(run)
       return
     }
@@ -118,20 +117,19 @@ export function connectWhatsappSse(onEvent) {
     sseAbortController = new AbortController()
 
     try {
-      const response = await fetch(`${base}/sse`, {
+      const response = await fetch(`${base}/sse`, authFetchInit({
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${token}`,
           Accept: 'text/event-stream',
         },
         signal: sseAbortController.signal,
-      })
+      }))
 
       if (!response.ok || !response.body) {
         throw new Error(`SSE ${response.status}`)
       }
 
-      await consumeSseStream(response, onEvent)
+      await consumeSseStream(response)
     } catch (error) {
       if (!sseRunning || sseAbortController?.signal.aborted) return
       console.warn('[WhatsApp SSE] Reconectando…', error?.message || error)
@@ -151,7 +149,17 @@ function scheduleReconnect(run) {
   sseReconnectTimer = setTimeout(run, 2500)
 }
 
+/** Incrementa referência e garante stream SSE ativo. */
+export function connectWhatsappSse() {
+  sseConnectionRefs += 1
+  startSseLoop()
+}
+
+/** Decrementa referência; encerra stream quando ninguém consome. */
 export function disconnectWhatsappSse() {
+  sseConnectionRefs = Math.max(0, sseConnectionRefs - 1)
+  if (sseConnectionRefs > 0) return
+
   sseRunning = false
   if (sseReconnectTimer) {
     clearTimeout(sseReconnectTimer)

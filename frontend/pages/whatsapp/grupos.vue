@@ -177,9 +177,9 @@ const whatsappApiBase = config.public.whatsappApiBase
 
 import { ref, computed, onMounted } from 'vue'
 import { Plus, RefreshCw, Search, Users, MousePointer2, Globe, Settings, Link, LogOut, X, Loader, User } from 'lucide-vue-next'
+import { whatsappHasAuth, whatsappJsonHeaders } from '~/composables/whatsapp/useWhatsappApi.js'
 
 const PROXY_BASE = `${whatsappApiBase}/proxy`
-const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const groups = ref([])
 const loadingGroups = ref(true)
@@ -202,7 +202,7 @@ const loadGroups = async () => {
     loadingGroups.value = true
     const res = await fetch(`${PROXY_BASE}/group/getall`, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${token}` }
+      headers: whatsappAuthHeaders()
     })
     const data = await res.json()
     groups.value = Array.isArray(data) ? data : (data.groups || [])
@@ -232,10 +232,7 @@ const toggleSetting = async (action, value) => {
     
     await fetch(`${PROXY_BASE}/group/updateSetting`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(payload)
     })
     
@@ -254,7 +251,7 @@ const getInviteLink = async () => {
     actionLoading.value = true
     const res = await fetch(`${PROXY_BASE}/group/inviteCode`, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${token}` }
+      headers: whatsappAuthHeaders()
     })
     const data = await res.json()
     // Como GET com query param? UazAPI pede o ID do grupo na query.
@@ -273,10 +270,7 @@ const leaveGroup = async () => {
   try {
     await fetch(`${PROXY_BASE}/group/leave`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ number: selectedGroup.value.id })
     })
     selectedGroup.value = null
@@ -297,10 +291,7 @@ const submitCreateGroup = async () => {
     creating.value = true
     const res = await fetch(`${PROXY_BASE}/group/create`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ 
          name: newGroup.value.name,
          participants: nums 
@@ -320,7 +311,7 @@ const submitCreateGroup = async () => {
 }
 
 onMounted(() => {
-  if(!token) navigateTo('/')
+  if (!whatsappHasAuth()) navigateTo('/')
   else loadGroups()
 })
 </script>

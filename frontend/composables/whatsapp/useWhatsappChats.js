@@ -16,7 +16,7 @@ import {
   normalizeJid, strTrim, buildLookupKeys, normalizeTimestampToMs, parseJsonBodySafe,
   normalizeProviderMessageId, parseListMessageTextVote, isChatMutedByEndTime, toUazapiChatNumber
 } from './useWhatsappUtils.js'
-import { getAuthToken, getProxyBase, getWhatsappApiBase, CHATS_POLL_INTERVAL_MS, MESSAGES_POLL_INTERVAL_MS } from './useWhatsappApi.js'
+import { getProxyBase, getWhatsappApiBase, CHATS_POLL_INTERVAL_MS, MESSAGES_POLL_INTERVAL_MS, whatsappJsonHeaders } from './useWhatsappApi.js'
 
 /** Mantém mute otimista enquanto a UAZAPI ainda devolve estado antigo no lightSync. */
 export const MUTE_OPTIMISTIC_TTL_MS = 20000
@@ -56,6 +56,7 @@ import {
   connectWhatsappSse,
   disconnectWhatsappSse,
 } from './useWhatsappSse.js'
+import { subscribeWhatsappRealtime } from './whatsapp-realtime-bus.js'
 import {
   loadGroupParticipantsDirectory, syncContactsDirectoryIfNeeded, learnObservedSenderNames,
   ingestLidPnHintsFromMessages, enrichUnknownSenderNames, ensureGroupSenderAvatars, resolveChatListSenderLabel,
@@ -1083,7 +1084,7 @@ const fetchChatsPage = async (limit = 200, offset = 0, extraFilters = {}) => {
     try {
       res = await fetch(`${proxyBase}/chat/find`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify(bodyPayload)
       })
     } catch {
@@ -1247,7 +1248,7 @@ export const fetchChatMessages = async (chatJid, limit = 200, offset = 0) => {
   try {
     res = await fetch(`${proxyBase}/message/find`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ chatid: requestChatId, limit, offset })
     })
   } catch { throw new Error('BACKEND_OFFLINE') }
@@ -1438,7 +1439,7 @@ export const markMessageAsPlayed = async (msg = {}) => {
   try {
     const res = await fetch(`${apiBase}/message/markplayed`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ id: [messageId] })
     })
     if (!res.ok) {
@@ -1459,8 +1460,7 @@ export const markMessageAsPlayed = async (msg = {}) => {
 
 export const markAllChatsAsRead = async () => {
   const proxyBase = getProxyBase()
-  const token = getAuthToken()
-  const unreadChats = (chats.value || []).filter((c) => Number(c.unreadCount || 0) > 0)
+    const unreadChats = (chats.value || []).filter((c) => Number(c.unreadCount || 0) > 0)
   if (unreadChats.length === 0) return
 
   // Zera localmente de imediato para feedback instantâneo ao usuário
@@ -1476,7 +1476,7 @@ export const markAllChatsAsRead = async () => {
       batch.map((chat) =>
         fetch(`${proxyBase}/chat/read`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: whatsappJsonHeaders(),
           body: JSON.stringify({ number: chat.chatJid, read: true })
         }).catch(() => {})
       )
@@ -1501,7 +1501,7 @@ export const markCurrentChatAsRead = async (chat, loadedMessages = []) => {
   try {
     await fetch(`${proxyBase}/chat/read`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ number: chat.chatJid, read: true })
     })
     bumpListUnreadZero()
@@ -1509,7 +1509,7 @@ export const markCurrentChatAsRead = async (chat, loadedMessages = []) => {
     if (inboundIds.length > 0) {
       await fetch(`${proxyBase}/message/markread`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify({ id: inboundIds })
       })
     }
@@ -1526,7 +1526,7 @@ export const toggleChatPinned = async (chat, loadChatsFn) => {
   try {
     const res = await fetch(`${proxyBase}/chat/pin`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ number: chatJid, pin: nextPinned })
     })
     const data = await parseJsonBodySafe(res)
@@ -1886,7 +1886,7 @@ export const sendMessage = async () => {
       payload.number = payload.number || selectedChat.value.chatJid
       const menuRes = await fetch(`${proxyBase}/send/menu`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify(payload)
       })
       const menuData = await menuRes.json().catch(() => ({}))
@@ -1910,7 +1910,7 @@ export const sendMessage = async () => {
       }
       const menuRes = await fetch(`${proxyBase}/send/menu`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify({
           number: selectedChat.value.chatJid,
           type: 'poll',
@@ -1932,7 +1932,7 @@ export const sendMessage = async () => {
     if (savedReplyingTo?.messageid) body.replyid = savedReplyingTo.messageid
     const res = await fetch(`${proxyBase}/send/text`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(body)
     })
     if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data?.message || data?.error || 'Falha ao enviar mensagem') }
@@ -1985,7 +1985,7 @@ export const sendInteractiveMenuReply = async (message, opt) => {
     const proxyBase = getProxyBase()
     const res = await fetch(`${proxyBase}/send/text`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(body),
     })
     if (!res.ok) {
@@ -2011,6 +2011,7 @@ export const sendInteractiveMenuReply = async (message, opt) => {
 // ─── Realtime sync ────────────────────────────────────────────────────────────
 
 let forceRealtimeSyncDebounceTimer = null
+let chatRealtimeUnsub = null
 
 export const mergeIncomingWhatsappMessage = (rawMessage, chatJid = '') => {
   if (!rawMessage || typeof rawMessage !== 'object') return false
@@ -2116,10 +2117,12 @@ export const handleWhatsappRealtimeEvent = (payload = {}, enrichSharedFns = {}) 
 export const handleWhatsappPusherEvent = handleWhatsappRealtimeEvent
 
 export const startRealtimeSync = async (enrichSharedFns = {}) => {
-  const realtimeHandler = (payload) => handleWhatsappRealtimeEvent(payload, enrichSharedFns)
+  if (!chatRealtimeUnsub) {
+    chatRealtimeUnsub = subscribeWhatsappRealtime((payload) => handleWhatsappRealtimeEvent(payload, enrichSharedFns))
+  }
 
-  connectWhatsappSse(realtimeHandler)
-  void connectWhatsappPusher(realtimeHandler)
+  connectWhatsappSse()
+  void connectWhatsappPusher()
 
   if (chatsPollingTimer.value) clearInterval(chatsPollingTimer.value)
   chatsPollingTimer.value = setInterval(() => {
@@ -2146,6 +2149,10 @@ export const startRealtimeSync = async (enrichSharedFns = {}) => {
 }
 
 export const stopRealtimeSync = () => {
+  if (chatRealtimeUnsub) {
+    chatRealtimeUnsub()
+    chatRealtimeUnsub = null
+  }
   disconnectWhatsappSse()
   disconnectWhatsappPusher()
   if (forceRealtimeSyncDebounceTimer) { clearTimeout(forceRealtimeSyncDebounceTimer); forceRealtimeSyncDebounceTimer = null }

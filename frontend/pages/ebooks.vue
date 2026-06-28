@@ -163,7 +163,7 @@ async function uploadDocumentToCloudinary(file, token) {
 }
 
 const ebooks = ref([])
-const isNutri = ref(false)
+const { isNutricionista: isNutri } = useVerifiedRole()
 const showCreateEbookModal = ref(false)
 const uploading = ref(false)
 const previewUrl = ref(null)
@@ -295,7 +295,6 @@ const handleDeleteEbook = async (id) => {
 }
 
 onMounted(() => {
-  isNutri.value = localStorage.getItem('user_role') === 'NUTRICIONISTA'
   fetchEbooks()
   if (isNutri.value && route.query.action === 'create') {
     openCreateEbookModal()

@@ -45,6 +45,15 @@ export default defineNuxtPlugin({
   }
 
   const guardedFetch = $fetch.create({
+    credentials: 'include',
+    onRequest({ options }) {
+      const { authHeaders: buildAuthHeaders } = usePatientAuth()
+      const headers = new Headers(options.headers as HeadersInit)
+      Object.entries(buildAuthHeaders()).forEach(([key, value]) => {
+        if (!headers.has(key)) headers.set(key, value)
+      })
+      options.headers = headers
+    },
     onResponseError({ response }) {
       handleAuthFailure({
         statusCode: response.status,

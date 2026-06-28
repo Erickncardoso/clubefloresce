@@ -20,7 +20,7 @@ import {
   toLocalBrPhoneMask, buildFullPhone, allNormalizedPrivateJidVariants,
   parseJsonBodySafe, extractAvatarFromDetailsPayload
 } from './useWhatsappUtils.js'
-import { getProxyBase, getAuthToken, getContactStatesBase, fetchChatDetailsSafe } from './useWhatsappApi.js'
+import { getProxyBase, getContactStatesBase, fetchChatDetailsSafe, whatsappJsonHeaders } from './useWhatsappApi.js'
 import { updateGroupParticipants } from './useWhatsappGroupsApi.js'
 import { loadContactsDirectory } from './useWhatsappContacts.js'
 import {
@@ -51,7 +51,7 @@ export const fetchPersistedContactStates = async (jids = []) => {
   const contactStatesBase = getContactStatesBase()
   const res = await fetch(`${contactStatesBase}/list`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify({ jids })
   })
   const data = await parseJsonBodySafe(res)
@@ -77,7 +77,7 @@ export const upsertPersistedContactStates = async (states = []) => {
   const contactStatesBase = getContactStatesBase()
   await fetch(`${contactStatesBase}/upsert`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify({ states: payload })
   })
   const nextStates = { ...persistedContactStates.value }
@@ -249,7 +249,7 @@ export const enrichSharedContactBusinessProfiles = async (items = []) => {
   try {
     const checkRes = await fetch(`${proxyBase}/chat/check`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ numbers: numbersBatch })
     })
     const checkData = await parseJsonBodySafe(checkRes)
@@ -301,7 +301,7 @@ const persistSharedContact = async (sharedContact) => {
     const proxyBase = getProxyBase()
     const res = await fetch(`${proxyBase}/contact/add`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ number, name })
     })
     if (!res.ok) {
@@ -414,7 +414,7 @@ export const openConversationFromSharedContact = async (sharedContact, selectCha
   try {
     const checkRes = await fetch(`${proxyBase}/chat/check`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ numbers: [queryNumber] })
     })
     const checkData = await checkRes.json().catch(() => ([]))

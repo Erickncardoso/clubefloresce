@@ -2,7 +2,7 @@
  * Respostas rápidas (templates UAZAPI) — listagem e envio no chat.
  */
 import { ref } from 'vue'
-import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { getProxyBase, whatsappJsonHeaders, whatsappAuthHeaders, whatsappHasAuth } from './useWhatsappApi.js'
 import { selectedChat, sending, replyingTo } from './useWhatsappState.js'
 import { refreshSelectedChatMessages, refreshChatPreview, scrollToBottom } from './useWhatsappChats.js'
 
@@ -65,8 +65,7 @@ export const quickReplyPreviewText = (reply) => {
 }
 
 export const loadQuickReplies = async () => {
-  const token = getAuthToken()
-  if (!token) return
+  if (!whatsappHasAuth()) return
   quickRepliesLoading.value = true
   try {
     const proxyBase = getProxyBase()
@@ -76,7 +75,7 @@ export const loadQuickReplies = async () => {
     for (const endpoint of endpoints) {
       const res = await fetch(`${proxyBase}${endpoint}`, {
         method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: whatsappAuthHeaders(),
       })
       if (!res.ok) continue
       const data = await res.json().catch(() => [])
@@ -134,8 +133,7 @@ export const resetQuickRepliesState = () => {
 }
 
 export const saveQuickReply = async (payload) => {
-  const token = getAuthToken()
-  if (!token) throw new Error('Sessão expirada')
+  if (!whatsappHasAuth()) throw new Error('Sessão expirada')
   quickRepliesSaving.value = true
   try {
     const body = {
@@ -152,7 +150,7 @@ export const saveQuickReply = async (payload) => {
 
     const res = await fetch(`${getProxyBase()}/quickreply/edit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(body),
     })
     const data = await res.json().catch(() => ({}))
@@ -167,13 +165,12 @@ export const saveQuickReply = async (payload) => {
 export const deleteQuickReply = async (id) => {
   const replyId = String(id || '').trim()
   if (!replyId) throw new Error('Resposta inválida')
-  const token = getAuthToken()
-  if (!token) throw new Error('Sessão expirada')
+  if (!whatsappHasAuth()) throw new Error('Sessão expirada')
   quickRepliesSaving.value = true
   try {
     const res = await fetch(`${getProxyBase()}/quickreply/edit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ id: replyId, delete: true }),
     })
     const data = await res.json().catch(() => ({}))
@@ -209,8 +206,7 @@ export const sendQuickReply = async (reply) => {
   if (!reply || !selectedChat.value?.chatJid || sending.value) return false
   const chatJid = selectedChat.value.chatJid
   const proxyBase = getProxyBase()
-  const token = getAuthToken()
-  const type = String(reply?.type || 'text').toLowerCase()
+    const type = String(reply?.type || 'text').toLowerCase()
   const savedReplyingTo = replyingTo.value
 
   try {
@@ -222,7 +218,7 @@ export const sendQuickReply = async (reply) => {
       if (savedReplyingTo?.messageid) body.replyid = savedReplyingTo.messageid
       const res = await fetch(`${proxyBase}/send/text`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
@@ -248,7 +244,7 @@ export const sendQuickReply = async (reply) => {
       if (mediaType === 'document' && reply?.docName) payload.fileName = String(reply.docName).trim()
       const res = await fetch(`${proxyBase}/send/media`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify(payload),
       })
       const data = await res.json().catch(() => ({}))

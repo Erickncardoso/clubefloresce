@@ -189,9 +189,9 @@ const whatsappApiBase = config.public.whatsappApiBase
 
 import { ref, onMounted } from 'vue'
 import { Plus, RefreshCw, Send, MousePointer2, Eye, X, Loader } from 'lucide-vue-next'
+import { whatsappHasAuth, whatsappJsonHeaders } from '~/composables/whatsapp/useWhatsappApi.js'
 
 const PROXY_BASE = `${whatsappApiBase}/proxy`
-const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const campaigns = ref([])
 const loadingList = ref(true)
@@ -215,7 +215,7 @@ const loadCampaigns = async () => {
   try {
     loadingList.value = true
     const res = await fetch(`${PROXY_BASE}/sender/listfolders`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: whatsappAuthHeaders()
     })
     const data = await res.json()
     campaigns.value = Array.isArray(data) ? data : []
@@ -237,10 +237,7 @@ const loadMessages = async () => {
     loadingMessages.value = true
     const res = await fetch(`${PROXY_BASE}/sender/listmessages`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ folder_id: selectedCampaign.value.id, limit: 50 })
     })
     const data = await res.json()
@@ -257,10 +254,7 @@ const editCampaign = async (action) => {
   try {
     await fetch(`${PROXY_BASE}/sender/edit`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ folder_id: selectedCampaign.value.id, action })
     })
     alert('Ação executada com sucesso!')
@@ -296,10 +290,7 @@ const submitCampaign = async () => {
     creating.value = true
     const res = await fetch(`${PROXY_BASE}/sender/simple`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(payload)
     })
     
@@ -326,7 +317,7 @@ const calculateProgress = (camp) => {
 }
 
 onMounted(() => {
-  if(!token) navigateTo('/')
+  if (!whatsappHasAuth()) navigateTo('/')
   else loadCampaigns()
 })
 </script>

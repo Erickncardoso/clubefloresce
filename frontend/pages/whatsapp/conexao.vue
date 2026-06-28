@@ -213,11 +213,10 @@ import {
   CheckCircle, Smartphone, Scan, Loader, RefreshCw, LogOut, Settings,
 } from 'lucide-vue-next'
 import { resetWhatsappAfterDisconnect } from '~/composables/whatsapp/useWhatsappChats.js'
-import { isWhatsappConnectedFromStatusPayload } from '~/composables/whatsapp/useWhatsappApi.js'
+import { isWhatsappConnectedFromStatusPayload, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders } from '~/composables/whatsapp/useWhatsappApi.js'
 
 const API_BASE = `${whatsappApiBase}`
 const PROXY_BASE = `${whatsappApiBase}/proxy`
-const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const loading = ref(true)
 const actionLoading = ref(false)
@@ -341,7 +340,7 @@ const fetchStatus = async () => {
   try {
     actionLoading.value = true
     const res = await fetch(`${API_BASE}/status`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: whatsappAuthHeaders(),
       signal: controller.signal,
     })
     const data = await res.json().catch(() => ({}))
@@ -423,10 +422,7 @@ const saveSettings = async () => {
   try {
     await fetch(`${PROXY_BASE}/instance/settings`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(formSettings),
     })
   } catch (e) {
@@ -446,10 +442,7 @@ const generateQrCode = async () => {
 
     const res = await fetch(`${API_BASE}/connect/regenerate-qr`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: whatsappJsonHeaders(),
     })
 
     const data = await res.json().catch(() => ({}))
@@ -480,7 +473,7 @@ const disconnectWhatsApp = async () => {
 
     const res = await fetch(`${API_BASE}/disconnect`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: whatsappAuthHeaders(),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.message || 'Falha ao desconectar')
@@ -526,7 +519,7 @@ const stopPolling = () => {
 }
 
 onMounted(() => {
-  if (!token) {
+  if (!whatsappHasAuth()) {
     navigateTo('/')
     return
   }

@@ -137,6 +137,7 @@
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError, sanitizeUserFacingError } from '~/utils/resolve-api-base.mjs'
 import { PATIENT_ACCESS_EXPIRED_MESSAGE } from '~/utils/patient-access'
+import { hasAuthSession, persistAuthSessionMeta, getLegacyAuthToken, applyVerifiedSessionUser } from '~/composables/useAuthSession.js'
 
 definePageMeta({ layout: false, pageTransition: false })
 
@@ -164,7 +165,7 @@ onMounted(async () => {
     error.value = PATIENT_ACCESS_EXPIRED_MESSAGE
     return
   }
-  if (!localStorage.getItem('auth_token')) return
+  if (!hasAuthSession()) return
 
   try {
     const { ensurePatientSession } = usePatientAuth()
@@ -188,12 +189,11 @@ const handleLogin = async () => {
     const data = await $fetch(`${authApiBase.value}/login`, {
       method: 'POST',
       body: form,
+      credentials: 'include',
     })
 
-    localStorage.setItem('auth_token', data.token)
-    localStorage.setItem('user_role', data.user.role)
-    localStorage.setItem('user_id', data.user.id)
-    patientAuth.saveToken(data.token)
+    applyVerifiedSessionUser(data.user)
+    patientAuth.markSessionActive()
     persistSession({
       name: data.user.name,
       avatar: data.user.avatar,
@@ -247,8 +247,8 @@ const handleFirstAccessPasswordChange = async () => {
     return
   }
 
-  const token = localStorage.getItem('auth_token')
-  if (!token) {
+  const token = getLegacyAuthToken()
+  if (!hasAuthSession() && !token) {
     firstAccessError.value = 'Sessão inválida. Faça login novamente.'
     return
   }
@@ -257,7 +257,8 @@ const handleFirstAccessPasswordChange = async () => {
   try {
     await $fetch(`${authApiBase.value}/first-access/change-password`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
       body: { newPassword: firstAccessForm.newPassword },
     })
     showFirstAccessModal.value = false

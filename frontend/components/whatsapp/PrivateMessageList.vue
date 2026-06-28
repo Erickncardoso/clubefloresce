@@ -24,6 +24,7 @@
 
       <div
         v-else
+      v-memo="[msg.id, msg.text, msg.mediaUrl, msg.deliveryStatus, msg.reactions?.length, actionMenuMessageId === msg.id, actionMenuMode, isMessagePinned(msg)]"
       :data-message-index="msg.__timelineMsgIndex ?? msgIndex"
       :data-message-id="String(msg.id)"
       :data-message-provider-id="String(msg.normalizedMessageId || msg.messageid || '')"
@@ -100,6 +101,7 @@
           :full-url="msg.mediaUrl"
           :loading="Boolean(downloadingMediaById[msg.id])"
           @request-load="onDownloadMedia(msg)"
+          @open="handleImageOpen(msg)"
         />
         <img v-if="msg.mediaType === 'sticker' && msg.mediaUrl" :src="msg.mediaUrl" class="msg-sticker" alt="Figurinha enviada" />
         <video v-if="msg.mediaType === 'video' && msg.mediaUrl" :src="msg.mediaUrl" controls class="msg-video"></video>
@@ -116,6 +118,7 @@
           :initial-listened="Boolean(msg.audioPlayed)"
           :waveform-seed="String(msg.id || msg.messageid || '')"
           :loading="Boolean(downloadingMediaById[msg.id])"
+          :pinned="isMessagePinned(msg)"
           @request-load="onDownloadMedia(msg)"
           @listened="() => onAudioListened?.(msg)"
         />
@@ -177,11 +180,15 @@
                 </p>
               </div>
             </div>
-            <span class="msg-time msg-time--poll">
-              {{ formatTime(msg.timestamp) }}
-              <span v-if="msg.isEdited" class="msg-edited-label">Editada</span>
-              <WhatsappDeliveryTicks v-if="msg.fromMe && msg.deliveryStatus" :status="msg.deliveryStatus" />
-            </span>
+            <WhatsappMessageTime
+              :timestamp="msg.timestamp"
+              :format-time="formatTime"
+              :is-edited="Boolean(msg.isEdited)"
+              :from-me="Boolean(msg.fromMe)"
+              :delivery-status="msg.deliveryStatus || ''"
+              :pinned="isMessagePinned(msg)"
+              extra-class="msg-time--poll"
+            />
           </div>
           <button type="button" class="msg-poll-show-votes" @click.stop="togglePollVotes(msg.id)">
             {{ pollVotesExpandedByMessageId[msg.id] ? 'Ocultar votos' : 'Mostrar votos' }}
@@ -197,11 +204,15 @@
               <p class="msg-menu-title">{{ msg.interactive.title }}</p>
               <p v-if="msg.interactive.footerText" class="msg-menu-footer">{{ msg.interactive.footerText }}</p>
             </div>
-            <span class="msg-time msg-time--menu">
-              {{ formatTime(msg.timestamp) }}
-              <span v-if="msg.isEdited" class="msg-edited-label">Editada</span>
-              <WhatsappDeliveryTicks v-if="msg.fromMe && msg.deliveryStatus" :status="msg.deliveryStatus" />
-            </span>
+            <WhatsappMessageTime
+              :timestamp="msg.timestamp"
+              :format-time="formatTime"
+              :is-edited="Boolean(msg.isEdited)"
+              :from-me="Boolean(msg.fromMe)"
+              :delivery-status="msg.deliveryStatus || ''"
+              :pinned="isMessagePinned(msg)"
+              extra-class="msg-time--menu"
+            />
           </div>
           <img
             v-if="msg.interactive.imageButton && isMenuButtonImage(msg.interactive.imageButton)"
@@ -219,11 +230,15 @@
             @action="onPixMenuAction(msg)"
           >
             <template #meta>
-              <span class="msg-time msg-time--menu">
-                {{ formatTime(msg.timestamp) }}
-                <span v-if="msg.isEdited" class="msg-edited-label">Editada</span>
-                <WhatsappDeliveryTicks v-if="msg.fromMe && msg.deliveryStatus" :status="msg.deliveryStatus" />
-              </span>
+              <WhatsappMessageTime
+                :timestamp="msg.timestamp"
+                :format-time="formatTime"
+                :is-edited="Boolean(msg.isEdited)"
+                :from-me="Boolean(msg.fromMe)"
+                :delivery-status="msg.deliveryStatus || ''"
+                :pinned="isMessagePinned(msg)"
+                extra-class="msg-time--menu"
+              />
             </template>
           </WhatsappPixMessageCard>
           <p
@@ -308,11 +323,15 @@
               <div class="shared-contact-name">{{ msg.sharedContact.name || 'Contato' }}</div>
             </div>
           </div>
-          <span class="msg-time msg-time--contact">
-            {{ formatTime(msg.timestamp) }}
-            <span v-if="msg.isEdited" class="msg-edited-label">Editada</span>
-            <WhatsappDeliveryTicks v-if="msg.fromMe && msg.deliveryStatus" :status="msg.deliveryStatus" />
-          </span>
+          <WhatsappMessageTime
+            :timestamp="msg.timestamp"
+            :format-time="formatTime"
+            :is-edited="Boolean(msg.isEdited)"
+            :from-me="Boolean(msg.fromMe)"
+            :delivery-status="msg.deliveryStatus || ''"
+            :pinned="isMessagePinned(msg)"
+            extra-class="msg-time--contact"
+          />
           <div class="shared-contact-actions">
             <button class="shared-contact-action" type="button" @click.stop="onOpenConversation(msg.sharedContact)">Conversar</button>
             <button
@@ -355,11 +374,16 @@
         >{{ msg.linkPreview.url }}</a>
 
         <!-- Metadados -->
-        <span v-if="msg.interactive?.kind !== 'poll' && msg.interactive?.kind !== 'menu' && !msg.isContactShare && msg.mediaType !== 'audio'" class="msg-time" :class="{ 'msg-time--document': msg.mediaType === 'document', 'msg-time--media': msg.mediaType === 'image' || msg.mediaType === 'video' }">
-          {{ formatTime(msg.timestamp) }}
-          <span v-if="msg.isEdited" class="msg-edited-label">Editada</span>
-          <WhatsappDeliveryTicks v-if="msg.fromMe && msg.deliveryStatus" :status="msg.deliveryStatus" />
-        </span>
+        <WhatsappMessageTime
+          v-if="msg.interactive?.kind !== 'poll' && msg.interactive?.kind !== 'menu' && !msg.isContactShare && msg.mediaType !== 'audio'"
+          :timestamp="msg.timestamp"
+          :format-time="formatTime"
+          :is-edited="Boolean(msg.isEdited)"
+          :from-me="Boolean(msg.fromMe)"
+          :delivery-status="msg.deliveryStatus || ''"
+          :pinned="isMessagePinned(msg)"
+          :extra-class="{ 'msg-time--document': msg.mediaType === 'document', 'msg-time--media': msg.mediaType === 'image' || msg.mediaType === 'video' }"
+        />
 
         <!-- Botão de ações -->
         <button
@@ -403,6 +427,20 @@
     </template>
   </div>
 
+  <WhatsappImageViewerModal
+    :open="imageViewer.open"
+    :items="imageViewer.items"
+    :index="imageViewer.index"
+    :current="imageViewer.current"
+    :sender-name="imageViewer.senderName"
+    :sender-avatar="imageViewer.senderAvatar"
+    :caption="imageViewer.caption"
+    @close="closeImageViewer"
+    @prev="prevImageViewerImage"
+    @next="nextImageViewerImage"
+    @select="setImageViewerIndex"
+  />
+
   <WhatsappListPickerModal
     :open="Boolean(activeListMenuMessage)"
     :title="menuListButtonLabel(activeListMenuMessage)"
@@ -413,25 +451,27 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
-import { computed } from 'vue'
+import { computed, reactive, ref, toRef } from 'vue'
 import { Image, Video, Mic, Smile, FileText, User, ChevronDown, Loader, RefreshCw } from 'lucide-vue-next'
 import { bytesToJpegDataUrl } from '~/composables/whatsapp/useWhatsappUtils.js'
 import MessageImagePreview from './MessageImagePreview.vue'
 import WhatsappRichMessageBlock from './WhatsappRichMessageBlock.vue'
 import WhatsappRemoteImage from './WhatsappRemoteImage.vue'
-import WhatsappDeliveryTicks from './WhatsappDeliveryTicks.vue'
+import WhatsappMessageTime from './WhatsappMessageTime.vue'
 import WhatsappAudioMessage from './WhatsappAudioMessage.vue'
 import WhatsappListPickerModal from './WhatsappListPickerModal.vue'
 import WhatsappPixMessageCard from './WhatsappPixMessageCard.vue'
+import WhatsappImageViewerModal from './WhatsappImageViewerModal.vue'
 import { handleInteractiveMenuOptionClick } from '~/composables/whatsapp/useWhatsappInteractive.js'
 import { expandMessagesWithTimeline } from '~/composables/whatsapp/useWhatsappChatTimeline.js'
+import { isMessageCurrentlyPinned } from '~/composables/whatsapp/useWhatsappMessages.js'
+import { useWhatsappImageViewer } from '~/composables/whatsapp/useWhatsappImageViewer.js'
+import { actionMenuMessageId, actionMenuMode } from '~/composables/whatsapp/useWhatsappState.js'
 
 const props = defineProps({
   messages: { type: Array, default: () => [] },
   contactAvatarUrl: { type: String, default: '' },
-  actionMenuMessageId: { type: String, default: null },
-  actionMenuMode: { type: String, default: 'full' },
+  contactDisplayName: { type: String, default: '' },
   downloadingMediaById: { type: Object, default: () => ({}) },
   // Resolvers compartilhados (sem getSenderName/Avatar pois é chat privado)
   getSharedContactAvatar: { type: Function, required: true },
@@ -464,12 +504,32 @@ const props = defineProps({
   onOpenDocument: { type: Function, required: true },
   onAudioListened: { type: Function, default: null },
   pinTimelineEvents: { type: Array, default: () => [] },
+  pinnedMessageIdSet: { type: Object, default: null },
   loadingOlderMessages: { type: Boolean, default: false },
 })
+
+const isMessagePinned = (msg) => isMessageCurrentlyPinned(msg, props.pinnedMessageIdSet)
 
 const displayMessages = computed(() =>
   expandMessagesWithTimeline(props.messages, props.pinTimelineEvents)
 )
+
+const messagesRef = toRef(props, 'messages')
+
+const {
+  imageViewer,
+  handleImageOpen,
+  closeImageViewer,
+  setImageViewerIndex,
+  prevImageViewerImage,
+  nextImageViewerImage,
+} = useWhatsappImageViewer({
+  messagesSource: messagesRef,
+  onDownloadMedia: (msg) => props.onDownloadMedia(msg),
+  shouldHideLabel: (msg) => props.shouldHideLabel(msg),
+  resolveSenderName: (msg) => (msg?.fromMe ? 'Você' : (String(props.contactDisplayName || '').trim() || 'Contato')),
+  resolveSenderAvatar: (msg) => (msg?.fromMe ? '' : String(props.contactAvatarUrl || '').trim()),
+})
 
 const timelineItemKey = (msg, index) => {
   if (msg?.__timelineKind) return `${msg.__timelineKind}-${msg.id || index}`

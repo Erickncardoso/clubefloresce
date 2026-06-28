@@ -1,5 +1,11 @@
-/** Painel admin — exige login de nutricionista em todas as rotas exceto login e setup inicial. */
-export default defineNuxtRouteMiddleware((to) => {
+/** Painel admin — exige login de nutricionista validado no backend. */
+import {
+  getVerifiedUser,
+  readFreshLogin,
+  verifyAuthSession,
+} from '~/composables/useAuthSession.js'
+
+export default defineNuxtRouteMiddleware(async (to) => {
   const config = useRuntimeConfig()
   if (config.public.mobileApp) return
 
@@ -7,9 +13,12 @@ export default defineNuxtRouteMiddleware((to) => {
   if (publicPaths.includes(to.path)) return
   if (import.meta.server) return
 
-  const token = localStorage.getItem('auth_token')
-  const role = localStorage.getItem('user_role')
+  const fresh = readFreshLogin()
+  if (fresh?.role === 'NUTRICIONISTA') return
 
-  if (!token) return navigateTo('/')
-  if (role !== 'NUTRICIONISTA') return navigateTo('/')
+  const cached = getVerifiedUser()
+  if (cached?.role === 'NUTRICIONISTA') return
+
+  const user = await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' })
+  if (!user) return navigateTo('/')
 })

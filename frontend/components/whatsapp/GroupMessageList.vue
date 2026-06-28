@@ -24,6 +24,7 @@
 
       <div
         v-else
+      v-memo="[entry.primary.id, entry.primary.text, entry.primary.mediaUrl, entry.primary.deliveryStatus, entry.primary.reactions?.length, actionMenuMessageId === entry.primary.id, actionMenuMode, entry.kind, isMessagePinned(entry.primary)]"
       :data-message-index="entry.startIndex"
       :data-message-id="String(entry.primary.id)"
       :data-message-provider-id="String(entry.primary.normalizedMessageId || entry.primary.messageid || '')"
@@ -119,7 +120,7 @@
               :full-url="albumItem.mediaUrl"
               :loading="Boolean(downloadingMediaById[albumItem.id])"
               @request-load="onDownloadMedia(albumItem)"
-              @open="handleImageOpen(albumItem, entry.items, albumIndex, entry)"
+              @open="handleImageOpen(albumItem)"
             />
             <span
               v-if="albumOverflowCount(entry.items.length, albumIndex)"
@@ -133,7 +134,7 @@
           :full-url="entry.primary.mediaUrl"
           :loading="Boolean(downloadingMediaById[entry.primary.id])"
           @request-load="onDownloadMedia(entry.primary)"
-          @open="handleImageOpen(entry.primary, [entry.primary], 0, entry)"
+          @open="handleImageOpen(entry.primary)"
         />
         <img v-if="entry.primary.mediaType === 'sticker' && entry.primary.mediaUrl" :src="entry.primary.mediaUrl" class="msg-sticker" alt="Figurinha enviada" />
         <video v-if="entry.primary.mediaType === 'video' && entry.primary.mediaUrl" :src="entry.primary.mediaUrl" controls class="msg-video"></video>
@@ -150,6 +151,7 @@
           :initial-listened="Boolean(entry.primary.audioPlayed)"
           :waveform-seed="String(entry.primary.id || entry.primary.messageid || '')"
           :loading="Boolean(downloadingMediaById[entry.primary.id])"
+          :pinned="isMessagePinned(entry.primary)"
           @request-load="onDownloadMedia(entry.primary)"
           @listened="() => onAudioListened?.(entry.primary)"
         />
@@ -212,11 +214,15 @@
                 </p>
               </div>
             </div>
-            <span class="msg-time msg-time--poll">
-              {{ formatTime(entry.primary.timestamp) }}
-              <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-              <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
-            </span>
+            <WhatsappMessageTime
+              :timestamp="entry.primary.timestamp"
+              :format-time="formatTime"
+              :is-edited="Boolean(entry.primary.isEdited)"
+              :from-me="Boolean(entry.primary.fromMe)"
+              :delivery-status="entry.primary.deliveryStatus || ''"
+              :pinned="isMessagePinned(entry.primary)"
+              extra-class="msg-time--poll"
+            />
           </div>
           <button type="button" class="msg-poll-show-votes" @click.stop="togglePollVotes(entry.primary.id)">
             {{ pollVotesExpandedByMessageId[entry.primary.id] ? 'Ocultar votos' : 'Mostrar votos' }}
@@ -232,11 +238,15 @@
               <p class="msg-menu-title">{{ entry.primary.interactive.title }}</p>
               <p v-if="entry.primary.interactive.footerText" class="msg-menu-footer">{{ entry.primary.interactive.footerText }}</p>
             </div>
-            <span class="msg-time msg-time--menu">
-              {{ formatTime(entry.primary.timestamp) }}
-              <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-              <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
-            </span>
+            <WhatsappMessageTime
+              :timestamp="entry.primary.timestamp"
+              :format-time="formatTime"
+              :is-edited="Boolean(entry.primary.isEdited)"
+              :from-me="Boolean(entry.primary.fromMe)"
+              :delivery-status="entry.primary.deliveryStatus || ''"
+              :pinned="isMessagePinned(entry.primary)"
+              extra-class="msg-time--menu"
+            />
           </div>
           <img
             v-if="entry.primary.interactive.imageButton && isMenuButtonImage(entry.primary.interactive.imageButton)"
@@ -254,11 +264,15 @@
             @action="onPixMenuAction(entry.primary)"
           >
             <template #meta>
-              <span class="msg-time msg-time--menu">
-                {{ formatTime(entry.primary.timestamp) }}
-                <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-                <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
-              </span>
+              <WhatsappMessageTime
+                :timestamp="entry.primary.timestamp"
+                :format-time="formatTime"
+                :is-edited="Boolean(entry.primary.isEdited)"
+                :from-me="Boolean(entry.primary.fromMe)"
+                :delivery-status="entry.primary.deliveryStatus || ''"
+                :pinned="isMessagePinned(entry.primary)"
+                extra-class="msg-time--menu"
+              />
             </template>
           </WhatsappPixMessageCard>
           <p
@@ -343,11 +357,15 @@
               <div class="shared-contact-name">{{ entry.primary.sharedContact.name || 'Contato' }}</div>
             </div>
           </div>
-          <span class="msg-time msg-time--contact">
-            {{ formatTime(entry.primary.timestamp) }}
-            <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-            <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
-          </span>
+          <WhatsappMessageTime
+            :timestamp="entry.primary.timestamp"
+            :format-time="formatTime"
+            :is-edited="Boolean(entry.primary.isEdited)"
+            :from-me="Boolean(entry.primary.fromMe)"
+            :delivery-status="entry.primary.deliveryStatus || ''"
+            :pinned="isMessagePinned(entry.primary)"
+            extra-class="msg-time--contact"
+          />
           <div class="shared-contact-actions">
             <button class="shared-contact-action" type="button" @click.stop="onOpenConversation(entry.primary.sharedContact)">Conversar</button>
             <button
@@ -390,11 +408,16 @@
         >{{ entry.primary.linkPreview.url }}</a>
 
         <!-- Metadados -->
-        <span v-if="entry.primary.interactive?.kind !== 'poll' && entry.primary.interactive?.kind !== 'menu' && !entry.primary.isContactShare && entry.primary.mediaType !== 'audio'" class="msg-time" :class="{ 'msg-time--document': entry.primary.mediaType === 'document', 'msg-time--media': entry.kind === 'album' || entry.primary.mediaType === 'image' || entry.primary.mediaType === 'video' }">
-          {{ formatTime(entry.primary.timestamp) }}
-          <span v-if="entry.primary.isEdited" class="msg-edited-label">Editada</span>
-          <WhatsappDeliveryTicks v-if="entry.primary.fromMe && entry.primary.deliveryStatus" :status="entry.primary.deliveryStatus" />
-        </span>
+        <WhatsappMessageTime
+          v-if="entry.primary.interactive?.kind !== 'poll' && entry.primary.interactive?.kind !== 'menu' && !entry.primary.isContactShare && entry.primary.mediaType !== 'audio'"
+          :timestamp="entry.primary.timestamp"
+          :format-time="formatTime"
+          :is-edited="Boolean(entry.primary.isEdited)"
+          :from-me="Boolean(entry.primary.fromMe)"
+          :delivery-status="entry.primary.deliveryStatus || ''"
+          :pinned="isMessagePinned(entry.primary)"
+          :extra-class="{ 'msg-time--document': entry.primary.mediaType === 'document', 'msg-time--media': entry.kind === 'album' || entry.primary.mediaType === 'image' || entry.primary.mediaType === 'video' }"
+        />
 
         <!-- Botão de ações -->
         <button
@@ -438,46 +461,19 @@
     </template>
   </div>
 
-  <div
-    v-if="imageViewer.open"
-    class="msg-image-viewer"
-    role="dialog"
-    aria-modal="true"
-    @click.self="closeImageViewer"
-  >
-    <button type="button" class="msg-image-viewer-close" @click="closeImageViewer">✕</button>
-
-    <div class="msg-image-viewer-header">
-      <div class="msg-image-viewer-sender">{{ imageViewer.senderName }}</div>
-      <div class="msg-image-viewer-meta">{{ imageViewer.current?.timestamp ? `Hoje às ${formatTime(imageViewer.current.timestamp)}` : '' }}</div>
-    </div>
-
-    <div class="msg-image-viewer-stage">
-      <button type="button" class="msg-image-viewer-nav msg-image-viewer-nav--prev" @click="prevImageViewerImage">‹</button>
-      <img
-        v-if="imageViewerDisplayUrl(imageViewer.current)"
-        :src="imageViewerDisplayUrl(imageViewer.current)"
-        class="msg-image-viewer-photo"
-        alt="Imagem ampliada"
-      />
-      <button type="button" class="msg-image-viewer-nav msg-image-viewer-nav--next" @click="nextImageViewerImage">›</button>
-    </div>
-
-    <p v-if="imageViewer.caption" class="msg-image-viewer-caption">{{ imageViewer.caption }}</p>
-
-    <div v-if="imageViewer.items.length > 1" class="msg-image-viewer-strip">
-      <button
-        v-for="(item, idx) in imageViewer.items"
-        :key="`viewer-thumb-${item.id || idx}`"
-        type="button"
-        class="msg-image-viewer-thumb"
-        :class="{ 'is-active': idx === imageViewer.index }"
-        @click="setImageViewerIndex(idx)"
-      >
-        <img :src="imageViewerDisplayUrl(item)" alt="Miniatura da imagem" />
-      </button>
-    </div>
-  </div>
+  <WhatsappImageViewerModal
+    :open="imageViewer.open"
+    :items="imageViewer.items"
+    :index="imageViewer.index"
+    :current="imageViewer.current"
+    :sender-name="imageViewer.senderName"
+    :sender-avatar="imageViewer.senderAvatar"
+    :caption="imageViewer.caption"
+    @close="closeImageViewer"
+    @prev="prevImageViewerImage"
+    @next="nextImageViewerImage"
+    @select="setImageViewerIndex"
+  />
 
   <WhatsappListPickerModal
     :open="Boolean(activeListMenuMessage)"
@@ -495,18 +491,20 @@ import { formatJidAsPhoneLine, extractDigitsFromJid, normalizeJid, bytesToJpegDa
 import MessageImagePreview from './MessageImagePreview.vue'
 import WhatsappRichMessageBlock from './WhatsappRichMessageBlock.vue'
 import WhatsappRemoteImage from './WhatsappRemoteImage.vue'
-import WhatsappDeliveryTicks from './WhatsappDeliveryTicks.vue'
+import WhatsappMessageTime from './WhatsappMessageTime.vue'
 import WhatsappAudioMessage from './WhatsappAudioMessage.vue'
 import WhatsappListPickerModal from './WhatsappListPickerModal.vue'
 import WhatsappPixMessageCard from './WhatsappPixMessageCard.vue'
+import WhatsappImageViewerModal from './WhatsappImageViewerModal.vue'
 import { handleInteractiveMenuOptionClick } from '~/composables/whatsapp/useWhatsappInteractive.js'
 import { useWhatsappImageAlbumEntries } from '~/composables/useWhatsappImageAlbumEntries.js'
 import { expandGroupEntriesWithTimeline } from '~/composables/whatsapp/useWhatsappChatTimeline.js'
+import { isMessageCurrentlyPinned } from '~/composables/whatsapp/useWhatsappMessages.js'
+import { useWhatsappImageViewer } from '~/composables/whatsapp/useWhatsappImageViewer.js'
+import { actionMenuMessageId, actionMenuMode } from '~/composables/whatsapp/useWhatsappState.js'
 
 const props = defineProps({
   messages: { type: Array, default: () => [] },
-  actionMenuMessageId: { type: String, default: null },
-  actionMenuMode: { type: String, default: 'full' },
   downloadingMediaById: { type: Object, default: () => ({}) },
   // Resolvers de nome e avatar (exclusivos de grupos)
   getSenderName: { type: Function, required: true },
@@ -543,8 +541,11 @@ const props = defineProps({
   onOpenDocument: { type: Function, required: true },
   onAudioListened: { type: Function, default: null },
   pinTimelineEvents: { type: Array, default: () => [] },
+  pinnedMessageIdSet: { type: Object, default: null },
   loadingOlderMessages: { type: Boolean, default: false },
 })
+
+const isMessagePinned = (msg) => isMessageCurrentlyPinned(msg, props.pinnedMessageIdSet)
 
 const { groupedEntries, albumVisibleItems, albumOverflowCount } = useWhatsappImageAlbumEntries(
   toRef(props, 'messages'),
@@ -565,13 +566,21 @@ const timelineEntryKey = (entry) => {
 
 const strTrim = (v) => (v == null ? '' : String(v).trim())
 
-const imageViewer = reactive({
-  open: false,
-  items: [],
-  index: 0,
-  senderName: '',
-  caption: '',
-  current: null
+const messagesRef = toRef(props, 'messages')
+
+const {
+  imageViewer,
+  handleImageOpen,
+  closeImageViewer,
+  setImageViewerIndex,
+  prevImageViewerImage,
+  nextImageViewerImage,
+} = useWhatsappImageViewer({
+  messagesSource: messagesRef,
+  onDownloadMedia: (msg) => props.onDownloadMedia(msg),
+  shouldHideLabel: (msg) => props.shouldHideLabel(msg),
+  resolveSenderName: (msg) => groupSenderLabel(msg) || 'Contato',
+  resolveSenderAvatar: (msg) => props.getSenderAvatar(msg) || '',
 })
 
 const pollVotesExpandedByMessageId = reactive({})
@@ -754,22 +763,6 @@ const groupSenderSecondaryLabel = (msg) => {
 
 const hasImagePreview = (msg) => Boolean(msg) && msg.mediaType === 'image'
 
-const resolveFreshMessage = (msg) =>
-  (Array.isArray(props.messages) ? props.messages : []).find((item) => item?.id === msg?.id) || msg
-
-const handleImageOpen = async (msg, items, startIndex, entry) => {
-  let current = resolveFreshMessage(msg)
-  if (!imageViewerDisplayUrl(current)) {
-    await props.onDownloadMedia(current)
-    current = resolveFreshMessage(msg)
-  }
-  const freshItems = (Array.isArray(items) ? items : []).map((item) => resolveFreshMessage(item))
-  openImageViewer(freshItems, startIndex, entry)
-}
-
-const imageViewerDisplayUrl = (item) =>
-  String(item?.mediaUrl || item?.mediaThumbUrl || '').trim()
-
 const entryRelatedIds = (entry) => {
   const items = Array.isArray(entry?.items) ? entry.items : []
   const values = items.flatMap((item) => [
@@ -791,48 +784,6 @@ const displayText = (entry) => {
     if (text && !item?.isContactShare && !props.shouldHideLabel(item)) return text
   }
   return ''
-}
-
-const syncImageViewerCurrent = () => {
-  imageViewer.current = imageViewer.items[imageViewer.index] || null
-}
-
-const openImageViewer = (items, startIndex, entry) => {
-  const safeItems = (Array.isArray(items) ? items : []).filter((item) => imageViewerDisplayUrl(item))
-  if (!safeItems.length) return
-  imageViewer.items = safeItems
-  imageViewer.index = Math.max(0, Math.min(Number(startIndex) || 0, safeItems.length - 1))
-  imageViewer.senderName = groupSenderLabel(entry?.primary || safeItems[0]) || 'Contato'
-  imageViewer.caption = displayText(entry || { primary: safeItems[0], items: safeItems })
-  imageViewer.open = true
-  syncImageViewerCurrent()
-}
-
-const closeImageViewer = () => {
-  imageViewer.open = false
-  imageViewer.items = []
-  imageViewer.index = 0
-  imageViewer.senderName = ''
-  imageViewer.caption = ''
-  imageViewer.current = null
-}
-
-const setImageViewerIndex = (nextIndex) => {
-  if (!imageViewer.items.length) return
-  imageViewer.index = Math.max(0, Math.min(Number(nextIndex) || 0, imageViewer.items.length - 1))
-  syncImageViewerCurrent()
-}
-
-const prevImageViewerImage = () => {
-  if (!imageViewer.items.length) return
-  const next = imageViewer.index <= 0 ? imageViewer.items.length - 1 : imageViewer.index - 1
-  setImageViewerIndex(next)
-}
-
-const nextImageViewerImage = () => {
-  if (!imageViewer.items.length) return
-  const next = imageViewer.index >= imageViewer.items.length - 1 ? 0 : imageViewer.index + 1
-  setImageViewerIndex(next)
 }
 
 const getDocumentNode = (msg) => {

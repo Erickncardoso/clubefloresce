@@ -1,3 +1,5 @@
+import { authFetchInit, getVerifiedRole } from '~/composables/useAuthSession.js'
+
 export type GoalFrequency = 'daily' | 'weekly'
 
 export interface PatientGoal {
@@ -200,15 +202,14 @@ export function usePatientGoals() {
 
   function scheduleGoalsSync() {
     if (!import.meta.client) return
-    if (localStorage.getItem('user_role') !== 'PACIENTE') return
+    if (getVerifiedRole() !== 'PACIENTE') return
     if (goalsSyncTimer) clearTimeout(goalsSyncTimer)
     goalsSyncTimer = setTimeout(async () => {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
+      if (getVerifiedRole() !== 'PACIENTE') return
       try {
         await $fetch(`${config.public.apiBase}/patient-goals/me`, {
           method: 'PUT',
-          headers: { Authorization: `Bearer ${token}` },
+          ...authFetchInit(),
           body: {
             goals: store.value.goals,
             progress: store.value.progress,
@@ -222,13 +223,9 @@ export function usePatientGoals() {
 
   async function syncGoalsFromServer() {
     if (!import.meta.client) return
-    if (localStorage.getItem('user_role') !== 'PACIENTE') return
-    const token = localStorage.getItem('auth_token')
-    if (!token) return
+    if (getVerifiedRole() !== 'PACIENTE') return
     try {
-      const data = await $fetch(`${config.public.apiBase}/patient-goals/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const data = await $fetch(`${config.public.apiBase}/patient-goals/me`, authFetchInit())
       if (Array.isArray(data?.goals) && data.goals.length) {
         store.value.goals = normalizeStoredGoals(data.goals)
         store.value.progress = data.progress && typeof data.progress === 'object' ? data.progress : {}

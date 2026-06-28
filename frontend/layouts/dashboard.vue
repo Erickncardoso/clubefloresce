@@ -213,6 +213,8 @@ import {
   LineChart,
   Sparkles
 } from 'lucide-vue-next'
+import { hasAuthSession, logoutAuthSession, verifyAuthSession, getVerifiedRole } from '~/composables/useAuthSession.js'
+import { stopWhatsappToastListener } from '~/composables/whatsapp/useWhatsappToastNotifications.js'
 
 const role = ref('')
 const menuItems = ref([])
@@ -284,16 +286,18 @@ const roleLabel = computed(() => {
 
 async function loadSessionUser() {
   if (import.meta.server) return
-  const token = localStorage.getItem('auth_token')
-  if (!token) {
+  if (!hasAuthSession()) {
     hydrateProfile()
     return
   }
 
   try {
-    const user = await $fetch(`${config.public.apiBase}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const user = await verifyAuthSession({ force: true })
+    if (!user) {
+      hydrateProfile()
+      return
+    }
+    role.value = user.role || ''
     persistSession({
       name: user.name,
       avatar: user.avatar,
@@ -313,8 +317,8 @@ const PACIENTE_MENU = [
 ]
 
 onMounted(async () => {
-  role.value = localStorage.getItem('user_role') || 'PACIENTE'
   await loadSessionUser()
+  role.value = getVerifiedRole() || role.value || 'PACIENTE'
 
   if (config.public.mobileApp) {
     menuItems.value = PACIENTE_MENU
@@ -387,13 +391,9 @@ watch(mobileNavOpen, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
 })
 
-const handleLogout = () => {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('user_role')
-  localStorage.removeItem('user_id')
-  localStorage.removeItem('user_name')
-  localStorage.removeItem('user_avatar')
-  localStorage.removeItem('user_created_at')
+const handleLogout = async () => {
+  stopWhatsappToastListener()
+  await logoutAuthSession(config.public.apiBase)
   closeProfileMenu()
   closeMobileNav()
   navigateTo('/')

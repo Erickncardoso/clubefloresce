@@ -19,6 +19,7 @@ function handleProfileAvatarUpload(req: Request, res: Response, next: NextFuncti
 
 router.post("/patient-registration-request", credentialRateLimiter, authController.requestPatientRegistration.bind(authController));
 router.post("/login", credentialRateLimiter, authController.login.bind(authController));
+router.post("/logout", authController.logout.bind(authController));
 router.post("/forgot-password", credentialRateLimiter, authController.forgotPassword.bind(authController));
 router.get("/password-reset/validate", authController.validatePasswordReset.bind(authController));
 router.post("/reset-password", credentialRateLimiter, authController.resetPassword.bind(authController));

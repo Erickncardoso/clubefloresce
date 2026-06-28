@@ -5,6 +5,15 @@ import {
   isPatientAccessBlockedError,
   isPatientAccessBlockedMessage,
 } from '~/utils/patient-access'
+import {
+  applyVerifiedSessionUser,
+  authHeaders,
+  clearAuthSessionMeta,
+  getLegacyAuthToken,
+  getVerifiedRole,
+  hasAuthSession,
+  persistDisplayMeta,
+} from '~/composables/useAuthSession.js'
 
 const TOKEN_KEY = 'auth_token'
 const TOKEN_BACKUP_KEY = 'auth_token_backup'
@@ -14,7 +23,7 @@ let sessionValidationFlight: Promise<boolean> | null = null
 
 function readStorageToken(): string | null {
   if (import.meta.server) return null
-  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_BACKUP_KEY)
+  return getLegacyAuthToken() || null
 }
 
 export function usePatientAuth() {
@@ -25,11 +34,18 @@ export function usePatientAuth() {
   function getToken(): string | null {
     if (import.meta.server) return null
     if (token.value) return token.value
+    if (hasAuthSession()) return readStorageToken()
     const stored = readStorageToken()
     if (stored) token.value = stored
     return stored
   }
 
+  function markSessionActive() {
+    if (import.meta.server) return
+    token.value = readStorageToken()
+  }
+
+  /** @deprecated Cookie httpOnly — use markSessionActive após login. */
   function saveToken(nextToken: string) {
     if (import.meta.server) return
     token.value = nextToken
@@ -44,19 +60,15 @@ export function usePatientAuth() {
   function bootstrapToken() {
     if (import.meta.server) return null
 
+    if (hasAuthSession()) {
+      token.value = readStorageToken()
+      return token.value || TOKEN_KEY
+    }
+
     const stored = readStorageToken()
     if (!stored) {
       token.value = null
       return null
-    }
-
-    if (!localStorage.getItem(TOKEN_KEY)) {
-      localStorage.setItem(TOKEN_KEY, stored)
-    }
-    try {
-      sessionStorage.setItem(TOKEN_BACKUP_KEY, stored)
-    } catch {
-      /* ignore */
     }
 
     token.value = stored
@@ -66,22 +78,16 @@ export function usePatientAuth() {
   function clearSession() {
     if (import.meta.server) return
     token.value = null
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem('user_role')
-    localStorage.removeItem('user_name')
-    localStorage.removeItem('user_id')
-    localStorage.removeItem('user_avatar')
-    localStorage.removeItem('user_created_at')
-    try {
-      sessionStorage.removeItem(TOKEN_BACKUP_KEY)
-    } catch {
-      /* ignore */
-    }
+    clearAuthSessionMeta()
   }
 
-  function authHeaders(): Record<string, string> {
-    const current = getToken()
-    return current ? { Authorization: `Bearer ${current}` } : {}
+  function authHeadersForRequest(): Record<string, string> {
+    const headers = authHeaders()
+    const result: Record<string, string> = {}
+    headers.forEach((value, key) => {
+      result[key] = value
+    })
+    return result
   }
 
   function isUnauthorizedError(err: unknown): boolean {
@@ -114,23 +120,24 @@ export function usePatientAuth() {
   async function refreshSession(): Promise<boolean> {
     if (!config.public.mobileApp) return false
 
-    const current = bootstrapToken()
-    if (!current) return false
+    bootstrapToken()
+    if (!hasAuthSession()) return false
+
+    const legacy = getLegacyAuthToken()
 
     try {
-      const data = await $fetch<{ token: string; user?: { role?: string } }>(
+      const data = await $fetch<{ user?: { role?: string; name?: string; avatar?: string; createdAt?: string } }>(
         `${config.public.apiBase}/auth/refresh`,
         {
           method: 'POST',
-          headers: { Authorization: `Bearer ${current}` },
+          credentials: 'include',
+          ...(legacy ? { headers: { Authorization: `Bearer ${legacy}` } } : {}),
         },
       )
-      if (data?.token) {
-        saveToken(data.token)
-        if (data.user?.role) {
-          localStorage.setItem('user_role', data.user.role)
-        }
-        if (data.user?.role && data.user.role !== PATIENT_ROLE) {
+      if (data?.user?.role) {
+        applyVerifiedSessionUser(data.user)
+        markSessionActive()
+        if (data.user.role !== PATIENT_ROLE) {
           clearSession()
           return false
         }
@@ -155,7 +162,7 @@ export function usePatientAuth() {
 
   function assertPatientRole(): boolean {
     if (import.meta.server) return false
-    return localStorage.getItem('user_role') === PATIENT_ROLE
+    return getVerifiedRole() === PATIENT_ROLE
   }
 
   function rejectNonPatientSession(): void {
@@ -168,7 +175,7 @@ export function usePatientAuth() {
     bootstrapToken()
     sessionReady.value = true
 
-    if (!getToken()) return false
+    if (!hasAuthSession()) return false
 
     const refreshed = await refreshSession()
     if (!refreshed) return false
@@ -202,9 +209,10 @@ export function usePatientAuth() {
     sessionReady,
     getToken,
     saveToken,
+    markSessionActive,
     bootstrapToken,
     clearSession,
-    authHeaders,
+    authHeaders: authHeadersForRequest,
     assertPatientRole,
     rejectNonPatientSession,
     isUnauthorizedError,

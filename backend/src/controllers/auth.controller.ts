@@ -6,6 +6,12 @@ import { getJwtSecret } from "../utils/jwt";
 import { UserStatus } from "@prisma/client";
 import { isPatientAccessExpired } from "../utils/access-expires";
 import { mapDatabaseError } from "../utils/db-errors";
+import {
+  clearAuthCookie,
+  extractAuthToken,
+  setAuthCookie,
+  stripTokenFromAuthPayload,
+} from "../utils/auth-cookie";
 
 const authService = new AuthService();
 const registrationRequestService = new RegistrationRequestService();
@@ -79,7 +85,8 @@ export class AuthController {
     try {
       const { email, password } = req.body;
       const data = await authService.login(email, password);
-      return res.json(data);
+      setAuthCookie(res, data.token, data.user?.role);
+      return res.json(stripTokenFromAuthPayload(data));
     } catch (error: any) {
       const mapped = mapDatabaseError(error);
       if (mapped) {
@@ -116,12 +123,12 @@ export class AuthController {
 
   async refresh(req: Request, res: Response): Promise<any> {
     try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader) return res.status(401).json({ message: "Não autorizado" });
+      const token = extractAuthToken(req);
+      if (!token) return res.status(401).json({ message: "Não autorizado" });
 
-      const token = authHeader.split(" ")[1];
       const data = await authService.refreshSession(token);
-      return res.json(data);
+      setAuthCookie(res, data.token, data.user?.role);
+      return res.json(stripTokenFromAuthPayload(data));
     } catch (error: any) {
       const message = error.message || "Sessão expirada.";
       return res.status(this.authFailureStatus(message)).json({ message });
@@ -130,10 +137,9 @@ export class AuthController {
 
   async me(req: Request, res: Response): Promise<any> {
     try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader) return res.status(401).json({ message: "Não autorizado" });
+      const token = extractAuthToken(req);
+      if (!token) return res.status(401).json({ message: "Não autorizado" });
       
-      const token = authHeader.split(" ")[1];
       const payload: any = jwt.verify(token, getJwtSecret());
       const user = await authService.findById(payload.id);
 
@@ -151,6 +157,11 @@ export class AuthController {
     } catch (error: any) {
       return res.status(401).json({ message: "Acesso expirado" });
     }
+  }
+
+  async logout(_req: Request, res: Response): Promise<any> {
+    clearAuthCookie(res);
+    return res.json({ ok: true });
   }
 
   async updateAvatar(req: Request, res: Response): Promise<any> {

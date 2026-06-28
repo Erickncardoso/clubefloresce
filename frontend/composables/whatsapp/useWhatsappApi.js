@@ -5,6 +5,38 @@
  */
 import { chatDetailsCache, chatDetailsInflight } from './useWhatsappState.js'
 import { parseJsonBodySafe } from './useWhatsappUtils.js'
+import {
+  authFetchInit,
+  authHeaders,
+  getAuthToken,
+  hasAuthSession,
+} from '~/composables/useAuthSession.js'
+
+export { getAuthToken }
+
+/** Sessão válida para chamadas WhatsApp (cookie httpOnly). */
+export function whatsappHasAuth() {
+  return hasAuthSession()
+}
+
+/** Opções de fetch autenticadas — nunca use Bearer com getAuthToken(). */
+export function whatsappFetchInit(init = {}) {
+  return authFetchInit(init)
+}
+
+export function whatsappJsonHeaders(extra = {}) {
+  const headers = authHeaders({ 'Content-Type': 'application/json', ...extra })
+  const out = {}
+  headers.forEach((value, key) => { out[key] = value })
+  return out
+}
+
+export function whatsappAuthHeaders(extra = {}) {
+  const headers = authHeaders(extra)
+  const out = {}
+  headers.forEach((value, key) => { out[key] = value })
+  return out
+}
 
 // ─── Configuração de API ──────────────────────────────────────────────────────
 
@@ -96,12 +128,9 @@ export const isWhatsappConnectedFromStatusPayload = (data) => {
 export const fetchWhatsappSessionConnected = async () => {
   const base = getWhatsappApiBase()
   if (!base) return false
-  const token = getAuthToken()
-  if (!token) return false
+  if (!hasAuthSession()) return false
   try {
-    const res = await fetch(`${base}/status`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const res = await fetch(`${base}/status`, authFetchInit())
     const data = await parseJsonBodySafe(res)
     if (!res.ok) return false
     return isWhatsappConnectedFromStatusPayload(data)
@@ -119,9 +148,6 @@ export const PROXY_BASE = new Proxy({}, {
 export const getProxyBase = () => `${getBase()}/proxy`
 export const getContactStatesBase = () => `${getBase()}/contact-states`
 export const getContactDirectoryApi = () => `${getBase()}/contact-directory`
-
-export const getAuthToken = () =>
-  typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || '') : ''
 
 // ─── Polling intervals ────────────────────────────────────────────────────────
 export const CHATS_POLL_INTERVAL_MS = 5000
@@ -149,12 +175,12 @@ export const fetchChatDetailsSafe = async (number, options = {}) => {
 
   const request = (async () => {
     try {
-      const res = await fetch(`${apiBase}/chat/details`, {
+      const res = await fetch(`${apiBase}/chat/details`, authFetchInit({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
         body: JSON.stringify({ number: key, preview, force }),
-        signal: controller?.signal
-      })
+        signal: controller?.signal,
+        headers: { 'Content-Type': 'application/json' },
+      }))
       const body = await parseJsonBodySafe(res)
       if (!res.ok) return null
       const data = body?.details && typeof body.details === 'object' ? body.details : body

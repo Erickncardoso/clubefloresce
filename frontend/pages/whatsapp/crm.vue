@@ -130,9 +130,9 @@ const whatsappApiBase = config.public.whatsappApiBase
 
 import { ref, onMounted } from 'vue'
 import { Search, RefreshCw, Users, User, UserCircle, Database, Plus, Trash2, Save, Loader } from 'lucide-vue-next'
+import { whatsappHasAuth, whatsappJsonHeaders } from '~/composables/whatsapp/useWhatsappApi.js'
 
 const PROXY_BASE = `${whatsappApiBase}/proxy`
-const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const contacts = ref([])
 const loadingList = ref(false)
@@ -163,10 +163,7 @@ const loadContacts = async (reset = false) => {
     loadingList.value = true
     const res = await fetch(`${PROXY_BASE}/contacts/list`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({
          page: page.value,
          limit: 50,
@@ -232,10 +229,7 @@ const saveLeadData = async () => {
 
     const res = await fetch(`${PROXY_BASE}/chat/editChatLead`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(payload)
     })
     
@@ -246,10 +240,7 @@ const saveLeadData = async () => {
           if(labelsArr.length > 0) {
              await fetch(`${PROXY_BASE}/chat/labels`, {
                method: 'POST',
-               headers: { 
-                 'Content-Type': 'application/json',
-                 Authorization: `Bearer ${token}` 
-               },
+               headers: whatsappJsonHeaders(),
                body: JSON.stringify({ number: payload.number, labelids: labelsArr })
              })
           }
@@ -274,10 +265,7 @@ const toggleBlock = async (block) => {
   try {
     await fetch(`${PROXY_BASE}/chat/block`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ number: num, block })
     })
     alert(`Contato ${block ? 'bloqueado' : 'desbloqueado'} com sucesso.`)
@@ -287,7 +275,7 @@ const toggleBlock = async (block) => {
 }
 
 onMounted(() => {
-  if(!token) navigateTo('/')
+  if (!whatsappHasAuth()) navigateTo('/')
   else loadContacts(true)
 })
 </script>

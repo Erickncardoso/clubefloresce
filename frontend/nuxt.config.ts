@@ -23,6 +23,27 @@ const defaultApiBase = resolveApiBaseAtBuild({
 const defaultWhatsappApiBase = process.env.NUXT_PUBLIC_WHATSAPP_API_BASE
   || (isDev ? '/api/whatsapp' : PROD_WHATSAPP_API_BASE)
 
+const securityHeaders = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+      : "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https: wss: blob:",
+    "media-src 'self' blob: https:",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '),
+}
+
 if (isMobileApp && isDev) {
   ensurePwaDevSwPlaceholder(frontendRoot, '.nuxt-mobile')
 }
@@ -88,6 +109,7 @@ export default defineNuxtConfig({
     '~/assets/css/whatsapp-footer.css',
     '~/assets/css/whatsapp-modals.css',
     '~/assets/css/whatsapp-bubbles.css',
+    '~/assets/css/whatsapp-notifications.css',
     '~/assets/css/patient-app.css',
     '~/assets/css/course-video-player.css',
     '~/assets/css/lesson-player-page.css',
@@ -113,6 +135,7 @@ export default defineNuxtConfig({
   ...(isMobileApp
     ? {
         routeRules: {
+          '/**': { headers: securityHeaders },
           '/onboarding': { redirect: { to: '/inicio', statusCode: 301 } },
         },
         pwa: {
@@ -192,15 +215,16 @@ export default defineNuxtConfig({
         prerender: { crawlLinks: true },
       }
     : {
-        ...(!isMobileApp && !isDev
-          ? {
-              routeRules: {
+        routeRules: {
+          '/**': { headers: securityHeaders },
+          ...(!isMobileApp && !isDev
+            ? {
                 '/api/**': {
                   proxy: `${PROD_API_ORIGIN}/api/**`,
                 },
-              },
-            }
-          : {}),
+              }
+            : {}),
+        },
         ...(isDev
           ? {
               devProxy: {

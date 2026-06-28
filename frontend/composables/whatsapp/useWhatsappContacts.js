@@ -15,10 +15,7 @@ import {
   filterSenderLookupCandidates,
   formatJidAsPhoneLine
 } from './useWhatsappUtils.js'
-import {
-  fetchChatDetailsSafe, getAuthToken, getProxyBase, getContactDirectoryApi, getWhatsappApiBase,
-  CONTACTS_SYNC_MIN_INTERVAL_MS
-} from './useWhatsappApi.js'
+import { fetchChatDetailsSafe, getProxyBase, getContactDirectoryApi, getWhatsappApiBase, CONTACTS_SYNC_MIN_INTERVAL_MS, whatsappJsonHeaders, whatsappAuthHeaders, whatsappHasAuth } from './useWhatsappApi.js'
 import { getGroupInfo } from './useWhatsappGroupsApi.js'
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
@@ -29,7 +26,9 @@ const syncJidKeys = (target, name, ...values) => {
 }
 
 const isAvatarDebugEnabled = () =>
-  typeof window !== 'undefined' && window.localStorage?.getItem('wa_avatar_debug') === '1'
+  import.meta.dev
+  && typeof window !== 'undefined'
+  && window.localStorage?.getItem('wa_avatar_debug') === '1'
 
 const normalizeDigitsVariants = (rawDigits) => {
   const onlyDigits = String(rawDigits || '').replace(/\D/g, '')
@@ -994,7 +993,7 @@ export const loadContactsDirectory = async () => {
     for (let page = 0; page < maxPages; page++) {
       const res = await fetch(`${proxyBase}/contacts/list`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify({ limit, offset, contactScope: 'all' })
       })
       const data = await res.json().catch(() => ({}))
@@ -1043,7 +1042,7 @@ const persistContactsCache = async (data) => {
   try {
     await fetch(contactDirectoryApi, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ data })
     })
   } catch { }
@@ -1055,7 +1054,7 @@ export const restoreContactsFromCache = async () => {
   const timeoutId = controller ? setTimeout(() => controller.abort(), 3000) : null
   try {
     const res = await fetch(contactDirectoryApi, {
-      headers: { Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappAuthHeaders(),
       signal: controller?.signal
     })
     if (!res.ok) return
@@ -1106,10 +1105,10 @@ export const loadPersistedGroupObservedSenders = async (groupJid) => {
   const jid = normalizeJid(groupJid || '')
   if (!jid.endsWith('@g.us')) return
   const base = getWhatsappApiBase()
-  if (!base || !getAuthToken()) return
+  if (!base || !whatsappHasAuth()) return
   try {
     const res = await fetch(`${base}/group-observed-senders?groupJid=${encodeURIComponent(jid)}`, {
-      headers: { Authorization: `Bearer ${getAuthToken()}` }
+      headers: whatsappAuthHeaders()
     })
     const body = await parseJsonBodySafe(res)
     if (!res.ok) return
@@ -1126,7 +1125,7 @@ export const loadPersistedGroupObservedSenders = async (groupJid) => {
 
 const flushPersistGroupObservedSenders = async (groupJid, rawMessages) => {
   const jid = normalizeJid(groupJid || '')
-  if (!jid.endsWith('@g.us') || !getAuthToken()) return
+  if (!jid.endsWith('@g.us') || !whatsappHasAuth()) return
   const patch = buildGroupObservedPersistPatch(rawMessages)
   if (Object.keys(patch).length === 0) return
   const base = getWhatsappApiBase()
@@ -1134,7 +1133,7 @@ const flushPersistGroupObservedSenders = async (groupJid, rawMessages) => {
   try {
     const res = await fetch(`${base}/group-observed-senders`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ groupJid: jid, patch })
     })
     await parseJsonBodySafe(res)

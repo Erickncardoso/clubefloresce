@@ -7,39 +7,37 @@
       :style="hostStyle"
     >
       <div class="message-actions-floater-inner">
-        <Transition name="reaction-bar-fade" appear>
-          <div
-            v-if="showReactionBar"
-            :key="`${openMessage.id}-${actionMenuMode}`"
-            class="message-reaction-bar message-reaction-bar--floater message-reaction-bar--wa-light"
-            :style="reactionStyle"
-            role="group"
-            aria-label="Reacoes rapidas"
-            @click.stop
-            @mousedown.stop
-            @pointerdown.stop
+        <div
+          v-if="showReactionBar"
+          :key="`${openMessage.id}-${actionMenuMode}`"
+          class="message-reaction-bar message-reaction-bar--floater message-reaction-bar--wa-light"
+          :style="reactionStyle"
+          role="group"
+          aria-label="Reacoes rapidas"
+          @click.stop
+          @mousedown.stop
+          @pointerdown.stop
+        >
+          <button
+            v-for="em in quickReactions"
+            :key="em"
+            type="button"
+            class="reaction-chip"
+            :aria-label="`Reagir com ${em}`"
+            @click="onQuickReact(em)"
+          >{{ em }}</button>
+          <button
+            ref="moreButtonRef"
+            type="button"
+            class="reaction-chip reaction-chip-more"
+            data-reaction-more-btn
+            aria-label="Mais reacoes"
+            :aria-expanded="reactionEmojiPickerOpen ? 'true' : 'false'"
+            @click.stop="toggleReactionPicker"
           >
-            <button
-              v-for="em in quickReactions"
-              :key="em"
-              type="button"
-              class="reaction-chip"
-              :aria-label="`Reagir com ${em}`"
-              @click="onQuickReact(em)"
-            >{{ em }}</button>
-            <button
-              ref="moreButtonRef"
-              type="button"
-              class="reaction-chip reaction-chip-more"
-              data-reaction-more-btn
-              aria-label="Mais reacoes"
-              :aria-expanded="reactionEmojiPickerOpen ? 'true' : 'false'"
-              @click.stop="toggleReactionPicker"
-            >
-              <Plus class="reaction-chip-plus-icon" aria-hidden="true" />
-            </button>
-          </div>
-        </Transition>
+            <Plus class="reaction-chip-plus-icon" aria-hidden="true" />
+          </button>
+        </div>
 
         <div
           v-show="actionMenuMode !== 'reactions'"

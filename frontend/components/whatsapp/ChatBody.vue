@@ -10,9 +10,8 @@
       v-else-if="isGroup"
       :messages="displayMessages"
       :pin-timeline-events="pinTimelineEvents"
+      :pinned-message-id-set="pinnedMessageIdSet"
       :loading-older-messages="loadingOlderMessages"
-      :action-menu-message-id="actionMenuMessageId"
-      :action-menu-mode="actionMenuMode"
       :downloading-media-by-id="downloadingMediaById"
       :get-sender-name="getSenderName"
       :get-sender-avatar="getSenderAvatar"
@@ -51,10 +50,10 @@
       v-else
       :messages="displayMessages"
       :pin-timeline-events="pinTimelineEvents"
+      :pinned-message-id-set="pinnedMessageIdSet"
       :loading-older-messages="loadingOlderMessages"
       :contact-avatar-url="contactAvatarUrl"
-      :action-menu-message-id="actionMenuMessageId"
-      :action-menu-mode="actionMenuMode"
+      :contact-display-name="contactDisplayName"
       :downloading-media-by-id="downloadingMediaById"
       :get-shared-contact-avatar="getSharedContactAvatar"
       :is-contact-saved="isContactSaved"
@@ -144,12 +143,13 @@ import {
 const props = defineProps({
   messages: { type: Array, default: () => [] },
   pinTimelineEvents: { type: Array, default: () => [] },
+  pinnedMessageIdSet: { type: Object, default: null },
   loadingOlderMessages: { type: Boolean, default: false },
   isGroup: { type: Boolean, default: false },
   contactAvatarUrl: { type: String, default: '' },
+  contactDisplayName: { type: String, default: '' },
   loadingMessages: { type: Boolean, default: false },
   wallpaperStyle: { type: Object, default: () => ({}) },
-  actionMenuMessageId: { type: String, default: null },
   actionMenuMode: { type: String, default: 'full' },
   downloadingMediaById: { type: Object, default: () => ({}) },
   chatActionFeedback: { type: String, default: '' },

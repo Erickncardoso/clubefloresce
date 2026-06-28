@@ -1,5 +1,7 @@
 import { resolvePatientCoursePlayerUrl } from '~/utils/open-patient-course'
 
+import { getVerifiedRole } from '~/composables/useAuthSession.js'
+
 /** Pacientes no PWA vão direto ao player — não à página de catálogo /cursos/:id. */
 export default defineNuxtRouteMiddleware(async (to) => {
   const config = useRuntimeConfig()
@@ -10,15 +12,15 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (import.meta.server) return
 
-  const role = localStorage.getItem('user_role')
-  if (role === 'NUTRICIONISTA') return
+  const { ensurePatientSession } = usePatientAuth()
+  await ensurePatientSession()
+
+  if (getVerifiedRole() === 'NUTRICIONISTA') return
 
   const apiBase = config.public.apiBase
-  const token = localStorage.getItem('auth_token')
-  const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
   try {
-    const course = await $fetch(`${apiBase}/courses/${courseId}`, { headers })
+    const course = await $fetch(`${apiBase}/courses/${courseId}`, { credentials: 'include' })
     const playerUrl = resolvePatientCoursePlayerUrl(course)
     if (playerUrl) {
       return navigateTo(playerUrl, { replace: true })

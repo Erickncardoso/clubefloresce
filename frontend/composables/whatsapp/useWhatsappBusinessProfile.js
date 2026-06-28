@@ -12,7 +12,7 @@ import {
   extractDigitsFromJid, toUazapiChatNumber, buildPhoneVariants, buildLookupKeys,
   extractAvatarFromDetailsPayload, parseJsonBodySafe
 } from './useWhatsappUtils.js'
-import { getProxyBase, getAuthToken, fetchChatDetailsSafe } from './useWhatsappApi.js'
+import { getProxyBase, fetchChatDetailsSafe, whatsappJsonHeaders, whatsappAuthHeaders } from './useWhatsappApi.js'
 
 // ─── Helpers de horários ──────────────────────────────────────────────────────
 
@@ -204,7 +204,7 @@ export const fetchBusinessProfileByJid = async (jid, fallbackName = '') => {
   const proxyBase = getProxyBase()
   const res = await fetch(`${proxyBase}/business/get/profile`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify({ jid })
   })
   const data = await parseJsonBodySafe(res)
@@ -224,7 +224,7 @@ export const fetchBusinessChatDetailsByJid = async (jid, fallbackName = '') => {
   const proxyBase = getProxyBase()
   const res = await fetch(`${proxyBase}/chat/details`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify({ number, preview: true })
   })
   const data = await parseJsonBodySafe(res)
@@ -236,7 +236,7 @@ export const fetchBusinessCatalogByJid = async (jid) => {
   const proxyBase = getProxyBase()
   const res = await fetch(`${proxyBase}/business/catalog/list`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+    headers: whatsappJsonHeaders(),
     body: JSON.stringify({ jid, limit: 5 })
   })
   const data = await parseJsonBodySafe(res)
@@ -250,7 +250,7 @@ export const fetchBusinessCategories = async () => {
   const proxyBase = getProxyBase()
   const res = await fetch(`${proxyBase}/business/get/categories`, {
     method: 'GET',
-    headers: { Authorization: `Bearer ${getAuthToken()}` }
+    headers: whatsappAuthHeaders()
   })
   const data = await parseJsonBodySafe(res)
   if (!res.ok) return {}
@@ -272,7 +272,7 @@ export const fetchBusinessCatalogInfoByJid = async (jid, product) => {
   for (const id of idCandidates) {
     const res = await fetch(`${proxyBase}/business/catalog/info`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ jid, id })
     })
     const data = await parseJsonBodySafe(res)
@@ -292,7 +292,7 @@ export const showCatalogProduct = async (product) => {
     for (const id of candidates) {
       const res = await fetch(`${proxyBase}/business/catalog/show`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        headers: whatsappJsonHeaders(),
         body: JSON.stringify({ id })
       })
       if (res.ok) return

@@ -10,7 +10,7 @@ import {
   reactionEmojiPickerOpen, reactionPickerFixedStyle, registerReactionPickerOutsideCleanup,
 } from './useWhatsappState.js'
 import { strTrim, normalizeJid, normalizeProviderMessageId, formatJidAsPhoneLine } from './useWhatsappUtils.js'
-import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { getProxyBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 import { parseJsonBodySafe } from './useWhatsappUtils.js'
 import { resolveSenderName, getMessageSenderJid } from './useWhatsappContacts.js'
 import { renderedMessages, extractUazapiJpegThumbDataUrl } from './useWhatsappMessages.js'
@@ -51,6 +51,177 @@ const clampStackRight = (stackRight, hostW, chatBounds, vw) => {
   const maxRight = chatBounds ? chatBounds.right - pad : vw - pad
   const minRight = chatBounds ? chatBounds.left + pad + hostW : pad + hostW
   return Math.max(minRight, Math.min(stackRight, maxRight))
+}
+
+const ESTIMATED_REACTION_BAR_H = 46
+const ESTIMATED_MENU_PANEL_H = 420
+
+export const resolveMessageActionsWrapFromEvent = (e, msg) => {
+  const fromTarget = e?.currentTarget?.closest?.('.message-bubble-wrapper')
+  if (fromTarget) return fromTarget
+  const id = msg?.id
+  if (id == null || id === '' || typeof document === 'undefined') return null
+  return document.querySelector(`[data-message-actions-anchor="${escapeMessageActionsAnchor(id)}"]`)
+}
+
+const buildMessageActionsCoords = (wrap, bubble, { reactionsOnly = false, reactionEl = null, menuPanelEl = null } = {}) => {
+  const rect = bubble.getBoundingClientRect()
+  const isOutgoing = wrap.classList.contains('message-out')
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const chatBounds = resolveChatActionsBounds()
+  const chatTop = chatBounds ? chatBounds.top + MESSAGE_ACTIONS_GAP : MESSAGE_ACTIONS_TOP_SAFE
+  const chatBottom = chatBounds ? chatBounds.bottom - MESSAGE_ACTIONS_GAP : vh - MESSAGE_ACTIONS_GAP
+  const menuW = Math.min(
+    MESSAGE_ACTIONS_MENU_W,
+    (chatBounds ? chatBounds.width : vw) - MESSAGE_ACTIONS_GAP * 2,
+  )
+  const reactionBarExtra = Math.min(
+    MESSAGE_REACTION_BAR_EXTRA_W,
+    Math.max(0, (chatBounds ? chatBounds.width : vw) - MESSAGE_ACTIONS_GAP * 2 - menuW - 8),
+  )
+  const reactionBarW = isOutgoing ? menuW : menuW + reactionBarExtra
+  const hostW = reactionsOnly ? Math.max(menuW, 280) : (isOutgoing ? menuW : reactionBarW)
+
+  let stackRight = rect.right
+  if (reactionsOnly && !isOutgoing) {
+    stackRight = Math.min(rect.right, (chatBounds?.right ?? vw) - MESSAGE_ACTIONS_GAP)
+  }
+  stackRight = clampStackRight(stackRight, hostW, chatBounds, vw)
+  if (rect.right <= (chatBounds?.right ?? vw) - MESSAGE_ACTIONS_GAP
+    && rect.right >= (chatBounds?.left ?? 0) + MESSAGE_ACTIONS_GAP + hostW) {
+    stackRight = rect.right
+    stackRight = clampStackRight(stackRight, hostW, chatBounds, vw)
+  }
+  const rightPx = vw - stackRight
+
+  const reactionBarVisibleStyle = {
+    width: '100%',
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '2px',
+    padding: '6px 8px',
+    visibility: 'visible',
+    pointerEvents: 'auto',
+    flexShrink: 0,
+    alignSelf: 'stretch',
+  }
+
+  const reactionBarH = reactionEl?.offsetHeight > 22 ? reactionEl.offsetHeight : ESTIMATED_REACTION_BAR_H
+
+  let hostTop
+  let reactionStyle
+  let menuPanelStyle
+
+  if (reactionsOnly) {
+    hostTop = Math.max(chatTop, rect.top - reactionBarH - 6)
+    reactionStyle = reactionBarVisibleStyle
+    menuPanelStyle = { display: 'none', visibility: 'hidden', pointerEvents: 'none', maxHeight: '0', overflow: 'hidden' }
+  } else {
+    hostTop = Math.max(chatTop, rect.top - reactionBarH - 4)
+    reactionStyle = reactionBarVisibleStyle
+  }
+
+  const reactionStackH = reactionBarH + (reactionsOnly ? 0 : REACTION_MENU_STACK_GAP)
+  let menuMaxH = reactionsOnly
+    ? 0
+    : Math.max(160, chatBottom - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
+
+  if (!reactionsOnly && menuPanelEl) {
+    const mh = menuPanelEl.getBoundingClientRect().height
+    const totalH = reactionStackH + mh
+    if (totalH > 40 && hostTop + totalH > chatBottom) {
+      hostTop = Math.max(chatTop, chatBottom - totalH)
+      menuMaxH = Math.max(160, chatBottom - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
+    }
+  } else if (!reactionsOnly) {
+    const estimatedTotalH = reactionStackH + ESTIMATED_MENU_PANEL_H
+    if (hostTop + estimatedTotalH > chatBottom) {
+      hostTop = Math.max(chatTop, chatBottom - estimatedTotalH)
+      menuMaxH = Math.max(160, chatBottom - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
+    }
+  }
+
+  if (!reactionsOnly) menuMaxH = Math.min(520, menuMaxH)
+
+  if (!reactionsOnly) {
+    menuPanelStyle = {
+      width: '100%',
+      maxWidth: '100%',
+      alignSelf: 'stretch',
+      maxHeight: `${menuMaxH}px`,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      flex: '1 1 auto',
+      minHeight: 0,
+      boxSizing: 'border-box',
+      visibility: 'visible',
+      pointerEvents: 'auto',
+    }
+  }
+
+  return {
+    hostStyle: {
+      position: 'fixed',
+      right: `${rightPx}px`,
+      left: 'auto',
+      top: `${hostTop}px`,
+      width: `${hostW}px`,
+      minWidth: `${hostW}px`,
+      maxWidth: `${hostW}px`,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: reactionsOnly ? 'flex-end' : (isOutgoing ? 'stretch' : 'flex-end'),
+      gap: `${REACTION_MENU_STACK_GAP}px`,
+      zIndex: 10040,
+      visibility: 'visible',
+      pointerEvents: 'none',
+      boxSizing: 'border-box',
+    },
+    reactionStyle,
+    menuPanelStyle,
+  }
+}
+
+export const primeMessageActionsPanelLayout = (e, msg, mode = 'full') => {
+  if (typeof document === 'undefined') return
+  const wrap = resolveMessageActionsWrapFromEvent(e, msg)
+  const bubble = wrap?.querySelector?.('.message-bubble')
+  if (!wrap || !bubble) return
+  messageActionsCoords.value = buildMessageActionsCoords(wrap, bubble, {
+    reactionsOnly: mode === 'reactions',
+  })
+}
+
+const scheduleMessageActionsLayoutRefine = () => {
+  if (typeof window === 'undefined') return
+  requestAnimationFrame(() => {
+    layoutMessageActionsPanel()
+    requestAnimationFrame(() => layoutMessageActionsPanel())
+  })
+}
+
+export { scheduleMessageActionsLayoutRefine }
+
+export const layoutMessageActionsPanel = () => {
+  if (reactionEmojiPickerOpen.value) return
+  const id = actionMenuMessageId.value
+  if (!id || typeof document === 'undefined') { messageActionsCoords.value = null; return }
+  const wrap = document.querySelector(`[data-message-actions-anchor="${escapeMessageActionsAnchor(id)}"]`)
+  const bubble = wrap?.querySelector('.message-bubble')
+  const menuPanelEl = document.querySelector('.message-actions-floater-host .message-actions-menu-panel')
+  if (!wrap || !bubble) { messageActionsCoords.value = null; return }
+
+  const reactionEl = document.querySelector('.message-actions-floater-host .message-reaction-bar--floater')
+  messageActionsCoords.value = buildMessageActionsCoords(wrap, bubble, {
+    reactionsOnly: actionMenuMode.value === 'reactions',
+    reactionEl,
+    menuPanelEl,
+  })
 }
 
 export const messageActionsPreHostStyle = Object.freeze({ position: 'fixed', right: '-12000px', top: '0', visibility: 'hidden', pointerEvents: 'none', zIndex: 10040 })
@@ -144,129 +315,6 @@ export const updateReactionPickerPosition = (anchorEl) => {
     }
 }
 
-export const layoutMessageActionsPanel = () => {
-  if (reactionEmojiPickerOpen.value) return
-  const id = actionMenuMessageId.value
-  if (!id || typeof document === 'undefined') { messageActionsCoords.value = null; return }
-  const wrap = document.querySelector(`[data-message-actions-anchor="${escapeMessageActionsAnchor(id)}"]`)
-  const bubble = wrap?.querySelector('.message-bubble')
-  const menuPanelEl = document.querySelector('.message-actions-floater-host .message-actions-menu-panel')
-  if (!wrap || !bubble) { messageActionsCoords.value = null; return }
-
-  const rect = bubble.getBoundingClientRect()
-  const isOutgoing = wrap.classList.contains('message-out')
-  const reactionsOnly = actionMenuMode.value === 'reactions'
-  const vw = window.innerWidth, vh = window.innerHeight
-  const chatBounds = resolveChatActionsBounds()
-  const chatTop = chatBounds ? chatBounds.top + MESSAGE_ACTIONS_GAP : MESSAGE_ACTIONS_TOP_SAFE
-  const chatBottom = chatBounds ? chatBounds.bottom - MESSAGE_ACTIONS_GAP : vh - MESSAGE_ACTIONS_GAP
-  const menuW = Math.min(
-    MESSAGE_ACTIONS_MENU_W,
-    (chatBounds ? chatBounds.width : vw) - MESSAGE_ACTIONS_GAP * 2,
-  )
-  const reactionBarExtra = Math.min(
-    MESSAGE_REACTION_BAR_EXTRA_W,
-    Math.max(0, (chatBounds ? chatBounds.width : vw) - MESSAGE_ACTIONS_GAP * 2 - menuW - 8),
-  )
-  const reactionBarW = isOutgoing ? menuW : menuW + reactionBarExtra
-  const hostW = reactionsOnly ? Math.max(menuW, 280) : (isOutgoing ? menuW : reactionBarW)
-
-  let stackRight = rect.right
-  if (reactionsOnly && !isOutgoing) {
-    stackRight = Math.min(rect.right, (chatBounds?.right ?? vw) - MESSAGE_ACTIONS_GAP)
-  }
-  stackRight = clampStackRight(stackRight, hostW, chatBounds, vw)
-  if (rect.right <= (chatBounds?.right ?? vw) - MESSAGE_ACTIONS_GAP
-    && rect.right >= (chatBounds?.left ?? 0) + MESSAGE_ACTIONS_GAP + hostW) {
-    stackRight = rect.right
-    stackRight = clampStackRight(stackRight, hostW, chatBounds, vw)
-  }
-  const rightPx = vw - stackRight
-
-  const reactionEl = document.querySelector('.message-actions-floater-host .message-reaction-bar--floater')
-  const reactionBarVisibleStyle = {
-    width: '100%',
-    boxSizing: 'border-box',
-    display: 'flex',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '2px',
-    padding: '6px 8px',
-    visibility: 'visible',
-    pointerEvents: 'auto',
-    flexShrink: 0,
-    alignSelf: 'stretch',
-  }
-
-  let hostTop, reactionStyle, menuPanelStyle
-  if (reactionsOnly) {
-    let hr = reactionEl?.offsetHeight || 44
-    if (hr < 22) hr = 44
-    hostTop = Math.max(chatTop, rect.top - hr - 6)
-    reactionStyle = reactionBarVisibleStyle
-    menuPanelStyle = { display: 'none', visibility: 'hidden', pointerEvents: 'none', maxHeight: '0', overflow: 'hidden' }
-  } else {
-    let hr = reactionEl?.offsetHeight || 46
-    if (hr < 22) hr = 46
-    hostTop = Math.max(chatTop, rect.top - hr - 4)
-    reactionStyle = reactionBarVisibleStyle
-  }
-
-  const reactionStackH = (reactionEl?.offsetHeight || 44) + (reactionsOnly ? 0 : REACTION_MENU_STACK_GAP)
-  let menuMaxH = reactionsOnly
-    ? 0
-    : Math.max(160, chatBottom - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
-  if (!reactionsOnly && menuPanelEl) {
-    const mh = menuPanelEl.getBoundingClientRect().height
-    const totalH = reactionStackH + mh
-    if (totalH > 40 && hostTop + totalH > chatBottom) {
-      hostTop = Math.max(chatTop, chatBottom - totalH)
-      menuMaxH = Math.max(160, chatBottom - hostTop - reactionStackH - MESSAGE_ACTIONS_GAP - 6)
-    }
-  }
-  if (!reactionsOnly) menuMaxH = Math.min(520, menuMaxH)
-
-  if (!reactionsOnly) {
-    menuPanelStyle = {
-      width: '100%',
-      maxWidth: '100%',
-      alignSelf: 'stretch',
-      maxHeight: `${menuMaxH}px`,
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      flex: '1 1 auto',
-      minHeight: 0,
-      boxSizing: 'border-box',
-      visibility: 'visible',
-      pointerEvents: 'auto',
-    }
-  }
-
-  messageActionsCoords.value = {
-    hostStyle: {
-      position: 'fixed',
-      right: `${rightPx}px`,
-      left: 'auto',
-      top: `${hostTop}px`,
-      width: `${hostW}px`,
-      minWidth: `${hostW}px`,
-      maxWidth: `${hostW}px`,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: reactionsOnly ? (isOutgoing ? 'flex-end' : 'flex-end') : (isOutgoing ? 'stretch' : 'flex-end'),
-      gap: `${REACTION_MENU_STACK_GAP}px`,
-      zIndex: 10040,
-      visibility: 'visible',
-      pointerEvents: 'none',
-      boxSizing: 'border-box',
-    },
-    reactionStyle,
-    menuPanelStyle,
-  }
-}
-
 export const messageActionsHostInlineStyle = computed(() => {
   if (!actionMenuMessageId.value) return {}
   const c = messageActionsCoords.value
@@ -318,7 +366,9 @@ export const openMessageActionMenu = (e, msg) => {
   e?.preventDefault?.()
   if (msg?.isContactShare) return
   actionMenuMode.value = 'full'
+  primeMessageActionsPanelLayout(e, msg, 'full')
   actionMenuMessageId.value = msg.id
+  scheduleMessageActionsLayoutRefine()
 }
 
 export const toggleMessageActionMenu = (e, msg) => {
@@ -327,10 +377,13 @@ export const toggleMessageActionMenu = (e, msg) => {
   if (actionMenuMessageId.value === msg.id && actionMenuMode.value === 'full') {
     actionMenuMessageId.value = null
     actionMenuMode.value = 'full'
+    messageActionsCoords.value = null
     return
   }
   actionMenuMode.value = 'full'
+  primeMessageActionsPanelLayout(e, msg, 'full')
   actionMenuMessageId.value = msg.id
+  scheduleMessageActionsLayoutRefine()
 }
 
 export const toggleMessageReactionMenu = (e, msg) => {
@@ -340,16 +393,21 @@ export const toggleMessageReactionMenu = (e, msg) => {
   if (actionMenuMessageId.value === msg.id && actionMenuMode.value === 'reactions') {
     actionMenuMessageId.value = null
     actionMenuMode.value = 'full'
+    messageActionsCoords.value = null
     return
   }
   actionMenuMode.value = 'reactions'
+  primeMessageActionsPanelLayout(e, msg, 'reactions')
   actionMenuMessageId.value = msg.id
+  scheduleMessageActionsLayoutRefine()
 }
 
 export const openMessageReactionMenu = (msg) => {
   if (msg?.isContactShare) return
   actionMenuMode.value = 'reactions'
+  primeMessageActionsPanelLayout(null, msg, 'reactions')
   actionMenuMessageId.value = msg.id
+  scheduleMessageActionsLayoutRefine()
 }
 
 export const onMessageTouchStart = (e, msg) => {
@@ -560,7 +618,7 @@ export const sendMessageReaction = async (msg, emoji) => {
   try {
     const res = await fetch(`${proxyBase}/message/react`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ number, text, id })
     })
     const data = await parseJsonBodySafe(res)
@@ -657,7 +715,7 @@ export const deleteThisMessageForAll = async (msg) => {
   if (!id) return
   const proxyBase = getProxyBase()
   try {
-    const res = await fetch(`${proxyBase}/message/delete`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }, body: JSON.stringify({ id }) })
+    const res = await fetch(`${proxyBase}/message/delete`, { method: 'POST', headers: whatsappJsonHeaders(), body: JSON.stringify({ id }) })
     const data = await parseJsonBodySafe(res)
     if (!res.ok) throw new Error(data?.message || data?.error || 'Falha ao apagar')
     actionMenuMessageId.value = null
@@ -675,7 +733,7 @@ export const editThisMessageText = async (msg) => {
   if (trimmed === String(msg.text).trim()) return
   const proxyBase = getProxyBase()
   try {
-    const res = await fetch(`${proxyBase}/message/edit`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }, body: JSON.stringify({ id, text: trimmed }) })
+    const res = await fetch(`${proxyBase}/message/edit`, { method: 'POST', headers: whatsappJsonHeaders(), body: JSON.stringify({ id, text: trimmed }) })
     const data = await parseJsonBodySafe(res)
     if (!res.ok) throw new Error(data?.message || data?.error || 'Falha ao editar')
     actionMenuMessageId.value = null
@@ -689,7 +747,7 @@ export const pinThisMessageInChat = async (msg) => {
   const chatJid = normalizeJid(selectedChat.value?.chatJid || '')
   const proxyBase = getProxyBase()
   try {
-    const res = await fetch(`${proxyBase}/message/pin`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }, body: JSON.stringify({ id }) })
+    const res = await fetch(`${proxyBase}/message/pin`, { method: 'POST', headers: whatsappJsonHeaders(), body: JSON.stringify({ id }) })
     const data = await parseJsonBodySafe(res)
     if (!res.ok) throw new Error(data?.message || data?.error || 'Falha ao fixar')
     const targetId = normalizeProviderMessageId(data.targetMessageID || data.targetMessageId || id)
@@ -818,7 +876,7 @@ export const handleMediaSelection = async (event, options = {}) => {
     const type = isImage ? 'image' : isAudio ? 'audio' : isVideo ? 'video' : 'document'
     const res = await fetch(`${proxyBase}/send/media`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({
         number: selectedChatVal.chatJid,
         type,
@@ -847,7 +905,7 @@ export const handleMediaSelection = async (event, options = {}) => {
 
 export function useWhatsappMessageActions() {
   return {
-    messageQuickReactions, showChatFeedback, layoutMessageActionsPanel,
+    messageQuickReactions, showChatFeedback, layoutMessageActionsPanel, scheduleMessageActionsLayoutRefine,
     messageActionsHostInlineStyle, messageActionsReactionInlineStyle, messageActionsMenuInlineStyle,
     messageActionsPreHostStyle, messageActionsPreReactionStyle, messageActionsPreMenuStyle,
     openActionMenuMessage, reactionsDetailEmojiTabs, reactionsDetailListRows,

@@ -1,10 +1,7 @@
-import { getAuthToken, getWhatsappApiBase } from './useWhatsappApi.js'
+import { getWhatsappApiBase, whatsappJsonHeaders } from './useWhatsappApi.js'
 import { parseJsonBodySafe } from './useWhatsappUtils.js'
 
-const buildHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${getAuthToken()}`
-})
+const buildHeaders = () => (whatsappJsonHeaders())
 
 const createGroupApiError = (fallbackMessage, payload = {}) => {
   const message = String(payload?.message || payload?.error || fallbackMessage || 'Falha na operação de grupo').trim()

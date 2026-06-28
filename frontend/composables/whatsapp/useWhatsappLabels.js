@@ -3,7 +3,7 @@
  * Cada chat traz `wa_label` (IDs); os metadados (nome/cor) vêm de GET /labels.
  */
 import { ref } from 'vue'
-import { getAuthToken, getProxyBase } from './useWhatsappApi.js'
+import { getProxyBase, whatsappJsonHeaders, whatsappAuthHeaders, whatsappHasAuth } from './useWhatsappApi.js'
 
 /** Paleta oficial WhatsApp Web / UAZAPI (índices 0–19) — WAHA 2024+ */
 export const WA_LABEL_COLOR_HEX = [
@@ -333,17 +333,13 @@ const compareLabelsLikeWhatsapp = (a, b) => {
 }
 
 export const refreshWhatsappLabelsFromApi = async ({ force = false } = {}) => {
-  const token = getAuthToken()
-  if (!token) return false
+  if (!whatsappHasAuth()) return false
 
   const proxyBase = getProxyBase()
   try {
     const res = await fetch(`${proxyBase}/labels/refresh`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ force: Boolean(force) }),
     })
     return res.ok
@@ -362,8 +358,7 @@ export const loadWhatsappLabels = async ({
   }
 
   labelsLoadInFlight = (async () => {
-    const token = getAuthToken()
-    if (!token) return whatsappLabelsById.value
+    if (!whatsappHasAuth()) return whatsappLabelsById.value
 
     if (showLoading) labelsLoading.value = true
 
@@ -376,7 +371,7 @@ export const loadWhatsappLabels = async ({
     try {
       res = await fetch(`${proxyBase}/labels`, {
         method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: whatsappAuthHeaders(),
       })
     } catch {
       if (showLoading) labelsLoading.value = false
@@ -542,18 +537,14 @@ export const closeLabelChatsView = () => {
 }
 
 const postLabelEdit = async (payload = {}) => {
-  const token = getAuthToken()
-  if (!token) throw new Error('Sessão expirada')
+  if (!whatsappHasAuth()) throw new Error('Sessão expirada')
 
   labelsSaving.value = true
   try {
     const proxyBase = getProxyBase()
     const res = await fetch(`${proxyBase}/label/edit`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(payload),
     })
     const data = await res.json().catch(() => ({}))

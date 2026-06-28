@@ -137,9 +137,9 @@ const whatsappApiBase = config.public.whatsappApiBase
 
 import { ref, computed, onMounted } from 'vue'
 import { Plus, RefreshCw, Search, MessageSquarePlus, Edit2, Trash2, X, Loader, Save, Image, Video, FileText, Mic } from 'lucide-vue-next'
+import { whatsappHasAuth, whatsappJsonHeaders } from '~/composables/whatsapp/useWhatsappApi.js'
 
 const PROXY_BASE = `${whatsappApiBase}/proxy`
-const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : ''
 
 const replies = ref([])
 const loading = ref(true)
@@ -171,7 +171,7 @@ const loadReplies = async () => {
     loading.value = true
     const res = await fetch(`${PROXY_BASE}/quickreply/list`, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${token}` }
+      headers: whatsappAuthHeaders()
     })
     const data = await res.json()
     replies.value = Array.isArray(data) ? data : []
@@ -207,10 +207,7 @@ const submitReply = async () => {
 
     const res = await fetch(`${PROXY_BASE}/quickreply/edit`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify(payload)
     })
     
@@ -234,10 +231,7 @@ const deleteReply = async (id) => {
   try {
     await fetch(`${PROXY_BASE}/quickreply/edit`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: whatsappJsonHeaders(),
       body: JSON.stringify({ id, delete: true })
     })
     alert("Resposta excluída.")
@@ -248,7 +242,7 @@ const deleteReply = async (id) => {
 }
 
 onMounted(() => {
-  if(!token) navigateTo('/')
+  if (!whatsappHasAuth()) navigateTo('/')
   else loadReplies()
 })
 </script>
