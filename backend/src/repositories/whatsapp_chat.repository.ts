@@ -114,4 +114,23 @@ export class WhatsappChatRepository {
       }
     });
   }
+
+  async findByChatJid(userId: string, chatJid: string): Promise<WhatsappChat | null> {
+    const normalized = String(chatJid || "").trim();
+    if (!normalized) return null;
+
+    const direct = await prisma.whatsappChat.findUnique({
+      where: { userId_chatJid: { userId, chatJid: normalized } },
+    });
+    if (direct) return direct;
+
+    const digits = normalized.split("@")[0]?.replace(/\D/g, "") || "";
+    if (digits.length >= 8) {
+      return prisma.whatsappChat.findUnique({
+        where: { userId_chatJid: { userId, chatJid: `${digits}@s.whatsapp.net` } },
+      });
+    }
+
+    return null;
+  }
 }

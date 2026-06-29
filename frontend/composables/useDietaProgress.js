@@ -15,10 +15,13 @@ export function useDietaProgress() {
       const raw = localStorage.getItem(storageKey(mealId))
       if (!raw) return Array(itemCount).fill(false)
       const parsed = JSON.parse(raw)
-      if (!Array.isArray(parsed) || parsed.length !== itemCount) {
-        return Array(itemCount).fill(false)
+      if (!Array.isArray(parsed)) return Array(itemCount).fill(false)
+      if (parsed.length === itemCount) return parsed.map(Boolean)
+      const next = Array(itemCount).fill(false)
+      for (let i = 0; i < Math.min(parsed.length, itemCount); i += 1) {
+        next[i] = Boolean(parsed[i])
       }
-      return parsed.map(Boolean)
+      return next
     } catch {
       return Array(itemCount).fill(false)
     }

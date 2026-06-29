@@ -1260,6 +1260,26 @@ const rawReactionPayloadScore = (m) => {
   return s
 }
 
+const DELIVERY_STATUS_RANK = { pending: 1, sent: 2, delivered: 3, read: 4 }
+const deliveryStatusRank = (msg) => DELIVERY_STATUS_RANK[String(msg?.deliveryStatus || '').toLowerCase()] || 0
+
+/**
+ * Mantém o maior status de entrega (pending < sent < delivered < read) ao mesclar duplicatas.
+ * Recibos de entrega/leitura chegam quase sem texto e perderiam a disputa de "mais rico",
+ * então promovemos o status do perdedor para cima quando ele for maior que o do vencedor.
+ */
+const promoteDeliveryStatus = (winner, loser) => {
+  if (!winner?.fromMe && !loser?.fromMe) return winner
+  if (deliveryStatusRank(loser) <= deliveryStatusRank(winner)) return winner
+  return {
+    ...winner,
+    status: loser.status,
+    deliveryStatus: loser.deliveryStatus,
+    deliveryIndicator: loser.deliveryIndicator,
+    audioPlayed: loser.audioPlayed != null ? loser.audioPlayed : winner.audioPlayed,
+  }
+}
+
 export const pickRicherDuplicateBaseMessage = (prev, next) => {
   const prevHasPin = Boolean(prev?.isPinEvent && prev?.pinEvent?.targetMessageId)
   const nextHasPin = Boolean(next?.isPinEvent && next?.pinEvent?.targetMessageId)
@@ -1277,8 +1297,11 @@ export const pickRicherDuplicateBaseMessage = (prev, next) => {
   const sp = rawReactionPayloadScore(prev), sn = rawReactionPayloadScore(next)
   if (sn !== sp) return sn > sp ? next : prev
   const tp = strTrim(prev.text || '').length, tn = strTrim(next.text || '').length
-  if (tn !== tp) return tn > tp ? next : prev
-  return (next.timestamp || 0) >= (prev.timestamp || 0) ? next : prev
+  let base
+  if (tn !== tp) base = tn > tp ? next : prev
+  else base = (next.timestamp || 0) >= (prev.timestamp || 0) ? next : prev
+  const loser = base === next ? prev : next
+  return promoteDeliveryStatus(base, loser)
 }
 
 export const getMessageMergeKey = (msg) => {

@@ -3,7 +3,7 @@
  * Gerenciamento da lista de chats, seleção de chat, envio de mensagens e sincronização em tempo real.
  */
 import {
-  chats, selectedChat, messages, loadingChats, loadingMessages, loadingOlderMessages, chatMessagesHasMore, selectChatLoadSeq,
+  chats, selectedChat, messages, loadingChats, loadingMessages, chatHistorySyncPending, loadingOlderMessages, chatMessagesHasMore, selectChatLoadSeq,
   isRefreshingMessages, chatsPollingTimer, messagesPollingTimer, sending,
   newMessage, replyingTo, chatBodyRef, newMessage as newMessageRef,
   chatsBackendOfflineLogged, messagesBackendOfflineLogged,
@@ -11,13 +11,23 @@ import {
   groupParticipantsDirectory, groupParticipantsByJid, groupParticipantsByLid,
   lidToJidMap, observedSenderDirectory, senderAvatarDirectory, chatPresenceByKey,
   chatDetailsCache, chatDetailsInflight, deletedChatKeys,
-  clearWhatsappSessionState
+  clearWhatsappSessionState, showChatFeedback
 } from './useWhatsappState.js'
 import {
   normalizeJid, strTrim, buildLookupKeys, normalizeTimestampToMs, parseJsonBodySafe,
-  normalizeProviderMessageId, parseListMessageTextVote, isChatMutedByEndTime, toUazapiChatNumber
+  normalizeProviderMessageId, parseListMessageTextVote, isChatMutedByEndTime, toUazapiChatNumber,
+  collectMessageFindChatIds,
+  collectChatIdentityIds,
 } from './useWhatsappUtils.js'
-import { getProxyBase, getWhatsappApiBase, CHATS_POLL_INTERVAL_MS, MESSAGES_POLL_INTERVAL_MS, whatsappJsonHeaders } from './useWhatsappApi.js'
+import { getProxyBase, getWhatsappApiBase, CHATS_POLL_INTERVAL_MS, MESSAGES_POLL_INTERVAL_MS, whatsappJsonHeaders, whatsappFetchInit } from './useWhatsappApi.js'
+import {
+  isInitialSyncGentleMode,
+  getGentleChatsPollIntervalMs,
+  getGentleChatPageLimit,
+  markInitialSyncActivity,
+  noteInitialSyncChatCount,
+  resetInitialSyncState,
+} from './useWhatsappInitialSync.js'
 
 /** Mantém mute otimista enquanto a UAZAPI ainda devolve estado antigo no lightSync. */
 export const MUTE_OPTIMISTIC_TTL_MS = 20000
@@ -832,11 +842,18 @@ export const fallbackLastMessageFromChatType = (chat = {}) => {
 }
 
 export const canonicalChatListKey = (chat) => {
-  const j = normalizeJid(chat?.chatJid || chat?.wa_chatid || chat?.chatid || '')
+  const j = normalizeJid(
+    chat?.chatJid ||
+    chat?.wa_chatid ||
+    chat?.chatid ||
+    chat?.wa_chatlid ||
+    chat?.chatlid ||
+    '',
+  )
   if (!j) return ''
   if (j.endsWith('@g.us')) return `g:${j}`
   const digits = (j.split('@')[0] || '').replace(/\D/g, '')
-  if (digits.length >= 10) return `pn:${digits}`
+  if (digits.length >= 10) return j.endsWith('@lid') ? `lid:${digits}` : `pn:${digits}`
   return `jid:${j}`
 }
 
@@ -860,15 +877,21 @@ const buildPinnedMatchKey = (value) => {
   const jid = normalizeJid(value)
   if (!jid) return ''
   if (jid.endsWith('@g.us')) return `group:${jid}`
+  if (jid.endsWith('@lid')) {
+    const lidDigits = (jid.split('@')[0] || '').replace(/\D/g, '')
+    return lidDigits ? `lid:${lidDigits}` : `jid:${jid}`
+  }
   const digits = (jid.split('@')[0] || '').replace(/\D/g, '')
   if (digits) return `contact:${digits}`
   return `jid:${jid}`
 }
 
 const buildPinnedMatchKeysFromPayload = (payload = {}) => {
-  const candidates = [payload?.wa_chatid, payload?.chatid, payload?.chatJid, payload?.id, payload?.phone, payload?.wa_fastid]
   const keys = new Set()
-  for (const candidate of candidates) { const key = buildPinnedMatchKey(candidate); if (key) keys.add(key) }
+  for (const candidate of collectChatIdentityIds(payload)) {
+    const key = buildPinnedMatchKey(candidate)
+    if (key) keys.add(key)
+  }
   return Array.from(keys)
 }
 
@@ -877,7 +900,7 @@ export const normalizeChat = (chat) => {
   const chatJid = preferWhatsappNetPrivateJid(
     chat.wa_chatid || '',
     chat.chatJid || chat.chatid || '',
-  ) || chat.wa_chatid || chat.chatJid || chat.chatid || ''
+  ) || chat.wa_chatid || chat.chatJid || chat.chatid || normalizeJid(chat.wa_chatlid || chat.chatlid || '')
   const resolvedLastMessageTimeMs = normalizeTimestampToMs(
     chat.lastMessageTime ||
     chat.wa_lastMsgTimestamp ||
@@ -985,7 +1008,7 @@ export const mergeDuplicateChatRows = (prevRow, incomingRow) => {
     incomingRow.wa_chatid || prevRow.wa_chatid,
     preferWhatsappNetPrivateJid(prevRow.chatJid, incomingRow.chatJid),
   )
-  merged.isPinned = Boolean(parseWaPinnedFlag(merged.wa_isPinned) || Boolean(prevRow.isPinned))
+  merged.isPinned = Boolean(parseWaPinnedFlag(incomingRow.wa_isPinned ?? merged.wa_isPinned))
   Object.assign(merged, mergeChatMuteState(prevRow, incomingRow))
 
   const incomingTarget = pickReactionTargetIdFromChat(incomingRow)
@@ -1239,6 +1262,76 @@ const listAllChatsFromUazapi = async () => {
   return Array.from(byKey.values())
 }
 
+const loadChatsFromBackendCache = async () => {
+  const apiBase = getWhatsappApiBase()
+  if (!apiBase) return []
+  try {
+    const res = await fetch(`${apiBase}/chats?cache=1`, whatsappFetchInit())
+    const data = await parseJsonBodySafe(res)
+    if (!res.ok) return []
+    const rows = Array.isArray(data?.chats) ? data.chats : []
+    return rows.map((chat) => normalizeChat(chat)).filter((chat) => canonicalChatListKey(chat))
+  } catch {
+    return []
+  }
+}
+
+const loadChatsFromBackendSync = async (forceRefresh = false) => {
+  const apiBase = getWhatsappApiBase()
+  if (!apiBase) return []
+  try {
+    const query = forceRefresh ? '?refresh=1' : ''
+    const res = await fetch(`${apiBase}/chats${query}`, whatsappFetchInit())
+    const data = await parseJsonBodySafe(res)
+    if (!res.ok) return []
+    const rows = Array.isArray(data?.chats) ? data.chats : []
+    return rows.map((chat) => normalizeChat(chat)).filter((chat) => canonicalChatListKey(chat))
+  } catch {
+    return []
+  }
+}
+
+const applyResolvedChatsList = async (resolvedChats, { skipPinnedFetch = false } = {}) => {
+  if (!Array.isArray(resolvedChats) || resolvedChats.length === 0) return false
+
+  const chatsWithPin = resolvedChats.map((chat) => ({
+    ...chat,
+    isPinned: parseWaPinnedFlag(chat.wa_isPinned),
+    muteEndTime: Number(chat.wa_muteEndTime ?? chat.muteEndTime ?? 0),
+    isMuted: isChatMutedByEndTime(chat.wa_muteEndTime ?? chat.muteEndTime),
+  }))
+
+  let pinnedByFilter = new Map()
+  if (!skipPinnedFetch) {
+    try {
+      pinnedByFilter = await listPinnedChatsFromUazapi()
+    } catch {
+      pinnedByFilter = new Map()
+    }
+  }
+
+  const prevByKey = new Map()
+  for (const chat of (chats.value || [])) {
+    const key = canonicalChatListKey(chat)
+    if (key) prevByKey.set(key, chat)
+  }
+
+  const chatsWithPinSynced = chatsWithPin.map((chat) => {
+    const keys = buildPinnedMatchKeysFromPayload(chat)
+    const next = { ...chat, isPinned: Boolean(chat.isPinned || keys.some((key) => pinnedByFilter.has(key))) }
+    const prev = prevByKey.get(canonicalChatListKey(next))
+    if (prev) Object.assign(next, mergeChatMuteState(prev, next))
+    return next
+  })
+
+  chats.value = sortChatsByPriority(
+    chatsWithPinSynced.filter((chat) => !isChatDeletedLocally(chat)),
+  )
+  syncSelectedChatAfterChatsMutation()
+  enrichMissingChatAvatars().catch(() => {})
+  return true
+}
+
 const listPinnedChatsFromUazapi = async () => {
   const pageSize = 200, maxPages = 10
   let offset = 0, totalRecords = null
@@ -1248,6 +1341,7 @@ const listPinnedChatsFromUazapi = async () => {
     if (totalRecords === null && pageResult.totalRecords !== null) totalRecords = pageResult.totalRecords
     if (pageResult.chats.length === 0) break
     for (const chat of pageResult.chats) {
+      if (!parseWaPinnedFlag(chat?.wa_isPinned ?? chat?.isPinned)) continue
       const keys = buildPinnedMatchKeysFromPayload(chat)
       if (!keys.length) continue
       for (const key of keys) byKey.set(key, true)
@@ -1257,6 +1351,31 @@ const listPinnedChatsFromUazapi = async () => {
     if (pageResult.chats.length < pageSize) break
   }
   return byKey
+}
+
+export const refreshPinnedChatFlags = async () => {
+  const list = chats.value || []
+  if (!list.length) return
+
+  let pinnedByFilter = new Map()
+  try {
+    pinnedByFilter = await listPinnedChatsFromUazapi()
+  } catch {
+    pinnedByFilter = new Map()
+  }
+
+  chats.value = sortChatsByPriority(list.map((chat) => {
+    const keys = buildPinnedMatchKeysFromPayload(chat)
+    return {
+      ...chat,
+      isPinned: Boolean(
+        parseWaPinnedFlag(chat.wa_isPinned)
+        || parseWaPinnedFlag(chat.isPinned)
+        || keys.some((key) => pinnedByFilter.has(key)),
+      ),
+    }
+  }))
+  syncSelectedChatAfterChatsMutation()
 }
 
 // ─── Enriquecer avatares da lista ─────────────────────────────────────────────
@@ -1316,51 +1435,234 @@ export const resolveChatMessagesFetchJid = (chatRow = {}) => {
   if (isGroup) {
     return normalizeJid(chatRow.wa_chatid || chatRow.chatJid || chatRow.chatid || '')
   }
-  return normalizeJid(
-    chatRow.wa_chatid ||
-    resolvePrivateChatPhoneJid(chatRow) ||
-    chatRow.chatJid ||
-    chatRow.chatid ||
-    ''
+  const candidates = collectMessageFindChatIds(chatRow)
+  const phoneJid = resolvePrivateChatPhoneJid(chatRow)
+  if (phoneJid && !candidates.includes(phoneJid)) candidates.unshift(phoneJid)
+  return candidates[0] || ''
+}
+
+/** JID/número para POST /send/* — prioriza @s.whatsapp.net, depois @lid, depois grupo. */
+export const resolveSendChatNumber = (chatRow = {}) => {
+  if (!chatRow) return ''
+  const isGroup = Boolean(
+    chatRow.isGroup ||
+    chatRow.wa_isGroup ||
+    normalizeJid(chatRow.wa_chatid || chatRow.chatJid || '').endsWith('@g.us')
   )
+  if (isGroup) {
+    return normalizeJid(chatRow.wa_chatid || chatRow.chatJid || chatRow.chatid || '')
+  }
+
+  const ids = collectChatIdentityIds(chatRow)
+  const phoneJid = ids.find((id) => id.endsWith('@s.whatsapp.net'))
+  if (phoneJid) return phoneJid
+
+  const phoneFromContacts = resolvePrivateChatPhoneJid(chatRow)
+  if (phoneFromContacts.endsWith('@s.whatsapp.net')) return phoneFromContacts
+
+  const lidJid = ids.find((id) => id.endsWith('@lid'))
+  if (lidJid) return lidJid
+
+  return normalizeJid(chatRow.chatJid || chatRow.wa_chatid || '') || ids[0] || ''
 }
 
 export const resolveActiveChatFetchJid = (chatRow = selectedChat.value) => {
   if (!chatRow) return ''
-  return normalizeJid(chatRow.chatJid)
+  return resolveChatMessagesFetchJid(chatRow)
+    || normalizeJid(chatRow.chatJid)
     || normalizeJid(chatRow.wa_chatid)
-    || resolveChatMessagesFetchJid(chatRow)
+    || collectMessageFindChatIds(chatRow)[0]
     || ''
 }
 
-export const fetchChatMessages = async (chatJid, limit = 200, offset = 0) => {
-  const proxyBase = getProxyBase()
+export const fetchChatMessages = async (chatJid, limit = 200, offset = 0, options = {}) => {
+  const apiBase = getWhatsappApiBase()
   const normalizedChatId = normalizeJid(chatJid)
-  const resolveMessageFindChatId = (value) => {
-    const normalized = normalizeJid(value)
-    if (!normalized) return ''
-    if (normalized.endsWith('@lid')) {
-      const digits = (normalized.split('@')[0] || '').replace(/\D/g, '')
-      return digits.length >= 10 ? `${digits}@s.whatsapp.net` : normalized
-    }
-    return normalized
+  if (!normalizedChatId) throw new Error('CHAT_ID_INVALID')
+
+  const syncFromUazapi = options.syncFromUazapi === true
+  const timeoutMs = Math.min(60_000, Math.max(8_000, Number(options.timeoutMs) || 22_000))
+  const params = new URLSearchParams({
+    limit: String(Math.min(200, Math.max(1, Number(limit) || 50))),
+    offset: String(Math.max(0, Number(offset) || 0)),
+    sync: syncFromUazapi ? '1' : '0',
+  })
+  if (syncFromUazapi && options.awaitHistory === true) {
+    params.set('awaitHistory', '1')
+  } else {
+    params.set('awaitHistory', '0')
   }
-  const requestChatId = resolveMessageFindChatId(normalizedChatId)
-  if (!requestChatId) throw new Error('CHAT_ID_INVALID')
+  if (options.requestHistory) params.set('history', '1')
+
   let res
   try {
-    res = await fetch(`${proxyBase}/message/find`, {
-      method: 'POST',
-      headers: whatsappJsonHeaders(),
-      body: JSON.stringify({ chatid: requestChatId, limit, offset })
-    })
-  } catch { throw new Error('BACKEND_OFFLINE') }
+    const init = whatsappFetchInit()
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
+    try {
+      res = await fetch(
+        `${apiBase}/chats/${encodeURIComponent(normalizedChatId)}/messages?${params.toString()}`,
+        { ...init, signal: controller?.signal },
+      )
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error('MESSAGE_FETCH_TIMEOUT')
+    throw new Error('BACKEND_OFFLINE')
+  }
+
   const data = await parseJsonBodySafe(res)
   if (res.status === 503 || res.status === 504) throw new Error('BACKEND_OFFLINE')
+  if (res.status === 400 && (data?.error === 'CHAT_ID_INVALID' || data?.message?.includes('JID'))) {
+    throw new Error('CHAT_ID_INVALID')
+  }
   if (res.status === 400) throw new Error('BAD_REQUEST_MESSAGE_FIND')
   if (!res.ok) throw new Error(data?.message || data?.error || 'Erro ao buscar mensagens')
+
   const payload = extractMessageFindPayload(data)
-  return { messages: payload, hasMore: Boolean(data?.hasMore), nextOffset: Number.isFinite(Number(data?.nextOffset)) ? Number(data?.nextOffset) : (offset + payload.length) }
+  return {
+    messages: payload,
+    hasMore: Boolean(data?.hasMore),
+    nextOffset: Number.isFinite(Number(data?.nextOffset)) ? Number(data.nextOffset) : (offset + payload.length),
+  }
+}
+
+const chatHistorySyncInflight = new Set()
+
+/** Dispara backfill de histórico no backend (varre chats + history-sync + persistência). */
+export const requestChatHistoryBackfill = async (chatJids = [], { force = true } = {}) => {
+  const apiBase = getWhatsappApiBase()
+  if (!apiBase) return false
+  try {
+    const res = await fetch(`${apiBase}/messages/backfill`, {
+      ...whatsappFetchInit(),
+      method: 'POST',
+      headers: {
+        ...(whatsappFetchInit().headers || {}),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        force: Boolean(force),
+        chatJids: Array.isArray(chatJids) ? chatJids.filter(Boolean) : [],
+      }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** Solicita histórico sob demanda na UAZAPI (celular precisa estar ativo). */
+export const requestChatHistorySync = async (chatJid, count = 100) => {
+  const number = resolveChatMessagesFetchJid({ chatJid, wa_chatid: chatJid }) || normalizeJid(chatJid)
+  if (!number) return false
+
+  const syncKey = canonicalChatListKey({ chatJid: number }) || number
+  if (chatHistorySyncInflight.has(syncKey)) return true
+  chatHistorySyncInflight.add(syncKey)
+
+  try {
+    const apiBase = getWhatsappApiBase()
+    if (!apiBase) return false
+    const params = new URLSearchParams({ history: '1', sync: '0', limit: '1', offset: '0' })
+    const res = await fetch(
+      `${apiBase}/chats/${encodeURIComponent(number)}/messages?${params.toString()}`,
+      whatsappFetchInit()
+    )
+    if (!res.ok) return false
+    markInitialSyncActivity('history-sync')
+    return true
+  } catch {
+    return false
+  } finally {
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => chatHistorySyncInflight.delete(syncKey), 60_000)
+    } else {
+      chatHistorySyncInflight.delete(syncKey)
+    }
+  }
+}
+
+const extractRealtimeMessagesFromPayload = (payload = {}) => {
+  const items = []
+  const push = (entry) => {
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) items.push(entry)
+  }
+
+  push(payload?.message)
+
+  const data = payload?.data
+  if (Array.isArray(data)) {
+    for (const entry of data) push(entry)
+  } else if (data && typeof data === 'object') {
+    if (Array.isArray(data.messages)) {
+      for (const entry of data.messages) push(entry)
+    }
+    push(data.message)
+  }
+
+  const event = payload?.event
+  if (event && typeof event === 'object' && !Array.isArray(event) && Array.isArray(event.messages)) {
+    for (const entry of event.messages) push(entry)
+  }
+
+  return items
+}
+
+const applyFetchedMessagesToOpenChat = (pageResult, activeFetchJid, enrichSharedFns, chat, mySeq) => {
+  if (mySeq !== selectChatLoadSeq.value) return false
+  if (!Array.isArray(pageResult?.messages) || pageResult.messages.length === 0) return false
+
+  const aggregated = []
+  const seenIds = new Set()
+  const rawByMergeKey = new Map()
+  appendRawMessagesToAggregate(aggregated, seenIds, rawByMergeKey, pageResult.messages)
+
+  const normalizedMessages = [...aggregated].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+  messages.value = normalizedMessages
+  messagesCacheByChatJid.set(activeFetchJid, [...normalizedMessages])
+  indexMessagesForPreviewCache(normalizedMessages)
+  refreshReactionPreviewForChatJid(activeFetchJid, normalizedMessages)
+  applySelectChatScroll()
+  runSelectChatBackgroundEnrichment(activeFetchJid, aggregated, rawByMergeKey, enrichSharedFns, chat)
+
+  if (pageResult.hasMore) {
+    loadOlderSelectChatPages(activeFetchJid, pageResult.nextOffset, aggregated, seenIds, rawByMergeKey)
+  } else {
+    chatOlderPaginationByJid.set(activeFetchJid, {
+      aggregated,
+      seenIds,
+      rawByMergeKey,
+      hasMore: false,
+      nextOffset: pageResult.nextOffset,
+    })
+    chatMessagesHasMore.value = false
+  }
+  return true
+}
+
+const pollChatMessagesAfterHistorySync = async (chatRow, activeFetchJid, enrichSharedFns, chat, mySeq) => {
+  if (typeof window === 'undefined') return
+  chatHistorySyncPending.value = true
+  try {
+    const delays = [800, 1500, 3000, 5000, 8000, 12000, 20000]
+    for (const delayMs of delays) {
+      await new Promise((resolve) => window.setTimeout(resolve, delayMs))
+      if (mySeq !== selectChatLoadSeq.value) return
+      try {
+        const pageResult = await fetchSelectChatMessages(chatRow, CHAT_MESSAGES_INITIAL_BATCH, 0, { awaitHistory: false })
+        if (applyFetchedMessagesToOpenChat(pageResult, activeFetchJid, enrichSharedFns, chat, mySeq)) {
+          noteInitialSyncChatCount((chats.value || []).length)
+          return
+        }
+      } catch {
+        /* continua tentando */
+      }
+    }
+  } finally {
+    if (mySeq === selectChatLoadSeq.value) chatHistorySyncPending.value = false
+  }
 }
 
 // ─── refreshSelectedChatMessages ─────────────────────────────────────────────
@@ -1393,7 +1695,10 @@ export const refreshSelectedChatMessages = async (enrichSharedFns = {}, options 
     if (!light) await syncContactsDirectoryIfNeeded(false)
     if (selectChatLoadSeq.value !== seqSnapshot) return
     const scrollSnapshot = captureChatScrollSnapshot()
-    const pageResult = await fetchChatMessages(currentChatJid, 120, 0)
+    const pageResult = await fetchChatMessages(currentChatJid, 120, 0, {
+      syncFromUazapi: !light,
+      awaitHistory: false,
+    })
     if (messagesBackendOfflineLogged.value) { console.info('Conexao com backend restabelecida.'); messagesBackendOfflineLogged.value = false }
     if (!Array.isArray(pageResult.messages) || pageResult.messages.length === 0) return
     ingestLidPnHintsFromMessages(pageResult.messages)
@@ -1450,7 +1755,7 @@ export const refreshSelectedChatMessages = async (enrichSharedFns = {}, options 
       const key = getMessageMergeKey(n)
       if (!mergedById.has(key)) mergedById.set(key, n)
     }
-    const merged = Array.from(mergedById.values()).sort((a, b) => a.timestamp - b.timestamp)
+    const merged = dropStaleOptimisticOutbound(Array.from(mergedById.values())).sort((a, b) => a.timestamp - b.timestamp)
     if (selectChatLoadSeq.value !== seqSnapshot) return
 
     const prevLen = messages.value.length, prevLastId = messages.value[prevLen - 1]?.id
@@ -1519,7 +1824,7 @@ export const refreshSelectedChatMessages = async (enrichSharedFns = {}, options 
     isRefreshingMessages.value = false
     if (pendingMessageRefresh) {
       pendingMessageRefresh = false
-      refreshSelectedChatMessages(enrichSharedFns, { force: true }).catch(() => {})
+      refreshSelectedChatMessages(enrichSharedFns, { force: true, light: true }).catch(() => {})
     }
   }
 }
@@ -1642,57 +1947,81 @@ export const toggleChatPinned = async (chat, loadChatsFn) => {
 // ─── loadChats ────────────────────────────────────────────────────────────────
 
 export const loadChats = async (forceRefresh = false, options = {}) => {
-  const { silent = false, lightSync = false } = options
-  if (!lightSync) {
+  const {
+    silent = false,
+    lightSync = false,
+    gentle = isInitialSyncGentleMode(),
+    preferCache = false,
+  } = options
+  const gentleMode = gentle || isInitialSyncGentleMode()
+  if (!lightSync && !preferCache) {
     loadWhatsappLabels({ showLoading: false, refresh: false }).catch(() => {})
   } else {
     syncWhatsappLabelsInBackground().catch(() => {})
   }
   try {
     if (!silent) loadingChats.value = true
-    if (lightSync) {
-      // Janela maior que o default da UAZAPI para não deixar chats “presos” com unread stale fora do primeiro slice.
-      const pageResult = await fetchChatsPage(600, 0)
+
+    if (preferCache || (chats.value || []).length === 0) {
+      const cached = await loadChatsFromBackendCache()
+      if (cached.length > 0) {
+        await applyResolvedChatsList(cached, { skipPinnedFetch: preferCache || gentleMode })
+        noteInitialSyncChatCount((chats.value || []).length)
+        if (preferCache) return
+      }
+    }
+
+    if (lightSync || (gentleMode && !forceRefresh)) {
+      const pageLimit = gentleMode ? getGentleChatPageLimit() : 600
+      const pageResult = await fetchChatsPage(pageLimit, 0)
       if (chatsBackendOfflineLogged.value) { console.info('Conexao com backend restabelecida.'); chatsBackendOfflineLogged.value = false }
       if (Array.isArray(pageResult.chats) && pageResult.chats.length > 0) {
         mergeChatsSliceIntoList(pageResult.chats)
+        await refreshPinnedChatFlags()
+        noteInitialSyncChatCount((chats.value || []).length)
+        if (gentleMode && !forceRefresh) return
+      } else if (gentleMode && !forceRefresh && (chats.value || []).length > 0) {
+        noteInitialSyncChatCount((chats.value || []).length)
         return
       }
-      // Fallback: algumas contas novas retornam vazio no slice curto por alguns segundos.
-      // Nesse caso, continua para o carregamento completo ao invés de encerrar em branco.
     }
-    const allChats = await listAllChatsFromUazapi()
+    if (gentleMode && !forceRefresh && (chats.value || []).length > 0) {
+      noteInitialSyncChatCount((chats.value || []).length)
+      return
+    }
+
+    let resolvedChats = []
+    try {
+      resolvedChats = await listAllChatsFromUazapi()
+    } catch (proxyError) {
+      if (proxyError?.message !== 'BACKEND_OFFLINE' && proxyError?.message !== 'AUTH_EXPIRED') {
+        throw proxyError
+      }
+    }
+
     if (chatsBackendOfflineLogged.value) { console.info('Conexao com backend restabelecida.'); chatsBackendOfflineLogged.value = false }
-    const chatsWithPin = allChats.map((chat) => ({
-      ...chat,
-      isPinned: parseWaPinnedFlag(chat.wa_isPinned),
-      muteEndTime: Number(chat.wa_muteEndTime ?? chat.muteEndTime ?? 0),
-      isMuted: isChatMutedByEndTime(chat.wa_muteEndTime ?? chat.muteEndTime),
-    }))
-    const pinnedByFilter = await listPinnedChatsFromUazapi()
-    const prevByKey = new Map()
-    for (const chat of (chats.value || [])) {
-      const key = canonicalChatListKey(chat)
-      if (key) prevByKey.set(key, chat)
+
+    if (!resolvedChats.length) resolvedChats = await loadChatsFromBackendCache()
+    if (!resolvedChats.length) resolvedChats = await loadChatsFromBackendSync(forceRefresh)
+
+    if (resolvedChats.length) {
+      await applyResolvedChatsList(resolvedChats)
     }
-    const chatsWithPinSynced = chatsWithPin.map((chat) => {
-      const keys = buildPinnedMatchKeysFromPayload(chat)
-      const next = { ...chat, isPinned: Boolean(chat.isPinned || keys.some((key) => pinnedByFilter.has(key))) }
-      const prev = prevByKey.get(canonicalChatListKey(next))
-      if (prev) Object.assign(next, mergeChatMuteState(prev, next))
-      return next
-    })
-    chats.value = sortChatsByPriority(
-      chatsWithPinSynced.filter((chat) => !isChatDeletedLocally(chat)),
-    )
-    syncSelectedChatAfterChatsMutation()
-    enrichMissingChatAvatars().catch(() => {})
+    noteInitialSyncChatCount((chats.value || []).length)
   } catch (e) {
+    if (e?.message === 'AUTH_EXPIRED') return
+    if ((chats.value || []).length === 0) {
+      const cached = await loadChatsFromBackendCache()
+      if (cached.length > 0) {
+        await applyResolvedChatsList(cached, { skipPinnedFetch: true })
+        noteInitialSyncChatCount((chats.value || []).length)
+        return
+      }
+    }
     if (e?.message === 'BACKEND_OFFLINE') {
       if (!chatsBackendOfflineLogged.value) { console.warn('Backend WhatsApp indisponivel.'); chatsBackendOfflineLogged.value = true }
       return
     }
-    if (e?.message === 'AUTH_EXPIRED') return
     console.error('Erro ao carregar chats', e)
   } finally { if (!silent) loadingChats.value = false }
 }
@@ -1737,10 +2066,11 @@ const loadOlderMessagesPage = async (activeFetchJid, mySeq) => {
 
   loadingOlderMessages.value = true
   try {
-    const pageResult = await fetchChatMessages(
+      const pageResult = await fetchChatMessages(
       activeFetchJid,
       CHAT_MESSAGES_OLDER_BATCH,
       pagination.nextOffset,
+      { syncFromUazapi: true },
     )
     if (mySeq !== selectChatLoadSeq.value) return
     if (!Array.isArray(pageResult.messages) || pageResult.messages.length === 0) {
@@ -1836,25 +2166,9 @@ const loadOlderSelectChatPages = (activeFetchJid, startOffset, aggregated, seenI
   chatMessagesHasMore.value = true
 }
 
-const fetchSelectChatMessages = async (chatRow, limit, offset) => {
-  const candidates = []
-  const pushCandidate = (value) => {
-    const jid = toUazapiChatNumber(value) || normalizeJid(value)
-    if (!jid) return
-    if (
-      !jid.endsWith('@s.whatsapp.net') &&
-      !jid.endsWith('@g.us') &&
-      !jid.endsWith('@lid')
-    ) return
-    if (!candidates.includes(jid)) candidates.push(jid)
-  }
-
-  pushCandidate(resolveChatMessagesFetchJid(chatRow))
-  pushCandidate(chatRow?.wa_chatid)
-  pushCandidate(chatRow?.chatJid)
-  pushCandidate(chatRow?.chatid)
-  const phoneDigits = String(chatRow?.phone || '').replace(/\D/g, '')
-  if (phoneDigits.length >= 10) pushCandidate(`${phoneDigits}@s.whatsapp.net`)
+const fetchSelectChatMessages = async (chatRow, limit, offset, options = {}) => {
+  const awaitHistory = options.awaitHistory === true
+  const candidates = collectMessageFindChatIds(chatRow)
 
   if (!candidates.length) throw new Error('CHAT_ID_INVALID')
 
@@ -1862,7 +2176,10 @@ const fetchSelectChatMessages = async (chatRow, limit, offset) => {
   let lastEmpty = null
   for (const chatid of candidates) {
     try {
-      const pageResult = await fetchChatMessages(chatid, limit, offset)
+      const pageResult = await fetchChatMessages(chatid, limit, offset, {
+        syncFromUazapi: true,
+        awaitHistory: awaitHistory && offset === 0,
+      })
       if (Array.isArray(pageResult.messages) && pageResult.messages.length > 0) {
         return { ...pageResult, usedChatId: chatid }
       }
@@ -1876,9 +2193,53 @@ const fetchSelectChatMessages = async (chatRow, limit, offset) => {
   throw lastError || new Error('CHAT_ID_INVALID')
 }
 
+export const chatHasListPreview = (chat = {}) => {
+  const preview = String(resolveChatListLastMessage(chat) || '').trim()
+  if (!preview) return false
+  return preview.toLowerCase() !== 'nenhuma mensagem'
+}
+
+export const retrySelectedChatHistorySync = async (enrichSharedFns = {}) => {
+  const chat = selectedChat.value
+  if (!chat) return
+  const activeFetchJid = resolveActiveChatFetchJid(chat)
+  if (!activeFetchJid) return
+  const mySeq = selectChatLoadSeq.value
+
+  try {
+    loadingMessages.value = true
+    chatHistorySyncPending.value = true
+    await requestChatHistoryBackfill([activeFetchJid], { force: true })
+    await requestChatHistorySync(activeFetchJid, 100)
+    if (mySeq !== selectChatLoadSeq.value) return
+
+    const pageResult = await fetchSelectChatMessages(chat, CHAT_MESSAGES_INITIAL_BATCH, 0, { awaitHistory: false })
+    if (mySeq !== selectChatLoadSeq.value) return
+
+    const applied = applyFetchedMessagesToOpenChat(pageResult, activeFetchJid, enrichSharedFns, chat, mySeq)
+    loadingMessages.value = false
+
+    if (!applied) {
+      await pollChatMessagesAfterHistorySync(chat, activeFetchJid, enrichSharedFns, chat, mySeq)
+    } else {
+      chatHistorySyncPending.value = false
+    }
+  } catch (error) {
+    if (mySeq !== selectChatLoadSeq.value) return
+    console.error('Erro ao sincronizar histórico', error)
+    chatHistorySyncPending.value = false
+  } finally {
+    loadingMessages.value = false
+    if (mySeq === selectChatLoadSeq.value) {
+      applySelectChatScroll()
+    }
+  }
+}
+
 export const selectChat = async (chat, enrichSharedFns = {}) => {
   const mySeq = ++selectChatLoadSeq.value
   const chatJid = chat.chatJid
+  chatHistorySyncPending.value = false
 
   resetChatScrollBehavior()
   cancelScheduledGroupObservedPersist()
@@ -1924,48 +2285,26 @@ export const selectChat = async (chat, enrichSharedFns = {}) => {
 
   try {
     loadingMessages.value = true
-    const pageResult = await fetchChatMessages(activeFetchJid, CHAT_MESSAGES_INITIAL_BATCH, 0)
+    chatHistorySyncPending.value = false
+    const pageResult = await fetchSelectChatMessages(selectedChat.value, CHAT_MESSAGES_INITIAL_BATCH, 0, { awaitHistory: false })
     if (mySeq !== selectChatLoadSeq.value) return
 
-    const aggregated = []
-    const seenIds = new Set()
-    const rawByMergeKey = new Map()
-    appendRawMessagesToAggregate(aggregated, seenIds, rawByMergeKey, pageResult.messages)
+    const applied = applyFetchedMessagesToOpenChat(pageResult, activeFetchJid, enrichSharedFns, chat, mySeq)
+    loadingMessages.value = false
 
-    let normalizedMessages = [...aggregated].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
-
-    messages.value = normalizedMessages
-    messagesCacheByChatJid.set(activeFetchJid, [...normalizedMessages])
-    indexMessagesForPreviewCache(normalizedMessages)
-    refreshReactionPreviewForChatJid(activeFetchJid, normalizedMessages)
-    applySelectChatScroll()
-
-    runSelectChatBackgroundEnrichment(activeFetchJid, aggregated, rawByMergeKey, enrichSharedFns, chat)
-    if (pageResult.hasMore) {
-      loadOlderSelectChatPages(
-        activeFetchJid,
-        pageResult.nextOffset,
-        aggregated,
-        seenIds,
-        rawByMergeKey,
-      )
-    } else {
-      chatOlderPaginationByJid.set(activeFetchJid, {
-        aggregated,
-        seenIds,
-        rawByMergeKey,
-        hasMore: false,
-        nextOffset: pageResult.nextOffset,
-      })
-      chatMessagesHasMore.value = false
+    if (!applied) {
+      chatHistorySyncPending.value = true
+      void requestChatHistoryBackfill([activeFetchJid], { force: false })
+      await pollChatMessagesAfterHistorySync(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq)
     }
   } catch (e) {
     if (mySeq !== selectChatLoadSeq.value) return
     if (e?.message === 'BAD_REQUEST_MESSAGE_FIND' || e?.message === 'CHAT_ID_INVALID') return
     console.error('Erro ao carregar mensagens', e)
+    chatHistorySyncPending.value = false
   } finally {
+    loadingMessages.value = false
     if (mySeq === selectChatLoadSeq.value) {
-      loadingMessages.value = false
       applySelectChatScroll()
     }
   }
@@ -1973,22 +2312,150 @@ export const selectChat = async (chat, enrichSharedFns = {}) => {
 
 // ─── sendMessage ──────────────────────────────────────────────────────────────
 
+const dropStaleOptimisticOutbound = (rows = []) => {
+  if (!Array.isArray(rows) || rows.length === 0) return []
+  const confirmed = rows.filter((row) => row?.fromMe && !row?.optimisticOutbound)
+  return rows.filter((row) => {
+    if (!row?.optimisticOutbound) return true
+    const text = strTrim(row.text || row.body || '')
+    const ts = Number(row.timestamp || 0)
+    if (!text || !ts) return false
+    return !confirmed.some((real) => {
+      const realText = strTrim(real.text || real.body || '')
+      const realTs = Number(real.timestamp || 0)
+      return realText === text && Math.abs(realTs - ts) <= 90_000
+    })
+  })
+}
+
+const appendOptimisticOutgoingText = (chatJid, text, replyTo = null) => {
+  const normalizedChatJid = normalizeJid(chatJid)
+  if (!normalizedChatJid || !text) return null
+
+  const optimisticId = `opt-out:${Date.now()}:${Math.random().toString(36).slice(2, 9)}`
+  const raw = {
+    id: optimisticId,
+    messageid: optimisticId,
+    chatid: normalizedChatJid,
+    text,
+    body: text,
+    fromMe: true,
+    messageTimestamp: Date.now(),
+    messageType: 'Conversation',
+    status: 'pending',
+    ...(replyTo?.messageid ? { quoted: replyTo.messageid } : {}),
+  }
+
+  const normalized = normalizeIncomingMessage(raw)
+  if (!normalized) return null
+
+  // Limpa apenas otimistas antigas pendentes; a NOVA bolha nunca pode ser descartada
+  // aqui (senão um texto repetido em <90s some do input e só volta via webhook/poll).
+  const cleanedPrev = dropStaleOptimisticOutbound(messages.value)
+  const next = [
+    ...cleanedPrev,
+    { ...normalized, optimisticOutbound: true, deliveryStatus: 'pending' },
+  ].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+
+  messages.value = next
+  messagesCacheByChatJid.set(normalizedChatJid, [...next])
+  return optimisticId
+}
+
+const removeOptimisticOutgoing = (optimisticId) => {
+  if (!optimisticId) return
+  const next = messages.value.filter((row) =>
+    row.id !== optimisticId &&
+    row.messageid !== optimisticId &&
+    row.normalizedMessageId !== optimisticId
+  )
+  messages.value = next
+  const chatJid = resolveActiveChatFetchJid(selectedChat.value)
+  if (chatJid) messagesCacheByChatJid.set(chatJid, [...next])
+}
+
+/** Extrai messageid + timestamp da resposta do /send/text para confirmar na hora. */
+const extractSentMessageRef = (responseData) => {
+  const payload = responseData && typeof responseData === 'object' ? responseData : {}
+  const node = (payload.message && typeof payload.message === 'object' && payload.message)
+    || (payload.data && typeof payload.data === 'object' && payload.data)
+    || payload
+  const key = node?.key && typeof node.key === 'object' ? node.key : {}
+  const realId = normalizeProviderMessageId(
+    node?.id || node?.messageid || node?.messageId || key?.id || key?.ID || ''
+  )
+  const tsRaw = node?.messageTimestamp || node?.timestamp || node?.t || 0
+  const realTs = normalizeTimestampToMs(tsRaw) || 0
+  return { realId, realTs }
+}
+
+/** Converte a mensagem otimista (⏱) em enviada (✓) usando a resposta da UAZAPI. */
+const confirmOptimisticOutgoing = (optimisticId, responseData) => {
+  if (!optimisticId) return
+  const { realId, realTs } = extractSentMessageRef(responseData)
+
+  const next = messages.value.map((row) => {
+    const isTarget = row.id === optimisticId
+      || row.messageid === optimisticId
+      || row.normalizedMessageId === optimisticId
+    if (!isTarget) return row
+    return {
+      ...row,
+      id: realId || row.id,
+      messageid: realId || row.messageid,
+      normalizedMessageId: realId || row.normalizedMessageId,
+      timestamp: realTs || row.timestamp,
+      status: 'sent',
+      deliveryStatus: 'sent',
+      deliveryIndicator: '✓',
+      optimisticOutbound: !realId,
+    }
+  })
+  messages.value = next
+  const chatJid = resolveActiveChatFetchJid(selectedChat.value)
+  if (chatJid) messagesCacheByChatJid.set(chatJid, [...next])
+}
+
 export const sendMessage = async () => {
   if (!newMessage.value.trim() || sending.value) return
+  if (!selectedChat.value) {
+    showChatFeedback('Selecione uma conversa para enviar.')
+    return
+  }
+  const chatNumber = resolveSendChatNumber(selectedChat.value)
+  if (!chatNumber) {
+    showChatFeedback('Não foi possível identificar o destinatário.')
+    return
+  }
+
   const textToSend = newMessage.value.trim()
-  const currentChatJid = selectedChat.value?.chatJid
+  const currentChatJid = resolveActiveChatFetchJid(selectedChat.value) || selectedChat.value?.chatJid
   const savedReplyingTo = replyingTo.value
   const proxyBase = getProxyBase()
+
   newMessage.value = ''
+  replyingTo.value = null
+
+  const optimisticId = currentChatJid ? appendOptimisticOutgoingText(currentChatJid, textToSend, savedReplyingTo) : null
+  if (currentChatJid) {
+    refreshChatPreview(currentChatJid, {
+      lastMessage: textToSend,
+      lastMessageFromMe: true,
+      lastMessagePrefix: '',
+      lastMessageTime: Date.now(),
+      wa_lastMessageTextVote: textToSend,
+    })
+  }
+  scrollToBottom()
+
+  sending.value = true
   try {
-    sending.value = true
     const pollCmd = textToSend.match(/^\/poll\s+(.+?)\s*\|\s*(.+)$/i)
     const menuJsonCmd = textToSend.match(/^\/menujson\s+(\{[\s\S]+\})$/i)
 
     if (menuJsonCmd) {
-      const proxyBase = getProxyBase()
       const payload = JSON.parse(menuJsonCmd[1])
-      payload.number = payload.number || selectedChat.value.chatJid
+      payload.number = payload.number || chatNumber
       const menuRes = await fetch(`${proxyBase}/send/menu`, {
         method: 'POST',
         headers: whatsappJsonHeaders(),
@@ -1996,15 +2463,13 @@ export const sendMessage = async () => {
       })
       const menuData = await menuRes.json().catch(() => ({}))
       if (!menuRes.ok) throw new Error(menuData?.message || menuData?.error || 'Falha ao enviar menu')
-      newMessage.value = ''
-      replyingTo.value = null
-      refreshSelectedChatMessages().catch(() => {})
+      removeOptimisticOutgoing(optimisticId)
+      refreshSelectedChatMessages({}, { light: true }).catch(() => {})
       scrollToBottom()
       return
     }
 
     if (pollCmd) {
-      const proxyBase = getProxyBase()
       const pollTitle = String(pollCmd[1] || '').trim()
       const pollOptions = String(pollCmd[2] || '')
         .split(';')
@@ -2017,7 +2482,7 @@ export const sendMessage = async () => {
         method: 'POST',
         headers: whatsappJsonHeaders(),
         body: JSON.stringify({
-          number: selectedChat.value.chatJid,
+          number: chatNumber,
           type: 'poll',
           text: pollTitle,
           choices: pollOptions,
@@ -2026,38 +2491,38 @@ export const sendMessage = async () => {
       })
       const menuData = await menuRes.json().catch(() => ({}))
       if (!menuRes.ok) throw new Error(menuData?.message || menuData?.error || 'Falha ao enviar enquete')
-      newMessage.value = ''
-      replyingTo.value = null
-      refreshSelectedChatMessages().catch(() => {})
+      removeOptimisticOutgoing(optimisticId)
+      refreshSelectedChatMessages({}, { light: true }).catch(() => {})
       scrollToBottom()
       return
     }
 
-    const body = { number: selectedChat.value.chatJid, text: textToSend }
+    const body = { number: chatNumber, text: textToSend }
     if (savedReplyingTo?.messageid) body.replyid = savedReplyingTo.messageid
     const res = await fetch(`${proxyBase}/send/text`, {
       method: 'POST',
       headers: whatsappJsonHeaders(),
       body: JSON.stringify(body)
     })
-    if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data?.message || data?.error || 'Falha ao enviar mensagem') }
-    replyingTo.value = null
-    if (currentChatJid) {
-      refreshChatPreview(currentChatJid, {
-        lastMessage: textToSend,
-        lastMessageFromMe: true,
-        lastMessagePrefix: '',
-        lastMessageTime: Date.now(),
-        wa_lastMessageTextVote: textToSend
-      })
+    const sentData = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(sentData?.message || sentData?.error || 'Falha ao enviar mensagem')
     }
-    refreshSelectedChatMessages().catch(() => {})
-    scrollToBottom()
+
+    confirmOptimisticOutgoing(optimisticId, sentData)
+
+    window.setTimeout(() => {
+      refreshSelectedChatMessages({}, { light: true }).catch(() => {})
+    }, 350)
   } catch (e) {
     console.error('Erro ao enviar mensagem', e)
+    removeOptimisticOutgoing(optimisticId)
     newMessage.value = textToSend
     replyingTo.value = savedReplyingTo
-  } finally { sending.value = false }
+    showChatFeedback('Não foi possível enviar. Tente novamente.')
+  } finally {
+    sending.value = false
+  }
 }
 
 export const sendInteractiveMenuReply = async (message, opt) => {
@@ -2117,6 +2582,30 @@ export const sendInteractiveMenuReply = async (message, opt) => {
 
 let forceRealtimeSyncDebounceTimer = null
 let chatRealtimeUnsub = null
+let initialSyncCompleteUnsub = null
+
+const rescheduleChatsPolling = (enrichSharedFns = {}) => {
+  if (typeof window === 'undefined') return
+  if (chatsPollingTimer.value) clearInterval(chatsPollingTimer.value)
+  const interval = getGentleChatsPollIntervalMs()
+  chatsPollingTimer.value = setInterval(() => {
+    loadChats(false, { silent: true, lightSync: true, gentle: isInitialSyncGentleMode() })
+  }, interval)
+}
+
+const watchInitialSyncCompletion = (enrichSharedFns = {}) => {
+  if (typeof window === 'undefined') return
+  if (initialSyncCompleteUnsub) return
+  let prevActive = isInitialSyncGentleMode()
+  initialSyncCompleteUnsub = setInterval(() => {
+    const active = isInitialSyncGentleMode()
+    if (prevActive && !active) {
+      rescheduleChatsPolling(enrichSharedFns)
+      loadChats(true, { silent: true }).catch(() => {})
+    }
+    prevActive = active
+  }, 3000)
+}
 
 export const mergeIncomingWhatsappMessage = (rawMessage, chatJid = '') => {
   if (!rawMessage || typeof rawMessage !== 'object') return false
@@ -2152,7 +2641,7 @@ export const mergeIncomingWhatsappMessage = (rawMessage, chatJid = '') => {
     mergedByKey.set(key, normalized)
   }
 
-  const merged = Array.from(mergedByKey.values()).sort((a, b) => a.timestamp - b.timestamp)
+  const merged = dropStaleOptimisticOutbound(Array.from(mergedByKey.values())).sort((a, b) => a.timestamp - b.timestamp)
   messages.value = merged
   messagesCacheByChatJid.set(selectedJid, [...merged])
   indexMessagesForPreviewCache(merged)
@@ -2163,14 +2652,17 @@ export const mergeIncomingWhatsappMessage = (rawMessage, chatJid = '') => {
 export const forceRealtimeSync = (enrichSharedFns = {}) => {
   if (typeof window === 'undefined') return
   if (forceRealtimeSyncDebounceTimer) clearTimeout(forceRealtimeSyncDebounceTimer)
+  const debounceMs = isInitialSyncGentleMode() ? 900 : 200
   forceRealtimeSyncDebounceTimer = setTimeout(async () => {
     forceRealtimeSyncDebounceTimer = null
     try {
-      await loadChats(false, { silent: true, lightSync: true })
-      await refreshSelectedChatMessages(enrichSharedFns, { force: true, light: true })
+      await loadChats(false, { silent: true, lightSync: true, gentle: isInitialSyncGentleMode() })
+      if (!isInitialSyncGentleMode()) {
+        await refreshSelectedChatMessages(enrichSharedFns, { force: true, light: true })
+      }
       stickChatScrollToBottomIfNeeded()
     } catch (err) { console.error('Sincronizacao em tempo real', err) }
-  }, 550)
+  }, debounceMs)
 }
 
 const isChatMetadataEvent = (eventType = '') => {
@@ -2180,6 +2672,38 @@ const isChatMetadataEvent = (eventType = '') => {
 
 export const handleWhatsappRealtimeEvent = (payload = {}, enrichSharedFns = {}) => {
   const eventType = String(payload?.eventType || '').trim().toLowerCase()
+  if (eventType === 'history' || eventType.includes('history')) {
+    markInitialSyncActivity('history')
+    const historyChatJid = String(
+      payload?.chatJid ||
+      payload?.chat?.wa_chatid ||
+      payload?.message?.chatid ||
+      payload?.details?.number ||
+      payload?.details?.chat ||
+      ''
+    ).trim()
+    const selectedJid = normalizeJid(selectedChat.value?.chatJid)
+    const historyMessages = extractRealtimeMessagesFromPayload(payload)
+    if (historyMessages.length) {
+      let mergedAny = false
+      for (const rawMessage of historyMessages) {
+        const msgChatJid = String(
+          rawMessage?.chatid ||
+          rawMessage?.chatJid ||
+          rawMessage?.wa_chatid ||
+          historyChatJid ||
+          ''
+        ).trim()
+        if (mergeIncomingWhatsappMessage(rawMessage, msgChatJid)) mergedAny = true
+      }
+      if (mergedAny) stickChatScrollToBottomIfNeeded()
+    }
+    if (selectedJid && historyChatJid && jidsReferToSameChat(historyChatJid, selectedJid)) {
+      void refreshSelectedChatMessages(enrichSharedFns, { force: true, light: true })
+    } else if (selectedJid && historyMessages.length) {
+      void refreshSelectedChatMessages(enrichSharedFns, { force: true, light: true })
+    }
+  }
   const deletedJid = String(payload?.deletedChatJid || '').trim()
   if (payload?.chatDeleted && deletedJid) {
     removeChatFromLocalState({ chatJid: deletedJid })
@@ -2227,7 +2751,11 @@ export const handleWhatsappRealtimeEvent = (payload = {}, enrichSharedFns = {}) 
       loadGroupParticipantsDirectory(selectedJid, { force: true }).catch(() => {})
     }
   } else if (!skipLightSync) {
-    loadChats(false, { silent: true, lightSync: true }).catch(() => {})
+    loadChats(false, { silent: true, lightSync: true, gentle: isInitialSyncGentleMode() }).catch(() => {})
+  }
+
+  if (appliedChatFromPayload || payload?.message) {
+    markInitialSyncActivity(eventType || 'realtime')
   }
 }
 
@@ -2242,13 +2770,12 @@ export const startRealtimeSync = async (enrichSharedFns = {}) => {
   connectWhatsappSse()
   void connectWhatsappPusher()
 
-  if (chatsPollingTimer.value) clearInterval(chatsPollingTimer.value)
-  chatsPollingTimer.value = setInterval(() => {
-    loadChats(false, { silent: true, lightSync: true })
-  }, CHATS_POLL_INTERVAL_MS)
+  rescheduleChatsPolling(enrichSharedFns)
+  watchInitialSyncCompletion(enrichSharedFns)
 
   if (messagesPollingTimer.value) clearInterval(messagesPollingTimer.value)
   messagesPollingTimer.value = setInterval(() => {
+    if (isInitialSyncGentleMode()) return
     refreshSelectedChatMessages(enrichSharedFns, { light: true })
   }, MESSAGES_POLL_INTERVAL_MS)
 
@@ -2274,6 +2801,7 @@ export const stopRealtimeSync = () => {
   disconnectWhatsappSse()
   disconnectWhatsappPusher()
   if (forceRealtimeSyncDebounceTimer) { clearTimeout(forceRealtimeSyncDebounceTimer); forceRealtimeSyncDebounceTimer = null }
+  if (initialSyncCompleteUnsub) { clearInterval(initialSyncCompleteUnsub); initialSyncCompleteUnsub = null }
   if (chatsPollingTimer.value) { clearInterval(chatsPollingTimer.value); chatsPollingTimer.value = null }
   if (messagesPollingTimer.value) { clearInterval(messagesPollingTimer.value); messagesPollingTimer.value = null }
   if (visibilitySyncHandler.value) { document.removeEventListener('visibilitychange', visibilitySyncHandler.value); visibilitySyncHandler.value = null }
@@ -2285,6 +2813,9 @@ export const stopRealtimeSync = () => {
 export const resetWhatsappAfterDisconnect = () => {
   cancelScheduledGroupObservedPersist()
   stopRealtimeSync()
+  resetInitialSyncState()
+  resetChatsRuntimeCaches()
+  void import('./useWhatsappQuickReplies.js').then((m) => m.resetQuickRepliesState?.()).catch(() => {})
   chatOlderPaginationByJid.clear()
   loadingOlderMessages.value = false
   chatMessagesHasMore.value = false
@@ -2295,7 +2826,7 @@ export const resetWhatsappAfterDisconnect = () => {
 
 export function useWhatsappChats() {
   return {
-    loadChats, selectChat, sendMessage, sendInteractiveMenuReply, loadOlderChatMessages,
+    loadChats, selectChat, retrySelectedChatHistorySync, sendMessage, sendInteractiveMenuReply, loadOlderChatMessages,
     scrollToBottom, scrollToBottomOnChatOpen, isChatBodyNearBottom, stickChatScrollToBottomIfNeeded,
     captureChatScrollSnapshot, restoreChatScrollAfterMessagesUpdate,
     refreshSelectedChatMessages, refreshChatPreview, markCurrentChatAsRead, markMessageAsPlayed, markAllChatsAsRead,
@@ -2310,7 +2841,7 @@ export function useWhatsappChats() {
     resolveChatListPresencePreview, getChatPresenceState, applyPresenceFromRealtimePayload,
     applyWhatsappRealtimePayload, indexMessagesForPreviewCache,
     fallbackLastMessageFromChatType, getChatActivityTimestamp, parseWaPinnedFlag,
-    syncSelectedChatAfterChatsMutation, fetchChatMessages
+    syncSelectedChatAfterChatsMutation, fetchChatMessages, chatHasListPreview, resolveChatListLastMessage,
   }
 }
 

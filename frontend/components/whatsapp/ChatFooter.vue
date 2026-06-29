@@ -159,7 +159,7 @@
             rows="1"
             :value="modelValue"
             placeholder="Digite uma mensagem"
-            :disabled="sending"
+            :disabled="composeLocked || contactBlocked"
             @input="onMessageInput"
             @keydown="onInputKeydown"
             @focus="onMessageFocus"
@@ -170,7 +170,7 @@
           v-if="modelValue.trim() || sending"
           type="button"
           class="compose-pill-btn compose-pill-btn--send"
-          :disabled="!modelValue.trim() || sending"
+          :disabled="!modelValue.trim()"
           title="Enviar"
           aria-label="Enviar"
           @click="$emit('send')"
@@ -388,7 +388,10 @@ watch(
 )
 
 const onInputKeydown = (event) => {
-  if (props.quickRepliesPickerOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
+  const text = String(props.modelValue || '').trim()
+  const slashQuickReply = text.startsWith('/') && !text.includes(' ')
+
+  if (props.quickRepliesPickerOpen && slashQuickReply && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
     emit('quick-replies-keydown', event)
     return
   }

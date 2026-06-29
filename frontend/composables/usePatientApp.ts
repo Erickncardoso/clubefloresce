@@ -1,5 +1,7 @@
 /** Helpers da versão app do paciente (preview web / futuro Capacitor). */
 
+import { usePatientAuth } from '~/composables/usePatientAuth'
+
 export type PatientProfile = {
   name: string
   avatar: string

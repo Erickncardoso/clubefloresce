@@ -91,7 +91,7 @@ function run(args, options = {}) {
       ...(lanMode
         ? {
             NUXT_LAN: 'true',
-            NUXT_PWA_DEV: process.env.NUXT_PWA_DEV || 'true',
+            NUXT_PWA_DEV: process.env.NUXT_PWA_DEV || 'false',
           }
         : {}),
       ...(localOnly ? { NUXT_LOCAL: 'true' } : {}),
@@ -157,6 +157,7 @@ if (prepare.status !== 0) process.exit(prepare.status ?? 1)
 ensureDevServiceWorkerFiles()
 
 if (lanMode) {
+  console.log('[cliente:dev] PWA dev SW:', process.env.NUXT_PWA_DEV === 'true' ? 'ativo' : 'desligado (CSS ao vivo no celular)')
   printLanInstructions()
   console.log(`[cliente:dev] iniciando em 0.0.0.0:${devPort} (rede local + PC)`)
 } else {

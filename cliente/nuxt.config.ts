@@ -48,6 +48,7 @@ export default defineNuxtConfig({
   },
 
   plugins: [
+    join(frontendRoot, 'plugins/pwa-dev-unregister.client.ts'),
     join(frontendRoot, 'plugins/auth-session-bootstrap.client.ts'),
     join(frontendRoot, 'plugins/api-base.client.js'),
     join(frontendRoot, 'plugins/patient-session.client.ts'),
@@ -89,7 +90,6 @@ export default defineNuxtConfig({
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: 'Florescer' },
         { name: 'application-name', content: 'Clube Florescer' },
-        { name: 'theme-color', content: '#8B967C' },
         {
           name: 'description',
           content: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
@@ -140,8 +140,6 @@ export default defineNuxtConfig({
       short_name: 'Florescer',
       description: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
       lang: 'pt-BR',
-      theme_color: '#8B967C',
-      background_color: '#eef0eb',
       display: 'standalone',
       display_override: ['standalone', 'fullscreen'],
       scope: '/',

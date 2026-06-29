@@ -1,541 +1,567 @@
 <template>
   <NuxtLayout name="dashboard">
-    <div class="dashboard-page">
-      <!-- Seção Superior: Postar Novidades + Novas Aulas -->
-      <div class="top-grid">
-        <!-- Carrossel de Novidades (Elite) -->
-        <div class="news-carousel">
-          <div class="carousel-inner" :style="{ transform: `translateX(-${activeSlide * 100}%)` }">
-            <!-- Slide 1: Welcome -->
-            <div class="slide">
-              <div class="slide-content">
-                <span class="slide-tag">Boas-vindas</span>
-                <h2>Sua jornada para o bem-estar começa aqui.</h2>
-                <p>Explore nossos módulos e descubra como a nutrição pode transformar sua vida.</p>
-                <NuxtLink to="/cursos" class="slide-cta">Começar agora</NuxtLink>
-              </div>
-              <div class="slide-image">
-                <div class="image-overlay"></div>
-                <img src="https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=2070&auto=format&fit=crop" alt="Healthy Food" />
-              </div>
-            </div>
-
-            <!-- Slide 2: Latest Course -->
-            <div class="slide" v-if="latestCourse">
-              <div class="slide-content">
-                <span class="slide-tag">Lançamento</span>
-                <h2>{{ latestCourse.title }}</h2>
-                <p>{{ latestCourse.description || 'Confira o novo conteúdo exclusivo que preparamos para você.' }}</p>
-                <NuxtLink :to="`/cursos`" class="slide-cta">Ver curso</NuxtLink>
-              </div>
-              <div class="slide-image">
-                <div class="image-overlay"></div>
-                <img :src="latestCourse.thumbnail || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=2070&auto=format&fit=crop'" alt="Course Thumbnail" />
-              </div>
-            </div>
-
-            <!-- Slide 3: Blog/Tip -->
-            <div class="slide">
-              <div class="slide-content">
-                <span class="slide-tag">Dica do Especialista</span>
-                <h2>Os benefícios dos antioxidantes naturais.</h2>
-                <p>Saiba quais alimentos incluir na sua rotina para combater o envelhecimento celular.</p>
-                <button class="slide-cta ghost">Ler artigo</button>
-              </div>
-              <div class="slide-image">
-                <div class="image-overlay"></div>
-                <img src="https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=1974&auto=format&fit=crop" alt="Antioxidants" />
-              </div>
-            </div>
-          </div>
-
-          <div class="carousel-controls">
-            <button class="ctrl-btn" @click="prevSlide"><ChevronLeft /></button>
-            <div class="carousel-dots">
-              <span v-for="i in slidesCount" :key="i" class="dot" :class="{ active: activeSlide === i - 1 }" @click="activeSlide = i - 1"></span>
-            </div>
-            <button class="ctrl-btn" @click="nextSlide"><ChevronRight /></button>
-          </div>
+    <div class="admin-home admin-shell">
+      <header class="admin-shell-header admin-home-header">
+        <div>
+          <p class="admin-home-kicker">Painel Clube Florescer</p>
+          <h1>Olá, {{ greetingName }}</h1>
+          <p>Resumo do portal — alunas, conteúdos e atalhos do dia a dia.</p>
         </div>
+        <NuxtLink to="/whatsapp/chat" class="admin-home-cta">
+          <MessageCircle class="admin-home-cta-icon" />
+          Abrir WhatsApp
+        </NuxtLink>
+      </header>
 
-        <!-- Seção de Novas Aulas (Card Elite) -->
-        <div class="new-classes-card">
-          <div class="card-header">
-            <div class="header-main">
-              <PlayCircle class="header-icon-green" />
-              <h3>Aulas recentes</h3>
-            </div>
-            <NuxtLink to="/cursos" class="view-all">Ver todas</NuxtLink>
+      <div class="admin-home-stats">
+        <article v-for="card in statCards" :key="card.key" class="admin-home-stat admin-shell-card">
+          <div class="admin-home-stat-icon" :class="`admin-home-stat-icon--${card.tone}`">
+            <component :is="card.icon" />
           </div>
-          
-          <div class="classes-list" v-if="recentCourses.length">
-            <div v-for="course in recentCourses" :key="course.id" class="class-item">
-              <div class="class-thumb">
-                <img v-if="course.thumbnail" :src="course.thumbnail" />
-                <BookOpen v-else class="thumb-placeholder" />
-              </div>
-              <div class="class-info">
-                <h4>{{ course.title }}</h4>
-                <p>{{ course.modules?.length || 0 }} Módulos</p>
-              </div>
-            </div>
+          <div>
+            <span class="admin-home-stat-label">{{ card.label }}</span>
+            <strong class="admin-home-stat-value">{{ card.value }}</strong>
+            <span class="admin-home-stat-hint">{{ card.hint }}</span>
           </div>
-          <div v-else class="classes-empty">
-            <p>Ainda não há aulas registradas.</p>
-          </div>
-        </div>
+        </article>
       </div>
 
-      <!-- Seção Inferior: Notificações + Blog -->
-      <div class="bottom-grid">
-        <!-- Notificações -->
-        <div class="notifications-card shadow-card">
-          <div class="card-header">
-            <div class="header-main">
-              <Bell class="header-icon-orange" />
-              <h3>Minhas Notificações</h3>
-            </div>
-            <span class="notif-count" v-if="unreadCount > 0">{{ unreadCount }} novas</span>
+      <div class="admin-home-grid">
+        <section class="admin-home-panel admin-shell-card">
+          <div class="admin-home-panel-head">
+            <h2>Atalhos rápidos</h2>
           </div>
-          <div class="notif-list" v-if="notifications.length">
-            <div v-for="n in notifications" :key="n.id" class="notif-item">
-              <div class="notif-dot" :class="{ unread: !n.read }"></div>
-              <div class="notif-content">
-                <p class="notif-text"><strong>{{ n.title }}</strong>: {{ n.body }}</p>
-                <span class="notif-time">{{ formatTime(n.createdAt) }}</span>
-              </div>
-            </div>
+          <div class="admin-home-actions">
+            <NuxtLink
+              v-for="action in quickActions"
+              :key="action.path"
+              :to="action.path"
+              class="admin-home-action"
+            >
+              <component :is="action.icon" class="admin-home-action-icon" />
+              <span>{{ action.label }}</span>
+              <ChevronRight class="admin-home-action-arrow" />
+            </NuxtLink>
           </div>
-          <div v-else class="empty-state">
-            <p>Nenhuma notificação por enquanto.</p>
-          </div>
-        </div>
+        </section>
 
-        <!-- Blog Florescer -->
-        <div class="blog-preview shadow-card">
-          <div class="card-header">
-            <div class="header-main">
-              <TrendingUp class="header-icon-purple" />
-              <h3>Blog Florescer</h3>
-            </div>
-            <ChevronRight class="header-icon-small" />
+        <section class="admin-home-panel admin-shell-card">
+          <div class="admin-home-panel-head">
+            <h2>Cadastros pendentes</h2>
+            <NuxtLink v-if="pendingRequests.length" to="/usuarios" class="admin-home-link">
+              Ver todos
+            </NuxtLink>
           </div>
-          <div class="blog-articles">
-            <div class="blog-article-mini">
-              <div class="blog-img-box">
-                <img src="https://images.unsplash.com/photo-1547524960-8f2713f09b56?q=80&w=2070&auto=format&fit=crop" />
-              </div>
-              <div class="blog-txt">
-                <h5>Como organizar sua marmita semanal</h5>
-                <p>Dicas práticas para manter o foco na dieta durante a correria.</p>
-              </div>
-            </div>
-            <div class="blog-article-mini">
-              <div class="blog-img-box">
-                <img src="https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?q=80&w=2000&auto=format&fit=crop" />
-              </div>
-              <div class="blog-txt">
-                <h5>Músculos e Proteína Vegetal</h5>
-                <p>É possível ganhar massa sendo vegano? Especialistas respondem.</p>
-              </div>
-            </div>
+
+          <div v-if="loading" class="admin-home-empty">
+            <Loader2 class="admin-home-spinner" />
+            <span>Carregando…</span>
           </div>
-        </div>
+          <ul v-else-if="pendingRequests.length" class="admin-home-requests">
+            <li v-for="req in pendingRequests.slice(0, 4)" :key="req.id">
+              <div>
+                <strong>{{ req.name || 'Sem nome' }}</strong>
+                <span>{{ req.email || req.phone || 'Contato não informado' }}</span>
+              </div>
+              <NuxtLink to="/usuarios" class="admin-home-link">Revisar</NuxtLink>
+            </li>
+          </ul>
+          <p v-else class="admin-home-empty">Nenhuma solicitação pendente no momento.</p>
+        </section>
       </div>
+
+      <section class="admin-home-panel admin-shell-card admin-home-tip">
+        <Sparkles class="admin-home-tip-icon" />
+        <div>
+          <h2>Dica</h2>
+          <p>
+            Use <NuxtLink to="/check-in">Check-ins</NuxtLink> para acompanhar a evolução das alunas e
+            <NuxtLink to="/personalizar">Personalizar</NuxtLink> para ajustar a identidade visual do app delas.
+          </p>
+        </div>
+      </section>
     </div>
   </NuxtLayout>
 </template>
 
 <script setup>
-definePageMeta({
-  middleware: [() => navigateTo('/cursos')]
-})
-
-const config = useRuntimeConfig()
-const apiBase = config.public.apiBase
-const whatsappApiBase = config.public.whatsappApiBase
-
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Bell, 
-  BookOpen, 
-  TrendingUp,
-  PlayCircle,
-  Plus
+import {
+  Users,
+  UserPlus,
+  BookOpen,
+  CalendarCheck,
+  MessageCircle,
+  DollarSign,
+  ChevronRight,
+  Loader2,
+  Sparkles,
+  Palette,
+  Send,
 } from 'lucide-vue-next'
+import { authHeaders, verifyAuthSession } from '~/composables/useAuthSession.js'
+import {
+  fetchWhatsappSessionConnected,
+  getWhatsappApiBase,
+  isWhatsappConnectedFromStatusPayload,
+  whatsappFetchInit,
+} from '~/composables/whatsapp/useWhatsappApi.js'
 
-const userName = ref('')
-const activeSlide = ref(0)
-const slidesCount = ref(3)
-const recentCourses = ref([])
-const latestCourse = computed(() => recentCourses.value[0])
-const notifications = ref([
-  { id: 1, title: 'Atualização', body: 'Seu plano alimentar foi atualizado pela Nutri.', read: false, createdAt: new Date() },
-  { id: 2, title: 'Comunidade', body: 'João comentou no seu post: "Muito bom!"', read: true, createdAt: new Date(Date.now() - 3600000) }
+const apiBase = useApiBase()
+const loading = ref(true)
+const greetingName = ref('Nutricionista')
+const stats = reactive({
+  patients: 0,
+  pendingRequests: 0,
+  courses: 0,
+  checkinTemplates: 0,
+  revenue: 0,
+  whatsappConnected: false,
+})
+const pendingRequests = ref([])
+
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)
+
+const statCards = computed(() => [
+  {
+    key: 'patients',
+    label: 'Alunas ativas',
+    value: stats.patients,
+    hint: 'Cadastradas no portal',
+    icon: Users,
+    tone: 'green',
+  },
+  {
+    key: 'pending',
+    label: 'Cadastros pendentes',
+    value: stats.pendingRequests,
+    hint: stats.pendingRequests ? 'Aguardando aprovação' : 'Tudo em dia',
+    icon: UserPlus,
+    tone: 'amber',
+  },
+  {
+    key: 'courses',
+    label: 'Cursos publicados',
+    value: stats.courses,
+    hint: 'Conteúdos no catálogo',
+    icon: BookOpen,
+    tone: 'blue',
+  },
+  {
+    key: 'whatsapp',
+    label: 'WhatsApp',
+    value: stats.whatsappConnected ? 'Conectado' : 'Desconectado',
+    hint: stats.whatsappConnected ? 'Pronto para atendimento' : 'Conecte em WhatsApp → Conexão',
+    icon: MessageCircle,
+    tone: stats.whatsappConnected ? 'green' : 'muted',
+  },
+  {
+    key: 'checkins',
+    label: 'Tipos de check-in',
+    value: stats.checkinTemplates,
+    hint: 'Modelos configurados',
+    icon: CalendarCheck,
+    tone: 'purple',
+  },
+  {
+    key: 'revenue',
+    label: 'Faturamento',
+    value: formatCurrency(stats.revenue),
+    hint: 'Total registrado no financeiro',
+    icon: DollarSign,
+    tone: 'teal',
+  },
 ])
-const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
 
-const nextSlide = () => {
-  activeSlide.value = (activeSlide.value + 1) % slidesCount.value
-}
-const prevSlide = () => {
-  activeSlide.value = (activeSlide.value - 1 + slidesCount.value) % slidesCount.value
-}
+const quickActions = [
+  { label: 'Gerenciar alunas', path: '/usuarios', icon: Users },
+  { label: 'Cursos e aulas', path: '/cursos', icon: BookOpen },
+  { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
+  { label: 'Chat ao vivo', path: '/whatsapp/chat', icon: MessageCircle },
+  { label: 'Transmissões WhatsApp', path: '/whatsapp/disparos', icon: Send },
+  { label: 'Financeiro', path: '/financeiro', icon: DollarSign },
+  { label: 'Personalizar app', path: '/personalizar', icon: Palette },
+]
 
-const fetchDashboardData = async () => {
+const loadWhatsappStatus = async () => {
+  const base = getWhatsappApiBase()
+  if (!base) {
+    stats.whatsappConnected = await fetchWhatsappSessionConnected()
+    return
+  }
   try {
-    const token = localStorage.getItem('auth_token')
-    const { data } = await $fetch(`${apiBase}/courses`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    recentCourses.value = data.slice(0, 3)
-    userName.value = localStorage.getItem('user_name') || 'Visitante'
-  } catch (err) {
-    console.error('Erro ao carregar dashboard:', err)
+    const res = await fetch(`${base}/status`, whatsappFetchInit())
+    const data = await res.json().catch(() => ({}))
+    stats.whatsappConnected = res.ok ? isWhatsappConnectedFromStatusPayload(data) : false
+  } catch {
+    stats.whatsappConnected = false
   }
 }
 
-const formatTime = (date) => {
-  return new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' }).format(-1, 'hour')
+const loadDashboard = async () => {
+  loading.value = true
+  try {
+    const user = await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' })
+    if (user?.name) greetingName.value = String(user.name).split(' ')[0] || user.name
+
+    const headers = authHeaders()
+    const base = apiBase.value
+
+    const [usersResult, requestsResult, coursesResult, checkinsResult, financeResult] = await Promise.allSettled([
+      $fetch(`${base}/users`, { headers }),
+      $fetch(`${base}/users/registration-requests`, { headers }),
+      $fetch(`${base}/courses`, { headers }),
+      $fetch(`${base}/checkin/templates`, { headers }),
+      $fetch(`${base}/financial/summary`, { headers }),
+    ])
+
+    if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
+      stats.patients = usersResult.value.filter((u) => u.role === 'PACIENTE').length
+    }
+
+    if (requestsResult.status === 'fulfilled') {
+      pendingRequests.value = requestsResult.value?.requests || []
+      stats.pendingRequests = pendingRequests.value.length
+    }
+
+    if (coursesResult.status === 'fulfilled' && Array.isArray(coursesResult.value)) {
+      stats.courses = coursesResult.value.length
+    }
+
+    if (checkinsResult.status === 'fulfilled') {
+      const templates = checkinsResult.value?.templates || checkinsResult.value
+      stats.checkinTemplates = Array.isArray(templates) ? templates.length : 0
+    }
+
+    if (financeResult.status === 'fulfilled') {
+      stats.revenue = Number(financeResult.value?.totalRevenue || 0)
+    }
+
+    await loadWhatsappStatus()
+  } catch (err) {
+    console.warn('Erro ao carregar dashboard admin:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
-// Auto-play carousel
-let timer
-onMounted(() => {
-  fetchDashboardData()
-  timer = setInterval(nextSlide, 7000)
-})
-
-onUnmounted(() => {
-  clearInterval(timer)
-})
+onMounted(loadDashboard)
 </script>
 
 <style scoped>
-.dashboard-page {
-  padding: 3rem;
-  max-width: 1440px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2.5rem;
-}
-
-/* CAROUSEL ELITE */
-.news-carousel {
-  grid-column: span 1;
-  background: #1a1a1a;
-  border-radius: 24px;
-  position: relative;
-  overflow: hidden;
-  height: 440px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-
-.carousel-inner {
-  display: flex;
-  height: 100%;
-  transition: transform 0.8s cubic-bezier(0.65, 0, 0.35, 1);
-}
-
-.slide {
-  min-width: 100%;
-  height: 100%;
-  display: flex;
-  position: relative;
-}
-
-.slide-content {
-  flex: 1;
-  padding: 4rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  z-index: 10;
-  background: linear-gradient(90deg, #1a1a1a 40%, transparent);
-}
-
-.slide-tag {
-  color: var(--primary-light);
-  font-weight: 800;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
-  margin-bottom: 1.2rem;
-  display: block;
-}
-
-.slide h2 {
-  color: white;
-  font-size: 2.5rem;
-  line-height: 1.1;
-  font-weight: 800;
-  margin-bottom: 1.5rem;
-  max-width: 400px;
-}
-
-.slide p {
-  color: rgba(255,255,255,0.7);
-  font-size: 1.1rem;
-  margin-bottom: 2rem;
-  max-width: 400px;
-}
-
-.slide-cta {
-  align-self: flex-start;
-  padding: 1rem 2.5rem;
-  background: var(--primary);
-  color: white;
-  border-radius: 12px;
-  text-decoration: none;
-  font-weight: 700;
-  transition: 0.3s;
-}
-
-.slide-cta:hover {
-  background: var(--primary-light);
-  transform: translateY(-3px);
-}
-
-.slide-cta.ghost {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.2);
-}
-
-.slide-image {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 60%;
-  height: 100%;
-}
-
-.slide-image img {
+.admin-home {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 0 0 1rem;
 }
 
-.image-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, #1a1a1a 0%, transparent 100%);
-}
-
-.carousel-controls {
-  position: absolute;
-  bottom: 2rem;
-  left: 4rem;
-  display: flex;
+.admin-home-header {
   align-items: center;
-  gap: 2rem;
-  z-index: 20;
 }
 
-.ctrl-btn {
-  background: rgba(255,255,255,0.1);
-  border: none;
-  color: white;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
+.admin-home-kicker {
+  margin: 0 0 0.35rem;
+  font-size: var(--admin-font-label);
+  font-weight: var(--admin-font-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-primary);
+}
+
+.admin-home-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  background: var(--admin-primary);
+  color: #fff;
+  font-size: var(--admin-font-btn);
+  font-weight: var(--admin-font-btn-weight);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.admin-home-cta:hover {
+  background: #7a856c;
+  transform: translateY(-1px);
+}
+
+.admin-home-cta-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.admin-home-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-home-stat {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.15rem 1.2rem;
+  min-width: 0;
+}
+
+.admin-home-stat-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: 0.2s;
+  flex-shrink: 0;
 }
 
-.ctrl-btn:hover { background: rgba(255,255,255,0.2); }
-
-.carousel-dots {
-  display: flex;
-  gap: 8px;
+.admin-home-stat-icon :deep(svg) {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.2);
-  cursor: pointer;
-  transition: 0.3s;
+.admin-home-stat-icon--green { background: #ecfdf3; color: #15803d; }
+.admin-home-stat-icon--amber { background: #fff7ed; color: #c2410c; }
+.admin-home-stat-icon--blue { background: #eff6ff; color: #1d4ed8; }
+.admin-home-stat-icon--purple { background: #faf5ff; color: #7e22ce; }
+.admin-home-stat-icon--teal { background: #f0fdfa; color: #0f766e; }
+.admin-home-stat-icon--muted { background: #f4f4f5; color: #71717a; }
+
+.admin-home-stat-label {
+  display: block;
+  font-size: var(--admin-font-label);
+  font-weight: var(--admin-font-label-weight);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--admin-muted);
 }
 
-.dot.active {
-  width: 24px;
-  background: var(--primary);
+.admin-home-stat-value {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: clamp(1rem, 1.4vw, 1.35rem);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--admin-ink);
+  overflow-wrap: anywhere;
 }
 
-/* TOP GRID COLS */
-.top-grid {
+.admin-home-stat-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--admin-muted);
+}
+
+.admin-home-grid {
   display: grid;
-  grid-template-columns: 2.2fr 1fr;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
-/* RECENT CLASSES CARD */
-.new-classes-card {
-  background: white;
-  border-radius: 24px;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+.admin-home-panel {
+  padding: 1.25rem 1.3rem;
 }
 
-.card-header {
+.admin-home-panel-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
-.header-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.admin-home-panel-head h2 {
+  margin: 0;
+  font-size: var(--admin-font-heading-2);
+  font-weight: var(--admin-font-heading-2-weight);
+  color: var(--admin-ink);
 }
 
-.header-main h3 {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: #111;
-}
-
-.header-icon-green { color: var(--primary); }
-.header-icon-orange { color: #f39c12; }
-.header-icon-purple { color: #8e44ad; }
-
-.view-all {
-  color: var(--primary);
-  font-size: 0.85rem;
-  font-weight: 700;
+.admin-home-link {
+  font-size: var(--admin-font-nav);
+  font-weight: var(--admin-font-nav-weight-active);
+  color: var(--admin-primary);
   text-decoration: none;
 }
 
-.classes-list {
+.admin-home-link:hover {
+  text-decoration: underline;
+}
+
+.admin-home-actions {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 0.45rem;
 }
 
-.class-item {
+.admin-home-action {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.8rem;
-  border-radius: 16px;
-  transition: 0.2s;
-  cursor: pointer;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  color: var(--admin-ink);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: var(--admin-font-body);
+  transition: background 0.18s ease;
 }
 
-.class-item:hover {
-  background: #fcfcfc;
-  transform: translateX(5px);
+.admin-home-action:hover {
+  background: var(--admin-primary-soft);
 }
 
-.class-thumb {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  background: #f0f0f0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+.admin-home-action-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--admin-primary);
 }
 
-.class-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.thumb-placeholder { width: 24px; color: #ddd; }
-
-.class-info h4 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 2px;
+.admin-home-action-arrow {
+  width: 1rem;
+  height: 1rem;
+  margin-left: auto;
+  color: #a1a1aa;
 }
 
-.class-info p {
-  font-size: 0.8rem;
-  color: #999;
-  font-weight: 600;
-}
-
-/* BOTTOM GRID */
-.bottom-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.shadow-card {
-  background: white;
-  border-radius: 24px;
-  padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-}
-
-/* NOTIFICATIONS */
-.notif-item {
-  display: flex;
-  gap: 12px;
-  padding: 1rem 0;
-  border-bottom: 1px solid #f5f5f5;
-}
-
-.notif-item:last-child { border-bottom: none; }
-
-.notif-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #eee;
-  margin-top: 6px;
-  flex-shrink: 0;
-}
-
-.notif-dot.unread { background: #f39c12; }
-
-.notif-text { font-size: 0.95rem; color: #555; margin-bottom: 4px; line-height: 1.4; }
-.notif-time { font-size: 0.75rem; color: #aaa; font-weight: 600; }
-
-/* BLOG PREVIEW */
-.blog-articles {
+.admin-home-requests {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.65rem;
 }
 
-.blog-article-mini {
-  display: flex;
-  gap: 1.2rem;
-  align-items: center;
-}
-
-.blog-img-box {
-  width: 100px;
-  height: 70px;
-  border-radius: 12px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.blog-img-box img { width: 100%; height: 100%; object-fit: cover; }
-
-.blog-txt h5 { font-size: 0.95rem; font-weight: 700; color: #222; margin-bottom: 4px; }
-.blog-txt p { font-size: 0.85rem; color: #888; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-.classes-empty, .empty-state {
-  flex: 1;
+.admin-home-requests li {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #ccc;
-  font-size: 0.9rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-home-requests li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.admin-home-requests strong {
+  display: block;
+  font-size: var(--admin-font-body);
+  font-weight: 500;
+  color: var(--admin-ink);
+}
+
+.admin-home-requests span {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+}
+
+.admin-home-empty {
+  margin: 0;
+  padding: 1.5rem 0;
   text-align: center;
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-home-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  animation: admin-home-spin 0.8s linear infinite;
+}
+
+@keyframes admin-home-spin {
+  to { transform: rotate(360deg); }
+}
+
+.admin-home-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.admin-home-tip-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  color: var(--admin-primary);
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.admin-home-tip h2 {
+  margin: 0 0 0.35rem;
+  font-size: var(--admin-font-heading-2);
+  font-weight: var(--admin-font-heading-2-weight);
+}
+
+.admin-home-tip p {
+  margin: 0;
+  font-size: var(--admin-font-body);
+  font-weight: var(--admin-font-body-weight);
+  color: var(--admin-muted);
+  line-height: 1.5;
+}
+
+.admin-home-tip a {
+  color: var(--admin-primary);
+  font-weight: var(--admin-font-nav-weight-active);
+  text-decoration: none;
+}
+
+.admin-home-tip a:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 1500px) {
+  .admin-home-stats {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1280px) {
+  .admin-home-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .admin-home-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-home-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-home-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-home-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-home-cta {
+    justify-content: center;
+  }
 }
 </style>
-

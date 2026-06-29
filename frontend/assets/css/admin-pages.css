@@ -5,11 +5,151 @@
   --secondary: #f4f7f6;
   --text-main: #333d3b;
   --text-muted: #66706e;
+
+  /* Tipografia admin — compacta, sem bold pesado */
+  --admin-font-nav: 0.8125rem;
+  --admin-font-nav-weight: 500;
+  --admin-font-nav-weight-active: 600;
+  --admin-font-body: 0.875rem;
+  --admin-font-body-weight: 400;
+  --admin-font-label: 0.6875rem;
+  --admin-font-label-weight: 500;
+  --admin-font-heading-1: 1.375rem;
+  --admin-font-heading-1-weight: 600;
+  --admin-font-heading-2: 0.9375rem;
+  --admin-font-heading-2-weight: 600;
+  --admin-font-heading-3: 0.875rem;
+  --admin-font-heading-3-weight: 600;
+  --admin-font-btn: 0.8125rem;
+  --admin-font-btn-weight: 600;
 }
 
 html,
 body {
+  overflow-x: clip;
+}
+
+/* Painel admin com sidebar: scroll só em .content-body (wheel do mouse funciona de forma confiável) */
+html:has(.dashboard-layout--sidebar:not(.patient-app-layout)),
+html:has(.dashboard-layout--sidebar:not(.patient-app-layout)) body {
+  overflow: hidden;
+  height: 100%;
+  max-height: 100dvh;
+}
+
+html:has(.dashboard-layout--sidebar:not(.patient-app-layout)) #__nuxt {
+  height: 100%;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.dashboard-layout--sidebar:not(.patient-app-layout) .content-body {
+  flex: 1 1 0;
+  min-height: 0;
   overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 150, 124, 0.38) rgba(244, 247, 246, 0.6);
+}
+
+.dashboard-layout--sidebar:not(.patient-app-layout) .content-body::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.dashboard-layout--sidebar:not(.patient-app-layout) .content-body::-webkit-scrollbar-track {
+  background: rgba(244, 247, 246, 0.55);
+}
+
+.dashboard-layout--sidebar:not(.patient-app-layout) .content-body::-webkit-scrollbar-thumb {
+  background-color: rgba(139, 150, 124, 0.34);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.dashboard-layout--sidebar:not(.patient-app-layout) .content-body::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(139, 150, 124, 0.56);
+}
+
+/* Demais layouts admin (ex.: WhatsApp) — scroll no documento */
+html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sidebar)),
+html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sidebar)) body {
+  overflow-y: auto;
+  height: auto;
+  min-height: 100%;
+}
+
+/* Scroll suave — painel admin (documento; sidebar usa .content-body) */
+html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sidebar)) {
+  scroll-behavior: smooth;
+  scroll-padding-top: 0.75rem;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 150, 124, 0.38) rgba(244, 247, 246, 0.6);
+}
+
+html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sidebar)) body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.dashboard-layout:not(.patient-app-layout) ::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.dashboard-layout:not(.patient-app-layout) ::-webkit-scrollbar-track {
+  background: rgba(244, 247, 246, 0.55);
+}
+
+.dashboard-layout:not(.patient-app-layout) ::-webkit-scrollbar-thumb {
+  background-color: rgba(139, 150, 124, 0.34);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.22s ease;
+}
+
+.dashboard-layout:not(.patient-app-layout) ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(139, 150, 124, 0.56);
+}
+
+.dashboard-layout:not(.patient-app-layout) :is(
+  .modal-card,
+  .netflix-modal-body,
+  .episodes-list,
+  .admin-shell-card,
+  .modal-overlay,
+  .courses-modal-overlay
+) {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.dashboard-layout:not(.patient-app-layout)) {
+    scroll-behavior: auto;
+  }
+
+  .dashboard-layout:not(.patient-app-layout) :is(
+    .modal-card,
+    .netflix-modal-body,
+    .episodes-list,
+    .admin-shell-card,
+    .modal-overlay,
+    .courses-modal-overlay
+  ) {
+    scroll-behavior: auto;
+  }
+
+  .dashboard-layout:not(.patient-app-layout) ::-webkit-scrollbar-thumb {
+    transition: none;
+  }
 }
 
 /* Botões — mesmo padrão visual do login (btn-auth-submit) */
@@ -27,8 +167,8 @@ body {
   background: var(--primary, #8B967C);
   color: #fff;
   font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: var(--admin-font-btn);
+  font-weight: var(--admin-font-btn-weight);
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
@@ -77,8 +217,8 @@ body {
   border-radius: var(--cf-radius-control);
   background: #fff;
   color: #555;
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-weight: var(--admin-font-btn-weight);
+  font-size: var(--admin-font-btn);
   font-family: inherit;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -129,11 +269,12 @@ body {
   --admin-muted: #66706e;
   --admin-border: #e8ece9;
   --admin-surface: #ffffff;
-  --admin-max: 1200px;
+  --admin-max: min(100%, 1440px);
   width: 100%;
   max-width: var(--admin-max);
   margin: 0 auto;
   padding: 2rem 2.5rem 3rem;
+  box-sizing: border-box;
 }
 
 .admin-shell-header {
@@ -146,19 +287,64 @@ body {
 
 .admin-shell-header h1 {
   margin: 0 0 0.35rem;
-  font-size: 1.75rem;
-  font-weight: 800;
+  font-size: var(--admin-font-heading-1);
+  font-weight: var(--admin-font-heading-1-weight);
   color: var(--admin-ink);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
 .admin-shell-header p {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: var(--admin-font-body);
+  font-weight: var(--admin-font-body-weight);
   color: var(--admin-muted);
   line-height: 1.5;
   max-width: 42rem;
+}
+
+/* Tipografia compartilhada — painel nutricionista (sobrescreve bold local das páginas) */
+.dashboard-layout:not(.patient-app-layout) :is(
+  .admin-shell-header h1,
+  .page-header h1,
+  .page-header-copy h1
+) {
+  font-size: var(--admin-font-heading-1);
+  font-weight: var(--admin-font-heading-1-weight);
+  letter-spacing: -0.02em;
+}
+
+.dashboard-layout:not(.patient-app-layout) :is(
+  .admin-shell-header p,
+  .page-header p,
+  .page-header-copy p
+) {
+  font-size: var(--admin-font-body);
+  font-weight: var(--admin-font-body-weight);
+}
+
+.dashboard-layout:not(.patient-app-layout) .admin-shell :is(h2, h3, h4, .section-title) {
+  font-weight: var(--admin-font-heading-2-weight);
+}
+
+.dashboard-layout:not(.patient-app-layout) .admin-shell h2,
+.dashboard-layout:not(.patient-app-layout) .admin-shell .section-title {
+  font-size: var(--admin-font-heading-2);
+}
+
+.dashboard-layout:not(.patient-app-layout) .admin-shell h3,
+.dashboard-layout:not(.patient-app-layout) .admin-shell h4 {
+  font-size: var(--admin-font-heading-3);
+}
+
+.dashboard-layout:not(.patient-app-layout) .admin-shell :is(th, label, .admin-home-stat-label) {
+  font-weight: var(--admin-font-label-weight);
+}
+
+.dashboard-layout:not(.patient-app-layout) .admin-shell th {
+  font-size: var(--admin-font-label);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .admin-shell-card {
@@ -201,7 +387,7 @@ body {
   background: #fff;
   z-index: 2;
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: var(--admin-font-label-weight);
   color: #444;
   line-height: 1;
 }

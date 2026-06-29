@@ -1,6 +1,8 @@
 import { readEnv } from "../utils/env";
 import { WhatsappService } from "../services/whatsapp.service";
 import webhookLogService from "../services/webhook-log.service";
+import whatsappMessageService from "../services/whatsapp-message.service";
+import { normalizeUazapiWebhookEventType } from "../utils/uazapi-webhook-event.util";
 import { resolveDevTunnelPublicUrl } from "../utils/dev-tunnel-url";
 
 const whatsappService = new WhatsappService();
@@ -39,7 +41,7 @@ const parseSseEvents = (buffer: string): { events: string[]; rest: string } => {
 const consumeUazapiSse = async (userId: string, token: string, signal: AbortSignal): Promise<void> => {
   if (!UAZAPI_URL) return;
 
-  const events = ["messages", "messages_update", "chats"];
+  const events = ["messages", "messages_update", "chats", "history"];
   const sseUrl = `${UAZAPI_URL}/sse?token=${encodeURIComponent(token)}&events=${events.join(",")}`;
 
   const response = await fetch(sseUrl, {
@@ -69,6 +71,10 @@ const consumeUazapiSse = async (userId: string, token: string, signal: AbortSign
       try {
         const payload = JSON.parse(raw);
         await webhookLogService.logWebhookEvent(payload);
+        const eventType = normalizeUazapiWebhookEventType(payload);
+        if (whatsappMessageService.shouldIngestEventType(eventType)) {
+          await whatsappMessageService.ingestPayload(userId, payload);
+        }
       } catch {
         /* ignora linha inválida */
       }

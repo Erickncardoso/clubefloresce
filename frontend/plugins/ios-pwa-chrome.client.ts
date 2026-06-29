@@ -9,9 +9,12 @@ export default defineNuxtPlugin(() => {
 
   document.documentElement.classList.add('cf-mobile-app')
 
-  if (!isStandalonePwa()) {
-    document.documentElement.classList.add('cf-safari-inline')
+  if (isStandalonePwa()) {
+    // PWA instalado: não aplicar --cf-vvh nem bloquear scroll do documento
+    return
   }
+
+  document.documentElement.classList.add('cf-safari-inline')
 
   installIOSPwaChromeGuard()
 })

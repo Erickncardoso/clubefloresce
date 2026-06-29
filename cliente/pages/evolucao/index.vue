@@ -391,13 +391,3 @@ onMounted(() => {
   }
 }
 </style>
-
-<style>
-html:has(.evo-page),
-html:has(.evo-page) body,
-html:has(.evo-page) #__nuxt,
-html:has(.evo-page) .patient-app-shell,
-html:has(.evo-page) .patient-shell {
-  background-color: var(--cf-green, #8b967c);
-}
-</style>

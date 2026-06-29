@@ -8,10 +8,14 @@ const whatsappController = new WhatsappController();
 // Apenas Nutricionistas conseguem gerenciar conexões do WhatsApp
 router.get("/status", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.status);
 router.get("/chats", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.listChats);
+router.get("/chats/:chatJid/messages", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.listChatMessages.bind(whatsappController));
+router.post("/messages/backfill", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.backfillMessages.bind(whatsappController));
+router.get("/messages/backfill/status", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.backfillStatus.bind(whatsappController));
 router.post("/chat/details", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getChatDetails.bind(whatsappController));
 router.post("/create", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.create);
 router.post("/connect", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.connect);
 router.post("/connect/regenerate-qr", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.regenerateQrCode);
+router.post("/connect/refresh-qr", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.refreshQrCode);
 router.post("/disconnect", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.disconnect);
 router.delete("/instance/:name", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.deleteInstance);
 router.post("/contact-states/list", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.listContactStates);

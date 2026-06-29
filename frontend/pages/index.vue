@@ -216,7 +216,7 @@ const handleLogin = async () => {
       return
     }
 
-    await navigateTo('/cursos', { replace: true })
+    await navigateTo('/dashboard', { replace: true })
   } catch (err) {
     console.error('Erro completo:', err)
     if (isApiConnectionError(err)) {
@@ -273,7 +273,7 @@ const handleFirstAccessPasswordChange = async () => {
     showFirstAccessModal.value = false
     firstAccessForm.newPassword = ''
     firstAccessForm.confirmPassword = ''
-    await navigateTo('/cursos', { replace: true })
+    await navigateTo('/dashboard', { replace: true })
   } catch (err) {
     if (err.data && err.data.message) {
       firstAccessError.value = err.data.message
@@ -289,11 +289,11 @@ onMounted(async () => {
   if (!hasAuthSession()) return
   const cached = getVerifiedUser()
   if (cached?.role === 'NUTRICIONISTA') {
-    await navigateTo('/cursos', { replace: true })
+    await navigateTo('/dashboard', { replace: true })
     return
   }
   const user = await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' })
-  if (user) await navigateTo('/cursos', { replace: true })
+  if (user) await navigateTo('/dashboard', { replace: true })
 })
 </script>
 

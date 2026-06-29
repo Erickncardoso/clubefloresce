@@ -324,4 +324,61 @@ export class FoodDiaryService {
 
     return { dailySummary };
   }
+
+  async syncPlanCheckEntry(
+    userId: string,
+    payload: {
+      mealType: string;
+      mealLabel?: string;
+      items: MealItemDraft[];
+    },
+    dateKey?: string,
+  ) {
+    const key = dateKey || getDateKeyInTimeZone("UTC");
+    const entryDate = entryDateFromKey(key);
+    const repo = getFoodDiaryRepository();
+    const mealType = String(payload.mealType || "").trim() || "other";
+    const mealLabel = payload.mealLabel?.trim() || "Plano alimentar";
+    const existing = await repo.findPlanCheckEntry(userId, entryDate, mealType);
+
+    const rawItems = (payload.items || []).map((item) => ({
+      ...item,
+      source: "meal_plan" as const,
+    }));
+
+    if (!rawItems.length) {
+      if (existing) await repo.deleteEntry(existing.id);
+      await repo.deleteExtraPlanCheckEntries(userId, entryDate, mealType);
+      const dailySummary = await this.getDailySummary(userId, key);
+      return { entry: null, dailySummary };
+    }
+
+    const { items, totals } = await prepareEntryItems(rawItems);
+
+    if (existing) {
+      await repo.deleteExtraPlanCheckEntries(userId, entryDate, mealType, existing.id);
+      const entry = await repo.updateEntry(existing.id, {
+        mealType,
+        mealLabel,
+        imageUrl: undefined,
+        items,
+        ...totals,
+      });
+      const dailySummary = await this.getDailySummary(userId, key);
+      return { entry, dailySummary };
+    }
+
+    await repo.deleteExtraPlanCheckEntries(userId, entryDate, mealType);
+
+    const entry = await repo.createEntry({
+      userId,
+      entryDate,
+      mealType,
+      mealLabel,
+      items,
+      ...totals,
+    });
+    const dailySummary = await this.getDailySummary(userId, key);
+    return { entry, dailySummary };
+  }
 }

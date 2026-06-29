@@ -4,13 +4,13 @@
       <div class="users-page admin-shell">
         <header class="admin-shell-header">
           <div class="page-header-copy">
-            <h1>Gest?o de Alunos</h1>
+            <h1>Gestão de Alunos</h1>
             <p>
               {{ users.length }} {{ users.length === 1 ? 'aluna cadastrada' : 'alunas cadastradas' }}
-              <span v-if="activeCount !== users.length"> ? {{ activeCount }} ativas</span>
-              <span v-if="pendingApprovalEmailCount"> ? {{ pendingApprovalEmailCount }} sem e-mail de aprova??o</span>
-              <span v-if="pendingApprovalWhatsappCount"> ? {{ pendingApprovalWhatsappCount }} sem WhatsApp de aprova??o</span>
-              <span v-if="registrationRequests.length"> ? {{ registrationRequests.length }} solicita??o(?es) pendente(s)</span>
+              <span v-if="activeCount !== users.length"> · {{ activeCount }} ativas</span>
+              <span v-if="pendingApprovalEmailCount"> · {{ pendingApprovalEmailCount }} sem e-mail de aprovação</span>
+              <span v-if="pendingApprovalWhatsappCount"> · {{ pendingApprovalWhatsappCount }} sem WhatsApp de aprovação</span>
+              <span v-if="registrationRequests.length"> · {{ registrationRequests.length }} solicitação(?es) pendente(s)</span>
             </p>
           </div>
         </header>
@@ -47,11 +47,11 @@
 
         <section v-if="requestsLoading || registrationRequests.length || requestsError" class="requests-section">
           <div class="requests-head">
-            <h2 class="requests-title">Solicita??es pendentes</h2>
+            <h2 class="requests-title">Solicitações pendentes</h2>
             <span v-if="registrationRequests.length" class="requests-count">{{ registrationRequests.length }}</span>
           </div>
 
-          <p v-if="requestsLoading" class="requests-loading">Carregando solicita??es...</p>
+          <p v-if="requestsLoading" class="requests-loading">Carregando solicitações...</p>
           <p v-else-if="requestsError" class="load-error requests-error">{{ requestsError }}</p>
 
           <div v-else-if="registrationRequests.length" class="requests-list">
@@ -59,7 +59,7 @@
               <PatientAvatar :name="req.name" size="sm" :ring="false" />
               <div class="request-body">
                 <strong>{{ req.name }}</strong>
-                <p>{{ req.email }}<span v-if="req.phone"> ? {{ req.phone }}</span></p>
+                <p>{{ req.email }}<span v-if="req.phone"> · {{ req.phone }}</span></p>
                 <p v-if="req.message" class="request-message">{{ req.message }}</p>
                 <small>{{ formatDate(req.createdAt) }}</small>
               </div>
@@ -96,11 +96,11 @@
                     <th>Aluna</th>
                     <th>Plano</th>
                     <th>Status</th>
-                    <th>E-mail aprova??o</th>
-                    <th>WhatsApp aprova??o</th>
+                    <th>E-mail aprovação</th>
+                    <th>WhatsApp aprovação</th>
                     <th>Membro desde</th>
-                    <th>Acesso at?</th>
-                    <th class="th-actions">A??es</th>
+                    <th>Acesso até</th>
+                    <th class="th-actions">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -233,7 +233,7 @@
                   </dd>
                 </div>
                 <div class="user-mobile-meta-row">
-                  <dt>E-mail aprova??o</dt>
+                  <dt>E-mail aprovação</dt>
                   <dd>
                     <div class="email-status-cell">
                       <span class="user-tag user-tag--email" :class="approvalEmailTagClass(user)">
@@ -246,7 +246,7 @@
                   </dd>
                 </div>
                 <div class="user-mobile-meta-row">
-                  <dt>WhatsApp aprova??o</dt>
+                  <dt>WhatsApp aprovação</dt>
                   <dd>
                     <div class="email-status-cell">
                       <span class="user-tag user-tag--email" :class="approvalWhatsappTagClass(user)">
@@ -264,7 +264,7 @@
                   <dd>{{ formatDate(user.createdAt) }}</dd>
                 </div>
                 <div class="user-mobile-meta-row">
-                  <dt>Acesso at?</dt>
+                  <dt>Acesso até</dt>
                   <dd>
                     <span
                       v-if="isPatientAccessExpired(user.accessExpiresAt)"
@@ -285,7 +285,7 @@
                   :disabled="resendingEmailId === user.id"
                   @click="resendApprovalEmail(user)"
                 >
-                  {{ resendingEmailId === user.id ? 'Enviando e-mail...' : 'Reenviar e-mail de aprova??o' }}
+                  {{ resendingEmailId === user.id ? 'Enviando e-mail...' : 'Reenviar e-mail de aprovação' }}
                 </button>
                 <button
                   v-if="canResendApprovalWhatsapp(user)"
@@ -294,7 +294,7 @@
                   :disabled="resendingWhatsappId === user.id"
                   @click="resendApprovalWhatsapp(user)"
                 >
-                  {{ resendingWhatsappId === user.id ? 'Enviando WhatsApp...' : 'Reenviar WhatsApp de aprova??o' }}
+                  {{ resendingWhatsappId === user.id ? 'Enviando WhatsApp...' : 'Reenviar WhatsApp de aprovação' }}
                 </button>
                 <button
                   v-if="canEditWhatsappMessage(user)"
@@ -317,7 +317,7 @@
           <div v-else-if="!usersError" class="users-table-card empty-state">
             <UserPlus class="empty-icon" />
             <h3>{{ searchQuery ? 'Nenhuma aluna encontrada' : 'Nenhuma aluna cadastrada' }}</h3>
-            <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar aluna para come?ar.' }}</p>
+            <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar aluna para começar.' }}</p>
           </div>
         </div>
       </div>
@@ -326,9 +326,9 @@
     <Teleport to="body">
       <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
         <form class="modal-card" @submit.prevent="createPatient">
-          <h3>{{ creatingFromRequest ? 'Aprovar solicita??o' : 'Nova paciente' }}</h3>
+          <h3>{{ creatingFromRequest ? 'Aprovar solicitação' : 'Nova paciente' }}</h3>
           <p v-if="creatingFromRequest" class="modal-hint">
-            A senha j? foi definida pela aluna. Informe o plano e at? quando ela ter? acesso.
+            A senha já foi definida pela aluna. Informe o plano e até quando ela terá acesso.
           </p>
 
           <div class="modal-fields">
@@ -350,12 +350,12 @@
                 type="password"
                 required
                 minlength="8"
-                placeholder="M?nimo 8 caracteres"
+                placeholder="Mínimo 8 caracteres"
               />
             </div>
 
             <p v-else class="field-hint field-hint--password">
-              A aluna j? escolheu a senha no app. Ap?s aprovar, ela entra direto com e-mail e senha.
+              A aluna já escolheu a senha no app. Após aprovar, ela entra direto com e-mail e senha.
             </p>
 
             <div class="field field--float">
@@ -369,7 +369,7 @@
 
             <div class="field field--float">
               <label for="create-access-expires">
-                Acesso v?lido at?
+                Acesso válido até
                 <span v-if="creatingFromRequest" class="label-required">*</span>
               </label>
               <SharedCfDateInput
@@ -434,7 +434,7 @@
             </div>
 
             <div class="field field--float">
-              <label for="edit-access-expires">Acesso v?lido at?</label>
+              <label for="edit-access-expires">Acesso válido até</label>
               <SharedCfDateInput
                 id="edit-access-expires"
                 v-model="editForm.accessExpiresAt"
@@ -448,7 +448,7 @@
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="showEditModal = false">Cancelar</button>
             <button type="submit" class="btn-primary modal-submit" :disabled="savingEdit">
-              {{ savingEdit ? 'Salvando...' : 'Salvar altera??es' }}
+              {{ savingEdit ? 'Salvando...' : 'Salvar alterações' }}
             </button>
           </div>
         </form>
@@ -458,9 +458,9 @@
     <Teleport to="body">
       <div v-if="showGlobalWhatsappModal" class="modal-overlay" @click.self="showGlobalWhatsappModal = false">
         <form class="modal-card modal-card--wide" @submit.prevent="saveGlobalWhatsappTemplate">
-          <h3>Mensagem geral de aprova??o (WhatsApp)</h3>
+          <h3>Mensagem geral de aprovação (WhatsApp)</h3>
           <p class="modal-hint">
-            Formata??o do WhatsApp: *negrito*, _it?lico_, ~riscado~. Placeholders:
+            Formatação do WhatsApp: *negrito*, _itálico_, ~riscado~. Placeholders:
             <span v-pre>{{nome}}</span>, <span v-pre>{{primeiroNome}}</span>,
             <span v-pre>{{linkApp}}</span>, <span v-pre>{{acessoAte}}</span>.
             Deixe o link em linha separada para o preview.
@@ -478,7 +478,7 @@
               />
             </div>
             <div class="whatsapp-preview">
-              <p class="whatsapp-preview-label">Pr?via no WhatsApp</p>
+              <p class="whatsapp-preview-label">Prévia no WhatsApp</p>
               <div class="whatsapp-preview-stage">
                 <div class="whatsapp-preview-bubble">
                   <div class="whatsapp-link-preview">
@@ -498,7 +498,7 @@
           <p v-if="globalWhatsappError" class="create-error">{{ globalWhatsappError }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="showGlobalWhatsappModal = false">Cancelar</button>
-            <button type="button" class="btn-secondary" @click="resetGlobalWhatsappTemplate">Restaurar padr?o</button>
+            <button type="button" class="btn-secondary" @click="resetGlobalWhatsappTemplate">Restaurar padrão</button>
             <button type="submit" class="btn-primary modal-submit" :disabled="savingGlobalWhatsapp">
               {{ savingGlobalWhatsapp ? 'Salvando...' : 'Salvar mensagem geral' }}
             </button>
@@ -510,12 +510,12 @@
     <Teleport to="body">
       <div v-if="showIndividualWhatsappModal" class="modal-overlay" @click.self="showIndividualWhatsappModal = false">
         <form class="modal-card modal-card--wide modal-card--whatsapp" @submit.prevent="saveIndividualWhatsappMessage">
-          <h3>Mensagem individual de aprova??o</h3>
+          <h3>Mensagem individual de aprovação</h3>
           <p class="modal-hint">
-            {{ individualWhatsappUser?.name }} ? {{ individualWhatsappUser?.phone || 'Sem telefone' }}
+            {{ individualWhatsappUser?.name }} · {{ individualWhatsappUser?.phone || 'Sem telefone' }}
           </p>
           <p class="field-hint">
-            A mensagem geral j? vem preenchida. Edite se quiser um texto diferente para esta aluna.
+            A mensagem geral já vem preenchida. Edite se quiser um texto diferente para esta aluna.
             Use *negrito* e deixe <span v-pre>{{linkApp}}</span> em linha separada.
           </p>
 
@@ -531,7 +531,7 @@
               />
             </div>
             <div class="whatsapp-preview">
-              <p class="whatsapp-preview-label">Pr?via no WhatsApp</p>
+              <p class="whatsapp-preview-label">Prévia no WhatsApp</p>
               <div class="whatsapp-preview-stage">
                 <div class="whatsapp-preview-bubble">
                   <div class="whatsapp-link-preview">
@@ -635,7 +635,7 @@ const whatsappPreviewSample = {
   nome: 'Maria Silva',
   primeiroNome: 'Maria',
   linkApp: 'https://app.nutrisabellajardim.com.br/abrir?source=approval-whatsapp',
-  acessoAte: 'Seu acesso est? liberado at? *25 de junho de 2026*.',
+  acessoAte: 'Seu acesso está liberado até *25 de junho de 2026*.',
 }
 
 function renderWhatsappPreview(template, user = null) {
@@ -684,7 +684,7 @@ function resolveFetchError(err, fallback) {
   const status = err?.statusCode || err?.status || err?.response?.status
 
   if (status === 401 || status === 403) {
-    return 'Sem permiss?o ou sess?o expirada. Fa?a login novamente.'
+    return 'Sem permissão ou sessão expirada. Faça login novamente.'
   }
 
   if (isApiConnectionError(err)) {
@@ -708,7 +708,7 @@ const fetchRegistrationRequests = async () => {
     registrationRequests.value = data?.requests || []
   } catch (err) {
     registrationRequests.value = []
-    requestsError.value = resolveFetchError(err, 'N?o foi poss?vel carregar as solicita??es.')
+    requestsError.value = resolveFetchError(err, 'Não foi possível carregar as solicitações.')
   } finally {
     requestsLoading.value = false
   }
@@ -725,7 +725,7 @@ const fetchPatients = async () => {
       : []
   } catch (err) {
     users.value = []
-    usersError.value = resolveFetchError(err, 'N?o foi poss?vel carregar os alunos.')
+    usersError.value = resolveFetchError(err, 'Não foi possível carregar os alunos.')
   } finally {
     usersLoading.value = false
   }
@@ -798,7 +798,7 @@ function isActivePatient(user) {
 
 function approvalEmailLabel(user) {
   if (!isActivePatient(user)) return 'N/A'
-  return user.approvalEmailSentAt ? 'Enviado' : 'N?o enviado'
+  return user.approvalEmailSentAt ? 'Enviado' : 'Não enviado'
 }
 
 function approvalEmailTagClass(user) {
@@ -822,7 +822,7 @@ const resendApprovalEmail = async (user) => {
       users.value[index] = { ...users.value[index], ...updated }
     }
   } catch (err) {
-    alert(err.data?.error || 'Erro ao reenviar e-mail de aprova??o.')
+    alert(err.data?.error || 'Erro ao reenviar e-mail de aprovação.')
   } finally {
     resendingEmailId.value = ''
   }
@@ -831,7 +831,7 @@ const resendApprovalEmail = async (user) => {
 function approvalWhatsappLabel(user) {
   if (!isActivePatient(user)) return 'N/A'
   if (!user.phone?.trim()) return 'Sem telefone'
-  return user.approvalWhatsappSentAt ? 'Enviado' : 'N?o enviado'
+  return user.approvalWhatsappSentAt ? 'Enviado' : 'Não enviado'
 }
 
 function approvalWhatsappTagClass(user) {
@@ -860,7 +860,7 @@ const resendApprovalWhatsapp = async (user) => {
       users.value[index] = { ...users.value[index], ...updated }
     }
   } catch (err) {
-    alert(err.data?.error || 'Erro ao reenviar WhatsApp de aprova??o.')
+    alert(err.data?.error || 'Erro ao reenviar WhatsApp de aprovação.')
   } finally {
     resendingWhatsappId.value = ''
   }
@@ -872,7 +872,7 @@ const resendPendingApprovalWhatsapp = async () => {
   const { confirm } = useConfirm()
   const ok = await confirm({
     title: 'Reenviar WhatsApp pendentes',
-    message: `Enviar mensagem de aprova??o por WhatsApp para ${pendingApprovalWhatsappCount.value} aluna(s)?`,
+    message: `Enviar mensagem de aprovação por WhatsApp para ${pendingApprovalWhatsappCount.value} aluna(s)?`,
     confirmLabel: 'Enviar',
     cancelLabel: 'Cancelar',
   })
@@ -888,7 +888,7 @@ const resendPendingApprovalWhatsapp = async () => {
     await fetchUsers()
 
     if (result.failedCount) {
-      alert(`Enviados: ${result.sentCount}. Falhas: ${result.failedCount}. Verifique se o WhatsApp est? conectado.`)
+      alert(`Enviados: ${result.sentCount}. Falhas: ${result.failedCount}. Verifique se o WhatsApp está conectado.`)
     }
   } catch (err) {
     alert(err.data?.error || 'Erro ao reenviar WhatsApp pendentes.')
@@ -1038,8 +1038,8 @@ const openCreateFromRequest = (req) => {
 const rejectRequest = async (req) => {
   const { confirm } = useConfirm()
   const ok = await confirm({
-    title: 'Reprovar solicita??o',
-    message: `Deseja reprovar o acesso de ${req.name}? Ela poder? enviar uma nova solicita??o depois.`,
+    title: 'Reprovar solicitação',
+    message: `Deseja reprovar o acesso de ${req.name}? Ela poderá enviar uma nova solicitação depois.`,
     confirmLabel: 'Reprovar',
     cancelLabel: 'Cancelar',
   })
@@ -1053,7 +1053,7 @@ const rejectRequest = async (req) => {
     })
     registrationRequests.value = registrationRequests.value.filter((r) => r.id !== req.id)
   } catch (err) {
-    alert(err.data?.error || 'Erro ao reprovar solicita??o.')
+    alert(err.data?.error || 'Erro ao reprovar solicitação.')
   } finally {
     rejectingRequestId.value = ''
   }
@@ -1064,7 +1064,7 @@ const createPatient = async () => {
   createError.value = ''
 
   if (creatingFromRequest.value && !createForm.accessExpiresAt) {
-    createError.value = 'Informe at? quando a aluna ter? acesso.'
+    createError.value = 'Informe até quando a aluna terá acesso.'
     creating.value = false
     return
   }
@@ -1161,7 +1161,7 @@ const saveEdit = async () => {
     showEditModal.value = false
     editingUserId.value = ''
   } catch (err) {
-    editError.value = err.data?.error || 'Erro ao salvar altera??es.'
+    editError.value = err.data?.error || 'Erro ao salvar alterações.'
   } finally {
     savingEdit.value = false
   }
@@ -1183,7 +1183,7 @@ const handleDelete = async (id) => {
     })
     fetchUsers()
   } catch (err) {
-    alert('Erro ao excluir usu?rio.')
+    alert('Erro ao excluir usuário.')
   }
 }
 

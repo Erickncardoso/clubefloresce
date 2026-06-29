@@ -973,14 +973,3 @@ onMounted(async () => {
   }
 }
 </style>
-
-<style>
-/* PWA: faixa do status bar (horário/bateria) verde na home */
-html:has(.home-page),
-html:has(.home-page) body,
-html:has(.home-page) #__nuxt,
-html:has(.home-page) .patient-app-shell,
-html:has(.home-page) .patient-shell {
-  background-color: var(--cf-pink, #8B967C);
-}
-</style>

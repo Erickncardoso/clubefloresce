@@ -1002,6 +1002,15 @@ export const loadGroupParticipantsDirectory = async (groupJid, options = {}) => 
 export const loadContactsDirectory = async () => {
   const proxyBase = getProxyBase()
   const contactDirectoryApi = getContactDirectoryApi()
+  const fetchWithTimeout = async (url, init = {}, timeoutMs = 20000) => {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
+    try {
+      return await fetch(url, { ...init, signal: controller?.signal })
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
   try {
     const contacts = []
     const limit = 1000
@@ -1010,7 +1019,7 @@ export const loadContactsDirectory = async () => {
     const maxPages = 30
 
     for (let page = 0; page < maxPages; page++) {
-      const res = await fetch(`${proxyBase}/contacts/list`, {
+      const res = await fetchWithTimeout(`${proxyBase}/contacts/list`, {
         method: 'POST',
         headers: whatsappJsonHeaders(),
         body: JSON.stringify({ limit, offset, contactScope: 'all' })
@@ -1058,13 +1067,17 @@ export const loadContactsDirectory = async () => {
 
 const persistContactsCache = async (data) => {
   const contactDirectoryApi = getContactDirectoryApi()
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timer = controller ? setTimeout(() => controller.abort(), 8000) : null
   try {
     await fetch(contactDirectoryApi, {
       method: 'POST',
       headers: whatsappJsonHeaders(),
-      body: JSON.stringify({ data })
+      body: JSON.stringify({ data }),
+      signal: controller?.signal
     })
   } catch { }
+  finally { if (timer) clearTimeout(timer) }
 }
 
 export const restoreContactsFromCache = async () => {

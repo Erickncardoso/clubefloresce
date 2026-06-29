@@ -4,13 +4,14 @@ import { readEnv } from "./env";
 
 const TUNNEL_URL_FILE = path.resolve(__dirname, "../../.tunnel-public-url");
 
-/** URL publica do Cloudflare Tunnel em dev (quick ou named). */
+/** Prioriza webhook do tunnel local em dev (sobre WHATSAPP_WEBHOOK_URL de producao). */
 export function resolveDevTunnelPublicUrl(): string | null {
   if (readEnv("NODE_ENV") === "production") return null;
-  if (readEnv("USE_CLOUDFLARE_TUNNEL") === "false") return null;
 
   const fromEnv = readEnv("CLOUDFLARE_TUNNEL_URL");
   if (fromEnv) return fromEnv.replace(/\/+$/, "");
+
+  if (readEnv("USE_CLOUDFLARE_TUNNEL") === "false") return null;
 
   try {
     const raw = fs.readFileSync(TUNNEL_URL_FILE, "utf8").trim();

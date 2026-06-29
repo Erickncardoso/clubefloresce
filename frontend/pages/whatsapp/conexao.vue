@@ -11,7 +11,7 @@
           </div>
           <p>Conecte seu número para atender alunas, enviar check-ins e usar o chat integrado.</p>
         </div>
-        <span class="wa-status-pill" :class="`wa-status-pill--${status}`">
+        <span class="wa-status-pill" :class="`wa-status-pill--${statusPillTone}`">
           <span class="wa-status-dot" aria-hidden="true" />
           {{ statusLabel }}
         </span>
@@ -58,6 +58,13 @@
             </div>
 
             <div class="wa-actions">
+              <div v-if="initialSyncActive" class="wa-sync-alert" role="status">
+                <Loader class="wa-spin wa-icon-sm" aria-hidden="true" />
+                <div>
+                  <strong>Mantenha o celular aberto com o WhatsApp ativo</strong>
+                  <p>Aguarde a sincronização das conversas antes de usar o painel com intensidade.</p>
+                </div>
+              </div>
               <NuxtLink to="/whatsapp/chat" class="btn-primary wa-btn">
                 Abrir conversas
               </NuxtLink>
@@ -74,7 +81,24 @@
             </div>
           </div>
 
-          <div v-else-if="status === 'connecting'" class="wa-state wa-state--qr">
+          <div v-else-if="connectionPhase === 'pairing'" class="wa-state wa-state--pairing">
+            <div class="wa-loader" aria-hidden="true" />
+            <div class="wa-state-head">
+              <h2>Sincronizando…</h2>
+              <p>QR Code escaneado. Estamos vinculando seu WhatsApp e importando conversas.</p>
+            </div>
+            <p class="wa-pairing-hint">
+              <strong>Mantenha o celular aberto com o WhatsApp ativo</strong> até a sincronização terminar.
+              Não feche o app no aparelho — isso pausa a importação das conversas.
+            </p>
+            <div class="wa-actions wa-actions--center">
+              <button type="button" class="btn-secondary wa-btn" :disabled="actionLoading" @click="cancelConnection">
+                Cancelar
+              </button>
+            </div>
+          </div>
+
+          <div v-else-if="connectionPhase === 'show_qr'" class="wa-state wa-state--qr">
             <div class="wa-state-head">
               <h2>Escaneie o QR Code</h2>
               <p>Use o WhatsApp do celular para concluir a conexão.</p>
@@ -94,10 +118,14 @@
               </div>
             </div>
 
+            <p v-if="qrRefreshCountdown > 0" class="wa-qr-countdown">
+              Novo QR Code em <strong>{{ qrRefreshCountdown }}s</strong>
+            </p>
+
             <div class="wa-actions wa-actions--center">
-              <button type="button" class="btn-primary wa-btn" :disabled="actionLoading" @click="generateQrCode">
+              <button type="button" class="btn-primary wa-btn" :disabled="actionLoading" @click="refreshQrCodeManual">
                 <RefreshCw :class="{ 'wa-spin': actionLoading }" class="wa-icon-sm" />
-                Atualizar QR Code
+                Atualizar agora
               </button>
               <button type="button" class="btn-secondary wa-btn" :disabled="actionLoading" @click="cancelConnection">
                 Cancelar
@@ -191,7 +219,7 @@
             </li>
             <li>
               <strong>Rápido</strong>
-              <span>O código expira em poucos minutos — gere outro se precisar.</span>
+              <span>O código expira em cerca de 30 segundos — atualizamos automaticamente se não for escaneado.</span>
             </li>
             <li>
               <strong>Seu número</strong>
@@ -205,6 +233,8 @@
 </template>
 
 <script setup>
+definePageMeta({ ssr: false })
+
 const config = useRuntimeConfig()
 const whatsappApiBase = config.public.whatsappApiBase
 
@@ -213,7 +243,14 @@ import {
   CheckCircle, Smartphone, Scan, Loader, RefreshCw, LogOut, Settings,
 } from 'lucide-vue-next'
 import { resetWhatsappAfterDisconnect } from '~/composables/whatsapp/useWhatsappChats.js'
-import { isWhatsappConnectedFromStatusPayload, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders } from '~/composables/whatsapp/useWhatsappApi.js'
+import {
+  initialSyncActive,
+  beginInitialSyncWatch,
+  resumeInitialSyncIfNeeded,
+  markWhatsappConnectedNow,
+  probeInitialSyncProgress,
+} from '~/composables/whatsapp/useWhatsappInitialSync.js'
+import { isWhatsappConnectedFromStatusPayload, resolveConnectedSessionJidFromStatus, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders, whatsappFetchInit } from '~/composables/whatsapp/useWhatsappApi.js'
 
 const API_BASE = `${whatsappApiBase}`
 const PROXY_BASE = `${whatsappApiBase}/proxy`
@@ -221,12 +258,19 @@ const PROXY_BASE = `${whatsappApiBase}/proxy`
 const loading = ref(true)
 const actionLoading = ref(false)
 const status = ref('disconnected')
+const connectionPhase = ref('idle')
 const qrcode = ref('')
 const manualDisconnectRequested = ref(false)
-const qrStickyUntil = ref(0)
 const awaitingQrScanUntil = ref(0)
 const instanceData = ref(null)
 const pollInterval = ref(null)
+const qrRefreshCountdown = ref(0)
+
+const QR_REFRESH_INTERVAL_SEC = 30
+let qrCountdownInterval = null
+let qrAutoRefreshInterval = null
+let syncProbeInterval = null
+const wasConnectedPreviously = ref(false)
 
 const formSettings = reactive({
   chatbot_enabled: false,
@@ -237,10 +281,18 @@ const formSettings = reactive({
 
 const statusLabel = computed(() => {
   if (loading.value) return 'Verificando'
-  if (status.value === 'connected') return 'Conectado'
-  if (status.value === 'connecting') return 'Aguardando scan'
+  if (connectionPhase.value === 'connected' || status.value === 'connected') return 'Conectado'
+  if (connectionPhase.value === 'pairing') return 'Conectando'
+  if (connectionPhase.value === 'show_qr') return 'Aguardando scan'
   if (status.value === 'error') return 'Erro'
   return 'Desconectado'
+})
+
+const statusPillTone = computed(() => {
+  if (connectionPhase.value === 'connected' || status.value === 'connected') return 'connected'
+  if (connectionPhase.value === 'pairing' || connectionPhase.value === 'show_qr') return 'connecting'
+  if (status.value === 'error') return 'error'
+  return 'disconnected'
 })
 
 function formatPhoneLine(value) {
@@ -330,15 +382,99 @@ const lastDisconnectReasonLabel = computed(() => {
 const updateQrCodeIfAvailable = (nextQr) => {
   if (nextQr && typeof nextQr === 'string' && nextQr.trim().length > 0) {
     qrcode.value = nextQr
-    qrStickyUntil.value = Date.now() + 20000
   }
 }
 
-const fetchStatus = async () => {
+function stopQrRefreshTimers() {
+  if (qrCountdownInterval) {
+    clearInterval(qrCountdownInterval)
+    qrCountdownInterval = null
+  }
+  if (qrAutoRefreshInterval) {
+    clearInterval(qrAutoRefreshInterval)
+    qrAutoRefreshInterval = null
+  }
+  qrRefreshCountdown.value = 0
+}
+
+function resetQrRefreshCountdown() {
+  qrRefreshCountdown.value = QR_REFRESH_INTERVAL_SEC
+}
+
+function startQrRefreshTimers() {
+  if (connectionPhase.value !== 'show_qr') return
+  if (qrCountdownInterval && qrAutoRefreshInterval) return
+
+  stopQrRefreshTimers()
+  resetQrRefreshCountdown()
+
+  qrCountdownInterval = setInterval(() => {
+    if (connectionPhase.value !== 'show_qr') {
+      stopQrRefreshTimers()
+      return
+    }
+    if (qrRefreshCountdown.value > 0) {
+      qrRefreshCountdown.value -= 1
+    }
+  }, 1000)
+
+  qrAutoRefreshInterval = setInterval(() => {
+    if (connectionPhase.value === 'show_qr') {
+      void refreshQrCodeAuto()
+    }
+  }, QR_REFRESH_INTERVAL_SEC * 1000)
+}
+
+function applyConnectionState({
+  isConnected,
+  normalizedStatus,
+  isQrAlreadyRead,
+  hasQr,
+}) {
+  if (isConnected) {
+    connectionPhase.value = 'connected'
+    status.value = 'connected'
+    qrcode.value = ''
+    manualDisconnectRequested.value = false
+    awaitingQrScanUntil.value = 0
+    stopQrRefreshTimers()
+    return
+  }
+
+  if (isQrAlreadyRead || normalizedStatus === 'qrreadsuccess') {
+    connectionPhase.value = 'pairing'
+    status.value = 'connecting'
+    qrcode.value = ''
+    stopQrRefreshTimers()
+    markWhatsappConnectedNow({ force: true })
+    beginInitialSyncWatch({ force: true })
+    return
+  }
+
+  const awaitingScan =
+    normalizedStatus === 'connecting' ||
+    hasQr ||
+    Date.now() < awaitingQrScanUntil.value
+
+  if (awaitingScan && !manualDisconnectRequested.value) {
+    connectionPhase.value = 'show_qr'
+    status.value = 'connecting'
+    startQrRefreshTimers()
+    return
+  }
+
+  connectionPhase.value = 'idle'
+  status.value = 'disconnected'
+  qrcode.value = ''
+  awaitingQrScanUntil.value = 0
+  stopQrRefreshTimers()
+}
+
+const fetchStatus = async ({ silent = false } = {}) => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 12000)
   try {
-    actionLoading.value = true
+    if (!silent) actionLoading.value = true
     const res = await fetch(`${API_BASE}/status`, {
       headers: whatsappAuthHeaders(),
       signal: controller.signal,
@@ -375,30 +511,32 @@ const fetchStatus = async () => {
     const isQrAlreadyRead = normalizedStatus === 'qrreadsuccess'
 
     const nextQr = data.qrcode || extractQrFromPayload(data) || extractQrFromPayload(inst)
-    if (isQrAlreadyRead) {
-      qrcode.value = ''
-    } else {
+    if (!isQrAlreadyRead) {
       updateQrCodeIfAvailable(nextQr)
     }
-    const hasQrCached = Boolean(qrcode.value)
-    const shouldKeepStickyQr =
-      hasQrCached &&
-      Date.now() < qrStickyUntil.value &&
-      !manualDisconnectRequested.value
+
+    applyConnectionState({
+      isConnected,
+      normalizedStatus,
+      isQrAlreadyRead,
+      hasQr: Boolean(qrcode.value),
+    })
 
     if (isConnected) {
-      status.value = 'connected'
-      qrcode.value = ''
-      manualDisconnectRequested.value = false
-      qrStickyUntil.value = 0
-      awaitingQrScanUntil.value = 0
-    } else if (normalizedStatus === 'connecting' || isQrAlreadyRead) {
-      status.value = 'connecting'
-    } else if (shouldKeepStickyQr || Date.now() < awaitingQrScanUntil.value) {
-      status.value = 'connecting'
+      const sessionJid = resolveConnectedSessionJidFromStatus(data)
+      markWhatsappConnectedNow({ sessionJid })
+      if (sessionJid && typeof window !== 'undefined') {
+        localStorage.setItem('wa_session_jid', sessionJid)
+      }
+      if (!wasConnectedPreviously.value) {
+        beginInitialSyncWatch({ sessionJid, force: true })
+        prefetchWhatsappChatsCatalog()
+        wasConnectedPreviously.value = true
+      }
+      if (initialSyncActive.value) startSyncProbe()
     } else {
-      status.value = 'disconnected'
-      if (!shouldKeepStickyQr) qrcode.value = ''
+      wasConnectedPreviously.value = false
+      stopSyncProbe()
     }
 
     if (inst) {
@@ -410,10 +548,12 @@ const fetchStatus = async () => {
   } catch (e) {
     console.error('fetchStatus error:', e)
     status.value = 'error'
+    connectionPhase.value = 'idle'
+    stopQrRefreshTimers()
   } finally {
     clearTimeout(timer)
     loading.value = false
-    actionLoading.value = false
+    if (!silent) actionLoading.value = false
     handlePolling()
   }
 }
@@ -432,7 +572,7 @@ const saveSettings = async () => {
 
 const generateQrCode = async () => {
   try {
-    if (status.value === 'connected') {
+    if (connectionPhase.value === 'connected' || status.value === 'connected') {
       alert('Você já está conectado. Desconecte a sessão antes de gerar um novo QR.')
       return
     }
@@ -448,10 +588,23 @@ const generateQrCode = async () => {
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.message || 'Falha ao gerar QR Code')
 
+    if (data.connectionStatus === 'qrreadsuccess') {
+      applyConnectionState({
+        isConnected: false,
+        normalizedStatus: 'qrreadsuccess',
+        isQrAlreadyRead: true,
+        hasQr: false,
+      })
+      handlePolling()
+      return
+    }
+
     const qr = extractQrFromPayload(data)
     updateQrCodeIfAvailable(qr)
+    connectionPhase.value = 'show_qr'
     status.value = 'connecting'
     awaitingQrScanUntil.value = Date.now() + 180_000
+    startQrRefreshTimers()
 
     if (!qr) {
       await fetchStatus()
@@ -460,6 +613,49 @@ const generateQrCode = async () => {
     }
   } catch (e) {
     alert(e.message)
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function refreshQrCodeAuto() {
+  if (connectionPhase.value !== 'show_qr') return
+  try {
+    const res = await fetch(`${API_BASE}/connect/refresh-qr`, {
+      method: 'POST',
+      headers: whatsappJsonHeaders(),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message || 'Falha ao atualizar QR Code')
+
+    if (data.connectionStatus === 'qrreadsuccess') {
+      applyConnectionState({
+        isConnected: false,
+        normalizedStatus: 'qrreadsuccess',
+        isQrAlreadyRead: true,
+        hasQr: false,
+      })
+      return
+    }
+
+    const qr = extractQrFromPayload(data)
+    if (qr) {
+      qrcode.value = qr
+      resetQrRefreshCountdown()
+    }
+  } catch (e) {
+    console.warn('refreshQrCodeAuto:', e)
+    resetQrRefreshCountdown()
+  }
+}
+
+async function refreshQrCodeManual() {
+  if (connectionPhase.value !== 'show_qr') return
+  try {
+    actionLoading.value = true
+    await refreshQrCodeAuto()
+  } catch (e) {
+    alert(e.message || 'Não foi possível atualizar o QR Code.')
   } finally {
     actionLoading.value = false
   }
@@ -480,9 +676,10 @@ const disconnectWhatsApp = async () => {
 
     resetWhatsappAfterDisconnect()
     status.value = 'disconnected'
+    connectionPhase.value = 'idle'
     qrcode.value = ''
-    qrStickyUntil.value = 0
     awaitingQrScanUntil.value = 0
+    stopQrRefreshTimers()
 
     await new Promise((resolve) => setTimeout(resolve, 1000))
     await fetchStatus()
@@ -501,10 +698,14 @@ const cancelConnection = async () => {
 }
 
 const handlePolling = () => {
-  const isAwaitingQrScan = Date.now() < awaitingQrScanUntil.value
-  if (status.value === 'connecting' || isAwaitingQrScan) {
+  const shouldPoll =
+    connectionPhase.value === 'show_qr' ||
+    connectionPhase.value === 'pairing' ||
+    Date.now() < awaitingQrScanUntil.value
+
+  if (shouldPoll) {
     if (!pollInterval.value) {
-      pollInterval.value = setInterval(fetchStatus, 3000)
+      pollInterval.value = setInterval(() => fetchStatus({ silent: true }), 3000)
     }
   } else {
     stopPolling()
@@ -518,15 +719,46 @@ const stopPolling = () => {
   }
 }
 
+const stopSyncProbe = () => {
+  if (syncProbeInterval) {
+    clearInterval(syncProbeInterval)
+    syncProbeInterval = null
+  }
+}
+
+const startSyncProbe = () => {
+  stopSyncProbe()
+  if (!initialSyncActive.value) return
+  void probeInitialSyncProgress()
+  syncProbeInterval = setInterval(() => {
+    if (!initialSyncActive.value) {
+      stopSyncProbe()
+      return
+    }
+    void probeInitialSyncProgress()
+  }, 5000)
+}
+
+const prefetchWhatsappChatsCatalog = () => {
+  void fetch(`${API_BASE}/chats?cache=1`, whatsappFetchInit()).catch(() => {})
+}
+
 onMounted(() => {
   if (!whatsappHasAuth()) {
     navigateTo('/')
     return
   }
-  fetchStatus()
+  resumeInitialSyncIfNeeded()
+  fetchStatus().then(() => {
+    if (initialSyncActive.value) startSyncProbe()
+  })
 })
 
-onUnmounted(() => stopPolling())
+onUnmounted(() => {
+  stopPolling()
+  stopQrRefreshTimers()
+  stopSyncProbe()
+})
 </script>
 
 <style scoped>
@@ -805,6 +1037,32 @@ onUnmounted(() => stopPolling())
   width: 100%;
 }
 
+.wa-sync-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  color: #14532d;
+  box-sizing: border-box;
+}
+
+.wa-sync-alert strong {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.wa-sync-alert p {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #166534;
+}
+
 .wa-btn {
   min-height: 2.75rem;
   text-decoration: none;
@@ -902,6 +1160,33 @@ onUnmounted(() => stopPolling())
   color: var(--admin-muted);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.wa-qr-countdown {
+  margin: 0;
+  text-align: center;
+  font-size: 0.84rem;
+  color: var(--admin-muted);
+}
+
+.wa-qr-countdown strong {
+  color: var(--admin-ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.wa-state--pairing {
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+}
+
+.wa-pairing-hint {
+  margin: 0;
+  max-width: 360px;
+  font-size: 0.84rem;
+  color: var(--admin-muted);
+  line-height: 1.5;
 }
 
 .wa-state--empty {

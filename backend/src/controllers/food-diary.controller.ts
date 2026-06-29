@@ -94,4 +94,24 @@ export class FoodDiaryController {
       return res.status(status).json({ message: error.message });
     }
   }
+
+  async syncPlanCheck(req: Request, res: Response): Promise<any> {
+    try {
+      const body = req.body || {};
+      const items = Array.isArray(body.items) ? body.items : [];
+      const dateKey = resolveDateKey(req);
+      const result = await foodDiaryService.syncPlanCheckEntry(
+        req.user!.id,
+        {
+          mealType: typeof body.mealType === "string" ? body.mealType : "other",
+          mealLabel: typeof body.mealLabel === "string" ? body.mealLabel : undefined,
+          items,
+        },
+        dateKey,
+      );
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
 }

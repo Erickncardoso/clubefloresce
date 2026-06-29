@@ -1,7 +1,7 @@
 import { WhatsappChatRepository, UpsertWhatsappChatInput } from "../repositories/whatsapp_chat.repository";
 import { WhatsappService } from "./whatsapp.service";
 
-const UAZAPI_BASE_URL = process.env.UAZAPI_SERVER_URL || "https://erickcardoso.uazapi.com";
+const UAZAPI_BASE_URL = String(process.env.UAZAPI_SERVER_URL || "").replace(/\/+$/, "");
 const HTTP_TIMEOUT_MS = 8000;
 const AVATAR_ENRICH_LIMIT = 20;
 
@@ -46,6 +46,8 @@ export class WhatsappChatSyncService {
     offset: number,
     filters: Record<string, unknown> = {}
   ): Promise<{ chats: UazChat[]; totalRecords: number | null }> {
+    if (!UAZAPI_BASE_URL) throw new Error("UAZAPI_SERVER_URL não configurada.");
+
     const res = await this.fetchWithTimeout(`${UAZAPI_BASE_URL}/chat/find`, {
       method: "POST",
       headers: {
@@ -203,11 +205,54 @@ export class WhatsappChatSyncService {
     return data?.imagePreview || data?.image || "";
   }
 
+  private mapDbChatRow(chat: {
+    chatJid: string;
+    name?: string | null;
+    pushName?: string | null;
+    avatarUrl?: string | null;
+    isGroup?: boolean;
+    lastMessage?: string | null;
+    lastMessageTime?: bigint | null;
+    unreadCount?: number;
+    raw?: unknown;
+  }) {
+    const raw = chat.raw && typeof chat.raw === "object" ? (chat.raw as Record<string, unknown>) : {};
+    return {
+      id: chat.chatJid,
+      chatJid: chat.chatJid,
+      name: chat.name || "",
+      pushName: chat.pushName || "",
+      avatarUrl: chat.avatarUrl || "",
+      isGroup: Boolean(chat.isGroup),
+      isPinned: Boolean(raw?.wa_isPinned),
+      lastMessage: chat.lastMessage || "",
+      lastMessageTime: chat.lastMessageTime ? Number(chat.lastMessageTime) : 0,
+      unreadCount: Number(chat.unreadCount || 0),
+      raw,
+    };
+  }
+
+  async listCachedChats(userId: string): Promise<any[]> {
+    const rows = await this.repository.listByUser(userId);
+    return rows.map((chat) => this.mapDbChatRow(chat));
+  }
+
   async syncAndList(userId: string, _forceRefresh = false): Promise<any[]> {
     const instanceToken = await this.whatsappService.getInstanceToken(userId);
     if (!instanceToken) throw new Error("Instância não configurada.");
 
-    const chats = await this.fetchUazChats(instanceToken);
+    if (!UAZAPI_BASE_URL) {
+      console.warn("[WhatsApp] UAZAPI_SERVER_URL ausente — usando cache local do banco.");
+      return this.listCachedChats(userId);
+    }
+
+    let chats: UazChat[] = [];
+    try {
+      chats = await this.fetchUazChats(instanceToken);
+    } catch (error: any) {
+      console.warn("[WhatsApp] Falha ao buscar chats na UAZAPI:", error?.message || error);
+      return this.listCachedChats(userId);
+    }
     const contacts = await this.fetchUazContacts(instanceToken);
     const contactsByJid = this.indexContactsByJid(contacts);
 
@@ -229,7 +274,8 @@ export class WhatsappChatSyncService {
     const merged = this.mergeChatsByJid(enrichedChats);
     const normalized = merged.map((chat) => this.normalizeChat(chat)).filter(Boolean) as UpsertWhatsappChatInput[];
     if (normalized.length === 0) {
-      throw new Error("UAZAPI retornou zero chats.");
+      console.warn("[WhatsApp] UAZAPI retornou zero chats — usando cache local do banco.");
+      return this.listCachedChats(userId);
     }
 
     const syncedChatJids = normalized.map((chat) => chat.chatJid);

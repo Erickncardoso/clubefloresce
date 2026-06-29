@@ -5,12 +5,22 @@ import { prisma } from "../lib/prisma";
 import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
 import { extractAuthToken } from "../utils/auth-cookie";
+import { mapDatabaseError } from "../utils/db-errors";
 
 const PENDING_NUTRI_ALLOWED_PREFIXES = [
   "/api/auth/me",
   "/api/auth/refresh",
   "/api/auth/first-access",
 ];
+
+const AUTH_USER_CACHE_TTL_MS = 30_000;
+const authUserCache = new Map<
+  string,
+  {
+    user: Express.Request["user"];
+    expiresAt: number;
+  }
+>();
 
 function isPendingNutriAllowedPath(path: string): boolean {
   return PENDING_NUTRI_ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
@@ -30,12 +40,19 @@ export const authenticate = async (
   try {
     const decoded = jwt.verify(token, getJwtSecret()) as { id: string };
 
+    const cached = authUserCache.get(decoded.id);
+    if (cached && cached.expiresAt > Date.now() && cached.user) {
+      req.user = cached.user;
+      return next();
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: { id: true, email: true, role: true, status: true, accessExpiresAt: true },
     });
 
     if (!user) {
+      authUserCache.delete(decoded.id);
       return res.status(401).json({ message: "Sessão expirada ou usuário inválido. Faça login novamente." });
     }
 
@@ -61,8 +78,16 @@ export const authenticate = async (
       role: user.role,
       status: user.status,
     };
+    authUserCache.set(decoded.id, {
+      user: req.user,
+      expiresAt: Date.now() + AUTH_USER_CACHE_TTL_MS,
+    });
     next();
-  } catch {
+  } catch (error) {
+    const dbMessage = mapDatabaseError(error);
+    if (dbMessage) {
+      return res.status(503).json({ message: dbMessage });
+    }
     return res.status(401).json({ message: "Token inválido." });
   }
 };

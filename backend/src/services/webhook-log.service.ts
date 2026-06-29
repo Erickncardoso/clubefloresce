@@ -9,6 +9,7 @@ const MESSAGE_EVENT_TYPES = new Set([
   "messages.upsert",
   "messages_update",
   "messages.update",
+  "history",
 ]);
 
 type LogEntry = Record<string, unknown>;

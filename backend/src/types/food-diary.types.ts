@@ -1,4 +1,4 @@
-export type MealItemSource = "ai" | "manual" | "food_bank";
+export type MealItemSource = "ai" | "manual" | "food_bank" | "meal_plan";
 
 export interface MealItemDraft {
   id: string;

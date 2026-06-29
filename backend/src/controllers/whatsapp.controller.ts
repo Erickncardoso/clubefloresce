@@ -10,7 +10,10 @@ import webhookLogService from "../services/webhook-log.service";
 import whatsappMediaArchiveService from "../services/whatsapp-media-archive.service";
 import { WhatsappChatDetailsService } from "../services/whatsapp-chat-details.service";
 import { WhatsappChatRepository } from "../repositories/whatsapp_chat.repository";
-import { parseUazapiChatDeletion } from "../utils/uazapi-webhook-event.util";
+import { parseUazapiChatDeletion, normalizeUazapiWebhookEventType } from "../utils/uazapi-webhook-event.util";
+import whatsappMessageService from "../services/whatsapp-message.service";
+import whatsappMessageHistoryBackfillService from "../services/whatsapp-message-history-backfill.service";
+import { mapDatabaseError } from "../utils/db-errors";
 
 const whatsappService = new WhatsappService();
 const whatsappChatSyncService = new WhatsappChatSyncService();
@@ -82,6 +85,18 @@ export class WhatsappController {
     }
   }
 
+  async refreshQrCode(req: Request, res: Response): Promise<any> {
+    try {
+      const user = (req as any).user;
+      if (!user) return res.status(401).json({ message: "Não autorizado" });
+
+      const result = await whatsappService.refreshQrCode(user.id);
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   async status(req: Request, res: Response): Promise<any> {
     try {
       const user = (req as any).user;
@@ -102,9 +117,52 @@ export class WhatsappController {
           )
         )
       ]);
+
+      const connectionStatus = String((result as any)?.connectionStatus || (result as any)?.status?.status || "").trim().toLowerCase();
+      if (connectionStatus === "connected" || connectionStatus === "open" || connectionStatus === "online") {
+        whatsappMessageHistoryBackfillService.scheduleOnConnect(user.id, "status-poll");
+      }
+
       return res.json(result);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
+    }
+  }
+
+  async backfillMessages(req: Request, res: Response): Promise<any> {
+    try {
+      const user = (req as any).user;
+      if (!user) return res.status(401).json({ message: "Não autorizado" });
+
+      const force = Boolean(req.body?.force);
+      const chatJids = Array.isArray(req.body?.chatJids)
+        ? req.body.chatJids.map((jid: unknown) => String(jid || "").trim()).filter(Boolean)
+        : undefined;
+
+      void whatsappMessageHistoryBackfillService.runBackfill(user.id, {
+        force,
+        chatJids,
+        reason: "api-manual",
+      });
+
+      return res.json({
+        started: true,
+        message: "Backfill de histórico iniciado em background. Mantenha o WhatsApp aberto no celular.",
+      });
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message || "Falha ao iniciar backfill." });
+    }
+  }
+
+  async backfillStatus(req: Request, res: Response): Promise<any> {
+    try {
+      const user = (req as any).user;
+      if (!user) return res.status(401).json({ message: "Não autorizado" });
+
+      const status = await whatsappMessageHistoryBackfillService.getStatusWithCounts(user.id);
+      return res.json(status);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message || "Falha ao consultar backfill." });
     }
   }
 
@@ -113,11 +171,50 @@ export class WhatsappController {
       const user = (req as any).user;
       if (!user) return res.status(401).json({ message: "Não autorizado" });
 
+      const cacheOnly = String(req.query.cache || "0") === "1";
+      if (cacheOnly) {
+        const chats = await whatsappChatSyncService.listCachedChats(user.id);
+        return res.json({ chats });
+      }
+
       const forceRefresh = String(req.query.refresh || "0") === "1";
       const chats = await whatsappChatSyncService.syncAndList(user.id, forceRefresh);
       return res.json({ chats });
     } catch (error: any) {
+      const dbMessage = mapDatabaseError(error);
+      if (dbMessage) return res.status(503).json({ message: dbMessage });
       return res.status(400).json({ message: error.message });
+    }
+  }
+
+  async listChatMessages(req: Request, res: Response): Promise<any> {
+    try {
+      const user = (req as any).user;
+      if (!user) return res.status(401).json({ message: "Não autorizado" });
+
+      const chatJid = decodeURIComponent(String(req.params.chatJid || req.query.chatid || "").trim());
+      if (!chatJid) {
+        return res.status(400).json({ message: "Informe o JID do chat." });
+      }
+
+      const limit = Number(req.query.limit) || 50;
+      const offset = Number(req.query.offset) || 0;
+      const sync = String(req.query.sync || "1") !== "0";
+      const awaitHistory = String(req.query.awaitHistory || "1") !== "0";
+
+      const data = await whatsappMessageService.listChatMessages(user.id, chatJid, {
+        limit,
+        offset,
+        sync,
+        awaitHistory: sync && offset === 0 && awaitHistory,
+      });
+
+      return res.json(data);
+    } catch (error: any) {
+      if (error?.message === "CHAT_ID_INVALID") {
+        return res.status(400).json({ message: "JID do chat inválido.", error: "CHAT_ID_INVALID" });
+      }
+      return sendNormalizedUazapiError(res, error, "Falha ao buscar mensagens do chat.");
     }
   }
 
@@ -505,7 +602,7 @@ export class WhatsappController {
     }
 
     const baseUrl = UAZAPI_BASE_URL.replace(/\/+$/, "");
-    const events = ["messages", "messages_update", "chats"];
+    const events = ["messages", "messages_update", "chats", "history"];
     const sseUrl = `${baseUrl}/sse?token=${encodeURIComponent(instanceToken)}&events=${events.join(",")}&excludeMessages=${encodeURIComponent("wasSentByApi")}`;
 
     let upstream: globalThis.Response;
@@ -574,19 +671,28 @@ export class WhatsappController {
 
     try {
       const event = req.body;
-      const eventType = event?.event || event?.type || "unknown";
+      const eventTypeRaw = event?.event || event?.type || "unknown";
 
-      const relevantEvents = ["messages.upsert", "messages.update", "chats.update", "chats.upsert"];
-      if (relevantEvents.includes(eventType)) {
-        console.log(`[Webhook] ${eventType}`, JSON.stringify(event).substring(0, 200));
+      const relevantEvents = ["messages.upsert", "messages.update", "chats.update", "chats.upsert", "history"];
+      if (relevantEvents.includes(String(eventTypeRaw))) {
+        console.log(`[Webhook] ${eventTypeRaw}`, JSON.stringify(event).substring(0, 200));
       } else {
-        console.log(`[Webhook] ${eventType} recebido`);
+        console.log(`[Webhook] ${eventTypeRaw} recebido`);
       }
 
       void webhookLogService.logWebhookEvent(event);
       const deletedChatJid = parseUazapiChatDeletion(event);
+      const userId = await whatsappPusherService.resolveUserIdFromWebhook(event);
+      const eventType = normalizeUazapiWebhookEventType(event);
+      if (userId && whatsappMessageService.shouldIngestEventType(eventType)) {
+        void whatsappMessageService.ingestPayload(userId, event).catch((err) => {
+          console.warn("[WhatsApp] Falha ao persistir mensagens do webhook:", err?.message || err);
+        });
+      }
+      if (userId) {
+        whatsappMessageHistoryBackfillService.handleWebhook(userId, event, eventType);
+      }
       if (deletedChatJid) {
-        const userId = await whatsappPusherService.resolveUserIdFromWebhook(event);
         if (userId) {
           void whatsappChatRepository.deleteByChatJid(userId, deletedChatJid).catch((err) => {
             console.warn("[WhatsApp] Falha ao remover chat local após webhook delete:", err?.message || err);

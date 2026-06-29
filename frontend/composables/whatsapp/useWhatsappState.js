@@ -15,6 +15,8 @@ export const searchQuery = ref('')
 export const selectedChat = ref(null)
 export const messages = ref([])
 export const loadingMessages = ref(false)
+/** true enquanto aguardamos message/find após history-sync na UAZAPI */
+export const chatHistorySyncPending = ref(false)
 export const loadingOlderMessages = ref(false)
 /** Há mensagens mais antigas para carregar ao rolar até o topo */
 export const chatMessagesHasMore = ref(false)
@@ -155,6 +157,7 @@ export const clearWhatsappSessionState = () => {
   selectedChat.value = null
   messages.value = []
   loadingMessages.value = false
+  chatHistorySyncPending.value = false
   loadingOlderMessages.value = false
   chatMessagesHasMore.value = false
   selectChatLoadSeq.value += 1

@@ -31,6 +31,30 @@ html.cf-mobile-app #__nuxt {
   min-height: 0;
 }
 
+/*
+ * PWA instalado: altura real da tela. Não depende de classe nem de --cf-vvh do JS.
+ */
+@media (display-mode: standalone) {
+  html.cf-mobile-app,
+  html.cf-mobile-app body,
+  html.cf-mobile-app #__nuxt,
+  html.cf-mobile-app:has(.patient-shell),
+  html.cf-mobile-app:has(.patient-shell) body,
+  html.cf-mobile-app:has(.patient-shell) #__nuxt {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+  }
+}
+
+html.cf-pwa-standalone.cf-mobile-app.vk-open body,
+html.cf-pwa-standalone.cf-mobile-app.vk-open #__nuxt,
+html.cf-pwa-standalone.cf-mobile-app.vk-open:has(.patient-shell) body,
+html.cf-pwa-standalone.cf-mobile-app.vk-open:has(.patient-shell) #__nuxt {
+  height: var(--cf-vvh, 100dvh);
+  max-height: var(--cf-vvh, 100dvh);
+}
+
 html.cf-ios-pwa .patient-shell-body {
   scroll-behavior: auto;
 }

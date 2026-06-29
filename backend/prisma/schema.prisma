@@ -87,6 +87,7 @@ model User {
   whatsappContactDirectory WhatsappContactDirectory?
   whatsappGroupObservedSenders WhatsappGroupObservedSenders[]
   whatsappMediaArchives WhatsappMediaArchive[]
+  whatsappMessages WhatsappMessage[]
   weeklyCheckIns WeeklyCheckIn[]
   checkInTemplates CheckInTemplate[] @relation("CheckInTemplateAuthor")
   checkInDispatchSchedules CheckInDispatchSchedule[] @relation("CheckInDispatchAuthor")
@@ -477,6 +478,23 @@ model WhatsappContactState {
 
   @@unique([userId, contactJid])
   @@index([userId, updatedAt])
+}
+
+// Mensagens persistidas (webhook history/messages + sync message/find).
+model WhatsappMessage {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatJid          String
+  messageId        String
+  messageTimestamp BigInt
+  fromMe           Boolean  @default(false)
+  raw              Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, messageId])
+  @@index([userId, chatJid, messageTimestamp])
 }
 
 // Mídia do WhatsApp arquivada no Backblaze B2 (links da UAZAPI expiram).

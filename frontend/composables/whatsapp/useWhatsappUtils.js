@@ -68,6 +68,137 @@ export const allNormalizedPrivateJidVariants = (jid) => {
   return [...set].filter(Boolean)
 }
 
+const pushMessageFindChatId = (out, value) => {
+  const raw = strTrim(value)
+  if (!raw) return
+
+  const lower = raw.toLowerCase()
+  if (lower.endsWith('@s.whatsapp.net') || lower.endsWith('@g.us') || lower.endsWith('@lid')) {
+    out.add(lower)
+    return
+  }
+
+  if (raw.includes(':') && !raw.includes('@')) {
+    const segments = raw.split(':')
+    const peer = strTrim(segments.slice(1).join(':') || segments.pop() || '')
+    if (peer) pushMessageFindChatId(out, peer)
+    const peerDigits = peer.replace(/\D/g, '')
+    if (peerDigits.length >= 8) out.add(`${peerDigits}@s.whatsapp.net`)
+    return
+  }
+
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length >= 8) out.add(`${digits}@s.whatsapp.net`)
+}
+
+/** Todos os chatids válidos para buscar mensagens (JID, LID, phone, fastid…). */
+export const collectMessageFindChatIds = (source, extraFallback = '') => {
+  const out = new Set()
+
+  if (typeof source === 'string') {
+    pushMessageFindChatId(out, source)
+    pushMessageFindChatId(out, extraFallback)
+    return [...out]
+  }
+
+  if (!source || typeof source !== 'object') {
+    pushMessageFindChatId(out, extraFallback)
+    return [...out]
+  }
+
+  const row = source
+  const rawPayload = row.raw && typeof row.raw === 'object' && !Array.isArray(row.raw) ? row.raw : null
+
+  const values = [
+    row.wa_chatid,
+    row.chatJid,
+    row.chatid,
+    row.chatId,
+    row.id,
+    row.wa_chatlid,
+    row.chatlid,
+    row.chatLid,
+    row.wa_fastid,
+    row.fastid,
+    row.phone,
+    row.lead_phone,
+    row.sender_pn,
+    row.senderPn,
+    row.SenderPn,
+    row.sender_lid,
+    row.senderLid,
+    row.lastMessageSender,
+    row.wa_lastMessageSender,
+    row.wa_lastMsgSender,
+    row.Chat,
+    row.chat,
+    rawPayload?.wa_chatid,
+    rawPayload?.chatJid,
+    rawPayload?.chatid,
+    rawPayload?.wa_chatlid,
+    rawPayload?.chatlid,
+    rawPayload?.wa_fastid,
+    rawPayload?.phone,
+    rawPayload?.sender_pn,
+    extraFallback,
+  ]
+
+  for (const value of values) pushMessageFindChatId(out, value)
+
+  const key = row.key && typeof row.key === 'object' ? row.key : null
+  if (key) {
+    pushMessageFindChatId(out, key.remoteJid)
+    pushMessageFindChatId(out, key.RemoteJID)
+  }
+
+  return [...out]
+}
+
+/** Identificadores do chat (sidebar, pin, dedupe) — sem sender da última mensagem. */
+export const collectChatIdentityIds = (source, extraFallback = '') => {
+  const out = new Set()
+
+  if (typeof source === 'string') {
+    pushMessageFindChatId(out, source)
+    pushMessageFindChatId(out, extraFallback)
+    return [...out]
+  }
+
+  if (!source || typeof source !== 'object') {
+    pushMessageFindChatId(out, extraFallback)
+    return [...out]
+  }
+
+  const row = source
+  const rawPayload = row.raw && typeof row.raw === 'object' && !Array.isArray(row.raw) ? row.raw : null
+
+  const values = [
+    row.wa_chatid,
+    row.chatJid,
+    row.chatid,
+    row.chatId,
+    row.id,
+    row.wa_chatlid,
+    row.chatlid,
+    row.chatLid,
+    row.wa_fastid,
+    row.fastid,
+    row.phone,
+    row.lead_phone,
+    rawPayload?.wa_chatid,
+    rawPayload?.chatJid,
+    rawPayload?.chatid,
+    rawPayload?.wa_chatlid,
+    rawPayload?.chatlid,
+    rawPayload?.wa_fastid,
+    rawPayload?.phone,
+    extraFallback,
+  ]
+
+  for (const value of values) pushMessageFindChatId(out, value)
+  return [...out]
+}
+
 /** Parseia msg.content / msg.Content quando vem string JSON (comum na UAZAPI) — sem depender de outros composables. */
 export const parseLooseMessageContent = (msg) => {
   const raw = msg?.content ?? msg?.Content
@@ -786,7 +917,7 @@ export const bytesToJpegDataUrl = (raw) => {
 export function useWhatsappUtils() {
   return {
     normalizeJid, extractDigitsFromJid, isGroupJid, extractWhatsappNumber,
-    toUazapiChatNumber, allNormalizedPrivateJidVariants, formatJidAsPhoneLine,
+    toUazapiChatNumber, allNormalizedPrivateJidVariants, collectMessageFindChatIds, collectChatIdentityIds, formatJidAsPhoneLine,
     buildLookupKeys, filterSenderLookupCandidates, pickNameFromDirectory, strTrim, waEscapeHtml,
     looksLikePhoneNumber, extractPhoneDigits, normalizeTimestampToMs, formatTime, formatChatListTime, formatConversationDateLabel, isPinSystemMessageText, isChatMutedByEndTime, resolveChatIsMuted,
     formatWhatsappTextForDisplay, normalizeContactPhone, buildPhoneVariants,

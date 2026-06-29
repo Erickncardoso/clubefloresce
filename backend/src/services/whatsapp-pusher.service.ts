@@ -18,6 +18,7 @@ const SYNC_EVENT_TYPES = new Set([
   "chat",
   "chat.update",
   "connection",
+  "history",
   "groups",
   "group",
   "presence",

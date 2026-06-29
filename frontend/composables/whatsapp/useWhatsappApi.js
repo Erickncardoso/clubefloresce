@@ -4,7 +4,7 @@
  * Inclui fetchChatDetailsSafe com cache e deduplicação de inflight.
  */
 import { chatDetailsCache, chatDetailsInflight } from './useWhatsappState.js'
-import { parseJsonBodySafe } from './useWhatsappUtils.js'
+import { normalizeJid, parseJsonBodySafe } from './useWhatsappUtils.js'
 import {
   authFetchInit,
   authHeaders,
@@ -52,10 +52,17 @@ const _getConfig = () => {
 }
 
 let _cachedBase = null
+const DEV_WHATSAPP_API_FALLBACK = '/api/whatsapp'
+
 const getBase = () => {
-  if (_cachedBase !== null) return _cachedBase
-  _cachedBase = _getConfig().base
-  return _cachedBase
+  const configured = _getConfig().base
+  if (configured) {
+    _cachedBase = configured
+    return configured
+  }
+  if (_cachedBase) return _cachedBase
+  if (typeof window !== 'undefined') return DEV_WHATSAPP_API_FALLBACK
+  return ''
 }
 
 /** Base HTTP da API WhatsApp (ex.: `.../api/whatsapp`), sem barra final. */
@@ -124,6 +131,58 @@ export const isWhatsappConnectedFromStatusPayload = (data) => {
   )
 }
 
+export const isWhatsappExplicitlyDisconnected = (data) => {
+  if (!data || typeof data !== 'object') return false
+  if (data.connectionStatus) {
+    const normalized = String(data.connectionStatus).toLowerCase()
+    return normalized === 'disconnected' || normalized === 'close' || normalized === 'closed'
+  }
+  const inst = data.instance || null
+  const rawStatus = inst?.connectionStatus || inst?.status || data.status?.status || ''
+  const normalized = typeof rawStatus === 'object'
+    ? (rawStatus.connected === false && rawStatus.loggedIn === false ? 'disconnected' : '')
+    : String(rawStatus || '').toLowerCase()
+  return normalized === 'disconnected'
+}
+
+/** GET `/status` parseado — `{ ok, data }`. */
+export const fetchWhatsappStatusPayload = async () => {
+  const base = getWhatsappApiBase()
+  if (!base || !hasAuthSession()) return { ok: false, data: {} }
+  try {
+    const res = await fetch(`${base}/status`, authFetchInit())
+    const data = await parseJsonBodySafe(res)
+    return { ok: res.ok, data: data && typeof data === 'object' ? data : {} }
+  } catch {
+    return { ok: false, data: {} }
+  }
+}
+
+const pickSessionJidFromValue = (value) => {
+  if (!value) return ''
+  if (typeof value === 'object') {
+    const user = String(value.user || value.User || '').trim()
+    if (!user) return ''
+    const server = String(value.server || value.Server || 's.whatsapp.net').trim() || 's.whatsapp.net'
+    return normalizeJid(`${user}@${server}`)
+  }
+  return normalizeJid(String(value))
+}
+
+/** JID da sessão conectada — normalizado (sem sufixo multi-device `:NN`). */
+export const resolveConnectedSessionJidFromStatus = (data) => {
+  if (!data || typeof data !== 'object') return ''
+  return (
+    pickSessionJidFromValue(data.status?.jid) ||
+    pickSessionJidFromValue(data.status?.instance?.jid) ||
+    pickSessionJidFromValue(data.instance?.jid) ||
+    pickSessionJidFromValue(data.instance?.instance?.jid) ||
+    pickSessionJidFromValue(
+      data.instance?.owner ? `${String(data.instance.owner).replace(/\D/g, '')}@s.whatsapp.net` : '',
+    )
+  )
+}
+
 /** GET `/status` — retorna false se não autenticado, resposta não-OK ou payload desconectado. */
 export const fetchWhatsappSessionConnected = async () => {
   const base = getWhatsappApiBase()
@@ -150,8 +209,8 @@ export const getContactStatesBase = () => `${getBase()}/contact-states`
 export const getContactDirectoryApi = () => `${getBase()}/contact-directory`
 
 // ─── Polling intervals ────────────────────────────────────────────────────────
-export const CHATS_POLL_INTERVAL_MS = 5000
-export const MESSAGES_POLL_INTERVAL_MS = 2000
+export const CHATS_POLL_INTERVAL_MS = 8000
+export const MESSAGES_POLL_INTERVAL_MS = 4000
 export const CONTACTS_SYNC_MIN_INTERVAL_MS = 60000
 export const UNKNOWN_SENDER_ENRICH_POLL_MIN_MS = 35000
 

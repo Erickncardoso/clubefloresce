@@ -78,6 +78,22 @@
     </div>
     </div>
 
+    <div
+      v-if="initialSyncActive"
+      class="chat-initial-sync-banner"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader class="chat-initial-sync-banner__icon spin icon-small" aria-hidden="true" />
+      <div class="chat-initial-sync-banner__copy">
+        <strong>Mantenha o celular aberto com o WhatsApp ativo</strong>
+        <p>
+          Estamos sincronizando suas conversas{{ initialSyncChatCount ? ` (${initialSyncChatCount} encontradas)` : '' }}.
+          Não feche o WhatsApp no aparelho até concluir{{ initialSyncElapsed ? ` · ${initialSyncElapsed}` : '' }}.
+        </p>
+      </div>
+    </div>
+
     <div v-if="!loading" class="chat-list-scroll">
       <div
         v-for="chat in chats"
@@ -165,6 +181,9 @@
 
       <div v-if="chats.length === 0" class="empty-state-mini">
         <p class="text-muted text-sm">Nenhum chat encontrado.</p>
+        <p v-if="!initialSyncActive" class="text-muted text-xs empty-state-mini__hint">
+          Se você acabou de conectar, aguarde a sincronização com o celular aberto.
+        </p>
       </div>
     </div>
 
@@ -225,6 +244,9 @@ import { resolveChatIsMuted } from '~/composables/whatsapp/useWhatsappUtils.js'
 const props = defineProps({
   chats: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
+  initialSyncActive: { type: Boolean, default: false },
+  initialSyncChatCount: { type: Number, default: 0 },
+  initialSyncElapsed: { type: String, default: '' },
   modelValue: { type: String, default: '' },
   listFilter: { type: String, default: 'all' },
   isActive: { type: Function, required: true },

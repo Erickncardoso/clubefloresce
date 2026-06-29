@@ -273,7 +273,7 @@
 
 <script setup>
 import { AlertTriangle, ChevronRight, Info, Pencil, Plus, X } from 'lucide-vue-next'
-import { lockPatientScroll, unlockPatientScroll } from '~/composables/useVerticalWheelPassthrough'
+import { lockPatientScroll, unlockPatientScroll, resetPatientScrollLock } from '~/composables/useVerticalWheelPassthrough'
 import {
   applyFoodMatch,
   createMealItem,
@@ -753,7 +753,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   removeDragListeners()
   unbindViewportSync()
-  unlockPatientScroll()
+  resetPatientScrollLock()
 })
 </script>
 

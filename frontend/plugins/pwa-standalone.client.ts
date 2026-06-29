@@ -13,6 +13,7 @@ export default defineNuxtPlugin(() => {
   if (isStandalonePwa()) {
     markPwaInstalled()
     document.documentElement.classList.add('cf-pwa-standalone')
+    document.documentElement.style.removeProperty('--cf-vvh')
     return
   }
 

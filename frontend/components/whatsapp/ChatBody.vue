@@ -6,6 +6,24 @@
       <span>Carregando mensagens…</span>
     </div>
 
+    <div v-else-if="showHistorySync" class="chat-body-empty" role="status">
+      <p class="chat-body-empty__title">Sincronizando histórico desta conversa…</p>
+      <p class="chat-body-empty__hint">Mantenha o WhatsApp aberto no celular. As mensagens devem aparecer em instantes.</p>
+    </div>
+
+    <div v-else-if="showEmpty" class="chat-body-empty" role="status">
+      <p class="chat-body-empty__title">{{ emptyTitle }}</p>
+      <p class="chat-body-empty__hint">{{ emptyHint }}</p>
+      <button
+        v-if="canRetryHistorySync"
+        type="button"
+        class="chat-body-empty__retry"
+        @click="$emit('retry-history-sync')"
+      >
+        Tentar sincronizar de novo
+      </button>
+    </div>
+
     <GroupMessageList
       v-else-if="isGroup"
       :messages="displayMessages"
@@ -149,6 +167,8 @@ const props = defineProps({
   contactAvatarUrl: { type: String, default: '' },
   contactDisplayName: { type: String, default: '' },
   loadingMessages: { type: Boolean, default: false },
+  historySyncPending: { type: Boolean, default: false },
+  hasChatPreview: { type: Boolean, default: false },
   wallpaperStyle: { type: Object, default: () => ({}) },
   actionMenuMode: { type: String, default: 'full' },
   downloadingMediaById: { type: Object, default: () => ({}) },
@@ -200,11 +220,35 @@ const props = defineProps({
 
 const displayMessages = computed(() => (Array.isArray(props.messages) ? props.messages : []))
 const showLoading = computed(() => Boolean(props.loadingMessages) && displayMessages.value.length === 0)
+const showHistorySync = computed(() =>
+  !props.loadingMessages &&
+  Boolean(props.historySyncPending) &&
+  displayMessages.value.length === 0
+)
+const showEmpty = computed(() =>
+  !props.loadingMessages &&
+  !props.historySyncPending &&
+  displayMessages.value.length === 0
+)
+
+const emptyTitle = computed(() =>
+  props.hasChatPreview
+    ? 'Histórico ainda não sincronizado'
+    : 'Nenhuma mensagem nesta conversa'
+)
+
+const emptyHint = computed(() =>
+  props.hasChatPreview
+    ? 'Esta conversa tem preview na lista, mas a UAZAPI ainda não devolveu o histórico. Deixe o WhatsApp aberto no celular e toque em "Tentar sincronizar de novo". Novas mensagens chegam em tempo real.'
+    : 'Quando alguém enviar uma mensagem, ela aparecerá aqui automaticamente.'
+)
+
+const canRetryHistorySync = computed(() => Boolean(props.hasChatPreview))
 
 defineEmits([
   'reply', 'copy', 'react-quick', 'react-open', 'react-remove', 'open-reactions-mode',
   'forward', 'pin', 'star', 'message-info', 'commercial-broadcast', 'add-to-notes', 'edit', 'delete',
-  'close-reactions-detail', 'reactions-tab-change', 'reactions-row-click'
+  'close-reactions-detail', 'reactions-tab-change', 'reactions-row-click', 'retry-history-sync'
 ])
 
 onMounted(() => {

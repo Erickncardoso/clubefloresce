@@ -163,6 +163,7 @@ import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 import { useMealPlan } from '~/composables/useMealPlan'
 import { useMealSubstitutions } from '~/composables/useMealSubstitutions'
 import { usePatientMealPlan } from '~/composables/usePatientMealPlan'
+import { resetPatientScrollLock } from '~/composables/useVerticalWheelPassthrough'
 import { normalizeMealItemsForSave } from '~/utils/meal-diary'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
@@ -181,6 +182,7 @@ const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
 
 const { loadChecked, saveChecked, countDone } = useDietaProgress()
+const { queueSyncMealCheck, syncMealCheck } = useDietaDiarySync()
 const { fetchPlan, uploadPdf, uploading: planUploading, planRecord } = usePatientMealPlan()
 const { mealList, mealOrder, getMealById, getMealIdForTime, hasPlan } = useMealPlan()
 const { getSubstitutionGroupsForMeal, mealHasSubstitutions } = useMealSubstitutions()
@@ -189,6 +191,7 @@ const { patientFetchInit } = usePatientLocalTime()
 
 const planLoading = ref(true)
 const substitutionsOpen = ref(false)
+const togglingItem = ref(false)
 const { overridesRevision } = useMealItemOverrides()
 const mealPlanEntry = (mealId) => getMealById(mealId)
 const currentMeal = computed(() => {
@@ -233,10 +236,21 @@ function selectMeal(mealId) {
 }
 
 function toggleItem(index) {
+  if (togglingItem.value) return
+  togglingItem.value = true
+
   const next = [...checkedItems.value]
   next[index] = !next[index]
   checkedItems.value = next
   saveChecked(activeMeal.value, next)
+  queueSyncMealCheck(activeMeal.value, currentMeal.value, next, (summary) => {
+    if (summary) dailySummary.value = summary
+    togglingItem.value = false
+  })
+
+  window.setTimeout(() => {
+    togglingItem.value = false
+  }, 500)
 }
 
 function weekProgressLabel(mealId) {
@@ -379,14 +393,43 @@ watch(nutritionRefresh, () => {
   loadDailySummary()
 })
 
+async function syncActiveMealIfNeeded() {
+  const meal = getMealById(activeMeal.value)
+  if (!meal?.itemLabels?.length) {
+    await loadDailySummary()
+    return
+  }
+
+  const states = loadChecked(activeMeal.value, meal.itemLabels.length)
+  if (!countDone(states)) {
+    await loadDailySummary()
+    return
+  }
+
+  const summary = await syncMealCheck(activeMeal.value, meal, states, { bumpRefresh: false })
+  if (summary) dailySummary.value = summary
+  else await loadDailySummary()
+}
+
 onMounted(async () => {
   await fetchPlan()
   planLoading.value = false
   if (hasPlan.value) {
     activeMeal.value = resolveActiveMealFromRoute()
     syncChecked(activeMeal.value)
+    await syncActiveMealIfNeeded()
+  } else {
+    loadDailySummary()
   }
-  loadDailySummary()
+})
+
+onUnmounted(() => {
+  substitutionsOpen.value = false
+  resetPatientScrollLock()
+})
+
+watch(overridesRevision, () => {
+  syncChecked(activeMeal.value)
 })
 
 watch(

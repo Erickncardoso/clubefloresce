@@ -13,13 +13,16 @@
             v-model:list-filter="chatListFilter"
             :chats="filteredChats"
             :loading="loadingChats"
+            :initial-sync-active="initialSyncActive"
+            :initial-sync-chat-count="initialSyncChatCount"
+            :initial-sync-elapsed="initialSyncElapsedLabel"
             :is-active="isActiveChatListItem"
             :preview-prefix="chatListPreviewPrefix"
             :format-time="formatTime"
             :format-list-time="formatChatListTime"
             :on-mark-all-read="markAllChatsAsRead"
             @select="selectChat"
-            @refresh="loadChats(true)"
+            @refresh="refreshSidebarChats"
             @header-menu-action="handleSidebarHeaderMenuAction"
           />
           <Transition name="labels-panel-slide">
@@ -107,6 +110,8 @@
               :contact-avatar-url="String(selectedChat?.avatarUrl || selectedChat?.image || selectedChat?.imagePreview || '')"
               :contact-display-name="resolveChatDisplayName(selectedChat)"
               :loading-messages="loadingMessages"
+              :history-sync-pending="chatHistorySyncPending"
+              :has-chat-preview="selectedChatHasListPreview"
               :action-menu-mode="actionMenuMode"
               :downloading-media-by-id="downloadingMediaById"
               :chat-action-feedback="chatActionFeedback"
@@ -169,6 +174,7 @@
               @close-reactions-detail="reactionsDetailMessage = null"
               @reactions-tab-change="(tab) => { reactionsDetailTab = tab }"
               @reactions-row-click="onReactionsDetailRowClick"
+              @retry-history-sync="handleRetryChatHistorySync"
             />
 
             <!-- Footer: reply bar + input -->
@@ -558,8 +564,16 @@ import MessageInfoModal from '~/components/whatsapp/MessageInfoModal.vue'
 // ─── Composables ──────────────────────────────────────────────────────────────
 import { useWhatsappState, messageActionsCoords, replyingTo } from '~/composables/whatsapp/useWhatsappState.js'
 import { useWhatsappUtils } from '~/composables/whatsapp/useWhatsappUtils.js'
-import { getProxyBase, fetchWhatsappSessionConnected, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders, whatsappFetchInit, getWhatsappApiBase, isWhatsappConnectedFromStatusPayload } from '~/composables/whatsapp/useWhatsappApi.js'
+import { getProxyBase, fetchWhatsappSessionConnected, fetchWhatsappStatusPayload, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders, whatsappFetchInit, getWhatsappApiBase, isWhatsappConnectedFromStatusPayload, isWhatsappExplicitlyDisconnected, resolveConnectedSessionJidFromStatus } from '~/composables/whatsapp/useWhatsappApi.js'
 import { useWhatsappChats, canonicalChatListKey } from '~/composables/whatsapp/useWhatsappChats.js'
+import {
+  initialSyncActive,
+  initialSyncChatCount,
+  initialSyncElapsedLabel,
+  resumeInitialSyncIfNeeded,
+  beginInitialSyncWatch,
+  isInitialSyncGentleMode,
+} from '~/composables/whatsapp/useWhatsappInitialSync.js'
 import { useWhatsappContacts } from '~/composables/whatsapp/useWhatsappContacts.js'
 import { useWhatsappMessages } from '~/composables/whatsapp/useWhatsappMessages.js'
 import {
@@ -673,7 +687,7 @@ import {
 // ─── Estado compartilhado ─────────────────────────────────────────────────────
 const {
   chats, loadingChats, searchQuery,
-  selectedChat, messages, loadingMessages, loadingOlderMessages,
+  selectedChat, messages, loadingMessages, chatHistorySyncPending, loadingOlderMessages,
   newMessage, sending, mediaInputRef,
   // mediaInputRef é sincronizado com ChatFooter via watchEffect
   actionMenuMessageId, actionMenuMode, reactionsDetailMessage, reactionsDetailTab,
@@ -694,11 +708,24 @@ const { formatTime, formatChatListTime, formatJidAsPhoneLine, formatWhatsappText
 
 // ─── Chats ────────────────────────────────────────────────────────────────────
 const {
-        loadChats, selectChat, sendMessage, sendInteractiveMenuReply, refreshChatPreview, refreshSelectedChatMessages, scrollToBottom,
+        loadChats, selectChat, retrySelectedChatHistorySync, chatHasListPreview, sendMessage, sendInteractiveMenuReply, refreshChatPreview, refreshSelectedChatMessages, scrollToBottom,
         startRealtimeSync, stopRealtimeSync, resetWhatsappAfterDisconnect,
         isActiveChatListItem, chatListPreviewPrefix, markAllChatsAsRead,
         markMessageAsPlayed, resetChatsRuntimeCaches, enrichMissingChatAvatars,
       } = useWhatsappChats()
+
+const refreshSidebarChats = () => {
+  if (isInitialSyncGentleMode()) {
+    return loadChats(false, { silent: true, lightSync: true, gentle: true })
+  }
+  return loadChats(true)
+}
+
+const selectedChatHasListPreview = computed(() => chatHasListPreview(selectedChat.value || {}))
+
+const handleRetryChatHistorySync = () => {
+  void retrySelectedChatHistorySync()
+}
 
 // ─── Contatos ────────────────────────────────────────────────────────────────
 const {
@@ -835,7 +862,10 @@ const quickReplyDeleting = ref(null)
 
 const syncQuickRepliesPickerFromMessage = (value = newMessage.value, { forceOpen = false } = {}) => {
   const text = String(value || '')
-  if (!selectedChat.value || selectedGroupComposeLocked.value) return
+  if (!selectedChat.value || selectedGroupComposeLocked.value) {
+    if (!text.startsWith('/')) closeQuickRepliesPicker()
+    return
+  }
   if (!text.startsWith('/')) {
     if (quickRepliesPickerOpen.value) closeQuickRepliesPicker()
     quickRepliesPickerActiveIndex.value = 0
@@ -2846,7 +2876,7 @@ const handleSidebarHeaderMenuAction = async (actionId) => {
       await disconnectWhatsappSession()
       resetWhatsappAfterDisconnect()
       clearArchivedChatsCache()
-      await navigateTo('/dashboard/whatsapp/conexao')
+      await navigateTo('/whatsapp/conexao')
     } catch (error) {
       chatActionFeedback.value = String(error?.message || 'Falha ao desconectar')
     }
@@ -2999,8 +3029,11 @@ const refreshSelectedGroupAccess = async (groupjid, { force = false } = {}) => {
 
 const handleSendMessage = async () => {
   if (selectedGroupComposeLocked.value) return
-  if (quickRepliesPickerOpen.value) return
+  if (sending.value) return
+
   const text = String(newMessage.value || '').trim()
+  if (!text) return
+
   if (text.startsWith('/') && !text.includes(' ')) {
     const query = text.slice(1).trim().toLowerCase()
     const match = quickRepliesList.value.find((reply) => String(reply?.shortCut || '').trim().toLowerCase() === query)
@@ -3010,7 +3043,9 @@ const handleSendMessage = async () => {
       return
     }
   }
-  sendMessage()
+
+  closeQuickRepliesPicker()
+  await sendMessage()
 }
 
 const openContactInfoModal = async () => {
@@ -3552,46 +3587,92 @@ onMounted(async () => {
     navigateTo('/')
     return
   }
-  const base = getWhatsappApiBase()
-  const statusPayload = base
-    ? await fetch(`${base}/status`, whatsappFetchInit())
-      .then((r) => r.text().then((t) => ({ ok: r.ok, raw: t })))
-      .catch(() => ({ ok: false, raw: '' }))
-    : { ok: false, raw: '' }
-  let statusData = {}
-  try { statusData = statusPayload.raw ? JSON.parse(statusPayload.raw) : {} } catch { statusData = {} }
-  const connectedSessionJid = String(
-    statusData?.status?.jid ||
-    statusData?.status?.instance?.jid ||
-    statusData?.instance?.jid ||
-    statusData?.instance?.instance?.jid ||
-    ''
-  ).trim()
-  const prevSessionJid = typeof window !== 'undefined' ? String(localStorage.getItem('wa_session_jid') || '').trim() : ''
-  const connected = statusPayload.ok ? isWhatsappConnectedFromStatusPayload(statusData) : await fetchWhatsappSessionConnected()
-  if (!connected) {
+
+  const { ok: statusOk, data: statusData } = await fetchWhatsappStatusPayload()
+  const connectedSessionJid = resolveConnectedSessionJidFromStatus(statusData)
+  const prevSessionJid = getStoredSessionJid()
+  const connected = statusOk
+    ? isWhatsappConnectedFromStatusPayload(statusData)
+    : await fetchWhatsappSessionConnected()
+  const explicitlyDisconnected = statusOk && isWhatsappExplicitlyDisconnected(statusData)
+
+  if (connectedSessionJid && prevSessionJid && connectedSessionJid !== prevSessionJid) {
     resetWhatsappAfterDisconnect()
     clearArchivedChatsCache()
+    beginInitialSyncWatch({ sessionJid: connectedSessionJid, force: true })
+  } else {
+    resumeInitialSyncIfNeeded()
+  }
+
+  if (connectedSessionJid) {
+    localStorage.setItem('wa_session_jid', connectedSessionJid)
+    sessionJid.value = connectedSessionJid
+  } else {
+    sessionJid.value = getStoredSessionJid()
+  }
+
+  const sessionChanged = Boolean(connectedSessionJid && prevSessionJid && connectedSessionJid !== prevSessionJid)
+
+  await restoreContactsFromCache()
+  startRealtimeSync()
+
+  if (sessionChanged) {
+    await loadChats(true, { silent: true, gentle: false })
+  } else {
+    await loadChats(false, { silent: true, preferCache: true })
+    await loadChats(false, { lightSync: true, gentle: isInitialSyncGentleMode() })
+    if (!(chats.value || []).length) {
+      await loadChats(true, { silent: true, gentle: false })
+    } else if (!isInitialSyncGentleMode()) {
+      loadChats(true, { silent: true }).catch(() => {})
+    }
+  }
+
+  if (!(chats.value || []).length && explicitlyDisconnected) {
+    resetWhatsappAfterDisconnect()
+    clearArchivedChatsCache()
+    await navigateTo('/whatsapp/conexao')
     return
   }
-  if (typeof window !== 'undefined' && connectedSessionJid && prevSessionJid && connectedSessionJid !== prevSessionJid) {
-    // Sessão trocou (escaneou outro WhatsApp): limpa estado e caches para não “misturar” chats.
-    resetWhatsappAfterDisconnect()
-    clearArchivedChatsCache()
-    resetChatsRuntimeCaches()
+
+  if (!(chats.value || []).length && !connected) {
+    await navigateTo('/whatsapp/conexao')
+    return
   }
-  if (typeof window !== 'undefined' && connectedSessionJid) localStorage.setItem('wa_session_jid', connectedSessionJid)
-  sessionJid.value = normalizeJid(connectedSessionJid || getStoredSessionJid())
-  await restoreContactsFromCache()
-  await syncContactsDirectoryIfNeeded(true)
-  await loadChats(true, { lightSync: true })
-  loadChats(true, { silent: true }).catch(() => {})
+
+  if (!(chats.value || []).length && connected) {
+    const retryLoadChats = async () => {
+      if ((chats.value || []).length > 0) return
+      await loadChats(true, { silent: true, gentle: false })
+    }
+    window.setTimeout(() => { void retryLoadChats() }, 6000)
+    window.setTimeout(() => { void retryLoadChats() }, 18000)
+  }
+
+  if (!isInitialSyncGentleMode()) {
+    void syncContactsDirectoryIfNeeded(true)
+  } else {
+    window.setTimeout(() => {
+      if (!isInitialSyncGentleMode()) {
+        void syncContactsDirectoryIfNeeded(true)
+      }
+    }, 90_000)
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('wa-initial-sync-complete', onInitialSyncComplete)
+  }
   await openChatFromDeepLink()
-  startRealtimeSync()
 })
+
+const onInitialSyncComplete = () => {
+  loadChats(true, { silent: true, gentle: false }).catch(() => {})
+}
 
 onUnmounted(() => {
   unlockPageScroll()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('wa-initial-sync-complete', onInitialSyncComplete)
+  }
   if (typeof document !== 'undefined') {
     document.removeEventListener('pointerdown', onGlobalPointerDown, false)
     document.removeEventListener('keydown', onGlobalKeydown, true)

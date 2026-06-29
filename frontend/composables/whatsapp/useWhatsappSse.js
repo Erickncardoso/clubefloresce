@@ -60,6 +60,7 @@ function shouldHandleSseEvent(eventType) {
   if (!eventType || eventType === 'ping' || eventType === 'heartbeat') return false
   if (eventType.includes('message')) return true
   if (eventType.includes('chat')) return true
+  if (eventType.includes('history')) return true
   if (eventType.includes('presence')) return true
   if (eventType === 'connection') return true
   return false
@@ -146,7 +147,7 @@ function startSseLoop() {
 function scheduleReconnect(run) {
   if (!sseRunning) return
   if (sseReconnectTimer) clearTimeout(sseReconnectTimer)
-  sseReconnectTimer = setTimeout(run, 2500)
+  sseReconnectTimer = setTimeout(run, 1200)
 }
 
 /** Incrementa referência e garante stream SSE ativo. */

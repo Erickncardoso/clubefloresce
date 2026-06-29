@@ -2363,9 +2363,14 @@ onMounted(async () => {
 .response-detail-card {
   max-width: min(72rem, 96vw);
   width: 100%;
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .response-detail-head {
+  flex-shrink: 0;
   align-items: center;
   gap: 1rem;
   padding: 1.35rem 1.5rem 1.2rem;
@@ -2430,9 +2435,11 @@ onMounted(async () => {
 .response-detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 1.25rem;
   padding: 1.15rem 1.5rem 1.25rem;
-  max-height: 70vh;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -2440,12 +2447,16 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
   padding-top: 0.1rem;
 }
 
 .response-detail-nutrition {
   min-height: 0;
+  height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding-right: 0.15rem;
   padding-top: 0.1rem;
 }
@@ -2463,16 +2474,17 @@ onMounted(async () => {
 @media (max-width: 900px) {
   .response-detail-layout {
     grid-template-columns: 1fr;
-    max-height: none;
-    overflow: visible;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    overflow: hidden;
   }
 
   .response-detail-nutrition {
-    overflow: visible;
+    overflow-y: auto;
   }
 }
 
 .response-detail-foot {
+  flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
@@ -2537,6 +2549,8 @@ onMounted(async () => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 0;
 }
 

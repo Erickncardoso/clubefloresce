@@ -61,7 +61,7 @@
 </template>
 
 <script setup>
-import { lockPatientScroll, unlockPatientScroll } from '~/composables/useVerticalWheelPassthrough'
+import { lockPatientScroll, unlockPatientScroll, resetPatientScrollLock } from '~/composables/useVerticalWheelPassthrough'
 import { ArrowLeftRight, Check, FileText, X } from 'lucide-vue-next'
 import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 import { useMealSubstitutions } from '~/composables/useMealSubstitutions'
@@ -107,7 +107,7 @@ watch(
 )
 
 onUnmounted(() => {
-  unlockPatientScroll()
+  resetPatientScrollLock()
 })
 </script>
 

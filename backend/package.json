@@ -16,7 +16,8 @@
     "foods:update-tbca": "npm run foods:fetch-tbca && npm run foods:build-json && npm run foods:import",
     "foods:seed": "npm run foods:build-json && npm run foods:import",
     "patient:dev": "ts-node src/scripts/ensure-patient-dev.ts",
-    "email:check-dns": "node scripts/check-email-dns.mjs"
+    "email:check-dns": "node scripts/check-email-dns.mjs",
+    "whatsapp:backfill-messages": "ts-node src/scripts/backfill-whatsapp-messages.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

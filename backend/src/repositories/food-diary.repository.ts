@@ -130,4 +130,21 @@ export class FoodDiaryRepository {
       where: { id: entryId },
     });
   }
+
+  async findPlanCheckEntry(userId: string, entryDate: Date, mealType: string) {
+    const entries = await this.findEntriesByDate(userId, entryDate);
+    return entries.find((entry) => entry.mealType === mealType && !entry.imageUrl) || null;
+  }
+
+  /** Remove duplicatas do checklist do plano (mesma refeição, sem foto). */
+  async deleteExtraPlanCheckEntries(userId: string, entryDate: Date, mealType: string, keepId?: string) {
+    const entries = await this.findEntriesByDate(userId, entryDate);
+    const duplicates = entries.filter(
+      (entry) => entry.mealType === mealType && !entry.imageUrl && entry.id !== keepId,
+    );
+    for (const entry of duplicates) {
+      await this.deleteEntry(entry.id);
+    }
+    return duplicates.length;
+  }
 }

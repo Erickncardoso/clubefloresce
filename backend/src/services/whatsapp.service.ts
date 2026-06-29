@@ -20,10 +20,13 @@ const PROFILE_PIC_ENRICH_CACHE_TTL_MS = 90_000;
 /** Reaplica presença "unavailable" para o celular continuar recebendo push do WhatsApp. */
 const mobilePresenceAppliedAt = new Map<string, number>();
 const MOBILE_PRESENCE_REFRESH_MS = 90_000;
+/** Aguarda o history sync inicial terminar antes de alterar presença (evita pausar sync no celular). */
+const MOBILE_PRESENCE_INITIAL_GRACE_MS = 4 * 60 * 1000;
+const instanceConnectedAt = new Map<string, number>();
 
 /** Evita reconfigurar webhook da instância a cada poll de status. */
 const webhookEnsureAppliedAt = new Map<string, number>();
-const WEBHOOK_ENSURE_REFRESH_MS = 5 * 60 * 1000;
+const WEBHOOK_ENSURE_REFRESH_MS = 60 * 1000;
 
 export class WhatsappService {
   private async sleep(ms: number): Promise<void> {
@@ -375,6 +378,7 @@ export class WhatsappService {
       const instances = await this._fetchAllInstances();
       const inst = this._findInstance(instances, userId);
       if (!inst) return null;
+      await this.ensureInstanceLinkedToUser(inst, userId);
       return {
         token: this._instanceToken(inst),
         name: this._instanceDisplayName(inst),
@@ -382,6 +386,28 @@ export class WhatsappService {
     } catch(err) {
       console.error("Erro ao buscar instância UazAPI:", err);
       return null;
+    }
+  }
+
+  /** Garante adminField01 após migração de servidor ou instância única sem vínculo. */
+  async ensureInstanceLinkedToUser(inst: any, userId: string): Promise<void> {
+    if (!inst || this._instanceAdminField(inst) === userId) return;
+
+    const instanceId = String(
+      inst?.id || inst?.instance?.id || inst?.instanceId || inst?.instance?.instanceId || "",
+    ).trim();
+    if (!instanceId) return;
+
+    try {
+      const ok = await this.updateAdminFields(instanceId, userId);
+      if (!ok) return;
+      if (typeof inst === "object") {
+        if ("adminField01" in inst) inst.adminField01 = userId;
+        if (inst.instance && typeof inst.instance === "object") inst.instance.adminField01 = userId;
+      }
+      this.invalidateInstanceTokenCache(userId);
+    } catch (error) {
+      console.warn("[UazAPI] Falha ao vincular instância ao usuário:", error);
     }
   }
 
@@ -398,8 +424,14 @@ export class WhatsappService {
 
   /** Invalida o cache de token para forçar re-fetch na próxima requisição */
   invalidateInstanceTokenCache(userId?: string): void {
-    if (userId) instanceTokenCache.delete(userId);
-    else instanceTokenCache.clear();
+    if (userId) {
+      instanceTokenCache.delete(userId);
+      this._clearInstanceConnected(userId);
+    } else {
+      instanceTokenCache.clear();
+      instanceConnectedAt.clear();
+      mobilePresenceAppliedAt.clear();
+    }
   }
 
   /** URL de avatar em payloads UAZ/Baileys (campos variam entre versões). */
@@ -604,7 +636,7 @@ export class WhatsappService {
       await this.setInstanceWebhook(userId, {
         enabled: true,
         url: webhookUrl,
-        events: ["messages", "messages_update", "chats", "connection"],
+        events: ["messages", "messages_update", "chats", "connection", "history"],
         excludeMessages: ["wasSentByApi"],
       });
       webhookEnsureAppliedAt.set(userId, Date.now());
@@ -788,6 +820,8 @@ export class WhatsappService {
         return { status: "disconnected", instance: null };
       }
 
+      await this.ensureInstanceLinkedToUser(myInst, userId);
+
       const instanceToken = myInst.token || myInst.hash || myInst.instance?.token;
       
       // GET /instance/status com token da instância
@@ -805,7 +839,8 @@ export class WhatsappService {
             if (qrcode && !merged.qrcode) merged.qrcode = qrcode;
             const connectionStatus = this._normalizeConnectionStatus(merged);
             if (this._isConnectedStatus(connectionStatus)) {
-              void this.ensureMobileNotificationsFriendly(userId);
+              this._markInstanceConnected(userId);
+              this._scheduleMobilePresenceAfterInitialSync(userId);
               void this.ensureRealtimeWebhook(userId);
             }
             return {
@@ -823,7 +858,8 @@ export class WhatsappService {
       const mergedFallback = await this._hydrateInstanceProfilePic(userId, myInst, null);
       const connectionStatus = this._normalizeConnectionStatus(mergedFallback);
       if (this._isConnectedStatus(connectionStatus)) {
-        void this.ensureMobileNotificationsFriendly(userId);
+        this._markInstanceConnected(userId);
+        this._scheduleMobilePresenceAfterInitialSync(userId);
         void this.ensureRealtimeWebhook(userId);
       }
       return {
@@ -899,7 +935,15 @@ export class WhatsappService {
       throw new Error("WhatsApp já está conectado. Desconecte antes de gerar um novo QR.");
     }
 
-    if (connectionStatus === "connecting" || connectionStatus === "qrreadsuccess") {
+    if (connectionStatus === "qrreadsuccess") {
+      return {
+        ...currentStatus,
+        connectionStatus: "qrreadsuccess",
+        message: "QR escaneado. Aguardando conexão.",
+      };
+    }
+
+    if (connectionStatus === "connecting") {
       try {
         await this.disconnectSession(userId);
         await this.sleep(1500);
@@ -934,6 +978,54 @@ export class WhatsappService {
       ...statusData,
       qrcode,
       connectionStatus: "connecting",
+    };
+  }
+
+  /** Atualiza o QR sem desconectar — uso durante aguardo de scan (expira ~30s). */
+  async refreshQrCode(userId: string): Promise<any> {
+    await this._ensureInstanceForUser(userId);
+
+    const currentStatus: any = await this.getStatus(userId);
+    const connectionStatus =
+      currentStatus?.connectionStatus ||
+      this._normalizeConnectionStatus(currentStatus?.instance || currentStatus?.status);
+
+    if (this._isConnectedStatus(connectionStatus)) {
+      throw new Error("WhatsApp já está conectado.");
+    }
+
+    if (connectionStatus === "qrreadsuccess") {
+      return {
+        ...currentStatus,
+        connectionStatus: "qrreadsuccess",
+        message: "QR escaneado. Aguardando conexão.",
+      };
+    }
+
+    try {
+      const connectData = await this.connect(userId);
+      const qrcode = this._extractQrCode(connectData);
+      if (qrcode) {
+        return { ...connectData, qrcode, connectionStatus: "connecting" };
+      }
+    } catch (err) {
+      console.warn("[UazAPI] refreshQrCode connect:", err);
+    }
+
+    const statusData: any = await this.getStatus(userId);
+    const qrcode =
+      this._extractQrCode(statusData) ||
+      this._extractQrCode(statusData?.instance) ||
+      this._extractQrCode(statusData?.status);
+
+    if (!qrcode) {
+      throw new Error("Não foi possível atualizar o QR Code. Tente novamente.");
+    }
+
+    return {
+      ...statusData,
+      qrcode,
+      connectionStatus: connectionStatus || "connecting",
     };
   }
 
@@ -1197,6 +1289,36 @@ export class WhatsappService {
 
   private _mobilePresenceCacheKey(userId: string, token?: string): string {
     return userId || String(token || "").slice(0, 24);
+  }
+
+  private _markInstanceConnected(userId: string): void {
+    if (!instanceConnectedAt.has(userId)) {
+      instanceConnectedAt.set(userId, Date.now());
+    }
+  }
+
+  private _clearInstanceConnected(userId: string): void {
+    instanceConnectedAt.delete(userId);
+    mobilePresenceAppliedAt.delete(this._mobilePresenceCacheKey(userId));
+  }
+
+  /**
+   * Durante o history sync inicial, alterar presença pode pausar a sincronização no celular.
+   * Adiamos unavailable até a janela de graça passar.
+   */
+  private _scheduleMobilePresenceAfterInitialSync(userId: string): void {
+    const connectedAt = instanceConnectedAt.get(userId) || Date.now();
+    const elapsed = Date.now() - connectedAt;
+    const remaining = MOBILE_PRESENCE_INITIAL_GRACE_MS - elapsed;
+
+    if (remaining <= 0) {
+      void this.ensureMobileNotificationsFriendly(userId);
+      return;
+    }
+
+    setTimeout(() => {
+      void this.ensureMobileNotificationsFriendly(userId);
+    }, remaining + 250);
   }
 
   /**
