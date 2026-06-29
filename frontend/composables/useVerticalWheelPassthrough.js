@@ -48,6 +48,14 @@ export function unlockPatientScroll() {
   root.scrollTop = patientScrollLockTop
 }
 
+/** Força destravar ao desmontar modal (evita scroll preso se o componente sumir com lock ativo). */
+export function resetPatientScrollLock() {
+  if (typeof document === 'undefined') return
+  if (patientScrollLockCount === 0) return
+  patientScrollLockCount = 1
+  unlockPatientScroll()
+}
+
 export function usePatientScrollLock() {
   onBeforeUnmount(() => {
     if (patientScrollLockCount > 0) {

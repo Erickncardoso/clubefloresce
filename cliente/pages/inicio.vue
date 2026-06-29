@@ -1,5 +1,5 @@
 <template>
-  <div class="patient-page home-page patient-page--with-tab">
+  <div class="patient-page home-page patient-page--no-tab">
     <div class="home-hero-bg">
       <PatientHeader class="home-header" menu-left />
 
@@ -607,9 +607,8 @@ onMounted(async () => {
   width: 100%;
   box-sizing: border-box;
   margin-top: 0;
-  padding: 0.35rem 1.25rem var(--cf-tab-clearance);
+  padding: 0.35rem 1.25rem 1.25rem;
   background: var(--cf-bg);
-  min-height: 12rem;
 }
 
 .home-section {

@@ -161,6 +161,7 @@ watch(() => route.fullPath, () => {
   width: fit-content;
   max-width: min(24.5rem, calc(100vw - 2rem));
   margin-inline: auto;
+  margin-bottom: calc(var(--cf-tab-float-margin-bottom) + env(safe-area-inset-bottom, 0px));
   padding: 0.5rem 0.625rem;
   border-radius: 999px;
   background: #ffffff;

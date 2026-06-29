@@ -467,8 +467,7 @@ html:has(.doc-page) .patient-shell-body {
   margin: 0;
   padding:
     0
-    var(--cf-tab-float-margin-x)
-    calc(var(--cf-tab-float-margin-bottom) + env(safe-area-inset-bottom, 0px));
+    var(--cf-tab-float-margin-x);
   background: transparent;
   border: none;
   box-shadow: none;
