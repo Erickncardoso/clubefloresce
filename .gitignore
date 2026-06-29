@@ -17,6 +17,7 @@ backend/users.json
 .env.*
 !.env.example
 backend/.tunnel-public-url
+cliente/.tunnel-public-url
 .cloudflared/config.yml
 
 .DS_Store

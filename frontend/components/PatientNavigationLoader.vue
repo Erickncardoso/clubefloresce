@@ -14,9 +14,15 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
 
-const { isNavigating } = usePatientNavigationLoading()
+const { isNavigating, finishNavigation } = usePatientNavigationLoading()
+
+onMounted(() => {
+  // iOS / link de e-mail: garante que overlay branco não fique preso
+  finishNavigation()
+})
 </script>
 
 <style scoped>

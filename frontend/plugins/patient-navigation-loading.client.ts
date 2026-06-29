@@ -7,7 +7,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   router.beforeEach((to, from) => {
     if (to.fullPath === from.fullPath) return
-    startNavigation()
+    startNavigation(to.path)
   })
 
   router.afterEach(() => {
@@ -19,7 +19,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   })
 
   nuxtApp.hook('page:start', () => {
-    startNavigation()
+    startNavigation(router.currentRoute.value.path)
   })
 
   nuxtApp.hook('page:finish', () => {

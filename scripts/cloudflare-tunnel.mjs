@@ -6,8 +6,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const TUNNEL_URL_FILE = path.join(ROOT, "backend", ".tunnel-public-url");
+const CLIENTE_TUNNEL_URL_FILE = path.join(ROOT, "cliente", ".tunnel-public-url");
 const TUNNEL_URL_RE = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
 const BACKEND_PORT = process.env.BACKEND_PORT || "3001";
+const CLIENTE_PORT = process.env.NUXT_CLIENTE_PORT || process.env.CLIENTE_PORT || "3002";
+
+export { CLIENTE_TUNNEL_URL_FILE, TUNNEL_URL_FILE };
 
 function findCloudflaredExecutable() {
   const fromEnv = process.env.CLOUDFLARED_PATH;
@@ -36,27 +40,33 @@ function findCloudflaredExecutable() {
   return "cloudflared";
 }
 
-function writeTunnelUrl(url) {
-  fs.writeFileSync(TUNNEL_URL_FILE, `${url}\n`, "utf8");
+function writeTunnelUrl(url, urlFile = TUNNEL_URL_FILE) {
+  fs.writeFileSync(urlFile, `${url}\n`, "utf8");
 }
 
-function removeTunnelUrlFile() {
+function removeTunnelUrlFile(urlFile = TUNNEL_URL_FILE) {
   try {
-    fs.unlinkSync(TUNNEL_URL_FILE);
+    fs.unlinkSync(urlFile);
   } catch {
     /* ignore */
   }
 }
 
-function logTunnelReady(url) {
+function logTunnelReady(url, { urlFile = TUNNEL_URL_FILE, label = "API" } = {}) {
   console.log("");
-  console.log("[Tunnel] URL publica:", url);
-  console.log("[Tunnel] Webhook WhatsApp:", `${url}/api/whatsapp/webhook`);
-  console.log("[Tunnel] Arquivo:", TUNNEL_URL_FILE);
+  console.log(`[Tunnel] ${label} — URL publica:`, url);
+  if (label === "API") {
+    console.log("[Tunnel] Webhook WhatsApp:", `${url}/api/whatsapp/webhook`);
+  } else if (label === "PWA") {
+    console.log("[Tunnel] Abra no iPhone (HTTPS):", url);
+    console.log("[Tunnel] API via proxy /api -> localhost:3001");
+    console.log("[Tunnel] Adicione a Tela de Inicio para testar o PWA");
+  }
+  console.log("[Tunnel] Arquivo:", urlFile);
   console.log("");
 }
 
-function buildTunnelArgs(named) {
+function buildTunnelArgs(named, targetPort) {
   if (named) {
     const configPath = path.join(ROOT, ".cloudflared", "config.yml");
     if (!fs.existsSync(configPath)) {
@@ -65,7 +75,7 @@ function buildTunnelArgs(named) {
     }
     return ["tunnel", "run", "--config", configPath];
   }
-  return ["tunnel", "--url", `http://localhost:${BACKEND_PORT}`];
+  return ["tunnel", "--protocol", "http2", "--url", `http://127.0.0.1:${targetPort}`];
 }
 
 function resolveNamedTunnelUrl() {
@@ -82,9 +92,15 @@ function resolveNamedTunnelUrl() {
 }
 
 export function startCloudflareTunnel(options = {}) {
-  const { named = false, onReady } = options;
+  const {
+    named = false,
+    onReady,
+    port = BACKEND_PORT,
+    urlFile = TUNNEL_URL_FILE,
+    label = port === CLIENTE_PORT ? "PWA" : "API",
+  } = options;
   const executable = findCloudflaredExecutable();
-  const args = buildTunnelArgs(named);
+  const args = buildTunnelArgs(named, port);
   let readyNotified = false;
 
   const child = spawn(executable, args, {
@@ -96,8 +112,8 @@ export function startCloudflareTunnel(options = {}) {
   const notifyReady = (url) => {
     if (readyNotified || !url) return;
     readyNotified = true;
-    writeTunnelUrl(url);
-    logTunnelReady(url);
+    writeTunnelUrl(url, urlFile);
+    logTunnelReady(url, { urlFile, label });
     if (onReady) onReady(url);
   };
 
@@ -119,7 +135,7 @@ export function startCloudflareTunnel(options = {}) {
   child.stderr.on("data", onChunk);
 
   child.on("exit", (code) => {
-    removeTunnelUrlFile();
+    removeTunnelUrlFile(urlFile);
     if (!readyNotified && code !== 0) {
       console.error(`[Tunnel] cloudflared encerrou com codigo ${code ?? "?"}`);
     }
@@ -133,10 +149,13 @@ const isMainModule = process.argv[1]
 
 if (isMainModule) {
   const named = process.argv.includes("--named");
-  const tunnel = startCloudflareTunnel({ named });
+  const cliente = process.argv.includes("--cliente");
+  const port = cliente ? CLIENTE_PORT : BACKEND_PORT;
+  const urlFile = cliente ? CLIENTE_TUNNEL_URL_FILE : TUNNEL_URL_FILE;
+  const tunnel = startCloudflareTunnel({ named, port, urlFile });
 
   const shutdown = () => {
-    removeTunnelUrlFile();
+    removeTunnelUrlFile(urlFile);
     tunnel.kill("SIGINT");
     process.exit(0);
   };

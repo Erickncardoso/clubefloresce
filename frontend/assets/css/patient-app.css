@@ -474,12 +474,30 @@ html:has(.doc-page) .patient-shell-body {
   box-sizing: border-box;
   overflow: visible;
   pointer-events: none;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.28s ease;
+}
+
+.cf-tab-bar-wrap.cf-tab-bar-wrap--scroll-hidden {
+  transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom, 0px)));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cf-tab-bar-wrap.cf-tab-bar-wrap--scroll-hidden .cf-tab-bar {
+  pointer-events: none;
 }
 
 .cf-tab-bar-wrap .cf-tab-bar {
   pointer-events: auto;
   touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-tab-bar-wrap {
+    transition: none;
+  }
 }
 
 /* Esconde tab bar quando teclado virtual está aberto */

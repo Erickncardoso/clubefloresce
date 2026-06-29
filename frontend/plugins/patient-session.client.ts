@@ -22,6 +22,9 @@ export default defineNuxtPlugin({
 
     bootstrapToken()
 
+    const initialPath = router.currentRoute.value.path
+    const isPasswordRecoveryPath = initialPath === '/redefinir-senha' || initialPath === '/esqueci-senha'
+
     const redirectToLogin = (err?: unknown) => {
       const path = router.currentRoute.value.path
       if (PUBLIC_PATHS.includes(path)) return
@@ -47,13 +50,18 @@ export default defineNuxtPlugin({
       void refreshSession().catch(handleAuthFailure)
     }
 
-    renew()
+    if (!isPasswordRecoveryPath) {
+      renew()
 
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') renew()
-      })
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') renew()
+        })
+      }
     }
+
+    // Link de e-mail (redefinir senha) não deve herdar $fetch com cookie/sessão
+    if (isPasswordRecoveryPath) return
 
     const guardedFetch = $fetch.create({
       credentials: 'include',

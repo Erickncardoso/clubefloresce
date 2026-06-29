@@ -21,6 +21,7 @@ let checkTimer = null
 let reloadFallbackTimer = null
 
 function getNeedRefresh() {
+  if (import.meta.dev) return false
   return Boolean($pwa?.needRefresh?.value ?? $pwa?.needRefresh)
 }
 

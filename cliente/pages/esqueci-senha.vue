@@ -59,11 +59,13 @@
 <script setup>
 import { Mail, AlertCircle, ArrowLeft } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError, sanitizeUserFacingError } from '~/utils/resolve-api-base.mjs'
+import { createPublicAuthFetch } from '~/utils/public-auth-fetch.mjs'
 
 definePageMeta({ layout: false, pageTransition: false })
 
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)
+const publicAuthFetch = computed(() => createPublicAuthFetch(authApiBase.value))
 
 const email = ref('')
 const loading = ref(false)
@@ -74,7 +76,7 @@ const handleSubmit = async () => {
   loading.value = true
   error.value = ''
   try {
-    await $fetch(`${authApiBase.value}/forgot-password`, {
+    await publicAuthFetch.value('/forgot-password', {
       method: 'POST',
       body: { email: email.value, app: 'patient' },
     })

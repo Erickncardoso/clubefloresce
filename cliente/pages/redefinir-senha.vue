@@ -88,12 +88,14 @@
 <script setup>
 import { Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError, sanitizeUserFacingError } from '~/utils/resolve-api-base.mjs'
+import { createPublicAuthFetch } from '~/utils/public-auth-fetch.mjs'
 
 definePageMeta({ layout: false, pageTransition: false })
 
 const route = useRoute()
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)
+const publicAuthFetch = computed(() => createPublicAuthFetch(authApiBase.value))
 
 const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : ''))
 const checking = ref(true)
@@ -126,7 +128,7 @@ onMounted(async () => {
   }
 
   try {
-    await $fetch(`${authApiBase.value}/password-reset/validate`, {
+    await publicAuthFetch.value('/password-reset/validate', {
       query: { token: token.value },
     })
     tokenValid.value = true
@@ -146,7 +148,7 @@ const handleSubmit = async () => {
 
   loading.value = true
   try {
-    await $fetch(`${authApiBase.value}/reset-password`, {
+    await publicAuthFetch.value('/reset-password', {
       method: 'POST',
       body: { token: token.value, newPassword: password.value },
     })

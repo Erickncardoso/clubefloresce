@@ -75,6 +75,8 @@ export class AuthController {
     if (
       message.includes("expirou")
       || message.includes("desativada")
+      || message.includes("em análise")
+      || message.includes("em analise")
     ) {
       return 403;
     }

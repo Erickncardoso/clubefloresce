@@ -1,5 +1,8 @@
 <template>
-  <div class="cf-tab-bar-wrap">
+  <div
+    class="cf-tab-bar-wrap"
+    :class="{ 'cf-tab-bar-wrap--scroll-hidden': scrollHidden && !bellaMenuOpen }"
+  >
     <nav class="cf-tab-bar" aria-label="Navegação principal">
       <button
         v-for="item in leftTabs"
@@ -58,10 +61,12 @@
 <script setup>
 import { BookOpen, CirclePlus, Home, LineChart, Users } from 'lucide-vue-next'
 import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
+import { usePatientTabBarScrollReveal } from '~/composables/usePatientTabBarScrollReveal'
 
 const route = useRoute()
 const router = useRouter()
 const { startNavigation, finishNavigation } = usePatientNavigationLoading()
+const { hidden: scrollHidden, reveal: revealTabBar } = usePatientTabBarScrollReveal()
 const bellaMenuOpen = ref(false)
 const navigating = ref(false)
 const evolucaoLastTab = useState('evolucao-last-tab', () => 'metas')
@@ -145,10 +150,12 @@ async function goTab(item) {
 
 function toggleBellaMenu() {
   bellaMenuOpen.value = !bellaMenuOpen.value
+  if (bellaMenuOpen.value) revealTabBar()
 }
 
 watch(() => route.fullPath, () => {
   bellaMenuOpen.value = false
+  revealTabBar()
 })
 </script>
 

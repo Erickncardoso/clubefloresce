@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository";
 import { PasswordResetRepository } from "../repositories/password-reset.repository";
+import { RegistrationRequestRepository } from "../repositories/registration-request.repository";
 import { Role, UserStatus } from "@prisma/client";
 import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
@@ -19,6 +20,7 @@ import { dispatchEmail, emailService } from "./email/email.service";
 
 const userRepository = new UserRepository();
 const passwordResetRepository = new PasswordResetRepository();
+const registrationRequestRepository = new RegistrationRequestRepository();
 
 const PATIENT_TOKEN_TTL = "90d";
 const STAFF_TOKEN_TTL = "30d";
@@ -141,6 +143,12 @@ export class AuthService {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     const user = await userRepository.findByEmail(normalizedEmail);
     if (!user) {
+      const pendingRegistration = await registrationRequestRepository.findPendingByEmail(normalizedEmail);
+      if (pendingRegistration) {
+        throw new Error(
+          "Seu cadastro ainda está em análise. Você receberá um e-mail quando sua conta for liberada.",
+        );
+      }
       throw new Error("Credenciais inválidas.");
     }
 

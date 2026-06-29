@@ -9,6 +9,7 @@ const pwaDevEnabled = process.env.NUXT_PWA_DEV === 'true'
 const isGenerate =
   process.argv.some((arg) => arg.includes('generate')) ||
   process.env.npm_lifecycle_event?.includes('generate')
+const pwaSwEnabled = isGenerate || pwaDevEnabled
 const devHost = process.env.NUXT_HOST || '0.0.0.0'
 const devPort = Number(process.env.NUXT_CLIENTE_PORT || 3002)
 const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
@@ -131,8 +132,8 @@ export default defineNuxtConfig({
   },
 
   pwa: {
-    registerType: 'prompt',
-    injectRegister: 'auto',
+    registerType: pwaSwEnabled ? 'prompt' : null,
+    injectRegister: pwaSwEnabled ? 'auto' : false,
     includeAssets: ['pwa/icon-source.png', 'pwa/apple-touch-icon.png', 'pwa/icon-192.png', 'pwa/icon-512.png'],
     manifest: {
       id: 'clube-florescer-paciente',
@@ -169,8 +170,8 @@ export default defineNuxtConfig({
       importScripts: ['/push-sw.js'],
     },
     client: {
-      installPrompt: true,
-      periodicSyncForUpdates: 300,
+      installPrompt: pwaSwEnabled,
+      periodicSyncForUpdates: pwaSwEnabled ? 300 : 0,
     },
     devOptions: {
       enabled: pwaDevEnabled,
@@ -227,6 +228,10 @@ export default defineNuxtConfig({
     server: {
       strictPort: true,
       allowedHosts: true,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        Pragma: 'no-cache',
+      },
       ...(lanMode
         ? {
             // Celular na LAN usa o IP da máquina — não fixar origin em 127.0.0.1
@@ -255,7 +260,17 @@ export default defineNuxtConfig({
   nitro: isGenerate
     ? {
         preset: 'static',
-        prerender: { crawlLinks: true },
+        prerender: {
+          crawlLinks: true,
+          routes: [
+            '/',
+            '/register',
+            '/esqueci-senha',
+            '/redefinir-senha',
+            '/abrir',
+            '/documento',
+          ],
+        },
       }
     : {
         devProxy: {
