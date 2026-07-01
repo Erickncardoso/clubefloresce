@@ -119,4 +119,8 @@ export class WhatsappContactStateRepository {
       }
     });
   }
+
+  async deleteAllByUser(userId: string): Promise<void> {
+    await prisma.whatsappContactState.deleteMany({ where: { userId } });
+  }
 }

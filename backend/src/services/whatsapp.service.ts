@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
 import { readEnv } from "../utils/env";
 import { getDevTunnelWebhookUrl } from "../utils/dev-tunnel-url";
+import { WhatsappChatRepository } from "../repositories/whatsapp_chat.repository";
+import { WhatsappMessageRepository } from "../repositories/whatsapp_message.repository";
+import { WhatsappContactDirectoryRepository } from "../repositories/whatsapp_contact_directory.repository";
+import { WhatsappContactStateRepository } from "../repositories/whatsapp_contact_state.repository";
+import { WhatsappGroupObservedSendersRepository } from "../repositories/whatsapp_group_observed_senders.repository";
 dotenv.config();
 
 const UAZAPI_URL = process.env.UAZAPI_SERVER_URL || "";
@@ -21,12 +26,14 @@ const PROFILE_PIC_ENRICH_CACHE_TTL_MS = 90_000;
 const mobilePresenceAppliedAt = new Map<string, number>();
 const MOBILE_PRESENCE_REFRESH_MS = 90_000;
 /** Aguarda o history sync inicial terminar antes de alterar presença (evita pausar sync no celular). */
-const MOBILE_PRESENCE_INITIAL_GRACE_MS = 4 * 60 * 1000;
+const MOBILE_PRESENCE_INITIAL_GRACE_MS = 5 * 60 * 1000;
 const instanceConnectedAt = new Map<string, number>();
 
 /** Evita reconfigurar webhook da instância a cada poll de status. */
 const webhookEnsureAppliedAt = new Map<string, number>();
 const WEBHOOK_ENSURE_REFRESH_MS = 60 * 1000;
+/** Presença unavailable só uma vez por sessão — repetir interrompe o history sync no celular. */
+const mobilePresenceScheduledFor = new Set<string>();
 
 export class WhatsappService {
   private async sleep(ms: number): Promise<void> {
@@ -909,6 +916,8 @@ export class WhatsappService {
     const hadInstance = Boolean(await this.getInstanceInfo(userId));
     const { deletedCount } = await this.removeAllInstancesForUser(userId);
 
+    await this.purgeLocalSessionData(userId);
+
     if (!hadInstance && deletedCount === 0) {
       throw new Error("Nenhuma instância WhatsApp vinculada.");
     }
@@ -921,6 +930,30 @@ export class WhatsappService {
           ? "WhatsApp desconectado e instância removida da UAZAPI."
           : "WhatsApp desconectado.",
     };
+  }
+
+  /** Remove cache local (chats, mensagens, contatos) após desconectar. */
+  async purgeLocalSessionData(userId: string): Promise<void> {
+    const chatRepo = new WhatsappChatRepository();
+    const messageRepo = new WhatsappMessageRepository();
+    const directoryRepo = new WhatsappContactDirectoryRepository();
+    const contactStateRepo = new WhatsappContactStateRepository();
+    const groupObservedRepo = new WhatsappGroupObservedSendersRepository();
+
+    instanceTokenCache.delete(userId);
+    instanceProfilePicCache.delete(userId);
+    mobilePresenceAppliedAt.delete(userId);
+    mobilePresenceScheduledFor.delete(userId);
+    instanceConnectedAt.delete(userId);
+    webhookEnsureAppliedAt.delete(userId);
+
+    await Promise.all([
+      messageRepo.deleteAllByUser(userId),
+      chatRepo.deleteAllByUser(userId),
+      contactStateRepo.deleteAllByUser(userId),
+      groupObservedRepo.deleteAllByUser(userId),
+      directoryRepo.deleteByUserId(userId),
+    ]);
   }
 
   async regenerateQrCode(userId: string): Promise<any> {
@@ -1300,13 +1333,17 @@ export class WhatsappService {
   private _clearInstanceConnected(userId: string): void {
     instanceConnectedAt.delete(userId);
     mobilePresenceAppliedAt.delete(this._mobilePresenceCacheKey(userId));
+    mobilePresenceScheduledFor.delete(userId);
   }
 
   /**
    * Durante o history sync inicial, alterar presença pode pausar a sincronização no celular.
-   * Adiamos unavailable até a janela de graça passar.
+   * Adiamos unavailable até a janela de graça passar — agendado no máximo uma vez por sessão.
    */
   private _scheduleMobilePresenceAfterInitialSync(userId: string): void {
+    if (mobilePresenceScheduledFor.has(userId)) return;
+    mobilePresenceScheduledFor.add(userId);
+
     const connectedAt = instanceConnectedAt.get(userId) || Date.now();
     const elapsed = Date.now() - connectedAt;
     const remaining = MOBILE_PRESENCE_INITIAL_GRACE_MS - elapsed;

@@ -24,4 +24,8 @@ export class WhatsappContactDirectoryRepository {
       create: { userId, data }
     });
   }
+
+  async deleteByUserId(userId: string): Promise<void> {
+    await prisma.whatsappContactDirectory.deleteMany({ where: { userId } });
+  }
 }

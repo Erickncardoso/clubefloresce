@@ -105,6 +105,7 @@
           'has-unread': Number(chat.unreadCount || 0) > 0 && !isActive(chat),
         }"
         @click="$emit('select', chat)"
+        @pointerenter="$emit('prefetch', chat)"
       >
         <div class="chat-avatar">
           <img
@@ -257,7 +258,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
-  'select',   'refresh', 'update:modelValue', 'update:listFilter', 'mark-all-read', 'header-menu-action',
+  'select', 'prefetch', 'refresh', 'update:modelValue', 'update:listFilter', 'mark-all-read', 'header-menu-action',
 ])
 
 const markingAllRead = ref(false)

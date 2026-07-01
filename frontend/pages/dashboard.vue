@@ -8,7 +8,7 @@
           <p>Resumo do portal — alunas, conteúdos e atalhos do dia a dia.</p>
         </div>
         <NuxtLink to="/whatsapp/chat" class="admin-home-cta">
-          <MessageCircle class="admin-home-cta-icon" />
+          <WhatsAppIcon class="admin-home-cta-icon" />
           Abrir WhatsApp
         </NuxtLink>
       </header>
@@ -90,7 +90,6 @@ import {
   UserPlus,
   BookOpen,
   CalendarCheck,
-  MessageCircle,
   DollarSign,
   ChevronRight,
   Loader2,
@@ -105,6 +104,7 @@ import {
   isWhatsappConnectedFromStatusPayload,
   whatsappFetchInit,
 } from '~/composables/whatsapp/useWhatsappApi.js'
+import WhatsAppIcon from '~/components/WhatsAppIcon.vue'
 
 const apiBase = useApiBase()
 const loading = ref(true)
@@ -152,8 +152,8 @@ const statCards = computed(() => [
     label: 'WhatsApp',
     value: stats.whatsappConnected ? 'Conectado' : 'Desconectado',
     hint: stats.whatsappConnected ? 'Pronto para atendimento' : 'Conecte em WhatsApp → Conexão',
-    icon: MessageCircle,
-    tone: stats.whatsappConnected ? 'green' : 'muted',
+    icon: WhatsAppIcon,
+    tone: stats.whatsappConnected ? 'whatsapp-on' : 'whatsapp-off',
   },
   {
     key: 'checkins',
@@ -177,7 +177,7 @@ const quickActions = [
   { label: 'Gerenciar alunas', path: '/usuarios', icon: Users },
   { label: 'Cursos e aulas', path: '/cursos', icon: BookOpen },
   { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
-  { label: 'Chat ao vivo', path: '/whatsapp/chat', icon: MessageCircle },
+  { label: 'Chat ao vivo', path: '/whatsapp/chat', icon: WhatsAppIcon },
   { label: 'Transmissões WhatsApp', path: '/whatsapp/disparos', icon: Send },
   { label: 'Financeiro', path: '/financeiro', icon: DollarSign },
   { label: 'Personalizar app', path: '/personalizar', icon: Palette },
@@ -329,7 +329,8 @@ onMounted(loadDashboard)
 .admin-home-stat-icon--blue { background: #eff6ff; color: #1d4ed8; }
 .admin-home-stat-icon--purple { background: #faf5ff; color: #7e22ce; }
 .admin-home-stat-icon--teal { background: #f0fdfa; color: #0f766e; }
-.admin-home-stat-icon--muted { background: #f4f4f5; color: #71717a; }
+.admin-home-stat-icon--whatsapp-on { background: #e8f5e9; color: #25d366; }
+.admin-home-stat-icon--whatsapp-off { background: #f4f4f5; color: #25d366; }
 
 .admin-home-stat-label {
   display: block;

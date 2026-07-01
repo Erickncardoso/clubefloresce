@@ -115,6 +115,10 @@ export class WhatsappChatRepository {
     });
   }
 
+  async deleteAllByUser(userId: string): Promise<void> {
+    await prisma.whatsappChat.deleteMany({ where: { userId } });
+  }
+
   async findByChatJid(userId: string, chatJid: string): Promise<WhatsappChat | null> {
     const normalized = String(chatJid || "").trim();
     if (!normalized) return null;

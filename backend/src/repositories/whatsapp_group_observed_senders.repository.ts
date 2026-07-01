@@ -24,4 +24,8 @@ export class WhatsappGroupObservedSendersRepository {
       create: { userId, groupJid, data: next }
     });
   }
+
+  async deleteAllByUser(userId: string): Promise<void> {
+    await prisma.whatsappGroupObservedSenders.deleteMany({ where: { userId } });
+  }
 }

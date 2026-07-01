@@ -22,6 +22,7 @@
             :format-list-time="formatChatListTime"
             :on-mark-all-read="markAllChatsAsRead"
             @select="selectChat"
+            @prefetch="prefetchChatMessagesFromDb"
             @refresh="refreshSidebarChats"
             @header-menu-action="handleSidebarHeaderMenuAction"
           />
@@ -564,7 +565,7 @@ import MessageInfoModal from '~/components/whatsapp/MessageInfoModal.vue'
 // ─── Composables ──────────────────────────────────────────────────────────────
 import { useWhatsappState, messageActionsCoords, replyingTo } from '~/composables/whatsapp/useWhatsappState.js'
 import { useWhatsappUtils } from '~/composables/whatsapp/useWhatsappUtils.js'
-import { getProxyBase, fetchWhatsappSessionConnected, fetchWhatsappStatusPayload, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders, whatsappFetchInit, getWhatsappApiBase, isWhatsappConnectedFromStatusPayload, isWhatsappExplicitlyDisconnected, resolveConnectedSessionJidFromStatus } from '~/composables/whatsapp/useWhatsappApi.js'
+import { getProxyBase, fetchWhatsappSessionConnected, fetchWhatsappStatusPayload, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders, whatsappFetchInit, getWhatsappApiBase, isWhatsappConnectedFromStatusPayload, resolveConnectedSessionJidFromStatus } from '~/composables/whatsapp/useWhatsappApi.js'
 import { useWhatsappChats, canonicalChatListKey } from '~/composables/whatsapp/useWhatsappChats.js'
 import {
   initialSyncActive,
@@ -708,7 +709,7 @@ const { formatTime, formatChatListTime, formatJidAsPhoneLine, formatWhatsappText
 
 // ─── Chats ────────────────────────────────────────────────────────────────────
 const {
-        loadChats, selectChat, retrySelectedChatHistorySync, chatHasListPreview, sendMessage, sendInteractiveMenuReply, refreshChatPreview, refreshSelectedChatMessages, scrollToBottom,
+        loadChats, selectChat, retrySelectedChatHistorySync, prefetchChatMessagesFromDb, chatHasListPreview, sendMessage, sendInteractiveMenuReply, refreshChatPreview, refreshSelectedChatMessages, scrollToBottom,
         startRealtimeSync, stopRealtimeSync, resetWhatsappAfterDisconnect,
         isActiveChatListItem, chatListPreviewPrefix, markAllChatsAsRead,
         markMessageAsPlayed, resetChatsRuntimeCaches, enrichMissingChatAvatars,
@@ -3589,12 +3590,19 @@ onMounted(async () => {
   }
 
   const { ok: statusOk, data: statusData } = await fetchWhatsappStatusPayload()
-  const connectedSessionJid = resolveConnectedSessionJidFromStatus(statusData)
-  const prevSessionJid = getStoredSessionJid()
   const connected = statusOk
     ? isWhatsappConnectedFromStatusPayload(statusData)
     : await fetchWhatsappSessionConnected()
-  const explicitlyDisconnected = statusOk && isWhatsappExplicitlyDisconnected(statusData)
+
+  if (!connected) {
+    resetWhatsappAfterDisconnect()
+    clearArchivedChatsCache()
+    await navigateTo('/whatsapp/conexao')
+    return
+  }
+
+  const connectedSessionJid = resolveConnectedSessionJidFromStatus(statusData)
+  const prevSessionJid = getStoredSessionJid()
 
   if (connectedSessionJid && prevSessionJid && connectedSessionJid !== prevSessionJid) {
     resetWhatsappAfterDisconnect()
@@ -3626,18 +3634,6 @@ onMounted(async () => {
     } else if (!isInitialSyncGentleMode()) {
       loadChats(true, { silent: true }).catch(() => {})
     }
-  }
-
-  if (!(chats.value || []).length && explicitlyDisconnected) {
-    resetWhatsappAfterDisconnect()
-    clearArchivedChatsCache()
-    await navigateTo('/whatsapp/conexao')
-    return
-  }
-
-  if (!(chats.value || []).length && !connected) {
-    await navigateTo('/whatsapp/conexao')
-    return
   }
 
   if (!(chats.value || []).length && connected) {

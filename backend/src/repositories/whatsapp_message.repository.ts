@@ -102,6 +102,10 @@ export class WhatsappMessageRepository {
   async countByUser(userId: string): Promise<number> {
     return prisma.whatsappMessage.count({ where: { userId } });
   }
+
+  async deleteAllByUser(userId: string): Promise<void> {
+    await prisma.whatsappMessage.deleteMany({ where: { userId } });
+  }
 }
 
 export const whatsappMessageRepository = new WhatsappMessageRepository();

@@ -306,7 +306,6 @@ import {
   Palette, 
   LogOut,
   ChevronDown,
-  MessageCircle,
   Send,
   Menu,
   X,
@@ -317,6 +316,7 @@ import {
 } from 'lucide-vue-next'
 import { hasAuthSession, logoutAuthSession, verifyAuthSession, getVerifiedRole } from '~/composables/useAuthSession.js'
 import { stopWhatsappToastListener } from '~/composables/whatsapp/useWhatsappToastNotifications.js'
+import WhatsAppIcon from '~/components/WhatsAppIcon.vue'
 
 const role = ref('')
 const menuItems = ref([])
@@ -486,10 +486,10 @@ onMounted(async () => {
     { label: 'Personalizar', path: '/personalizar', icon: Palette },
     {
       label: 'WhatsApp',
-      icon: MessageCircle,
+      icon: WhatsAppIcon,
       children: [
-        { label: 'Conexão', path: '/whatsapp/conexao', icon: MessageCircle },
-        { label: 'Chat ao Vivo', path: '/whatsapp/chat', icon: MessageCircle },
+        { label: 'Conexão', path: '/whatsapp/conexao', icon: WhatsAppIcon },
+        { label: 'Chat ao Vivo', path: '/whatsapp/chat', icon: WhatsAppIcon },
         { label: 'Transmissão', path: '/whatsapp/disparos', icon: Send },
       ]
     },

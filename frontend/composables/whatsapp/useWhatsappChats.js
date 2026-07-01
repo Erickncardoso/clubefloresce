@@ -93,6 +93,74 @@ const messagesCacheByChatJid = new Map()
 const chatOlderPaginationByJid = new Map()
 const messagePreviewTextById = new Map()
 const playedMarkInflight = new Set()
+const prefetchMessagesInflight = new Set()
+
+/** Uma chave por linha da sidebar — evita misturar mensagens entre conversas. */
+const getChatRuntimeCacheKey = (chatRow = {}) => canonicalChatListKey(chatRow)
+
+const getMessagesCacheForChat = (chatRow = {}) => {
+  const key = getChatRuntimeCacheKey(chatRow)
+  if (!key) return null
+  const cached = messagesCacheByChatJid.get(key)
+  if (Array.isArray(cached) && cached.length > 0) {
+    return { key, messages: cached }
+  }
+  return null
+}
+
+const storeMessagesInChatCache = (chatRow, normalizedMessages) => {
+  const key = getChatRuntimeCacheKey(chatRow)
+  if (!key) return
+  messagesCacheByChatJid.set(key, [...normalizedMessages])
+}
+
+const isSelectedChatListKey = (expectedListKey) => {
+  if (!expectedListKey) return true
+  return canonicalChatListKey(selectedChat.value) === expectedListKey
+}
+
+const normalizeRawMessagesBatch = (rawMessages = []) => {
+  const aggregated = []
+  const seenIds = new Set()
+  const rawByMergeKey = new Map()
+  appendRawMessagesToAggregate(aggregated, seenIds, rawByMergeKey, rawMessages)
+  return [...aggregated].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+}
+
+export const prefetchChatMessagesFromDb = (chat) => {
+  if (!chat || typeof window === 'undefined') return
+  const listKey = getChatRuntimeCacheKey(chat)
+  if (!listKey || getMessagesCacheForChat(chat)) return
+  if (prefetchMessagesInflight.has(listKey)) return
+  prefetchMessagesInflight.add(listKey)
+
+  const jid = resolveActiveChatFetchJid(chat)
+  if (!jid) {
+    prefetchMessagesInflight.delete(listKey)
+    return
+  }
+
+  void fetchChatMessages(jid, CHAT_MESSAGES_INITIAL_BATCH, 0, {
+    syncFromUazapi: false,
+    timeoutMs: 5000,
+  })
+    .then((pageResult) => {
+      if (!Array.isArray(pageResult?.messages) || pageResult.messages.length === 0) return
+      const normalized = normalizeRawMessagesBatch(pageResult.messages)
+      storeMessagesInChatCache(chat, normalized)
+      indexMessagesForPreviewCache(normalized)
+    })
+    .catch(() => {})
+    .finally(() => {
+      prefetchMessagesInflight.delete(listKey)
+    })
+}
+
+const prefetchTopChatsMessagesFromDb = (chatList, limit = 10) => {
+  if (typeof window === 'undefined') return
+  const list = Array.isArray(chatList) ? chatList.slice(0, limit) : []
+  for (const chat of list) prefetchChatMessagesFromDb(chat)
+}
 
 export const resetChatsRuntimeCaches = () => {
   try { messagesCacheByChatJid.clear() } catch {}
@@ -139,23 +207,30 @@ export const unmarkChatDeletedLocally = (chatOrJid = {}) => {
 }
 
 const purgeChatRuntimeCaches = (chatOrJid = {}) => {
-  const variants = typeof chatOrJid === 'string'
-    ? [normalizeJid(chatOrJid)]
-    : [chatOrJid?.chatJid, chatOrJid?.wa_chatid, chatOrJid?.chatid, chatOrJid?.id]
-      .map((value) => normalizeJid(value))
-      .filter(Boolean)
+  const keys = new Set()
+  if (typeof chatOrJid === 'string') {
+    keys.add(getChatRuntimeCacheKey({ chatJid: chatOrJid }))
+    keys.add(normalizeJid(chatOrJid))
+  } else {
+    keys.add(getChatRuntimeCacheKey(chatOrJid))
+    for (const variant of [chatOrJid?.chatJid, chatOrJid?.wa_chatid, chatOrJid?.chatid]) {
+      const norm = normalizeJid(variant)
+      if (norm) keys.add(norm)
+    }
+  }
 
-  for (const jid of variants) {
-    messagesCacheByChatJid.delete(jid)
-    chatOlderPaginationByJid.delete(jid)
-    if (chatDetailsCache.value?.[jid]) {
+  for (const key of keys) {
+    if (!key) continue
+    messagesCacheByChatJid.delete(key)
+    chatOlderPaginationByJid.delete(key)
+    if (chatDetailsCache.value?.[key]) {
       const next = { ...chatDetailsCache.value }
-      delete next[jid]
+      delete next[key]
       chatDetailsCache.value = next
     }
-    if (chatDetailsInflight.value?.[jid]) {
+    if (chatDetailsInflight.value?.[key]) {
       const next = { ...chatDetailsInflight.value }
-      delete next[jid]
+      delete next[key]
       chatDetailsInflight.value = next
     }
   }
@@ -1329,6 +1404,7 @@ const applyResolvedChatsList = async (resolvedChats, { skipPinnedFetch = false }
   )
   syncSelectedChatAfterChatsMutation()
   enrichMissingChatAvatars().catch(() => {})
+  prefetchTopChatsMessagesFromDb(chats.value)
   return true
 }
 
@@ -1610,8 +1686,9 @@ const extractRealtimeMessagesFromPayload = (payload = {}) => {
   return items
 }
 
-const applyFetchedMessagesToOpenChat = (pageResult, activeFetchJid, enrichSharedFns, chat, mySeq) => {
+const applyFetchedMessagesToOpenChat = (pageResult, activeFetchJid, enrichSharedFns, chat, mySeq, expectedListKey = '') => {
   if (mySeq !== selectChatLoadSeq.value) return false
+  if (expectedListKey && !isSelectedChatListKey(expectedListKey)) return false
   if (!Array.isArray(pageResult?.messages) || pageResult.messages.length === 0) return false
 
   const aggregated = []
@@ -1621,16 +1698,17 @@ const applyFetchedMessagesToOpenChat = (pageResult, activeFetchJid, enrichShared
 
   const normalizedMessages = [...aggregated].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
   messages.value = normalizedMessages
-  messagesCacheByChatJid.set(activeFetchJid, [...normalizedMessages])
+  storeMessagesInChatCache(selectedChat.value || chat, normalizedMessages)
   indexMessagesForPreviewCache(normalizedMessages)
   refreshReactionPreviewForChatJid(activeFetchJid, normalizedMessages)
   applySelectChatScroll()
   runSelectChatBackgroundEnrichment(activeFetchJid, aggregated, rawByMergeKey, enrichSharedFns, chat)
 
+  const paginationKey = expectedListKey || getChatRuntimeCacheKey(selectedChat.value || chat)
   if (pageResult.hasMore) {
-    loadOlderSelectChatPages(activeFetchJid, pageResult.nextOffset, aggregated, seenIds, rawByMergeKey)
+    loadOlderSelectChatPages(paginationKey, pageResult.nextOffset, aggregated, seenIds, rawByMergeKey)
   } else {
-    chatOlderPaginationByJid.set(activeFetchJid, {
+    chatOlderPaginationByJid.set(paginationKey, {
       aggregated,
       seenIds,
       rawByMergeKey,
@@ -1642,17 +1720,39 @@ const applyFetchedMessagesToOpenChat = (pageResult, activeFetchJid, enrichShared
   return true
 }
 
-const pollChatMessagesAfterHistorySync = async (chatRow, activeFetchJid, enrichSharedFns, chat, mySeq) => {
+const pollChatMessagesAfterHistorySync = async (chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, expectedListKey = '') => {
   if (typeof window === 'undefined') return
   chatHistorySyncPending.value = true
   try {
-    const delays = [800, 1500, 3000, 5000, 8000, 12000, 20000]
+    const delays = [0, 700, 1500, 2800, 4500, 7000, 12_000]
     for (const delayMs of delays) {
-      await new Promise((resolve) => window.setTimeout(resolve, delayMs))
+      if (delayMs > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMs))
+      }
       if (mySeq !== selectChatLoadSeq.value) return
+      if (expectedListKey && !isSelectedChatListKey(expectedListKey)) return
       try {
-        const pageResult = await fetchSelectChatMessages(chatRow, CHAT_MESSAGES_INITIAL_BATCH, 0, { awaitHistory: false })
-        if (applyFetchedMessagesToOpenChat(pageResult, activeFetchJid, enrichSharedFns, chat, mySeq)) {
+        let applied = await refreshOpenChatMessages(
+          chatRow,
+          activeFetchJid,
+          enrichSharedFns,
+          chat,
+          mySeq,
+          { syncFromUazapi: false, awaitHistory: false },
+          expectedListKey,
+        )
+        if (!applied) {
+          applied = await refreshOpenChatMessages(
+            chatRow,
+            activeFetchJid,
+            enrichSharedFns,
+            chat,
+            mySeq,
+            { syncFromUazapi: true, awaitHistory: false },
+            expectedListKey,
+          )
+        }
+        if (applied) {
           noteInitialSyncChatCount((chats.value || []).length)
           return
         }
@@ -1763,7 +1863,8 @@ export const refreshSelectedChatMessages = async (enrichSharedFns = {}, options 
     const hadStructuralListChange = mergedLen !== prevLen || mergedLastId !== prevLastId
 
     messages.value = merged
-    messagesCacheByChatJid.set(currentChatJid, [...merged])
+    const cacheKey = getChatRuntimeCacheKey(selectedChat.value)
+    if (cacheKey) messagesCacheByChatJid.set(cacheKey, [...merged])
     indexMessagesForPreviewCache(merged)
     refreshReactionPreviewForChatJid(currentChatJid, merged)
     ingestLidPnHintsFromMessages(merged)
@@ -2060,8 +2161,8 @@ const applySelectChatScroll = () => {
   scrollToBottomOnChatOpen()
 }
 
-const loadOlderMessagesPage = async (activeFetchJid, mySeq) => {
-  const pagination = chatOlderPaginationByJid.get(activeFetchJid)
+const loadOlderMessagesPage = async (paginationKey, activeFetchJid, mySeq) => {
+  const pagination = chatOlderPaginationByJid.get(paginationKey)
   if (!pagination?.hasMore || loadingOlderMessages.value) return
 
   loadingOlderMessages.value = true
@@ -2073,6 +2174,7 @@ const loadOlderMessagesPage = async (activeFetchJid, mySeq) => {
       { syncFromUazapi: true },
     )
     if (mySeq !== selectChatLoadSeq.value) return
+    if (!isSelectedChatListKey(paginationKey)) return
     if (!Array.isArray(pageResult.messages) || pageResult.messages.length === 0) {
       pagination.hasMore = false
       chatMessagesHasMore.value = false
@@ -2089,7 +2191,7 @@ const loadOlderMessagesPage = async (activeFetchJid, mySeq) => {
 
     const normalizedMessages = [...pagination.aggregated].sort((a, b) => a.timestamp - b.timestamp)
     messages.value = normalizedMessages
-    messagesCacheByChatJid.set(activeFetchJid, [...normalizedMessages])
+    storeMessagesInChatCache(selectedChat.value, normalizedMessages)
     indexMessagesForPreviewCache(normalizedMessages)
     refreshReactionPreviewForChatJid(activeFetchJid, normalizedMessages)
     restoreChatScrollAfterMessagesUpdate(scrollSnapshot)
@@ -2107,11 +2209,12 @@ const loadOlderMessagesPage = async (activeFetchJid, mySeq) => {
 }
 
 const tryLoadOlderMessagesNearTop = () => {
-  const activeFetchJid = normalizeJid(selectedChat.value?.chatJid)
-  if (!activeFetchJid || loadingOlderMessages.value || loadingMessages.value) return
-  const pagination = chatOlderPaginationByJid.get(activeFetchJid)
+  const paginationKey = getChatRuntimeCacheKey(selectedChat.value)
+  const activeFetchJid = resolveActiveChatFetchJid(selectedChat.value)
+  if (!paginationKey || !activeFetchJid || loadingOlderMessages.value || loadingMessages.value) return
+  const pagination = chatOlderPaginationByJid.get(paginationKey)
   if (!pagination?.hasMore) return
-  void loadOlderMessagesPage(activeFetchJid, selectChatLoadSeq.value)
+  void loadOlderMessagesPage(paginationKey, activeFetchJid, selectChatLoadSeq.value)
 }
 
 export const loadOlderChatMessages = () => {
@@ -2155,8 +2258,8 @@ const runSelectChatBackgroundEnrichment = (activeFetchJid, aggregated, rawByMerg
   markCurrentChatAsRead({ ...selectedChat.value, chatJid: activeFetchJid }, aggregated).catch(() => {})
 }
 
-const loadOlderSelectChatPages = (activeFetchJid, startOffset, aggregated, seenIds, rawByMergeKey) => {
-  chatOlderPaginationByJid.set(activeFetchJid, {
+const loadOlderSelectChatPages = (paginationKey, startOffset, aggregated, seenIds, rawByMergeKey) => {
+  chatOlderPaginationByJid.set(paginationKey, {
     aggregated,
     seenIds,
     rawByMergeKey,
@@ -2168,6 +2271,7 @@ const loadOlderSelectChatPages = (activeFetchJid, startOffset, aggregated, seenI
 
 const fetchSelectChatMessages = async (chatRow, limit, offset, options = {}) => {
   const awaitHistory = options.awaitHistory === true
+  const syncFromUazapi = options.syncFromUazapi === true
   const candidates = collectMessageFindChatIds(chatRow)
 
   if (!candidates.length) throw new Error('CHAT_ID_INVALID')
@@ -2177,20 +2281,53 @@ const fetchSelectChatMessages = async (chatRow, limit, offset, options = {}) => 
   for (const chatid of candidates) {
     try {
       const pageResult = await fetchChatMessages(chatid, limit, offset, {
-        syncFromUazapi: true,
+        syncFromUazapi,
         awaitHistory: awaitHistory && offset === 0,
+        timeoutMs: syncFromUazapi ? 14_000 : 8_000,
       })
       if (Array.isArray(pageResult.messages) && pageResult.messages.length > 0) {
         return { ...pageResult, usedChatId: chatid }
       }
       lastEmpty = { ...pageResult, usedChatId: chatid }
+      if (!syncFromUazapi) break
     } catch (error) {
       lastError = error
+      if (!syncFromUazapi) break
     }
   }
 
   if (lastEmpty) return lastEmpty
   throw lastError || new Error('CHAT_ID_INVALID')
+}
+
+const refreshOpenChatMessages = async (chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, options = {}, expectedListKey = '') => {
+  const pageResult = await fetchSelectChatMessages(
+    chatRow,
+    CHAT_MESSAGES_INITIAL_BATCH,
+    0,
+    options,
+  )
+  if (mySeq !== selectChatLoadSeq.value) return false
+  if (expectedListKey && !isSelectedChatListKey(expectedListKey)) return false
+  return applyFetchedMessagesToOpenChat(pageResult, activeFetchJid, enrichSharedFns, chat, mySeq, expectedListKey)
+}
+
+const syncOpenChatMessagesInBackground = (chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, expectedListKey = '') => {
+  void (async () => {
+    try {
+      const applied = await refreshOpenChatMessages(chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, {
+        syncFromUazapi: true,
+        awaitHistory: false,
+      }, expectedListKey)
+      if (applied || mySeq !== selectChatLoadSeq.value) return
+      if (expectedListKey && !isSelectedChatListKey(expectedListKey)) return
+      chatHistorySyncPending.value = true
+      void requestChatHistoryBackfill([activeFetchJid], { force: false })
+      await pollChatMessagesAfterHistorySync(chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, expectedListKey)
+    } catch {
+      if (mySeq === selectChatLoadSeq.value) chatHistorySyncPending.value = false
+    }
+  })()
 }
 
 export const chatHasListPreview = (chat = {}) => {
@@ -2213,14 +2350,31 @@ export const retrySelectedChatHistorySync = async (enrichSharedFns = {}) => {
     await requestChatHistorySync(activeFetchJid, 100)
     if (mySeq !== selectChatLoadSeq.value) return
 
-    const pageResult = await fetchSelectChatMessages(chat, CHAT_MESSAGES_INITIAL_BATCH, 0, { awaitHistory: false })
+    const pageResult = await fetchSelectChatMessages(chat, CHAT_MESSAGES_INITIAL_BATCH, 0, {
+      syncFromUazapi: true,
+      awaitHistory: false,
+    })
     if (mySeq !== selectChatLoadSeq.value) return
 
-    const applied = applyFetchedMessagesToOpenChat(pageResult, activeFetchJid, enrichSharedFns, chat, mySeq)
+    const applied = applyFetchedMessagesToOpenChat(
+      pageResult,
+      activeFetchJid,
+      enrichSharedFns,
+      chat,
+      mySeq,
+      getChatRuntimeCacheKey(chat),
+    )
     loadingMessages.value = false
 
     if (!applied) {
-      await pollChatMessagesAfterHistorySync(chat, activeFetchJid, enrichSharedFns, chat, mySeq)
+      await pollChatMessagesAfterHistorySync(
+        chat,
+        activeFetchJid,
+        enrichSharedFns,
+        chat,
+        mySeq,
+        getChatRuntimeCacheKey(chat),
+      )
     } else {
       chatHistorySyncPending.value = false
     }
@@ -2258,9 +2412,11 @@ export const selectChat = async (chat, enrichSharedFns = {}) => {
     : { ...chat, chatJid: preferWhatsappNetPrivateJid(chat.wa_chatid, preferWhatsappNetPrivateJid(chatJid, chatJid)), unreadCount: 0 }
 
   const activeFetchJid = resolveActiveChatFetchJid(selectedChat.value) || String(chatJid || '').trim()
-  const cachedMessages = messagesCacheByChatJid.get(activeFetchJid)
-    || messagesCacheByChatJid.get(normalizeJid(selectedChat.value?.wa_chatid))
-  messages.value = Array.isArray(cachedMessages) && cachedMessages.length > 0 ? [...cachedMessages] : []
+  const listKey = canonicalChatListKey(selectedChat.value) || openKey
+  const cacheHit = getMessagesCacheForChat(selectedChat.value)
+  const cachedMessages = cacheHit?.messages
+  const hadCache = Array.isArray(cachedMessages) && cachedMessages.length > 0
+  messages.value = hadCache ? [...cachedMessages] : []
 
   if (chat?.isGroup && chatJid) {
     senderAvatarDirectory.value = {}
@@ -2279,30 +2435,51 @@ export const selectChat = async (chat, enrichSharedFns = {}) => {
     observedSenderDirectory.value = {}
   }
 
-  if (messages.value.length > 0) {
+  if (hadCache) {
     applySelectChatScroll()
+    loadingMessages.value = false
+    syncOpenChatMessagesInBackground(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq, listKey)
+    return
   }
 
+  let loadingDelayTimer = null
   try {
-    loadingMessages.value = true
-    chatHistorySyncPending.value = false
-    const pageResult = await fetchSelectChatMessages(selectedChat.value, CHAT_MESSAGES_INITIAL_BATCH, 0, { awaitHistory: false })
-    if (mySeq !== selectChatLoadSeq.value) return
-
-    const applied = applyFetchedMessagesToOpenChat(pageResult, activeFetchJid, enrichSharedFns, chat, mySeq)
     loadingMessages.value = false
-
-    if (!applied) {
-      chatHistorySyncPending.value = true
-      void requestChatHistoryBackfill([activeFetchJid], { force: false })
-      await pollChatMessagesAfterHistorySync(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq)
+    if (typeof window !== 'undefined') {
+      loadingDelayTimer = window.setTimeout(() => {
+        if (mySeq === selectChatLoadSeq.value && messages.value.length === 0) {
+          loadingMessages.value = true
+        }
+      }, 280)
+    } else {
+      loadingMessages.value = true
     }
+
+    const applied = await refreshOpenChatMessages(
+      selectedChat.value,
+      activeFetchJid,
+      enrichSharedFns,
+      chat,
+      mySeq,
+      { syncFromUazapi: false, awaitHistory: false },
+      listKey,
+    )
+
+    if (applied) {
+      syncOpenChatMessagesInBackground(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq, listKey)
+      return
+    }
+
+    chatHistorySyncPending.value = chatHasListPreview(selectedChat.value)
+    void requestChatHistoryBackfill([activeFetchJid], { force: false })
+    syncOpenChatMessagesInBackground(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq, listKey)
   } catch (e) {
     if (mySeq !== selectChatLoadSeq.value) return
     if (e?.message === 'BAD_REQUEST_MESSAGE_FIND' || e?.message === 'CHAT_ID_INVALID') return
     console.error('Erro ao carregar mensagens', e)
     chatHistorySyncPending.value = false
   } finally {
+    if (loadingDelayTimer && typeof window !== 'undefined') window.clearTimeout(loadingDelayTimer)
     loadingMessages.value = false
     if (mySeq === selectChatLoadSeq.value) {
       applySelectChatScroll()
@@ -2358,7 +2535,7 @@ const appendOptimisticOutgoingText = (chatJid, text, replyTo = null) => {
   ].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
 
   messages.value = next
-  messagesCacheByChatJid.set(normalizedChatJid, [...next])
+  storeMessagesInChatCache(selectedChat.value, next)
   return optimisticId
 }
 
@@ -2370,8 +2547,7 @@ const removeOptimisticOutgoing = (optimisticId) => {
     row.normalizedMessageId !== optimisticId
   )
   messages.value = next
-  const chatJid = resolveActiveChatFetchJid(selectedChat.value)
-  if (chatJid) messagesCacheByChatJid.set(chatJid, [...next])
+  storeMessagesInChatCache(selectedChat.value, next)
 }
 
 /** Extrai messageid + timestamp da resposta do /send/text para confirmar na hora. */
@@ -2412,8 +2588,7 @@ const confirmOptimisticOutgoing = (optimisticId, responseData) => {
     }
   })
   messages.value = next
-  const chatJid = resolveActiveChatFetchJid(selectedChat.value)
-  if (chatJid) messagesCacheByChatJid.set(chatJid, [...next])
+  storeMessagesInChatCache(selectedChat.value, next)
 }
 
 export const sendMessage = async () => {
@@ -2643,7 +2818,7 @@ export const mergeIncomingWhatsappMessage = (rawMessage, chatJid = '') => {
 
   const merged = dropStaleOptimisticOutbound(Array.from(mergedByKey.values())).sort((a, b) => a.timestamp - b.timestamp)
   messages.value = merged
-  messagesCacheByChatJid.set(selectedJid, [...merged])
+  storeMessagesInChatCache(selectedChat.value, merged)
   indexMessagesForPreviewCache(merged)
   refreshReactionPreviewForChatJid(selectedJid, merged)
   return true
@@ -2822,11 +2997,16 @@ export const resetWhatsappAfterDisconnect = () => {
   unbindChatBodyScrollListeners()
   clearWhatsappSessionState()
   clearWhatsappLabelsCache()
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem('wa_session_jid')
+    } catch { /* ignore */ }
+  }
 }
 
 export function useWhatsappChats() {
   return {
-    loadChats, selectChat, retrySelectedChatHistorySync, sendMessage, sendInteractiveMenuReply, loadOlderChatMessages,
+    loadChats, selectChat, retrySelectedChatHistorySync, prefetchChatMessagesFromDb, sendMessage, sendInteractiveMenuReply, loadOlderChatMessages,
     scrollToBottom, scrollToBottomOnChatOpen, isChatBodyNearBottom, stickChatScrollToBottomIfNeeded,
     captureChatScrollSnapshot, restoreChatScrollAfterMessagesUpdate,
     refreshSelectedChatMessages, refreshChatPreview, markCurrentChatAsRead, markMessageAsPlayed, markAllChatsAsRead,
