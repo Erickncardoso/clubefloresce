@@ -1,6 +1,8 @@
 import { formatMealItemLabel, formatMealItemsLabels } from '~/utils/meal-plan-format'
 import { getMealIdForTimeFromMeals } from '~/utils/meal-plan-time'
 import { pickMealIcon } from '~/utils/meal-slot-options'
+import { useMealExtraItems } from '~/composables/useMealExtraItems'
+import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 
 function mapApiItem(item) {
   return {
@@ -34,6 +36,7 @@ function mapApiMeal(meal, index, total) {
 export function useMealPlan(nowRef) {
   const { planRecord } = usePatientMealPlan()
   const { applyOverridesToMeal, overridesRevision } = useMealItemOverrides()
+  const { applyExtraItemsToMeal, extrasRevision } = useMealExtraItems()
 
   const apiMeals = computed(() => planRecord.value?.plan?.meals ?? [])
   const mealOrder = computed(() => apiMeals.value.map((meal) => meal.id))
@@ -59,14 +62,17 @@ export function useMealPlan(nowRef) {
 
   function getMealById(mealId) {
     overridesRevision.value
+    extrasRevision.value
     const meals = apiMeals.value
     const index = meals.findIndex((meal) => meal.id === mealId)
     if (index < 0) return null
-    return applyOverridesToMeal(mapApiMeal(meals[index], index, meals.length), mealId)
+    const withOverrides = applyOverridesToMeal(mapApiMeal(meals[index], index, meals.length), mealId)
+    return applyExtraItemsToMeal(withOverrides, mealId)
   }
 
   const currentMeal = computed(() => {
     overridesRevision.value
+    extrasRevision.value
     if (!currentMealId.value) return null
     return getMealById(currentMealId.value)
   })

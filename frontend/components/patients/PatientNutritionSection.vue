@@ -15,6 +15,16 @@
         type="button"
         role="tab"
         class="patient-nutrition-tab"
+        :class="{ 'patient-nutrition-tab--active': activeTab === 'metas' }"
+        :aria-selected="activeTab === 'metas'"
+        @click="activeTab = 'metas'"
+      >
+        Metas
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="patient-nutrition-tab"
         :class="{ 'patient-nutrition-tab--active': activeTab === 'desempenho' }"
         :aria-selected="activeTab === 'desempenho'"
         @click="activeTab = 'desempenho'"
@@ -25,9 +35,9 @@
         v-if="showLinks"
         type="button"
         class="patient-nutrition-link"
-        @click="$emit('navigate', activeTab === 'fotos' ? 'fotos' : 'nutricao')"
+        @click="$emit('navigate', navigateTarget)"
       >
-        {{ activeTab === 'fotos' ? 'Ver todas' : 'Ver detalhes' }}
+        {{ navigateLabel }}
       </button>
     </div>
 
@@ -41,6 +51,19 @@
         :patient-id="patientId"
         :compact="compact"
         :limit="photoLimit"
+      />
+    </section>
+
+    <section
+      v-show="activeTab === 'metas'"
+      class="patient-nutrition-panel"
+      role="tabpanel"
+      aria-label="Metas da paciente"
+    >
+      <PatientsPatientGoalsPanel
+        :patient-id="patientId"
+        :compact="compact"
+        :limit="compact ? 4 : 0"
       />
     </section>
 
@@ -66,6 +89,18 @@ defineProps({
 defineEmits(['navigate'])
 
 const activeTab = defineModel('activeTab', { type: String, default: 'fotos' })
+
+const navigateTarget = computed(() => {
+  if (activeTab.value === 'fotos') return 'fotos'
+  if (activeTab.value === 'metas') return 'metas'
+  return 'nutricao'
+})
+
+const navigateLabel = computed(() => {
+  if (activeTab.value === 'fotos') return 'Ver todas as fotos'
+  if (activeTab.value === 'metas') return 'Ver todas as metas'
+  return 'Ver detalhes'
+})
 </script>
 
 <style scoped>
@@ -94,6 +129,7 @@ const activeTab = defineModel('activeTab', { type: String, default: 'fotos' })
   gap: 0.35rem;
   padding-bottom: 0.65rem;
   border-bottom: 1px solid #e8ece9;
+  flex-wrap: wrap;
 }
 
 .patient-nutrition-tab {

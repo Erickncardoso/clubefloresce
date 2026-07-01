@@ -27,9 +27,29 @@ export function buildPlanDiaryItems(meal, checkedStates = []) {
     .map((item, index) => ({ item, index }))
     .filter(({ index }) => Boolean(checkedStates[index]))
     .map(({ item }) => {
-      const grams = resolvePlanItemGrams(item)
       const name = String(item.name || item.food || '').trim()
-      if (!name || grams <= 0) return null
+      if (!name) return null
+
+      if (item.isExtra && item.foodId) {
+        const grams = Math.max(1, Math.round(Number(item.grams) || 0))
+        if (grams <= 0) return null
+
+        return {
+          id: item.id || createMealItemId(),
+          name,
+          grams,
+          caloriesKcal: item.caloriesKcal || 0,
+          carbsG: item.carbsG || 0,
+          proteinG: item.proteinG || 0,
+          fatG: item.fatG || 0,
+          foodId: item.foodId,
+          source: 'food_bank',
+          originalName: name,
+        }
+      }
+
+      const grams = resolvePlanItemGrams(item)
+      if (grams <= 0) return null
 
       return {
         id: createMealItemId(),

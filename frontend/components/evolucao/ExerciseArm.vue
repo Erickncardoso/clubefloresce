@@ -33,7 +33,7 @@
       <p class="exercise-track__status">{{ statusMessage }}</p>
     </div>
 
-    <div class="exercise-track__actions">
+    <div v-if="!readonly" class="exercise-track__actions">
       <button
         type="button"
         class="exercise-track__btn exercise-track__btn--ghost"
@@ -63,6 +63,7 @@ import { useConfetti } from '~/composables/useConfetti'
 const props = defineProps({
   current: { type: Number, default: 0 },
   target: { type: Number, default: 3 },
+  readonly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['increment', 'decrement'])

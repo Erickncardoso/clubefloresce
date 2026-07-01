@@ -1,11 +1,11 @@
 <template>
   <div
     class="food-days"
-    :aria-label="`Refeição livre: ${selectedCount} de ${target} dias marcados esta semana`"
+    :class="{ 'food-days--readonly': readonly }"
+    :aria-label="`Refeição livre: ${selectedCount} ${selectedCount === 1 ? 'dia marcado' : 'dias marcados'} esta semana`"
   >
     <p class="food-days__hint">
-      Toque nos dias em que você fez refeição livre
-      <span class="food-days__hint-meta">(até {{ target }})</span>
+      {{ readonly ? 'Dias em que a paciente fez refeição livre esta semana' : 'Toque nos dias em que você fez refeição livre' }}
     </p>
 
     <div class="food-days__grid" role="group" aria-label="Dias da semana">
@@ -17,12 +17,10 @@
         :class="{
           'food-days__chip--selected': isSelected(day.index),
           'food-days__chip--today': day.index === todayIndex,
-          'food-days__chip--disabled': isDisabled(day.index),
         }"
         :aria-pressed="isSelected(day.index)"
         :aria-label="`${day.label}${day.index === todayIndex ? ', hoje' : ''}${isSelected(day.index) ? ', marcado' : ''}`"
-        :disabled="isDisabled(day.index)"
-        @click="emit('toggle-day', day.index)"
+        @click="!readonly && emit('toggle-day', day.index)"
       >
         <span class="food-days__chip-short">{{ day.short }}</span>
         <span class="food-days__chip-check" aria-hidden="true">
@@ -33,14 +31,11 @@
 
     <p class="food-days__summary">
       <strong>{{ selectedCount }}</strong>
-      <span>/ {{ target }} dias marcados</span>
+      <span>{{ selectedCount === 1 ? 'dia marcado' : 'dias marcados' }} esta semana</span>
     </p>
 
-    <p v-if="limitReached" class="food-days__note">
-      Meta atingida. Toque em um dia marcado para desmarcar.
-    </p>
-    <p v-else-if="remaining > 0" class="food-days__note">
-      Você ainda pode marcar {{ remaining }} {{ remaining === 1 ? 'dia' : 'dias' }}.
+    <p v-if="selectedCount > 0 && !readonly" class="food-days__note">
+      Toque em um dia marcado para desmarcar.
     </p>
   </div>
 </template>
@@ -50,9 +45,9 @@ import { Check } from 'lucide-vue-next'
 import { FOOD_WEEKDAYS } from '~/composables/usePatientGoals'
 
 const props = defineProps({
-  target: { type: Number, default: 2 },
   selectedDays: { type: Array, default: () => [] },
   todayIndex: { type: Number, default: 0 },
+  readonly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['toggle-day'])
@@ -61,15 +56,9 @@ const weekdays = FOOD_WEEKDAYS
 
 const selectedSet = computed(() => new Set(props.selectedDays))
 const selectedCount = computed(() => props.selectedDays.length)
-const remaining = computed(() => Math.max(0, props.target - selectedCount.value))
-const limitReached = computed(() => selectedCount.value >= props.target)
 
 function isSelected(index) {
   return selectedSet.value.has(index)
-}
-
-function isDisabled(index) {
-  return !isSelected(index) && limitReached.value
 }
 </script>
 
@@ -86,11 +75,6 @@ function isDisabled(index) {
   line-height: 1.45;
   color: var(--cf-text-muted);
   text-align: center;
-}
-
-.food-days__hint-meta {
-  color: var(--cf-text);
-  font-weight: 700;
 }
 
 .food-days__grid {
@@ -157,12 +141,16 @@ function isDisabled(index) {
   border-color: #b8927a;
 }
 
-.food-days__chip--disabled {
-  opacity: 0.42;
-  cursor: not-allowed;
+.food-days--readonly .food-days__chip {
+  cursor: default;
+  pointer-events: none;
 }
 
-.food-days__chip:not(:disabled):active {
+.food-days--readonly .food-days__chip:active {
+  transform: none;
+}
+
+.food-days__chip:active {
   transform: scale(0.97);
 }
 

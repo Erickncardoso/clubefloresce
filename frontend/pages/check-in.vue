@@ -677,6 +677,14 @@
               <button
                 type="button"
                 class="btn-ghost"
+                :class="{ 'response-detail-foot-tab--active': modalNutritionTab === 'metas' }"
+                @click="modalNutritionTab = 'metas'"
+              >
+                Metas
+              </button>
+              <button
+                type="button"
+                class="btn-ghost"
                 :class="{ 'response-detail-foot-tab--active': modalNutritionTab === 'desempenho' }"
                 @click="modalNutritionTab = 'desempenho'"
               >
@@ -935,7 +943,7 @@ const answerRows = computed(() => {
 
 function openViewModal(item, tab = 'fotos') {
   selectedResponse.value = item
-  modalNutritionTab.value = tab === 'desempenho' ? 'desempenho' : 'fotos'
+  modalNutritionTab.value = tab === 'desempenho' ? 'desempenho' : tab === 'metas' ? 'metas' : 'fotos'
   viewModalOpen.value = true
 }
 

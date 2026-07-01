@@ -50,24 +50,45 @@
         <div v-if="progressLabel" class="dieta-progress">{{ progressLabel }}</div>
 
         <ul class="dieta-checklist">
-          <li v-for="(item, index) in currentMeal.itemLabels" :key="`${activeMeal}-${index}`">
+          <li v-for="(item, index) in currentMeal.items" :key="item.key || `${activeMeal}-${index}`">
             <button
               type="button"
               class="dieta-check-btn"
               :aria-pressed="checkedItems[index]"
-              :aria-label="checkedItems[index] ? `Desmarcar ${item}` : `Marcar ${item}`"
+              :aria-label="checkedItems[index] ? `Desmarcar ${item.display || currentMeal.itemLabels[index]}` : `Marcar ${item.display || currentMeal.itemLabels[index]}`"
               @click="toggleItem(index)"
             >
               <DietaCheckIcon :completed="checkedItems[index]" />
             </button>
             <div class="dieta-item-copy">
-              <span :class="{ 'dieta-item-done': checkedItems[index], 'dieta-item-substituted': currentMeal.items[index]?.isSubstituted }">
-                {{ item }}
+              <span
+                :class="{
+                  'dieta-item-done': checkedItems[index],
+                  'dieta-item-substituted': item.isSubstituted,
+                  'dieta-item-extra': item.isExtra,
+                }"
+              >
+                {{ item.display || currentMeal.itemLabels[index] }}
               </span>
-              <span v-if="currentMeal.items[index]?.isSubstituted" class="dieta-item-swap-tag">Substituído</span>
+              <span v-if="item.isSubstituted" class="dieta-item-swap-tag">Substituído</span>
+              <span v-else-if="item.isExtra" class="dieta-item-extra-tag">Fora do plano</span>
             </div>
+            <button
+              v-if="item.isExtra"
+              type="button"
+              class="dieta-item-remove"
+              aria-label="Remover alimento adicionado"
+              @click="removeExtraItemAt(index, item.id)"
+            >
+              <Trash2 aria-hidden="true" />
+            </button>
           </li>
         </ul>
+
+        <button type="button" class="dieta-add-extra-btn" @click="extraFoodOpen = true">
+          <Plus class="dieta-add-extra-icon" aria-hidden="true" />
+          Adicionar outro alimento
+        </button>
 
         <button
           v-if="hasSubstitutions"
@@ -144,6 +165,13 @@
       :groups="substitutionGroups"
     />
 
+    <DietaAddExtraFoodModal
+      v-if="currentMeal"
+      v-model:open="extraFoodOpen"
+      :meal-label="currentMeal.label"
+      @added="onExtraFoodAdded"
+    />
+
     <BellaMealConfirmModal
       :open="showMealModal"
       :draft="mealDraft"
@@ -157,8 +185,10 @@
 </template>
 
 <script setup>
-import { ArrowLeftRight, Camera, Upload } from 'lucide-vue-next'
+import { ArrowLeftRight, Camera, Plus, Trash2, Upload } from 'lucide-vue-next'
+import DietaAddExtraFoodModal from '~/components/dieta/AddExtraFoodModal.vue'
 import { useDietaProgress } from '~/composables/useDietaProgress'
+import { useMealExtraItems } from '~/composables/useMealExtraItems'
 import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 import { useMealPlan } from '~/composables/useMealPlan'
 import { useMealSubstitutions } from '~/composables/useMealSubstitutions'
@@ -191,8 +221,10 @@ const { patientFetchInit } = usePatientLocalTime()
 
 const planLoading = ref(true)
 const substitutionsOpen = ref(false)
+const extraFoodOpen = ref(false)
 const togglingItem = ref(false)
 const { overridesRevision } = useMealItemOverrides()
+const { extrasRevision, addExtraItem, removeExtraItem } = useMealExtraItems()
 const mealPlanEntry = (mealId) => getMealById(mealId)
 const currentMeal = computed(() => {
   overridesRevision.value
@@ -220,13 +252,53 @@ const bellaMealLink = computed(() => ({
   },
 }))
 
-function syncChecked(mealId) {
+function syncChecked(mealId, options = {}) {
+  const { preserveChecked = false } = options
   const meal = getMealById(mealId)
   if (!meal) {
     checkedItems.value = []
     return
   }
-  checkedItems.value = loadChecked(mealId, meal.itemLabels.length)
+
+  const count = meal.itemLabels.length
+  const previous = preserveChecked ? checkedItems.value : loadChecked(mealId, count)
+  const next = Array(count).fill(false)
+
+  for (let i = 0; i < Math.min(previous.length, count); i += 1) {
+    next[i] = Boolean(previous[i])
+  }
+
+  checkedItems.value = next
+  saveChecked(mealId, next)
+}
+
+function onExtraFoodAdded({ food, amount, unit }) {
+  const added = addExtraItem(activeMeal.value, food, amount, unit)
+  if (!added) return
+
+  syncChecked(activeMeal.value, { preserveChecked: true })
+  const next = [...checkedItems.value]
+  next[next.length - 1] = true
+  checkedItems.value = next
+  saveChecked(activeMeal.value, next)
+
+  const meal = getMealById(activeMeal.value)
+  queueSyncMealCheck(activeMeal.value, meal, next, (summary) => {
+    if (summary) dailySummary.value = summary
+  })
+}
+
+function removeExtraItemAt(index, itemId) {
+  removeExtraItem(activeMeal.value, itemId)
+
+  const next = checkedItems.value.filter((_, itemIndex) => itemIndex !== index)
+  checkedItems.value = next
+  saveChecked(activeMeal.value, next)
+
+  const meal = getMealById(activeMeal.value)
+  queueSyncMealCheck(activeMeal.value, meal, next, (summary) => {
+    if (summary) dailySummary.value = summary
+  })
 }
 
 function selectMeal(mealId) {
@@ -425,11 +497,16 @@ onMounted(async () => {
 
 onUnmounted(() => {
   substitutionsOpen.value = false
+  extraFoodOpen.value = false
   resetPatientScrollLock()
 })
 
 watch(overridesRevision, () => {
-  syncChecked(activeMeal.value)
+  syncChecked(activeMeal.value, { preserveChecked: true })
+})
+
+watch(extrasRevision, () => {
+  syncChecked(activeMeal.value, { preserveChecked: true })
 })
 
 watch(
@@ -607,6 +684,66 @@ watch(
   gap: 0.55rem;
   font-size: 0.88rem;
   color: var(--cf-text);
+}
+
+.dieta-item-extra {
+  color: var(--cf-pink-dark);
+}
+
+.dieta-item-extra-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--cf-pink);
+  letter-spacing: 0.01em;
+}
+
+.dieta-item-remove {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cf-text-muted);
+  cursor: pointer;
+}
+
+.dieta-item-remove :deep(svg) {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.dieta-add-extra-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  border: 1.5px dashed var(--cf-pink-soft);
+  border-radius: 10px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cf-pink-dark);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dieta-add-extra-btn:active {
+  background: var(--cf-pink-soft);
+}
+
+.dieta-add-extra-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
 }
 
 .dieta-item-copy {

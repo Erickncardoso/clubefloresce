@@ -126,7 +126,7 @@
       <span>/ {{ displayTarget }}</span>
     </p>
 
-    <div class="water-bottle__actions">
+    <div v-if="!readonly" class="water-bottle__actions">
       <button type="button" class="water-bottle__btn" aria-label="Remover 250 ml" @click="emit('decrement')">
         <Minus class="water-bottle__btn-icon" aria-hidden="true" />
       </button>
@@ -134,7 +134,7 @@
         <Plus class="water-bottle__btn-icon" aria-hidden="true" />
       </button>
     </div>
-    <p class="water-bottle__hint">+250 ml por toque</p>
+    <p v-if="!readonly" class="water-bottle__hint">+250 ml por toque</p>
   </div>
 </template>
 
@@ -145,6 +145,7 @@ import { useConfetti } from '~/composables/useConfetti'
 const props = defineProps({
   current: { type: Number, default: 0 },
   target: { type: Number, default: 2 },
+  readonly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['increment', 'decrement'])

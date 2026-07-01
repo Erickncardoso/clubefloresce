@@ -14,11 +14,17 @@
           <div>
             <h3>{{ item.goal.label }}</h3>
             <p class="evo-goal-meta">
-              {{ frequencyLabel(item.goal.frequency) }} · {{ item.progress }} / {{ item.goal.target }} {{ item.goal.unit }}
+              <template v-if="item.goal.id === 'food'">
+                Semanal · {{ item.progress }} {{ item.progress === 1 ? 'dia registrado' : 'dias registrados' }}
+              </template>
+              <template v-else>
+                {{ frequencyLabel(item.goal.frequency) }} · {{ item.progress }} / {{ item.goal.target }} {{ item.goal.unit }}
+              </template>
             </p>
           </div>
         </div>
-        <span class="evo-goal-pct">{{ item.percent }}%</span>
+        <span v-if="item.goal.id === 'food'" class="evo-goal-pct evo-goal-pct--count">{{ item.progress }}</span>
+        <span v-else class="evo-goal-pct">{{ item.percent }}%</span>
       </header>
 
       <div class="evo-goal-surface">
@@ -33,7 +39,6 @@
 
         <EvolucaoFoodPlate
           v-else-if="item.goal.id === 'food'"
-          :target="item.goal.target"
           :selected-days="foodSelectedDays"
           :today-index="todayWeekdayIndex"
           @toggle-day="toggleFoodDay"
@@ -75,7 +80,12 @@
         </div>
       </div>
 
-      <button type="button" class="evo-goal-edit" @click="openEdit(item.goal)">
+      <button
+        v-if="item.goal.id !== 'food'"
+        type="button"
+        class="evo-goal-edit"
+        @click="openEdit(item.goal)"
+      >
         Ajustar meta
       </button>
     </article>
@@ -86,20 +96,9 @@
 
     <div v-if="editingGoal || showAdd" class="evo-modal-overlay" @click.self="closeModal">
       <div class="evo-modal">
-        <h2>{{ foodGoalForm ? 'Ajustar refeição livre' : showAdd ? 'Nova meta' : 'Ajustar meta' }}</h2>
+        <h2>{{ showAdd ? 'Nova meta' : 'Ajustar meta' }}</h2>
 
-        <template v-if="foodGoalForm">
-          <p class="evo-modal-copy">
-            Quantos dias por semana você quer permitir refeição livre? Depois, marque abaixo quais dias você fez.
-          </p>
-          <label class="evo-field">
-            Dias por semana
-            <input v-model.number="form.target" type="number" min="1" max="7" />
-          </label>
-        </template>
-
-        <template v-else>
-          <label class="evo-field">
+        <label class="evo-field">
             Nome
             <input v-model="form.label" type="text" maxlength="40" />
           </label>
@@ -118,7 +117,6 @@
               <option value="weekly">Semanal</option>
             </select>
           </label>
-        </template>
         <div class="evo-modal-actions">
           <button type="button" class="evo-modal-cancel" @click="closeModal">Cancelar</button>
           <button type="button" class="evo-modal-save" @click="saveForm">Salvar</button>
@@ -157,7 +155,6 @@ const form = reactive({
 
 const foodSelectedDays = computed(() => getFoodSelectedDays())
 const todayWeekdayIndex = computed(() => weekdayIndex())
-const foodGoalForm = computed(() => editingGoal.value?.id === 'food')
 
 onMounted(hydrate)
 
@@ -188,16 +185,6 @@ function closeModal() {
 }
 
 function saveForm() {
-  if (foodGoalForm.value) {
-    updateGoal('food', {
-      target: Math.max(1, Math.min(7, Number(form.target) || 1)),
-      unit: 'dias',
-      frequency: 'weekly',
-    })
-    closeModal()
-    return
-  }
-
   const payload = {
     label: form.label.trim() || 'Meta',
     target: Math.max(1, Math.min(99, Number(form.target) || 1)),
@@ -308,6 +295,10 @@ function saveForm() {
   letter-spacing: -0.04em;
   line-height: 1;
   color: var(--cf-text);
+}
+
+.evo-goal-pct--count {
+  font-size: 1.55rem;
 }
 
 .evo-goal-meta {

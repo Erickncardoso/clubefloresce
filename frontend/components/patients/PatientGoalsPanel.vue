@@ -1,27 +1,78 @@
 <template>
-  <div class="patient-goals-readonly">
-    <div v-if="loading" class="patient-goals-loading">Carregando metas…</div>
-    <p v-else-if="error" class="patient-goals-error">{{ error }}</p>
-    <p v-else-if="!goals.length" class="patient-goals-empty">
-      A paciente ainda não configurou metas no app.
+  <div class="patient-goals-readonly" :class="{ 'patient-goals-readonly--compact': compact }">
+    <div v-if="loading" class="patient-goals-state">Carregando metas…</div>
+    <p v-else-if="error" class="patient-goals-state patient-goals-state--error">{{ error }}</p>
+    <p v-else-if="!goalRows.length" class="patient-goals-state">
+      A paciente ainda não registrou metas no app.
     </p>
-    <ul v-else class="patient-goals-list">
-      <li v-for="item in goalRows" :key="item.goal.id" class="patient-goals-card">
-        <div class="patient-goals-head">
-          <div>
-            <strong>{{ item.goal.label }}</strong>
-            <span>{{ frequencyLabel(item.goal.frequency) }} · meta {{ item.goal.target }} {{ item.goal.unit }}</span>
-          </div>
-          <span class="patient-goals-pct">{{ item.percent }}%</span>
-        </div>
-        <div class="patient-goals-track" role="progressbar" :aria-valuenow="item.percent" aria-valuemin="0" aria-valuemax="100">
-          <div class="patient-goals-fill" :style="{ width: `${item.percent}%`, backgroundColor: item.goal.color || '#8B967C' }" />
-        </div>
-        <p class="patient-goals-progress">{{ formatProgress(item) }}</p>
-      </li>
-    </ul>
 
-    <article v-if="nutritionTarget" class="patient-goals-targets">
+    <div v-else class="evo-goals">
+      <article
+        v-for="item in visibleGoalRows"
+        :key="item.goal.id"
+        class="evo-goal-card"
+        :class="`evo-goal-card--${item.goal.id}`"
+      >
+        <header class="evo-goal-head">
+          <div class="evo-goal-head-copy">
+            <span class="evo-goal-icon" aria-hidden="true">
+              <component :is="goalIcon(item.goal)" class="evo-goal-icon-svg" />
+            </span>
+            <div>
+              <h3>{{ item.goal.label }}</h3>
+              <p class="evo-goal-meta">
+                <template v-if="item.goal.id === 'food'">
+                  Semanal · {{ item.progress }} {{ item.progress === 1 ? 'dia registrado' : 'dias registrados' }}
+                </template>
+                <template v-else>
+                  {{ frequencyLabel(item.goal.frequency) }} · {{ item.progress }} / {{ item.goal.target }} {{ item.goal.unit }}
+                </template>
+              </p>
+            </div>
+          </div>
+          <span v-if="item.goal.id === 'food'" class="evo-goal-pct evo-goal-pct--count">{{ item.progress }}</span>
+          <span v-else class="evo-goal-pct">{{ item.percent }}%</span>
+        </header>
+
+        <div class="evo-goal-surface">
+          <div class="evo-goal-widget">
+            <EvolucaoWaterBottle
+              v-if="item.goal.type === 'water'"
+              readonly
+              :current="item.progress"
+              :target="item.goal.target"
+            />
+
+            <EvolucaoFoodPlate
+              v-else-if="item.goal.id === 'food'"
+              readonly
+              :selected-days="foodSelectedDays"
+              :today-index="todayWeekdayIndex"
+            />
+
+            <EvolucaoExerciseArm
+              v-else-if="item.goal.id === 'exercise'"
+              readonly
+              :current="item.progress"
+              :target="item.goal.target"
+            />
+
+            <EvolucaoSleepChart
+              v-else-if="item.goal.id === 'sleep'"
+              readonly
+              :target="item.goal.target"
+              :schedule="sleepSchedule"
+            />
+
+            <div v-else class="evo-goal-actions evo-goal-actions--readonly">
+              <span class="evo-goal-value">{{ item.progress }} / {{ item.goal.target }} {{ item.goal.unit }}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <article v-if="nutritionTarget && !compact" class="patient-goals-targets">
       <h4>Metas nutricionais (diário)</h4>
       <div class="patient-goals-targets-grid">
         <span><strong>{{ nutritionTarget.caloriesKcal }}</strong> kcal</span>
@@ -34,9 +85,19 @@
 </template>
 
 <script setup>
+import { Cookie, Droplets, Dumbbell, Moon, Sparkles } from 'lucide-vue-next'
+import {
+  buildGoalsSummary,
+  getFoodSelectedDays,
+  getSleepSchedule,
+  weekdayIndex,
+} from '~/utils/patientGoalsProgress.js'
+
 const props = defineProps({
   patientId: { type: String, required: true },
   nutritionTarget: { type: Object, default: null },
+  compact: { type: Boolean, default: false },
+  limit: { type: Number, default: 0 },
 })
 
 const config = useRuntimeConfig()
@@ -51,62 +112,28 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-function dateKey(date = new Date()) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+const goalRows = computed(() => buildGoalsSummary(goals.value, progress.value))
+
+const visibleGoalRows = computed(() => {
+  if (!props.compact || !props.limit || props.limit <= 0) return goalRows.value
+  return goalRows.value.slice(0, props.limit)
+})
+
+const foodGoal = computed(() => goals.value.find((item) => item.id === 'food') || null)
+const foodSelectedDays = computed(() => getFoodSelectedDays(foodGoal.value, progress.value))
+const todayWeekdayIndex = computed(() => weekdayIndex())
+const sleepSchedule = computed(() => getSleepSchedule(progress.value))
+
+function goalIcon(goal) {
+  if (goal.type === 'water') return Droplets
+  if (goal.id === 'food') return Cookie
+  if (goal.id === 'exercise') return Dumbbell
+  if (goal.id === 'sleep') return Moon
+  return Sparkles
 }
 
-function weekStartKey(date = new Date()) {
-  const copy = new Date(date)
-  const day = copy.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  copy.setDate(copy.getDate() + diff)
-  return dateKey(copy)
-}
-
-function periodKeyForGoal(goal, date = new Date()) {
-  return goal.frequency === 'weekly' ? weekStartKey(date) : dateKey(date)
-}
-
-function progressStorageKey(goalId, periodKey) {
-  return `${goalId}:${periodKey}`
-}
-
-function getProgress(goal) {
-  const key = progressStorageKey(goal.id, periodKeyForGoal(goal))
-  return progress.value[key] || 0
-}
-
-function getProgressPercent(goal) {
-  if (!goal.target) return 0
-  return Math.min(100, Math.round((getProgress(goal) / goal.target) * 100))
-}
-
-const goalRows = computed(() =>
-  goals.value.map((goal) => ({
-    goal,
-    progress: getProgress(goal),
-    percent: getProgressPercent(goal),
-  })),
-)
-
-function frequencyLabel(freq) {
-  return freq === 'weekly' ? 'Semanal' : 'Diária'
-}
-
-function formatProgress(item) {
-  const value = item.progress
-  const goal = item.goal
-  if (goal.id === 'sleep') {
-    return `${value} / ${goal.target} ${goal.unit}`
-  }
-  if (goal.unit === 'litros') {
-    const text = value % 1 === 0 ? String(value) : value.toFixed(2).replace('.', ',')
-    return `${text} / ${goal.target} ${goal.unit}`
-  }
-  return `${value} / ${goal.target} ${goal.unit}`
+function frequencyLabel(frequency) {
+  return frequency === 'weekly' ? 'Semanal' : 'Diária'
 }
 
 async function loadGoals() {
@@ -131,80 +158,143 @@ watch(() => props.patientId, loadGoals, { immediate: true })
 </script>
 
 <style scoped>
-.patient-goals-loading,
-.patient-goals-empty,
-.patient-goals-error {
+.patient-goals-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.patient-goals-readonly--compact .evo-goals {
+  gap: 0.65rem;
+}
+
+.patient-goals-readonly--compact .evo-goal-card {
+  padding: 0.85rem 0.9rem 0.8rem;
+}
+
+.patient-goals-readonly--compact .evo-goal-pct {
+  font-size: 1.25rem;
+}
+
+.patient-goals-state {
   font-size: 0.88rem;
   color: #666;
 }
 
-.patient-goals-error {
+.patient-goals-state--error {
   color: #c53030;
 }
 
-.patient-goals-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.evo-goals {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.patient-goals-card {
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--admin-border, #e8ece9);
-  border-radius: 12px;
-  background: #fff;
+.evo-goal-card {
+  padding: 1rem 1.05rem 0.95rem;
+  border-radius: 1.35rem;
+  border: none;
+  background: #f3f4f6;
+  box-shadow: none;
 }
 
-.patient-goals-head {
+.evo-goal-card--water { background: #e8f0fb; }
+.evo-goal-card--food { background: #f8f0ed; }
+.evo-goal-card--exercise { background: #eef0eb; }
+.evo-goal-card--sleep { background: #f3f4f6; }
+
+.evo-goal-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.85rem;
 }
 
-.patient-goals-head strong {
-  display: block;
-  font-size: 0.92rem;
+.evo-goal-head-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
-.patient-goals-head span {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 0.78rem;
-  color: #888;
+.evo-goal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  flex-shrink: 0;
+  color: var(--cf-text, #1c1816);
 }
 
-.patient-goals-pct {
-  font-size: 0.88rem;
+.evo-goal-card--water .evo-goal-icon { color: #4a8fc4; }
+.evo-goal-card--food .evo-goal-icon { color: #9d7268; }
+.evo-goal-card--exercise .evo-goal-icon { color: #5f8f58; }
+.evo-goal-card--sleep .evo-goal-icon { color: #6b74b8; }
+
+.evo-goal-icon-svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.evo-goal-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #8B967C;
+  letter-spacing: -0.01em;
+  color: var(--cf-text, #1c1816);
 }
 
-.patient-goals-track {
-  height: 8px;
-  border-radius: 999px;
-  background: #eef0ee;
-  overflow: hidden;
+.evo-goal-pct {
+  font-size: 1.55rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--cf-text, #1c1816);
 }
 
-.patient-goals-fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.2s ease;
+.evo-goal-pct--count {
+  font-size: 1.55rem;
 }
 
-.patient-goals-progress {
-  margin: 0.45rem 0 0;
-  font-size: 0.78rem;
-  color: #666;
+.evo-goal-meta {
+  margin: 0.18rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgba(28, 24, 22, 0.52);
+}
+
+.evo-goal-surface {
+  padding: 0.75rem 0.65rem 0.7rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+
+.evo-goal-widget {
+  padding: 0;
+}
+
+.evo-goal-actions--readonly {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0;
+}
+
+.evo-goal-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-width: 4.5rem;
+  text-align: center;
 }
 
 .patient-goals-targets {
-  margin-top: 1rem;
   padding: 0.85rem 1rem;
   border: 1px solid var(--admin-border, #e8ece9);
   border-radius: 12px;

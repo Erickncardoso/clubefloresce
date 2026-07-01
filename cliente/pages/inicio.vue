@@ -127,7 +127,9 @@
               :class="`home-goal-card--${metric.id}`"
             >
               <ArrowUpRight class="home-goal-card-arrow" aria-hidden="true" />
-              <p class="home-goal-card-value">{{ metric.value }}%</p>
+              <p class="home-goal-card-value">
+                {{ metric.value }}<span v-if="metric.showPercent !== false">%</span>
+              </p>
               <p class="home-goal-card-label">{{ metric.label }}</p>
               <p class="home-goal-card-meta">{{ metric.meta }}</p>
             </article>
@@ -241,7 +243,7 @@ const metrics = ref([
 ])
 
 const homeGoalsAverage = computed(() => {
-  const items = homeGoalMetrics.value
+  const items = homeGoalMetrics.value.filter((item) => item.id !== 'food')
   if (!items.length) return 0
   const total = items.reduce((sum, item) => sum + item.value, 0)
   return Math.round(total / items.length)
@@ -252,6 +254,9 @@ function formatGoalMeta(progress, goal) {
   const target = Number(goal?.target ?? 0)
   const unit = goal?.unit ?? ''
 
+  if (goal?.id === 'food' || goal?.type === 'food') {
+    return current === 1 ? '1 dia esta semana' : `${current} dias esta semana`
+  }
   if (goal?.type === 'sleep') {
     return `${current}h de ${target}h`
   }
@@ -271,7 +276,8 @@ const homeGoalMetrics = computed(() => {
   return todaySummary.value.map((item) => ({
     id: item.goal.id,
     label: item.goal.label,
-    value: item.percent,
+    value: item.goal.id === 'food' ? item.progress : item.percent,
+    showPercent: item.goal.id !== 'food',
     meta: formatGoalMeta(item.progress, item.goal),
   }))
 })

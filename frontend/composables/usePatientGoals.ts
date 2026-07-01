@@ -17,7 +17,7 @@ const STORAGE_KEY = 'cf-patient-goals-v1'
 
 const DEFAULT_GOALS: PatientGoal[] = [
   { id: 'water', label: 'Água', type: 'water', target: 2, unit: 'litros', frequency: 'daily', color: '#5ba4d9', step: 0.25 },
-  { id: 'food', label: 'Refeição livre', type: 'food', target: 2, unit: 'dias', frequency: 'weekly', color: '#c9a96e' },
+  { id: 'food', label: 'Refeição livre', type: 'food', target: 7, unit: 'dias', frequency: 'weekly', color: '#c9a96e' },
   { id: 'exercise', label: 'Exercício', type: 'exercise', target: 3, unit: 'vezes', frequency: 'weekly', color: '#8B967C' },
   { id: 'sleep', label: 'Sono', type: 'sleep', target: 8, unit: 'horas', frequency: 'daily', color: '#6aab6a', step: 0.5 },
 ]
@@ -306,6 +306,7 @@ export function usePatientGoals() {
   }
 
   function getProgressPercent(goal: PatientGoal, date = new Date()) {
+    if (goal.id === 'food' || goal.type === 'food') return 0
     if (!goal.target) return 0
     return Math.min(100, Math.round((getProgress(goal, date) / goal.target) * 100))
   }
@@ -328,7 +329,7 @@ export function usePatientGoals() {
 
     if (existingIndex >= 0) {
       selected.splice(existingIndex, 1)
-    } else if (selected.length >= goal.target) {
+    } else if (selected.length >= 7) {
       return false
     } else {
       selected.push(weekdayIndex)
@@ -443,22 +444,10 @@ export function usePatientGoals() {
   }
 
   function updateGoal(goalId: string, patch: Partial<Pick<PatientGoal, 'label' | 'target' | 'unit' | 'frequency'>>) {
+    if (goalId === 'food') return
+
     const index = store.value.goals.findIndex((item) => item.id === goalId)
     if (index < 0) return
-
-    if (goalId === 'food' && patch.target != null) {
-      const goal = store.value.goals[index]
-      const weekKey = periodKeyForGoal(goal)
-      const daysKey = foodDaysStorageKey(weekKey)
-      const nextTarget = Math.max(1, Math.min(7, Number(patch.target) || 1))
-      let selected = parseFoodDays(store.value.progress[daysKey])
-      if (selected.length > nextTarget) {
-        selected = selected.slice(0, nextTarget)
-        store.value.progress[daysKey] = serializeFoodDays(selected)
-        store.value.progress[progressStorageKey('food', weekKey)] = selected.length
-      }
-      patch = { ...patch, target: nextTarget, unit: 'dias', frequency: 'weekly' }
-    }
 
     store.value.goals[index] = { ...store.value.goals[index], ...patch }
     persist()

@@ -102,7 +102,7 @@
               <strong class="sleep-clock__card-time">{{ bedLabel }}</strong>
             </div>
           </div>
-          <div class="sleep-clock__card-actions">
+          <div v-if="!readonly" class="sleep-clock__card-actions">
             <button type="button" class="sleep-clock__step-btn" aria-label="Adiantar horário de dormir" @click="emitShift('bed', -15)">
               <Minus class="sleep-clock__step-icon" />
             </button>
@@ -123,7 +123,7 @@
               <strong class="sleep-clock__card-time">{{ wakeLabel }}</strong>
             </div>
           </div>
-          <div class="sleep-clock__card-actions">
+          <div v-if="!readonly" class="sleep-clock__card-actions">
             <button type="button" class="sleep-clock__step-btn" aria-label="Acordar mais cedo" @click="emitShift('wake', -15)">
               <Minus class="sleep-clock__step-icon" />
             </button>
@@ -153,6 +153,7 @@ import { Check, Minus, Moon, Plus, Sun } from 'lucide-vue-next'
 
 const props = defineProps({
   target: { type: Number, default: 8 },
+  readonly: { type: Boolean, default: false },
   schedule: {
     type: Object,
     default: () => ({
