@@ -76,6 +76,11 @@
         <span>Meu plano</span>
         <ChevronRight class="perfil-menu-arrow" />
       </NuxtLink>
+      <NuxtLink to="/assinatura" class="perfil-menu-item">
+        <CreditCard class="perfil-menu-icon" />
+        <span>Assinatura Clube Florescer</span>
+        <ChevronRight class="perfil-menu-arrow" />
+      </NuxtLink>
       <NuxtLink to="/check-in/historico" class="perfil-menu-item">
         <BarChart3 class="perfil-menu-icon" />
         <span>Relatórios</span>
@@ -107,6 +112,7 @@ import {
   CalendarCheck,
   Camera,
   ChevronRight,
+  CreditCard,
   Flower2,
   HelpCircle,
   Loader2,
@@ -117,6 +123,7 @@ import {
   User,
   UtensilsCrossed,
 } from 'lucide-vue-next'
+import { logoutAuthSession } from '~/composables/useAuthSession.js'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
@@ -155,9 +162,10 @@ onMounted(async () => {
   }
 })
 
-function logout() {
+async function logout() {
+  await logoutAuthSession(config.public.apiBase)
   clearPatientSession()
-  navigateTo('/')
+  await navigateTo('/')
 }
 
 function onAvatarSelected(event) {

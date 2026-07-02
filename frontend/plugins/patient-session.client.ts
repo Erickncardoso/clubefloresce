@@ -1,4 +1,6 @@
 /** Mantém a sessão do app paciente ativa entre aberturas do PWA. */
+import { isPatientCheckoutPath } from '~/utils/patient-access'
+
 const PUBLIC_PATHS = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha', '/abrir']
 
 export default defineNuxtPlugin({
@@ -28,9 +30,14 @@ export default defineNuxtPlugin({
     const redirectToLogin = (err?: unknown) => {
       const path = router.currentRoute.value.path
       if (PUBLIC_PATHS.includes(path)) return
+      if (isPatientCheckoutPath(path)) return
 
-      const query = err && isPatientAccessRevokedError(err) ? { access: 'expired' } : undefined
-      void navigateTo(query ? { path: '/', query } : '/')
+      if (err && isPatientAccessRevokedError(err)) {
+        void navigateTo('/assinatura')
+        return
+      }
+
+      void navigateTo('/')
     }
 
     const handleAuthFailure = (err: unknown) => {
@@ -74,6 +81,9 @@ export default defineNuxtPlugin({
         options.headers = headers
       },
       onResponseError({ response }) {
+        const path = router.currentRoute.value.path
+        if (isPatientCheckoutPath(path)) return
+
         handleAuthFailure({
           statusCode: response.status,
           data: response._data,

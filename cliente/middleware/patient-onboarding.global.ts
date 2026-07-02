@@ -1,3 +1,5 @@
+import { isPatientAppAccessBlocked } from '~/utils/patient-access'
+
 /** Redireciona pacientes sem onboarding completo para /onboarding. */
 export default defineNuxtRouteMiddleware(async (to) => {
   const config = useRuntimeConfig()
@@ -6,11 +8,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const publicPaths = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha', '/abrir']
   if (publicPaths.includes(to.path)) return
 
+  if (to.path.startsWith('/assinatura')) return
+
   if (import.meta.server) return
 
   const patientAuth = usePatientAuth()
   const sessionValid = await patientAuth.ensurePatientSession()
   if (!sessionValid) return
+
+  const verifiedUser = useState('auth-verified-user', () => null)
+  if (isPatientAppAccessBlocked(verifiedUser.value?.plan, verifiedUser.value?.accessExpiresAt)) {
+    return
+  }
 
   const { fetchStatus, isComplete, loaded } = usePatientOnboarding()
 

@@ -5,7 +5,6 @@ import { PasswordResetRepository } from "../repositories/password-reset.reposito
 import { RegistrationRequestRepository } from "../repositories/registration-request.repository";
 import { Role, UserStatus } from "@prisma/client";
 import { getJwtSecret } from "../utils/jwt";
-import { isPatientAccessExpired } from "../utils/access-expires";
 import { cloudinaryUpload } from "../utils/cloudinary";
 import {
   buildPasswordResetUrl,
@@ -17,10 +16,12 @@ import {
   hashPasswordResetToken,
 } from "../utils/password-reset-token";
 import { dispatchEmail, emailService } from "./email/email.service";
+import { RegistrationRequestService } from "./registration-request.service";
 
 const userRepository = new UserRepository();
 const passwordResetRepository = new PasswordResetRepository();
 const registrationRequestRepository = new RegistrationRequestRepository();
+const registrationRequestService = new RegistrationRequestService();
 
 const PATIENT_TOKEN_TTL = "90d";
 const STAFF_TOKEN_TTL = "30d";
@@ -139,25 +140,44 @@ export class AuthService {
     return userWithoutPassword;
   }
 
+  async createPatientSession(userId: string) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new Error("Usuário não encontrado.");
+    }
+    if (user.status === UserStatus.INATIVO) {
+      throw new Error("Conta desativada. Entre em contato com o suporte.");
+    }
+
+    const token = this.issueToken(user);
+    const { password, ...userWithoutPassword } = user;
+    return {
+      user: userWithoutPassword,
+      token,
+      mustChangePassword: user.status === UserStatus.PENDENTE,
+    };
+  }
+
   async login(email: string, passwordText: string): Promise<any> {
     const normalizedEmail = String(email || "").trim().toLowerCase();
-    const user = await userRepository.findByEmail(normalizedEmail);
+    let user = await userRepository.findByEmail(normalizedEmail);
+
     if (!user) {
-      const pendingRegistration = await registrationRequestRepository.findPendingByEmail(normalizedEmail);
-      if (pendingRegistration) {
-        throw new Error(
-          "Seu cadastro ainda está em análise. Você receberá um e-mail quando sua conta for liberada.",
-        );
+      const activated = await registrationRequestService.activatePendingRegistrationIfValid(
+        normalizedEmail,
+        passwordText,
+      );
+      if (activated) {
+        user = await userRepository.findByEmail(normalizedEmail);
       }
+    }
+
+    if (!user) {
       throw new Error("Credenciais inválidas.");
     }
 
     if (user.status === UserStatus.INATIVO) {
       throw new Error("Conta desativada. Entre em contato com o suporte.");
-    }
-
-    if (user.role === Role.PACIENTE && isPatientAccessExpired(user.accessExpiresAt)) {
-      throw new Error("Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista.");
     }
 
     const isMatch = await bcrypt.compare(passwordText, user.password);
@@ -185,10 +205,6 @@ export class AuthService {
 
     if (user.status === UserStatus.INATIVO) {
       throw new Error("Conta desativada. Entre em contato com o suporte.");
-    }
-
-    if (user.role === Role.PACIENTE && isPatientAccessExpired(user.accessExpiresAt)) {
-      throw new Error("Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista.");
     }
 
     const token = this.issueToken(user);

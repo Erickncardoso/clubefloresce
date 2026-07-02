@@ -1,5 +1,7 @@
 /** Carrega o plano alimentar do paciente ao entrar no app autenticado. */
 
+import { isPatientCheckoutPath } from '~/utils/patient-access'
+
 const PUBLIC_PATHS = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha']
 
 export default defineNuxtPlugin(() => {
@@ -17,6 +19,7 @@ export default defineNuxtPlugin(() => {
       return
     }
     if (PUBLIC_PATHS.includes(route.path)) return
+    if (isPatientCheckoutPath(route.path)) return
 
     const sessionValid = await ensureSession()
     if (!sessionValid) return

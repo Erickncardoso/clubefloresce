@@ -32,7 +32,8 @@
           :aria-selected="option.value === modelValue"
           @click="select(option.value)"
         >
-          {{ option.label }}
+          <span class="cf-select-option-label">{{ option.label }}</span>
+          <Check v-if="option.value === modelValue" class="cf-select-option-check" aria-hidden="true" />
         </button>
       </div>
     </Teleport>
@@ -40,7 +41,7 @@
 </template>
 
 <script setup>
-import { ChevronDown } from 'lucide-vue-next'
+import { Check, ChevronDown } from 'lucide-vue-next'
 
 const props = defineProps({
   modelValue: {
@@ -238,28 +239,44 @@ onBeforeUnmount(() => {
 
 .cf-select-menu {
   overflow: hidden;
-  border: 1px solid #e2e8e4;
+  border: 1px solid #dce8d9;
   background: #fff;
+  border-radius: 14px;
   box-shadow:
     0 4px 6px rgba(26, 46, 36, 0.04),
-    0 12px 28px rgba(26, 46, 36, 0.1);
-  padding: 0.35rem;
+    0 16px 32px rgba(26, 46, 36, 0.12);
+  padding: 0.4rem;
 }
 
 .cf-select-option {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
   width: 100%;
   border: none;
   background: transparent;
   color: #1a2e24;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 500;
   text-align: left;
-  padding: 0.65rem 0.75rem;
-  border-radius: calc(var(--cf-radius-control, 1.625rem) - 0.35rem);
+  padding: 0.72rem 0.85rem;
+  border-radius: 10px;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
+}
+
+.cf-select-option-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-select-option-check {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: #6b8f64;
 }
 
 .cf-select-option:hover {
@@ -268,7 +285,7 @@ onBeforeUnmount(() => {
 
 .cf-select-option--active {
   background: #edf5eb;
-  color: #8B967C;
+  color: #4a6b44;
   font-weight: 700;
 }
 

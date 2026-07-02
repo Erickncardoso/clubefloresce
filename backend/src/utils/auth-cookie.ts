@@ -19,13 +19,13 @@ function isSecureCookie(): boolean {
 }
 
 export function extractAuthToken(req: Request): string | null {
-  const header = req.headers.authorization?.split(" ")[1]?.trim();
-  if (header) return header;
-
   const cookieToken = req.cookies?.[AUTH_COOKIE_NAME];
   if (typeof cookieToken === "string" && cookieToken.trim()) {
     return cookieToken.trim();
   }
+
+  const header = req.headers.authorization?.split(" ")[1]?.trim();
+  if (header) return header;
 
   return null;
 }

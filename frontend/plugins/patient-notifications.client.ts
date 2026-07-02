@@ -1,4 +1,6 @@
 /** Carrega contagem de notificações ao entrar no app paciente. */
+import { isPatientCheckoutPath } from '~/utils/patient-access'
+
 export default defineNuxtPlugin({
   name: 'patient-notifications',
   enforce: 'post',
@@ -8,12 +10,14 @@ export default defineNuxtPlugin({
 
     const { bootstrapToken } = usePatientAuth()
     const { fetchNotifications } = usePatientNotifications()
+    const route = useRoute()
 
     let lastRefreshAt = 0
     const VISIBILITY_REFRESH_MS = 30_000
 
     const refresh = (force = false) => {
       if (!bootstrapToken()) return
+      if (isPatientCheckoutPath(route.path)) return
       const now = Date.now()
       if (!force && now - lastRefreshAt < VISIBILITY_REFRESH_MS) return
       lastRefreshAt = now

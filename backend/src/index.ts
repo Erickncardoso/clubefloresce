@@ -25,6 +25,7 @@ import pusherRoutes from "./routes/pusher.routes";
 import patientGoalsRoutes from "./routes/patient-goals.routes";
 import patientProfileRoutes from "./routes/patient-profile.routes";
 import registrationRequestRoutes from "./routes/registration-request.routes";
+import billingRoutes from "./routes/billing.routes";
 import { prisma } from "./lib/prisma";
 import { readEnv, maskSecret } from "./utils/env";
 import { getAllowedCorsOrigins, isOriginAllowed } from "./utils/cors-origins";
@@ -38,6 +39,7 @@ import { startCheckInDispatchScheduler } from "./jobs/checkin-weekly-dispatch.jo
 import { startMealReminderDispatchScheduler } from "./jobs/meal-reminder-dispatch.job";
 import { startWhatsappMobilePresenceScheduler } from "./jobs/whatsapp-mobile-presence.job";
 import { startWhatsappDevMessageLog } from "./jobs/whatsapp-dev-message-log.job";
+import { startBillingNotificationScheduler } from "./jobs/billing-notifications.job";
 import { assertJwtSecretOnBoot } from "./utils/jwt";
 import { isVapidConfigured } from "./utils/vapid-config";
 import { isPusherConfigured } from "./utils/pusher-config";
@@ -48,6 +50,7 @@ import {
   getEmailFromNoreply,
   isResendConfigured,
 } from "./utils/email-config";
+import { isMercadoPagoConfigured, getBillingWebhookUrl } from "./utils/mercadopago-config";
 
 dotenv.config();
 assertJwtSecretOnBoot();
@@ -145,6 +148,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/pusher", pusherRoutes);
 app.use("/api/registration-requests", registrationRequestRoutes);
+app.use("/api/billing", billingRoutes);
 
 // Basic Route for testing
 app.get("/", (req, res) => {
@@ -211,6 +215,12 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   } else {
     console.warn("[Email] RESEND_API_KEY ausente — envios de e-mail desativados.");
   }
+  if (isMercadoPagoConfigured()) {
+    const webhookUrl = getBillingWebhookUrl();
+    console.log(`[Billing] Mercado Pago configurado${webhookUrl ? ` — webhook: ${webhookUrl}` : ""}.`);
+  } else {
+    console.warn("[Billing] MERCADOPAGO_* ausente — assinaturas desativadas.");
+  }
   const videoProvider = getVideoUploadProvider();
   const documentProvider = getDocumentUploadProvider();
 
@@ -257,6 +267,8 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   startWhatsappMobilePresenceScheduler();
   console.log("[WhatsApp] Presença unavailable ativa — celular continua recebendo notificações.");
   startWhatsappDevMessageLog();
+  startBillingNotificationScheduler();
+  console.log("[BillingNotify] Agendador ativo — carrinho abandonado e renovação (3 dias).");
 });
 
 server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;

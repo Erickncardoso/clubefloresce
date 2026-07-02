@@ -42,6 +42,10 @@ const {
 const hideTabBarPaths = ['/', '/register', '/documento', '/onboarding', '/esqueci-senha', '/redefinir-senha', '/abrir']
 const publicPaths = hideTabBarPaths
 
+function isCheckoutPath(path) {
+  return path === '/assinatura' || path.startsWith('/assinatura/')
+}
+
 const isAuthenticatedRoute = computed(() => {
   if (!config.public.mobileApp) return false
   if (publicPaths.includes(route.path)) return false
@@ -68,6 +72,7 @@ const showPushPrompt = computed(() => {
 })
 
 const showMealPlanGate = computed(() => {
+  if (isCheckoutPath(route.path)) return false
   if (showPushPrompt.value) return false
   if (!isAuthenticatedRoute.value) return false
   if (!planChecked.value || planLoading.value) return false
@@ -81,6 +86,7 @@ const { suppressed: tabBarSuppressed } = usePatientTabBar()
 const showTabBar = computed(() => {
   if (showAppGate.value) return false
   if (tabBarSuppressed.value) return false
+  if (isCheckoutPath(route.path)) return false
   if (hideTabBarPaths.includes(route.path)) return false
   if (route.path.startsWith('/modulos/')) return false
   return true

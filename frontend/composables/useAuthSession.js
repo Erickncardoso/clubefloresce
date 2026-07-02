@@ -143,10 +143,13 @@ export function getAuthToken() {
 }
 
 function resolveBearerToken() {
+  if (typeof window !== 'undefined') {
+    if (localStorage.getItem(SESSION_HINT_KEY) || localStorage.getItem(USER_ID_KEY)) {
+      return null
+    }
+  }
   const legacy = getLegacyAuthToken()
   if (!legacy) return null
-  // Sessão por cookie: JWT legado expirado no header impede o backend de usar cf_session
-  if (typeof window !== 'undefined' && localStorage.getItem(USER_ID_KEY)) return null
   return legacy
 }
 

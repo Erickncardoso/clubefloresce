@@ -103,17 +103,27 @@ export function registrationRequestNutriEmail(input: {
     .join("");
 
   return {
-    subject: `Nova solicitação de cadastro: ${input.name}`,
+    subject: `Nova aluna cadastrada: ${input.name}`,
     html: layout({
-      title: "Nova aluna aguardando aprovação",
+      title: "Nova aluna no app",
       bodyHtml: `
-        <p>Uma nova solicitação de cadastro chegou pelo app do paciente.</p>
+        <p>Uma nova aluna criou conta no app do paciente.</p>
         ${details}
+        <p>Ela será direcionada ao checkout para concluir o pagamento.</p>
       `,
-      ctaLabel: "Revisar solicitações",
+      ctaLabel: "Abrir painel",
       ctaUrl: `${input.adminUrl}/usuarios`,
     }),
   };
+}
+
+export function newPatientSignupNutriEmail(input: {
+  name: string;
+  email: string;
+  phone?: string | null;
+  adminUrl: string;
+}) {
+  return registrationRequestNutriEmail({ ...input, message: null });
 }
 
 export function registrationApprovedEmail(input: {
@@ -179,7 +189,7 @@ export function passwordResetEmail(input: { name: string; resetUrl: string; expi
   return {
     subject: "Redefinir sua senha no Clube Florescer",
     html: layout({
-      title: "Redefinir sua senha",
+      title: "Redefinir senha",
       bodyHtml: `
         <p>Olá, ${firstName}.</p>
         <p>Recebemos um pedido para redefinir a senha da sua conta. O link abaixo expira em ${input.expiresInMinutes} minutos.</p>
@@ -187,6 +197,121 @@ export function passwordResetEmail(input: { name: string; resetUrl: string; expi
       `,
       ctaLabel: "Redefinir senha",
       ctaUrl: input.resetUrl,
+    }),
+  };
+}
+
+export function billingPaymentSuccessEmail(input: {
+  name: string;
+  accessExpiresLabel?: string | null;
+  appUrl: string;
+}) {
+  const firstName = input.name.split(" ")[0] || input.name;
+  const accessLine = input.accessExpiresLabel
+    ? `<p>Seu acesso está liberado até <strong>${input.accessExpiresLabel}</strong>.</p>`
+    : "<p>Seu acesso ao Clube Florescer está liberado.</p>";
+
+  return {
+    subject: "Pagamento confirmado — bem-vinda ao Clube Florescer!",
+    html: layout({
+      title: "Pagamento confirmado",
+      bodyHtml: `
+        <p>Olá, ${firstName}!</p>
+        <p>Recebemos seu pagamento com sucesso.</p>
+        ${accessLine}
+        <p>Você já pode usar o app com dieta, Bella IA e check-ins.</p>
+      `,
+      ctaLabel: "Entrar no app",
+      ctaUrl: input.appUrl,
+    }),
+  };
+}
+
+export function billingPaymentFailedEmail(input: {
+  name: string;
+  checkoutUrl: string;
+  reason?: string;
+}) {
+  const firstName = input.name.split(" ")[0] || input.name;
+
+  return {
+    subject: "Não foi possível confirmar seu pagamento",
+    html: layout({
+      title: "Pagamento não confirmado",
+      bodyHtml: `
+        <p>Olá, ${firstName}.</p>
+        <p>Não conseguimos confirmar seu pagamento no Clube Florescer.</p>
+        <p>Você pode tentar novamente com outro cartão ou usar Pix.</p>
+      `,
+      ctaLabel: "Tentar novamente",
+      ctaUrl: input.checkoutUrl,
+    }),
+  };
+}
+
+export function billingCartReminderEmail(input: {
+  name: string;
+  checkoutUrl: string;
+  reminderKind: "5m" | "15m";
+}) {
+  const firstName = input.name.split(" ")[0] || input.name;
+  const intro = input.reminderKind === "15m"
+    ? "Ainda dá tempo de concluir sua assinatura no Clube Florescer."
+    : "Você começou sua assinatura e ainda não finalizou o pagamento.";
+
+  return {
+    subject: input.reminderKind === "15m"
+      ? "Último lembrete — finalize sua assinatura"
+      : "Finalize sua assinatura no Clube Florescer",
+    html: layout({
+      title: "Sua assinatura está quase pronta",
+      bodyHtml: `
+        <p>Olá, ${firstName}.</p>
+        <p>${intro}</p>
+        <p>Quando estiver pronta, é só concluir o pagamento no link abaixo.</p>
+      `,
+      ctaLabel: "Concluir assinatura",
+      ctaUrl: input.checkoutUrl,
+    }),
+  };
+}
+
+export function billingRenewalReminderEmail(input: {
+  name: string;
+  accessExpiresLabel?: string | null;
+  checkoutUrl: string;
+}) {
+  const firstName = input.name.split(" ")[0] || input.name;
+  const dateLabel = input.accessExpiresLabel || "em breve";
+
+  return {
+    subject: "Sua assinatura vence em 3 dias",
+    html: layout({
+      title: "Renove sua assinatura",
+      bodyHtml: `
+        <p>Olá, ${firstName}.</p>
+        <p>Sua assinatura do Clube Florescer vence em <strong>${dateLabel}</strong>.</p>
+        <p>Renove para continuar com acesso sem interrupção.</p>
+      `,
+      ctaLabel: "Renovar assinatura",
+      ctaUrl: input.checkoutUrl,
+    }),
+  };
+}
+
+export function registrationWelcomeCheckoutEmail(input: { name: string; checkoutUrl: string }) {
+  const firstName = input.name.split(" ")[0] || input.name;
+
+  return {
+    subject: "Bem-vinda ao Clube Florescer — finalize sua assinatura",
+    html: layout({
+      title: "Conta criada com sucesso",
+      bodyHtml: `
+        <p>Olá, ${firstName}!</p>
+        <p>Sua conta foi criada. Falta só um passo: concluir o pagamento para liberar o acesso ao app.</p>
+      `,
+      ctaLabel: "Ir para o checkout",
+      ctaUrl: input.checkoutUrl,
     }),
   };
 }

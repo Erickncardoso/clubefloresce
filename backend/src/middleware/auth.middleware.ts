@@ -1,9 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { Role, UserStatus } from "@prisma/client";
+import { Role, UserStatus, UserPlan } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
+import {
+  isPatientAppAccessBlocked,
+  PATIENT_ACCESS_EXPIRED_RENEW_MESSAGE,
+  PATIENT_PAYMENT_REQUIRED_MESSAGE,
+} from "../utils/patient-paid-access";
 import { extractAuthToken } from "../utils/auth-cookie";
 import { mapDatabaseError } from "../utils/db-errors";
 
@@ -12,6 +17,12 @@ const PENDING_NUTRI_ALLOWED_PREFIXES = [
   "/api/auth/refresh",
   "/api/auth/first-access",
 ];
+
+/** Paciente com acesso expirado ainda pode renovar via billing. */
+function isExpiredPatientAllowedPath(req: Request): boolean {
+  const path = `${req.baseUrl}${req.path}`;
+  return path.startsWith("/api/billing");
+}
 
 const AUTH_USER_CACHE_TTL_MS = 30_000;
 const authUserCache = new Map<
@@ -48,7 +59,7 @@ export const authenticate = async (
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, role: true, status: true, accessExpiresAt: true },
+      select: { id: true, email: true, role: true, status: true, accessExpiresAt: true, plan: true },
     });
 
     if (!user) {
@@ -60,8 +71,19 @@ export const authenticate = async (
       return res.status(403).json({ message: "Conta desativada. Entre em contato com o suporte." });
     }
 
-    if (user.role === Role.PACIENTE && isPatientAccessExpired(user.accessExpiresAt)) {
-      return res.status(403).json({ message: "Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista." });
+    if (user.role === Role.PACIENTE && isPatientAppAccessBlocked(user.plan, user.accessExpiresAt)) {
+      if (!isExpiredPatientAllowedPath(req)) {
+        const hadPaidPlan = String(user.plan || UserPlan.FREE).toUpperCase() !== UserPlan.FREE;
+        const expired = hadPaidPlan && isPatientAccessExpired(user.accessExpiresAt);
+        const message = expired
+          ? PATIENT_ACCESS_EXPIRED_RENEW_MESSAGE
+          : PATIENT_PAYMENT_REQUIRED_MESSAGE;
+        return res.status(403).json({
+          message,
+          code: "PATIENT_ACCESS_BLOCKED",
+          reason: expired ? "expired" : "payment_required",
+        });
+      }
     }
 
     if (

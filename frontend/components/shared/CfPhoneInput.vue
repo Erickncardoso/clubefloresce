@@ -15,7 +15,16 @@
           aria-haspopup="listbox"
           @click="toggleCountryMenu"
         >
-          <span class="cf-phone-flag" aria-hidden="true">{{ selectedCountry.flag }}</span>
+          <span class="cf-phone-flag" aria-hidden="true">
+            <img
+              class="cf-phone-flag-img"
+              :src="countryFlagUrl(selectedCountry.code)"
+              :alt="selectedCountry.name"
+              width="20"
+              height="15"
+              loading="lazy"
+            >
+          </span>
           <span class="cf-phone-dial">{{ selectedCountry.dial }}</span>
           <ChevronDown class="cf-phone-chevron" aria-hidden="true" />
         </button>
@@ -28,7 +37,16 @@
             :aria-selected="country.code === selectedCountry.code"
             @click="selectCountry(country)"
           >
-            <span class="cf-phone-flag" aria-hidden="true">{{ country.flag }}</span>
+            <span class="cf-phone-flag" aria-hidden="true">
+              <img
+                class="cf-phone-flag-img"
+                :src="countryFlagUrl(country.code)"
+                :alt="country.name"
+                width="20"
+                height="15"
+                loading="lazy"
+              >
+            </span>
             <span class="cf-phone-country-name">{{ country.name }}</span>
             <span class="cf-phone-dial">{{ country.dial }}</span>
           </li>
@@ -56,6 +74,7 @@
 <script setup>
 import { ChevronDown } from 'lucide-vue-next'
 import {
+  countryFlagUrl,
   defaultPhoneCountry,
   digitsOnly,
   formatNationalPhone,
@@ -185,8 +204,18 @@ onBeforeUnmount(() => {
 }
 
 .cf-phone-flag {
-  font-size: 1.05rem;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.cf-phone-flag-img {
+  display: block;
+  width: 1.25rem;
+  height: 0.9rem;
+  border-radius: 2px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
 .cf-phone-dial {

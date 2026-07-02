@@ -1,3 +1,5 @@
+import { isPatientAppAccessBlocked } from '~/utils/patient-access'
+
 export type PatientGender = 'female' | 'male' | 'other' | 'prefer_not_say'
 
 export type PatientPrimaryGoal =
@@ -105,6 +107,11 @@ export function usePatientOnboarding() {
   }
 
   async function resolvePostLoginRoute(defaultRoute = '/inicio') {
+    patientAuth.bootstrapToken()
+    const user = useState('auth-verified-user', () => null).value
+    if (isPatientAppAccessBlocked(user?.plan, user?.accessExpiresAt)) {
+      return '/assinatura'
+    }
     const data = await fetchStatus({ force: true })
     if (!data?.isComplete) return '/onboarding'
     return defaultRoute

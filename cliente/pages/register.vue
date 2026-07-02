@@ -2,29 +2,14 @@
   <div class="auth-container patient-login-mode patient-login-mode--scroll">
     <main class="patient-auth patient-auth--register">
       <div class="patient-auth-inner">
-        <div v-if="submitted" class="patient-auth-card cf-squircle cf-squircle--surface patient-success-card">
-          <div class="success-icon-wrap" aria-hidden="true">
-            <CheckCircle2 class="success-icon" />
-          </div>
-          <h2>Solicitação enviada!</h2>
-          <p>
-            Recebemos seus dados. Quando a nutricionista aprovar seu acesso,
-            você já poderá entrar com o e-mail e a senha que escolheu.
-          </p>
-          <p class="success-note">Avisaremos você por e-mail e WhatsApp assim que estiver tudo pronto.</p>
-          <NuxtLink to="/" class="btn-auth-submit patient-auth-submit cf-squircle--control success-back-btn">
-            Voltar para o login
-          </NuxtLink>
-        </div>
-
-        <div v-else class="patient-auth-card cf-squircle cf-squircle--surface">
+        <div class="patient-auth-card cf-squircle cf-squircle--surface">
           <header class="patient-auth-header">
             <NuxtLink to="/" class="back-link">
               <ArrowLeft class="back-link-icon" aria-hidden="true" />
               Voltar
             </NuxtLink>
-            <h2>Solicitar cadastro</h2>
-            <p>Crie sua senha e envie seus dados. A nutricionista analisará e liberará seu acesso.</p>
+            <h2>Criar sua conta</h2>
+            <p>Cadastre-se e finalize o pagamento para liberar seu acesso ao Clube Florescer.</p>
           </header>
 
           <form class="auth-form patient-auth-form" @submit.prevent="handlePatientRequest">
@@ -117,29 +102,16 @@
               v-model="patientForm.phone"
               input-id="req-phone"
               label="WhatsApp"
-              hint="Obrigatório — usaremos para avisar sobre sua aprovação"
+              hint="Obrigatório — usaremos para avisos da sua assinatura"
               required
               :focused="focusedField === 'phone'"
               @focus="focusedField = 'phone'"
               @blur="focusedField = ''"
             />
 
-            <div class="form-group form-group--textarea" :class="{ focused: focusedField === 'message' }">
-              <label for="req-message">Mensagem</label>
-              <textarea
-                id="req-message"
-                v-model="patientForm.message"
-                class="patient-textarea cf-squircle--control"
-                rows="3"
-                @focus="focusedField = 'message'"
-                @blur="focusedField = ''"
-              />
-              <p class="field-hint">Opcional — conte seu objetivo ou como nos conheceu</p>
-            </div>
-
             <button type="submit" class="btn-auth-submit patient-auth-submit cf-squircle--control" :disabled="loading">
-              <span v-if="loading">Enviando...</span>
-              <span v-else>Enviar solicitação</span>
+              <span v-if="loading">Criando conta...</span>
+              <span v-else>Criar conta e ir ao pagamento</span>
             </button>
 
             <p v-if="error" class="error-banner cf-squircle cf-squircle--control" role="alert">
@@ -162,7 +134,6 @@
 import {
   AlertCircle,
   ArrowLeft,
-  CheckCircle2,
   Eye,
   EyeOff,
   Lock,
@@ -170,15 +141,17 @@ import {
   User,
 } from 'lucide-vue-next'
 import { parseInternationalPhone } from '~/utils/phone-countries.js'
+import { applyVerifiedSessionUser } from '~/composables/useAuthSession.js'
 
 definePageMeta({ layout: false, pageTransition: false })
 
 const apiBase = useApiBase()
 const authApiBase = computed(() => `${apiBase.value}/auth`)
+const { persistSession } = usePatientApp()
+const patientAuth = usePatientAuth()
 
 const loading = ref(false)
 const error = ref('')
-const submitted = ref(false)
 const focusedField = ref('')
 const showPassword = ref(false)
 const showPasswordConfirm = ref(false)
@@ -189,7 +162,6 @@ const patientForm = reactive({
   password: '',
   passwordConfirm: '',
   phone: '',
-  message: '',
 })
 
 const handlePatientRequest = async () => {
@@ -219,20 +191,31 @@ const handlePatientRequest = async () => {
 
   loading.value = true
   try {
-    await $fetch(`${authApiBase.value}/patient-registration-request`, {
+    const data = await $fetch(`${authApiBase.value}/patient-registration-request`, {
       method: 'POST',
+      credentials: 'include',
       body: {
         name: patientForm.name,
         email: patientForm.email,
         password: patientForm.password,
         passwordConfirm: patientForm.passwordConfirm,
         phone,
-        message: patientForm.message || null,
       },
     })
-    submitted.value = true
+
+    if (data?.user) {
+      applyVerifiedSessionUser(data.user)
+      patientAuth.markSessionActive()
+      persistSession({
+        name: data.user.name,
+        avatar: data.user.avatar,
+        createdAt: data.user.createdAt,
+      })
+    }
+
+    await navigateTo(data?.redirectTo || '/assinatura', { replace: true })
   } catch (err) {
-    error.value = err.data?.message || 'Não foi possível enviar sua solicitação. Tente novamente.'
+    error.value = err.data?.message || 'Não foi possível criar sua conta. Tente novamente.'
   } finally {
     loading.value = false
   }

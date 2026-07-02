@@ -76,7 +76,7 @@
 
             <p class="patient-auth-footer">
               Primeiro acesso?
-              <NuxtLink to="/register">Solicitar cadastro</NuxtLink>
+              <NuxtLink to="/register">Criar conta</NuxtLink>
             </p>
           </form>
         </div>
@@ -141,8 +141,8 @@
 <script setup>
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError, sanitizeUserFacingError } from '~/utils/resolve-api-base.mjs'
-import { PATIENT_ACCESS_EXPIRED_MESSAGE } from '~/utils/patient-access'
-import { getLegacyAuthToken, applyVerifiedSessionUser } from '~/composables/useAuthSession.js'
+import { PATIENT_ACCESS_EXPIRED_MESSAGE, PATIENT_PAYMENT_REQUIRED_MESSAGE } from '~/utils/patient-access'
+import { getLegacyAuthToken, applyVerifiedSessionUser, logoutAuthSession } from '~/composables/useAuthSession.js'
 
 definePageMeta({ layout: false, pageTransition: false })
 
@@ -166,16 +166,27 @@ const firstAccessForm = reactive({ newPassword: '', confirmPassword: '' })
 const route = useRoute()
 const guestResolving = useState('patient-guest-resolving', () => false)
 
-onMounted(() => {
-  if (route.query.access === 'expired') {
-    error.value = PATIENT_ACCESS_EXPIRED_MESSAGE
+onMounted(async () => {
+  const access = route.query.access
+  if (access !== 'expired' && access !== 'payment') return
+
+  const { hasAuthSession } = useAuthSession()
+  if (hasAuthSession()) {
+    await navigateTo('/assinatura', { replace: true })
+    return
   }
+
+  error.value = access === 'expired'
+    ? PATIENT_ACCESS_EXPIRED_MESSAGE
+    : PATIENT_PAYMENT_REQUIRED_MESSAGE
 })
 
 const handleLogin = async () => {
   loading.value = true
   error.value = ''
   try {
+    await logoutAuthSession(apiBase.value)
+
     const data = await $fetch(`${authApiBase.value}/login`, {
       method: 'POST',
       body: form,

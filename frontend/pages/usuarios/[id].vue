@@ -420,8 +420,8 @@ const editForm = reactive({
 
 const planOptions = [
   { value: 'FREE', label: 'Gratuito' },
-  { value: 'PREMIUM', label: 'Premium' },
-  { value: 'PLATINUM', label: 'Platinum' },
+  { value: 'PREMIUM', label: 'Essencial' },
+  { value: 'PLATINUM', label: 'Completo' },
 ]
 
 const statusOptions = [
@@ -471,8 +471,8 @@ const weekSelectOptions = computed(() => {
 
 const formatPlanLabel = (plan) => {
   const key = (plan || 'FREE').toUpperCase()
-  if (key === 'PREMIUM') return 'Premium'
-  if (key === 'PLATINUM') return 'Platinum'
+  if (key === 'PREMIUM') return 'Essencial'
+  if (key === 'PLATINUM') return 'Completo'
   return 'Gratuito'
 }
 

@@ -54,6 +54,7 @@ export class RegistrationRequestRepository {
     phone?: string | null;
     message?: string | null;
     passwordHash: string;
+    status?: RegistrationRequestStatus;
   }) {
     return prisma.patientRegistrationRequest.create({
       data: {
@@ -62,6 +63,7 @@ export class RegistrationRequestRepository {
         phone: data.phone || null,
         message: data.message || null,
         passwordHash: data.passwordHash,
+        status: data.status || RegistrationRequestStatus.PENDENTE,
       },
       select: publicRequestSelect,
     });

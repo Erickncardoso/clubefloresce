@@ -57,6 +57,7 @@ function logTunnelReady(url, { urlFile = TUNNEL_URL_FILE, label = "API" } = {}) 
   console.log(`[Tunnel] ${label} — URL publica:`, url);
   if (label === "API") {
     console.log("[Tunnel] Webhook WhatsApp:", `${url}/api/whatsapp/webhook`);
+    console.log("[Tunnel] Webhook Billing (Mercado Pago):", `${url}/api/billing/webhook`);
   } else if (label === "PWA") {
     console.log("[Tunnel] Abra no iPhone (HTTPS):", url);
     console.log("[Tunnel] API via proxy /api -> localhost:3001");

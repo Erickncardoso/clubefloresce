@@ -17,6 +17,10 @@ export const phoneCountries = [
 
 export const defaultPhoneCountry = phoneCountries[0]
 
+export function countryFlagUrl(code) {
+  return `https://flagcdn.com/w40/${String(code || 'BR').toLowerCase()}.png`
+}
+
 export function digitsOnly(value = '') {
   return String(value || '').replace(/\D/g, '')
 }

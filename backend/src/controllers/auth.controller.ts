@@ -4,7 +4,6 @@ import { RegistrationRequestService } from "../services/registration-request.ser
 import jwt from "jsonwebtoken";
 import { getJwtSecret } from "../utils/jwt";
 import { UserStatus } from "@prisma/client";
-import { isPatientAccessExpired } from "../utils/access-expires";
 import { mapDatabaseError } from "../utils/db-errors";
 import {
   clearAuthCookie,
@@ -44,10 +43,13 @@ export class AuthController {
 
   async requestPatientRegistration(req: Request, res: Response): Promise<any> {
     try {
-      const request = await registrationRequestService.createPatientRequest(req.body);
+      const user = await registrationRequestService.registerPatientSelfCheckout(req.body);
+      const session = await authService.createPatientSession(user.id);
+      setAuthCookie(res, session.token, session.user?.role);
       return res.status(201).json({
-        message: "Solicitação enviada com sucesso.",
-        request,
+        message: "Conta criada com sucesso.",
+        user: session.user,
+        redirectTo: "/assinatura",
       });
     } catch (error: any) {
       console.error("[auth] requestPatientRegistration:", error?.message || error);
@@ -150,10 +152,6 @@ export class AuthController {
         return res.status(403).json({ message: "Conta desativada." });
       }
 
-      if (isPatientAccessExpired(user.accessExpiresAt)) {
-        return res.status(403).json({ message: "Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista." });
-      }
-      
       const { password, ...userWithoutPassword } = user;
       return res.json(userWithoutPassword);
     } catch (error: any) {

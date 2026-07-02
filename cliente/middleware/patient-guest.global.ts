@@ -6,7 +6,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const guestPaths = ['/', '/abrir']
   if (!guestPaths.includes(to.path)) return
-  if (to.query.access === 'expired') return
+
+  if (to.query.access === 'expired' || to.query.access === 'payment') {
+    const { hasAuthSession } = useAuthSession()
+    if (hasAuthSession()) {
+      return navigateTo('/assinatura', { replace: true })
+    }
+    return
+  }
 
   const { hasAuthSession } = useAuthSession()
   if (!hasAuthSession()) return

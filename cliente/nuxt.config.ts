@@ -60,6 +60,7 @@ export default defineNuxtConfig({
     join(frontendRoot, 'plugins/pwa-standalone.client.ts'),
     join(frontendRoot, 'plugins/ios-pwa-chrome.client.ts'),
     join(frontendRoot, 'plugins/push-notifications.client.ts'),
+    join(frontendRoot, 'plugins/mercadopago.client.ts'),
   ],
 
   dir: {

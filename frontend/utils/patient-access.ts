@@ -8,8 +8,37 @@ export function isPatientAccessExpired(accessExpiresAt?: Date | string | null): 
   return Date.now() > expiresAt.getTime()
 }
 
+export function isPatientPaidAccessActive(
+  plan?: string | null,
+  accessExpiresAt?: Date | string | null,
+): boolean {
+  const normalizedPlan = String(plan || 'FREE').toUpperCase()
+  if (normalizedPlan === 'FREE') return false
+  return !isPatientAccessExpired(accessExpiresAt)
+}
+
+export function isPatientAppAccessBlocked(
+  plan?: string | null,
+  accessExpiresAt?: Date | string | null,
+): boolean {
+  return !isPatientPaidAccessActive(plan, accessExpiresAt)
+}
+
 export const PATIENT_ACCESS_EXPIRED_MESSAGE =
-  'Seu acesso ao Clube Florescer expirou. Entre em contato com a nutricionista.'
+  'Sua assinatura expirou. Renove para continuar usando o app.'
+
+export const PATIENT_PAYMENT_REQUIRED_MESSAGE =
+  'Finalize sua assinatura para acessar o Clube Florescer.'
+
+/** Rotas em que o paciente pode estar sem plano pago (checkout / obrigado). */
+export const PATIENT_CHECKOUT_PATHS = ['/assinatura', '/assinatura/obrigado']
+
+export function isPatientCheckoutPath(path?: string | null): boolean {
+  const normalized = String(path || '').split('?')[0]
+  return PATIENT_CHECKOUT_PATHS.some(
+    (checkoutPath) => normalized === checkoutPath || normalized.startsWith(`${checkoutPath}/`),
+  )
+}
 
 export function getFetchErrorMessage(err: unknown): string {
   return String(
@@ -23,6 +52,8 @@ export function isPatientAccessBlockedMessage(message: string): boolean {
   const normalized = message.toLowerCase()
   return normalized.includes('acesso ao clube florescer expirou')
     || normalized.includes('acesso expirado')
+    || normalized.includes('assinatura expirou')
+    || normalized.includes('finalize sua assinatura')
     || normalized.includes('conta desativada')
 }
 

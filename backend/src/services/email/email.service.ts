@@ -15,6 +15,12 @@ import {
   registrationRejectedEmail,
   registrationRequestNutriEmail,
   registrationRequestPatientEmail,
+  newPatientSignupNutriEmail,
+  billingPaymentSuccessEmail,
+  billingPaymentFailedEmail,
+  billingCartReminderEmail,
+  billingRenewalReminderEmail,
+  registrationWelcomeCheckoutEmail,
 } from "./email-templates";
 
 type SendEmailInput = {
@@ -70,6 +76,25 @@ export class EmailService {
     if (error) {
       throw new Error(error.message || "Falha ao enviar e-mail.");
     }
+  }
+
+  async sendNewPatientSignupToNutri(input: {
+    name: string;
+    email: string;
+    phone?: string | null;
+  }) {
+    const nutriEmail = await resolveNutriNotificationEmail();
+    const nutriTemplate = newPatientSignupNutriEmail({
+      ...input,
+      adminUrl: getAdminAppUrl(),
+    });
+
+    await this.send({
+      to: nutriEmail,
+      subject: nutriTemplate.subject,
+      html: nutriTemplate.html,
+      from: "contact",
+    });
   }
 
   async sendRegistrationRequestCreated(input: {
@@ -143,6 +168,88 @@ export class EmailService {
       subject: template.subject,
       html: template.html,
       from: "noreply",
+    });
+  }
+
+  async sendBillingPaymentSuccess(input: {
+    name: string;
+    email: string;
+    accessExpiresAt?: Date | null;
+    appUrl: string;
+  }) {
+    const template = billingPaymentSuccessEmail({
+      name: input.name,
+      accessExpiresLabel: formatAccessExpiresLabel(input.accessExpiresAt),
+      appUrl: input.appUrl,
+    });
+    await this.send({
+      to: input.email,
+      subject: template.subject,
+      html: template.html,
+      from: "contact",
+    });
+  }
+
+  async sendBillingPaymentFailed(input: {
+    name: string;
+    email: string;
+    checkoutUrl: string;
+    reason?: string;
+  }) {
+    const template = billingPaymentFailedEmail(input);
+    await this.send({
+      to: input.email,
+      subject: template.subject,
+      html: template.html,
+      from: "contact",
+    });
+  }
+
+  async sendBillingCartReminder(input: {
+    name: string;
+    email: string;
+    checkoutUrl: string;
+    reminderKind: "5m" | "15m";
+  }) {
+    const template = billingCartReminderEmail(input);
+    await this.send({
+      to: input.email,
+      subject: template.subject,
+      html: template.html,
+      from: "contact",
+    });
+  }
+
+  async sendBillingRenewalReminder(input: {
+    name: string;
+    email: string;
+    accessExpiresAt?: Date | null;
+    checkoutUrl: string;
+  }) {
+    const template = billingRenewalReminderEmail({
+      name: input.name,
+      accessExpiresLabel: formatAccessExpiresLabel(input.accessExpiresAt),
+      checkoutUrl: input.checkoutUrl,
+    });
+    await this.send({
+      to: input.email,
+      subject: template.subject,
+      html: template.html,
+      from: "contact",
+    });
+  }
+
+  async sendRegistrationWelcomeCheckout(input: {
+    name: string;
+    email: string;
+    checkoutUrl: string;
+  }) {
+    const template = registrationWelcomeCheckoutEmail(input);
+    await this.send({
+      to: input.email,
+      subject: template.subject,
+      html: template.html,
+      from: "contact",
     });
   }
 }

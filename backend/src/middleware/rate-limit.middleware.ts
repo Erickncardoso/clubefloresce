@@ -29,3 +29,13 @@ export const credentialRateLimiter = rateLimit({
 
 /** Compatibilidade com imports antigos. */
 export const authRateLimiter = credentialRateLimiter;
+
+/** Assinatura Mercado Pago — limita tentativas por IP. */
+export const billingRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => isDevelopment,
+  message: rateLimitMessage,
+});
