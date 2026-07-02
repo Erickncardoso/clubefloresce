@@ -95,7 +95,8 @@
                   <tr>
                     <th>Aluna</th>
                     <th>Plano</th>
-                    <th>Status</th>
+                    <th>Conta</th>
+                    <th>Pagamento</th>
                     <th>E-mail aprovação</th>
                     <th>WhatsApp aprovação</th>
                     <th>Membro desde</th>
@@ -127,6 +128,11 @@
                     <td>
                       <span class="user-tag user-tag--status" :class="statusTagClass(user.status)">
                         {{ formatStatus(user.status) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="user-tag user-tag--payment" :class="paymentTagClass(user)">
+                        {{ paymentAccessLabel(user) }}
                       </span>
                     </td>
                     <td>
@@ -225,10 +231,18 @@
                   </dd>
                 </div>
                 <div class="user-mobile-meta-row">
-                  <dt>Status</dt>
+                  <dt>Conta</dt>
                   <dd>
                     <span class="user-tag user-tag--status" :class="statusTagClass(user.status)">
                       {{ formatStatus(user.status) }}
+                    </span>
+                  </dd>
+                </div>
+                <div class="user-mobile-meta-row">
+                  <dt>Pagamento</dt>
+                  <dd>
+                    <span class="user-tag user-tag--payment" :class="paymentTagClass(user)">
+                      {{ paymentAccessLabel(user) }}
                     </span>
                   </dd>
                 </div>
@@ -571,7 +585,12 @@ const apiBase = useApiBase()
 
 import { Search, UserPlus, Edit3, Trash2 } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
-import { isPatientAccessExpired } from '~/utils/patient-access'
+import {
+  isPatientAccessExpired,
+  isPatientPaidAccessActive,
+  isPatientManuallyGrantedAccess,
+  patientHadGrantedAccess,
+} from '~/utils/patient-access'
 import { formatWhatsappTextForDisplay } from '~/composables/whatsapp/useWhatsappUtils.js'
 import { verifyAuthSession } from '~/composables/useAuthSession.js'
 
@@ -785,6 +804,44 @@ function formatStatus(status) {
   if (key === 'INATIVO') return 'Inativa'
   if (key === 'PENDENTE') return 'Pendente'
   return 'Ativa'
+}
+
+function patientAccessFields(user) {
+  return {
+    plan: user.plan,
+    accessExpiresAt: user.accessExpiresAt,
+    approvalEmailSentAt: user.approvalEmailSentAt,
+  }
+}
+
+function paymentAccessLabel(user) {
+  if (!isActivePatient(user)) return 'N/A'
+
+  const fields = patientAccessFields(user)
+  if (isPatientPaidAccessActive(fields.plan, fields.accessExpiresAt, fields.approvalEmailSentAt)) {
+    if (
+      isPatientManuallyGrantedAccess(fields)
+      && String(fields.plan || 'FREE').toUpperCase() === 'FREE'
+    ) {
+      return 'Liberado'
+    }
+    return 'Pago'
+  }
+
+  if (patientHadGrantedAccess(fields) && isPatientAccessExpired(fields.accessExpiresAt)) {
+    return 'Expirado'
+  }
+
+  return 'Não pago'
+}
+
+function paymentTagClass(user) {
+  const label = paymentAccessLabel(user)
+  if (label === 'Pago') return 'user-tag--payment-paid'
+  if (label === 'Liberado') return 'user-tag--payment-granted'
+  if (label === 'Expirado') return 'user-tag--payment-expired'
+  if (label === 'Não pago') return 'user-tag--payment-unpaid'
+  return 'user-tag--payment-na'
 }
 
 function statusTagClass(status) {
@@ -1713,6 +1770,31 @@ onMounted(fetchUsers)
 .user-tag--status-pendente {
   background: #fff7ed;
   color: #c2410c;
+}
+
+.user-tag--payment-paid {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.user-tag--payment-granted {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.user-tag--payment-unpaid {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.user-tag--payment-expired {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.user-tag--payment-na {
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 .user-tag--access-expired {

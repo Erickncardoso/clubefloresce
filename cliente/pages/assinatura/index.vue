@@ -127,14 +127,24 @@
               alt="QR Code Pix"
               class="checkout-pix-qr"
             />
-            <button
-              v-if="pixData.qrCode"
-              type="button"
-              class="checkout-btn checkout-btn--secondary"
-              @click="copyPixCode"
-            >
-              {{ pixCopied ? 'Copiado!' : 'Copiar código Pix' }}
-            </button>
+            <div v-if="pixCopyCode" class="checkout-pix-copy">
+              <label class="checkout-pix-copy-label" for="cf-pix-copy-code">Pix copia e cola</label>
+              <textarea
+                id="cf-pix-copy-code"
+                readonly
+                class="checkout-pix-copy-code cf-squircle--control"
+                :value="pixCopyCode"
+                rows="4"
+                @focus="selectPixCopyCode"
+              />
+              <button
+                type="button"
+                class="btn-auth-submit patient-auth-submit cf-squircle--control checkout-pix-copy-btn"
+                @click="copyPixCode"
+              >
+                {{ pixCopied ? 'Copiado!' : 'Copiar Pix copia e cola' }}
+              </button>
+            </div>
             <p v-if="billingConfig?.testMode" class="checkout-sandbox-note">
               Modo teste: o Pix será aprovado automaticamente em alguns segundos.
             </p>
@@ -301,19 +311,39 @@
 
           <div v-else class="checkout-pix-start">
             <p class="checkout-pix-start-lead">
-              Cobrança mensal recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> via Pix Automático.
+              Cobrança mensal recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> via Pix.
             </p>
             <p class="checkout-pix-start-note">
-              Você paga o primeiro Pix agora e autoriza a renovação automática mensal no app do banco.
+              Informe seu CPF para gerar o QR Code. Após o pagamento, o acesso é liberado automaticamente.
             </p>
-            <button
-              type="button"
-              class="btn-auth-submit patient-auth-submit cf-squircle--control"
-              :disabled="processing"
-              @click="startPixCheckout"
-            >
-              {{ processing ? 'Gerando Pix…' : `Assinar por ${formatCurrency(selectedPlanAmount)}/mês` }}
-            </button>
+            <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixCheckout">
+              <div
+                class="form-group field--float"
+                :class="{ focused: focusedField === 'pix-cpf' }"
+              >
+                <label for="cf-pix-cpf">CPF</label>
+                <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-pix-cpf"
+                    :value="pixCpfDisplay"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="000.000.000-00"
+                    required
+                    @input="onPixCpfInput"
+                    @focus="focusedField = 'pix-cpf'"
+                    @blur="focusedField = ''"
+                  >
+                </div>
+              </div>
+              <button
+                type="submit"
+                class="btn-auth-submit patient-auth-submit cf-squircle--control"
+                :disabled="processing"
+              >
+                {{ processing ? 'Gerando Pix…' : `Assinar por ${formatCurrency(selectedPlanAmount)}/mês` }}
+              </button>
+            </form>
           </div>
         </section>
       </template>
@@ -387,6 +417,7 @@ const SANDBOX_CARD_DEFAULTS = {
 const cardNumberDisplay = computed(() => maskCardNumber(cardForm.value.cardNumber))
 const cardExpiryDisplay = computed(() => maskCardExpiry(cardForm.value.expirationDate))
 const cardCpfDisplay = computed(() => maskCpf(cardForm.value.identificationNumber))
+const pixCpfDisplay = computed(() => maskCpf(cardForm.value.identificationNumber))
 const cardCvvDisplay = computed(() => maskCvv(cardForm.value.securityCode))
 
 function onCardNumberInput(event) {
@@ -405,6 +436,10 @@ function onCardCpfInput(event) {
   const digits = onlyDigits(event.target.value, 11)
   cardForm.value.identificationNumber = digits
   event.target.value = maskCpf(digits)
+}
+
+function onPixCpfInput(event) {
+  onCardCpfInput(event)
 }
 
 function onCardCvvInput(event) {
@@ -439,6 +474,24 @@ const selectedPlan = computed(() => (
   plans.value.find((plan) => plan.id === selectedPlanId.value) || plans.value[0]
 ))
 const selectedPlanAmount = computed(() => selectedPlan.value?.monthlyAmount || 0)
+
+const pixCopyCode = computed(() => String(pixData.value.qrCode || '').trim())
+
+function normalizePixPayload(pix) {
+  if (!pix || typeof pix !== 'object') {
+    return { qrCode: '', qrCodeBase64: '', ticketUrl: '', expiresAt: null }
+  }
+  return {
+    qrCode: String(pix.qrCode || pix.qr_code || '').trim(),
+    qrCodeBase64: pix.qrCodeBase64 || pix.qr_code_base64 || '',
+    ticketUrl: pix.ticketUrl || pix.ticket_url || '',
+    expiresAt: pix.expiresAt || pix.expires_at || null,
+  }
+}
+
+function selectPixCopyCode(event) {
+  event.target?.select?.()
+}
 
 watch(checkoutError, (value) => {
   if (value) processing.value = false
@@ -598,13 +651,23 @@ async function submitCardCheckout() {
 async function startPixCheckout() {
   processing.value = true
   checkoutError.value = ''
+  const cpf = onlyDigits(cardForm.value.identificationNumber, 11)
+  if (!billingConfig.value?.testMode && cpf.length !== 11) {
+    checkoutError.value = 'Informe um CPF válido para gerar o Pix.'
+    processing.value = false
+    return
+  }
   try {
     const result = await subscribeWithPix({
       planId: selectedPlanId.value,
       payerEmail: payerEmail.value,
-      payerName: userFullName(),
+      payerName: payerName.value || userFullName(),
+      identification: {
+        type: 'CPF',
+        number: cpf,
+      },
     })
-    pixData.value = result?.pix || {}
+    pixData.value = normalizePixPayload(result?.pix)
     pixInitPoint.value = result?.initPoint || ''
     checkoutStep.value = 'pix-waiting'
     startPixPolling()
@@ -616,13 +679,26 @@ async function startPixCheckout() {
 }
 
 async function copyPixCode() {
-  if (!pixData.value.qrCode || !navigator.clipboard) return
+  const code = pixCopyCode.value
+  if (!code) return
+
   try {
-    await navigator.clipboard.writeText(pixData.value.qrCode)
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code)
+    } else {
+      const el = document.getElementById('cf-pix-copy-code')
+      if (el instanceof HTMLTextAreaElement) {
+        el.focus()
+        el.select()
+        document.execCommand('copy')
+      } else {
+        throw new Error('clipboard unavailable')
+      }
+    }
     pixCopied.value = true
     setTimeout(() => { pixCopied.value = false }, 2500)
   } catch {
-    checkoutError.value = 'Não foi possível copiar o código Pix.'
+    checkoutError.value = 'Não foi possível copiar o código Pix. Selecione o texto acima e copie manualmente.'
   }
 }
 
@@ -1186,6 +1262,40 @@ async function refreshSubscription() {
   margin: 0 auto 1rem;
   border-radius: 14px;
   box-shadow: 0 8px 24px rgba(20, 20, 20, 0.08);
+}
+
+.checkout-pix-copy {
+  width: 100%;
+  margin: 0 0 0.85rem;
+  text-align: left;
+}
+
+.checkout-pix-copy-label {
+  display: block;
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cf-text-muted);
+}
+
+.checkout-pix-copy-code {
+  width: 100%;
+  margin: 0 0 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--cf-border);
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--cf-text);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  resize: none;
+  word-break: break-all;
+}
+
+.checkout-pix-copy-btn {
+  width: 100%;
 }
 
 .checkout-sandbox-note {

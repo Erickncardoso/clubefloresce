@@ -18,6 +18,14 @@ export function mapBillingErrorMessage(raw?: string | null): string {
 
   const lower = message.toLowerCase();
 
+  if (lower.includes("cpf") || lower.includes("identification") || lower.includes("identific")) {
+    return "Informe um CPF válido para gerar o Pix.";
+  }
+
+  if (lower.includes("qr code") || lower.includes("chave pix")) {
+    return message.length <= 160 ? message : "Não foi possível gerar o QR Code Pix. Verifique a chave Pix na conta Mercado Pago.";
+  }
+
   if (lower.includes("recusad") || lower.includes("rejected") || lower.includes("cc_rejected")) {
     return "Seu cartão foi recusado. Verifique os dados ou tente outro cartão.";
   }

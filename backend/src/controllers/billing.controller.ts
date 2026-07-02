@@ -113,6 +113,7 @@ export class BillingController {
 
       res.status(201).json(result);
     } catch (err: any) {
+      console.error("[Billing] subscribePix:", err?.message || err);
       res.status(400).json({ message: mapBillingErrorMessage(err?.message || "Não foi possível gerar o Pix.") });
     }
   };
