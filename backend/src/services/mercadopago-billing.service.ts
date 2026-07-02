@@ -56,6 +56,7 @@ function getMpClient(): MercadoPagoConfig {
 
 const MP_PREAPPROVAL_REASON_MAX_LEN = 40;
 const MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN = 40;
+const MP_PAYMENT_EXTERNAL_REF_MAX_LEN = 64;
 
 function truncateMercadoPagoText(value: string, maxLen: number): string {
   const normalized = String(value || "").trim();
@@ -83,6 +84,15 @@ function buildExternalReference(userId: string, planId: string): string {
   const timePart = Date.now().toString(36);
   const ref = `cf-${userPart}-${planPart}-${timePart}`;
   return truncateMercadoPagoText(ref, MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN);
+}
+
+function buildPaymentExternalReference(userId: string, planId: string): string {
+  const ref = `cf-sub-${userId}-${planId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
+  return truncateMercadoPagoText(ref, MP_PAYMENT_EXTERNAL_REF_MAX_LEN);
+}
+
+function buildPaymentDescription(product: BillingProduct): string {
+  return product.description || `Clube Florescer — ${product.name}`;
 }
 
 function productAccessDays(product: BillingProduct): number {
@@ -719,9 +729,9 @@ export class MercadoPagoBillingService {
     const { planId, amount, product } = await billingPlanConfigService.resolvePlanAmount(input.planId);
     const userPlan = billingPlanConfigService.toUserPlan(product);
     const accessDays = productAccessDays(product);
-    const externalReference = buildExternalReference(input.userId, planId);
+    const externalReference = buildPaymentExternalReference(input.userId, planId);
     const mpPayerEmail = resolveMercadoPagoPayerEmail(input.payerEmail);
-    const description = buildPreapprovalReason(product);
+    const description = buildPaymentDescription(product);
 
     const payment = await createMercadoPagoPixPayment(buildPixPaymentBody({
       amount,
@@ -733,17 +743,15 @@ export class MercadoPagoBillingService {
     const paymentId = String(payment?.id || "");
     const pix = assertPixQrGenerated(payment);
     const paymentStatus = mapPaymentStatus(String(payment?.status || ""));
-    const subscriptionStatus = paymentStatus === "PAID" ? "authorized" : "pending";
 
     const subscription = await prisma.billingSubscription.create({
       data: {
         userId: input.userId,
         plan: userPlan,
-        status: subscriptionStatus,
+        status: paymentStatus === "PAID" ? "authorized" : "pending",
         paymentMethod: "pix",
         amount,
-        mercadoPagoPaymentId: paymentId || null,
-        rawPayload: { oneTimePix: true, payment } as any,
+        rawPayload: payment as any,
       },
     });
 
@@ -751,13 +759,13 @@ export class MercadoPagoBillingService {
       data: {
         userId: input.userId,
         amount,
-        status: paymentStatus,
+        status: paymentStatus === "PAID" ? "PAID" : "PENDING",
         plan: userPlan,
         paymentMethod: "pix",
         mercadoPagoPaymentId: paymentId || null,
         externalReference,
         metadata: {
-          pix,
+          ...pix,
           accessDays,
           flow: "pix_one_time",
         } as any,
@@ -772,16 +780,12 @@ export class MercadoPagoBillingService {
 
     return {
       subscription,
-      status: subscriptionStatus,
+      paymentId,
+      status: paymentStatus,
       mercadoPagoPaymentId: paymentId,
-      pix: {
-        qrCode: pix.qrCode,
-        qrCodeBase64: pix.qrCodeBase64,
-        ticketUrl: pix.ticketUrl,
-        expiresAt: pix.expiresAt,
-      },
-      isRecurring: false,
+      pix,
       externalReference,
+      isRecurring: false,
     };
   }
 
