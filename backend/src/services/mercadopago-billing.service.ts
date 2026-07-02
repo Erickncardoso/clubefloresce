@@ -54,8 +54,35 @@ function getMpClient(): MercadoPagoConfig {
   return new MercadoPagoConfig({ accessToken });
 }
 
+const MP_PREAPPROVAL_REASON_MAX_LEN = 40;
+const MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN = 40;
+
+function truncateMercadoPagoText(value: string, maxLen: number): string {
+  const normalized = String(value || "").trim();
+  if (!normalized || normalized.length <= maxLen) return normalized;
+  return normalized.slice(0, maxLen).trimEnd();
+}
+
+function buildPreapprovalReason(product: BillingProduct): string {
+  const name = String(product.name || product.id || "Plano").trim();
+  const candidates = [
+    `Clube Florescer - ${name}`,
+    `Clube Florescer ${name}`,
+    name,
+    "Clube Florescer",
+  ];
+  for (const candidate of candidates) {
+    if (candidate.length <= MP_PREAPPROVAL_REASON_MAX_LEN) return candidate;
+  }
+  return truncateMercadoPagoText(name, MP_PREAPPROVAL_REASON_MAX_LEN);
+}
+
 function buildExternalReference(userId: string, planId: string): string {
-  return `cf-sub-${userId}-${planId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const userPart = String(userId || "").replace(/-/g, "").slice(0, 8);
+  const planPart = String(planId || "plan").replace(/[^a-zA-Z0-9]/g, "").slice(0, 10);
+  const timePart = Date.now().toString(36);
+  const ref = `cf-${userPart}-${planPart}-${timePart}`;
+  return truncateMercadoPagoText(ref, MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN);
 }
 
 function productAccessDays(product: BillingProduct): number {
@@ -280,8 +307,8 @@ function buildPixPreapprovalBody(params: {
   autoRecurring.end_date = endDate.toISOString();
 
   return {
-    reason: params.description,
-    external_reference: params.externalReference,
+    reason: truncateMercadoPagoText(params.description, MP_PREAPPROVAL_REASON_MAX_LEN),
+    external_reference: truncateMercadoPagoText(params.externalReference, MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN),
     payer_email: params.payerEmail,
     status: "pending",
     back_url: `${getPatientAppUrl()}/assinatura?status=success`,
@@ -618,7 +645,7 @@ export class MercadoPagoBillingService {
     const mpPayerEmail = resolveMercadoPagoPayerEmail(input.payerEmail);
 
     const body = {
-      reason: product.description || `Clube Florescer — ${product.name}`,
+      reason: buildPreapprovalReason(product),
       external_reference: externalReference,
       payer_email: mpPayerEmail,
       card_token_id: input.cardToken,
@@ -694,7 +721,7 @@ export class MercadoPagoBillingService {
     const accessDays = productAccessDays(product);
     const externalReference = buildExternalReference(input.userId, planId);
     const mpPayerEmail = resolveMercadoPagoPayerEmail(input.payerEmail);
-    const description = product.description || `Clube Florescer — ${product.name}`;
+    const description = buildPreapprovalReason(product);
     const startDate = new Date();
     startDate.setMinutes(startDate.getMinutes() + 5);
 

@@ -18,6 +18,10 @@ export function mapBillingErrorMessage(raw?: string | null): string {
 
   const lower = message.toLowerCase();
 
+  if (lower.includes("40 character") || lower.includes("more than 40")) {
+    return "Não foi possível criar a assinatura Pix. Tente novamente em instantes.";
+  }
+
   if (lower.includes("assinatura") || lower.includes("preapproval") || lower.includes("pix automático")) {
     return message.length <= 200 ? message : "Não foi possível criar a assinatura Pix. Verifique a conta Mercado Pago ou use cartão.";
   }
