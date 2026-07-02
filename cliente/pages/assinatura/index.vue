@@ -429,7 +429,11 @@ const sessionMismatch = computed(() => {
 const currentPlan = computed(() => subscription.value?.userPlan || 'FREE')
 const accessExpiresAt = computed(() => subscription.value?.accessExpiresAt || null)
 const accessExpired = computed(() => isPatientAccessExpired(accessExpiresAt.value))
-const needsFirstPayment = computed(() => !isPatientPaidAccessActive(currentPlan.value, accessExpiresAt.value))
+const needsFirstPayment = computed(() => !isPatientPaidAccessActive(
+  currentPlan.value,
+  accessExpiresAt.value,
+  verifiedUser.value?.approvalEmailSentAt,
+))
 
 const selectedPlan = computed(() => (
   plans.value.find((plan) => plan.id === selectedPlanId.value) || plans.value[0]
@@ -626,7 +630,11 @@ async function refreshSubscription() {
   pollingPix.value = true
   try {
     const data = await fetchMySubscription()
-    if (data?.userPlan && isPatientPaidAccessActive(data.userPlan, data.accessExpiresAt)) {
+    if (data?.userPlan && isPatientPaidAccessActive(
+      data.userPlan,
+      data.accessExpiresAt,
+      verifiedUser.value?.approvalEmailSentAt,
+    )) {
       await completeCheckoutSuccess()
     }
   } finally {

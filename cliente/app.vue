@@ -19,6 +19,7 @@
 <script setup>
 import PatientNavigationLoader from '~/components/PatientNavigationLoader.vue'
 import { usePatientTabBar } from '~/composables/usePatientTabBar'
+import { isPatientAppAccessBlocked } from '~/utils/patient-access'
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -29,6 +30,7 @@ if (import.meta.client && config.public.mobileApp) {
 }
 
 const { getToken, bootstrapToken } = usePatientAuth()
+const { verifiedUser } = useAuthSession()
 const { hasPlan, planChecked, loading: planLoading } = usePatientMealPlan()
 const {
   subscribed: pushSubscribed,
@@ -53,16 +55,32 @@ const isAuthenticatedRoute = computed(() => {
   return Boolean(getToken())
 })
 
+const hasActivePatientAccess = computed(() => {
+  const user = verifiedUser.value
+  if (!user) return false
+  return !isPatientAppAccessBlocked(
+    user.plan,
+    user.accessExpiresAt,
+    user.approvalEmailSentAt,
+  )
+})
+
 if (import.meta.client && config.public.mobileApp) {
   void initPushState()
 
   watch(isAuthenticatedRoute, (authenticated) => {
-    if (authenticated) void initPushState()
+    if (authenticated && hasActivePatientAccess.value) void initPushState()
+  })
+
+  watch(hasActivePatientAccess, (active) => {
+    if (active) void initPushState()
   })
 }
 
 const showPushPrompt = computed(() => {
   if (!isAuthenticatedRoute.value) return false
+  if (isCheckoutPath(route.path)) return false
+  if (!hasActivePatientAccess.value) return false
   if (route.path.startsWith('/onboarding')) return false
   if (pushChecking.value) return false
   if (!pushEnabledOnServer.value) return false

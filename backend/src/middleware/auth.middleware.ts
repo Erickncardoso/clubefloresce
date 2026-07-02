@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { Role, UserStatus, UserPlan } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
 import {
   isPatientAppAccessBlocked,
+  patientHadGrantedAccess,
   PATIENT_ACCESS_EXPIRED_RENEW_MESSAGE,
   PATIENT_PAYMENT_REQUIRED_MESSAGE,
 } from "../utils/patient-paid-access";
@@ -59,7 +60,15 @@ export const authenticate = async (
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, role: true, status: true, accessExpiresAt: true, plan: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+        accessExpiresAt: true,
+        plan: true,
+        approvalEmailSentAt: true,
+      },
     });
 
     if (!user) {
@@ -71,10 +80,17 @@ export const authenticate = async (
       return res.status(403).json({ message: "Conta desativada. Entre em contato com o suporte." });
     }
 
-    if (user.role === Role.PACIENTE && isPatientAppAccessBlocked(user.plan, user.accessExpiresAt)) {
+    if (
+      user.role === Role.PACIENTE
+      && isPatientAppAccessBlocked(user.plan, user.accessExpiresAt, user.approvalEmailSentAt)
+    ) {
       if (!isExpiredPatientAllowedPath(req)) {
-        const hadPaidPlan = String(user.plan || UserPlan.FREE).toUpperCase() !== UserPlan.FREE;
-        const expired = hadPaidPlan && isPatientAccessExpired(user.accessExpiresAt);
+        const hadAccess = patientHadGrantedAccess({
+          plan: user.plan,
+          accessExpiresAt: user.accessExpiresAt,
+          approvalEmailSentAt: user.approvalEmailSentAt,
+        });
+        const expired = hadAccess && isPatientAccessExpired(user.accessExpiresAt);
         const message = expired
           ? PATIENT_ACCESS_EXPIRED_RENEW_MESSAGE
           : PATIENT_PAYMENT_REQUIRED_MESSAGE;

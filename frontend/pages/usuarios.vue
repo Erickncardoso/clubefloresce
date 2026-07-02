@@ -610,7 +610,7 @@ const createForm = reactive({
   name: '',
   email: '',
   password: '',
-  plan: 'FREE',
+  plan: 'PREMIUM',
   accessExpiresAt: '',
 })
 
@@ -1017,7 +1017,7 @@ const openCreateModal = () => {
   createForm.name = ''
   createForm.email = ''
   createForm.password = ''
-  createForm.plan = 'FREE'
+  createForm.plan = 'PREMIUM'
   createForm.accessExpiresAt = ''
   createError.value = ''
   showCreateModal.value = true
@@ -1029,7 +1029,7 @@ const openCreateFromRequest = (req) => {
   createForm.name = req.name
   createForm.email = req.email
   createForm.password = ''
-  createForm.plan = 'FREE'
+  createForm.plan = 'PREMIUM'
   createForm.accessExpiresAt = ''
   createError.value = ''
   showCreateModal.value = true
@@ -1094,7 +1094,7 @@ const createPatient = async () => {
     createForm.name = ''
     createForm.email = ''
     createForm.password = ''
-    createForm.plan = 'FREE'
+    createForm.plan = 'PREMIUM'
     createForm.accessExpiresAt = ''
     await fetchUsers()
     navigateTo(`/usuarios/${user.id}`)

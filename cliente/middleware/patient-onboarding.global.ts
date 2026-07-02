@@ -17,7 +17,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (!sessionValid) return
 
   const verifiedUser = useState('auth-verified-user', () => null)
-  if (isPatientAppAccessBlocked(verifiedUser.value?.plan, verifiedUser.value?.accessExpiresAt)) {
+  if (isPatientAppAccessBlocked(
+    verifiedUser.value?.plan,
+    verifiedUser.value?.accessExpiresAt,
+    verifiedUser.value?.approvalEmailSentAt,
+  )) {
     return
   }
 

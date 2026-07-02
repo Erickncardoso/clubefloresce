@@ -109,7 +109,7 @@ export function usePatientOnboarding() {
   async function resolvePostLoginRoute(defaultRoute = '/inicio') {
     patientAuth.bootstrapToken()
     const user = useState('auth-verified-user', () => null).value
-    if (isPatientAppAccessBlocked(user?.plan, user?.accessExpiresAt)) {
+    if (isPatientAppAccessBlocked(user?.plan, user?.accessExpiresAt, user?.approvalEmailSentAt)) {
       return '/assinatura'
     }
     const data = await fetchStatus({ force: true })

@@ -8,10 +8,31 @@ export function isPatientAccessExpired(accessExpiresAt?: Date | string | null): 
   return Date.now() > expiresAt.getTime()
 }
 
+export type PatientAccessFields = {
+  plan?: string | null
+  accessExpiresAt?: Date | string | null
+  approvalEmailSentAt?: Date | string | null
+}
+
+/** Acesso liberado manualmente pela nutricionista (fora do checkout automático). */
+export function isPatientManuallyGrantedAccess(fields: PatientAccessFields): boolean {
+  if (fields.accessExpiresAt && !isPatientAccessExpired(fields.accessExpiresAt)) {
+    return true
+  }
+  if (fields.approvalEmailSentAt && !fields.accessExpiresAt) {
+    return true
+  }
+  return false
+}
+
 export function isPatientPaidAccessActive(
   plan?: string | null,
   accessExpiresAt?: Date | string | null,
+  approvalEmailSentAt?: Date | string | null,
 ): boolean {
+  if (isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt })) {
+    return true
+  }
   const normalizedPlan = String(plan || 'FREE').toUpperCase()
   if (normalizedPlan === 'FREE') return false
   return !isPatientAccessExpired(accessExpiresAt)
@@ -20,8 +41,17 @@ export function isPatientPaidAccessActive(
 export function isPatientAppAccessBlocked(
   plan?: string | null,
   accessExpiresAt?: Date | string | null,
+  approvalEmailSentAt?: Date | string | null,
 ): boolean {
-  return !isPatientPaidAccessActive(plan, accessExpiresAt)
+  return !isPatientPaidAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+}
+
+export function patientHadGrantedAccess(fields: PatientAccessFields): boolean {
+  const normalizedPlan = String(fields.plan || 'FREE').toUpperCase()
+  if (normalizedPlan !== 'FREE') return true
+  if (fields.approvalEmailSentAt) return true
+  if (fields.accessExpiresAt) return true
+  return false
 }
 
 export const PATIENT_ACCESS_EXPIRED_MESSAGE =

@@ -1,4 +1,6 @@
 /** Registra push após login e navega ao tocar na notificação. */
+import { isPatientAppAccessBlocked, isPatientCheckoutPath } from '~/utils/patient-access'
+
 export default defineNuxtPlugin({
   name: 'push-notifications',
   enforce: 'post',
@@ -7,6 +9,7 @@ export default defineNuxtPlugin({
     if (!config.public.mobileApp || !import.meta.client) return
 
     const router = useRouter()
+    const route = useRoute()
     const { bootstrapToken } = usePatientAuth()
     const {
       detectPushSupport,
@@ -28,6 +31,13 @@ export default defineNuxtPlugin({
 
     const trySync = async () => {
       if (!bootstrapToken()) return
+      if (isPatientCheckoutPath(route.path)) return
+
+      const user = useState('auth-verified-user', () => null).value
+      if (user && isPatientAppAccessBlocked(user.plan, user.accessExpiresAt, user.approvalEmailSentAt)) {
+        return
+      }
+
       await syncTimezone()
       await refreshStatus()
       if (Notification.permission === 'default') return
