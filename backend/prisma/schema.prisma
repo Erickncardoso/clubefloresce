@@ -63,6 +63,7 @@ model User {
   status        UserStatus @default(ATIVO)
   plan          UserPlan   @default(FREE)
   accessExpiresAt DateTime?
+  billingPaymentMethod String?
   approvalEmailSentAt DateTime?
   approvalWhatsappSentAt DateTime?
   approvalWhatsappMessage String? @db.Text

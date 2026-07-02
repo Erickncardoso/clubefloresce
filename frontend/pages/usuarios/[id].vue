@@ -29,6 +29,12 @@
                   <span class="user-tag user-tag--status" :class="`user-tag--status-${(overview.patient.status || 'ATIVO').toLowerCase()}`">
                     {{ formatStatusLabel(overview.patient.status) }}
                   </span>
+                  <span class="user-tag user-tag--payment" :class="paymentTagClass(patientBilling)">
+                    {{ paymentAccessLabel(patientBilling) }}
+                  </span>
+                  <span class="user-tag user-tag--paymethod" :class="paymentMethodTagClass(patientBilling)">
+                    {{ paymentMethodLabel(patientBilling) }}
+                  </span>
                   <span class="muted">Desde {{ formatDate(overview.patient.createdAt) }}</span>
                   <span
                     v-if="isPatientAccessExpired(overview.patient.accessExpiresAt)"
@@ -59,6 +65,13 @@
         <!-- Resumo -->
         <section v-if="activeTab === 'resumo'" class="tab-panel">
           <div class="stats-grid">
+            <article class="stat-card stat-card--billing">
+              <span class="stat-label">Pagamento</span>
+              <strong>{{ paymentAccessLabel(patientBilling) }}</strong>
+              <small>
+                Forma: {{ paymentMethodLabel(patientBilling) }}
+              </small>
+            </article>
             <article class="stat-card">
               <span class="stat-label">Check-ins</span>
               <strong>{{ overview.checkIn.total }}</strong>
@@ -322,6 +335,15 @@
               </div>
 
               <div class="field field--float">
+                <label for="edit-payment-method">Forma de pagamento</label>
+                <SharedCfSelect
+                  id="edit-payment-method"
+                  v-model="editForm.billingPaymentMethod"
+                  :options="paymentMethodOptions"
+                />
+              </div>
+
+              <div class="field field--float">
                 <label for="edit-status">Status</label>
                 <SharedCfSelect
                   id="edit-status"
@@ -355,6 +377,12 @@
 <script setup>
 import { resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 import { isPatientAccessExpired } from '~/utils/patient-access'
+import {
+  paymentAccessLabel,
+  paymentMethodLabel,
+  paymentMethodTagClass,
+  paymentTagClass,
+} from '~/utils/patient-billing-display'
 import { buildAnswerRows, formatCheckinPeriod } from '~/utils/checkin-answers'
 
 definePageMeta({
@@ -416,6 +444,7 @@ const editForm = reactive({
   plan: 'FREE',
   status: 'ATIVO',
   accessExpiresAt: '',
+  billingPaymentMethod: '',
 })
 
 const planOptions = [
@@ -429,6 +458,14 @@ const statusOptions = [
   { value: 'INATIVO', label: 'Inativa' },
   { value: 'PENDENTE', label: 'Pendente' },
 ]
+
+const paymentMethodOptions = [
+  { value: '', label: 'Não informado' },
+  { value: 'pix', label: 'Pix' },
+  { value: 'card', label: 'Cartão' },
+]
+
+const patientBilling = computed(() => overview.value?.patient || {})
 
 const minAccessDate = computed(() => {
   const now = new Date()
@@ -535,6 +572,7 @@ const loadOverview = async () => {
   editForm.plan = overview.value.patient.plan || 'FREE'
   editForm.status = overview.value.patient.status || 'ATIVO'
   editForm.accessExpiresAt = toDateInputValue(overview.value.patient.accessExpiresAt)
+  editForm.billingPaymentMethod = overview.value.patient.billingPaymentMethod || ''
   mealPlan.value = overview.value.mealPlan
     ? { ...overview.value.mealPlan, plan: overview.value.mealPlan.plan }
     : null
@@ -653,6 +691,7 @@ const savePatient = async () => {
         plan: editForm.plan,
         status: editForm.status,
         accessExpiresAt: editForm.accessExpiresAt || null,
+        billingPaymentMethod: editForm.billingPaymentMethod || null,
       },
     })
     showEditModal.value = false
@@ -663,6 +702,7 @@ const savePatient = async () => {
     editForm.plan = updated.plan || 'FREE'
     editForm.status = updated.status || 'ATIVO'
     editForm.accessExpiresAt = toDateInputValue(updated.accessExpiresAt)
+    editForm.billingPaymentMethod = updated.billingPaymentMethod || ''
   } catch (err) {
     alert(err.data?.error || 'Erro ao salvar cadastro.')
   } finally {
@@ -677,6 +717,7 @@ watch(showEditModal, (open) => {
   editForm.plan = patient.plan || 'FREE'
   editForm.status = patient.status || 'ATIVO'
   editForm.accessExpiresAt = toDateInputValue(patient.accessExpiresAt)
+  editForm.billingPaymentMethod = patient.billingPaymentMethod || ''
 })
 
 watch(activeTab, async (tab) => {
@@ -780,6 +821,50 @@ onMounted(loadAll)
 .user-tag--access-expired {
   background: #fef2f2;
   color: #b91c1c;
+}
+
+.user-tag--payment-paid {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.user-tag--payment-granted {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.user-tag--payment-unpaid {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.user-tag--payment-expired {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.user-tag--payment-na {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.user-tag--paymethod-pix {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.user-tag--paymethod-card {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.user-tag--paymethod-na {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+
+.stat-card--billing strong {
+  font-size: 1.15rem;
 }
 
 .muted { color: #888; font-size: 0.9rem; }

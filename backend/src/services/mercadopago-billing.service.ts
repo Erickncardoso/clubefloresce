@@ -233,6 +233,15 @@ function buildSandboxCardPayer(input: SubscribeCardInput, payerEmail: string) {
   };
 }
 
+function extractPreapprovalInitPoint(response: Record<string, unknown> | null | undefined): string {
+  if (!response) return "";
+  return String(
+    response.init_point
+    || response.sandbox_init_point
+    || "",
+  ).trim();
+}
+
 async function createMercadoPagoPreApproval(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const client = getMpClient();
   const preApprovalApi = new PreApproval(client);
@@ -363,7 +372,7 @@ export class MercadoPagoBillingService {
     });
 
     if (paymentStatus === "PAID") {
-      await this.activateUserAccess(input.userId, userPlan, accessDays);
+      await this.activateUserAccess(input.userId, userPlan, accessDays, "card");
     } else {
       void billingNotificationService.notifyPaymentFailed(input.userId).catch(() => {});
     }
@@ -536,7 +545,7 @@ export class MercadoPagoBillingService {
     });
 
     if (paymentStatus === "PAID") {
-      await this.activateUserAccess(input.userId, userPlan, accessDays);
+      await this.activateUserAccess(input.userId, userPlan, accessDays, "card");
     } else {
       void billingNotificationService.notifyPaymentFailed(input.userId).catch(() => {});
     }
@@ -614,7 +623,7 @@ export class MercadoPagoBillingService {
     });
 
     if (status === "authorized") {
-      await this.activateUserAccess(input.userId, userPlan, accessDays);
+      await this.activateUserAccess(input.userId, userPlan, accessDays, "card");
     } else {
       void billingNotificationService.notifyPaymentFailed(input.userId).catch(() => {});
     }
@@ -686,7 +695,7 @@ export class MercadoPagoBillingService {
     };
   }
 
-  /** Assinatura mensal via Pix (tenta recorrente; se MP recusar, gera Pix avulso). */
+  /** Assinatura mensal via Pix Automático (Mercado Pago init_point). Fallback: Pix avulso só se MP recusar. */
   private async subscribeWithPixRecurring(input: SubscribePixInput) {
     const { planId, amount, product } = await billingPlanConfigService.resolvePlanAmount(input.planId);
     const userPlan = billingPlanConfigService.toUserPlan(product);
@@ -718,17 +727,64 @@ export class MercadoPagoBillingService {
         },
       });
       mpPreapprovalId = String(preapprovalResponse.id || "");
-      initPoint = String(
-        preapprovalResponse.init_point
-        || preapprovalResponse.sandbox_init_point
-        || "",
-      ).trim();
+      initPoint = extractPreapprovalInitPoint(preapprovalResponse);
+      if (!initPoint) {
+        throw new Error("Mercado Pago não retornou o link de autorização do Pix Automático.");
+      }
     } catch (err: any) {
       recurringFallback = true;
       console.warn(
-        "[Billing] Preapproval Pix indisponível — gerando Pix avulso:",
+        "[Billing] Pix Automático indisponível — fallback Pix avulso:",
         err?.message || err,
       );
+    }
+
+    if (initPoint && !recurringFallback) {
+      const subscription = await prisma.billingSubscription.create({
+        data: {
+          userId: input.userId,
+          plan: userPlan,
+          status: "pending",
+          paymentMethod: "pix",
+          amount,
+          mercadoPagoPreapprovalId: mpPreapprovalId || null,
+          rawPayload: {
+            recurring: true,
+            recurringFallback: false,
+            preapproval: preapprovalResponse,
+          } as any,
+        },
+      });
+
+      await prisma.transaction.create({
+        data: {
+          userId: input.userId,
+          amount,
+          status: "PENDING",
+          plan: userPlan,
+          paymentMethod: "pix",
+          mercadoPagoPreapprovalId: mpPreapprovalId || null,
+          externalReference,
+          metadata: {
+            initPoint,
+            recurring: true,
+            recurringFallback: false,
+            accessDays,
+            flow: "pix_automatic",
+          } as any,
+        },
+      });
+
+      console.info("[Billing] Pix Automático — init_point gerado para assinatura", mpPreapprovalId);
+
+      return {
+        subscription,
+        status: "pending",
+        initPoint,
+        isRecurring: true,
+        recurringFallback: false,
+        externalReference,
+      };
     }
 
     const payment = await createMercadoPagoPixPayment(buildPixPaymentBody({
@@ -752,7 +808,7 @@ export class MercadoPagoBillingService {
         mercadoPagoPreapprovalId: mpPreapprovalId || null,
         rawPayload: {
           recurring: true,
-          recurringFallback,
+          recurringFallback: true,
           preapproval: preapprovalResponse,
           firstPayment: payment,
         } as any,
@@ -774,8 +830,9 @@ export class MercadoPagoBillingService {
           preapprovalId: mpPreapprovalId || null,
           initPoint: initPoint || null,
           recurring: true,
-          recurringFallback,
+          recurringFallback: true,
           accessDays,
+          flow: "pix_one_time_fallback",
         } as any,
       },
     });
@@ -787,18 +844,24 @@ export class MercadoPagoBillingService {
       pix,
       initPoint: initPoint || undefined,
       isRecurring: true,
-      recurringFallback,
+      recurringFallback: true,
       externalReference,
     };
   }
 
-  async activateUserAccess(userId: string, plan: UserPlan, periodDays = 30) {
+  async activateUserAccess(
+    userId: string,
+    plan: UserPlan,
+    periodDays = 30,
+    billingPaymentMethod?: string | null,
+  ) {
     await prisma.user.update({
       where: { id: userId },
       data: {
         plan,
         status: UserStatus.ATIVO,
         accessExpiresAt: addBillingPeriodDays(new Date(), periodDays),
+        ...(billingPaymentMethod ? { billingPaymentMethod } : {}),
       },
     });
     void billingNotificationService.notifyPaymentSuccess(userId).catch((err) => {
@@ -806,7 +869,12 @@ export class MercadoPagoBillingService {
     });
   }
 
-  async extendUserAccess(userId: string, plan: UserPlan, periodDays = 30) {
+  async extendUserAccess(
+    userId: string,
+    plan: UserPlan,
+    periodDays = 30,
+    billingPaymentMethod?: string | null,
+  ) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { accessExpiresAt: true },
@@ -822,6 +890,7 @@ export class MercadoPagoBillingService {
         plan,
         status: UserStatus.ATIVO,
         accessExpiresAt: addBillingPeriodDays(base, periodDays),
+        ...(billingPaymentMethod ? { billingPaymentMethod } : {}),
       },
     });
     void billingNotificationService.notifyPaymentSuccess(userId).catch((err) => {
@@ -905,7 +974,8 @@ export class MercadoPagoBillingService {
       });
 
       if (status === "PAID" && transaction.plan) {
-        await this.extendUserAccess(transaction.userId, transaction.plan);
+        const paymentMethod = transaction.paymentMethod || null;
+        await this.extendUserAccess(transaction.userId, transaction.plan, 30, paymentMethod);
         const subscriptionUpdate = {
           status: "authorized",
           nextBillingAt: addBillingPeriodDays(),
@@ -958,7 +1028,7 @@ export class MercadoPagoBillingService {
       });
     }
 
-    await this.extendUserAccess(subscription.userId, subscription.plan);
+    await this.extendUserAccess(subscription.userId, subscription.plan, 30, "pix");
     await prisma.billingSubscription.update({
       where: { id: subscription.id },
       data: {
@@ -992,7 +1062,7 @@ export class MercadoPagoBillingService {
     });
 
     if (status === "authorized") {
-      await this.extendUserAccess(subscription.userId, subscription.plan);
+      await this.extendUserAccess(subscription.userId, subscription.plan, 30, "pix");
       await prisma.transaction.updateMany({
         where: {
           userId: subscription.userId,

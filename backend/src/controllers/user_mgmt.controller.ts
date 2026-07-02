@@ -147,6 +147,7 @@ export class UserMgmtController {
         status,
         accessExpiresAt,
         registrationRequestId,
+        billingPaymentMethod,
       } = req.body;
 
       if (!name?.trim() || !email?.trim()) {
@@ -207,6 +208,7 @@ export class UserMgmtController {
         plan: plan as UserPlan | undefined,
         status: (status as UserStatus | undefined) || UserStatus.ATIVO,
         accessExpiresAt: parsedAccessExpiresAt,
+        billingPaymentMethod,
       });
 
       await registrationRequestService.approveByEmail(normalizedEmail).catch(() => {});
@@ -237,7 +239,7 @@ export class UserMgmtController {
         return res.status(400).json({ error: "Somente pacientes podem ser editados aqui." });
       }
 
-      const { name, phone, status, plan, accessExpiresAt } = req.body;
+      const { name, phone, status, plan, accessExpiresAt, billingPaymentMethod } = req.body;
 
       let parsedAccessExpiresAt: Date | null | undefined;
       if (accessExpiresAt !== undefined) {
@@ -263,6 +265,7 @@ export class UserMgmtController {
         ...(status ? { status } : {}),
         ...(plan ? { plan } : {}),
         ...(parsedAccessExpiresAt !== undefined ? { accessExpiresAt: parsedAccessExpiresAt } : {}),
+        ...(billingPaymentMethod !== undefined ? { billingPaymentMethod } : {}),
       });
 
       if (

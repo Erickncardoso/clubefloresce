@@ -14,6 +14,8 @@ export async function assertPatientUser(userId: string) {
       status: true,
       plan: true,
       accessExpiresAt: true,
+      billingPaymentMethod: true,
+      approvalEmailSentAt: true,
       avatar: true,
       createdAt: true,
       updatedAt: true,

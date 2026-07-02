@@ -57,8 +57,18 @@ export class PatientOverviewService {
       }),
     ]);
 
+    const latestSubscription = await prisma.billingSubscription.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      select: { paymentMethod: true, status: true },
+    });
+
     return {
-      patient,
+      patient: {
+        ...patient,
+        billingSubscriptionPaymentMethod: latestSubscription?.paymentMethod || null,
+        billingSubscriptionStatus: latestSubscription?.status || null,
+      },
       weekStart,
       checkIn: {
         current: currentCheckIn,

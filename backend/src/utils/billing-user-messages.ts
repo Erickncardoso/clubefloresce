@@ -18,6 +18,10 @@ export function mapBillingErrorMessage(raw?: string | null): string {
 
   const lower = message.toLowerCase();
 
+  if (lower.includes("autorização") || lower.includes("init_point") || lower.includes("pix automático")) {
+    return "Não foi possível abrir o Pix Automático agora. Tente novamente ou use cartão.";
+  }
+
   if (lower.includes("cpf") || lower.includes("identification") || lower.includes("identific")) {
     return "Informe um CPF válido para gerar o Pix.";
   }

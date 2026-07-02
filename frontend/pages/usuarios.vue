@@ -61,6 +61,7 @@
                 <strong>{{ req.name }}</strong>
                 <p>{{ req.email }}<span v-if="req.phone"> · {{ req.phone }}</span></p>
                 <p v-if="req.message" class="request-message">{{ req.message }}</p>
+                <p class="request-payment-hint">Forma de pagamento: definida no checkout ou ao aprovar</p>
                 <small>{{ formatDate(req.createdAt) }}</small>
               </div>
               <div class="request-actions">
@@ -97,6 +98,7 @@
                     <th>Plano</th>
                     <th>Conta</th>
                     <th>Pagamento</th>
+                    <th>Forma</th>
                     <th>E-mail aprovação</th>
                     <th>WhatsApp aprovação</th>
                     <th>Membro desde</th>
@@ -133,6 +135,11 @@
                     <td>
                       <span class="user-tag user-tag--payment" :class="paymentTagClass(user)">
                         {{ paymentAccessLabel(user) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="user-tag user-tag--paymethod" :class="paymentMethodTagClass(user)">
+                        {{ paymentMethodLabel(user) }}
                       </span>
                     </td>
                     <td>
@@ -243,6 +250,14 @@
                   <dd>
                     <span class="user-tag user-tag--payment" :class="paymentTagClass(user)">
                       {{ paymentAccessLabel(user) }}
+                    </span>
+                  </dd>
+                </div>
+                <div class="user-mobile-meta-row">
+                  <dt>Forma</dt>
+                  <dd>
+                    <span class="user-tag user-tag--paymethod" :class="paymentMethodTagClass(user)">
+                      {{ paymentMethodLabel(user) }}
                     </span>
                   </dd>
                 </div>
@@ -382,6 +397,15 @@
             </div>
 
             <div class="field field--float">
+              <label for="create-payment-method">Forma de pagamento</label>
+              <SharedCfSelect
+                id="create-payment-method"
+                v-model="createForm.billingPaymentMethod"
+                :options="paymentMethodOptions"
+              />
+            </div>
+
+            <div class="field field--float">
               <label for="create-access-expires">
                 Acesso válido até
                 <span v-if="creatingFromRequest" class="label-required">*</span>
@@ -396,6 +420,7 @@
           </div>
 
           <p v-if="!creatingFromRequest" class="field-hint">Opcional. Deixe em branco para acesso sem data limite.</p>
+          <p class="field-hint">Forma de pagamento: opcional. Use Pix ou Cartão se a aluna pagou fora do app ou você quiser registrar como ela paga.</p>
           <p v-if="createError" class="create-error">{{ createError }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="showCreateModal = false">Cancelar</button>
@@ -435,6 +460,15 @@
                 id="edit-plan"
                 v-model="editForm.plan"
                 :options="planOptions"
+              />
+            </div>
+
+            <div class="field field--float">
+              <label for="edit-payment-method">Forma de pagamento</label>
+              <SharedCfSelect
+                id="edit-payment-method"
+                v-model="editForm.billingPaymentMethod"
+                :options="paymentMethodOptions"
               />
             </div>
 
@@ -587,10 +621,13 @@ import { Search, UserPlus, Edit3, Trash2 } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
 import {
   isPatientAccessExpired,
-  isPatientPaidAccessActive,
-  isPatientManuallyGrantedAccess,
-  patientHadGrantedAccess,
 } from '~/utils/patient-access'
+import {
+  paymentAccessLabel,
+  paymentMethodLabel,
+  paymentMethodTagClass,
+  paymentTagClass,
+} from '~/utils/patient-billing-display'
 import { formatWhatsappTextForDisplay } from '~/composables/whatsapp/useWhatsappUtils.js'
 import { verifyAuthSession } from '~/composables/useAuthSession.js'
 
@@ -631,6 +668,7 @@ const createForm = reactive({
   password: '',
   plan: 'PREMIUM',
   accessExpiresAt: '',
+  billingPaymentMethod: '',
 })
 
 const editForm = reactive({
@@ -640,6 +678,7 @@ const editForm = reactive({
   plan: 'FREE',
   status: 'ATIVO',
   accessExpiresAt: '',
+  billingPaymentMethod: '',
 })
 
 const globalWhatsappForm = reactive({
@@ -684,6 +723,12 @@ const statusOptions = [
   { value: 'ATIVO', label: 'Ativa' },
   { value: 'INATIVO', label: 'Inativa' },
   { value: 'PENDENTE', label: 'Pendente' },
+]
+
+const paymentMethodOptions = [
+  { value: '', label: 'Não informado' },
+  { value: 'pix', label: 'Pix' },
+  { value: 'card', label: 'Cartão' },
 ]
 
 const minAccessDate = computed(() => {
@@ -806,51 +851,13 @@ function formatStatus(status) {
   return 'Ativa'
 }
 
-function patientAccessFields(user) {
-  return {
-    plan: user.plan,
-    accessExpiresAt: user.accessExpiresAt,
-    approvalEmailSentAt: user.approvalEmailSentAt,
-  }
-}
-
-function paymentAccessLabel(user) {
-  if (!isActivePatient(user)) return 'N/A'
-
-  const fields = patientAccessFields(user)
-  if (isPatientPaidAccessActive(fields.plan, fields.accessExpiresAt, fields.approvalEmailSentAt)) {
-    if (
-      isPatientManuallyGrantedAccess(fields)
-      && String(fields.plan || 'FREE').toUpperCase() === 'FREE'
-    ) {
-      return 'Liberado'
-    }
-    return 'Pago'
-  }
-
-  if (patientHadGrantedAccess(fields) && isPatientAccessExpired(fields.accessExpiresAt)) {
-    return 'Expirado'
-  }
-
-  return 'Não pago'
-}
-
-function paymentTagClass(user) {
-  const label = paymentAccessLabel(user)
-  if (label === 'Pago') return 'user-tag--payment-paid'
-  if (label === 'Liberado') return 'user-tag--payment-granted'
-  if (label === 'Expirado') return 'user-tag--payment-expired'
-  if (label === 'Não pago') return 'user-tag--payment-unpaid'
-  return 'user-tag--payment-na'
+function isActivePatient(user) {
+  return (user.status || 'ATIVO').toUpperCase() === 'ATIVO'
 }
 
 function statusTagClass(status) {
   const key = (status || 'ATIVO').toLowerCase()
   return `user-tag--status-${key}`
-}
-
-function isActivePatient(user) {
-  return (user.status || 'ATIVO').toUpperCase() === 'ATIVO'
 }
 
 function approvalEmailLabel(user) {
@@ -1076,6 +1083,7 @@ const openCreateModal = () => {
   createForm.password = ''
   createForm.plan = 'PREMIUM'
   createForm.accessExpiresAt = ''
+  createForm.billingPaymentMethod = ''
   createError.value = ''
   showCreateModal.value = true
 }
@@ -1088,6 +1096,7 @@ const openCreateFromRequest = (req) => {
   createForm.password = ''
   createForm.plan = 'PREMIUM'
   createForm.accessExpiresAt = ''
+  createForm.billingPaymentMethod = ''
   createError.value = ''
   showCreateModal.value = true
 }
@@ -1132,6 +1141,7 @@ const createPatient = async () => {
       email: createForm.email,
       plan: createForm.plan,
       accessExpiresAt: createForm.accessExpiresAt || null,
+      billingPaymentMethod: createForm.billingPaymentMethod || null,
     }
 
     if (creatingFromRequest.value) {
@@ -1188,6 +1198,7 @@ const openEditModal = (user) => {
   editForm.plan = user.plan || 'FREE'
   editForm.status = user.status || 'ATIVO'
   editForm.accessExpiresAt = toDateInputValue(user.accessExpiresAt)
+  editForm.billingPaymentMethod = user.billingPaymentMethod || ''
   editError.value = ''
   showEditModal.value = true
 }
@@ -1207,6 +1218,7 @@ const saveEdit = async () => {
         plan: editForm.plan,
         status: editForm.status,
         accessExpiresAt: editForm.accessExpiresAt || null,
+        billingPaymentMethod: editForm.billingPaymentMethod || null,
       },
     })
 
@@ -1795,6 +1807,27 @@ onMounted(fetchUsers)
 .user-tag--payment-na {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+.user-tag--paymethod-pix {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.user-tag--paymethod-card {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.user-tag--paymethod-na {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+
+.request-payment-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: #64748b;
 }
 
 .user-tag--access-expired {

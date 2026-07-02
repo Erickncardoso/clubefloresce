@@ -2,6 +2,13 @@ import { Role, UserPlan, UserStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { isValidWhatsappPhone } from "../utils/phone";
 
+function normalizeBillingPaymentMethod(value?: string | null): string | null {
+  if (value === undefined || value === null || String(value).trim() === "") return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "pix" || normalized === "card") return normalized;
+  return null;
+}
+
 const patientSelect = {
   id: true,
   name: true,
@@ -11,6 +18,7 @@ const patientSelect = {
   status: true,
   plan: true,
   accessExpiresAt: true,
+  billingPaymentMethod: true,
   approvalEmailSentAt: true,
   approvalWhatsappSentAt: true,
   approvalWhatsappMessage: true,
@@ -21,12 +29,44 @@ const patientSelect = {
 
 export class UserMgmtRepository {
   async getAllUsers() {
-    return prisma.user.findMany({
+    const users = await prisma.user.findMany({
       select: {
         ...patientSelect,
         updatedAt: false,
       },
       orderBy: { createdAt: "desc" },
+    });
+
+    if (!users.length) return users;
+
+    const userIds = users.map((user) => user.id);
+    const subscriptions = await prisma.billingSubscription.findMany({
+      where: { userId: { in: userIds } },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        userId: true,
+        paymentMethod: true,
+        status: true,
+      },
+    });
+
+    const latestSubscriptionByUser = new Map<string, { paymentMethod: string | null; status: string }>();
+    for (const subscription of subscriptions) {
+      if (!latestSubscriptionByUser.has(subscription.userId)) {
+        latestSubscriptionByUser.set(subscription.userId, {
+          paymentMethod: subscription.paymentMethod,
+          status: subscription.status,
+        });
+      }
+    }
+
+    return users.map((user) => {
+      const latest = latestSubscriptionByUser.get(user.id);
+      return {
+        ...user,
+        billingSubscriptionPaymentMethod: latest?.paymentMethod || null,
+        billingSubscriptionStatus: latest?.status || null,
+      };
     });
   }
 
@@ -45,6 +85,7 @@ export class UserMgmtRepository {
     plan?: UserPlan;
     status?: UserStatus;
     accessExpiresAt?: Date | null;
+    billingPaymentMethod?: string | null;
   }) {
     return prisma.user.create({
       data: {
@@ -56,6 +97,7 @@ export class UserMgmtRepository {
         plan: data.plan || UserPlan.FREE,
         status: data.status || UserStatus.ATIVO,
         accessExpiresAt: data.accessExpiresAt ?? null,
+        billingPaymentMethod: normalizeBillingPaymentMethod(data.billingPaymentMethod),
       },
       select: {
         ...patientSelect,
@@ -72,11 +114,17 @@ export class UserMgmtRepository {
       status?: UserStatus;
       plan?: UserPlan;
       accessExpiresAt?: Date | null;
+      billingPaymentMethod?: string | null;
     },
   ) {
     return prisma.user.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        ...(data.billingPaymentMethod !== undefined
+          ? { billingPaymentMethod: normalizeBillingPaymentMethod(data.billingPaymentMethod) }
+          : {}),
+      },
       select: patientSelect,
     });
   }

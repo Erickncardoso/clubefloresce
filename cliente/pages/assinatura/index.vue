@@ -30,7 +30,7 @@
         </ul>
       </section>
 
-      <section v-if="accessExpired" class="checkout-banner checkout-banner--alert" role="alert">
+      <section v-if="accessExpired" class="checkout-banner checkout-banner--alert cf-squircle cf-squircle--control" role="alert">
         <AlertCircle class="checkout-banner-icon" />
         <div>
           <strong>Seu acesso expirou</strong>
@@ -38,7 +38,7 @@
         </div>
       </section>
 
-      <section v-else-if="currentPlan !== 'FREE'" class="checkout-banner checkout-banner--status">
+      <section v-else-if="currentPlan !== 'FREE'" class="checkout-banner checkout-banner--status cf-squircle cf-squircle--control">
         <CheckCircle2 class="checkout-banner-icon checkout-banner-icon--ok" />
         <div>
           <strong>Plano {{ planLabel(currentPlan) }}</strong>
@@ -47,7 +47,7 @@
         </div>
       </section>
 
-      <p v-if="checkoutError" class="checkout-error" role="alert">{{ checkoutError }}</p>
+      <p v-if="checkoutError" class="checkout-error cf-squircle cf-squircle--control" role="alert">{{ checkoutError }}</p>
 
       <section v-if="configLoadFailed" class="checkout-empty cf-squircle cf-squircle--surface">
         <CreditCard class="checkout-empty-icon" />
@@ -115,10 +115,37 @@
             </button>
           </div>
 
-          <div v-if="checkoutStep === 'pix-waiting'" class="checkout-pix">
+          <div v-if="checkoutStep === 'pix-waiting' && pixRecurringAutomatic" class="checkout-pix checkout-pix--automatic">
+            <h3>Pix Automático</h3>
+            <p class="checkout-pix-recurring">
+              Assinatura recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}/mês</strong>.
+              Autorize no Mercado Pago — no app do banco aparece como <strong>Pix Automático</strong>.
+            </p>
+            <p class="checkout-pix-amount">{{ formatCurrency(selectedPlanAmount) }}</p>
+            <p v-if="redirectingPix" class="checkout-pix-redirect">
+              Redirecionando para o Mercado Pago…
+            </p>
+            <button
+              type="button"
+              class="btn-auth-submit patient-auth-submit cf-squircle--control checkout-pix-open-btn"
+              @click="openPixAutomaticCheckout"
+            >
+              Autorizar Pix Automático
+            </button>
+            <p class="checkout-pix-hint">
+              Você será levada ao Mercado Pago para escolher Pix e autorizar no app do banco.
+              As próximas mensalidades serão debitadas automaticamente.
+            </p>
+            <button type="button" class="checkout-btn checkout-btn--ghost" :disabled="pollingPix" @click="refreshSubscription">
+              {{ pollingPix ? 'Verificando…' : 'Já autorizei — verificar' }}
+            </button>
+          </div>
+
+          <div v-else-if="checkoutStep === 'pix-waiting'" class="checkout-pix checkout-pix--fallback">
             <h3>Pague com Pix</h3>
             <p class="checkout-pix-recurring">
-              Cobrança mensal recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> via Pix Automático.
+              Pagamento da <strong>1ª mensalidade</strong> de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong>.
+              <span v-if="pixRecurringFallback"> Pix Automático indisponível — use o código abaixo.</span>
             </p>
             <p class="checkout-pix-amount">{{ formatCurrency(selectedPlanAmount) }}</p>
             <img
@@ -158,17 +185,8 @@
               Abrir link de teste
             </a>
             <p class="checkout-pix-hint">
-              Após o pagamento, a liberação é automática em alguns segundos. As próximas mensalidades serão debitadas automaticamente via Pix.
+              Este Pix é avulso (pagamento único). Após pagar, a liberação é automática em alguns segundos.
             </p>
-            <a
-              v-if="pixInitPoint"
-              :href="pixInitPoint"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="checkout-sandbox-link"
-            >
-              Autorizar Pix Automático no Mercado Pago
-            </a>
             <button type="button" class="checkout-btn checkout-btn--ghost" :disabled="pollingPix" @click="refreshSubscription">
               {{ pollingPix ? 'Verificando…' : 'Já paguei — verificar' }}
             </button>
@@ -179,14 +197,14 @@
               Cobrança mensal recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> no cartão.
             </p>
 
-            <details v-if="billingConfig?.testMode" class="checkout-sandbox">
+            <details v-if="billingConfig?.testMode" class="checkout-sandbox cf-squircle cf-squircle--control">
               <summary>Cartão de teste (sandbox)</summary>
               <p>5031 4332 1540 6351 · CVV 123 · 11/30</p>
               <p>Titular: <strong>APRO</strong> · CPF: 12345678909</p>
               <p v-if="billingConfig?.sandboxSimulateCard">Simulação local ativa — sem cobrança real.</p>
             </details>
 
-            <div v-if="payerEmail" class="checkout-account">
+            <div v-if="payerEmail" class="checkout-account cf-squircle cf-squircle--control">
               <span class="checkout-account-label">Conta</span>
               <strong>{{ payerName }}</strong>
               <span>{{ payerEmail }}</span>
@@ -311,10 +329,10 @@
 
           <div v-else class="checkout-pix-start">
             <p class="checkout-pix-start-lead">
-              Cobrança mensal recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> via Pix.
+              Assinatura recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}/mês</strong> via <strong>Pix Automático</strong>.
             </p>
             <p class="checkout-pix-start-note">
-              Informe seu CPF para gerar o QR Code. Após o pagamento, o acesso é liberado automaticamente.
+              Informe seu CPF e continue no Mercado Pago para autorizar no app do banco. As mensalidades seguintes são debitadas automaticamente.
             </p>
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixCheckout">
               <div
@@ -341,7 +359,7 @@
                 class="btn-auth-submit patient-auth-submit cf-squircle--control"
                 :disabled="processing"
               >
-                {{ processing ? 'Gerando Pix…' : `Assinar por ${formatCurrency(selectedPlanAmount)}/mês` }}
+                {{ processing ? 'Abrindo Mercado Pago…' : `Autorizar Pix Automático — ${formatCurrency(selectedPlanAmount)}/mês` }}
               </button>
             </form>
           </div>
@@ -394,6 +412,9 @@ const checkoutStep = ref('idle')
 const processing = ref(false)
 const pixData = ref({ qrCode: '', qrCodeBase64: '', ticketUrl: '', expiresAt: null })
 const pixInitPoint = ref('')
+const pixRecurringAutomatic = ref(false)
+const pixRecurringFallback = ref(false)
+const redirectingPix = ref(false)
 const pixCopied = ref(false)
 const pollingPix = ref(false)
 const focusedField = ref('')
@@ -615,6 +636,11 @@ async function setPaymentMethod(method) {
   paymentMethod.value = method
   checkoutStep.value = 'idle'
   checkoutError.value = ''
+  pixRecurringAutomatic.value = false
+  pixRecurringFallback.value = false
+  pixInitPoint.value = ''
+  redirectingPix.value = false
+  stopPixPolling()
 }
 
 async function submitCardCheckout() {
@@ -651,9 +677,10 @@ async function submitCardCheckout() {
 async function startPixCheckout() {
   processing.value = true
   checkoutError.value = ''
+  redirectingPix.value = false
   const cpf = onlyDigits(cardForm.value.identificationNumber, 11)
   if (!billingConfig.value?.testMode && cpf.length !== 11) {
-    checkoutError.value = 'Informe um CPF válido para gerar o Pix.'
+    checkoutError.value = 'Informe um CPF válido para continuar.'
     processing.value = false
     return
   }
@@ -667,15 +694,31 @@ async function startPixCheckout() {
         number: cpf,
       },
     })
-    pixData.value = normalizePixPayload(result?.pix)
+
     pixInitPoint.value = result?.initPoint || ''
+    pixRecurringAutomatic.value = Boolean(
+      result?.isRecurring && result?.initPoint && !result?.recurringFallback,
+    )
+    pixRecurringFallback.value = Boolean(result?.recurringFallback)
+    pixData.value = normalizePixPayload(result?.pix)
     checkoutStep.value = 'pix-waiting'
     startPixPolling()
+
+    if (pixRecurringAutomatic.value) {
+      openPixAutomaticCheckout()
+    }
   } catch (err) {
-    checkoutError.value = err?.data?.message || 'Não foi possível gerar o Pix.'
+    checkoutError.value = err?.data?.message || 'Não foi possível iniciar o Pix Automático.'
   } finally {
     processing.value = false
   }
+}
+
+function openPixAutomaticCheckout() {
+  const url = pixInitPoint.value
+  if (!url || typeof window === 'undefined') return
+  redirectingPix.value = true
+  window.location.assign(url)
 }
 
 async function copyPixCode() {
@@ -720,14 +763,28 @@ async function refreshSubscription() {
 </script>
 
 <style scoped>
-.assinatura-page {
-  padding-top: 0;
+.patient-page.assinatura-page {
+  --checkout-gutter: max(1.25rem, env(safe-area-inset-left, 0px));
+  --checkout-radius-surface: var(--cf-radius-surface, 1.875rem);
+  --checkout-radius-control: var(--cf-radius-control, 1.625rem);
+  --checkout-radius-inner: var(--cf-radius-md, 1.25rem);
+  padding:
+    0
+    max(1.25rem, env(safe-area-inset-right, 0px))
+    calc(2.5rem + env(safe-area-inset-bottom, 0px))
+    max(1.25rem, env(safe-area-inset-left, 0px)) !important;
   min-height: 100dvh;
   min-width: 0;
   overflow-x: hidden;
+  box-sizing: border-box;
   background:
     radial-gradient(ellipse 120% 80% at 50% -20%, rgba(139, 150, 124, 0.18), transparent 55%),
     linear-gradient(180deg, #eef0eb 0%, #f7f8f5 28%, var(--cf-bg, #fff) 62%);
+}
+
+.patient-page.assinatura-page :deep(.cf-header) {
+  margin-inline: calc(-1 * var(--checkout-gutter));
+  padding-inline: var(--checkout-gutter);
 }
 
 .checkout-shell {
@@ -735,13 +792,14 @@ async function refreshSubscription() {
   max-width: 28rem;
   margin: 0 auto;
   min-width: 0;
-  padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px));
+  padding-inline: 0;
+  padding-bottom: 0;
   box-sizing: border-box;
 }
 
 .checkout-hero {
   text-align: center;
-  padding: 0.35rem 0.25rem 1.15rem;
+  padding: 0.35rem 0 1.15rem;
 }
 
 .checkout-hero-badge {
@@ -821,7 +879,7 @@ async function refreshSubscription() {
   align-items: flex-start;
   padding: 0.9rem 1rem;
   margin-bottom: 1rem;
-  border-radius: 16px;
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-control));
   background: var(--cf-surface, #fff);
   box-shadow: 0 6px 20px rgba(20, 20, 20, 0.05);
 }
@@ -858,7 +916,7 @@ async function refreshSubscription() {
 .checkout-error {
   margin: 0 0 1rem;
   padding: 0.75rem 0.9rem;
-  border-radius: 12px;
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-control));
   background: rgba(214, 69, 69, 0.08);
   color: #c73a3a;
   font-size: 0.82rem;
@@ -925,12 +983,14 @@ async function refreshSubscription() {
   width: 100%;
   padding: 1rem 1rem 1.05rem;
   border: 2px solid transparent;
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-surface));
   background: var(--cf-surface, #fff);
   text-align: left;
   cursor: pointer;
   font-family: inherit;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
   box-shadow: 0 8px 22px rgba(20, 20, 20, 0.06);
+  overflow: hidden;
 }
 
 .checkout-plan-card:active {
@@ -985,11 +1045,12 @@ async function refreshSubscription() {
   flex-direction: column;
   width: 100%;
   min-width: 0;
-  padding: 1rem;
+  padding: 1.15rem;
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-surface));
   background: var(--cf-surface, #fff);
   box-shadow: 0 10px 28px rgba(20, 20, 20, 0.07);
   box-sizing: border-box;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .checkout-card,
@@ -1014,7 +1075,7 @@ async function refreshSubscription() {
   padding: 0.28rem;
   margin-bottom: 1rem;
   border: 1.5px solid #e8ece9;
-  border-radius: var(--cf-squircle-r, var(--cf-radius-control, 1.625rem));
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-control));
   background: rgba(0, 0, 0, 0.02);
   box-sizing: border-box;
 }
@@ -1025,7 +1086,7 @@ async function refreshSubscription() {
   justify-content: center;
   gap: 0.4rem;
   border: none;
-  border-radius: calc(var(--cf-squircle-r, var(--cf-radius-control, 1.625rem)) - 0.28rem);
+  border-radius: calc(var(--cf-squircle-r, var(--checkout-radius-control)) - 0.35rem);
   padding: 0.58rem 0.65rem;
   font-size: 0.84rem;
   font-weight: 600;
@@ -1066,7 +1127,7 @@ async function refreshSubscription() {
 .checkout-sandbox {
   margin: 0 0 0.85rem;
   padding: 0.65rem 0.75rem;
-  border-radius: 12px;
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-control));
   background: rgba(193, 123, 128, 0.1);
   font-size: 0.74rem;
   line-height: 1.45;
@@ -1092,8 +1153,8 @@ async function refreshSubscription() {
   flex-direction: column;
   gap: 0.1rem;
   margin-bottom: 0.9rem;
-  padding: 0.7rem 0.8rem;
-  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-control));
   background: rgba(139, 150, 124, 0.1);
   font-size: 0.78rem;
   line-height: 1.35;
@@ -1162,14 +1223,14 @@ async function refreshSubscription() {
   min-width: 0;
   box-sizing: border-box;
   border: 1.5px solid #e8ece9;
-  border-radius: var(--cf-radius-control);
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-control));
   padding: 0 0.9rem;
   background: #fff;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .checkout-float-fields .input-wrapper.cf-squircle--control {
-  border-radius: var(--cf-squircle-r, var(--cf-radius-control));
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-control));
 }
 
 .checkout-float-fields .input-wrapper input {
@@ -1215,7 +1276,7 @@ async function refreshSubscription() {
   width: 100%;
   min-height: 2.75rem;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--checkout-radius-control);
   padding: 0.75rem 1rem;
   font-size: 0.88rem;
   font-weight: 600;
@@ -1239,6 +1300,18 @@ async function refreshSubscription() {
   margin-top: 0.35rem;
 }
 
+.checkout-pix--automatic .checkout-pix-open-btn {
+  width: 100%;
+  margin-bottom: 0.65rem;
+}
+
+.checkout-pix-redirect {
+  margin: 0 0 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--cf-green-dark, #6f7863);
+}
+
 .checkout-pix,
 .checkout-pix-start {
   text-align: center;
@@ -1260,7 +1333,7 @@ async function refreshSubscription() {
   width: min(220px, 72vw);
   height: auto;
   margin: 0 auto 1rem;
-  border-radius: 14px;
+  border-radius: var(--checkout-radius-inner);
   box-shadow: 0 8px 24px rgba(20, 20, 20, 0.08);
 }
 
@@ -1285,6 +1358,7 @@ async function refreshSubscription() {
   margin: 0 0 0.65rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--cf-border);
+  border-radius: var(--cf-squircle-r, var(--checkout-radius-control));
   background: rgba(0, 0, 0, 0.03);
   color: var(--cf-text);
   font-size: 0.72rem;
@@ -1301,7 +1375,7 @@ async function refreshSubscription() {
 .checkout-sandbox-note {
   margin: 0 0 0.65rem;
   padding: 0.6rem 0.7rem;
-  border-radius: 10px;
+  border-radius: var(--checkout-radius-inner);
   background: rgba(193, 123, 128, 0.1);
   font-size: 0.74rem;
   line-height: 1.4;
