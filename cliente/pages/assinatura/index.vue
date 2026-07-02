@@ -115,29 +115,45 @@
             </button>
           </div>
 
-          <div v-if="checkoutStep === 'pix-waiting'" class="checkout-pix checkout-pix--automatic">
-            <h3>Assinatura Pix</h3>
+          <div v-if="checkoutStep === 'pix-waiting'" class="checkout-pix">
+            <h3>Pague com Pix</h3>
             <p class="checkout-pix-recurring">
-              Assinatura recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}/mês</strong>.
-              Continue no Mercado Pago para autorizar o <strong>Pix Automático</strong> no app do banco.
+              Mensalidade de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong>.
+              Escaneie o QR Code ou use o Pix copia e cola abaixo.
             </p>
             <p class="checkout-pix-amount">{{ formatCurrency(selectedPlanAmount) }}</p>
-            <p v-if="redirectingPix" class="checkout-pix-redirect">
-              Abrindo Mercado Pago…
+            <img
+              v-if="pixData.qrCodeBase64"
+              :src="`data:image/png;base64,${pixData.qrCodeBase64}`"
+              alt="QR Code Pix"
+              class="checkout-pix-qr"
+            />
+            <div v-if="pixCopyCode" class="checkout-pix-copy">
+              <label class="checkout-pix-copy-label" for="cf-pix-copy-code">Pix copia e cola</label>
+              <textarea
+                id="cf-pix-copy-code"
+                readonly
+                class="checkout-pix-copy-code cf-squircle--control"
+                :value="pixCopyCode"
+                rows="4"
+                @focus="selectPixCopyCode"
+              />
+              <button
+                type="button"
+                class="btn-auth-submit patient-auth-submit cf-squircle--control checkout-pix-copy-btn"
+                @click="copyPixCode"
+              >
+                {{ pixCopied ? 'Copiado!' : 'Copiar Pix copia e cola' }}
+              </button>
+            </div>
+            <p v-if="billingConfig?.testMode" class="checkout-sandbox-note">
+              Modo teste: o Pix pode ser aprovado automaticamente em alguns segundos.
             </p>
-            <button
-              type="button"
-              class="btn-auth-submit patient-auth-submit cf-squircle--control checkout-pix-open-btn"
-              @click="openPixAutomaticCheckout"
-            >
-              Continuar no Mercado Pago
-            </button>
             <p class="checkout-pix-hint">
-              No checkout do Mercado Pago, escolha Pix e autorize a assinatura no seu banco.
-              As mensalidades seguintes serão debitadas automaticamente.
+              Após pagar, a liberação é automática em alguns segundos. Renove todo mês pelo app.
             </p>
             <button type="button" class="checkout-btn checkout-btn--ghost" :disabled="pollingPix" @click="refreshSubscription">
-              {{ pollingPix ? 'Verificando…' : 'Já autorizei — verificar' }}
+              {{ pollingPix ? 'Verificando…' : 'Já paguei — verificar' }}
             </button>
           </div>
 
@@ -278,10 +294,10 @@
 
           <div v-else class="checkout-pix-start">
             <p class="checkout-pix-start-lead">
-              Assinatura recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}/mês</strong> via <strong>Pix Automático</strong>.
+              Mensalidade de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> via <strong>Pix</strong>.
             </p>
             <p class="checkout-pix-start-note">
-              Informe seu CPF e continue no Mercado Pago para autorizar no app do banco. As mensalidades seguintes são debitadas automaticamente.
+              Informe seu CPF para gerar o QR Code ou o Pix copia e cola. Renove todo mês pelo app quando o acesso expirar.
             </p>
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixCheckout">
               <div
@@ -308,7 +324,7 @@
                 class="btn-auth-submit patient-auth-submit cf-squircle--control"
                 :disabled="processing"
               >
-                {{ processing ? 'Abrindo Mercado Pago…' : `Autorizar Pix Automático — ${formatCurrency(selectedPlanAmount)}/mês` }}
+                {{ processing ? 'Gerando Pix…' : `Gerar Pix — ${formatCurrency(selectedPlanAmount)}` }}
               </button>
             </form>
           </div>
@@ -359,8 +375,8 @@ const selectedPlanId = ref('PREMIUM')
 const paymentMethod = ref('card')
 const checkoutStep = ref('idle')
 const processing = ref(false)
-const pixInitPoint = ref('')
-const redirectingPix = ref(false)
+const pixData = ref({ qrCode: '', qrCodeBase64: '', ticketUrl: '', expiresAt: null })
+const pixCopied = ref(false)
 const pollingPix = ref(false)
 const focusedField = ref('')
 
@@ -440,6 +456,24 @@ const selectedPlan = computed(() => (
   plans.value.find((plan) => plan.id === selectedPlanId.value) || plans.value[0]
 ))
 const selectedPlanAmount = computed(() => selectedPlan.value?.monthlyAmount || 0)
+
+const pixCopyCode = computed(() => String(pixData.value.qrCode || '').trim())
+
+function normalizePixPayload(pix) {
+  if (!pix || typeof pix !== 'object') {
+    return { qrCode: '', qrCodeBase64: '', ticketUrl: '', expiresAt: null }
+  }
+  return {
+    qrCode: String(pix.qrCode || pix.qr_code || '').trim(),
+    qrCodeBase64: pix.qrCodeBase64 || pix.qr_code_base64 || '',
+    ticketUrl: pix.ticketUrl || pix.ticket_url || '',
+    expiresAt: pix.expiresAt || pix.expires_at || null,
+  }
+}
+
+function selectPixCopyCode(event) {
+  event.target?.select?.()
+}
 
 watch(checkoutError, (value) => {
   if (value) processing.value = false
@@ -563,8 +597,8 @@ async function setPaymentMethod(method) {
   paymentMethod.value = method
   checkoutStep.value = 'idle'
   checkoutError.value = ''
-  pixInitPoint.value = ''
-  redirectingPix.value = false
+  pixData.value = { qrCode: '', qrCodeBase64: '', ticketUrl: '', expiresAt: null }
+  pixCopied.value = false
   stopPixPolling()
 }
 
@@ -602,7 +636,6 @@ async function submitCardCheckout() {
 async function startPixCheckout() {
   processing.value = true
   checkoutError.value = ''
-  redirectingPix.value = false
   const cpf = onlyDigits(cardForm.value.identificationNumber, 11)
   if (!billingConfig.value?.testMode && cpf.length !== 11) {
     checkoutError.value = 'Informe um CPF válido para continuar.'
@@ -620,28 +653,44 @@ async function startPixCheckout() {
       },
     })
 
-    const initPoint = String(result?.initPoint || '').trim()
-    if (!initPoint) {
-      checkoutError.value = 'Não foi possível abrir a assinatura Pix. Tente novamente ou use cartão.'
+    const pix = normalizePixPayload(result?.pix)
+    if (!pix.qrCode && !pix.qrCodeBase64) {
+      checkoutError.value = 'Não foi possível gerar o Pix. Tente novamente ou use cartão.'
       return
     }
 
-    pixInitPoint.value = initPoint
+    pixData.value = pix
     checkoutStep.value = 'pix-waiting'
     startPixPolling()
-    openPixAutomaticCheckout()
   } catch (err) {
-    checkoutError.value = err?.data?.message || 'Não foi possível iniciar a assinatura Pix.'
+    checkoutError.value = err?.data?.message || 'Não foi possível gerar o Pix.'
   } finally {
     processing.value = false
   }
 }
 
-function openPixAutomaticCheckout() {
-  const url = pixInitPoint.value
-  if (!url || typeof window === 'undefined') return
-  redirectingPix.value = true
-  window.location.assign(url)
+async function copyPixCode() {
+  const code = pixCopyCode.value
+  if (!code) return
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code)
+    } else {
+      const el = document.getElementById('cf-pix-copy-code')
+      if (el instanceof HTMLTextAreaElement) {
+        el.focus()
+        el.select()
+        document.execCommand('copy')
+      } else {
+        throw new Error('clipboard unavailable')
+      }
+    }
+    pixCopied.value = true
+    setTimeout(() => { pixCopied.value = false }, 2500)
+  } catch {
+    checkoutError.value = 'Não foi possível copiar o código Pix. Selecione o texto acima e copie manualmente.'
+  }
 }
 
 async function refreshSubscription() {

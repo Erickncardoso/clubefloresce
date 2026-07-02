@@ -711,54 +711,39 @@ export class MercadoPagoBillingService {
 
   async subscribeWithPix(input: SubscribePixInput) {
     this.ensureConfigured();
-    return this.subscribeWithPixRecurring(input);
+    return this.subscribeWithPixOneTime(input);
   }
 
-  /** Assinatura mensal exclusivamente via Pix Automático (checkout Mercado Pago / init_point). */
-  private async subscribeWithPixRecurring(input: SubscribePixInput) {
+  /** Mensalidade via Pix avulso (QR Code / copia e cola no app). */
+  private async subscribeWithPixOneTime(input: SubscribePixInput) {
     const { planId, amount, product } = await billingPlanConfigService.resolvePlanAmount(input.planId);
     const userPlan = billingPlanConfigService.toUserPlan(product);
     const accessDays = productAccessDays(product);
     const externalReference = buildExternalReference(input.userId, planId);
     const mpPayerEmail = resolveMercadoPagoPayerEmail(input.payerEmail);
     const description = buildPreapprovalReason(product);
-    const startDate = new Date();
-    startDate.setMinutes(startDate.getMinutes() + 5);
 
-    const preapprovalResponse = await createMercadoPagoPreApproval(
-      buildPixPreapprovalBody({
-        description,
-        externalReference,
-        payerEmail: mpPayerEmail,
-        amount,
-        product,
-        startDate,
-      }),
-    );
+    const payment = await createMercadoPagoPixPayment(buildPixPaymentBody({
+      amount,
+      description,
+      externalReference,
+      payer: buildPixPayer(input, mpPayerEmail),
+    }));
 
-    const mpPreapprovalId = String(preapprovalResponse.id || "");
-    if (!mpPreapprovalId) {
-      throw new Error("Mercado Pago não criou a assinatura Pix. Verifique a conta e tente novamente.");
-    }
-
-    const initPoint = extractPreapprovalInitPoint(preapprovalResponse, mpPreapprovalId);
-    if (!initPoint) {
-      throw new Error("Não foi possível gerar o link de autorização da assinatura Pix.");
-    }
+    const paymentId = String(payment?.id || "");
+    const pix = assertPixQrGenerated(payment);
+    const paymentStatus = mapPaymentStatus(String(payment?.status || ""));
+    const subscriptionStatus = paymentStatus === "PAID" ? "authorized" : "pending";
 
     const subscription = await prisma.billingSubscription.create({
       data: {
         userId: input.userId,
         plan: userPlan,
-        status: "pending",
+        status: subscriptionStatus,
         paymentMethod: "pix",
         amount,
-        mercadoPagoPreapprovalId: mpPreapprovalId,
-        rawPayload: {
-          recurring: true,
-          flow: "pix_automatic",
-          preapproval: preapprovalResponse,
-        } as any,
+        mercadoPagoPaymentId: paymentId || null,
+        rawPayload: { oneTimePix: true, payment } as any,
       },
     });
 
@@ -766,27 +751,36 @@ export class MercadoPagoBillingService {
       data: {
         userId: input.userId,
         amount,
-        status: "PENDING",
+        status: paymentStatus,
         plan: userPlan,
         paymentMethod: "pix",
-        mercadoPagoPreapprovalId: mpPreapprovalId,
+        mercadoPagoPaymentId: paymentId || null,
         externalReference,
         metadata: {
-          initPoint,
-          recurring: true,
+          pix,
           accessDays,
-          flow: "pix_automatic",
+          flow: "pix_one_time",
         } as any,
       },
     });
 
-    console.info("[Billing] Assinatura Pix — preapproval", mpPreapprovalId, initPoint);
+    if (paymentStatus === "PAID") {
+      await this.activateUserAccess(input.userId, userPlan, accessDays, "pix");
+    }
+
+    console.info("[Billing] Pix avulso — payment", paymentId);
 
     return {
       subscription,
-      status: "pending",
-      initPoint,
-      isRecurring: true,
+      status: subscriptionStatus,
+      mercadoPagoPaymentId: paymentId,
+      pix: {
+        qrCode: pix.qrCode,
+        qrCodeBase64: pix.qrCodeBase64,
+        ticketUrl: pix.ticketUrl,
+        expiresAt: pix.expiresAt,
+      },
+      isRecurring: false,
       externalReference,
     };
   }
