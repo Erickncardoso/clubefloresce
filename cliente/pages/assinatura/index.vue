@@ -5,6 +5,7 @@
       :show-back="!needsFirstPayment"
       :back-to="needsFirstPayment ? undefined : '/perfil'"
       :show-bell="false"
+      :show-menu="false"
     />
 
     <PatientPageSkeleton v-if="pageLoading" layout="profile" />

@@ -55,6 +55,52 @@ export const authenticate = async (
     const cached = authUserCache.get(decoded.id);
     if (cached && cached.expiresAt > Date.now() && cached.user) {
       req.user = cached.user;
+
+      if (cached.user.role !== Role.PACIENTE) {
+        return next();
+      }
+
+      const accessUser = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: {
+          plan: true,
+          accessExpiresAt: true,
+          approvalEmailSentAt: true,
+          status: true,
+          role: true,
+        },
+      });
+
+      if (!accessUser) {
+        authUserCache.delete(decoded.id);
+        return res.status(401).json({ message: "Sessão expirada ou usuário inválido. Faça login novamente." });
+      }
+
+      if (accessUser.status === UserStatus.INATIVO) {
+        return res.status(403).json({ message: "Conta desativada. Entre em contato com o suporte." });
+      }
+
+      if (
+        accessUser.role === Role.PACIENTE
+        && isPatientAppAccessBlocked(accessUser.plan, accessUser.accessExpiresAt, accessUser.approvalEmailSentAt)
+        && !isExpiredPatientAllowedPath(req)
+      ) {
+        const hadAccess = patientHadGrantedAccess({
+          plan: accessUser.plan,
+          accessExpiresAt: accessUser.accessExpiresAt,
+          approvalEmailSentAt: accessUser.approvalEmailSentAt,
+        });
+        const expired = hadAccess && isPatientAccessExpired(accessUser.accessExpiresAt);
+        const message = expired
+          ? PATIENT_ACCESS_EXPIRED_RENEW_MESSAGE
+          : PATIENT_PAYMENT_REQUIRED_MESSAGE;
+        return res.status(403).json({
+          message,
+          code: "PATIENT_ACCESS_BLOCKED",
+          reason: expired ? "expired" : "payment_required",
+        });
+      }
+
       return next();
     }
 
@@ -138,6 +184,10 @@ export const authorize = (roles: string[]) => {
     next();
   };
 };
+
+export function invalidateAuthUserCache(userId: string): void {
+  authUserCache.delete(userId);
+}
 
 declare global {
   namespace Express {

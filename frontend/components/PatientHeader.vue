@@ -2,7 +2,7 @@
   <header class="cf-header" :class="{ 'cf-header--menu-left': menuLeft }">
     <div class="cf-header-start">
       <button
-        v-if="menuLeft"
+        v-if="showMenu && menuLeft"
         type="button"
         class="cf-header-btn"
         aria-label="Menu"
@@ -50,7 +50,7 @@
         >{{ badgeText }}</span>
       </button>
       <button
-        v-if="!menuLeft"
+        v-if="showMenu && !menuLeft"
         type="button"
         class="cf-header-btn"
         aria-label="Menu"
@@ -60,7 +60,7 @@
       </button>
     </div>
 
-    <PatientMenuDrawer :open="menuOpen" @close="menuOpen = false" />
+    <PatientMenuDrawer v-if="showMenu" :open="menuOpen" @close="menuOpen = false" />
     <PatientNotificationsPanel
       :open="notifOpen"
       :anchor-el="notifAnchorRef"
@@ -77,6 +77,7 @@ const props = defineProps({
   subtitle: { type: String, default: '' },
   showBack: { type: Boolean, default: true },
   showBell: { type: Boolean, default: true },
+  showMenu: { type: Boolean, default: true },
   menuLeft: { type: Boolean, default: false },
   hasNotifications: { type: Boolean, default: false },
   backTo: { type: String, default: '' },

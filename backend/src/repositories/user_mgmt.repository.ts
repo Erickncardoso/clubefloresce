@@ -87,6 +87,7 @@ export class UserMgmtRepository {
     accessExpiresAt?: Date | null;
     billingPaymentMethod?: string | null;
   }) {
+    const adminGrantedAccess = Boolean(data.accessExpiresAt);
     return prisma.user.create({
       data: {
         name: data.name,
@@ -97,6 +98,7 @@ export class UserMgmtRepository {
         plan: data.plan || UserPlan.FREE,
         status: data.status || UserStatus.ATIVO,
         accessExpiresAt: data.accessExpiresAt ?? null,
+        approvalEmailSentAt: adminGrantedAccess ? new Date() : null,
         billingPaymentMethod: normalizeBillingPaymentMethod(data.billingPaymentMethod),
       },
       select: {
@@ -115,6 +117,7 @@ export class UserMgmtRepository {
       plan?: UserPlan;
       accessExpiresAt?: Date | null;
       billingPaymentMethod?: string | null;
+      approvalEmailSentAt?: Date | null;
     },
   ) {
     return prisma.user.update({

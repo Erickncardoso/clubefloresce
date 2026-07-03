@@ -16,13 +16,9 @@ export type PatientAccessFields = {
 
 /** Acesso liberado manualmente pela nutricionista (fora do checkout automático). */
 export function isPatientManuallyGrantedAccess(fields: PatientAccessFields): boolean {
-  if (fields.accessExpiresAt && !isPatientAccessExpired(fields.accessExpiresAt)) {
-    return true
-  }
-  if (fields.approvalEmailSentAt && !fields.accessExpiresAt) {
-    return true
-  }
-  return false
+  if (!fields.approvalEmailSentAt) return false
+  if (!fields.accessExpiresAt) return true
+  return !isPatientAccessExpired(fields.accessExpiresAt)
 }
 
 export function isPatientPaidAccessActive(

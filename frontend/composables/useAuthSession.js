@@ -272,7 +272,7 @@ export async function verifyAuthSession(options = {}) {
     })
   }
 
-  const user = await verifyInFlight
+  const user = await (force ? run() : verifyInFlight)
   if (!user) return null
   if (requiredRole && user.role !== requiredRole) return null
   return user

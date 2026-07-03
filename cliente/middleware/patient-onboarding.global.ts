@@ -1,35 +1,34 @@
-import { isPatientAppAccessBlocked } from '~/utils/patient-access'
+import { isPatientAccessBlockedError, isPatientCheckoutPath } from '~/utils/patient-access'
+import {
+  isPatientPublicPath,
+  resolvePatientRouteAccess,
+} from '~/utils/patient-route-guard'
 
 /** Redireciona pacientes sem onboarding completo para /onboarding. */
 export default defineNuxtRouteMiddleware(async (to) => {
   const config = useRuntimeConfig()
   if (!config.public.mobileApp) return
-
-  const publicPaths = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha', '/abrir']
-  if (publicPaths.includes(to.path)) return
-
-  if (to.path.startsWith('/assinatura')) return
-
+  if (isPatientPublicPath(to.path)) return
+  if (isPatientCheckoutPath(to.path)) return
   if (import.meta.server) return
 
   const patientAuth = usePatientAuth()
   const sessionValid = await patientAuth.ensurePatientSession()
   if (!sessionValid) return
 
-  const verifiedUser = useState('auth-verified-user', () => null)
-  if (isPatientAppAccessBlocked(
-    verifiedUser.value?.plan,
-    verifiedUser.value?.accessExpiresAt,
-    verifiedUser.value?.approvalEmailSentAt,
-  )) {
-    return
+  const accessRedirect = await resolvePatientRouteAccess(to.path)
+  if (accessRedirect) {
+    return navigateTo(accessRedirect, { replace: true })
   }
 
   const { fetchStatus, isComplete, loaded } = usePatientOnboarding()
 
   try {
     await fetchStatus({ force: !loaded.value })
-  } catch {
+  } catch (err) {
+    if (isPatientAccessBlockedError(err)) {
+      return navigateTo('/assinatura', { replace: true })
+    }
     return
   }
 

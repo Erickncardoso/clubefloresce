@@ -11,7 +11,8 @@ import {
   WHATSAPP_FORMAT_HINT,
 } from "../services/approval-whatsapp.service";
 import { upgradeApprovalTemplate } from "../utils/whatsapp-message-format";
-import { parseAccessExpiresAt } from "../utils/access-expires";
+import { isPatientAccessExpired, parseAccessExpiresAt } from "../utils/access-expires";
+import { invalidateAuthUserCache } from "../middleware/auth.middleware";
 import { dispatchEmail, emailService } from "../services/email/email.service";
 
 const userRepo = new UserRepository();
@@ -259,14 +260,28 @@ export class UserMgmtController {
         parsedPhone = phone === null || String(phone).trim() === "" ? null : String(phone).trim();
       }
 
+      let approvalEmailSentAtUpdate: Date | null | undefined;
+      if (parsedAccessExpiresAt !== undefined) {
+        if (parsedAccessExpiresAt === null) {
+          approvalEmailSentAtUpdate = null;
+        } else if (isPatientAccessExpired(parsedAccessExpiresAt)) {
+          approvalEmailSentAtUpdate = null;
+        } else {
+          approvalEmailSentAtUpdate = new Date();
+        }
+      }
+
       const user = await this.userMgmtRepo.updatePatient(id, {
         ...(name ? { name: String(name).trim() } : {}),
         ...(parsedPhone !== undefined ? { phone: parsedPhone } : {}),
         ...(status ? { status } : {}),
         ...(plan ? { plan } : {}),
         ...(parsedAccessExpiresAt !== undefined ? { accessExpiresAt: parsedAccessExpiresAt } : {}),
+        ...(approvalEmailSentAtUpdate !== undefined ? { approvalEmailSentAt: approvalEmailSentAtUpdate } : {}),
         ...(billingPaymentMethod !== undefined ? { billingPaymentMethod } : {}),
       });
+
+      invalidateAuthUserCache(id);
 
       if (
         status === UserStatus.ATIVO &&

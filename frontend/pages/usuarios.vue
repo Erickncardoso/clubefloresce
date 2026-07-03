@@ -486,12 +486,11 @@
               <SharedCfDateInput
                 id="edit-access-expires"
                 v-model="editForm.accessExpiresAt"
-                :min="minAccessDate"
               />
             </div>
           </div>
 
-          <p class="field-hint">Deixe em branco para acesso sem data limite.</p>
+          <p class="field-hint">Deixe em branco para acesso sem data limite. Data no passado remove o acesso imediatamente.</p>
           <p v-if="editError" class="create-error">{{ editError }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="showEditModal = false">Cancelar</button>

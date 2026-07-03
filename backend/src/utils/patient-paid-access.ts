@@ -7,15 +7,11 @@ export type PatientAccessFields = {
   approvalEmailSentAt?: Date | string | null;
 };
 
-/** Acesso liberado manualmente pela nutricionista (fora do checkout automático). */
+/** Acesso liberado manualmente pela nutricionista — exige aprovação registrada no backend. */
 export function isPatientManuallyGrantedAccess(fields: PatientAccessFields): boolean {
-  if (fields.accessExpiresAt && !isPatientAccessExpired(fields.accessExpiresAt)) {
-    return true;
-  }
-  if (fields.approvalEmailSentAt && !fields.accessExpiresAt) {
-    return true;
-  }
-  return false;
+  if (!fields.approvalEmailSentAt) return false;
+  if (!fields.accessExpiresAt) return true;
+  return !isPatientAccessExpired(fields.accessExpiresAt);
 }
 
 /** Paciente com plano pago ou liberação manual ainda válida. */

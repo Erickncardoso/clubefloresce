@@ -13,7 +13,12 @@
             </button>
           </div>
 
-          <NuxtLink to="/perfil" class="cf-drawer-user" @click="$emit('close')">
+          <NuxtLink
+            v-if="canUseApp"
+            to="/perfil"
+            class="cf-drawer-user"
+            @click="$emit('close')"
+          >
             <PatientAvatar
               size="md"
               :src="avatarUrl"
@@ -65,6 +70,7 @@ import {
   Bell,
   BookOpen,
   ChevronRight,
+  CreditCard,
   Home,
   LogOut,
   Settings,
@@ -73,6 +79,7 @@ import {
   UtensilsCrossed,
   X,
 } from 'lucide-vue-next'
+import { isPatientAppAccessBlocked } from '~/utils/patient-access'
 
 defineProps({
   open: { type: Boolean, default: false },
@@ -84,19 +91,39 @@ const route = useRoute()
 const { clearPatientSession, userFullName, userInitials, userAvatar } = usePatientApp()
 const { hasUnread } = usePatientNotifications()
 
+const verifiedUser = useState('auth-verified-user', () => null)
+
 const fullName = computed(() => userFullName())
 const initials = computed(() => userInitials())
 const avatarUrl = computed(() => userAvatar())
 
-const navItems = computed(() => [
+const canUseApp = computed(() => {
+  const user = verifiedUser.value
+  if (!user) return false
+  return !isPatientAppAccessBlocked(user.plan, user.accessExpiresAt, user.approvalEmailSentAt)
+})
+
+const baseNavItems = [
   { to: '/inicio', label: 'Inicio', icon: Home },
   { to: '/bella', label: 'Bella IA', icon: Sparkles },
   { to: '/dieta', label: 'Minha dieta', icon: UtensilsCrossed },
   { to: '/evolucao', label: 'Evolucao', icon: TrendingUp },
   { to: '/conteudo', label: 'Conteudo', icon: BookOpen },
-  { to: '/perfil/notificacoes', label: 'Notificacoes', icon: Bell, badge: hasUnread.value ? 'Novo' : null },
+  { to: '/perfil/notificacoes', label: 'Notificacoes', icon: Bell, badge: null },
   { to: '/perfil/configuracoes', label: 'Configuracoes', icon: Settings },
-])
+]
+
+const navItems = computed(() => {
+  if (!canUseApp.value) {
+    return [{ to: '/assinatura', label: 'Assinar', icon: CreditCard }]
+  }
+
+  return baseNavItems.map((item) => (
+    item.to === '/perfil/notificacoes'
+      ? { ...item, badge: hasUnread.value ? 'Novo' : null }
+      : item
+  ))
+})
 
 function isActive(path) {
   return route.path === path || route.path.startsWith(path + '/')
