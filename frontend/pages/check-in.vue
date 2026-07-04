@@ -4,7 +4,7 @@
       <header class="admin-shell-header">
         <div>
           <h1>Check-ins</h1>
-          <p>Crie tipos de check-in personalizados e acompanhe as respostas das alunas.</p>
+          <p>Crie tipos de check-in personalizados e acompanhe as respostas dos pacientes.</p>
         </div>
       </header>
 
@@ -13,7 +13,7 @@
           <h2>Disparos de check-in</h2>
           <p>
             O disparo automático semanal ocorre na <strong>sexta às 11h</strong>. Você também pode enviar
-            check-ins individuais, escolher a aluna, o tipo e programar a data do envio.
+            check-ins individuais, escolher o paciente, o tipo e programar a data do envio.
           </p>
           <p v-if="dispatchStatus.dispatched" class="checkin-dispatch-note">
             Disparo em massa desta semana já realizado.
@@ -87,29 +87,29 @@
                 class="dispatch-control"
                 type="text"
                 maxlength="200"
-                placeholder="Texto que a aluna verá na notificação"
+                placeholder="Texto que o paciente verá na notificação"
               >
             </div>
           </div>
 
           <div class="dispatch-patients">
             <div class="dispatch-patients-head">
-              <strong>Alunas</strong>
+              <strong>Pacientes</strong>
               <label class="form-check cf-round-check dispatch-all-check">
                 <input v-model="customDispatch.allPatients" type="checkbox" class="cf-round-check-input">
                 <span class="cf-round-check-box" aria-hidden="true"><Check class="cf-round-check-icon" /></span>
-                <span class="cf-round-check-label">Todas as alunas</span>
+                <span class="cf-round-check-label">Todos os pacientes</span>
               </label>
             </div>
             <div v-if="!customDispatch.allPatients" class="dispatch-patient-tools">
               <div class="dispatch-patients-meta">
-                <span>{{ dispatchPatients.length }} alunas cadastradas</span>
+                <span>{{ dispatchPatients.length }} pacientes cadastrados</span>
                 <span v-if="customDispatch.userIds.length" class="dispatch-patients-selected">
                   {{ customDispatch.userIds.length }} selecionada(s)
                 </span>
               </div>
 
-              <div v-if="selectedDispatchPatients.length" class="dispatch-selected-list" aria-label="Alunas selecionadas">
+              <div v-if="selectedDispatchPatients.length" class="dispatch-selected-list" aria-label="Pacientes selecionadas">
                 <span
                   v-for="patient in selectedDispatchPatients"
                   :key="patient.id"
@@ -132,8 +132,8 @@
                 <input
                   v-model="dispatchPatientSearch"
                   type="search"
-                  placeholder="Buscar aluna por nome..."
-                  aria-label="Buscar aluna para disparo"
+                  placeholder="Buscar paciente por nome..."
+                  aria-label="Buscar paciente para disparo"
                 >
               </div>
 
@@ -143,7 +143,7 @@
                 <ul
                   v-if="visibleDispatchPatients.length"
                   class="dispatch-patient-list"
-                  aria-label="Lista de alunas"
+                  aria-label="Lista de pacientes"
                 >
                   <li v-for="patient in visibleDispatchPatients" :key="patient.id">
                     <label class="dispatch-patient-item cf-round-check">
@@ -161,7 +161,7 @@
                   </li>
                 </ul>
 
-                <p v-else-if="!dispatchPatientListHint" class="dispatch-empty">Nenhuma aluna encontrada.</p>
+                <p v-else-if="!dispatchPatientListHint" class="dispatch-empty">Nenhum paciente encontrado.</p>
               </div>
             </div>
           </div>
@@ -179,7 +179,7 @@
               <div>
                 <strong>{{ item.templateTitle }}</strong>
                 <span>{{ formatScheduleWhen(item.scheduledAt) }}</span>
-                <small>{{ item.allPatients ? 'Todas as alunas' : `${item.userIds.length} aluna(s)` }}</small>
+                <small>{{ item.allPatients ? 'Todos os pacientes' : `${item.userIds.length} paciente(s)` }}</small>
               </div>
               <button type="button" class="btn-danger-ghost btn-sm" @click="cancelSchedule(item.id)">
                 Cancelar
@@ -218,7 +218,7 @@
             <input
               v-model="responseSearch"
               type="search"
-              placeholder="Buscar aluna ou check-in..."
+              placeholder="Buscar paciente ou check-in..."
               aria-label="Buscar respostas"
             >
           </div>
@@ -229,7 +229,7 @@
 
         <div v-else-if="!filteredResponses.length" class="nutri-empty admin-shell-card">
           <p>Nenhuma resposta ainda.</p>
-          <span>Quando as alunas responderem os check-ins, os dados aparecem aqui.</span>
+          <span>Quando os pacientes responderem os check-ins, os dados aparecem aqui.</span>
         </div>
 
         <div v-else class="checkin-table-card admin-shell-card">
@@ -237,7 +237,7 @@
             <table class="checkin-table">
               <thead>
                 <tr>
-                  <th>Aluna</th>
+                  <th>Paciente</th>
                   <th>Check-in</th>
                   <th>Período</th>
                   <th>Resumo</th>
@@ -256,11 +256,11 @@
                     <div class="checkin-patient">
                       <PatientAvatar
                         :src="item.user?.avatar"
-                        :name="item.user?.name || 'Aluna'"
+                        :name="item.user?.name || 'Paciente'"
                         size="sm"
                         :ring="false"
                       />
-                      <span class="checkin-name">{{ item.user?.name || 'Aluna' }}</span>
+                      <span class="checkin-name">{{ item.user?.name || 'Paciente' }}</span>
                     </div>
                   </td>
                   <td>{{ item.template?.title || '—' }}</td>
@@ -313,7 +313,7 @@
             <span class="templates-count" aria-hidden="true">{{ templates.length }}</span>
             <div>
               <strong>Tipos cadastrados</strong>
-              <p>Formulários que as alunas respondem no app — semanal, diário ou mensal.</p>
+              <p>Formulários que os pacientes respondem no app — semanal, diário ou mensal.</p>
             </div>
           </div>
           <button type="button" class="btn-primary templates-create-btn" @click="openCreateTemplate">
@@ -326,7 +326,7 @@
 
         <div v-else-if="!templates.length" class="nutri-empty admin-shell-card templates-empty">
           <p>Nenhum tipo de check-in</p>
-          <span>Crie o primeiro formulário para suas alunas começarem a responder.</span>
+          <span>Crie o primeiro formulário para seus pacientes começarem a responder.</span>
           <button type="button" class="btn-primary templates-empty-btn" @click="openCreateTemplate">
             <Plus class="btn-icon" />
             Criar check-in
@@ -360,7 +360,7 @@
               </header>
 
               <p class="template-desc">
-                {{ tpl.description || 'Sem descrição — adicione um texto curto para orientar a aluna.' }}
+                {{ tpl.description || 'Sem descrição — adicione um texto curto para orientar o paciente.' }}
               </p>
 
               <ul class="template-stats">
@@ -421,7 +421,7 @@
                 </div>
                 <div class="field field--float">
                   <label for="tpl-desc">Descrição (opcional)</label>
-                  <textarea id="tpl-desc" v-model="editor.description" rows="2" maxlength="300" placeholder="Breve explicação para a aluna" />
+                  <textarea id="tpl-desc" v-model="editor.description" rows="2" maxlength="300" placeholder="Breve explicação para o paciente" />
                 </div>
                 <div class="editor-form-row editor-form-row--inline">
                   <div class="field field--float editor-form-row-grow">
@@ -437,7 +437,7 @@
                     <span class="cf-round-check-box" aria-hidden="true">
                       <Check class="cf-round-check-icon" />
                     </span>
-                    <span class="cf-round-check-label">Ativo para alunas</span>
+                    <span class="cf-round-check-label">Ativo para pacientes</span>
                   </label>
                 </div>
               </div>
@@ -480,7 +480,7 @@
                     </div>
                     <div class="field field--float">
                       <label :for="`step-question-${step._key}`">Pergunta</label>
-                      <input :id="`step-question-${step._key}`" v-model="step.question" type="text" required maxlength="200" placeholder="Texto exibido para a aluna">
+                      <input :id="`step-question-${step._key}`" v-model="step.question" type="text" required maxlength="200" placeholder="Texto exibido para o paciente">
                     </div>
                     <div class="field field--float">
                       <label :for="`step-hint-${step._key}`">Dica (opcional)</label>
@@ -621,13 +621,13 @@
             <div class="response-detail-head-main">
               <PatientAvatar
                 :src="selectedResponse.user?.avatar"
-                :name="selectedResponse.user?.name || 'Aluna'"
+                :name="selectedResponse.user?.name || 'Paciente'"
                 size="md"
                 :ring="false"
               />
               <div class="response-detail-head-copy">
                 <span class="response-detail-kicker">{{ selectedResponse.template?.title || 'Check-in' }}</span>
-                <h2 class="response-detail-name">{{ selectedResponse.user?.name || 'Aluna' }}</h2>
+                <h2 class="response-detail-name">{{ selectedResponse.user?.name || 'Paciente' }}</h2>
                 <p class="response-detail-meta">
                   <span>{{ formatPeriod(selectedResponse.periodKey, selectedResponse.template?.frequency) }}</span>
                   <span>{{ formatDate(selectedResponse.updatedAt) }}</span>
@@ -695,7 +695,7 @@
                 class="btn-primary"
                 @click="goToPatient(selectedResponse.user.id, 'resumo')"
               >
-                Perfil da aluna
+                Perfil do paciente
               </button>
             </div>
           </footer>
@@ -710,6 +710,7 @@ import { Calendar, CalendarDays, CalendarRange, Check, Eye, Image, LineChart, Li
 import {
   buildAnswerRows,
   summarizeCheckinAnswers,
+  formatCheckinPeriod,
 } from '~/utils/checkin-answers'
 import {
   CHECKIN_STEP_TYPE_OPTIONS,
@@ -805,10 +806,10 @@ const dispatchPatientListHint = computed(() => {
   const q = dispatchPatientSearch.value.trim()
   const needsSearch = total > DISPATCH_PATIENT_VISIBLE_LIMIT
 
-  if (!total) return 'Nenhuma aluna cadastrada no sistema.'
+  if (!total) return 'Nenhum paciente cadastrado no sistema.'
 
   if (!q && needsSearch) {
-    return `Há ${total} alunas. Digite pelo menos ${DISPATCH_PATIENT_SEARCH_MIN} caracteres para buscar e selecionar.`
+    return `Há ${total} pacientes. Digite pelo menos ${DISPATCH_PATIENT_SEARCH_MIN} caracteres para buscar e selecionar.`
   }
 
   if (q) {
@@ -920,13 +921,7 @@ function formatDate(dateStr) {
 }
 
 function formatPeriod(periodKey, frequency) {
-  if (!periodKey) return '—'
-  if (frequency === 'daily') {
-    const [y, m, d] = periodKey.slice(0, 10).split('-')
-    return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-  }
-  if (frequency === 'monthly') return periodKey
-  return new Date(periodKey).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+  return formatCheckinPeriod(periodKey, frequency)
 }
 
 function summarizeResponse(item) {
@@ -1188,7 +1183,7 @@ async function submitCustomDispatch() {
     return
   }
   if (!customDispatch.allPatients && !customDispatch.userIds.length) {
-    customDispatchMessage.value = 'Selecione pelo menos uma aluna ou marque todas.'
+    customDispatchMessage.value = 'Selecione pelo menos um paciente ou marque todos.'
     return
   }
 

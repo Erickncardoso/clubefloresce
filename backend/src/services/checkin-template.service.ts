@@ -3,7 +3,11 @@ import { CheckInTemplateRepository } from "../repositories/checkin-template.repo
 import { CheckInRepository } from "../repositories/checkin.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { getWeekStart } from "../utils/week-start";
-import { readPatientDateKey, resolvePeriodKey as resolvePeriodKeyForDate } from "../utils/patient-local-date";
+import {
+  readPatientDateKey,
+  readPatientTimeZone,
+  resolvePeriodKey as resolvePeriodKeyForDate,
+} from "../utils/patient-local-date";
 import { CheckInDispatchService } from "./checkin-dispatch.service";
 import {
   formatNextFridayLabel,
@@ -113,8 +117,12 @@ function validateSteps(steps: unknown): any[] {
   });
 }
 
-function resolvePeriodKey(frequency: string, dateKey?: string | null): string {
-  return resolvePeriodKeyForDate(frequency, dateKey);
+function resolvePeriodKey(
+  frequency: string,
+  dateKey?: string | null,
+  timeZone?: string | null,
+): string {
+  return resolvePeriodKeyForDate(frequency, dateKey, timeZone || undefined);
 }
 
 function waterLitersToEnergy(liters: number): number {
@@ -197,15 +205,15 @@ export class CheckInTemplateService {
     templates: Array<{ id: string; frequency: string }>,
     headers?: Record<string, string | string[] | undefined>,
   ) {
-    const dateKey = readPatientDateKey(headers);
-    const windowOpen = isWeeklyCheckInWindowOpen(dateKey ? new Date(`${dateKey}T12:00:00`) : new Date());
-    const isFriday = isFridayCheckInDay(dateKey ? new Date(`${dateKey}T12:00:00`) : new Date());
+    void templates;
+    void headers;
+    const now = new Date();
 
     return {
-      windowOpen,
-      isFriday,
+      windowOpen: isWeeklyCheckInWindowOpen(now),
+      isFriday: isFridayCheckInDay(now),
       deadlineLabel: "segunda-feira",
-      nextOpenLabel: formatNextFridayLabel(dateKey ? new Date(`${dateKey}T12:00:00`) : new Date()),
+      nextOpenLabel: formatNextFridayLabel(now),
     };
   }
 
@@ -215,9 +223,10 @@ export class CheckInTemplateService {
     headers?: Record<string, string | string[] | undefined>,
   ) {
     const dateKey = readPatientDateKey(headers);
+    const timeZone = readPatientTimeZone(headers);
     const periodKeys: Record<string, string> = {};
     for (const tpl of templates) {
-      periodKeys[tpl.id] = resolvePeriodKey(tpl.frequency, dateKey);
+      periodKeys[tpl.id] = resolvePeriodKey(tpl.frequency, dateKey, timeZone);
     }
     const invitedIds = await dispatchService.listInvitedTemplateIds(userId, periodKeys);
 
@@ -231,9 +240,7 @@ export class CheckInTemplateService {
           periodKey,
           completedThisPeriod: Boolean(current),
           invited,
-          canOpen: Boolean(!current && (invited || tpl.frequency !== "weekly" || isWeeklyCheckInWindowOpen(
-            dateKey ? new Date(`${dateKey}T12:00:00`) : new Date(),
-          ))),
+          canOpen: Boolean(!current && (invited || tpl.frequency !== "weekly" || isWeeklyCheckInWindowOpen())),
         };
       }),
     );
@@ -308,11 +315,11 @@ export class CheckInTemplateService {
     if (!template || !template.active) throw new Error("Check-in indisponível.");
 
     const dateKey = readPatientDateKey(headers);
-    const periodKey = resolvePeriodKey(template.frequency, dateKey);
+    const timeZone = readPatientTimeZone(headers);
+    const periodKey = resolvePeriodKey(template.frequency, dateKey, timeZone);
     if (template.frequency === "weekly") {
-      const reference = dateKey ? new Date(`${dateKey}T12:00:00`) : new Date();
       const invited = await dispatchService.hasInvite(userId, templateId, periodKey);
-      if (!invited && !isWeeklyCheckInWindowOpen(reference)) {
+      if (!invited && !isWeeklyCheckInWindowOpen()) {
         throw new Error("O check-in semanal abre na sexta às 11h e pode ser preenchido até segunda-feira.");
       }
     }
@@ -345,7 +352,8 @@ export class CheckInTemplateService {
     if (!template || !template.active) throw new Error("Check-in indisponível.");
 
     const dateKey = readPatientDateKey(headers);
-    const periodKey = resolvePeriodKey(template.frequency, dateKey);
+    const timeZone = readPatientTimeZone(headers);
+    const periodKey = resolvePeriodKey(template.frequency, dateKey, timeZone);
     const current = await templateRepository.findResponse(userId, templateId, periodKey);
     const history = await templateRepository.findResponsesByUser(userId, 12, templateId);
 

@@ -4,7 +4,7 @@
       <header class="admin-shell-header">
         <div>
           <h1>Comunidade</h1>
-          <p>Compartilhe novidades, conquistas e interaja com as alunas.</p>
+          <p>Compartilhe novidades, conquistas e interaja com os pacientes.</p>
         </div>
       </header>
 

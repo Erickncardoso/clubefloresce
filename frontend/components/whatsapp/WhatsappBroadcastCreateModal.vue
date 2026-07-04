@@ -92,12 +92,12 @@
             <div class="broadcast-segment__head">
               <h3>Segmentação</h3>
               <button type="button" class="broadcast-link" @click="showUsersPanel = !showUsersPanel">
-                {{ showUsersPanel ? 'Ocultar usuários' : 'Mostrar usuários' }}
+                {{ showUsersPanel ? 'Ocultar pacientes' : 'Mostrar pacientes' }}
               </button>
             </div>
 
             <p class="broadcast-segment__count">
-              Usuários que receberão esta transmissão: <strong>{{ recipientCount }}</strong>
+              Pacientes que receberão esta transmissão: <strong>{{ recipientCount }}</strong>
             </p>
 
             <div v-if="segmentFilters.length" class="broadcast-segment__toolbar">
@@ -281,7 +281,7 @@ const disabledFilterItems = [
   'Campanha',
   'Data criação',
   'Código de Área',
-  'ID do Usuário',
+  'ID do Paciente',
   'Campo personalizado',
 ]
 

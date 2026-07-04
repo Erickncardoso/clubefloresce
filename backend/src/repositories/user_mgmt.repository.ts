@@ -47,15 +47,21 @@ export class UserMgmtRepository {
         userId: true,
         paymentMethod: true,
         status: true,
+        nextBillingAt: true,
       },
     });
 
-    const latestSubscriptionByUser = new Map<string, { paymentMethod: string | null; status: string }>();
+    const latestSubscriptionByUser = new Map<string, {
+      paymentMethod: string | null;
+      status: string;
+      nextBillingAt: Date | null;
+    }>();
     for (const subscription of subscriptions) {
       if (!latestSubscriptionByUser.has(subscription.userId)) {
         latestSubscriptionByUser.set(subscription.userId, {
           paymentMethod: subscription.paymentMethod,
           status: subscription.status,
+          nextBillingAt: subscription.nextBillingAt,
         });
       }
     }
@@ -66,6 +72,7 @@ export class UserMgmtRepository {
         ...user,
         billingSubscriptionPaymentMethod: latest?.paymentMethod || null,
         billingSubscriptionStatus: latest?.status || null,
+        billingSubscriptionNextBillingAt: latest?.nextBillingAt || null,
       };
     });
   }

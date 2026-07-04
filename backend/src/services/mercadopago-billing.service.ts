@@ -44,6 +44,8 @@ type SubscribePixInput = {
   payerEmail: string;
   payerName?: string;
   identification?: PayerIdentification;
+  /** Validade do QR Pix (padrão 30 min no checkout; 24h em lembretes WhatsApp). */
+  expirationMinutes?: number;
 };
 
 function getMpClient(): MercadoPagoConfig {
@@ -169,9 +171,11 @@ function buildPixPaymentBody(params: {
   externalReference: string;
   payer: Record<string, unknown>;
   preapprovalId?: string;
+  expirationMinutes?: number;
 }): Record<string, unknown> {
+  const minutes = Math.min(Math.max(Number(params.expirationMinutes) || 30, 5), 24 * 60);
   const expiresAt = new Date();
-  expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+  expiresAt.setMinutes(expiresAt.getMinutes() + minutes);
 
   const body: Record<string, unknown> = {
     transaction_amount: params.amount,
@@ -452,6 +456,14 @@ export class MercadoPagoBillingService {
         paymentMethod: "card",
         mercadoPagoPaymentId: paymentId || null,
         externalReference,
+        metadata: input.identification?.number
+          ? {
+              payerIdentification: {
+                type: input.identification.type || "CPF",
+                number: String(input.identification.number).replace(/\D/g, ""),
+              },
+            }
+          : undefined,
       },
     });
 
@@ -702,6 +714,12 @@ export class MercadoPagoBillingService {
           installments: input.installments || 1,
           paymentMethodId: input.paymentMethodId || null,
           issuerId: input.issuerId || null,
+          payerIdentification: input.identification?.number
+            ? {
+                type: input.identification.type || "CPF",
+                number: String(input.identification.number).replace(/\D/g, ""),
+              }
+            : null,
         },
       },
     });
@@ -724,6 +742,72 @@ export class MercadoPagoBillingService {
     return this.subscribeWithPixOneTime(input);
   }
 
+  async resolveStoredPayerIdentification(userId: string): Promise<PayerIdentification | null> {
+    const transactions = await prisma.transaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 24,
+      select: { metadata: true },
+    });
+
+    for (const transaction of transactions) {
+      const metadata = transaction.metadata as Record<string, unknown> | null;
+      const stored = metadata?.payerIdentification as PayerIdentification | undefined;
+      const number = String(stored?.number || "").replace(/\D/g, "");
+      if (number.length === 11) {
+        return { type: stored?.type || "CPF", number };
+      }
+    }
+
+    return null;
+  }
+
+  private resolveRenewalPlanId(plan?: UserPlan | string | null): string {
+    const normalized = String(plan || UserPlan.FREE).toUpperCase();
+    if (normalized === UserPlan.PLATINUM) return "PLATINUM";
+    return "PREMIUM";
+  }
+
+  /** Gera Pix avulso para renovação automática (WhatsApp). */
+  async generateRenewalPixForUser(userId: string, planId?: string) {
+    this.ensureConfigured();
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, plan: true },
+    });
+    if (!user?.email) {
+      return { ok: false as const, reason: "user_not_found" as const };
+    }
+
+    const resolvedPlanId = planId || this.resolveRenewalPlanId(user.plan);
+    const identification = await this.resolveStoredPayerIdentification(userId);
+
+    if (!identification?.number && !isMercadoPagoTestMode()) {
+      return { ok: false as const, reason: "missing_cpf" as const };
+    }
+
+    const { product } = await billingPlanConfigService.resolvePlanAmount(resolvedPlanId);
+    const result = await this.subscribeWithPixOneTime({
+      userId,
+      planId: resolvedPlanId,
+      payerEmail: user.email,
+      payerName: user.name,
+      identification: identification || (isMercadoPagoTestMode()
+        ? { type: "CPF", number: "12345678909" }
+        : undefined),
+      expirationMinutes: 24 * 60,
+    });
+
+    return {
+      ok: true as const,
+      pix: result.pix,
+      amount: product.amount,
+      planName: product.name,
+      paymentId: result.paymentId,
+    };
+  }
+
   /** Mensalidade via Pix avulso (QR Code / copia e cola no app). */
   private async subscribeWithPixOneTime(input: SubscribePixInput) {
     const { planId, amount, product } = await billingPlanConfigService.resolvePlanAmount(input.planId);
@@ -738,6 +822,7 @@ export class MercadoPagoBillingService {
       description,
       externalReference,
       payer: buildPixPayer(input, mpPayerEmail),
+      expirationMinutes: input.expirationMinutes,
     }));
 
     const paymentId = String(payment?.id || "");
@@ -768,6 +853,12 @@ export class MercadoPagoBillingService {
           ...pix,
           accessDays,
           flow: "pix_one_time",
+          payerIdentification: input.identification?.number
+            ? {
+                type: input.identification.type || "CPF",
+                number: String(input.identification.number).replace(/\D/g, ""),
+              }
+            : null,
         } as any,
       },
     });
@@ -915,7 +1006,9 @@ export class MercadoPagoBillingService {
 
       if (status === "PAID" && transaction.plan) {
         const paymentMethod = transaction.paymentMethod || null;
-        await this.extendUserAccess(transaction.userId, transaction.plan, 30, paymentMethod);
+        const meta = transaction.metadata as Record<string, unknown> | null;
+        const accessDays = Number(meta?.accessDays) || 30;
+        await this.extendUserAccess(transaction.userId, transaction.plan, accessDays, paymentMethod);
         const subscriptionUpdate = {
           status: "authorized",
           nextBillingAt: addBillingPeriodDays(),

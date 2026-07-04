@@ -4,9 +4,9 @@
       <div class="users-page admin-shell">
         <header class="admin-shell-header">
           <div class="page-header-copy">
-            <h1>Gestão de Alunos</h1>
+            <h1>Pacientes</h1>
             <p>
-              {{ users.length }} {{ users.length === 1 ? 'aluna cadastrada' : 'alunas cadastradas' }}
+              {{ users.length }} {{ users.length === 1 ? 'paciente cadastrado' : 'pacientes cadastrados' }}
               <span v-if="activeCount !== users.length"> · {{ activeCount }} ativas</span>
               <span v-if="pendingApprovalEmailCount"> · {{ pendingApprovalEmailCount }} sem e-mail de aprovação</span>
               <span v-if="pendingApprovalWhatsappCount"> · {{ pendingApprovalWhatsappCount }} sem WhatsApp de aprovação</span>
@@ -22,7 +22,7 @@
               v-model="searchQuery"
               type="search"
               placeholder="Buscar por nome ou e-mail..."
-              aria-label="Buscar alunas"
+              aria-label="Buscar pacientes"
             >
           </div>
           <div class="users-toolbar-actions">
@@ -40,7 +40,7 @@
             </button>
             <button type="button" class="btn-primary" @click="openCreateModal">
               <UserPlus class="btn-icon" />
-              Adicionar aluna
+              Adicionar paciente
             </button>
           </div>
         </div>
@@ -85,7 +85,7 @@
 
         <div v-if="usersLoading" class="loading-row">
           <span class="loading-spinner" aria-hidden="true" />
-          Carregando alunas...
+          Carregando pacientes...
         </div>
 
         <div v-else class="users-panel">
@@ -94,15 +94,14 @@
               <table class="users-table">
                 <thead>
                   <tr>
-                    <th>Aluna</th>
+                    <th>Paciente</th>
                     <th>Plano</th>
                     <th>Conta</th>
                     <th>Pagamento</th>
                     <th>Forma</th>
                     <th>E-mail aprovação</th>
                     <th>WhatsApp aprovação</th>
-                    <th>Membro desde</th>
-                    <th>Acesso até</th>
+                    <th>Período de acesso</th>
                     <th class="th-actions">Ações</th>
                   </tr>
                 </thead>
@@ -119,6 +118,14 @@
                         <div class="user-copy">
                           <span class="user-name">{{ user.name }}</span>
                           <span class="user-email">{{ user.email }}</span>
+                          <span class="user-access-until">
+                            Assinatura até
+                            <strong
+                              v-if="isAccessUntilExpired(user)"
+                              class="user-access-until--expired"
+                            >Expirado</strong>
+                            <strong v-else>{{ formatAccessUntilLabel(user) }}</strong>
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -138,9 +145,7 @@
                       </span>
                     </td>
                     <td>
-                      <span class="user-tag user-tag--paymethod" :class="paymentMethodTagClass(user)">
-                        {{ paymentMethodLabel(user) }}
-                      </span>
+                      <PatientsPatientPaymentMethodBadge :user="user" />
                     </td>
                     <td>
                       <div class="email-status-cell">
@@ -189,15 +194,23 @@
                         </button>
                       </div>
                     </td>
-                    <td class="date-cell">{{ formatDate(user.createdAt) }}</td>
-                    <td class="date-cell">
-                      <span
-                        v-if="isPatientAccessExpired(user.accessExpiresAt)"
-                        class="user-tag user-tag--access-expired"
-                      >
-                        Expirado
-                      </span>
-                      <template v-else>{{ formatAccessDate(user.accessExpiresAt) }}</template>
+                    <td class="period-cell">
+                      <div class="period-cell-inner">
+                        <div class="period-line">
+                          <span class="period-label">Desde</span>
+                          <span>{{ formatDate(user.createdAt) }}</span>
+                        </div>
+                        <div class="period-line">
+                          <span class="period-label">Até</span>
+                          <span
+                            v-if="isAccessUntilExpired(user)"
+                            class="user-tag user-tag--access-expired user-tag--compact"
+                          >
+                            Expirado
+                          </span>
+                          <span v-else class="period-until">{{ formatAccessUntilLabel(user) }}</span>
+                        </div>
+                      </div>
                     </td>
                     <td class="td-actions" @click.stop>
                       <button type="button" class="icon-btn" title="Editar" @click="openEditModal(user)">
@@ -225,6 +238,14 @@
                 <div class="user-copy">
                   <span class="user-name">{{ user.name }}</span>
                   <span class="user-email">{{ user.email }}</span>
+                  <span class="user-access-until">
+                    Assinatura até
+                    <strong
+                      v-if="isAccessUntilExpired(user)"
+                      class="user-access-until--expired"
+                    >Expirado</strong>
+                    <strong v-else>{{ formatAccessUntilLabel(user) }}</strong>
+                  </span>
                 </div>
               </div>
 
@@ -256,9 +277,7 @@
                 <div class="user-mobile-meta-row">
                   <dt>Forma</dt>
                   <dd>
-                    <span class="user-tag user-tag--paymethod" :class="paymentMethodTagClass(user)">
-                      {{ paymentMethodLabel(user) }}
-                    </span>
+                    <PatientsPatientPaymentMethodBadge :user="user" />
                   </dd>
                 </div>
                 <div class="user-mobile-meta-row">
@@ -289,19 +308,22 @@
                   </dd>
                 </div>
                 <div class="user-mobile-meta-row">
-                  <dt>Membro desde</dt>
-                  <dd>{{ formatDate(user.createdAt) }}</dd>
-                </div>
-                <div class="user-mobile-meta-row">
-                  <dt>Acesso até</dt>
-                  <dd>
-                    <span
-                      v-if="isPatientAccessExpired(user.accessExpiresAt)"
-                      class="user-tag user-tag--access-expired"
-                    >
-                      Expirado
-                    </span>
-                    <template v-else>{{ formatAccessDate(user.accessExpiresAt) }}</template>
+                  <dt>Período de acesso</dt>
+                  <dd class="period-cell-mobile">
+                    <div class="period-line">
+                      <span class="period-label">Desde</span>
+                      <span>{{ formatDate(user.createdAt) }}</span>
+                    </div>
+                    <div class="period-line">
+                      <span class="period-label">Até</span>
+                      <span
+                        v-if="isAccessUntilExpired(user)"
+                        class="user-tag user-tag--access-expired user-tag--compact"
+                      >
+                        Expirado
+                      </span>
+                      <span v-else class="period-until">{{ formatAccessUntilLabel(user) }}</span>
+                    </div>
                   </dd>
                 </div>
               </dl>
@@ -345,8 +367,8 @@
 
           <div v-else-if="!usersError" class="users-table-card empty-state">
             <UserPlus class="empty-icon" />
-            <h3>{{ searchQuery ? 'Nenhuma aluna encontrada' : 'Nenhuma aluna cadastrada' }}</h3>
-            <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar aluna para começar.' }}</p>
+            <h3>{{ searchQuery ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado' }}</h3>
+            <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar paciente para começar.' }}</p>
           </div>
         </div>
       </div>
@@ -355,9 +377,9 @@
     <Teleport to="body">
       <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
         <form class="modal-card" @submit.prevent="createPatient">
-          <h3>{{ creatingFromRequest ? 'Aprovar solicitação' : 'Nova paciente' }}</h3>
+          <h3>{{ creatingFromRequest ? 'Aprovar solicitação' : 'Novo paciente' }}</h3>
           <p v-if="creatingFromRequest" class="modal-hint">
-            A senha já foi definida pela aluna. Informe o plano e até quando ela terá acesso.
+            A senha já foi definida pelo paciente. Informe o plano e até quando terá acesso.
           </p>
 
           <div class="modal-fields">
@@ -384,7 +406,7 @@
             </div>
 
             <p v-else class="field-hint field-hint--password">
-              A aluna já escolheu a senha no app. Após aprovar, ela entra direto com e-mail e senha.
+              O paciente já escolheu a senha no app. Após aprovar, entra direto com e-mail e senha.
             </p>
 
             <div class="field field--float">
@@ -420,7 +442,7 @@
           </div>
 
           <p v-if="!creatingFromRequest" class="field-hint">Opcional. Deixe em branco para acesso sem data limite.</p>
-          <p class="field-hint">Forma de pagamento: opcional. Use Pix ou Cartão se a aluna pagou fora do app ou você quiser registrar como ela paga.</p>
+          <p class="field-hint">Forma de pagamento: opcional. Use Pix ou Cartão se o paciente pagou fora do app ou você quiser registrar como ele paga.</p>
           <p v-if="createError" class="create-error">{{ createError }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="showCreateModal = false">Cancelar</button>
@@ -435,7 +457,7 @@
     <Teleport to="body">
       <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
         <form class="modal-card" @submit.prevent="saveEdit">
-          <h3>Editar aluna</h3>
+          <h3>Editar paciente</h3>
           <p class="modal-hint">{{ editForm.email }}</p>
 
           <div class="modal-fields">
@@ -562,7 +584,7 @@
             {{ individualWhatsappUser?.name }} · {{ individualWhatsappUser?.phone || 'Sem telefone' }}
           </p>
           <p class="field-hint">
-            A mensagem geral já vem preenchida. Edite se quiser um texto diferente para esta aluna.
+            A mensagem geral já vem preenchida. Edite se quiser um texto diferente para este paciente.
             Use *negrito* e deixe <span v-pre>{{linkApp}}</span> em linha separada.
           </p>
 
@@ -623,8 +645,6 @@ import {
 } from '~/utils/patient-access'
 import {
   paymentAccessLabel,
-  paymentMethodLabel,
-  paymentMethodTagClass,
   paymentTagClass,
 } from '~/utils/patient-billing-display'
 import { formatWhatsappTextForDisplay } from '~/composables/whatsapp/useWhatsappUtils.js'
@@ -788,7 +808,7 @@ const fetchPatients = async () => {
       : []
   } catch (err) {
     users.value = []
-    usersError.value = resolveFetchError(err, 'Não foi possível carregar os alunos.')
+    usersError.value = resolveFetchError(err, 'Não foi possível carregar os pacientes.')
   } finally {
     usersLoading.value = false
   }
@@ -935,7 +955,7 @@ const resendPendingApprovalWhatsapp = async () => {
   const { confirm } = useConfirm()
   const ok = await confirm({
     title: 'Reenviar WhatsApp pendentes',
-    message: `Enviar mensagem de aprovação por WhatsApp para ${pendingApprovalWhatsappCount.value} aluna(s)?`,
+    message: `Enviar mensagem de aprovação por WhatsApp para ${pendingApprovalWhatsappCount.value} paciente(s)?`,
     confirmLabel: 'Enviar',
     cancelLabel: 'Cancelar',
   })
@@ -1129,7 +1149,7 @@ const createPatient = async () => {
   createError.value = ''
 
   if (creatingFromRequest.value && !createForm.accessExpiresAt) {
-    createError.value = 'Informe até quando a aluna terá acesso.'
+    createError.value = 'Informe até quando o paciente terá acesso.'
     creating.value = false
     return
   }
@@ -1189,6 +1209,26 @@ const formatAccessDate = (date) => {
   return formatDate(date)
 }
 
+function resolveAccessUntilDate(user) {
+  return user.accessExpiresAt || user.billingSubscriptionNextBillingAt || null
+}
+
+function isAccessUntilExpired(user) {
+  const until = resolveAccessUntilDate(user)
+  if (!until) return false
+  return isPatientAccessExpired(until)
+}
+
+function formatAccessUntilLabel(user) {
+  const until = resolveAccessUntilDate(user)
+  if (!until) {
+    const payLabel = paymentAccessLabel(user)
+    if (payLabel === 'Pago' || payLabel === 'Liberado') return 'Sem limite'
+    return '—'
+  }
+  return formatAccessDate(until)
+}
+
 const openEditModal = (user) => {
   editingUserId.value = user.id
   editForm.name = user.name
@@ -1239,7 +1279,7 @@ const handleDelete = async (id) => {
   const { confirm } = useConfirm()
   const ok = await confirm({
     title: 'Remover acesso',
-    message: 'Deseja realmente remover o acesso desta paciente?',
+    message: 'Deseja realmente remover o acesso deste paciente?',
     confirmLabel: 'Remover',
     cancelLabel: 'Cancelar',
   })
@@ -1251,7 +1291,7 @@ const handleDelete = async (id) => {
     })
     fetchUsers()
   } catch (err) {
-    alert('Erro ao excluir usuário.')
+    alert('Erro ao excluir paciente.')
   }
 }
 
@@ -1359,6 +1399,7 @@ onMounted(fetchUsers)
 
 .users-table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -1375,19 +1416,22 @@ onMounted(fetchUsers)
   border-bottom: 1px solid #eee;
 }
 
-.users-table th:nth-child(1) { width: 18%; }
+.users-table th:nth-child(1) { width: 20%; }
 .users-table th:nth-child(2) { width: 7%; }
 .users-table th:nth-child(3) { width: 7%; }
-.users-table th:nth-child(4) { width: 14%; }
-.users-table th:nth-child(5) { width: 14%; }
-.users-table th:nth-child(6) { width: 9%; }
-.users-table th:nth-child(7) { width: 9%; }
-.users-table th:nth-child(8) { width: 7%; }
+.users-table th:nth-child(4) { width: 11%; }
+.users-table th:nth-child(5) { width: 9%; }
+.users-table th:nth-child(6) { width: 11%; }
+.users-table th:nth-child(7) { width: 11%; }
+.users-table th:nth-child(8) { width: 12%; }
+.users-table th:nth-child(9) { width: 8%; }
 
 .users-table-wrap {
   display: block;
   min-width: 0;
   max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .users-panel {
@@ -1838,6 +1882,63 @@ onMounted(fetchUsers)
   font-size: 0.84rem;
   color: #737373;
   font-weight: 500;
+}
+
+.period-cell {
+  vertical-align: top;
+}
+
+.period-cell-inner,
+.period-cell-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.period-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.82rem;
+  color: #525252;
+  line-height: 1.25;
+}
+
+.period-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a3a3a3;
+}
+
+.period-until {
+  font-weight: 600;
+  color: #404040;
+}
+
+.user-access-until {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: #737373;
+  line-height: 1.3;
+}
+
+.user-access-until strong {
+  font-weight: 700;
+  color: #404040;
+}
+
+.user-access-until--expired {
+  color: #b91c1c !important;
+}
+
+.user-tag--compact {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.68rem;
 }
 
 .td-actions {

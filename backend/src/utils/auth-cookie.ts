@@ -59,3 +59,17 @@ export function stripTokenFromAuthPayload<T extends { token?: string }>(
   const { token: _removed, ...rest } = payload;
   return rest;
 }
+
+/** App nativo (Expo) — recebe JWT no JSON; PWA continua só com cookie httpOnly. */
+export function isNativeAuthClient(req: Pick<Request, "headers">): boolean {
+  const value = String(req.headers["x-cf-client"] || "").trim().toLowerCase();
+  return value === "expo" || value === "mobile";
+}
+
+export function resolveAuthResponsePayload<T extends { token?: string }>(
+  req: Pick<Request, "headers">,
+  payload: T,
+): T | Omit<T, "token"> {
+  if (isNativeAuthClient(req)) return payload;
+  return stripTokenFromAuthPayload(payload);
+}

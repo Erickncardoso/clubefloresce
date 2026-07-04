@@ -1,3 +1,5 @@
+import { addDaysToDateKey, formatDateKeyPtBr } from './local-date.js'
+
 const FOOD_LABELS = {
   1: 'Muito ruim',
   2: 'Ruim',
@@ -120,12 +122,12 @@ export function scoreFromTemplateAnswers(answers) {
   return Math.round((values.reduce((sum, value) => sum + value, 0) / (values.length * 5)) * 100)
 }
 
+
 export function formatCheckinPeriod(periodKey, frequency) {
   if (!periodKey) return '—'
 
   if (frequency === 'daily') {
-    const [year, month, day] = periodKey.slice(0, 10).split('-')
-    return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString('pt-BR', {
+    return formatDateKeyPtBr(periodKey, {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -140,9 +142,8 @@ export function formatCheckinPeriod(periodKey, frequency) {
     })
   }
 
-  const start = new Date(periodKey)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 6)
-  const fmt = (date) => date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-  return `${fmt(start)} a ${fmt(end)}`
+  const startKey = String(periodKey).slice(0, 10)
+  const endKey = addDaysToDateKey(startKey, 6)
+  const fmt = (key) => formatDateKeyPtBr(key, { day: '2-digit', month: 'short' })
+  return `${fmt(startKey)} a ${fmt(endKey)}`
 }

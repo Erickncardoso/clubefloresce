@@ -8,8 +8,9 @@ import { mapDatabaseError } from "../utils/db-errors";
 import {
   clearAuthCookie,
   extractAuthToken,
+  isNativeAuthClient,
+  resolveAuthResponsePayload,
   setAuthCookie,
-  stripTokenFromAuthPayload,
 } from "../utils/auth-cookie";
 
 const authService = new AuthService();
@@ -46,11 +47,13 @@ export class AuthController {
       const user = await registrationRequestService.registerPatientSelfCheckout(req.body);
       const session = await authService.createPatientSession(user.id);
       setAuthCookie(res, session.token, session.user?.role);
-      return res.status(201).json({
+      const registrationBody = {
         message: "Conta criada com sucesso.",
         user: session.user,
         redirectTo: "/assinatura",
-      });
+        ...(isNativeAuthClient(req) ? { token: session.token } : {}),
+      };
+      return res.status(201).json(registrationBody);
     } catch (error: any) {
       console.error("[auth] requestPatientRegistration:", error?.message || error);
       const message = String(error?.message || "");
@@ -90,7 +93,7 @@ export class AuthController {
       const { email, password } = req.body;
       const data = await authService.login(email, password);
       setAuthCookie(res, data.token, data.user?.role);
-      return res.json(stripTokenFromAuthPayload(data));
+      return res.json(resolveAuthResponsePayload(req, data));
     } catch (error: any) {
       const mapped = mapDatabaseError(error);
       if (mapped) {
@@ -132,7 +135,7 @@ export class AuthController {
 
       const data = await authService.refreshSession(token);
       setAuthCookie(res, data.token, data.user?.role);
-      return res.json(stripTokenFromAuthPayload(data));
+      return res.json(resolveAuthResponsePayload(req, data));
     } catch (error: any) {
       const message = error.message || "Sessão expirada.";
       return res.status(this.authFailureStatus(message)).json({ message });

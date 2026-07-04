@@ -18,7 +18,7 @@
           <div class="settings-section">
             <div class="section-badge">Visual</div>
             <h3>Identidade de Marca</h3>
-            <p>Configure como seus alunos enxergam o seu portal.</p>
+            <p>Configure como seus pacientes enxergam o seu portal.</p>
 
             <div class="upload-group">
               <label>Logotipo do Portal</label>
@@ -44,7 +44,7 @@
           <!-- Conteúdo e Boas-Vindas -->
           <div class="settings-section">
             <div class="section-badge">Conteúdo</div>
-            <h3>Experiência do Aluno</h3>
+            <h3>Experiência do Paciente</h3>
             <p>Personalize as mensagens de boas-vindas do Dashboard.</p>
 
             <div class="form-group">
@@ -70,15 +70,15 @@
           <div class="settings-section full-width">
             <div class="section-badge">Configurações</div>
             <h3>Recursos Ativos</h3>
-            <p>Habilite ou desabilite módulos específicos para seus alunos.</p>
+            <p>Habilite ou desabilite módulos específicos para seus pacientes.</p>
 
             <div class="features-toggles">
               <div class="toggle-card">
                 <div class="toggle-info">
                   <div class="toggle-icon-box"><MessageSquare /></div>
                   <div>
-                    <h4>Comunidade de Alunos</h4>
-                    <p>Permite que os alunos postem e comentem entre si.</p>
+                    <h4>Comunidade de Pacientes</h4>
+                    <p>Permite que os pacientes postem e comentem entre si.</p>
                   </div>
                 </div>
                 <label class="switch">

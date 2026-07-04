@@ -216,7 +216,7 @@
     </div>
 
     <p v-if="preview && isLastStep && canAdvance" class="typeform-preview-note">
-      Fim da prévia — no app a aluna envia aqui.
+      Fim da prévia — no app o paciente envia aqui.
     </p>
 
     <p v-if="error" class="typeform-error">{{ error }}</p>

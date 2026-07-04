@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <NuxtLayout name="dashboard">
     <div class="wa-page admin-shell">
       <header class="admin-shell-header wa-header">
@@ -9,7 +9,7 @@
             </span>
             <h1>Conexão WhatsApp</h1>
           </div>
-          <p>Conecte seu número para atender alunas, enviar check-ins e usar o chat integrado.</p>
+          <p>Conecte seu número para atender pacientes, enviar check-ins e usar o chat integrado.</p>
         </div>
         <span class="wa-status-pill" :class="`wa-status-pill--${statusPillTone}`">
           <span class="wa-status-dot" aria-hidden="true" />
@@ -189,7 +189,7 @@
               placeholder="parar, cancelar, atendente"
               @blur="saveSettings"
             >
-            <small>Quando a aluna digitar isso, o robô silencia.</small>
+            <small>Quando o paciente digitar isso, o robô silencia.</small>
           </div>
 
           <div class="wa-field">

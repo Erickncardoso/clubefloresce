@@ -533,7 +533,7 @@
             </div>
             <div class="form-group">
               <label>Descrição (opcional)</label>
-              <textarea v-model="newModule.description" rows="2" placeholder="O que o aluno aprenderá neste módulo?" />
+              <textarea v-model="newModule.description" rows="2" placeholder="O que o paciente aprenderá neste módulo?" />
             </div>
 
             <div class="modal-actions">

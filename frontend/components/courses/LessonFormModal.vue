@@ -247,11 +247,11 @@
                 id="lesson-summary"
                 v-model="form.content"
                 rows="4"
-                placeholder="Texto exibido na aba Resumo do player — o que a aluna vai aprender nesta aula..."
+                placeholder="Texto exibido na aba Resumo do player — o que o paciente vai aprender nesta aula..."
                 maxlength="2000"
               />
             </div>
-            <p class="field-hint">O resumo aparece para a aluna na aba Resumo enquanto assiste à aula.</p>
+            <p class="field-hint">O resumo aparece para o paciente na aba Resumo enquanto assiste à aula.</p>
 
             <div class="field lesson-links-field">
               <div class="lesson-links-head">

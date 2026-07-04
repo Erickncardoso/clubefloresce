@@ -1,6 +1,6 @@
 <template>
   <div class="patient-nutrition-section" :class="{ 'patient-nutrition-section--compact': compact }">
-    <div class="patient-nutrition-tabs" role="tablist" aria-label="Nutrição da aluna">
+    <div class="patient-nutrition-tabs" role="tablist" aria-label="Nutrição do paciente">
       <button
         type="button"
         role="tab"
@@ -58,7 +58,7 @@
       v-show="activeTab === 'metas'"
       class="patient-nutrition-panel"
       role="tabpanel"
-      aria-label="Metas da paciente"
+      aria-label="Metas do paciente"
     >
       <PatientsPatientGoalsPanel
         :patient-id="patientId"

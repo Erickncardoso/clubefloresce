@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Clube Florescer — Dev (Expo SDK 54)</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      background: #eef0eb;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
+    h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #6f7863; }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-top: 1rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+      text-align: center;
+    }
+    .ok {
+      background: #eef0eb;
+      border: 1px solid #8B967C;
+      border-radius: 12px;
+      padding: 1rem;
+      margin: 1rem 0;
+      font-size: 0.92rem;
+    }
+    img { margin: 0.5rem 0; }
+    code {
+      display: inline-block;
+      background: #eef0eb;
+      padding: 0.45rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      word-break: break-all;
+    }
+    ol { padding-left: 1.2rem; text-align: left; }
+    li { margin: 0.35rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Testar no celular (iOS / Android)</h1>
+  <div class="ok">
+    Projeto em <strong>Expo SDK 54</strong> — compatível com o <strong>Expo Go da App Store e Play Store</strong>.
+  </div>
+
+  <h2>Escaneie com o Expo Go</h2>
+  <div class="card">
+    <img
+      src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=exp%3A%2F%2F192.168.0.42%3A8081"
+      width="280"
+      height="280"
+      alt="QR do projeto"
+    />
+    <p><code>exp://192.168.0.42:8081</code></p>
+    <p style="font-size:0.85rem;color:#5f5f5c">Mesma Wi‑Fi · API: 192.168.0.42:3001</p>
+  </div>
+
+  <h2>Passo a passo</h2>
+  <ol>
+    <li>Instale/atualize o <strong>Expo Go</strong> na loja (iOS ou Android).</li>
+    <li>PC e celular na mesma Wi‑Fi.</li>
+    <li>Abra o Expo Go → escaneie o QR acima.</li>
+  </ol>
+</body>
+</html>

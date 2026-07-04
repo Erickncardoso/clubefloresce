@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <NuxtLayout name="dashboard">
     <div class="finance-container">
       <div class="admin-shell">
@@ -375,6 +375,8 @@ function formatNotificationType(type) {
     cart_abandoned_5m: 'Carrinho — 5 min',
     cart_abandoned_15m: 'Carrinho — 15 min',
     renewal_3d: 'Renovação em 3 dias',
+    renewal_1d_before: 'Renovação — 1 dia antes (Pix WhatsApp)',
+    renewal_1d_after: 'Renovação — 1 dia expirado (Pix WhatsApp)',
   }
   return map[type] || type
 }

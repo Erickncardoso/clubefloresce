@@ -1,6 +1,10 @@
-import { getWeekStart, getWeekStartInTimeZone } from "./week-start";
+import { getWeekStartInTimeZone } from "./week-start";
 import { CHECKIN_TIMEZONE } from "./checkin-weekly-window";
-import { entryDateFromKey } from "./patient-timezone";
+import {
+  entryDateFromKey,
+  getDateKeyInTimeZone,
+  isValidTimeZone,
+} from "./patient-timezone";
 
 export function readPatientDateKey(
   headers?: Record<string, string | string[] | undefined>,
@@ -11,27 +15,34 @@ export function readPatientDateKey(
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
 }
 
-function parseDateKey(dateKey: string): Date {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+export function readPatientTimeZone(
+  headers?: Record<string, string | string[] | undefined>,
+): string {
+  const raw = headers?.["x-patient-timezone"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const trimmed = String(value || "").trim();
+  if (trimmed && isValidTimeZone(trimmed)) return trimmed;
+  return CHECKIN_TIMEZONE;
 }
 
 export function resolvePeriodKey(
   frequency: string,
   dateKey?: string | null,
+  timeZone: string = CHECKIN_TIMEZONE,
 ): string {
-  const reference = dateKey ? parseDateKey(dateKey) : new Date();
+  const tz = timeZone?.trim() && isValidTimeZone(timeZone) ? timeZone : CHECKIN_TIMEZONE;
+  const reference = dateKey ? entryDateFromKey(dateKey) : new Date();
 
   if (frequency === "daily") {
     if (dateKey) return dateKey;
-    return reference.toISOString().slice(0, 10);
+    return getDateKeyInTimeZone(tz, reference);
   }
 
   if (frequency === "monthly") {
-    const key = dateKey || reference.toISOString().slice(0, 10);
+    const key = dateKey || getDateKeyInTimeZone(tz, reference);
     const [year, month] = key.split("-");
     return `${year}-${month}`;
   }
 
-  return getWeekStartInTimeZone(CHECKIN_TIMEZONE, reference).toISOString();
+  return getWeekStartInTimeZone(tz, reference).toISOString();
 }

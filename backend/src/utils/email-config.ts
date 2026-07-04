@@ -35,9 +35,34 @@ export function resolveEmailFrom(sender: EmailSender = "contact"): string {
   return sender === "noreply" ? getEmailFromNoreply() : getEmailFromContact();
 }
 
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/**
+ * Normaliza a base URL usada em links de e-mail.
+ * Remove barra final e — crucial — qualquer porta explícita (ex.: :3000) quando o host
+ * é um domínio real. Porta só é mantida em hosts locais (localhost/127.0.0.1).
+ */
+export function normalizeAppUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  if (!trimmed) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if (url.port && !LOCAL_HOSTNAMES.has(url.hostname.toLowerCase())) {
+      url.port = "";
+    }
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    // Sem esquema (ex.: "dominio.com:3000/x") — remove ":porta" de host não-local via regex.
+    return trimmed.replace(/^((?:https?:\/\/)?[^/:]+):\d+(?=$|\/)/i, (match, host) => {
+      const bareHost = String(host).replace(/^https?:\/\//i, "").toLowerCase();
+      return LOCAL_HOSTNAMES.has(bareHost) ? match : host;
+    });
+  }
+}
+
 export function getPatientAppUrl(): string {
   const configured = readEnv("PATIENT_APP_URL");
-  if (configured) return configured.replace(/\/$/, "");
+  if (configured) return normalizeAppUrl(configured);
 
   if (process.env.NODE_ENV === "production") {
     return "https://app.nutrisabellajardim.com.br";
@@ -54,7 +79,7 @@ export function getPatientAppOpenUrl(source = "email"): string {
 
 export function getAdminAppUrl(): string {
   const configured = readEnv("ADMIN_APP_URL");
-  if (configured) return configured.replace(/\/$/, "");
+  if (configured) return normalizeAppUrl(configured);
 
   if (process.env.NODE_ENV === "production") {
     return "https://clube.nutrisabellajardim.com.br";

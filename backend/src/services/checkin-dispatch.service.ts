@@ -24,7 +24,14 @@ function parseUserIds(raw: unknown): string[] {
 
 function parseScheduledAt(value: unknown): Date | null {
   if (!value) return null;
-  const date = new Date(String(value));
+  const raw = String(value).trim();
+  const match = raw.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+  if (match) {
+    const [, dateKey, hour, minute] = match;
+    const parsed = new Date(`${dateKey}T${hour}:${minute}:00-03:00`);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+  const date = new Date(raw);
   return Number.isFinite(date.getTime()) ? date : null;
 }
 

@@ -1,3 +1,5 @@
+import { getDateKeyInTimeZone } from "./patient-timezone";
+
 /** Fuso do app paciente (Brasil). */
 export const CHECKIN_TIMEZONE = "America/Sao_Paulo";
 
@@ -69,8 +71,10 @@ export function formatNextFridayLabel(date: Date = new Date()): string {
   }
   if (daysUntilFriday === 0) return "sexta-feira";
 
-  const target = new Date(date);
-  target.setDate(target.getDate() + daysUntilFriday);
+  const [year, month, day] = getDateKeyInTimeZone(CHECKIN_TIMEZONE, date)
+    .split("-")
+    .map(Number);
+  const target = new Date(Date.UTC(year, month - 1, day + daysUntilFriday, 12, 0, 0, 0));
   return target.toLocaleDateString("pt-BR", {
     weekday: "long",
     timeZone: CHECKIN_TIMEZONE,

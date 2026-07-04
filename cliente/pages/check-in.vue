@@ -210,7 +210,7 @@
 </template>
 
 <script setup>
-import { Search } from 'lucide-vue-next'
+import { formatDateKeyPtBr } from '~/utils/local-date'
 import { usePatientTabBar } from '~/composables/usePatientTabBar'
 
 const isPatientAppBuild = process.env.NUXT_PUBLIC_MOBILE_APP === 'true'
@@ -382,7 +382,14 @@ function formatLegacyWater(value, unit) {
 }
 
 const formatWeek = (dateStr) => {
+  const formatted = formatDateKeyPtBr(dateStr, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+  if (formatted !== '—') return formatted
   const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 

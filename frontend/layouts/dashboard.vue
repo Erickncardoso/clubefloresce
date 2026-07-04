@@ -421,7 +421,7 @@ const userEmail = ref('')
 
 const roleLabel = computed(() => {
   if (role.value === 'NUTRICIONISTA') return 'Nutricionista'
-  if (role.value === 'PACIENTE') return 'Aluna'
+  if (role.value === 'PACIENTE') return 'Paciente'
   return ''
 })
 
@@ -482,7 +482,7 @@ onMounted(async () => {
     ...commonMenu,
     { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
     { label: 'Financeiro', path: '/financeiro', icon: DollarSign },
-    { label: 'Usuários', path: '/usuarios', icon: Users },
+    { label: 'Pacientes', path: '/usuarios', icon: Users },
     { label: 'Personalizar', path: '/personalizar', icon: Palette },
     {
       label: 'WhatsApp',

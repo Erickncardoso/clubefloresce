@@ -293,7 +293,7 @@
       <aside class="poll-modal-preview" aria-label="Preview em tempo real">
         <header class="poll-preview-header">
           <h4>Teste ao vivo</h4>
-          <span class="poll-preview-hint">Clique na mensagem para simular o que a aluna verá</span>
+          <span class="poll-preview-hint">Clique na mensagem para simular o que o paciente verá</span>
         </header>
         <div class="poll-preview-body">
           <InteractiveMessagePreview :form="form" playground />

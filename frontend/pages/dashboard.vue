@@ -5,7 +5,7 @@
         <div>
           <p class="admin-home-kicker">Painel Clube Florescer</p>
           <h1>Olá, {{ greetingName }}</h1>
-          <p>Resumo do portal — alunas, conteúdos e atalhos do dia a dia.</p>
+          <p>Resumo do portal — pacientes, conteúdos e atalhos do dia a dia.</p>
         </div>
         <NuxtLink to="/whatsapp/chat" class="admin-home-cta">
           <WhatsAppIcon class="admin-home-cta-icon" />
@@ -75,8 +75,8 @@
         <div>
           <h2>Dica</h2>
           <p>
-            Use <NuxtLink to="/check-in">Check-ins</NuxtLink> para acompanhar a evolução das alunas e
-            <NuxtLink to="/personalizar">Personalizar</NuxtLink> para ajustar a identidade visual do app delas.
+            Use <NuxtLink to="/check-in">Check-ins</NuxtLink> para acompanhar a evolução dos pacientes e
+            <NuxtLink to="/personalizar">Personalizar</NuxtLink> para ajustar a identidade visual do app dos pacientes.
           </p>
         </div>
       </section>
@@ -125,7 +125,7 @@ const formatCurrency = (value) =>
 const statCards = computed(() => [
   {
     key: 'patients',
-    label: 'Alunas ativas',
+    label: 'Pacientes ativos',
     value: stats.patients,
     hint: 'Cadastradas no portal',
     icon: Users,
@@ -174,7 +174,7 @@ const statCards = computed(() => [
 ])
 
 const quickActions = [
-  { label: 'Gerenciar alunas', path: '/usuarios', icon: Users },
+  { label: 'Gerenciar pacientes', path: '/usuarios', icon: Users },
   { label: 'Cursos e aulas', path: '/cursos', icon: BookOpen },
   { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
   { label: 'Chat ao vivo', path: '/whatsapp/chat', icon: WhatsAppIcon },

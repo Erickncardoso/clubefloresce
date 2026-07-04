@@ -1,4 +1,5 @@
 import { readEnv } from "./env";
+import { normalizeAppUrl } from "./email-config";
 
 export function getMercadoPagoAccessToken(): string | null {
   return readEnv("MERCADOPAGO_ACCESS_TOKEN");
@@ -42,7 +43,8 @@ export function getBillingWebhookUrl(): string | null {
 }
 
 export function getPatientAppUrl(): string {
-  return readEnv("PATIENT_APP_URL") || "http://127.0.0.1:3002";
+  const configured = readEnv("PATIENT_APP_URL");
+  return configured ? normalizeAppUrl(configured) : "http://127.0.0.1:3002";
 }
 
 /** Dev local: aprova assinatura no cartão sem chamar MP (sandbox MP é instável). */

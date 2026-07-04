@@ -58,7 +58,7 @@
         v-model="draft"
         class="resumo-editor__textarea"
         :rows="compact ? 4 : 10"
-        placeholder="Descreva o que a aluna vai aprender nesta aula…"
+        placeholder="Descreva o que o paciente vai aprender nesta aula…"
         maxlength="8000"
       />
       <button

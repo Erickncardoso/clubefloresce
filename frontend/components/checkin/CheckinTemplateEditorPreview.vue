@@ -2,7 +2,7 @@
   <div class="checkin-editor-preview">
     <div class="checkin-editor-preview-head">
       <strong>Prévia ao vivo</strong>
-      <span>Como a aluna verá no app</span>
+      <span>Como o paciente verá no app</span>
     </div>
 
     <div class="checkin-phone-shell">

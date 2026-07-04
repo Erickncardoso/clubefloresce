@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-label="Cartão">
+  <rect x="2" y="4.5" width="20" height="15" rx="2.5" stroke="#2563EB" stroke-width="1.75"/>
+  <path d="M2 9.5h20" stroke="#2563EB" stroke-width="1.75" stroke-linecap="round"/>
+  <rect x="5.5" y="14" width="6" height="2.25" rx="1.125" fill="#2563EB"/>
+</svg>

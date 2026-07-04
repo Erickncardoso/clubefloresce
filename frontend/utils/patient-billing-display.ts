@@ -93,3 +93,19 @@ export function paymentMethodTagClass(user: PatientBillingUser): string {
   if (method === 'card') return 'user-tag--paymethod-card'
   return 'user-tag--paymethod-na'
 }
+
+function isPatientMethodPaid(user: PatientBillingUser, method: 'pix' | 'card'): boolean {
+  if (resolveBillingPaymentMethod(user) !== method) return false
+  const payLabel = paymentAccessLabel(user)
+  return payLabel === 'Pago' || payLabel === 'Expirado'
+}
+
+/** Paciente com pagamento confirmado (ou expirado após ter pago) via Pix. */
+export function isPatientPixPaid(user: PatientBillingUser): boolean {
+  return isPatientMethodPaid(user, 'pix')
+}
+
+/** Paciente com pagamento confirmado (ou expirado após ter pago) via cartão. */
+export function isPatientCardPaid(user: PatientBillingUser): boolean {
+  return isPatientMethodPaid(user, 'card')
+}

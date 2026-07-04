@@ -5,13 +5,13 @@
 
       <div v-else-if="error" class="error-state">
         <p>{{ error }}</p>
-        <NuxtLink to="/usuarios" class="btn-back">Voltar para alunos</NuxtLink>
+        <NuxtLink to="/usuarios" class="btn-back">Voltar para pacientes</NuxtLink>
       </div>
 
       <template v-else-if="overview">
         <header class="page-header">
           <div class="header-main">
-            <NuxtLink to="/usuarios" class="back-link">← Alunos</NuxtLink>
+            <NuxtLink to="/usuarios" class="back-link">← Pacientes</NuxtLink>
             <div class="patient-head">
               <PatientAvatar
                 :src="overview.patient.avatar"
@@ -32,9 +32,7 @@
                   <span class="user-tag user-tag--payment" :class="paymentTagClass(patientBilling)">
                     {{ paymentAccessLabel(patientBilling) }}
                   </span>
-                  <span class="user-tag user-tag--paymethod" :class="paymentMethodTagClass(patientBilling)">
-                    {{ paymentMethodLabel(patientBilling) }}
-                  </span>
+                  <PatientsPatientPaymentMethodBadge :user="patientBilling" />
                   <span class="muted">Desde {{ formatDate(overview.patient.createdAt) }}</span>
                   <span
                     v-if="isPatientAccessExpired(overview.patient.accessExpiresAt)"
@@ -68,9 +66,10 @@
             <article class="stat-card stat-card--billing">
               <span class="stat-label">Pagamento</span>
               <strong>{{ paymentAccessLabel(patientBilling) }}</strong>
-              <small>
-                Forma: {{ paymentMethodLabel(patientBilling) }}
-              </small>
+              <div class="stat-paymethod">
+                <span class="stat-paymethod-label">Forma:</span>
+                <PatientsPatientPaymentMethodBadge :user="patientBilling" />
+              </div>
             </article>
             <article class="stat-card">
               <span class="stat-label">Check-ins</span>
@@ -140,7 +139,7 @@
         <!-- Check-ins -->
         <section v-if="activeTab === 'checkins'" class="tab-panel">
           <div class="template-responses-block">
-            <h3>Respostas da aluna</h3>
+            <h3>Respostas do paciente</h3>
             <article
               v-for="item in templateResponses"
               :key="item.id"
@@ -197,7 +196,7 @@
                 <input v-model="checkInForm.weightKg" type="number" step="0.1" min="20" max="500" placeholder="Opcional" />
 
                 <label>Observações</label>
-                <textarea v-model="checkInForm.notes" rows="4" placeholder="Como foi a semana da paciente..." />
+                <textarea v-model="checkInForm.notes" rows="4" placeholder="Como foi a semana do paciente..." />
 
                 <button type="submit" class="btn-primary" :disabled="savingCheckIn">
                   {{ savingCheckIn ? 'Salvando...' : 'Salvar check-in' }}
@@ -235,7 +234,7 @@
                 <p v-if="mealPlan" class="muted">
                   {{ mealPlan.fileName }} · Atualizado {{ formatDateTime(mealPlan.updatedAt) }}
                 </p>
-                <p v-else class="muted">Nenhum plano importado para esta paciente.</p>
+                <p v-else class="muted">Nenhum plano importado para este paciente.</p>
               </div>
               <a v-if="mealPlan?.pdfUrl" :href="mealPlan.pdfUrl" target="_blank" rel="noopener" class="btn-secondary">
                 Ver PDF
@@ -299,7 +298,7 @@
         <!-- Metas -->
         <section v-if="activeTab === 'metas'" class="tab-panel">
           <article class="info-card">
-            <h3>Metas da paciente</h3>
+            <h3>Metas do paciente</h3>
             <PatientsPatientGoalsPanel :patient-id="patientId" :nutrition-target="overview.nutritionTarget" />
           </article>
         </section>
@@ -378,8 +377,6 @@ import { resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
 import { isPatientAccessExpired } from '~/utils/patient-access'
 import {
   paymentAccessLabel,
-  paymentMethodLabel,
-  paymentMethodTagClass,
   paymentTagClass,
 } from '~/utils/patient-billing-display'
 import { buildAnswerRows, formatCheckinPeriod } from '~/utils/checkin-answers'
@@ -618,7 +615,7 @@ const loadAll = async () => {
       await loadMealPlanDetail()
     }
   } catch (err) {
-    error.value = err.data?.message || err.data?.error || 'Não foi possível carregar a paciente.'
+    error.value = err.data?.message || err.data?.error || 'Não foi possível carregar o paciente.'
   } finally {
     loading.value = false
   }
@@ -864,6 +861,18 @@ onMounted(loadAll)
 
 .stat-card--billing strong {
   font-size: 1.15rem;
+}
+
+.stat-paymethod {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.stat-paymethod-label {
+  font-size: 0.78rem;
+  color: #64748b;
 }
 
 .muted { color: #888; font-size: 0.9rem; }
