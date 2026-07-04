@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { fixWindowsVitePaths } from '../frontend/utils/fix-windows-vite-paths'
 import { mirrorPwaDevSwDist, ensurePwaDevSwPlaceholder } from '../frontend/utils/mirror-pwa-dev-sw'
 import { resolveApiBaseAtBuild } from '../frontend/utils/resolve-api-base.mjs'
+import { buildInstagramExternalBrowserInlineScript } from '../frontend/utils/instagram-external-browser.js'
 
 const pwaDevEnabled = process.env.NUXT_PWA_DEV === 'true'
 
@@ -49,6 +50,7 @@ export default defineNuxtConfig({
   },
 
   plugins: [
+    join(rootDir, 'plugins/instagram-external-browser.client.ts'),
     join(frontendRoot, 'plugins/pwa-dev-unregister.client.ts'),
     join(frontendRoot, 'plugins/auth-session-bootstrap.client.ts'),
     join(frontendRoot, 'plugins/api-base.client.js'),
@@ -95,6 +97,14 @@ export default defineNuxtConfig({
         {
           name: 'description',
           content: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
+        },
+      ],
+      script: [
+        {
+          key: 'instagram-external-browser',
+          type: 'text/javascript',
+          innerHTML: buildInstagramExternalBrowserInlineScript(),
+          tagPriority: 'critical',
         },
       ],
     },

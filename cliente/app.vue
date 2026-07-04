@@ -13,6 +13,7 @@
     <PatientMealPlanUploadOverlay />
     <PatientPushPrompt :open="showPushPrompt" />
     <PatientMealPlanGate :open="showMealPlanGate" />
+    <InstagramSafariEscape />
   </div>
 </template>
 
