@@ -91,3 +91,22 @@ export function addBillingPeriodDays(from = new Date(), days = 30): Date {
   next.setDate(next.getDate() + days);
   return next;
 }
+
+/** Só libera acesso quando o pagamento acaba de ser confirmado (evita somar meses em webhooks repetidos). */
+export function shouldGrantAccessOnPaymentTransition(
+  previousStatus?: string | null,
+  nextStatus?: string | null,
+): boolean {
+  return String(nextStatus || "").toUpperCase() === "PAID"
+    && String(previousStatus || "").toUpperCase() !== "PAID";
+}
+
+/** Só libera acesso quando a assinatura acaba de ser autorizada. */
+export function shouldGrantAccessOnPreapprovalTransition(
+  previousStatus?: string | null,
+  nextStatus?: string | null,
+): boolean {
+  const normalizedNext = String(nextStatus || "").toLowerCase();
+  const normalizedPrevious = String(previousStatus || "").toLowerCase();
+  return normalizedNext === "authorized" && normalizedPrevious !== "authorized";
+}

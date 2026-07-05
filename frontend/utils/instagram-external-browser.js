@@ -5,6 +5,20 @@ export function isInstagramInAppBrowser(userAgent = '') {
   return String(userAgent || '').toLowerCase().includes('instagram')
 }
 
+export function isWhatsAppInAppBrowser(userAgent = '') {
+  return String(userAgent || '').toLowerCase().includes('whatsapp')
+}
+
+/** Webviews que bloqueiam PWA — Instagram, WhatsApp, etc. */
+export function isSocialInAppBrowser(userAgent = '') {
+  const ua = String(userAgent || '').toLowerCase()
+  return ua.includes('instagram')
+    || ua.includes('whatsapp')
+    || ua.includes('fbav')
+    || ua.includes('fban')
+    || ua.includes('messenger')
+}
+
 export function isAndroidUserAgent(userAgent = '') {
   return String(userAgent || '').toLowerCase().includes('android')
 }
@@ -17,7 +31,7 @@ export function isIosUserAgent(userAgent = '') {
 export function shouldShowInstagramSafariEscape(userAgent) {
   const ua = userAgent ?? (typeof window !== 'undefined' ? window.navigator.userAgent : '')
   if (!ua) return false
-  return isInstagramInAppBrowser(ua) && isIosUserAgent(ua)
+  return isSocialInAppBrowser(ua) && isIosUserAgent(ua)
 }
 
 function stripProtocol(href) {
@@ -53,13 +67,14 @@ export function tryIosSafariEscape(href, options = {}) {
 }
 
 /**
- * Redireciona do webview do Instagram para Chrome (Android) ou Safari (iOS).
+ * Redireciona do webview (Instagram, WhatsApp, etc.) para Chrome (Android) ou Safari (iOS).
+ * No Android com PWA instalado, o Chrome pode abrir o app via handle_links do manifest.
  */
 export function redirectFromInstagramInAppBrowser(options = {}) {
   if (typeof window === 'undefined') return false
 
   const ua = options.userAgent || window.navigator.userAgent || ''
-  if (!isInstagramInAppBrowser(ua)) return false
+  if (!isSocialInAppBrowser(ua)) return false
 
   const storage = options.storage || window.sessionStorage
   if (storage?.getItem?.(INSTAGRAM_REDIRECT_STORAGE_KEY)) return false
@@ -85,5 +100,5 @@ export function redirectFromInstagramInAppBrowser(options = {}) {
 /** Script inline no <head> — roda antes do bundle Vue (crítico no Instagram). */
 export function buildInstagramExternalBrowserInlineScript() {
   const key = INSTAGRAM_REDIRECT_STORAGE_KEY
-  return `(function(){try{var ua=navigator.userAgent.toLowerCase();if(ua.indexOf('instagram')===-1)return;if(sessionStorage.getItem('${key}'))return;sessionStorage.setItem('${key}','1');var href=window.location.href;var path=href.replace(/^https?:\\/\\//,'');if(ua.indexOf('android')>-1){window.location.href='intent://'+path+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(href)+';end';return;}if(ua.indexOf('iphone')>-1||ua.indexOf('ipad')>-1||ua.indexOf('ipod')>-1){setTimeout(function(){var enc=encodeURIComponent(href);window.location.href='instagram://extbrowser?url='+enc;setTimeout(function(){window.location.href='x-safari-https://'+path;},350);setTimeout(function(){window.location.href=href;},1100);},300);}}catch(e){}})();`
+  return `(function(){try{var ua=navigator.userAgent.toLowerCase();var inApp=ua.indexOf('instagram')>-1||ua.indexOf('whatsapp')>-1||ua.indexOf('fbav')>-1||ua.indexOf('fban')>-1||ua.indexOf('messenger')>-1;if(!inApp)return;if(sessionStorage.getItem('${key}'))return;sessionStorage.setItem('${key}','1');var href=window.location.href;var path=href.replace(/^https?:\\/\\//,'');if(ua.indexOf('android')>-1){window.location.href='intent://'+path+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(href)+';end';return;}if(ua.indexOf('iphone')>-1||ua.indexOf('ipad')>-1||ua.indexOf('ipod')>-1){setTimeout(function(){var enc=encodeURIComponent(href);if(ua.indexOf('instagram')>-1){window.location.href='instagram://extbrowser?url='+enc;}setTimeout(function(){window.location.href='x-safari-https://'+path;},350);setTimeout(function(){window.location.href=href;},1100);},300);}}catch(e){}})();`
 }

@@ -156,6 +156,7 @@ export default defineNuxtConfig({
       display_override: ['standalone', 'fullscreen'],
       scope: '/',
       start_url: '/?source=pwa',
+      handle_links: 'preferred',
       related_applications: [
         {
           platform: 'webapp',

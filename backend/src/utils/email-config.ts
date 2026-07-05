@@ -71,9 +71,13 @@ export function getPatientAppUrl(): string {
   return "http://127.0.0.1:3002";
 }
 
-/** Link de e-mail que abre a rota /abrir (PWA no Android quando instalado; guia no iOS). */
-export function getPatientAppOpenUrl(source = "email"): string {
+/** Link que passa por /abrir — melhor chance de abrir o PWA instalado (Android/iOS). */
+export function getPatientAppOpenUrl(source = "email", toPath = ""): string {
   const params = new URLSearchParams({ source });
+  const path = String(toPath || "").trim();
+  if (path) {
+    params.set("to", path.startsWith("/") ? path : `/${path}`);
+  }
   return `${getPatientAppUrl()}/abrir?${params.toString()}`;
 }
 

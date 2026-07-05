@@ -2,10 +2,10 @@
   <Teleport to="body">
     <div v-if="open" class="ig-safari-escape" role="dialog" aria-modal="true" aria-label="Abrir no Safari">
       <div class="ig-safari-escape__card">
-        <p class="ig-safari-escape__eyebrow">Instagram</p>
+        <p class="ig-safari-escape__eyebrow">{{ inAppLabel }}</p>
         <h2 class="ig-safari-escape__title">Abrir no Safari</h2>
         <p class="ig-safari-escape__text">
-          Para o app funcionar direito (login, notificações e instalação), abra este link no Safari.
+          Para o app funcionar direito (login, assinatura e instalação), abra este link no Safari.
         </p>
 
         <button type="button" class="ig-safari-escape__primary" @click="openSafari">
@@ -25,10 +25,11 @@
 </template>
 
 <script setup>
-import { tryIosSafariEscape, shouldShowInstagramSafariEscape } from '~/utils/instagram-external-browser'
+import { tryIosSafariEscape, shouldShowInstagramSafariEscape, isWhatsAppInAppBrowser } from '~/utils/instagram-external-browser'
 
 const open = ref(false)
 const copied = ref(false)
+const inAppLabel = ref('App social')
 
 function openSafari() {
   tryIosSafariEscape(window.location.href)
@@ -59,6 +60,8 @@ async function copyLink() {
 
 onMounted(() => {
   if (!shouldShowInstagramSafariEscape()) return
+  const ua = window.navigator.userAgent || ''
+  inAppLabel.value = isWhatsAppInAppBrowser(ua) ? 'WhatsApp' : 'Instagram'
   window.setTimeout(() => {
     if (shouldShowInstagramSafariEscape()) open.value = true
   }, 900)

@@ -5,6 +5,7 @@ import {
   buildInstagramExternalBrowserInlineScript,
   buildIosSafariEscapeUrls,
   isInstagramInAppBrowser,
+  isWhatsAppInAppBrowser,
   redirectFromInstagramInAppBrowser,
   shouldShowInstagramSafariEscape,
 } from '../utils/instagram-external-browser.js'
@@ -28,13 +29,23 @@ describe('instagram-external-browser', () => {
     assert.equal(urls[2], href)
   })
 
-  it('gera script inline com Safari no iOS', () => {
+  it('detecta user agent do WhatsApp', () => {
+    assert.equal(isWhatsAppInAppBrowser('Mozilla WhatsApp/2.23'), true)
+    assert.equal(isWhatsAppInAppBrowser('Mozilla/5.0 Chrome'), false)
+  })
+
+  it('detecta iPhone no WhatsApp para prompt Safari', () => {
+    assert.equal(shouldShowInstagramSafariEscape('WhatsApp iPhone'), true)
+    assert.equal(shouldShowInstagramSafariEscape('WhatsApp Android'), false)
+  })
+
+  it('gera script inline com WhatsApp e Safari no iOS', () => {
     const script = buildInstagramExternalBrowserInlineScript()
+    assert.match(script, /whatsapp/)
     assert.match(script, /instagram/)
     assert.match(script, /extbrowser/)
     assert.match(script, /x-safari-https:\/\//)
     assert.match(script, new RegExp(INSTAGRAM_REDIRECT_STORAGE_KEY))
-    assert.doesNotMatch(script, /googlechrome/)
   })
 
   it('redireciona Android via intent Chrome', () => {
@@ -60,7 +71,29 @@ describe('instagram-external-browser', () => {
     }
   })
 
-  it('não redireciona fora do Instagram', () => {
+  it('redireciona WhatsApp Android via intent Chrome', () => {
+    const storage = new Map()
+    const originalWindow = globalThis.window
+    globalThis.window = {
+      location: { href: 'https://app.nutrisabellajardim.com.br/abrir?to=/assinatura' },
+    }
+    try {
+      const result = redirectFromInstagramInAppBrowser({
+        userAgent: 'WhatsApp Android',
+        href: 'https://app.nutrisabellajardim.com.br/abrir?to=/assinatura',
+        storage: {
+          getItem: (key) => storage.get(key) ?? null,
+          setItem: (key, value) => storage.set(key, value),
+        },
+      })
+      assert.equal(result, true)
+      assert.match(globalThis.window.location.href, /^intent:\/\//)
+    } finally {
+      globalThis.window = originalWindow
+    }
+  })
+
+  it('não redireciona fora de webviews sociais', () => {
     const storage = new Map()
     const result = redirectFromInstagramInAppBrowser({
       userAgent: 'Mozilla/5.0 Chrome',

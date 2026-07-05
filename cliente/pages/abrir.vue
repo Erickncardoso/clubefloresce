@@ -19,17 +19,22 @@
 
               <p v-else-if="isIos" class="open-app-lead">
                 Se você já adicionou o app à tela inicial, abra pelo ícone
-                <strong>Clube Florescer</strong>. Caso contrário, entre pelo navegador abaixo.
+                <strong>Clube Florescer</strong>. Caso contrário, entre pelo botão abaixo.
+              </p>
+
+              <p v-else-if="fromWhatsApp" class="open-app-lead">
+                Abrindo no navegador para entrar no app instalado. Se não abrir sozinho, toque em
+                <strong>Entrar agora</strong>.
               </p>
 
               <p v-else class="open-app-lead">
-                Toque em entrar para abrir no navegador com o e-mail e a senha que você cadastrou.
+                Toque em entrar para abrir com o e-mail e a senha que você cadastrou.
               </p>
 
               <button
                 type="button"
                 class="btn-auth-submit patient-auth-submit patient-auth-submit--inline cf-squircle--control"
-                @click="goToLogin"
+                @click="goToDestination"
               >
                 Entrar agora
               </button>
@@ -47,6 +52,7 @@
 
 <script setup>
 import { isStandalonePwa } from '~/utils/pwa-standalone'
+import { isWhatsAppInAppBrowser } from '~/utils/instagram-external-browser'
 
 definePageMeta({ layout: false, pageTransition: false })
 
@@ -59,25 +65,39 @@ useSeoMeta({
   ogImage: '/pwa/apple-touch-icon.png',
 })
 
+const route = useRoute()
 const { ensurePatientSession } = usePatientAuth()
 
 const checking = ref(true)
 const isIos = ref(false)
+const fromWhatsApp = ref(false)
 const installedAppDetected = ref(false)
 
-async function goToLogin() {
+function resolveTargetPath() {
+  const raw = route.query.to
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (typeof value !== 'string' || !value.trim()) return null
+  const path = value.trim()
+  if (!path.startsWith('/')) return `/${path}`
+  return path
+}
+
+async function goToDestination() {
   const valid = await ensurePatientSession()
-  await navigateTo(valid ? '/inicio' : '/', { replace: true })
+  const target = resolveTargetPath()
+  const fallback = valid ? '/inicio' : '/'
+  await navigateTo(target || fallback, { replace: true })
 }
 
 onMounted(async () => {
   if (import.meta.client) {
     const ua = window.navigator.userAgent || ''
     isIos.value = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    fromWhatsApp.value = isWhatsAppInAppBrowser(ua)
   }
 
   if (isStandalonePwa()) {
-    await goToLogin()
+    await goToDestination()
     return
   }
 

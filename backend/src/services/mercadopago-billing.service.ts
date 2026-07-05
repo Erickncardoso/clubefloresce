@@ -16,6 +16,7 @@ import {
   addBillingPeriodDays,
   buildMercadoPagoWebhookEventKey,
   extractMercadoPagoWebhookResourceId,
+  shouldGrantAccessOnPaymentTransition,
 } from "../utils/mercadopago-webhook";
 import { billingPlanConfigService } from "./billing-plan-config.service";
 import { billingNotificationService } from "./billing-notification.service";
@@ -390,14 +391,11 @@ export class MercadoPagoBillingService {
   }
 
   async subscribeWithCard(input: SubscribeCardInput) {
-    const { product } = await billingPlanConfigService.resolvePlanAmount(input.planId);
     if (isMercadoPagoTestMode()) {
       return this.subscribeWithCardSandboxPayment(input);
     }
-    if (!product.isSubscription) {
-      return this.subscribeWithCardOneTimePayment(input);
-    }
-    return this.subscribeWithCardPreApproval(input);
+    // Cobrança imediata no cartão (Payment API). Renovação mensal = novo checkout quando vencer.
+    return this.subscribeWithCardOneTimePayment(input);
   }
 
   private async subscribeWithCardOneTimePayment(input: SubscribeCardInput) {
@@ -442,7 +440,7 @@ export class MercadoPagoBillingService {
         status: subscriptionStatus,
         paymentMethod: "card",
         amount,
-        nextBillingAt: null,
+        nextBillingAt: paymentStatus === "PAID" ? addBillingPeriodDays(new Date(), accessDays) : null,
         rawPayload: { oneTimeCardPayment: true, payment } as any,
       },
     });
@@ -456,14 +454,16 @@ export class MercadoPagoBillingService {
         paymentMethod: "card",
         mercadoPagoPaymentId: paymentId || null,
         externalReference,
-        metadata: input.identification?.number
-          ? {
-              payerIdentification: {
+        metadata: {
+          accessDays,
+          flow: "card_one_time",
+          payerIdentification: input.identification?.number
+            ? {
                 type: input.identification.type || "CPF",
                 number: String(input.identification.number).replace(/\D/g, ""),
-              },
-            }
-          : undefined,
+              }
+            : null,
+        },
       },
     });
 
@@ -995,6 +995,8 @@ export class MercadoPagoBillingService {
     });
 
     if (transaction) {
+      const previousStatus = transaction.status;
+
       await prisma.transaction.update({
         where: { id: transaction.id },
         data: {
@@ -1004,7 +1006,8 @@ export class MercadoPagoBillingService {
         },
       });
 
-      if (status === "PAID" && transaction.plan) {
+      const becamePaid = shouldGrantAccessOnPaymentTransition(previousStatus, status);
+      if (becamePaid && transaction.plan) {
         const paymentMethod = transaction.paymentMethod || null;
         const meta = transaction.metadata as Record<string, unknown> | null;
         const accessDays = Number(meta?.accessDays) || 30;
@@ -1045,21 +1048,23 @@ export class MercadoPagoBillingService {
     const existingTxn = await prisma.transaction.findFirst({
       where: { mercadoPagoPaymentId: paymentId },
     });
-    if (!existingTxn) {
-      await prisma.transaction.create({
-        data: {
-          userId: subscription.userId,
-          amount: subscription.amount,
-          status: "PAID",
-          plan: subscription.plan,
-          paymentMethod: "pix",
-          mercadoPagoPaymentId: paymentId || null,
-          mercadoPagoPreapprovalId: preapprovalId,
-          externalReference: String(payment?.external_reference || ""),
-          metadata: payment as any,
-        },
-      });
+    if (existingTxn) {
+      return;
     }
+
+    await prisma.transaction.create({
+      data: {
+        userId: subscription.userId,
+        amount: subscription.amount,
+        status: "PAID",
+        plan: subscription.plan,
+        paymentMethod: "pix",
+        mercadoPagoPaymentId: paymentId || null,
+        mercadoPagoPreapprovalId: preapprovalId,
+        externalReference: String(payment?.external_reference || ""),
+        metadata: payment as any,
+      },
+    });
 
     await this.extendUserAccess(subscription.userId, subscription.plan, 30, "pix");
     await prisma.billingSubscription.update({
@@ -1093,17 +1098,6 @@ export class MercadoPagoBillingService {
         rawPayload: preapproval as any,
       },
     });
-
-    if (status === "authorized") {
-      await this.extendUserAccess(subscription.userId, subscription.plan, 30, "pix");
-      await prisma.transaction.updateMany({
-        where: {
-          userId: subscription.userId,
-          mercadoPagoPreapprovalId: preapprovalId,
-        },
-        data: { status: "PAID" },
-      });
-    }
   }
 }
 

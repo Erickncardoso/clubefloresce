@@ -160,7 +160,7 @@
 
           <div v-else-if="paymentMethod === 'card'" class="checkout-card">
             <p class="checkout-card-hint">
-              Cobrança mensal recorrente de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> no cartão.
+              Cobrança de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> no cartão agora. Renovação mensal pelo app quando o período vencer.
             </p>
 
             <details v-if="billingConfig?.testMode" class="checkout-sandbox cf-squircle cf-squircle--control">
@@ -622,10 +622,10 @@ async function submitCardCheckout() {
       },
     })
 
-    if (result?.status === 'authorized') {
+    if (result?.status === 'authorized' || result?.status === 'PAID') {
       await completeCheckoutSuccess()
     } else {
-      checkoutError.value = 'Pagamento pendente. Aguarde a confirmação ou tente novamente.'
+      checkoutError.value = 'Pagamento não aprovado. Verifique o cartão ou tente outro método.'
     }
   } catch (err) {
     checkoutError.value = err?.data?.message || err?.message || 'Não foi possível processar o cartão. Verifique os dados e tente novamente.'

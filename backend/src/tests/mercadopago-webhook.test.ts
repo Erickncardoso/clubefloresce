@@ -5,6 +5,8 @@ import {
   addBillingPeriodDays,
   buildMercadoPagoWebhookEventKey,
   extractMercadoPagoWebhookResourceId,
+  shouldGrantAccessOnPaymentTransition,
+  shouldGrantAccessOnPreapprovalTransition,
   verifyMercadoPagoWebhookSignature,
 } from "../utils/mercadopago-webhook";
 
@@ -41,6 +43,17 @@ test("addBillingPeriodDays: adiciona 30 dias por padrão", () => {
   const base = new Date("2026-01-01T12:00:00.000Z");
   const next = addBillingPeriodDays(base, 30);
   assert.equal(next.getUTCDate(), 31);
+});
+
+test("shouldGrantAccessOnPaymentTransition: só na primeira confirmação", () => {
+  assert.equal(shouldGrantAccessOnPaymentTransition("PENDING", "PAID"), true);
+  assert.equal(shouldGrantAccessOnPaymentTransition("PAID", "PAID"), false);
+  assert.equal(shouldGrantAccessOnPaymentTransition("PAID", "CANCELLED"), false);
+});
+
+test("shouldGrantAccessOnPreapprovalTransition: só na primeira autorização", () => {
+  assert.equal(shouldGrantAccessOnPreapprovalTransition("pending", "authorized"), true);
+  assert.equal(shouldGrantAccessOnPreapprovalTransition("authorized", "authorized"), false);
 });
 
 test("verifyMercadoPagoWebhookSignature: aceita em dev sem secret", () => {

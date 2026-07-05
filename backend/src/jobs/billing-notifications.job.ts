@@ -1,4 +1,5 @@
 import { BillingNotificationService } from "../services/billing-notification.service";
+import { formatDateKeyInTimeZone } from "../utils/billing-renewal-dates";
 
 const service = new BillingNotificationService();
 let lastRenewalDayKey = "";
@@ -10,7 +11,8 @@ export async function runBillingNotificationJobs(now = new Date()): Promise<void
     console.error("[BillingNotify] Falha em carrinho abandonado:", error);
   }
 
-  const renewalKey = `${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}-${now.getUTCHours()}`;
+  // Uma vez por dia civil (BRT) — evita reenviar lembretes a cada hora.
+  const renewalKey = formatDateKeyInTimeZone(now);
   if (lastRenewalDayKey !== renewalKey) {
     lastRenewalDayKey = renewalKey;
     try {

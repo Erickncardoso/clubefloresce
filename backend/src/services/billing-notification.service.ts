@@ -122,29 +122,17 @@ export class BillingNotificationService {
     });
   }
 
-  private formatPixExpiration(value?: string | Date | null): string {
-    if (!value) return "";
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "America/Sao_Paulo",
-    });
-  }
-
-  private async wasRenewalSent(
+  private async wasRenewalNotified(
     userId: string,
+    channel: "whatsapp" | "email",
     type: "renewal_1d_before" | "renewal_1d_after",
     expiryKey: string,
   ): Promise<boolean> {
     const already = await prisma.billingNotificationLog.findFirst({
       where: {
         userId,
+        channel,
         type,
-        status: "sent",
         metadata: { path: ["expiryKey"], equals: expiryKey },
       },
       select: { id: true },
@@ -154,106 +142,61 @@ export class BillingNotificationService {
 
   private buildRenewalWhatsappText(input: {
     first: string;
-    type: "renewal_1d_before" | "renewal_1d_after";
     renewDate: string;
     checkout: string;
-    pixCode?: string | null;
-    pixExpiresLabel?: string;
-    pixFallbackReason?: string | null;
-    amount?: number;
   }): string {
-    const { first, type, renewDate, checkout, pixCode, pixExpiresLabel, pixFallbackReason, amount } = input;
-    const amountLine = amount ? `\n💰 Valor: *R$ ${amount.toFixed(2).replace(".", ",")}*` : "";
-
-    if (type === "renewal_1d_before") {
-      if (pixCode) {
-        return `Olá, *${first}*! 🌿\n\nSua assinatura do *Clube Florescer* vence *amanhã* (*${renewDate}*).${amountLine}\n\nCopie o código Pix abaixo e cole no app do seu banco:\n\n${pixCode}\n\n⏰ Válido${pixExpiresLabel ? ` até ${pixExpiresLabel}` : " por 24 horas"}.\n\nOu renove pelo app:\n${checkout}`;
-      }
-      return `Olá, *${first}*! 🌿\n\nSua assinatura do *Clube Florescer* vence *amanhã* (*${renewDate}*).\n\nRenove aqui:\n${checkout}${pixFallbackReason ? `\n\n_(Pix automático indisponível: ${pixFallbackReason}. Informe seu CPF no checkout.)_` : ""}`;
-    }
-
-    if (pixCode) {
-      return `Olá, *${first}*!\n\nSeu acesso ao *Clube Florescer* expirou em *${renewDate}*.${amountLine}\n\nPara voltar agora, copie o Pix abaixo e cole no app do seu banco:\n\n${pixCode}\n\n⏰ Válido${pixExpiresLabel ? ` até ${pixExpiresLabel}` : " por 24 horas"}.\n\nOu acesse:\n${checkout}`;
-    }
-
-    return `Olá, *${first}*!\n\nSeu acesso ao *Clube Florescer* expirou em *${renewDate}*.\n\nRenove aqui:\n${checkout}${pixFallbackReason ? `\n\n_(Pix automático indisponível: ${pixFallbackReason}.)_` : ""}`;
+    const { first, renewDate, checkout } = input;
+    return `Olá, *${first}*! 🌿\n\nSua assinatura do *Clube Florescer* vence *amanhã* (*${renewDate}*).\n\nQuando quiser renovar, é só acessar:\n${checkout}`;
   }
 
-  private async sendRenewalPixReminder(
+  private async sendRenewalReminder(
     user: NotifyUser,
     type: "renewal_1d_before" | "renewal_1d_after",
     expiryKey: string,
   ): Promise<void> {
-    if (await this.wasRenewalSent(user.id, type, expiryKey)) return;
-
-    let pixCode: string | null = null;
-    let pixExpiresLabel = "";
-    let pixFallbackReason: string | null = null;
-    let renewalAmount: number | undefined;
-
-    try {
-      const { mercadoPagoBillingService } = await import("./mercadopago-billing.service");
-      const result = await mercadoPagoBillingService.generateRenewalPixForUser(user.id);
-      if (result.ok && result.pix?.qrCode) {
-        pixCode = result.pix.qrCode;
-        pixExpiresLabel = this.formatPixExpiration(result.pix.expiresAt);
-        renewalAmount = result.amount;
-      } else if (!result.ok && result.reason === "missing_cpf") {
-        pixFallbackReason = "CPF não encontrado no histórico de pagamento";
-      } else if (!result.ok) {
-        pixFallbackReason = "não foi possível gerar o Pix agora";
-      }
-    } catch (error: any) {
-      pixFallbackReason = error?.message || "erro ao gerar Pix";
-      console.warn("[BillingNotify] Pix renovação:", pixFallbackReason);
-    }
-
     const first = this.firstName(user.name);
     const renewDate = this.formatAccessDate(user.accessExpiresAt);
     const checkout = this.checkoutUrl();
-    const whatsappText = this.buildRenewalWhatsappText({
-      first,
-      type,
-      renewDate,
-      checkout,
-      pixCode,
-      pixExpiresLabel,
-      pixFallbackReason,
-      amount: renewalAmount,
-    });
 
-    const nutriUserId = await this.getPrimaryNutritionistId();
-    if (nutriUserId && user.phone) {
-      try {
-        await this.sendWhatsapp(nutriUserId, user.phone, whatsappText);
+    // WhatsApp: apenas 1 lembrete (1 dia antes), sem Pix automático — evita spam.
+    if (type === "renewal_1d_before" && !(await this.wasRenewalNotified(user.id, "whatsapp", type, expiryKey))) {
+      const whatsappText = this.buildRenewalWhatsappText({ first, renewDate, checkout });
+      const nutriUserId = await this.getPrimaryNutritionistId();
+
+      if (nutriUserId && user.phone) {
+        try {
+          await this.sendWhatsapp(nutriUserId, user.phone, whatsappText);
+          await this.logNotification({
+            userId: user.id,
+            channel: "whatsapp",
+            type,
+            status: "sent",
+            detail: "Link de renovação enviado",
+            metadata: { expiryKey },
+          });
+        } catch (error: any) {
+          await this.logNotification({
+            userId: user.id,
+            channel: "whatsapp",
+            type,
+            status: "failed",
+            error: error?.message || String(error),
+            metadata: { expiryKey },
+          });
+        }
+      } else {
         await this.logNotification({
           userId: user.id,
           channel: "whatsapp",
           type,
-          status: "sent",
-          detail: pixCode ? "Pix copia e cola enviado" : "Link de checkout enviado",
-          metadata: { expiryKey, hasPix: Boolean(pixCode) },
-        });
-      } catch (error: any) {
-        await this.logNotification({
-          userId: user.id,
-          channel: "whatsapp",
-          type,
-          status: "failed",
-          error: error?.message || String(error),
-          metadata: { expiryKey, hasPix: Boolean(pixCode) },
+          status: "skipped",
+          detail: !nutriUserId ? "WhatsApp não configurado" : "Telefone ausente",
+          metadata: { expiryKey },
         });
       }
-    } else {
-      await this.logNotification({
-        userId: user.id,
-        channel: "whatsapp",
-        type,
-        status: "skipped",
-        detail: !nutriUserId ? "WhatsApp não configurado" : "Telefone ausente",
-        metadata: { expiryKey },
-      });
     }
+
+    if (await this.wasRenewalNotified(user.id, "email", type, expiryKey)) return;
 
     try {
       await emailService.sendBillingRenewalReminder({
@@ -281,12 +224,31 @@ export class BillingNotificationService {
     }
   }
 
+  private async wasRecentlyNotified(
+    userId: string,
+    type: BillingNotificationType,
+    withinMs: number,
+  ): Promise<boolean> {
+    const since = new Date(Date.now() - withinMs);
+    const recent = await prisma.billingNotificationLog.findFirst({
+      where: {
+        userId,
+        type,
+        status: "sent",
+        createdAt: { gte: since },
+      },
+      select: { id: true },
+    });
+    return Boolean(recent);
+  }
+
   private firstName(name: string): string {
     return name.split(" ")[0] || name;
   }
 
+  /** Link de renovação/checkout — /abrir tenta abrir o PWA instalado antes de /assinatura. */
   private checkoutUrl(): string {
-    return `${getPatientAppUrl()}/assinatura`;
+    return getPatientAppOpenUrl("billing", "/assinatura");
   }
 
   private async sendWhatsapp(nutriUserId: string, phone: string | null | undefined, text: string) {
@@ -304,12 +266,13 @@ export class BillingNotificationService {
   async notifyPaymentSuccess(userId: string): Promise<void> {
     const user = await this.loadUser(userId);
     if (!user || !isPatientPaidAccessActive(user.plan, user.accessExpiresAt)) return;
+    if (await this.wasRecentlyNotified(userId, "payment_success", 6 * 60 * 60 * 1000)) return;
 
     await this.checkoutSessions.markCompleted(userId);
 
     const first = this.firstName(user.name);
     const accessUntil = this.formatAccessDate(user.accessExpiresAt);
-    const appUrl = getPatientAppOpenUrl("payment-success");
+    const appUrl = getPatientAppOpenUrl("payment-success", "/inicio");
 
     const whatsappText = `Olá, *${first}*! 🌿\n\nSeu pagamento foi confirmado e seu acesso ao *Clube Florescer* está liberado até *${accessUntil}*.\n\nToque para entrar no app:\n${appUrl}`;
 
@@ -370,6 +333,7 @@ export class BillingNotificationService {
   async notifyPaymentFailed(userId: string, reason?: string): Promise<void> {
     const user = await this.loadUser(userId);
     if (!user) return;
+    if (await this.wasRecentlyNotified(userId, "payment_failed", 12 * 60 * 60 * 1000)) return;
 
     const first = this.firstName(user.name);
     const checkout = this.checkoutUrl();
@@ -541,11 +505,11 @@ export class BillingNotificationService {
       const expiryKey = accessExpiresDateKey(user.accessExpiresAt);
 
       if (expiryKey === tomorrowKey) {
-        await this.sendRenewalPixReminder(user, "renewal_1d_before", expiryKey);
+        await this.sendRenewalReminder(user, "renewal_1d_before", expiryKey);
       }
 
       if (expiryKey === yesterdayKey) {
-        await this.sendRenewalPixReminder(user, "renewal_1d_after", expiryKey);
+        await this.sendRenewalReminder(user, "renewal_1d_after", expiryKey);
       }
     }
   }
