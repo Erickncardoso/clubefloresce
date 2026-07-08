@@ -104,12 +104,30 @@ export class FoodRepository {
 
   private async searchOverrides(normalizedQuery: string, limit: number): Promise<FoodItemDto[]> {
     if (!normalizedQuery) return [];
+
+    const tokens = tokenizeFoodQuery(normalizedQuery);
+    const where =
+      tokens.length > 1
+        ? {
+            AND: tokens.map((token) => ({
+              searchText: { contains: token },
+            })),
+          }
+        : { searchText: { contains: normalizedQuery } };
+
     const rows = await prisma.foodOverride.findMany({
-      where: { searchText: { contains: normalizedQuery } },
-      take: Math.min(limit * 2, 20),
+      where,
+      take: Math.min(limit * 3, 40),
       orderBy: [{ name: "asc" }],
     });
-    return rows.map((row) => this.mapOverride(row as any));
+
+    return rows
+      .map((row) => this.mapOverride(row as any))
+      .sort(
+        (a, b) =>
+          scoreFoodSearchResult(normalizedQuery, b.name, "CUSTOM") -
+          scoreFoodSearchResult(normalizedQuery, a.name, "CUSTOM"),
+      );
   }
 
   private async findExactOverride(name: string): Promise<FoodItemDto | null> {
@@ -130,7 +148,10 @@ export class FoodRepository {
 
   async findById(id: string) {
     const item = await prisma.foodItem.findUnique({ where: { id } });
-    return item ? mapFood(item) : null;
+    if (item) return mapFood(item);
+
+    const override = await prisma.foodOverride.findUnique({ where: { id } });
+    return override ? this.mapOverride(override as any) : null;
   }
 
   async findExactMatch(name: string, source?: FoodSource) {

@@ -14,76 +14,77 @@ type FoodOverrideSeed = {
   searchText: string;
 };
 
-function buildSeed(): FoodOverrideSeed[] {
-  // Itens "tradicionais" do app: base curada com macros estáveis.
-  // Valores por 100g (genéricos) para padronizar o diário alimentar.
-  const wheyWpc = "Whey protein (suplemento)";
-  const wheyWpi = "Whey protein isolado (suplemento)";
-  const wheyHydro = "Whey protein hidrolisado (suplemento)";
-  const creatine = "Creatina monohidratada (suplemento)";
-  const oats = "Aveia em flocos";
-  const porridge = "Mingau de aveia (preparado)";
-  const milkSkim = "Leite desnatado";
-  const milkWhole = "Leite integral";
-  const banana = "Banana (genérica)";
+function item(seed: Omit<FoodOverrideSeed, "searchText"> & { aliases?: string[] }): FoodOverrideSeed {
+  const aliases = seed.aliases?.length ? ` ${seed.aliases.join(" ")}` : "";
+  return {
+    code: seed.code,
+    name: seed.name,
+    category: seed.category ?? null,
+    caloriesKcal: seed.caloriesKcal,
+    proteinG: seed.proteinG,
+    carbsG: seed.carbsG,
+    fatG: seed.fatG,
+    fiberG: seed.fiberG ?? null,
+    sodiumMg: seed.sodiumMg ?? null,
+    searchText: normalizeFoodSearchQuery(`${seed.name}${aliases}`),
+  };
+}
 
+/**
+ * Macros por 100g.
+ * Para produtos de marca (YoPRO, Growth, etc.), valores baseados nas tabelas oficiais
+ * convertidos de porção → 100g quando necessário.
+ */
+function buildSeed(): FoodOverrideSeed[] {
   return [
-    // Whey concentrado (WPC): 80P / 8C / 6G → ~406 kcal (Atwater)
-    {
+    // ── Genéricos (fallback) ──────────────────────────────────────────────
+    item({
       code: "WHEY_WPC",
-      name: wheyWpc,
+      name: "Whey protein concentrado (genérico)",
       category: "Suplementos",
       caloriesKcal: 406,
       proteinG: 80,
       carbsG: 8,
       fatG: 6,
       fiberG: 0,
-      sodiumMg: null,
-      searchText: normalizeFoodSearchQuery(`${wheyWpc} whey protein suplemento soro concentrado`),
-    },
-    // Whey isolado (WPI): 90P / 3C / 2G → ~390 kcal
-    {
+      aliases: ["whey", "whey protein", "suplemento", "soro", "wpc"],
+    }),
+    item({
       code: "WHEY_WPI",
-      name: wheyWpi,
+      name: "Whey protein isolado (genérico)",
       category: "Suplementos",
       caloriesKcal: 390,
       proteinG: 90,
       carbsG: 3,
       fatG: 2,
       fiberG: 0,
-      sodiumMg: null,
-      searchText: normalizeFoodSearchQuery(`${wheyWpi} whey isolado protein suplemento`),
-    },
-    // Whey hidrolisado (genérico): 85P / 6C / 3G → ~391 kcal (arredondado)
-    {
+      aliases: ["whey isolado", "wpi", "suplemento"],
+    }),
+    item({
       code: "WHEY_HYDRO",
-      name: wheyHydro,
+      name: "Whey protein hidrolisado (genérico)",
       category: "Suplementos",
       caloriesKcal: 391,
       proteinG: 85,
       carbsG: 6,
       fatG: 3,
       fiberG: 0,
-      sodiumMg: null,
-      searchText: normalizeFoodSearchQuery(`${wheyHydro} whey hidrolisado protein suplemento`),
-    },
-    // Creatina: 0 kcal (uso comum é 3-5g/dia; aqui só garantimos opção na busca)
-    {
+      aliases: ["whey hidrolisado", "suplemento"],
+    }),
+    item({
       code: "CREATINE_MONO",
-      name: creatine,
+      name: "Creatina monohidratada (genérico)",
       category: "Suplementos",
       caloriesKcal: 0,
       proteinG: 0,
       carbsG: 0,
       fatG: 0,
       fiberG: 0,
-      sodiumMg: null,
-      searchText: normalizeFoodSearchQuery(`${creatine} creatina suplemento`),
-    },
-    // Aveia em flocos (genérico)
-    {
+      aliases: ["creatina", "creatine", "suplemento"],
+    }),
+    item({
       code: "OATS_FLAKES",
-      name: oats,
+      name: "Aveia em flocos",
       category: "Cereais",
       caloriesKcal: 389,
       proteinG: 16.9,
@@ -91,25 +92,22 @@ function buildSeed(): FoodOverrideSeed[] {
       fatG: 6.9,
       fiberG: 10.6,
       sodiumMg: 2,
-      searchText: normalizeFoodSearchQuery(`${oats} aveia flocos cereal`),
-    },
-    // Mingau (preparado): depende da receita; usamos um baseline conservador para não inflar kcal.
-    {
+      aliases: ["aveia", "flocos", "cereal"],
+    }),
+    item({
       code: "PORRIDGE_OATS_PREP",
-      name: porridge,
+      name: "Mingau de aveia (preparado)",
       category: "Preparações",
       caloriesKcal: 70,
       proteinG: 2.5,
       carbsG: 12.5,
       fatG: 1.2,
       fiberG: 1.7,
-      sodiumMg: null,
-      searchText: normalizeFoodSearchQuery(`${porridge} mingau aveia preparado`),
-    },
-    // Leite desnatado (genérico)
-    {
+      aliases: ["mingau", "aveia", "preparado"],
+    }),
+    item({
       code: "MILK_SKIM",
-      name: milkSkim,
+      name: "Leite desnatado",
       category: "Laticínios",
       caloriesKcal: 34,
       proteinG: 3.4,
@@ -117,12 +115,11 @@ function buildSeed(): FoodOverrideSeed[] {
       fatG: 0.1,
       fiberG: 0,
       sodiumMg: 44,
-      searchText: normalizeFoodSearchQuery(`${milkSkim} leite`),
-    },
-    // Leite integral (genérico)
-    {
+      aliases: ["leite desnatado"],
+    }),
+    item({
       code: "MILK_WHOLE",
-      name: milkWhole,
+      name: "Leite integral",
       category: "Laticínios",
       caloriesKcal: 61,
       proteinG: 3.2,
@@ -130,12 +127,11 @@ function buildSeed(): FoodOverrideSeed[] {
       fatG: 3.3,
       fiberG: 0,
       sodiumMg: 43,
-      searchText: normalizeFoodSearchQuery(`${milkWhole} leite`),
-    },
-    // Banana (genérico)
-    {
+      aliases: ["leite integral"],
+    }),
+    item({
       code: "BANANA_GENERIC",
-      name: banana,
+      name: "Banana (genérica)",
       category: "Frutas",
       caloriesKcal: 89,
       proteinG: 1.1,
@@ -143,8 +139,211 @@ function buildSeed(): FoodOverrideSeed[] {
       fatG: 0.3,
       fiberG: 2.6,
       sodiumMg: 1,
-      searchText: normalizeFoodSearchQuery(`${banana} banana prata nanica fruta`),
-    },
+      aliases: ["banana", "prata", "nanica"],
+    }),
+
+    // ── Danone YoPRO (tabela oficial por 100g) ─────────────────────────────
+    // Colherável 160g / 15g proteína → 53 kcal · 9,5P · 3,5C · 0G / 100g
+    item({
+      code: "YOPRO_SPOONABLE_15G",
+      name: "YoPRO iogurte colherável 15g proteína",
+      category: "Laticínios",
+      caloriesKcal: 53,
+      proteinG: 9.5,
+      carbsG: 3.5,
+      fatG: 0,
+      fiberG: 0,
+      sodiumMg: 28,
+      aliases: [
+        "yopro",
+        "yo pro",
+        "danone yopro",
+        "iogurte yopro",
+        "yopro colheravel",
+        "yopro morango",
+        "yopro coco",
+        "yopro natural",
+      ],
+    }),
+    // Líquido 250g / 15g proteína → 47 kcal · 6,1P · 5,6C · 0G / 100g
+    item({
+      code: "YOPRO_DRINK_15G",
+      name: "YoPRO iogurte líquido 15g proteína",
+      category: "Laticínios",
+      caloriesKcal: 47,
+      proteinG: 6.1,
+      carbsG: 5.6,
+      fatG: 0,
+      fiberG: 0,
+      sodiumMg: 53,
+      aliases: [
+        "yopro",
+        "yo pro",
+        "danone yopro",
+        "yopro liquido",
+        "yopro 15g",
+        "yopro doce de leite",
+        "bebida yopro",
+      ],
+    }),
+    // Líquido 250g / 25g proteína → 61 kcal · 9,7P · 4,3C · 0,6G / 100g
+    item({
+      code: "YOPRO_DRINK_25G",
+      name: "YoPRO iogurte líquido 25g proteína",
+      category: "Laticínios",
+      caloriesKcal: 61,
+      proteinG: 9.7,
+      carbsG: 4.3,
+      fatG: 0.6,
+      fiberG: 0,
+      sodiumMg: 64,
+      aliases: [
+        "yopro",
+        "yo pro",
+        "danone yopro",
+        "yopro 25g",
+        "yopro liquido 25",
+        "yopro caramelo",
+        "yopro high protein",
+      ],
+    }),
+    // Bebida láctea UHT 250ml / 15g proteína (chocolate) → 69 kcal · 6P · 8,4C · 1,1G / 100g
+    item({
+      code: "YOPRO_UHT_15G",
+      name: "YoPRO bebida láctea UHT 15g proteína",
+      category: "Laticínios",
+      caloriesKcal: 69,
+      proteinG: 6,
+      carbsG: 8.4,
+      fatG: 1.1,
+      fiberG: 0.6,
+      sodiumMg: 92,
+      aliases: [
+        "yopro",
+        "yo pro",
+        "danone yopro",
+        "yopro uht",
+        "yopro chocolate",
+        "bebida lactea yopro",
+      ],
+    }),
+
+    // ── Growth Supplements (rótulo oficial, convertido porção → 100g) ─────
+    // WPC 80% natural: 30g = 126 kcal · 24P · 3,1C · 2G → /100g
+    item({
+      code: "GROWTH_WHEY_WPC",
+      name: "Growth Whey Protein Concentrado 80%",
+      category: "Suplementos",
+      caloriesKcal: 420,
+      proteinG: 80,
+      carbsG: 10.3,
+      fatG: 6.7,
+      fiberG: 0,
+      sodiumMg: 177,
+      aliases: [
+        "growth",
+        "growth supplements",
+        "growth whey",
+        "whey growth",
+        "whey concentrado growth",
+        "wpc growth",
+      ],
+    }),
+    // WPI Growth (padrão comum ~90%): 100g aproximado
+    item({
+      code: "GROWTH_WHEY_WPI",
+      name: "Growth Whey Protein Isolado",
+      category: "Suplementos",
+      caloriesKcal: 380,
+      proteinG: 90,
+      carbsG: 2,
+      fatG: 1.5,
+      fiberG: 0,
+      aliases: ["growth isolado", "growth wpi", "whey isolado growth"],
+    }),
+    item({
+      code: "GROWTH_CREATINE",
+      name: "Growth Creatina Monohidratada",
+      category: "Suplementos",
+      caloriesKcal: 0,
+      proteinG: 0,
+      carbsG: 0,
+      fatG: 0,
+      fiberG: 0,
+      aliases: ["growth creatina", "creatina growth"],
+    }),
+
+    // ── Max Titanium (referência comum de marca) ──────────────────────────
+    item({
+      code: "MAX_WHEY_WPC",
+      name: "Max Titanium Whey Protein Concentrado",
+      category: "Suplementos",
+      caloriesKcal: 400,
+      proteinG: 75,
+      carbsG: 10,
+      fatG: 5,
+      fiberG: 0,
+      aliases: ["max titanium", "max whey", "whey max", "whey concentrado max"],
+    }),
+    item({
+      code: "MAX_WHEY_WPI",
+      name: "Max Titanium Isolado de Whey Protein",
+      category: "Suplementos",
+      caloriesKcal: 370,
+      proteinG: 88,
+      carbsG: 2,
+      fatG: 1,
+      fiberG: 0,
+      aliases: ["max isolado", "max wpi", "whey isolado max"],
+    }),
+
+    // ── Integralmédica ────────────────────────────────────────────────────
+    item({
+      code: "INTEGRAL_WHEY_WPC",
+      name: "Integralmédica Whey Protein Concentrado",
+      category: "Suplementos",
+      caloriesKcal: 410,
+      proteinG: 78,
+      carbsG: 9,
+      fatG: 5.5,
+      fiberG: 0,
+      aliases: ["integralmedica", "integral medica", "whey integralmedica", "whey integral"],
+    }),
+
+    // ── Nestlé / Morango e Outros comuns ───────────────────────────────────
+    item({
+      code: "NESCAU_LTD",
+      name: "Nescau Achocolatado (pó)",
+      category: "Bebidas",
+      caloriesKcal: 372,
+      proteinG: 4.2,
+      carbsG: 87,
+      fatG: 2.2,
+      fiberG: 3.5,
+      aliases: ["nescau", "achocolatado", "chocolate em po"],
+    }),
+    item({
+      code: "YOGURT_GREGO_NATURAL",
+      name: "Iogurte grego natural (genérico)",
+      category: "Laticínios",
+      caloriesKcal: 97,
+      proteinG: 9,
+      carbsG: 3.6,
+      fatG: 5,
+      fiberG: 0,
+      aliases: ["iogurte grego", "greek yogurt", "iogurte grego natural"],
+    }),
+    item({
+      code: "YOGURT_NATURAL_DESNATADO",
+      name: "Iogurte natural desnatado (genérico)",
+      category: "Laticínios",
+      caloriesKcal: 41,
+      proteinG: 4.4,
+      carbsG: 5.5,
+      fatG: 0.3,
+      fiberG: 0,
+      aliases: ["iogurte natural", "iogurte desnatado"],
+    }),
   ];
 }
 
@@ -180,4 +379,3 @@ export async function ensureFoodOverridesSeeded(): Promise<void> {
     });
   }
 }
-

@@ -44,6 +44,11 @@ const TOKEN_SYNONYMS: Record<string, string[]> = {
   // Termo comum no app, mas a TBCA/TACO nem sempre usa "whey" no nome.
   // Expandimos para termos que aparecem com mais frequência na base.
   whey: ["whey", "whey protein", "proteina", "proteico", "suplemento", "soro"],
+  // Marcas frequentes → termos nas FoodOverride
+  yopro: ["yopro", "yo pro", "danone yopro", "iogurte yopro"],
+  growth: ["growth", "growth supplements", "whey growth"],
+  max: ["max titanium", "max whey"],
+  integralmedica: ["integralmedica", "integral medica"],
 };
 
 export function tokenizeFoodQuery(query: string): string[] {
