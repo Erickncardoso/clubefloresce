@@ -71,6 +71,56 @@ function buildTokenSearchWhere(query: string, source?: FoodSource): Prisma.FoodI
 }
 
 export class FoodRepository {
+  private mapOverride(row: {
+    id: string;
+    code: string;
+    name: string;
+    category: string | null;
+    caloriesKcal: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    fiberG: number | null;
+    sodiumMg: number | null;
+    searchText: string;
+  }): FoodItemDto {
+    return {
+      id: row.id,
+      source: "CUSTOM",
+      sourceCode: row.code,
+      name: row.name,
+      category: row.category,
+      nutrients: { per100g: {} },
+      per100g: {
+        caloriesKcal: row.caloriesKcal,
+        proteinG: row.proteinG,
+        carbsG: row.carbsG,
+        fatG: row.fatG,
+        fiberG: row.fiberG,
+        sodiumMg: row.sodiumMg,
+      },
+    };
+  }
+
+  private async searchOverrides(normalizedQuery: string, limit: number): Promise<FoodItemDto[]> {
+    if (!normalizedQuery) return [];
+    const rows = await prisma.foodOverride.findMany({
+      where: { searchText: { contains: normalizedQuery } },
+      take: Math.min(limit * 2, 20),
+      orderBy: [{ name: "asc" }],
+    });
+    return rows.map((row) => this.mapOverride(row as any));
+  }
+
+  private async findExactOverride(name: string): Promise<FoodItemDto | null> {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const exact = await prisma.foodOverride.findFirst({
+      where: { name: { equals: trimmed, mode: "insensitive" } },
+    });
+    return exact ? this.mapOverride(exact as any) : null;
+  }
+
   async countBySource() {
     return prisma.foodItem.groupBy({
       by: ["source"],
@@ -86,6 +136,9 @@ export class FoodRepository {
   async findExactMatch(name: string, source?: FoodSource) {
     const trimmed = name.trim();
     if (!trimmed) return null;
+
+    const override = await this.findExactOverride(trimmed);
+    if (override) return override;
 
     const exact = await prisma.foodItem.findFirst({
       where: {
@@ -175,11 +228,18 @@ export class FoodRepository {
       take: Math.min(limit * 4, 120),
     });
 
-    const items = rows
+    const baseItems = rows
       .map(mapFood)
       .sort((a, b) => scoreFoodSearchResult(trimmed, b.name, b.source) - scoreFoodSearchResult(trimmed, a.name, a.source))
       .slice(0, limit);
 
+    const overrideItems = await this.searchOverrides(normalized, limit);
+    const merged = new Map<string, FoodItemDto>();
+    for (const item of [...overrideItems, ...baseItems]) {
+      merged.set(item.id, item);
+    }
+
+    const items = Array.from(merged.values()).slice(0, limit);
     const total = await prisma.foodItem.count({ where });
 
     return { items, total };

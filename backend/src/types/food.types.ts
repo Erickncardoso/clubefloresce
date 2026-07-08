@@ -14,7 +14,7 @@ export interface FoodNutrientsPer100g {
 
 export interface FoodItemDto {
   id: string;
-  source: "TACO" | "TBCA";
+  source: "TACO" | "TBCA" | "CUSTOM";
   sourceCode: string;
   name: string;
   category: string | null;

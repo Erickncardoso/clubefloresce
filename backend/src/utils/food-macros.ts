@@ -62,6 +62,23 @@ function usesTableEnergy(food: FoodItemDto, declaredKcal: number): boolean {
   return (food.source === "TACO" || food.source === "TBCA") && declaredKcal > 0;
 }
 
+function shouldTrustTableCalories(params: {
+  food: FoodItemDto;
+  declaredKcal: number;
+  atwaterKcal: number | null;
+}): boolean {
+  const { food, declaredKcal, atwaterKcal } = params;
+  if (!usesTableEnergy(food, declaredKcal)) return false;
+  if (!atwaterKcal || atwaterKcal <= 0) return true;
+
+  // Heurística: alguns itens chegam com kcal deslocado (ex.: 37,4 → 374).
+  // Para esses outliers, preferimos Atwater (mais estável) para evitar refeições com 2000+ kcal.
+  const ratio = declaredKcal / Math.max(atwaterKcal, 1);
+  if (declaredKcal >= 300 && ratio >= 3.2) return false;
+  if (declaredKcal >= 600 && ratio >= 2.4) return false;
+  return true;
+}
+
 /**
  * Corrige erros de importação (ex.: 35,9 g → 359 g). Não altera macros válidos da TACO.
  */
@@ -170,9 +187,15 @@ function readPer100gFromFood(food: FoodItemDto): NormalizedPer100g {
     alcoholG,
   });
 
-  const energyPolicy: FoodEnergyPolicy = usesTableEnergy(food, declaredKcal)
-    ? "table"
-    : "atwater";
+  const atwaterKcal = hasUsableMacrosForAtwater(atwaterInput)
+    ? calculateAtwaterCalories(atwaterInput)
+    : null;
+
+  const energyPolicy: FoodEnergyPolicy = shouldTrustTableCalories({
+    food,
+    declaredKcal,
+    atwaterKcal,
+  }) ? "table" : "atwater";
 
   const caloriesKcal = resolveCaloriesKcal(declaredKcal, energyPolicy, atwaterInput);
 

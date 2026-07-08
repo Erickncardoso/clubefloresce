@@ -43,7 +43,7 @@ export function isSimpleIngredientQuery(query: string): boolean {
 export function scoreFoodForSwapMatch(
   query: string,
   name: string,
-  source: "TACO" | "TBCA",
+  source: "TACO" | "TBCA" | "CUSTOM",
 ): number {
   const normalizedQuery = normalizeFoodSearchQuery(query);
   const queryTokens = tokenizeFoodQuery(query);

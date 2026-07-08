@@ -25,9 +25,10 @@ const STOP_WORDS = new Set([
 ]);
 
 /** TBCA = fonte principal; TACO = complemento para itens básicos. */
-export const FOOD_SOURCE_SCORE_BOOST: Record<"TACO" | "TBCA", number> = {
+export const FOOD_SOURCE_SCORE_BOOST: Record<"TACO" | "TBCA" | "CUSTOM", number> = {
   TBCA: 15,
   TACO: 0,
+  CUSTOM: 25,
 };
 
 /** Termos coloquiais → formas comuns na TBCA/TACO */
@@ -40,6 +41,9 @@ const TOKEN_SYNONYMS: Record<string, string[]> = {
   cozido: ["cozido", "cozida", "cozidos", "cozidas"],
   cru: ["cru", "crua", "crus", "cruas"],
   frito: ["frito", "frita", "fritos", "fritas"],
+  // Termo comum no app, mas a TBCA/TACO nem sempre usa "whey" no nome.
+  // Expandimos para termos que aparecem com mais frequência na base.
+  whey: ["whey", "whey protein", "proteina", "proteico", "suplemento", "soro"],
 };
 
 export function tokenizeFoodQuery(query: string): string[] {
@@ -60,7 +64,7 @@ export function expandTokenSynonyms(token: string): string[] {
   return [...new Set([token, ...synonyms.map((entry) => normalizeFoodSearchQuery(entry))])];
 }
 
-export function scoreFoodSearchResult(query: string, name: string, source: "TACO" | "TBCA"): number {
+export function scoreFoodSearchResult(query: string, name: string, source: "TACO" | "TBCA" | "CUSTOM"): number {
   const normalizedQuery = normalizeFoodSearchQuery(query);
   const normalizedName = normalizeFoodSearchQuery(name);
   const queryTokens = tokenizeFoodQuery(query);
@@ -99,7 +103,7 @@ export function scoreFoodSearchResult(query: string, name: string, source: "TACO
   return score;
 }
 
-export function pickBestFoodMatch<T extends { name: string; source: "TACO" | "TBCA" }>(
+export function pickBestFoodMatch<T extends { name: string; source: "TACO" | "TBCA" | "CUSTOM" }>(
   query: string,
   items: T[],
   minScore = 45,

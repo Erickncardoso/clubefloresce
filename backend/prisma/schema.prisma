@@ -256,6 +256,27 @@ model FoodItem {
   @@index([source])
 }
 
+/// Base curada (pequena) para itens tradicionais do app (ex.: Whey).
+/// Mantém macros consistentes e garante que a busca encontre esses itens.
+model FoodOverride {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  category     String?
+  caloriesKcal Float
+  proteinG     Float
+  carbsG       Float
+  fatG         Float
+  fiberG       Float?
+  sodiumMg     Float?
+  searchText   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([name])
+  @@index([searchText])
+}
+
 model FoodDiaryEntry {
   id           String   @id @default(uuid())
   userId       String

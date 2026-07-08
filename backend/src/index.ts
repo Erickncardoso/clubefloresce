@@ -51,6 +51,7 @@ import {
   isResendConfigured,
 } from "./utils/email-config";
 import { isMercadoPagoConfigured, getBillingWebhookUrl } from "./utils/mercadopago-config";
+import { ensureFoodOverridesSeeded } from "./services/food-overrides.service";
 
 dotenv.config();
 assertJwtSecretOnBoot();
@@ -221,6 +222,10 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   } else {
     console.warn("[Billing] MERCADOPAGO_* ausente — assinaturas desativadas.");
   }
+
+  void ensureFoodOverridesSeeded()
+    .then(() => console.log("[Foods] Base curada carregada (FoodOverride)."))
+    .catch((err) => console.warn("[Foods] Falha ao carregar base curada (FoodOverride):", err));
   const videoProvider = getVideoUploadProvider();
   const documentProvider = getDocumentUploadProvider();
 
