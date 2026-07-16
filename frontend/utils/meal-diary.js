@@ -1,4 +1,5 @@
 import { macrosForFoodRecord } from '~/utils/food-bank'
+import { resolveItemGrams } from '~/utils/meal-portion-measures.js'
 
 export function roundMacro(value) {
   return Math.round(Number(value) * 10) / 10
@@ -29,10 +30,11 @@ export function createMealItem(overrides = {}) {
 
 export function normalizeItemFromAi(item, matchedFood = null) {
   const name = String(item.name || '').trim()
+  const resolvedGrams = resolveItemGrams(item)
   const base = {
     id: item.id || createMealItemId(),
     name,
-    grams: Math.max(1, Math.round(Number(item.grams) || 100)),
+    grams: Math.max(1, Math.round(resolvedGrams)),
     caloriesKcal: Math.max(0, Math.round(Number(item.caloriesKcal) || 0)),
     carbsG: roundMacro(item.carbsG || 0),
     proteinG: roundMacro(item.proteinG || 0),
@@ -43,7 +45,16 @@ export function normalizeItemFromAi(item, matchedFood = null) {
   }
 
   if (matchedFood) {
-    return { ...base, ...macrosForFoodRecord(matchedFood, base.grams) }
+    const grams = resolveItemGrams({
+      ...item,
+      name,
+      grams: item.grams,
+      portionAmount: item.portionAmount,
+      portionMeasure: item.portionMeasure,
+      amount: item.amount,
+      unit: item.unit,
+    })
+    return { ...base, grams, ...macrosForFoodRecord(matchedFood, grams) }
   }
   return base
 }
@@ -62,7 +73,16 @@ export function applyFoodMatch(item, nameInput, matchedFood = null) {
   }
 
   if (matchedFood) {
-    updated = { ...updated, ...macrosForFoodRecord(matchedFood, updated.grams) }
+    const grams = resolveItemGrams({
+      ...updated,
+      name,
+      grams: updated.grams,
+      portionAmount: updated.portionAmount,
+      portionMeasure: updated.portionMeasure,
+      amount: updated.amount,
+      unit: updated.unit,
+    })
+    updated = { ...updated, grams, ...macrosForFoodRecord(matchedFood, grams) }
   }
 
   return updated
