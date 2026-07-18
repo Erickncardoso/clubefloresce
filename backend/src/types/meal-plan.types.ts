@@ -21,6 +21,43 @@ export interface ParsedFoodItem {
   ml: number | null;
   display: string;
   substitutions: ParsedFoodItem[];
+  foodId?: string | null;
+  foodSource?: "TACO" | "TBCA" | "CUSTOM" | null;
+  linkedFoodName?: string | null;
+  per100g?: {
+    caloriesKcal: number | null;
+    proteinG: number | null;
+    carbsG: number | null;
+    fatG: number | null;
+    fiberG?: number | null;
+    sodiumMg?: number | null;
+  } | null;
+  itemType?: "food" | "recipe" | null;
+  recipeId?: string | null;
+  recipe?: {
+    id: string;
+    title: string;
+    imageUrl?: string | null;
+    imagePosition?: string | null;
+    servingsLabel?: string | null;
+    prepMinutes?: number | null;
+    ingredients?: Array<{
+      id: string;
+      name: string;
+      amount: string;
+      unit: string;
+      grams?: number | null;
+      foodId?: string | null;
+      per100g?: ParsedFoodItem["per100g"];
+    }>;
+    steps?: string;
+    macros?: {
+      caloriesKcal: number;
+      proteinG: number;
+      carbsG: number;
+      fatG: number;
+    };
+  } | null;
 }
 
 export interface ParsedMeal {
