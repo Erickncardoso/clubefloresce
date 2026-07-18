@@ -44,7 +44,9 @@ export function usePatientMealPlan() {
     loading.value = true
     error.value = ''
     try {
-      const res = await $fetch(`${config.public.apiBase}/meal-plan/me`, authFetchInit())
+      const res = await $fetch(`${config.public.apiBase}/meal-plan/me`, authFetchInit({
+        timeout: 12_000,
+      }))
       planRecord.value = res.plan ?? null
 
       const planName = planRecord.value?.patientName || planRecord.value?.plan?.patientName

@@ -14,8 +14,22 @@ export default defineNuxtPlugin((nuxtApp) => {
     nextTick(() => finishNavigation())
   })
 
-  router.onError(() => {
+  router.onError((error) => {
     finishNavigation()
+
+    const message = String(error?.message || error || '')
+    if (
+      /Loading chunk|Failed to fetch dynamically imported module|Importing a module script failed/i.test(message)
+      && typeof sessionStorage !== 'undefined'
+    ) {
+      const reloadKey = 'cf-pwa-chunk-reload'
+      if (!sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, '1')
+        window.location.reload()
+        return
+      }
+      sessionStorage.removeItem(reloadKey)
+    }
   })
 
   nuxtApp.hook('page:start', () => {

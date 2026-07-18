@@ -11,6 +11,44 @@ import { enrichParsedMealPlan, parsedMealPlanNeedsFoodEnrichment } from "./meal-
 import type { User } from "@prisma/client";
 
 const repo = new MealPlanRepository();
+const mealPlanEnrichInFlight = new Set<string>();
+
+function scheduleMealPlanFoodEnrichment(
+  userId: string,
+  record: {
+    fileName: string;
+    pdfUrl: string | null;
+    title: string | null;
+    patientName: string | null;
+    prescribedAt: string | null;
+    parserSource: string;
+  },
+  plan: ParsedMealPlan,
+) {
+  if (mealPlanEnrichInFlight.has(userId)) return;
+  mealPlanEnrichInFlight.add(userId);
+
+  void (async () => {
+    try {
+      const enriched = await enrichParsedMealPlan(plan);
+      if (!parsedMealPlanNeedsFoodEnrichment(enriched)) {
+        await repo.upsert(userId, {
+          fileName: record.fileName,
+          pdfUrl: record.pdfUrl,
+          title: record.title,
+          patientName: record.patientName,
+          prescribedAt: record.prescribedAt,
+          plan: enriched,
+          parserSource: record.parserSource,
+        });
+      }
+    } catch (err) {
+      console.error("[meal-plan] background food enrich failed", { userId, err });
+    } finally {
+      mealPlanEnrichInFlight.delete(userId);
+    }
+  })();
+}
 
 function toResponse(record: {
   id: string;
@@ -43,18 +81,9 @@ export class MealPlanService {
     const record = await repo.findByUserId(userId);
     if (!record) return null;
 
-    let plan = record.plan as unknown as ParsedMealPlan;
+    const plan = record.plan as unknown as ParsedMealPlan;
     if (parsedMealPlanNeedsFoodEnrichment(plan)) {
-      plan = await enrichParsedMealPlan(plan);
-      await repo.upsert(userId, {
-        fileName: record.fileName,
-        pdfUrl: record.pdfUrl,
-        title: record.title,
-        patientName: record.patientName,
-        prescribedAt: record.prescribedAt,
-        plan,
-        parserSource: record.parserSource,
-      });
+      scheduleMealPlanFoodEnrichment(userId, record, plan);
     }
 
     await syncUserNameFromMealPlan(userId, record.patientName);

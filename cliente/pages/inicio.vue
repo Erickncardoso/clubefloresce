@@ -340,25 +340,36 @@ onMounted(async () => {
   pageLoading.value = true
   hydrateGoals()
   loadCheckInAccess()
+
+  // Plano já é carregado pelo plugin patient-meal-plan — não bloquear a home inteira.
+  void fetchPlan()
+
+  const runWithTimeout = async (task, ms = 8000) => {
+    let timeoutId
+    const timeout = new Promise((resolve) => {
+      timeoutId = setTimeout(resolve, ms)
+    })
+    try {
+      await Promise.race([task(), timeout])
+    } catch {
+      /* defaults abaixo */
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+
   try {
-    await fetchPlan()
-    try {
-      const courses = await $fetch(`${config.public.apiBase}/courses`, patientFetchInit())
-      featuredCourse.value = courses?.[0] || null
-    } catch {
-      featuredCourse.value = null
-    }
-    try {
-      await loadDailyNutrition()
-    } catch {
-      dailySummary.value = null
-    }
-    try {
-      const data = await $fetch(`${config.public.apiBase}/checkin/me`, patientFetchInit())
-      streakDays.value = Math.max(1, (data.history?.length || 0) + (data.current ? 1 : 0))
-    } catch {
-      /* defaults */
-    }
+    await Promise.allSettled([
+      runWithTimeout(async () => {
+        const courses = await $fetch(`${config.public.apiBase}/courses`, patientFetchInit())
+        featuredCourse.value = courses?.[0] || null
+      }),
+      runWithTimeout(loadDailyNutrition),
+      runWithTimeout(async () => {
+        const data = await $fetch(`${config.public.apiBase}/checkin/me`, patientFetchInit())
+        streakDays.value = Math.max(1, (data.history?.length || 0) + (data.current ? 1 : 0))
+      }),
+    ])
   } finally {
     pageLoading.value = false
   }
