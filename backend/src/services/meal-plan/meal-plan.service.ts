@@ -1,4 +1,4 @@
-import { cloudinaryUpload } from "../../utils/cloudinary";
+import { cloudinaryDocumentUpload, cloudinaryUpload } from "../../utils/cloudinary";
 import { resolveDocumentDeliveryUrl } from "../../utils/media/bunny-document-delivery";
 import { MealPlanRepository } from "../../repositories/meal-plan.repository";
 import type { ParsedMealPlan, PatientMealPlanResponse } from "../../types/meal-plan.types";
@@ -7,6 +7,7 @@ import { parseMealPlanWithAi } from "./meal-plan-ai-parser";
 import { extractPdfRawText } from "./pdf-text";
 import { normalizePersonName, syncUserNameFromMealPlan } from "./sync-patient-name";
 import { syncNutritionTargetsFromMealPlan } from "./sync-nutrition-targets";
+import { enrichParsedMealPlan, parsedMealPlanNeedsFoodEnrichment } from "./meal-plan-food-enricher";
 import type { User } from "@prisma/client";
 
 const repo = new MealPlanRepository();
@@ -42,9 +43,23 @@ export class MealPlanService {
     const record = await repo.findByUserId(userId);
     if (!record) return null;
 
+    let plan = record.plan as unknown as ParsedMealPlan;
+    if (parsedMealPlanNeedsFoodEnrichment(plan)) {
+      plan = await enrichParsedMealPlan(plan);
+      await repo.upsert(userId, {
+        fileName: record.fileName,
+        pdfUrl: record.pdfUrl,
+        title: record.title,
+        patientName: record.patientName,
+        prescribedAt: record.prescribedAt,
+        plan,
+        parserSource: record.parserSource,
+      });
+    }
+
     await syncUserNameFromMealPlan(userId, record.patientName);
 
-    return toResponse(record, userId);
+    return toResponse({ ...record, plan }, userId);
   }
 
   async parsePdfBuffer(buffer: Buffer, fileName: string): Promise<ParsedMealPlan> {
@@ -83,21 +98,34 @@ export class MealPlanService {
     const parsedPlan = await this.parsePdfBuffer(file.buffer, fileName);
     const patientName = normalizePersonName(parsedPlan.patientName);
 
-    const plan: ParsedMealPlan = {
+    let plan: ParsedMealPlan = {
       ...parsedPlan,
       patientName,
       title: parsedPlan.title?.trim() || "Planejamento alimentar",
     };
 
+    plan = await enrichParsedMealPlan(plan);
+
     let pdfUrl: string | null = null;
     try {
-      pdfUrl = await cloudinaryUpload(file.buffer, "clube-meal-plan-pdfs", {
-        resourceType: "raw",
-        fileSizeBytes: file.size,
-        originalFilename: file.originalname,
-      });
+      // PDF como "image" no Cloudinary entrega Content-Type correto no browser.
+      const uploaded = await cloudinaryDocumentUpload(
+        file.buffer,
+        "clube-meal-plan-pdfs",
+        file.originalname || fileName,
+      );
+      pdfUrl = uploaded.url;
     } catch {
-      pdfUrl = null;
+      try {
+        pdfUrl = await cloudinaryUpload(file.buffer, "clube-meal-plan-pdfs", {
+          resourceType: "raw",
+          fileSizeBytes: file.size,
+          originalFilename: file.originalname,
+          errorKind: "document",
+        });
+      } catch {
+        pdfUrl = null;
+      }
     }
 
     const saved = await repo.upsert(userId, {
@@ -111,6 +139,59 @@ export class MealPlanService {
     });
 
     const syncedUser = await syncUserNameFromMealPlan(userId, patientName);
+    const syncedTargets = await syncNutritionTargetsFromMealPlan(userId, plan.nutritionTotals);
+
+    return {
+      plan: toResponse(saved, userId),
+      user: syncedUser,
+      nutritionTargets: syncedTargets
+        ? {
+            caloriesKcal: syncedTargets.caloriesKcal,
+            proteinG: syncedTargets.proteinG,
+            carbsG: syncedTargets.carbsG,
+            fatG: syncedTargets.fatG,
+          }
+        : null,
+    };
+  }
+
+  async saveFromEditor(
+    userId: string,
+    input: {
+      title: string;
+      plan: ParsedMealPlan;
+    },
+  ): Promise<{
+    plan: PatientMealPlanResponse;
+    user: Omit<User, "password"> | null;
+    nutritionTargets: {
+      caloriesKcal: number;
+      proteinG: number;
+      carbsG: number;
+      fatG: number;
+    } | null;
+  }> {
+    const title = input.title?.trim() || input.plan.title?.trim() || "Plano alimentar";
+    let plan: ParsedMealPlan = {
+      ...input.plan,
+      title,
+      fileName: `${title}.prescricao`,
+      parserSource: input.plan.parserSource || "ai",
+    };
+
+    plan = await enrichParsedMealPlan(plan);
+
+    const saved = await repo.upsert(userId, {
+      fileName: plan.fileName,
+      pdfUrl: null,
+      plan,
+      parserSource: plan.parserSource,
+      patientName: plan.patientName,
+      title: plan.title,
+      prescribedAt: plan.prescribedAt,
+    });
+
+    const syncedUser = await syncUserNameFromMealPlan(userId, plan.patientName);
     const syncedTargets = await syncNutritionTargetsFromMealPlan(userId, plan.nutritionTotals);
 
     return {
