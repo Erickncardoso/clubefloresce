@@ -1,20 +1,27 @@
 import { Prisma, FoodSource, PrismaClient } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import type { FoodItemDto } from "../types/food.types";
+import type { FoodCatalogItemDto, FoodCatalogMetaDto, FoodItemDto } from "../types/food.types";
 import {
   getCategoriesForSwapGroup,
   resolveSwapGroup,
   type SwapGroup,
 } from "../services/bella/food-category";
 import { normalizePer100gMacros } from "../utils/food-macros";
+import { getFoodDisplayName, getFoodSearchAliasText } from "../utils/food-catalog-aliases";
+import { scoreFoodForMealPlanSearch } from "../utils/food-meal-plan-search";
 import {
+  countMatchingFoodTokens,
   expandTokenSynonyms,
+  minRelaxedTokenMatches,
   normalizeFoodSearchQuery,
   pickBestFoodMatch,
   scoreFoodSearchResult,
   tokenizeFoodQuery,
 } from "../utils/food-search";
 import { scoreFoodForSwapMatch } from "../utils/swap-food-match";
+import { extractFoodMatchCandidates } from "../utils/food-meal-plan-match-candidates";
+
+const MEAL_PLAN_MATCH_MIN_SCORE = 45;
 
 function mapFood(item: {
   id: string;
@@ -36,6 +43,7 @@ function mapFood(item: {
     source: item.source,
     sourceCode: item.sourceCode,
     name: item.name,
+    displayName: getFoodDisplayName(item.name, item.source, item.sourceCode),
     category: item.category,
     nutrients,
     per100g: {
@@ -68,6 +76,37 @@ function buildTokenSearchWhere(query: string, source?: FoodSource): Prisma.FoodI
   });
 
   return where;
+}
+
+function buildRelaxedTokenSearchWhere(query: string, source?: FoodSource): Prisma.FoodItemWhereInput {
+  const tokens = tokenizeFoodQuery(query);
+  const where: Prisma.FoodItemWhereInput = source ? { source } : {};
+  if (!tokens.length) return where;
+
+  where.OR = tokens.flatMap((token) => {
+    const variants = expandTokenSynonyms(token);
+    return variants.map((variant) => ({ searchText: { contains: variant } }));
+  });
+
+  return where;
+}
+
+function rankFoodSearchResults(trimmed: string, items: FoodItemDto[], limit: number): FoodItemDto[] {
+  return items
+    .sort(
+      (a, b) =>
+        scoreFoodForMealPlanSearch(trimmed, b.name, b.source, b.sourceCode) -
+        scoreFoodForMealPlanSearch(trimmed, a.name, a.source, a.sourceCode),
+    )
+    .slice(0, limit);
+}
+
+function filterRelaxedFoodMatches(query: string, items: FoodItemDto[]): FoodItemDto[] {
+  const tokens = tokenizeFoodQuery(query);
+  if (tokens.length <= 1) return items;
+
+  const minMatches = minRelaxedTokenMatches(tokens.length);
+  return items.filter((item) => countMatchingFoodTokens(query, item.name) >= minMatches);
 }
 
 export class FoodRepository {
@@ -144,6 +183,108 @@ export class FoodRepository {
       by: ["source"],
       _count: { _all: true },
     });
+  }
+
+  async getCatalogMeta(): Promise<FoodCatalogMetaDto> {
+    const [foodCount, overrideCount, foodAgg, overrideAgg] = await Promise.all([
+      prisma.foodItem.count(),
+      prisma.foodOverride.count(),
+      prisma.foodItem.aggregate({ _max: { updatedAt: true } }),
+      prisma.foodOverride.aggregate({ _max: { updatedAt: true } }),
+    ]);
+
+    const foodUpdated = foodAgg._max.updatedAt;
+    const overrideUpdated = overrideAgg._max.updatedAt;
+    const latest =
+      foodUpdated && overrideUpdated
+        ? foodUpdated > overrideUpdated
+          ? foodUpdated
+          : overrideUpdated
+        : foodUpdated || overrideUpdated || null;
+
+    return {
+      version: `${foodCount}:${overrideCount}:${latest?.toISOString() || "0"}`,
+      total: foodCount + overrideCount,
+      foodCount,
+      overrideCount,
+      updatedAt: latest?.toISOString() || null,
+    };
+  }
+
+  async listCatalogItems(): Promise<FoodCatalogItemDto[]> {
+    const [rows, overrides] = await Promise.all([
+      prisma.foodItem.findMany({
+        select: {
+          id: true,
+          source: true,
+          sourceCode: true,
+          name: true,
+          category: true,
+          searchText: true,
+          caloriesKcal: true,
+          proteinG: true,
+          carbsG: true,
+          fatG: true,
+          fiberG: true,
+          sodiumMg: true,
+        },
+        orderBy: [{ source: "desc" }, { name: "asc" }],
+      }),
+      prisma.foodOverride.findMany({
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          category: true,
+          searchText: true,
+          caloriesKcal: true,
+          proteinG: true,
+          carbsG: true,
+          fatG: true,
+          fiberG: true,
+          sodiumMg: true,
+        },
+        orderBy: [{ name: "asc" }],
+      }),
+    ]);
+
+    const catalogItems = rows.map((item) => ({
+      id: item.id,
+      source: item.source,
+      sourceCode: item.sourceCode,
+      name: item.name,
+      displayName: getFoodDisplayName(item.name, item.source, item.sourceCode),
+      category: item.category,
+      searchText: item.searchText,
+      per100g: {
+        caloriesKcal: item.caloriesKcal,
+        proteinG: item.proteinG,
+        carbsG: item.carbsG,
+        fatG: item.fatG,
+        fiberG: item.fiberG,
+        sodiumMg: item.sodiumMg,
+      },
+    }));
+
+    const overrideItems = overrides.map((row) => ({
+      id: row.id,
+      source: "CUSTOM" as const,
+      sourceCode: row.code,
+      name: row.name,
+      displayName: row.name,
+      category: row.category,
+      searchText: row.searchText,
+      per100g: {
+        caloriesKcal: row.caloriesKcal,
+        proteinG: row.proteinG,
+        carbsG: row.carbsG,
+        fatG: row.fatG,
+        fiberG: row.fiberG,
+        sodiumMg: row.sodiumMg,
+      },
+    }));
+
+    return [...overrideItems, ...catalogItems];
   }
 
   async findById(id: string) {
@@ -224,6 +365,48 @@ export class FoodRepository {
     return pickBestFoodMatch(trimmed, items);
   }
 
+  /**
+   * Match para plano alimentar: busca em TBCA + TACO + overrides CUSTOM (Florescer)
+   * e escolhe o melhor score entre todas as fontes — sem priorizar TBCA cegamente.
+   */
+  async findBestMealPlanMatch(name: string): Promise<FoodItemDto | null> {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+
+    const candidates = extractFoodMatchCandidates(trimmed);
+    const merged = new Map<string, FoodItemDto>();
+
+    for (const candidate of candidates) {
+      const exact = await this.findExactMatch(candidate);
+      if (exact) merged.set(exact.id, exact);
+
+      const { items } = await this.search({ q: candidate, limit: 30 });
+      for (const item of items) merged.set(item.id, item);
+    }
+
+    const pool = [...merged.values()];
+    if (!pool.length) return null;
+
+    let best: FoodItemDto | null = null;
+    let bestScore = MEAL_PLAN_MATCH_MIN_SCORE - 1;
+
+    for (const item of pool) {
+      let itemScore = 0;
+      for (const candidate of [trimmed, ...candidates]) {
+        itemScore = Math.max(
+          itemScore,
+          scoreFoodForMealPlanSearch(candidate, item.name, item.source, item.sourceCode),
+        );
+      }
+      if (itemScore > bestScore) {
+        bestScore = itemScore;
+        best = item;
+      }
+    }
+
+    return best;
+  }
+
   async search(input: { q: string; source?: FoodSource; limit?: number }) {
     const limit = Math.min(Math.max(input.limit ?? 20, 1), 50);
     const trimmed = input.q.trim();
@@ -244,19 +427,33 @@ export class FoodRepository {
           : phraseWhere;
     }
 
-    const rows = await prisma.foodItem.findMany({
+    const queryTokens = tokenizeFoodQuery(trimmed);
+    const fetchTake = queryTokens.length <= 2
+      ? Math.min(Math.max(limit * 20, 120), 250)
+      : Math.min(limit * 8, 200);
+
+    let rows = await prisma.foodItem.findMany({
       where,
-      take: Math.min(limit * 4, 120),
+      take: fetchTake,
     });
 
-    const baseItems = rows
-      .map(mapFood)
-      .sort((a, b) => scoreFoodSearchResult(trimmed, b.name, b.source) - scoreFoodSearchResult(trimmed, a.name, a.source))
-      .slice(0, limit);
+    if (!rows.length && queryTokens.length > 1) {
+      rows = await prisma.foodItem.findMany({
+        where: buildRelaxedTokenSearchWhere(trimmed, input.source),
+        take: Math.min(Math.max(limit * 20, 120), 250),
+      });
+    }
+
+    const mappedRows = rows.map(mapFood);
+    const strictItems = rankFoodSearchResults(trimmed, mappedRows, limit);
+    const relaxedItems =
+      strictItems.length > 0
+        ? strictItems
+        : rankFoodSearchResults(trimmed, filterRelaxedFoodMatches(trimmed, mappedRows), limit);
 
     const overrideItems = await this.searchOverrides(normalized, limit);
     const merged = new Map<string, FoodItemDto>();
-    for (const item of [...overrideItems, ...baseItems]) {
+    for (const item of [...overrideItems, ...relaxedItems]) {
       merged.set(item.id, item);
     }
 

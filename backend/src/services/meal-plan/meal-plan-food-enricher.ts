@@ -1,9 +1,8 @@
-import { FoodService } from "../food.service";
 import type { FoodItemDto } from "../../types/food.types";
 import type { ParsedFoodItem, ParsedMealPlan } from "../../types/meal-plan.types";
-import { extractFoodMatchCandidates } from "../../utils/food-meal-plan-match-candidates";
+import { FoodRepository } from "../../repositories/food.repository";
 
-const foodService = new FoodService();
+const foodRepository = new FoodRepository();
 
 function mapPer100g(food: FoodItemDto) {
   return {
@@ -17,19 +16,7 @@ function mapPer100g(food: FoodItemDto) {
 }
 
 async function matchFoodCandidate(name: string): Promise<FoodItemDto | null> {
-  const candidates = extractFoodMatchCandidates(name);
-  for (const candidate of candidates) {
-    const tbca = await foodService.matchByName(candidate, "TBCA");
-    if (tbca) return tbca;
-
-    const [taco, any] = await Promise.all([
-      foodService.matchByName(candidate, "TACO"),
-      foodService.matchByName(candidate),
-    ]);
-    if (taco) return taco;
-    if (any) return any;
-  }
-  return null;
+  return foodRepository.findBestMealPlanMatch(name);
 }
 
 export { matchFoodCandidate };

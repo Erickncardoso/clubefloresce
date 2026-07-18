@@ -8,6 +8,18 @@ import {
 export class FoodService {
   private repo = new FoodRepository();
 
+  async getCatalogMeta() {
+    return this.repo.getCatalogMeta();
+  }
+
+  async getCatalog() {
+    const [meta, items] = await Promise.all([
+      this.repo.getCatalogMeta(),
+      this.repo.listCatalogItems(),
+    ]);
+    return { version: meta.version, items };
+  }
+
   async getStats() {
     const grouped = await this.repo.countBySource();
     const bySource = Object.fromEntries(
@@ -37,6 +49,16 @@ export class FoodService {
     const parsedSource =
       source === "TACO" || source === "TBCA" ? (source as FoodSource) : undefined;
     return this.repo.findBestMatch(name, parsedSource);
+  }
+
+  /** Plano alimentar: TBCA + TACO + overrides Florescer (CUSTOM), melhor score global. */
+  async matchForMealPlan(name: string) {
+    return this.repo.findBestMealPlanMatch(name);
+  }
+
+  async matchBatchForMealPlan(items: Array<{ key: string; name: string }>) {
+    const { matchFoodCandidatesBatch } = await import("./meal-plan/meal-plan-food-enricher");
+    return matchFoodCandidatesBatch(items, 10);
   }
 
   async getById(id: string) {

@@ -34,7 +34,7 @@ async function enrichItem(item: MealItemDraft): Promise<MealItemDraft> {
     }
   }
 
-  // Matcher robusto (extrai candidatos + TBCA/TACO/qualquer fonte), igual ao parser do plano.
+  // Matcher robusto: TBCA + TACO + overrides Florescer (CUSTOM), melhor score global.
   // Garante que itens sem foodId (ex.: whey, mussarela) também contabilizem calorias.
   const matched = await matchFoodCandidate(item.name);
   if (!matched) return item;
