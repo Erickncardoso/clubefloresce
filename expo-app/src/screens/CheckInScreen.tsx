@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import CfButton from '@/components/ui/CfButton';
@@ -35,6 +35,7 @@ function frequencyLabel(freq?: string) {
 
 export default function CheckInScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ template?: string }>();
   const { request } = usePatientApi();
   const { templates, loading, canOpenTemplate, loadCheckInAccess } = useWeeklyCheckIn();
   const [selected, setSelected] = useState<Template | null>(null);
@@ -47,6 +48,17 @@ export default function CheckInScreen() {
   useEffect(() => {
     loadCheckInAccess();
   }, [loadCheckInAccess]);
+
+  useEffect(() => {
+    const templateId = typeof params.template === 'string' ? params.template : '';
+    if (!templateId || !templates.length || selected) return;
+    const tpl = templates.find((item) => item.id === templateId);
+    if (tpl && canOpenTemplate(tpl)) {
+      setSelected(tpl as Template);
+      setStepIndex(0);
+      setAnswers({});
+    }
+  }, [canOpenTemplate, params.template, selected, templates]);
 
   const currentStep = selected?.steps?.[stepIndex];
 
@@ -67,6 +79,7 @@ export default function CheckInScreen() {
         }),
       });
       setDone(true);
+      router.replace('/check-in/concluido' as never);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -93,15 +106,7 @@ export default function CheckInScreen() {
   }
 
   if (done) {
-    return (
-      <PatientShell>
-        <View style={styles.done}>
-          <Text style={styles.doneTitle}>Check-in enviado!</Text>
-          <Text style={styles.doneText}>Obrigada por compartilhar como foi sua semana.</Text>
-          <CfButton label="Voltar ao início" onPress={() => router.replace('/inicio' as never)} />
-        </View>
-      </PatientShell>
-    );
+    return null;
   }
 
   if (selected && currentStep) {

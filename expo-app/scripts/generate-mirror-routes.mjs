@@ -8,9 +8,13 @@ const appDir = path.join(scriptsDir, '..', 'app');
 const realScreens = {
   'app/register.tsx': '@/screens/RegisterScreen',
   'app/esqueci-senha.tsx': '@/screens/EsqueciSenhaScreen',
+  'app/redefinir-senha.tsx': '@/screens/RedefinirSenhaScreen',
+  'app/abrir.tsx': '@/screens/AbrirScreen',
+  'app/documento.tsx': '@/screens/DocumentoScreen',
   'app/(tabs)/inicio/index.tsx': '@/screens/HomeScreen',
   'app/(tabs)/bella/index.tsx': '@/screens/BellaHomeScreen',
   'app/(tabs)/evolucao/index.tsx': '@/screens/EvolucaoScreen',
+  'app/(tabs)/evolucao/nutricao.tsx': '@/screens/EvolucaoNutricaoScreen',
   'app/(tabs)/conteudo/index.tsx': '@/screens/ConteudoScreen',
   'app/(tabs)/comunidade/index.tsx': '@/screens/ComunidadeScreen',
   'app/onboarding/index.tsx': '@/screens/OnboardingScreen',
@@ -22,8 +26,16 @@ const realScreens = {
   'app/modulos/[id].tsx': '@/screens/ModulePlayerScreen',
   'app/ebooks.tsx': '@/screens/EbooksScreen',
   'app/check-in/index.tsx': '@/screens/CheckInScreen',
+  'app/check-in/responder.tsx': '@/screens/CheckInResponderScreen',
+  'app/check-in/resumo.tsx': '@/screens/CheckInResumoScreen',
+  'app/check-in/concluido.tsx': '@/screens/CheckInConcluidoScreen',
+  'app/check-in/historico.tsx': '@/screens/CheckInHistoricoScreen',
   'app/bella/chat/[topic].tsx': '@/screens/BellaChatScreen',
+  'app/bella/chat/index.tsx': '@/screens/BellaChatIndexScreen',
+  'app/substituicao/index.tsx': '@/screens/SubstituicaoScreen',
   'app/perfil/index.tsx': '@/screens/PerfilScreen',
+  'app/perfil/configuracoes.tsx': '@/screens/PerfilConfiguracoesScreen',
+  'app/perfil/notificacoes.tsx': '@/screens/PerfilNotificacoesScreen',
 };
 
 const screens = [

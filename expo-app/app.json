@@ -9,10 +9,19 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.clubeflorescer.app"
+      "bundleIdentifier": "com.clubeflorescer.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "A câmera é usada nas consultas por vídeo com sua nutricionista.",
+        "NSMicrophoneUsageDescription": "O microfone é usado nas consultas por vídeo com sua nutricionista."
+      }
     },
     "android": {
       "package": "com.clubeflorescer.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

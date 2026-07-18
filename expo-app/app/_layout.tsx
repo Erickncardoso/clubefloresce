@@ -32,6 +32,7 @@ function AppNavigationShell() {
       <Stack.Screen name="perfil/index" />
       <Stack.Screen name="check-in/index" />
       <Stack.Screen name="bella/chat/[topic]" />
+      <Stack.Screen name="chamada/index" />
     </Stack>
   );
 }

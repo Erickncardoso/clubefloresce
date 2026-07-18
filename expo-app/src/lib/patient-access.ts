@@ -13,10 +13,35 @@ export type PatientAccessFields = {
   approvalEmailSentAt?: Date | string | null;
 };
 
+function normalizedPlan(plan?: string | null): string {
+  return String(plan || 'FREE').toUpperCase();
+}
+
 export function isPatientManuallyGrantedAccess(fields: PatientAccessFields): boolean {
   if (!fields.approvalEmailSentAt) return false;
   if (!fields.accessExpiresAt) return true;
   return !isPatientAccessExpired(fields.accessExpiresAt);
+}
+
+export function isPatientFullAccessActive(
+  plan?: string | null,
+  accessExpiresAt?: Date | string | null,
+  approvalEmailSentAt?: Date | string | null,
+): boolean {
+  if (normalizedPlan(plan) === 'FREE') return false;
+  if (isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt })) {
+    return true;
+  }
+  return !isPatientAccessExpired(accessExpiresAt);
+}
+
+export function isPatientLimitedAccessActive(
+  plan?: string | null,
+  accessExpiresAt?: Date | string | null,
+  approvalEmailSentAt?: Date | string | null,
+): boolean {
+  if (normalizedPlan(plan) !== 'FREE') return false;
+  return isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt });
 }
 
 export function isPatientPaidAccessActive(
@@ -24,12 +49,10 @@ export function isPatientPaidAccessActive(
   accessExpiresAt?: Date | string | null,
   approvalEmailSentAt?: Date | string | null,
 ): boolean {
-  if (isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt })) {
-    return true;
-  }
-  const normalizedPlan = String(plan || 'FREE').toUpperCase();
-  if (normalizedPlan === 'FREE') return false;
-  return !isPatientAccessExpired(accessExpiresAt);
+  return (
+    isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+    || isPatientLimitedAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+  );
 }
 
 export function isPatientAppAccessBlocked(
@@ -40,11 +63,39 @@ export function isPatientAppAccessBlocked(
   return !isPatientPaidAccessActive(plan, accessExpiresAt, approvalEmailSentAt);
 }
 
+export function isPatientPremiumFeatureBlocked(
+  plan?: string | null,
+  accessExpiresAt?: Date | string | null,
+  approvalEmailSentAt?: Date | string | null,
+): boolean {
+  return !isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt);
+}
+
+export const PATIENT_LIMITED_APP_PATHS = [
+  '/inicio',
+  '/dieta',
+  '/evolucao',
+  '/perfil',
+  '/onboarding',
+  '/assinatura',
+  '/substituicao',
+];
+
+export function isPatientLimitedAppPath(path?: string | null): boolean {
+  const normalized = String(path || '').split('?')[0];
+  return PATIENT_LIMITED_APP_PATHS.some(
+    (allowed) => normalized === allowed || normalized.startsWith(`${allowed}/`),
+  );
+}
+
 export const PATIENT_ACCESS_EXPIRED_MESSAGE =
   'Sua assinatura expirou. Renove para continuar usando o app.';
 
 export const PATIENT_PAYMENT_REQUIRED_MESSAGE =
   'Finalize sua assinatura para acessar o Clube Florescer.';
+
+export const PATIENT_PREMIUM_REQUIRED_MESSAGE =
+  'Este recurso faz parte do plano Essencial ou Completo. Faça upgrade para liberar.';
 
 export const PATIENT_CHECKOUT_PATHS = ['/assinatura', '/assinatura/obrigado'];
 
@@ -69,7 +120,8 @@ export function isPatientAccessBlockedMessage(message: string): boolean {
     || normalized.includes('acesso expirado')
     || normalized.includes('assinatura expirou')
     || normalized.includes('finalize sua assinatura')
-    || normalized.includes('conta desativada');
+    || normalized.includes('conta desativada')
+    || normalized.includes('plano essencial ou completo');
 }
 
 export function isPatientAccessBlockedError(err: unknown): boolean {

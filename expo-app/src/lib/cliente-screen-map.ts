@@ -38,6 +38,7 @@ export const CLIENTE_SCREEN_MAP: ClienteScreenMeta[] = [
   { route: '/perfil', sourceFile: 'cliente/pages/perfil/index.vue', layout: 'patient', middleware: ['patient-only'] },
   { route: '/perfil/configuracoes', sourceFile: 'cliente/pages/perfil/configuracoes.vue', layout: 'patient', middleware: ['patient-only'] },
   { route: '/perfil/notificacoes', sourceFile: 'cliente/pages/perfil/notificacoes.vue', layout: 'patient', middleware: ['patient-only'] },
+  { route: '/chamada', sourceFile: 'cliente/pages/chamada.vue', layout: 'none', middleware: ['patient-only'] },
 ];
 
 export function findClienteScreen(route: string): ClienteScreenMeta | undefined {
