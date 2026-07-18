@@ -62,10 +62,35 @@ export function useDietaDiarySync() {
     syncTimers.clear()
   })
 
+  async function resyncAllCheckedMeals(getMealById, mealIds, loadChecked, countDone, options = {}) {
+    const { bumpRefresh = false } = options
+    let lastSummary = null
+
+    for (const mealId of mealIds) {
+      const meal = getMealById(mealId)
+      if (!meal?.items?.length && !meal?.itemLabels?.length) continue
+
+      const count = meal.itemLabels?.length || meal.items?.length || 0
+      const states = loadChecked(mealId, count)
+      if (!countDone(states)) continue
+
+      const summary = await syncMealCheck(mealId, meal, states, { bumpRefresh: false })
+      if (summary) lastSummary = summary
+    }
+
+    if (bumpRefresh && lastSummary) {
+      const nutritionRefresh = useState('patient-nutrition-refresh', () => 0)
+      nutritionRefresh.value += 1
+    }
+
+    return lastSummary
+  }
+
   return {
     syncing,
     syncError,
     syncMealCheck,
     queueSyncMealCheck,
+    resyncAllCheckedMeals,
   }
 }

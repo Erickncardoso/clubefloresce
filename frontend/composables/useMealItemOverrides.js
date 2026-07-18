@@ -117,19 +117,15 @@ export function useMealItemOverrides() {
       }
 
       const normalized = normalizeOverrideItem(override)
-      const display = normalized.display || formatMealItemLabel(normalized)
-      return {
+      const merged = normalizeMealPlanItem({
         ...item,
-        name: normalized.name || item.name,
-        display,
-        grams: normalized.grams ?? null,
-        ml: normalized.ml ?? item.ml,
-        amount: normalized.amount ?? item.amount,
-        unit: normalized.unit ?? item.unit,
-        foodId: normalized.foodId ?? null,
-        per100g: normalized.per100g ?? null,
-        isSubstituted: true,
+        ...normalized,
+        display: normalized.display || item.display || formatMealItemLabel(normalized),
         originalDisplay: item.display || formatMealItemLabel(item),
+      })
+      return {
+        ...merged,
+        isSubstituted: true,
         activeSubstitute: normalized,
       }
     })

@@ -212,7 +212,9 @@ const quickActions = [
 ]
 
 const { fetchPlan } = usePatientMealPlan()
-const { hasPlan: hasMealPlan } = useMealPlan()
+const { hasPlan: hasMealPlan, mealOrder, getMealById } = useMealPlan()
+const { loadChecked, countDone } = useDietaProgress()
+const { resyncAllCheckedMeals } = useDietaDiarySync()
 const { todaySummary, hydrate: hydrateGoals } = usePatientGoals()
 
 const config = useRuntimeConfig()
@@ -342,7 +344,16 @@ onMounted(async () => {
   loadCheckInAccess()
 
   // Plano já é carregado pelo plugin patient-meal-plan — não bloquear a home inteira.
-  void fetchPlan()
+  void fetchPlan().then(async () => {
+    if (!hasMealPlan.value) return
+    const summary = await resyncAllCheckedMeals(
+      getMealById,
+      mealOrder.value,
+      loadChecked,
+      countDone,
+    )
+    if (summary) dailySummary.value = summary
+  })
 
   const runWithTimeout = async (task, ms = 8000) => {
     let timeoutId

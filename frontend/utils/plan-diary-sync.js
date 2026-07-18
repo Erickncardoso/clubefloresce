@@ -51,23 +51,28 @@ function displayTextsForGramResolve(item) {
   ].filter(Boolean)
 }
 
-/** Gramas reais do item do plano — nunca assume 100g por padrão. */
+/** Gramas reais do item do plano — display do PDF tem prioridade sobre grams placeholder. */
 export function resolvePlanItemGrams(item) {
   if (!item) return 0
   const normalized = normalizeMealPlanItem(item)
   if (normalized.unit === 'avontade') return 0
 
-  if (normalized.grams > 0) return Math.round(normalized.grams)
-  if (normalized.ml > 0) return Math.round(normalized.ml)
-
+  // 1) (50g) / 30g no texto exibido — fonte de verdade do Dietbox
   for (const text of displayTextsForGramResolve(normalized)) {
     const fromText = parseMeasureFromDisplay(text)
     if (fromText?.grams > 0) return fromText.grams
     if (fromText?.ml > 0) return fromText.ml
   }
 
-  const resolved = resolveItemGrams(normalized, { defaultGrams: 0 })
-  return resolved > 0 ? Math.round(resolved) : 0
+  // 2) Porção caseira (amount + unit) — desfaz placeholder 100g do parser
+  const fromPortion = resolveItemGrams(normalized, { defaultGrams: 0 })
+  if (fromPortion > 0) return Math.round(fromPortion)
+
+  // 3) Gramas/ml explícitos já normalizados
+  if (normalized.grams > 0) return Math.round(normalized.grams)
+  if (normalized.ml > 0) return Math.round(normalized.ml)
+
+  return 0
 }
 
 export function buildPlanDiaryItems(meal, checkedStates = []) {

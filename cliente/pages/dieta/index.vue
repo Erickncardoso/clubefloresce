@@ -236,7 +236,7 @@ const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
 
 const { loadChecked, saveChecked, countDone } = useDietaProgress()
-const { queueSyncMealCheck, syncMealCheck } = useDietaDiarySync()
+const { queueSyncMealCheck, syncMealCheck, resyncAllCheckedMeals } = useDietaDiarySync()
 const { fetchPlan, uploadPdf, uploading: planUploading, planRecord } = usePatientMealPlan()
 const { mealList, mealOrder, getMealById, getMealIdForTime, hasPlan } = useMealPlan()
 const { getSubstitutionGroupsForMeal, mealHasSubstitutions } = useMealSubstitutions()
@@ -342,7 +342,8 @@ function toggleItem(index) {
   next[index] = !next[index]
   checkedItems.value = next
   saveChecked(activeMeal.value, next)
-  queueSyncMealCheck(activeMeal.value, currentMeal.value, next, (summary) => {
+  const meal = getMealById(activeMeal.value)
+  queueSyncMealCheck(activeMeal.value, meal, next, (summary) => {
     if (summary) dailySummary.value = summary
   })
 }
@@ -487,20 +488,13 @@ watch(nutritionRefresh, () => {
   loadDailySummary()
 })
 
-async function syncActiveMealIfNeeded() {
-  const meal = getMealById(activeMeal.value)
-  if (!meal?.itemLabels?.length) {
-    await loadDailySummary()
-    return
-  }
-
-  const states = loadChecked(activeMeal.value, meal.itemLabels.length)
-  if (!countDone(states)) {
-    await loadDailySummary()
-    return
-  }
-
-  const summary = await syncMealCheck(activeMeal.value, meal, states, { bumpRefresh: false })
+async function syncAllCheckedMealsIfNeeded() {
+  const summary = await resyncAllCheckedMeals(
+    getMealById,
+    mealOrder.value,
+    loadChecked,
+    countDone,
+  )
   if (summary) dailySummary.value = summary
   else await loadDailySummary()
 }
@@ -511,7 +505,7 @@ onMounted(async () => {
   if (hasPlan.value) {
     activeMeal.value = resolveActiveMealFromRoute()
     syncChecked(activeMeal.value)
-    await syncActiveMealIfNeeded()
+    await syncAllCheckedMealsIfNeeded()
   } else {
     loadDailySummary()
   }
@@ -525,6 +519,11 @@ onUnmounted(() => {
 
 watch(overridesRevision, () => {
   syncChecked(activeMeal.value, { preserveChecked: true })
+  const meal = getMealById(activeMeal.value)
+  if (!meal || !countDone(checkedItems.value)) return
+  queueSyncMealCheck(activeMeal.value, meal, checkedItems.value, (summary) => {
+    if (summary) dailySummary.value = summary
+  })
 })
 
 watch(extrasRevision, () => {

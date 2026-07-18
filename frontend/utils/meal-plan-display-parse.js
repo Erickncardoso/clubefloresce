@@ -2,6 +2,7 @@
  * Parser de linha Dietbox — espelha backend/src/services/meal-plan/dietbox-parser.ts
  * O campo display do PDF é a fonte de verdade (nome, unidade, g/ml).
  */
+import { resolveItemGrams } from './meal-portion-measures.js'
 
 function normalizeFractions(value) {
   return String(value || '')
@@ -108,7 +109,52 @@ export function parseDietboxItemLine(raw) {
     }
   }
 
+  const tail = parseQuantityTail(text)
+  if (tail.name && tail.amount != null && tail.unit !== 'avontade') {
+    return {
+      name: tail.name,
+      amount: tail.amount,
+      unit: tail.unit,
+      grams: null,
+      ml: null,
+      display: text,
+    }
+  }
+
+  if (text.length >= 4 && !/^observa/i.test(text)) {
+    return {
+      name: text,
+      amount: null,
+      unit: '',
+      grams: null,
+      ml: null,
+      display: text,
+    }
+  }
+
   return null
+}
+
+function inferGramsFromParsed(parsed, item) {
+  if (parsed.grams > 0) return parsed.grams
+  if (parsed.ml > 0) return null
+
+  if (parsed.amount != null && parsed.unit) {
+    const fromPortion = resolveItemGrams(
+      {
+        name: parsed.name,
+        amount: parsed.amount,
+        unit: parsed.unit,
+        grams: null,
+      },
+      { defaultGrams: 0 },
+    )
+    if (fromPortion > 0) return fromPortion
+  }
+
+  const legacy = Number(item?.grams)
+  if (Number.isFinite(legacy) && legacy > 0 && legacy !== 100) return legacy
+  return parsed.grams ?? (legacy === 100 ? null : legacy) ?? null
 }
 
 /** Normaliza item do plano usando display do PDF como fonte de verdade. */
@@ -119,13 +165,14 @@ export function normalizeMealPlanItem(item) {
   const parsed = displaySource ? parseDietboxItemLine(displaySource) : null
 
   if (parsed?.name) {
+    const grams = inferGramsFromParsed(parsed, item)
     return {
       ...item,
       food: parsed.name,
       name: parsed.name,
       amount: parsed.amount ?? item.amount ?? null,
       unit: parsed.unit ?? item.unit ?? '',
-      grams: parsed.grams ?? item.grams ?? null,
+      grams: grams ?? null,
       ml: parsed.ml ?? item.ml ?? null,
       display: parsed.display,
     }

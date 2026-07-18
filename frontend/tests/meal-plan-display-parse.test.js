@@ -29,6 +29,19 @@ test('normalizeMealPlanItem corrige name corrompido usando display', () => {
   assert.equal(item.display, 'Ovo de galinha 1 Unidade(s) (50g)')
 })
 
+test('normalizeMealPlanItem infere gramas por unidade quando PDF não traz (XXg)', () => {
+  const item = normalizeMealPlanItem({
+    key: 'ovo',
+    name: 'Ovo de galinha',
+    amount: 1,
+    unit: 'unidade',
+    grams: 100,
+    display: 'Ovo de galinha 1 Unidade(s)',
+  })
+
+  assert.equal(item.grams, 50)
+})
+
 test('resolveMealItemName ignora prefixo lixo no name', () => {
   assert.equal(
     resolveMealItemName({
