@@ -131,6 +131,36 @@ function buildFoodItem(raw: string, substitutions: ParsedFoodItem[] = []): Parse
     };
   }
 
+  const leadingMeasureMatch = text.match(/^(\d+(?:\.\d+)?)\s*(g|ml)\s+(?:de\s+)?(.+)$/i);
+  if (leadingMeasureMatch) {
+    const measure = Number(leadingMeasureMatch[1]);
+    const measureUnit = leadingMeasureMatch[2].toLowerCase();
+    const name = leadingMeasureMatch[3].trim();
+    return {
+      key: slugify(name),
+      name,
+      amount: null,
+      unit: measureUnit === "g" ? "g" : "ml",
+      grams: measureUnit === "g" ? measure : null,
+      ml: measureUnit === "ml" ? measure : null,
+      display: text,
+      substitutions,
+    };
+  }
+
+  if (text.length >= 4 && !/^observa/i.test(text)) {
+    return {
+      key: slugify(text),
+      name: text,
+      amount: null,
+      unit: "",
+      grams: null,
+      ml: null,
+      display: text,
+      substitutions,
+    };
+  }
+
   return null;
 }
 

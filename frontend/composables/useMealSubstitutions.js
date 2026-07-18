@@ -22,6 +22,12 @@ export function useMealSubstitutions() {
         options: item.substitutions.map((option) => ({
           ...option,
           label: option.display || formatMealItemLabel(option),
+          note: option.note
+            || (option.substitutionType === 'group'
+              ? 'Grupo alimentar'
+              : option.substitutionType === 'recipe'
+                ? 'Receita'
+                : ''),
         })),
       }))
   }
