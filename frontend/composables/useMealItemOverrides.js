@@ -1,4 +1,5 @@
 import { formatMealItemLabel } from '~/utils/meal-plan-format'
+import { normalizeFoodEditorItem } from '~/utils/meal-plan-prescription'
 import { getLocalDateKey } from '~/utils/local-date'
 
 function todayKey() {
@@ -11,7 +12,7 @@ function storageKey(mealId) {
 
 function normalizeOverrideItem(item) {
   if (!item) return null
-  return {
+  const draft = {
     key: item.key || `sub-${slugify(item.name || item.display || 'item')}`,
     name: item.name || item.food || '',
     amount: item.amount ?? null,
@@ -22,6 +23,8 @@ function normalizeOverrideItem(item) {
     foodId: item.foodId ?? null,
     per100g: item.per100g ?? null,
   }
+  normalizeFoodEditorItem(draft)
+  return draft
 }
 
 function slugify(value) {
@@ -106,20 +109,21 @@ export function useMealItemOverrides() {
       const override = overrides[item.key]
       if (!override) return { ...item, isSubstituted: false }
 
-      const display = override.display || formatMealItemLabel(override)
+      const normalized = normalizeOverrideItem(override)
+      const display = normalized.display || formatMealItemLabel(normalized)
       return {
         ...item,
-        name: override.name || item.name,
+        name: normalized.name || item.name,
         display,
-        grams: override.grams ?? item.grams,
-        ml: override.ml ?? item.ml,
-        amount: override.amount ?? item.amount,
-        unit: override.unit ?? item.unit,
-        foodId: override.foodId ?? null,
-        per100g: override.per100g ?? null,
+        grams: normalized.grams ?? null,
+        ml: normalized.ml ?? item.ml,
+        amount: normalized.amount ?? item.amount,
+        unit: normalized.unit ?? item.unit,
+        foodId: normalized.foodId ?? null,
+        per100g: normalized.per100g ?? null,
         isSubstituted: true,
         originalDisplay: item.display || formatMealItemLabel(item),
-        activeSubstitute: override,
+        activeSubstitute: normalized,
       }
     })
 

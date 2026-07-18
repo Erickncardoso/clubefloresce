@@ -1,5 +1,5 @@
 import { createMealItemId } from './meal-diary.js'
-import { amountToGrams, parseMeasureFromUnit } from './meal-portion-measures.js'
+import { resolveItemGrams } from './meal-portion-measures.js'
 
 /** Extrai gramas/ml explícitos de textos como "Mussarela (50g)", "30g whey", "200 ml leite". */
 export function parseMeasureFromDisplay(text) {
@@ -39,16 +39,7 @@ export function resolvePlanItemGrams(item) {
   if (!item) return 0
   if (item.unit === 'avontade') return 0
 
-  const explicitGrams = Number(item.grams)
-  if (Number.isFinite(explicitGrams) && explicitGrams > 0) {
-    return Math.round(explicitGrams)
-  }
-
-  const explicitMl = Number(item.ml)
-  if (Number.isFinite(explicitMl) && explicitMl > 0) {
-    return Math.round(explicitMl)
-  }
-
+  // Peso entre parênteses no display do PDF é autoritativo (ex.: 2 fatias (25g) = 25g total).
   const fromText =
     parseMeasureFromDisplay(item.display)
     || parseMeasureFromDisplay(item.name)
@@ -56,21 +47,9 @@ export function resolvePlanItemGrams(item) {
   if (fromText?.grams > 0) return fromText.grams
   if (fromText?.ml > 0) return fromText.ml
 
-  const amount = Number(item.amount)
-  if (Number.isFinite(amount) && amount > 0) {
-    const unit = String(item.unit || '').trim().toLowerCase()
-    if (unit === 'g') return Math.round(amount)
-    if (unit === 'ml') return Math.round(amount)
-
-    const measureId = parseMeasureFromUnit(item.unit)
-    if (measureId === 'grams') return Math.round(amount)
-    if (measureId === 'ml') return Math.round(amount)
-    if (measureId) {
-      return amountToGrams(amount, measureId, item.name || item.display)
-    }
-  }
-
-  return 0
+  // Mesma lógica do editor: amount+unit antes de grams placeholder (100g default).
+  const resolved = resolveItemGrams(item, { defaultGrams: 0 })
+  return resolved > 0 ? Math.round(resolved) : 0
 }
 
 export function buildPlanDiaryItems(meal, checkedStates = []) {

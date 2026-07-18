@@ -14,3 +14,26 @@ test('resolvePlanItemGrams usa gramas reais e nunca assume 100g', () => {
   assert.equal(resolvePlanItemGrams({ amount: 2, unit: 'colher', name: 'Aveia' }), 30)
   assert.equal(resolvePlanItemGrams({ name: 'Salada', unit: 'porcao', amount: null, grams: null }), 0)
 })
+
+test('resolvePlanItemGrams prioriza (XXg) do display sobre grams placeholder', () => {
+  assert.equal(
+    resolvePlanItemGrams({
+      grams: 100,
+      amount: 1,
+      unit: 'Unidade(s)',
+      display: 'Ovo de galinha 1 Unidade(s) (50g)',
+      name: 'Ovo de galinha',
+    }),
+    50,
+  )
+  assert.equal(
+    resolvePlanItemGrams({
+      grams: 100,
+      amount: 2,
+      unit: 'Fatia(s)',
+      display: 'Queijo muçarela 2 Fatia(s) (25g)',
+      name: 'Queijo muçarela',
+    }),
+    25,
+  )
+})
