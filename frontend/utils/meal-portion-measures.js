@@ -5,6 +5,7 @@ export const PORTION_MEASURES = [
   { id: 'fatia', label: 'Fatia(s)', defaultGrams: 30 },
   { id: 'xicara', label: 'Xícara(s)', defaultGrams: 160 },
   { id: 'porcao', label: 'Porção(ões)', defaultGrams: 100 },
+  { id: 'dosador', label: 'Dosador(es)', defaultGrams: 30 },
 ]
 
 /** Gramas médias por unidade para alimentos comuns (referência TACO / porções típicas). */
@@ -31,6 +32,8 @@ const FOOD_UNIT_GRAMS = [
   { pattern: /hamb[uú]rguer/i, grams: 90 },
   { pattern: /salsicha/i, grams: 50 },
   { pattern: /queijo.*fatia|fatia.*queijo/i, grams: 25 },
+  { pattern: /whey|prote[ií]na.*p[oó]|wpc|wpi|suplemento prote/i, grams: 30 },
+  { pattern: /mussarela|mozzarella/i, grams: 30 },
 ]
 
 const RECIPE_PATTERN =
@@ -77,6 +80,7 @@ export function parseMeasureFromUnit(unit) {
   if (/colher|sopa|\bcs\b/.test(raw)) return 'colher'
   if (/fatia/.test(raw)) return 'fatia'
   if (/xicara|xícara/.test(raw)) return 'xicara'
+  if (/dosador|scoop|medida\(s\)/.test(raw)) return 'dosador'
   if (/porcao|porção|\bpor\b/.test(raw)) return 'porcao'
   if (/unidade|unidades|\bun\b|\bun\.|\bund\b/.test(raw)) return 'unidade'
   return 'unidade'

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { parseMeasureFromDisplay, resolvePlanItemGrams } from '../utils/plan-diary-sync.js'
+
+test('parseMeasureFromDisplay extrai gramas do texto exibido', () => {
+  assert.deepEqual(parseMeasureFromDisplay('Mussarela (50g)'), { grams: 50 })
+  assert.deepEqual(parseMeasureFromDisplay('30g whey protein'), { grams: 30 })
+  assert.deepEqual(parseMeasureFromDisplay('Whey protein 30g'), { grams: 30 })
+})
+
+test('resolvePlanItemGrams usa gramas reais e nunca assume 100g', () => {
+  assert.equal(resolvePlanItemGrams({ grams: 50, unit: 'porcao', display: 'Mussarela (50g)' }), 50)
+  assert.equal(resolvePlanItemGrams({ display: '30g whey protein', unit: '', grams: null }), 30)
+  assert.equal(resolvePlanItemGrams({ amount: 2, unit: 'colher', name: 'Aveia' }), 30)
+  assert.equal(resolvePlanItemGrams({ name: 'Salada', unit: 'porcao', amount: null, grams: null }), 0)
+})
