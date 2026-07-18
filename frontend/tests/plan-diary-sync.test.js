@@ -37,3 +37,30 @@ test('resolvePlanItemGrams prioriza (XXg) do display sobre grams placeholder', (
     25,
   )
 })
+
+test('resolvePlanItemGrams usa label formatado quando display está vazio', () => {
+  assert.equal(
+    resolvePlanItemGrams({
+      grams: 100,
+      amount: 50,
+      unit: 'g',
+      name: 'Mussarela',
+      display: null,
+    }),
+    50,
+  )
+  assert.equal(
+    resolvePlanItemGrams({
+      grams: 100,
+      amount: 1,
+      unit: 'dosador',
+      name: 'Whey protein',
+      display: null,
+    }),
+    30,
+  )
+})
+
+test('parseMeasureFromDisplay encontra gramas no meio do texto', () => {
+  assert.deepEqual(parseMeasureFromDisplay('Queijo muçarela, 50 g, fatiado'), { grams: 50 })
+})

@@ -1,4 +1,5 @@
 import { createMealItemId } from './meal-diary.js'
+import { formatMealItemLabel } from './meal-plan-format.js'
 import { resolveItemGrams } from './meal-portion-measures.js'
 
 /** Extrai gramas/ml explícitos de textos como "Mussarela (50g)", "30g whey", "200 ml leite". */
@@ -31,7 +32,30 @@ export function parseMeasureFromDisplay(text) {
     return { ml: Math.round(Number(trailingMl[1].replace(',', '.'))) }
   }
 
+  // Peso inline no meio do texto (ex.: "mussarela, 50 g, fatiada")
+  const inlineMatches = [...raw.matchAll(/(\d+(?:[.,]\d+)?)\s*g\b/gi)]
+  if (inlineMatches.length) {
+    const last = inlineMatches[inlineMatches.length - 1]
+    return { grams: Math.round(Number(last[1].replace(',', '.'))) }
+  }
+
   return null
+}
+
+function displayTextsForGramResolve(item) {
+  if (!item || typeof item !== 'object') return []
+  const texts = [
+    item.display,
+    item.originalDisplay,
+    item.name,
+    typeof item.food === 'string' ? item.food : null,
+  ]
+  try {
+    texts.push(formatMealItemLabel(item))
+  } catch {
+    /* ignore */
+  }
+  return texts.filter(Boolean)
 }
 
 /** Gramas reais do item do plano — nunca assume 100g por padrão. */
@@ -39,13 +63,12 @@ export function resolvePlanItemGrams(item) {
   if (!item) return 0
   if (item.unit === 'avontade') return 0
 
-  // Peso entre parênteses no display do PDF é autoritativo (ex.: 2 fatias (25g) = 25g total).
-  const fromText =
-    parseMeasureFromDisplay(item.display)
-    || parseMeasureFromDisplay(item.name)
-    || parseMeasureFromDisplay(item.originalDisplay)
-  if (fromText?.grams > 0) return fromText.grams
-  if (fromText?.ml > 0) return fromText.ml
+  // Peso no texto exibido (PDF ou label formatado) tem prioridade sobre grams placeholder.
+  for (const text of displayTextsForGramResolve(item)) {
+    const fromText = parseMeasureFromDisplay(text)
+    if (fromText?.grams > 0) return fromText.grams
+    if (fromText?.ml > 0) return fromText.ml
+  }
 
   // Mesma lógica do editor: amount+unit antes de grams placeholder (100g default).
   const resolved = resolveItemGrams(item, { defaultGrams: 0 })

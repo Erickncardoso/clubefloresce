@@ -121,6 +121,19 @@ export function resolveItemGrams(item, { defaultGrams = 100 } = {}) {
 
   const explicitGrams = Number(item.grams)
   if (Number.isFinite(explicitGrams) && explicitGrams > 0) {
+    // 100g é placeholder comum do parser — preferir porção caseira quando diferente.
+    if (
+      explicitGrams === 100
+      && amount != null
+      && measureFromUnit
+      && measureFromUnit !== 'grams'
+      && measureFromUnit !== 'ml'
+    ) {
+      const fromPortion = amountToGrams(amount, measureFromUnit, name)
+      if (fromPortion > 0 && fromPortion !== explicitGrams) {
+        return fromPortion
+      }
+    }
     return Math.max(1, Math.round(explicitGrams))
   }
 
