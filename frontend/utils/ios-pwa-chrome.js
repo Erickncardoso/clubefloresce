@@ -46,8 +46,16 @@ function clampWindowScroll() {
 
 function syncViewportMetrics() {
   const vv = window.visualViewport
-  const height = vv?.height ?? window.innerHeight
+  const vvHeight = vv?.height ?? window.innerHeight
   const offsetTop = vv?.offsetTop ?? 0
+
+  // Sem teclado aberto, usamos a altura total da tela. Em alguns aparelhos (ex.: iPhone 13)
+  // o visualViewport.height reporta menos que a tela física, deixando faixa branca embaixo
+  // e empurrando o menu flutuante para cima. Com teclado aberto mantemos o visualViewport
+  // (menor) para o conteúdo caber acima do teclado.
+  const height = isTextInputFocused()
+    ? vvHeight
+    : Math.max(vvHeight, window.innerHeight || 0)
 
   document.documentElement.style.setProperty('--cf-vvh', `${Math.round(height)}px`)
   document.documentElement.style.setProperty('--cf-vv-offset-top', `${Math.round(offsetTop)}px`)
