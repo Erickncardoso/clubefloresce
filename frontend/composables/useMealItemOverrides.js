@@ -1,5 +1,4 @@
-import { formatMealItemLabel } from '~/utils/meal-plan-format'
-import { normalizeFoodEditorItem } from '~/utils/meal-plan-prescription'
+import { formatMealItemLabel, normalizeFoodEditorItem } from '~/utils/meal-plan-format'
 import { getLocalDateKey } from '~/utils/local-date'
 
 function todayKey() {

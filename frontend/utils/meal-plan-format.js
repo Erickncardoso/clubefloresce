@@ -79,3 +79,30 @@ function capitalizeFood(food) {
   if (!food) return ''
   return food.charAt(0).toUpperCase() + food.slice(1)
 }
+
+/** Parse display string into name, amount, unit, grams/ml for editor/override items. */
+export function normalizeFoodEditorItem(item) {
+  if (!item || typeof item !== 'object') return item
+
+  const display = String(item.display || '').trim()
+  if (!display) return item
+
+  const qtyMatch = display.match(
+    /^(.+?)\s+(\d+(?:[.,]\d+)?(?:\s+\d+\/\d+)?|½|¼|¾)\s+(.+)$/i,
+  )
+  if (qtyMatch) {
+    item.name = qtyMatch[1].trim()
+    item.amount = qtyMatch[2].replace(',', '.').replace('½', '0.5').replace('¼', '0.25').replace('¾', '0.75')
+    item.unit = qtyMatch[3].trim()
+  } else if (/à vontade/i.test(display)) {
+    item.name = display.replace(/\s*à vontade.*$/i, '').trim()
+    item.unit = 'à vontade'
+  }
+
+  const gramsMatch = display.match(/\((\d+(?:\.\d+)?)\s*g\)/i)
+  const mlMatch = display.match(/\((\d+(?:\.\d+)?)\s*ml\)/i)
+  item.grams = gramsMatch ? Number(gramsMatch[1]) : (item.grams ?? null)
+  item.ml = mlMatch ? Number(mlMatch[1]) : (item.ml ?? null)
+
+  return item
+}
