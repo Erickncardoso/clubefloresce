@@ -2,6 +2,7 @@ import { FoodService } from "../food.service";
 import type { FoodItemDto } from "../../types/food.types";
 import type { MealItemDraft } from "../../types/food-diary.types";
 import { macrosAtGramsFromPer100g, normalizePer100gMacros } from "../../utils/food-macros";
+import { matchFoodCandidate } from "../meal-plan/meal-plan-food-enricher";
 import { sumItems } from "./meal-item-math";
 
 const foodService = new FoodService();
@@ -33,7 +34,9 @@ async function enrichItem(item: MealItemDraft): Promise<MealItemDraft> {
     }
   }
 
-  const matched = await foodService.matchByName(item.name);
+  // Matcher robusto (extrai candidatos + TBCA/TACO/qualquer fonte), igual ao parser do plano.
+  // Garante que itens sem foodId (ex.: whey, mussarela) também contabilizem calorias.
+  const matched = await matchFoodCandidate(item.name);
   if (!matched) return item;
 
   const aiName = item.name;
