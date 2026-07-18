@@ -1,4 +1,5 @@
 import { formatMealItemLabel, normalizeFoodEditorItem } from '~/utils/meal-plan-format'
+import { normalizeMealPlanItem } from '~/utils/meal-plan-display-parse'
 import { getLocalDateKey } from '~/utils/local-date'
 
 function todayKey() {
@@ -11,17 +12,18 @@ function storageKey(mealId) {
 
 function normalizeOverrideItem(item) {
   if (!item) return null
-  const draft = {
+  const draft = normalizeMealPlanItem({
     key: item.key || `sub-${slugify(item.name || item.display || 'item')}`,
     name: item.name || item.food || '',
     amount: item.amount ?? null,
     unit: item.unit || 'porcao',
     grams: item.grams ?? null,
     ml: item.ml ?? null,
-    display: item.display || item.label || formatMealItemLabel(item),
+    display: item.display || item.label || '',
     foodId: item.foodId ?? null,
     per100g: item.per100g ?? null,
-  }
+  })
+  draft.display = draft.display || formatMealItemLabel(draft)
   normalizeFoodEditorItem(draft)
   return draft
 }
@@ -106,7 +108,13 @@ export function useMealItemOverrides() {
     const overrides = getOverrides(mealId)
     const items = (meal.items || []).map((item) => {
       const override = overrides[item.key]
-      if (!override) return { ...item, isSubstituted: false }
+      if (!override) {
+        const normalized = normalizeMealPlanItem(item)
+        return {
+          ...normalized,
+          isSubstituted: false,
+        }
+      }
 
       const normalized = normalizeOverrideItem(override)
       const display = normalized.display || formatMealItemLabel(normalized)

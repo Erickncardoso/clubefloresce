@@ -1,5 +1,5 @@
 import { createMealItemId } from './meal-diary.js'
-import { formatMealItemLabel } from './meal-plan-format.js'
+import { normalizeMealPlanItem, resolveMealItemName } from './meal-plan-display-parse.js'
 import { resolveItemGrams } from './meal-portion-measures.js'
 
 /** Extrai gramas/ml explícitos de textos como "Mussarela (50g)", "30g whey", "200 ml leite". */
@@ -44,34 +44,29 @@ export function parseMeasureFromDisplay(text) {
 
 function displayTextsForGramResolve(item) {
   if (!item || typeof item !== 'object') return []
-  const texts = [
-    item.display,
+  const normalized = normalizeMealPlanItem(item)
+  return [
+    normalized.display,
     item.originalDisplay,
-    item.name,
-    typeof item.food === 'string' ? item.food : null,
-  ]
-  try {
-    texts.push(formatMealItemLabel(item))
-  } catch {
-    /* ignore */
-  }
-  return texts.filter(Boolean)
+  ].filter(Boolean)
 }
 
 /** Gramas reais do item do plano — nunca assume 100g por padrão. */
 export function resolvePlanItemGrams(item) {
   if (!item) return 0
-  if (item.unit === 'avontade') return 0
+  const normalized = normalizeMealPlanItem(item)
+  if (normalized.unit === 'avontade') return 0
 
-  // Peso no texto exibido (PDF ou label formatado) tem prioridade sobre grams placeholder.
-  for (const text of displayTextsForGramResolve(item)) {
+  if (normalized.grams > 0) return Math.round(normalized.grams)
+  if (normalized.ml > 0) return Math.round(normalized.ml)
+
+  for (const text of displayTextsForGramResolve(normalized)) {
     const fromText = parseMeasureFromDisplay(text)
     if (fromText?.grams > 0) return fromText.grams
     if (fromText?.ml > 0) return fromText.ml
   }
 
-  // Mesma lógica do editor: amount+unit antes de grams placeholder (100g default).
-  const resolved = resolveItemGrams(item, { defaultGrams: 0 })
+  const resolved = resolveItemGrams(normalized, { defaultGrams: 0 })
   return resolved > 0 ? Math.round(resolved) : 0
 }
 
@@ -82,7 +77,8 @@ export function buildPlanDiaryItems(meal, checkedStates = []) {
     .map((item, index) => ({ item, index }))
     .filter(({ index }) => Boolean(checkedStates[index]))
     .map(({ item }) => {
-      const name = String(item.name || item.food || '').trim()
+      const normalized = normalizeMealPlanItem(item)
+      const name = resolveMealItemName(normalized)
       if (!name) return null
 
       if (item.isExtra && item.foodId) {
@@ -103,10 +99,10 @@ export function buildPlanDiaryItems(meal, checkedStates = []) {
         }
       }
 
-      const grams = resolvePlanItemGrams(item)
+      const grams = resolvePlanItemGrams(normalized)
       if (grams <= 0) return null
 
-      const foodId = item.foodId || null
+      const foodId = normalized.foodId || null
 
       return {
         id: createMealItemId(),
@@ -118,7 +114,7 @@ export function buildPlanDiaryItems(meal, checkedStates = []) {
         fatG: 0,
         foodId,
         source: foodId ? 'food_bank' : 'meal_plan',
-        originalName: item.key || item.display || name,
+        originalName: normalized.display || normalized.key || name,
       }
     })
     .filter(Boolean)

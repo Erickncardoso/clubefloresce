@@ -2,13 +2,21 @@
  * Formata itens do cardápio com unidades padronizadas (g, ml, L, fatias, colheres).
  * @param {string | { food: string, amount?: number, unit: string, qualifier?: string }} item
  */
+import {
+  normalizeMealPlanItem,
+  parseDietboxItemLine,
+  resolveMealItemDisplay,
+} from './meal-plan-display-parse.js'
+
 export function formatMealItemLabel(item) {
   if (typeof item === 'string') return item
 
-  if (item.display) return item.display
+  const normalized = normalizeMealPlanItem(item)
+  const fromDisplay = resolveMealItemDisplay(normalized)
+  if (fromDisplay) return fromDisplay
 
-  const food = item.food || item.name
-  const { amount, unit, qualifier } = item
+  const food = normalized.food || normalized.name
+  const { amount, unit, qualifier } = normalized
   if (!food) return ''
 
   if (unit === 'avontade') {
@@ -87,22 +95,16 @@ export function normalizeFoodEditorItem(item) {
   const display = String(item.display || '').trim()
   if (!display) return item
 
-  const qtyMatch = display.match(
-    /^(.+?)\s+(\d+(?:[.,]\d+)?(?:\s+\d+\/\d+)?|½|¼|¾)\s+(.+)$/i,
-  )
-  if (qtyMatch) {
-    item.name = qtyMatch[1].trim()
-    item.amount = qtyMatch[2].replace(',', '.').replace('½', '0.5').replace('¼', '0.25').replace('¾', '0.75')
-    item.unit = qtyMatch[3].trim()
-  } else if (/à vontade/i.test(display)) {
-    item.name = display.replace(/\s*à vontade.*$/i, '').trim()
-    item.unit = 'à vontade'
+  const parsed = parseDietboxItemLine(display)
+  if (parsed?.name) {
+    item.name = parsed.name
+    item.amount = parsed.amount ?? item.amount ?? null
+    item.unit = parsed.unit ?? item.unit ?? ''
+    item.grams = parsed.grams ?? item.grams ?? null
+    item.ml = parsed.ml ?? item.ml ?? null
+    item.display = parsed.display
+    return item
   }
-
-  const gramsMatch = display.match(/\((\d+(?:\.\d+)?)\s*g\)/i)
-  const mlMatch = display.match(/\((\d+(?:\.\d+)?)\s*ml\)/i)
-  item.grams = gramsMatch ? Number(gramsMatch[1]) : (item.grams ?? null)
-  item.ml = mlMatch ? Number(mlMatch[1]) : (item.ml ?? null)
 
   return item
 }

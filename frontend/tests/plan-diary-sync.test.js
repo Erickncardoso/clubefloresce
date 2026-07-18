@@ -64,3 +64,16 @@ test('resolvePlanItemGrams usa label formatado quando display está vazio', () =
 test('parseMeasureFromDisplay encontra gramas no meio do texto', () => {
   assert.deepEqual(parseMeasureFromDisplay('Queijo muçarela, 50 g, fatiado'), { grams: 50 })
 })
+
+test('resolvePlanItemGrams corrige item com name corrompido', () => {
+  assert.equal(
+    resolvePlanItemGrams({
+      name: 'com mussarela Ovo de galinha',
+      display: 'Ovo de galinha 1 Unidade(s) (50g)',
+      grams: 100,
+      unit: 'unidade',
+      amount: 1,
+    }),
+    50,
+  )
+})

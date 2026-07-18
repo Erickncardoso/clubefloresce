@@ -54,6 +54,39 @@ export async function matchFoodCandidatesBatch(
 }
 
 /** Extrai o nome do alimento a partir do display Dietbox ("Ovo de galinha 1 Unidade(s) (50g)"). */
+export function sanitizeParsedFoodItem(item: ParsedFoodItem): ParsedFoodItem {
+  const fixedName = resolveFoodMatchName(item);
+  const display = String(item.display || "").trim();
+
+  let grams = item.grams ?? null;
+  let ml = item.ml ?? null;
+
+  const parensMatch = display.match(/\((\d+(?:\.\d+)?)\s*(g|ml)\)\s*$/i);
+  if (parensMatch) {
+    const measure = Number(parensMatch[1]);
+    const measureUnit = parensMatch[2].toLowerCase();
+    if (measureUnit === "g") grams = measure;
+    if (measureUnit === "ml") ml = measure;
+  }
+
+  return {
+    ...item,
+    name: fixedName || item.name,
+    grams,
+    ml,
+  };
+}
+
+export function sanitizeParsedMealPlan(plan: ParsedMealPlan): ParsedMealPlan {
+  walkParsedMealPlanItems(plan, (item) => {
+    const sanitized = sanitizeParsedFoodItem(item);
+    item.name = sanitized.name;
+    item.grams = sanitized.grams;
+    item.ml = sanitized.ml;
+  });
+  return plan;
+}
+
 export function resolveFoodMatchName(item: ParsedFoodItem): string {
   const name = String(item.name || "").trim();
   const display = String(item.display || "").trim();

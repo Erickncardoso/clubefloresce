@@ -7,7 +7,7 @@ import { parseMealPlanWithAi } from "./meal-plan-ai-parser";
 import { extractPdfRawText } from "./pdf-text";
 import { normalizePersonName, syncUserNameFromMealPlan } from "./sync-patient-name";
 import { syncNutritionTargetsFromMealPlan } from "./sync-nutrition-targets";
-import { enrichParsedMealPlan, parsedMealPlanNeedsFoodEnrichment } from "./meal-plan-food-enricher";
+import { enrichParsedMealPlan, parsedMealPlanNeedsFoodEnrichment, sanitizeParsedMealPlan } from "./meal-plan-food-enricher";
 import type { User } from "@prisma/client";
 
 const repo = new MealPlanRepository();
@@ -31,17 +31,16 @@ function scheduleMealPlanFoodEnrichment(
   void (async () => {
     try {
       const enriched = await enrichParsedMealPlan(plan);
-      if (!parsedMealPlanNeedsFoodEnrichment(enriched)) {
-        await repo.upsert(userId, {
-          fileName: record.fileName,
-          pdfUrl: record.pdfUrl,
-          title: record.title,
-          patientName: record.patientName,
-          prescribedAt: record.prescribedAt,
-          plan: enriched,
-          parserSource: record.parserSource,
-        });
-      }
+      sanitizeParsedMealPlan(enriched);
+      await repo.upsert(userId, {
+        fileName: record.fileName,
+        pdfUrl: record.pdfUrl,
+        title: record.title,
+        patientName: record.patientName,
+        prescribedAt: record.prescribedAt,
+        plan: enriched,
+        parserSource: record.parserSource,
+      });
     } catch (err) {
       console.error("[meal-plan] background food enrich failed", { userId, err });
     } finally {
@@ -82,6 +81,7 @@ export class MealPlanService {
     if (!record) return null;
 
     const plan = record.plan as unknown as ParsedMealPlan;
+    sanitizeParsedMealPlan(plan);
     if (parsedMealPlanNeedsFoodEnrichment(plan)) {
       scheduleMealPlanFoodEnrichment(userId, record, plan);
     }
@@ -96,7 +96,10 @@ export class MealPlanService {
 
     try {
       const dietboxPlan = parseDietboxMealPlan(text, fileName);
-      if (dietboxPlan.meals.length >= 1) return dietboxPlan;
+      if (dietboxPlan.meals.length >= 1) {
+        sanitizeParsedMealPlan(dietboxPlan);
+        return dietboxPlan;
+      }
     } catch {
       /* fallback abaixo */
     }
@@ -134,6 +137,7 @@ export class MealPlanService {
     };
 
     plan = await enrichParsedMealPlan(plan);
+    sanitizeParsedMealPlan(plan);
 
     let pdfUrl: string | null = null;
     try {
@@ -209,6 +213,7 @@ export class MealPlanService {
     };
 
     plan = await enrichParsedMealPlan(plan);
+    sanitizeParsedMealPlan(plan);
 
     const saved = await repo.upsert(userId, {
       fileName: plan.fileName,

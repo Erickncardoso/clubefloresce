@@ -5,6 +5,7 @@ import {
   foodItemNeedsEnrichment,
   parsedMealPlanNeedsFoodEnrichment,
   resolveFoodMatchName,
+  sanitizeParsedFoodItem,
 } from "../services/meal-plan/meal-plan-food-enricher";
 
 describe("meal-plan-food-enricher", () => {
@@ -21,6 +22,22 @@ describe("meal-plan-food-enricher", () => {
     };
 
     assert.equal(resolveFoodMatchName(item), "Ovo de galinha");
+  });
+
+  it("sanitizeParsedFoodItem corrige name e grams a partir do display", () => {
+    const sanitized = sanitizeParsedFoodItem({
+      key: "ovo",
+      name: "com mussarela Ovo de galinha",
+      amount: 1,
+      unit: "unidade",
+      grams: 100,
+      ml: null,
+      display: "Ovo de galinha 1 Unidade(s) (50g)",
+      substitutions: [],
+    });
+
+    assert.equal(sanitized.name, "Ovo de galinha");
+    assert.equal(sanitized.grams, 50);
   });
 
   it("foodItemNeedsEnrichment detecta item sem foodId ou per100g", () => {

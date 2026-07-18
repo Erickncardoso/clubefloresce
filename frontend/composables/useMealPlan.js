@@ -1,26 +1,28 @@
 import { formatMealItemLabel, formatMealItemsLabels } from '~/utils/meal-plan-format'
+import { normalizeMealPlanItem } from '~/utils/meal-plan-display-parse'
 import { getMealIdForTimeFromMeals } from '~/utils/meal-plan-time'
 import { pickMealIcon } from '~/utils/meal-slot-options'
 import { useMealExtraItems } from '~/composables/useMealExtraItems'
 import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 
 function mapApiItem(item) {
+  const normalized = normalizeMealPlanItem(item)
   return {
-    key: item.key,
-    food: item.name,
-    name: item.name,
-    amount: item.amount,
-    unit: item.unit,
-    grams: item.grams,
-    ml: item.ml,
-    display: item.display,
-    substitutions: item.substitutions || [],
-    itemType: item.itemType || null,
-    recipeId: item.recipeId || null,
-    recipe: item.recipe || null,
-    foodId: item.foodId || null,
-    foodSource: item.foodSource || null,
-    per100g: item.per100g || null,
+    key: normalized.key,
+    food: normalized.name,
+    name: normalized.name,
+    amount: normalized.amount,
+    unit: normalized.unit,
+    grams: normalized.grams,
+    ml: normalized.ml,
+    display: normalized.display,
+    substitutions: (normalized.substitutions || []).map(mapApiItem),
+    itemType: normalized.itemType || null,
+    recipeId: normalized.recipeId || null,
+    recipe: normalized.recipe || null,
+    foodId: normalized.foodId || null,
+    foodSource: normalized.foodSource || null,
+    per100g: normalized.per100g || null,
   }
 }
 
