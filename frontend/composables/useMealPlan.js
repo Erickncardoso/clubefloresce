@@ -15,6 +15,12 @@ function mapApiItem(item) {
     ml: item.ml,
     display: item.display,
     substitutions: item.substitutions || [],
+    itemType: item.itemType || null,
+    recipeId: item.recipeId || null,
+    recipe: item.recipe || null,
+    foodId: item.foodId || null,
+    foodSource: item.foodSource || null,
+    per100g: item.per100g || null,
   }
 }
 

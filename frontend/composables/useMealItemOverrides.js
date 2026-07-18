@@ -19,6 +19,8 @@ function normalizeOverrideItem(item) {
     grams: item.grams ?? null,
     ml: item.ml ?? null,
     display: item.display || item.label || formatMealItemLabel(item),
+    foodId: item.foodId ?? null,
+    per100g: item.per100g ?? null,
   }
 }
 
@@ -113,6 +115,8 @@ export function useMealItemOverrides() {
         ml: override.ml ?? item.ml,
         amount: override.amount ?? item.amount,
         unit: override.unit ?? item.unit,
+        foodId: override.foodId ?? null,
+        per100g: override.per100g ?? null,
         isSubstituted: true,
         originalDisplay: item.display || formatMealItemLabel(item),
         activeSubstitute: override,

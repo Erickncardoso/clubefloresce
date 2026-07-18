@@ -1,5 +1,22 @@
 import { createMealItemId } from '~/utils/meal-diary'
 
+/** Calcula macros do item a partir dos valores por 100g (fallback quando o backend não casa por nome). */
+function macrosFromPer100g(per100g, grams) {
+  if (!per100g || !(grams > 0)) return { caloriesKcal: 0, carbsG: 0, proteinG: 0, fatG: 0 }
+  const factor = grams / 100
+  const num = (value) => {
+    const n = Number(value)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+  const round1 = (value) => Math.round(value * 10) / 10
+  return {
+    caloriesKcal: Math.round(num(per100g.caloriesKcal) * factor),
+    carbsG: round1(num(per100g.carbsG) * factor),
+    proteinG: round1(num(per100g.proteinG) * factor),
+    fatG: round1(num(per100g.fatG) * factor),
+  }
+}
+
 /** Gramas estimadas para bater com TBCA/TACO quando o PDF não traz peso. */
 export function resolvePlanItemGrams(item) {
   if (!item) return 0
@@ -51,16 +68,16 @@ export function buildPlanDiaryItems(meal, checkedStates = []) {
       const grams = resolvePlanItemGrams(item)
       if (grams <= 0) return null
 
+      const macros = macrosFromPer100g(item.per100g, grams)
+      const foodId = item.foodId || null
+
       return {
         id: createMealItemId(),
         name,
         grams,
-        caloriesKcal: 0,
-        carbsG: 0,
-        proteinG: 0,
-        fatG: 0,
-        foodId: null,
-        source: 'meal_plan',
+        ...macros,
+        foodId,
+        source: foodId ? 'food_bank' : 'meal_plan',
         originalName: item.key || item.display || name,
       }
     })
