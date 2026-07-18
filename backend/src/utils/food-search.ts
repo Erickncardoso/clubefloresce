@@ -49,6 +49,9 @@ const TOKEN_SYNONYMS: Record<string, string[]> = {
   growth: ["growth", "growth supplements", "whey growth"],
   max: ["max titanium", "max whey"],
   integralmedica: ["integralmedica", "integral medica"],
+  multigraos: ["multigraos", "multigrãos", "multigrain", "integral"],
+  multigrãos: ["multigraos", "multigrãos", "multigrain", "integral"],
+  forma: ["forma", "fatia"],
 };
 
 export function tokenizeFoodQuery(query: string): string[] {
@@ -106,6 +109,21 @@ export function scoreFoodSearchResult(query: string, name: string, source: "TACO
   score -= Math.min(20, (name.match(/,/g) || []).length * 2);
 
   return score;
+}
+
+export function countMatchingFoodTokens(query: string, name: string): number {
+  const tokens = tokenizeFoodQuery(query);
+  if (!tokens.length) return 0;
+  const normalizedName = normalizeFoodSearchQuery(name);
+  return tokens.filter((token) => {
+    const variants = expandTokenSynonyms(token);
+    return variants.some((variant) => normalizedName.includes(variant));
+  }).length;
+}
+
+export function minRelaxedTokenMatches(tokenCount: number): number {
+  if (tokenCount <= 1) return 1;
+  return Math.max(2, Math.ceil(tokenCount * 0.5));
 }
 
 export function pickBestFoodMatch<T extends { name: string; source: "TACO" | "TBCA" | "CUSTOM" }>(
