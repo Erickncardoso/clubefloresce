@@ -61,7 +61,24 @@
               <DietaCheckIcon :completed="checkedItems[index]" />
             </button>
             <div class="dieta-item-copy">
+              <button
+                v-if="item.recipe"
+                type="button"
+                class="dieta-recipe-link"
+                @click="openRecipeDetail(item.recipe)"
+              >
+                <span
+                  :class="{
+                    'dieta-item-done': checkedItems[index],
+                    'dieta-item-substituted': item.isSubstituted,
+                    'dieta-item-extra': item.isExtra,
+                  }"
+                >
+                  {{ item.display || currentMeal.itemLabels[index] }}
+                </span>
+              </button>
               <span
+                v-else
                 :class="{
                   'dieta-item-done': checkedItems[index],
                   'dieta-item-substituted': item.isSubstituted,
@@ -181,12 +198,19 @@
       @cancel="cancelMealConfirm"
       @confirm="confirmMealEdit"
     />
+
+    <MealPlanRecipeDetailSheet
+      :open="recipeDetailOpen"
+      :recipe="selectedRecipe"
+      @close="recipeDetailOpen = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ArrowLeftRight, Camera, Plus, Trash2, Upload } from 'lucide-vue-next'
 import DietaAddExtraFoodModal from '~/components/dieta/AddExtraFoodModal.vue'
+import MealPlanRecipeDetailSheet from '~/components/dieta/MealPlanRecipeDetailSheet.vue'
 import { useDietaProgress } from '~/composables/useDietaProgress'
 import { useMealExtraItems } from '~/composables/useMealExtraItems'
 import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
@@ -222,7 +246,8 @@ const { patientFetchInit } = usePatientLocalTime()
 const planLoading = ref(true)
 const substitutionsOpen = ref(false)
 const extraFoodOpen = ref(false)
-const togglingItem = ref(false)
+const recipeDetailOpen = ref(false)
+const selectedRecipe = ref(null)
 const { overridesRevision } = useMealItemOverrides()
 const { extrasRevision, addExtraItem, removeExtraItem } = useMealExtraItems()
 const mealPlanEntry = (mealId) => getMealById(mealId)
@@ -307,22 +332,19 @@ function selectMeal(mealId) {
   substitutionsOpen.value = false
 }
 
-function toggleItem(index) {
-  if (togglingItem.value) return
-  togglingItem.value = true
+function openRecipeDetail(recipe) {
+  selectedRecipe.value = recipe
+  recipeDetailOpen.value = true
+}
 
+function toggleItem(index) {
   const next = [...checkedItems.value]
   next[index] = !next[index]
   checkedItems.value = next
   saveChecked(activeMeal.value, next)
   queueSyncMealCheck(activeMeal.value, currentMeal.value, next, (summary) => {
     if (summary) dailySummary.value = summary
-    togglingItem.value = false
   })
-
-  window.setTimeout(() => {
-    togglingItem.value = false
-  }, 500)
 }
 
 function weekProgressLabel(mealId) {
@@ -751,6 +773,18 @@ watch(
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
+}
+
+.dieta-recipe-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(217, 119, 6, 0.45);
 }
 
 .dieta-item-substituted {
