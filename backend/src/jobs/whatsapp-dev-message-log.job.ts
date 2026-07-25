@@ -1,4 +1,5 @@
 import { readEnv } from "../utils/env";
+import { isUazapiProvider } from "../config/whatsapp-provider.config";
 import { WhatsappService } from "../services/whatsapp.service";
 import webhookLogService from "../services/webhook-log.service";
 import whatsappMessageService from "../services/whatsapp-message.service";
@@ -124,6 +125,11 @@ const syncConnectedStreams = async (): Promise<void> => {
 
 /** Em dev local: escuta mensagens via SSE da UAZAPI (webhook aponta para produção). */
 export function startWhatsappDevMessageLog(): void {
+  if (!isUazapiProvider()) {
+    console.log("[Webhook] UAZAPI desativada (WHATSAPP_PROVIDER=wuzapi) — SSE dev não roda.");
+    return;
+  }
+
   const enabled =
     readEnv("WHATSAPP_DEV_MESSAGE_LOG") !== "false"
     && readEnv("NODE_ENV") !== "production";

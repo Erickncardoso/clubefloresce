@@ -1,6 +1,7 @@
 import { PrismaClient, FoodSource } from "@prisma/client";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getFoodSearchAliasText } from "../src/utils/food-catalog-aliases";
 
 interface FoodSeedItem {
   source: "TACO" | "TBCA";
@@ -46,7 +47,7 @@ function toDbRecord(item: FoodSeedItem) {
     fatG: item.fatG,
     fiberG: item.fiberG,
     sodiumMg: item.sodiumMg,
-    searchText: item.searchText,
+    searchText: `${item.searchText} ${getFoodSearchAliasText(item.source as FoodSource, item.sourceCode)}`.trim(),
   };
 }
 

@@ -6,6 +6,7 @@ const router = Router();
 const whatsappController = new WhatsappController();
 
 // Apenas Nutricionistas conseguem gerenciar conexões do WhatsApp
+router.get("/provider", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.provider);
 router.get("/status", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.status);
 router.get("/chats", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.listChats);
 router.get("/chats/:chatJid/messages", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.listChatMessages.bind(whatsappController));

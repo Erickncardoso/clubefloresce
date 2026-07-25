@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import type { PatientProfileData } from "../types/patient-profile.types";
 import { DEFAULT_PATIENT_TIMEZONE, isValidTimeZone } from "../utils/patient-timezone";
@@ -5,6 +6,10 @@ import { DEFAULT_PATIENT_TIMEZONE, isValidTimeZone } from "../utils/patient-time
 function asProfile(value: unknown): PatientProfileData {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as PatientProfileData;
+}
+
+function toProfileJson(profile: PatientProfileData): Prisma.InputJsonValue {
+  return profile as unknown as Prisma.InputJsonValue;
 }
 
 export function resolvePatientTimezone(profile: PatientProfileData): string {
@@ -34,7 +39,7 @@ export class PatientPreferencesService {
     await prisma.user.update({
       where: { id: userId },
       data: {
-        patientProfileData: { ...profile, timezone: zone },
+        patientProfileData: toProfileJson({ ...profile, timezone: zone }),
       },
     });
   }
@@ -51,7 +56,7 @@ export class PatientPreferencesService {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { patientProfileData: next },
+      data: { patientProfileData: toProfileJson(next) },
     });
 
     return next;

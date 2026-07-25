@@ -31,3 +31,12 @@ export function getPusherClient(): Pusher | null {
 export function whatsappPusherChannel(userId: string): string {
   return `private-whatsapp-${userId}`;
 }
+
+export function nutriPusherChannel(userId: string): string {
+  return `private-nutri-${userId}`;
+}
+
+export function isAuthorizedNutriPusherChannel(userId: string, channelName: string): boolean {
+  return channelName === nutriPusherChannel(userId)
+    || channelName === whatsappPusherChannel(userId);
+}

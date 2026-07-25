@@ -2,6 +2,7 @@ import { WhatsappChat } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 export type UpsertWhatsappChatInput = {
   chatJid: string;
+  sessionJid?: string | null;
   name?: string;
   pushName?: string;
   avatarUrl?: string;
@@ -23,6 +24,7 @@ export class WhatsappChatRepository {
           }
         },
         update: {
+          sessionJid: chat.sessionJid ?? undefined,
           name: chat.name ?? null,
           pushName: chat.pushName ?? null,
           avatarUrl: chat.avatarUrl ?? null,
@@ -35,6 +37,7 @@ export class WhatsappChatRepository {
         create: {
           userId,
           chatJid: chat.chatJid,
+          sessionJid: chat.sessionJid ?? null,
           name: chat.name ?? null,
           pushName: chat.pushName ?? null,
           avatarUrl: chat.avatarUrl ?? null,
@@ -119,8 +122,47 @@ export class WhatsappChatRepository {
     await prisma.whatsappChat.deleteMany({ where: { userId } });
   }
 
+  async deleteNotMatchingSession(userId: string, sessionJid: string): Promise<number> {
+    const scopedSession = String(sessionJid || "").trim().toLowerCase();
+    if (!scopedSession) return 0;
+    const result = await prisma.whatsappChat.deleteMany({
+      where: {
+        userId,
+        OR: [
+          { sessionJid: null },
+          { sessionJid: { not: scopedSession } },
+        ],
+      },
+    });
+    return result.count;
+  }
+
+  async assignSessionJidToOrphans(userId: string, sessionJid: string): Promise<number> {
+    const scopedSession = String(sessionJid || "").trim().toLowerCase();
+    if (!scopedSession) return 0;
+    const result = await prisma.whatsappChat.updateMany({
+      where: { userId, sessionJid: null },
+      data: { sessionJid: scopedSession },
+    });
+    return result.count;
+  }
+
+  /** Remove linhas de contato importadas por engano (sem conversa). */
+  async deleteWithoutConversation(userId: string): Promise<void> {
+    await prisma.whatsappChat.deleteMany({
+      where: {
+        userId,
+        OR: [
+          { lastMessage: null },
+          { lastMessage: "" },
+          { lastMessageTime: null },
+        ],
+      },
+    });
+  }
+
   async findByChatJid(userId: string, chatJid: string): Promise<WhatsappChat | null> {
-    const normalized = String(chatJid || "").trim();
+    const normalized = String(chatJid || "").trim().toLowerCase();
     if (!normalized) return null;
 
     const direct = await prisma.whatsappChat.findUnique({
@@ -128,11 +170,41 @@ export class WhatsappChatRepository {
     });
     if (direct) return direct;
 
+    // Também tenta o JID original (case) — alguns rows antigos não estão lowercased.
+    if (normalized !== String(chatJid || "").trim()) {
+      const exact = await prisma.whatsappChat.findUnique({
+        where: { userId_chatJid: { userId, chatJid: String(chatJid || "").trim() } },
+      });
+      if (exact) return exact;
+    }
+
     const digits = normalized.split("@")[0]?.replace(/\D/g, "") || "";
-    if (digits.length >= 8) {
+    if (digits.length >= 8 && normalized.endsWith("@s.whatsapp.net")) {
       return prisma.whatsappChat.findUnique({
         where: { userId_chatJid: { userId, chatJid: `${digits}@s.whatsapp.net` } },
       });
+    }
+
+    // LID: procura chat cujo raw contém este wa_chatlid.
+    if (normalized.endsWith("@lid")) {
+      const rows = await prisma.whatsappChat.findMany({
+        where: { userId },
+        take: 500,
+        orderBy: { updatedAt: "desc" },
+      });
+      for (const row of rows) {
+        const raw = row.raw && typeof row.raw === "object" && !Array.isArray(row.raw)
+          ? (row.raw as Record<string, unknown>)
+          : {};
+        const lidCandidates = [
+          raw.wa_chatlid,
+          raw.chatlid,
+          raw.chatLid,
+          raw.wa_fastid,
+        ].map((v) => String(v || "").trim().toLowerCase());
+        if (lidCandidates.includes(normalized)) return row;
+        if (String(row.chatJid || "").trim().toLowerCase() === normalized) return row;
+      }
     }
 
     return null;

@@ -231,4 +231,26 @@ export class AuthController {
       return res.status(400).json({ message });
     }
   }
+
+  async deleteMyAccount(req: Request, res: Response): Promise<any> {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Usuário não autenticado." });
+      }
+
+      const { password } = req.body || {};
+      await authService.deleteMyAccount(req.user.id, String(password || ""));
+      clearAuthCookie(res);
+      return res.status(204).send();
+    } catch (error: any) {
+      const message = error?.message || "Não foi possível excluir a conta.";
+      if (message === "Senha incorreta.") {
+        return res.status(401).json({ message });
+      }
+      if (message === "Usuário não encontrado.") {
+        return res.status(404).json({ message });
+      }
+      return res.status(400).json({ message });
+    }
+  }
 }

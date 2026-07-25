@@ -6,9 +6,12 @@ import { getJwtSecret } from "../utils/jwt";
 import { isPatientAccessExpired } from "../utils/access-expires";
 import {
   isPatientAppAccessBlocked,
+  isPatientLimitedAccessActive,
+  isPatientLimitedApiPath,
   patientHadGrantedAccess,
   PATIENT_ACCESS_EXPIRED_RENEW_MESSAGE,
   PATIENT_PAYMENT_REQUIRED_MESSAGE,
+  PATIENT_PREMIUM_REQUIRED_MESSAGE,
 } from "../utils/patient-paid-access";
 import { extractAuthToken } from "../utils/auth-cookie";
 import { mapDatabaseError } from "../utils/db-errors";
@@ -23,6 +26,18 @@ const PENDING_NUTRI_ALLOWED_PREFIXES = [
 function isExpiredPatientAllowedPath(req: Request): boolean {
   const path = `${req.baseUrl}${req.path}`;
   return path.startsWith("/api/billing");
+}
+
+function patientApiPath(req: Request): string {
+  return `${req.baseUrl || ""}${req.path || ""}`;
+}
+
+function rejectLimitedPremiumFeature(res: Response) {
+  return res.status(403).json({
+    message: PATIENT_PREMIUM_REQUIRED_MESSAGE,
+    code: "PATIENT_PREMIUM_REQUIRED",
+    reason: "limited_plan",
+  });
 }
 
 const AUTH_USER_CACHE_TTL_MS = 30_000;
@@ -101,6 +116,14 @@ export const authenticate = async (
         });
       }
 
+      if (
+        accessUser.role === Role.PACIENTE
+        && isPatientLimitedAccessActive(accessUser.plan, accessUser.accessExpiresAt, accessUser.approvalEmailSentAt)
+        && !isPatientLimitedApiPath(patientApiPath(req))
+      ) {
+        return rejectLimitedPremiumFeature(res);
+      }
+
       return next();
     }
 
@@ -146,6 +169,14 @@ export const authenticate = async (
           reason: expired ? "expired" : "payment_required",
         });
       }
+    }
+
+    if (
+      user.role === Role.PACIENTE
+      && isPatientLimitedAccessActive(user.plan, user.accessExpiresAt, user.approvalEmailSentAt)
+      && !isPatientLimitedApiPath(patientApiPath(req))
+    ) {
+      return rejectLimitedPremiumFeature(res);
     }
 
     if (

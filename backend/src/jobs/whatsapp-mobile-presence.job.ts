@@ -1,8 +1,10 @@
+import { isUazapiProvider } from "../config/whatsapp-provider.config";
 import { WhatsappService } from "../services/whatsapp.service";
 
 const whatsappService = new WhatsappService();
 
 export async function runWhatsappMobilePresenceRefresh(): Promise<void> {
+  if (!isUazapiProvider()) return;
   try {
     await whatsappService.refreshMobilePresenceForAllConnectedInstances();
   } catch (error) {
@@ -11,6 +13,7 @@ export async function runWhatsappMobilePresenceRefresh(): Promise<void> {
 }
 
 export function startWhatsappMobilePresenceScheduler() {
+  if (!isUazapiProvider()) return;
   void runWhatsappMobilePresenceRefresh();
   setInterval(() => {
     void runWhatsappMobilePresenceRefresh();

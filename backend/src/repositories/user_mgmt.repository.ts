@@ -1,6 +1,7 @@
-import { Role, UserPlan, UserStatus } from "@prisma/client";
+import { Prisma, Role, UserPlan, UserStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { isValidWhatsappPhone } from "../utils/phone";
+import { findPatientBySlug } from "../utils/patient-slug";
 
 function normalizeBillingPaymentMethod(value?: string | null): string | null {
   if (value === undefined || value === null || String(value).trim() === "") return null;
@@ -23,6 +24,7 @@ const patientSelect = {
   approvalWhatsappSentAt: true,
   approvalWhatsappMessage: true,
   avatar: true,
+  patientProfileData: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -77,11 +79,44 @@ export class UserMgmtRepository {
     });
   }
 
+  async listPatientsForSlugLookup() {
+    return prisma.user.findMany({
+      where: { role: Role.PACIENTE },
+      select: { id: true, name: true },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async getUserBySlug(slug: string) {
+    const patients = await this.listPatientsForSlugLookup();
+    const match = findPatientBySlug(patients, slug);
+    if (!match) return null;
+    return this.getUserById(match.id);
+  }
+
   async getUserById(id: string) {
-    return prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id },
       select: patientSelect,
     });
+    if (!user) return null;
+
+    const latest = await prisma.billingSubscription.findFirst({
+      where: { userId: id },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        paymentMethod: true,
+        status: true,
+        nextBillingAt: true,
+      },
+    });
+
+    return {
+      ...user,
+      billingSubscriptionPaymentMethod: latest?.paymentMethod || null,
+      billingSubscriptionStatus: latest?.status || null,
+      billingSubscriptionNextBillingAt: latest?.nextBillingAt || null,
+    };
   }
 
   async createPatient(data: {
@@ -89,23 +124,28 @@ export class UserMgmtRepository {
     email: string;
     password: string;
     phone?: string | null;
+    avatar?: string | null;
+    patientProfileData?: object | null;
     plan?: UserPlan;
     status?: UserStatus;
     accessExpiresAt?: Date | null;
     billingPaymentMethod?: string | null;
   }) {
-    const adminGrantedAccess = Boolean(data.accessExpiresAt);
+    // Cadastro pela nutricionista sempre libera acesso (FREE = limitado; pago = completo).
+    // Sem approvalEmailSentAt o paciente fica bloqueado no checkout.
     return prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
         password: data.password,
         phone: data.phone ?? null,
+        avatar: data.avatar ?? null,
+        patientProfileData: data.patientProfileData ?? undefined,
         role: Role.PACIENTE,
         plan: data.plan || UserPlan.FREE,
         status: data.status || UserStatus.ATIVO,
         accessExpiresAt: data.accessExpiresAt ?? null,
-        approvalEmailSentAt: adminGrantedAccess ? new Date() : null,
+        approvalEmailSentAt: new Date(),
         billingPaymentMethod: normalizeBillingPaymentMethod(data.billingPaymentMethod),
       },
       select: {
@@ -125,15 +165,20 @@ export class UserMgmtRepository {
       accessExpiresAt?: Date | null;
       billingPaymentMethod?: string | null;
       approvalEmailSentAt?: Date | null;
+      avatar?: string | null;
+      patientProfileData?: Prisma.InputJsonValue;
     },
   ) {
+    const { patientProfileData, billingPaymentMethod, avatar, ...rest } = data;
     return prisma.user.update({
       where: { id },
       data: {
-        ...data,
-        ...(data.billingPaymentMethod !== undefined
-          ? { billingPaymentMethod: normalizeBillingPaymentMethod(data.billingPaymentMethod) }
+        ...rest,
+        ...(avatar !== undefined ? { avatar } : {}),
+        ...(billingPaymentMethod !== undefined
+          ? { billingPaymentMethod: normalizeBillingPaymentMethod(billingPaymentMethod) }
           : {}),
+        ...(patientProfileData !== undefined ? { patientProfileData } : {}),
       },
       select: patientSelect,
     });

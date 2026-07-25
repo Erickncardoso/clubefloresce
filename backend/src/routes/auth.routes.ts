@@ -34,5 +34,6 @@ router.post(
 router.get("/setup/nutricionista/status", authController.oneTimeNutritionistStatus.bind(authController));
 router.post("/setup/nutricionista", credentialRateLimiter, authController.oneTimeNutritionistRegister.bind(authController));
 router.post("/first-access/change-password", authenticate, authController.changeFirstAccessPassword.bind(authController));
+router.delete("/me", authenticate, authController.deleteMyAccount.bind(authController));
 
 export default router;

@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import {
   getPusherClient,
   isPusherConfigured,
+  isAuthorizedNutriPusherChannel,
+  nutriPusherChannel,
   whatsappPusherChannel,
 } from "../utils/pusher-config";
 import { readEnv } from "../utils/env";
@@ -20,6 +22,7 @@ export class PusherController {
       key: readEnv("PUSHER_KEY"),
       cluster: readEnv("PUSHER_CLUSTER"),
       channel: whatsappPusherChannel(user.id),
+      nutriChannel: nutriPusherChannel(user.id),
     });
   }
 
@@ -33,9 +36,8 @@ export class PusherController {
 
     const socketId = String(req.body?.socket_id || req.query?.socket_id || "");
     const channelName = String(req.body?.channel_name || req.query?.channel_name || "");
-    const expectedChannel = whatsappPusherChannel(user.id);
 
-    if (!socketId || channelName !== expectedChannel) {
+    if (!socketId || !isAuthorizedNutriPusherChannel(user.id, channelName)) {
       return res.status(403).json({ message: "Canal não autorizado." });
     }
 

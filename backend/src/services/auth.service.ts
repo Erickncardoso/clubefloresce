@@ -4,6 +4,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { PasswordResetRepository } from "../repositories/password-reset.repository";
 import { RegistrationRequestRepository } from "../repositories/registration-request.repository";
 import { Role, UserStatus } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { getJwtSecret } from "../utils/jwt";
 import { cloudinaryUpload } from "../utils/cloudinary";
 import {
@@ -313,6 +314,29 @@ export class AuthService {
     await userRepository.update(record.userId, { password: hashedPassword });
     await passwordResetRepository.markUsed(record.id);
     await passwordResetRepository.deleteByUserId(record.userId);
+  }
+
+  async deleteMyAccount(userId: string, password: string): Promise<void> {
+    this.validatePassword(password);
+
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new Error("Usuário não encontrado.");
+    }
+    if (user.role !== Role.PACIENTE) {
+      throw new Error("Somente contas de paciente podem ser excluídas pelo app.");
+    }
+
+    const valid = await bcrypt.compare(String(password || ""), user.password);
+    if (!valid) {
+      throw new Error("Senha incorreta.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.comment.deleteMany({ where: { authorId: userId } });
+      await tx.post.deleteMany({ where: { authorId: userId } });
+      await tx.user.delete({ where: { id: userId } });
+    });
   }
 
   private async findValidPasswordResetRecord(token: string) {

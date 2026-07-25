@@ -123,17 +123,23 @@ export const normalizeUazapiChatJid = (msg: JsonObject, fallback = ""): string =
     key.remoteJid,
     key.RemoteJID,
     fallback,
-  ];
-  for (const candidate of candidates) {
-    const text = pickText(candidate).toLowerCase();
-    if (!text) continue;
-    if (text.endsWith("@g.us") || text.endsWith("@s.whatsapp.net") || text.endsWith("@lid")) {
-      return text;
-    }
+  ].map((c) => pickText(c).toLowerCase()).filter(Boolean);
+
+  // Grupo: @g.us tem prioridade absoluta.
+  for (const text of candidates) {
+    if (text.endsWith("@g.us")) return text;
   }
 
+  // Privado: preferir PN (@s.whatsapp.net) para o DB bater com o JID da sidebar.
   const senderPn = pickText(msg.sender_pn || msg.senderPn || msg.SenderPn).toLowerCase();
   if (senderPn.endsWith("@s.whatsapp.net")) return senderPn;
+  for (const text of candidates) {
+    if (text.endsWith("@s.whatsapp.net")) return text;
+  }
+
+  for (const text of candidates) {
+    if (text.endsWith("@lid")) return text;
+  }
 
   const chatLid = pickText(msg.chatlid || msg.chatLid || msg.wa_chatlid).toLowerCase();
   if (chatLid.endsWith("@lid")) return chatLid;

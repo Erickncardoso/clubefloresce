@@ -1,5 +1,12 @@
 import { Request, Response } from "express";
-import { WhatsappService } from "../services/whatsapp.service";
+import { WhatsappService, getActiveWhatsappProvider } from "../services/whatsapp.service";
+import {
+  getWhatsappProvider,
+  getWhatsappProviderLabel,
+  isUazapiProvider,
+  isWuzapiProvider,
+} from "../config/whatsapp-provider.config";
+import { wuzapiProxyService } from "../services/wuzapi/wuzapi-proxy.service";
 import { WhatsappChatSyncService } from "../services/whatsapp-chat-sync.service";
 import { WhatsappContactStateRepository } from "../repositories/whatsapp_contact_state.repository";
 import { WhatsappContactDirectoryRepository } from "../repositories/whatsapp_contact_directory.repository";
@@ -11,8 +18,16 @@ import whatsappMediaArchiveService from "../services/whatsapp-media-archive.serv
 import { WhatsappChatDetailsService } from "../services/whatsapp-chat-details.service";
 import { WhatsappChatRepository } from "../repositories/whatsapp_chat.repository";
 import { parseUazapiChatDeletion, normalizeUazapiWebhookEventType } from "../utils/uazapi-webhook-event.util";
+import {
+  normalizeWuzapiWebhookEventType,
+  parseWuzapiWebhookBody,
+  extractWuzapiSessionJidFromWebhook,
+} from "../utils/wuzapi-webhook.util";
+import { adaptWuzapiWebhookForIngest } from "../utils/wuzapi-message-ingest.util";
 import whatsappMessageService from "../services/whatsapp-message.service";
+import { whatsappMessageRepository } from "../repositories/whatsapp_message.repository";
 import whatsappMessageHistoryBackfillService from "../services/whatsapp-message-history-backfill.service";
+import whatsappSessionService, { extractSessionJidFromStatusPayload } from "../services/whatsapp-session.service";
 import { mapDatabaseError } from "../utils/db-errors";
 
 const whatsappService = new WhatsappService();
@@ -25,6 +40,22 @@ const whatsappChatRepository = new WhatsappChatRepository();
 const UAZAPI_BASE_URL = process.env.UAZAPI_SERVER_URL || "";
 
 export class WhatsappController {
+  async provider(req: Request, res: Response): Promise<any> {
+    const provider = getWhatsappProvider();
+    return res.json({
+      provider,
+      label: getWhatsappProviderLabel(),
+      uazapiEnabled: isUazapiProvider(),
+      wuzapiEnabled: isWuzapiProvider(),
+      uazapiConfigured: Boolean(String(process.env.UAZAPI_SERVER_URL || "").trim()),
+      wuzapiConfigured: Boolean(String(process.env.WUZAPI_SERVER_URL || "").trim()),
+      message:
+        provider === "wuzapi"
+          ? "UAZAPI desativada. Migração WuzAPI em andamento."
+          : "Modo legado UAZAPI ativo.",
+    });
+  }
+
   async create(req: Request, res: Response): Promise<any> {
     try {
       const user = (req as any).user;
@@ -199,14 +230,14 @@ export class WhatsappController {
 
       const limit = Number(req.query.limit) || 50;
       const offset = Number(req.query.offset) || 0;
-      const sync = String(req.query.sync || "1") !== "0";
-      const awaitHistory = String(req.query.awaitHistory || "1") !== "0";
+      const sync = String(req.query.sync || "0") === "1";
+      const awaitHistory = sync && String(req.query.awaitHistory || "0") === "1";
 
       const data = await whatsappMessageService.listChatMessages(user.id, chatJid, {
         limit,
         offset,
         sync,
-        awaitHistory: sync && offset === 0 && awaitHistory,
+        awaitHistory,
       });
 
       return res.json(data);
@@ -585,6 +616,13 @@ export class WhatsappController {
     const user = req.user;
     if (!user) return res.status(401).json({ message: "Não autorizado." });
 
+    if (!isUazapiProvider()) {
+      return res.status(501).json({
+        message: "SSE UAZAPI desativado. Com WuzAPI use webhook + Pusher.",
+        provider: getActiveWhatsappProvider(),
+      });
+    }
+
     if (!UAZAPI_BASE_URL) {
       return res.status(503).json({ message: "UAZAPI_SERVER_URL não configurada." });
     }
@@ -605,14 +643,21 @@ export class WhatsappController {
     const events = ["messages", "messages_update", "chats", "history"];
     const sseUrl = `${baseUrl}/sse?token=${encodeURIComponent(instanceToken)}&events=${events.join(",")}&excludeMessages=${encodeURIComponent("wasSentByApi")}`;
 
+    // Timeout só para a FASE DE CONEXÃO — sem isso, se a UAZAPI não responder,
+    // o request do painel fica pendurado para sempre e o SSE nunca sobe.
+    const upstreamController = new AbortController();
+    const connectTimer = setTimeout(() => upstreamController.abort(), 10_000);
     let upstream: globalThis.Response;
     try {
       upstream = await fetch(sseUrl, {
         headers: { Accept: "text/event-stream" },
+        signal: upstreamController.signal,
       });
     } catch (error) {
       console.error("[WhatsApp SSE] Falha ao conectar UAZAPI:", error);
       return res.status(502).json({ message: "Falha ao conectar stream UAZAPI." });
+    } finally {
+      clearTimeout(connectTimer);
     }
 
     if (!upstream.ok || !upstream.body) {
@@ -624,25 +669,44 @@ export class WhatsappController {
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
 
     const reader = upstream.body.getReader();
     let closed = false;
+    let lastUpstreamByteAt = Date.now();
 
     const close = () => {
       if (closed) return;
       closed = true;
+      clearInterval(heartbeatTimer);
       reader.cancel().catch(() => {});
       if (!res.writableEnded) res.end();
     };
 
+    // Heartbeat: mantém proxies vivos e deixa o front medir se o stream está mudo.
+    // UAZAPI muda por muito tempo → encerra para o front reconectar com stream novo.
+    const HEARTBEAT_MS = 15_000;
+    const UPSTREAM_STALE_MS = 120_000;
+    const heartbeatTimer = setInterval(() => {
+      if (closed) return;
+      if (Date.now() - lastUpstreamByteAt > UPSTREAM_STALE_MS) {
+        close();
+        return;
+      }
+      if (!res.writableEnded) res.write(": ping\n\n");
+    }, HEARTBEAT_MS);
+
     req.on("close", close);
     req.on("aborted", close);
+
+    if (!res.writableEnded) res.write(": connected\n\n");
 
     try {
       while (!closed) {
         const { done, value } = await reader.read();
         if (done) break;
         if (closed) break;
+        lastUpstreamByteAt = Date.now();
         const chunk = Buffer.from(value);
         const canContinue = res.write(chunk);
         if (!canContinue) {
@@ -657,6 +721,7 @@ export class WhatsappController {
   }
 
   async webhook(req: Request, res: Response): Promise<any> {
+    // Em produção, defina WHATSAPP_WEBHOOK_SECRET para autenticar o webhook.
     const webhookSecret = process.env.WHATSAPP_WEBHOOK_SECRET;
     if (webhookSecret) {
       const provided =
@@ -670,24 +735,69 @@ export class WhatsappController {
     res.status(200).json({ received: true });
 
     try {
-      const event = req.body;
-      const eventTypeRaw = event?.event || event?.type || "unknown";
+      const rawBody = req.body;
+      const event = isWuzapiProvider()
+        ? (parseWuzapiWebhookBody(rawBody) || rawBody)
+        : rawBody;
+      const eventType = isWuzapiProvider()
+        ? normalizeWuzapiWebhookEventType(event)
+        : normalizeUazapiWebhookEventType(event);
+      const ingestPayload = isWuzapiProvider()
+        ? adaptWuzapiWebhookForIngest(event)
+        : event;
 
-      const relevantEvents = ["messages.upsert", "messages.update", "chats.update", "chats.upsert", "history"];
-      if (relevantEvents.includes(String(eventTypeRaw))) {
-        console.log(`[Webhook] ${eventTypeRaw}`, JSON.stringify(event).substring(0, 200));
+      const relevantEvents = [
+        "messages",
+        "messages.upsert",
+        "messages.update",
+        "chats.update",
+        "chats.upsert",
+        "history",
+        "message",
+        "historysync",
+        "readreceipt",
+      ];
+      if (relevantEvents.includes(eventType)) {
+        console.log(`[Webhook] ${eventType}`, JSON.stringify(event).substring(0, 200));
       } else {
-        console.log(`[Webhook] ${eventTypeRaw} recebido`);
+        console.log(`[Webhook] ${eventType} recebido`);
       }
 
       void webhookLogService.logWebhookEvent(event);
       const deletedChatJid = parseUazapiChatDeletion(event);
       const userId = await whatsappPusherService.resolveUserIdFromWebhook(event);
-      const eventType = normalizeUazapiWebhookEventType(event);
+
+      if (userId) {
+        const sessionJid = extractWuzapiSessionJidFromWebhook(event)
+          || extractSessionJidFromStatusPayload(event);
+        if (sessionJid) {
+          const isolation = await whatsappSessionService.ensureSessionIsolation(
+            userId,
+            sessionJid,
+            () => whatsappService.purgeWhatsappDatastore(userId),
+          );
+          if (isolation.purged) {
+            void whatsappPusherService.notifySessionReset(userId, "webhook-account-switch");
+            await Promise.all([
+              whatsappMessageRepository.deleteNotMatchingSession(userId, isolation.nextJid),
+              whatsappChatRepository.deleteNotMatchingSession(userId, isolation.nextJid),
+            ]);
+          } else if (isolation.nextJid) {
+            await Promise.all([
+              whatsappMessageRepository.assignSessionJidToOrphans(userId, isolation.nextJid),
+              whatsappChatRepository.assignSessionJidToOrphans(userId, isolation.nextJid),
+            ]);
+          }
+        }
+      }
+
+      // Persistir ANTES do Pusher — senão o front faz refresh e o DB ainda está vazio.
       if (userId && whatsappMessageService.shouldIngestEventType(eventType)) {
-        void whatsappMessageService.ingestPayload(userId, event).catch((err) => {
+        try {
+          await whatsappMessageService.ingestPayload(userId, ingestPayload);
+        } catch (err: any) {
           console.warn("[WhatsApp] Falha ao persistir mensagens do webhook:", err?.message || err);
-        });
+        }
       }
       if (userId) {
         whatsappMessageHistoryBackfillService.handleWebhook(userId, event, eventType);
@@ -729,6 +839,30 @@ export class WhatsappController {
       const user = (req as any).user;
       if (!user) return res.status(401).json({ message: "Não autorizado" });
 
+      if (!isUazapiProvider()) {
+        try {
+          const endpoint = "/" + req.params[0];
+          const method = req.method.toUpperCase();
+          if (endpoint === "/message/download" && method === "POST") {
+            return this.downloadMessageMedia(req, res);
+          }
+          const result = await wuzapiProxyService.handle(
+            user.id,
+            endpoint,
+            method,
+            (req.body || {}) as Record<string, unknown>,
+            req.query as Record<string, string>,
+          );
+          return res.json(result);
+        } catch (error: any) {
+          const msg = String(error?.message || "Falha no proxy WuzAPI.");
+          if (msg.includes("não disponível") || msg.includes("não mapeado")) {
+            return res.status(501).json({ message: msg, provider: getActiveWhatsappProvider() });
+          }
+          return res.status(400).json({ message: msg });
+        }
+      }
+
       const endpoint = "/" + req.params[0];
       const method = req.method.toUpperCase();
       if (endpoint === "/message/download" && method === "POST") {
@@ -747,13 +881,49 @@ export class WhatsappController {
   private async downloadMessageMedia(req: Request, res: Response): Promise<any> {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ message: "Não autorizado." });
-    if (!UAZAPI_BASE_URL) {
-      return res.status(503).json({ message: "UAZAPI_SERVER_URL não configurada." });
-    }
 
     const body = req.body || {};
     const messageId = String(body.id || body.messageid || body.messageId || "").trim();
     const chatJid = String(body.chatid || body.chatId || body.wa_chatid || "").trim();
+
+    if (isWuzapiProvider()) {
+      try {
+        if (whatsappMediaArchiveService.isEnabled() && messageId) {
+          const cachedUrl = await whatsappMediaArchiveService.findCachedPublicUrl(user.id, messageId);
+          if (cachedUrl) {
+            return res.json(whatsappMediaArchiveService.withArchivedFileUrl({ ok: true }, cachedUrl));
+          }
+        }
+
+        const result = await whatsappService.downloadMedia(user.id, body);
+        const data = (result as any)?.data ?? result;
+        const remoteUrl = String(
+          data?.fileURL || data?.fileUrl || data?.url || data?.URL || data?.Data || "",
+        ).trim();
+
+        if (whatsappMediaArchiveService.isEnabled() && messageId && remoteUrl) {
+          try {
+            const archivedUrl = await whatsappMediaArchiveService.archiveFromRemoteUrl(
+              user.id,
+              messageId,
+              remoteUrl,
+              { chatJid, mimeType: String(body.mimetype || body.mimeType || data?.mimetype || "") },
+            );
+            return res.json(whatsappMediaArchiveService.withArchivedFileUrl(data, archivedUrl));
+          } catch (archiveErr) {
+            console.warn("[WhatsApp Media] Falha ao arquivar mídia WuzAPI:", (archiveErr as Error)?.message || archiveErr);
+          }
+        }
+
+        return res.json(data);
+      } catch (error: any) {
+        return res.status(400).json({ message: error?.message || "Falha ao baixar mídia via WuzAPI." });
+      }
+    }
+
+    if (!UAZAPI_BASE_URL) {
+      return res.status(503).json({ message: "UAZAPI_SERVER_URL não configurada." });
+    }
 
     if (whatsappMediaArchiveService.isEnabled() && messageId) {
       const cachedUrl = await whatsappMediaArchiveService.findCachedPublicUrl(user.id, messageId);

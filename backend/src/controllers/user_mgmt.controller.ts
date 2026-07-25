@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import { Role, UserPlan, UserStatus } from "@prisma/client";
+import { Role, UserPlan, UserStatus, Prisma } from "@prisma/client";
 import { UserMgmtRepository } from "../repositories/user_mgmt.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { RegistrationRequestService } from "../services/registration-request.service";
@@ -14,6 +14,15 @@ import { upgradeApprovalTemplate } from "../utils/whatsapp-message-format";
 import { isPatientAccessExpired, parseAccessExpiresAt } from "../utils/access-expires";
 import { invalidateAuthUserCache } from "../middleware/auth.middleware";
 import { dispatchEmail, emailService } from "../services/email/email.service";
+import { normalizePhoneForWhatsapp, isValidWhatsappPhone } from "../utils/phone";
+import {
+  hasAdminProfileContent,
+  mergeAdminPatientProfile,
+} from "../utils/patient-profile-admin";
+import { patientTagsCatalogService } from "../services/patient-tags-catalog.service";
+import { lookupCep as fetchCepAddress } from "../services/cep-lookup.service";
+import { assignPatientSlugs, getPatientUrlSlug } from "../utils/patient-slug";
+import { isUuid } from "../utils/slug";
 
 const userRepo = new UserRepository();
 const registrationRequestService = new RegistrationRequestService();
@@ -68,7 +77,14 @@ export class UserMgmtController {
   getAll = async (_req: Request, res: Response) => {
     try {
       const users = await this.userMgmtRepo.getAllUsers();
-      res.json(users);
+      const patients = users.filter((user) => user.role === Role.PACIENTE);
+      const slugMap = assignPatientSlugs(patients);
+      res.json(
+        users.map((user) => ({
+          ...user,
+          urlSlug: user.role === Role.PACIENTE ? slugMap.get(user.id) || null : null,
+        })),
+      );
     } catch (error: any) {
       console.error("[users] getAll:", error?.message || error);
       res.status(500).json({ error: "Erro ao buscar usuários" });
@@ -121,13 +137,68 @@ export class UserMgmtController {
     }
   };
 
+  listPatientTags = async (_req: Request, res: Response) => {
+    try {
+      const tags = await patientTagsCatalogService.list();
+      return res.json({ tags });
+    } catch (error: any) {
+      console.error("[users] listPatientTags:", error?.message || error);
+      return res.status(500).json({ error: "Erro ao buscar tags." });
+    }
+  };
+
+  createPatientTag = async (req: Request, res: Response) => {
+    try {
+      const tag = await patientTagsCatalogService.create({
+        name: String(req.body?.name || ""),
+        color: req.body?.color,
+      });
+      return res.status(201).json({ tag });
+    } catch (error: any) {
+      const message = error?.message || "Erro ao criar tag.";
+      const status = message.includes("Informe") || message.includes("Limite") ? 400 : 500;
+      return res.status(status).json({ error: message });
+    }
+  };
+
+  deletePatientTag = async (req: Request, res: Response) => {
+    try {
+      const removed = await patientTagsCatalogService.remove(String(req.params.tagId || ""));
+      if (!removed) {
+        return res.status(404).json({ error: "Tag não encontrada." });
+      }
+      return res.json({ ok: true });
+    } catch (error: any) {
+      const message = error?.message || "Erro ao excluir tag.";
+      const status = message.includes("inválida") ? 400 : 500;
+      return res.status(status).json({ error: message });
+    }
+  };
+
+  lookupCep = async (req: Request, res: Response) => {
+    try {
+      const address = await fetchCepAddress(req.params.cep || req.query.cep);
+      return res.json(address);
+    } catch (error: any) {
+      const status = Number(error?.status) || 500;
+      return res.status(status).json({ error: error?.message || "Erro ao buscar CEP." });
+    }
+  };
+
   getById = async (req: Request, res: Response) => {
     try {
-      const user = await this.userMgmtRepo.getUserById(req.params.id);
+      const param = String(req.params.id || "").trim();
+      const user = isUuid(param)
+        ? await this.userMgmtRepo.getUserById(param)
+        : await this.userMgmtRepo.getUserBySlug(decodeURIComponent(param));
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
-      return res.json(user);
+      const patients = await this.userMgmtRepo.listPatientsForSlugLookup();
+      const urlSlug = user.role === Role.PACIENTE
+        ? getPatientUrlSlug(user, patients)
+        : null;
+      return res.json({ ...user, urlSlug });
     } catch {
       return res.status(500).json({ error: "Erro ao buscar usuário" });
     }
@@ -144,11 +215,16 @@ export class UserMgmtController {
         name,
         email,
         password,
+        phone,
+        avatar,
         plan,
         status,
         accessExpiresAt,
         registrationRequestId,
         billingPaymentMethod,
+        patientProfile,
+        sendWelcomeWhatsapp,
+        welcomeMessageOverride,
       } = req.body;
 
       if (!name?.trim() || !email?.trim()) {
@@ -187,6 +263,33 @@ export class UserMgmtController {
         hashedPassword = await bcrypt.hash(password, 10);
       }
 
+      if (phone !== undefined && phone !== null && String(phone).trim() !== "") {
+        const normalized = normalizePhoneForWhatsapp(String(phone));
+        if (!normalized || !isValidWhatsappPhone(normalized)) {
+          return res.status(400).json({ error: "Telefone inválido." });
+        }
+        patientPhone = normalized;
+      }
+
+      let parsedAvatar: string | null = null;
+      if (avatar !== undefined && avatar !== null && String(avatar).trim() !== "") {
+        const url = String(avatar).trim();
+        if (!/^https?:\/\//i.test(url)) {
+          return res.status(400).json({ error: "URL de foto inválida." });
+        }
+        parsedAvatar = url.slice(0, 2000);
+      }
+
+      let profileData = null;
+      try {
+        const merged = mergeAdminPatientProfile({}, patientProfile || {});
+        if (hasAdminProfileContent(merged)) {
+          profileData = merged;
+        }
+      } catch (error: any) {
+        return res.status(400).json({ error: error.message || "Dados de perfil inválidos." });
+      }
+
       let parsedAccessExpiresAt: Date | null = null;
       if (accessExpiresAt !== undefined && accessExpiresAt !== null && String(accessExpiresAt).trim() !== "") {
         try {
@@ -206,20 +309,60 @@ export class UserMgmtController {
         email: normalizedEmail,
         password: hashedPassword,
         phone: patientPhone,
+        avatar: parsedAvatar,
+        patientProfileData: profileData,
         plan: plan as UserPlan | undefined,
         status: (status as UserStatus | undefined) || UserStatus.ATIVO,
         accessExpiresAt: parsedAccessExpiresAt,
         billingPaymentMethod,
       });
 
+      if (profileData) {
+        await patientTagsCatalogService.ensureFromPatientProfile(profileData).catch((err) => {
+          console.error("[users] ensure patient tags catalog:", err?.message || err);
+        });
+      }
+
       await registrationRequestService.approveByEmail(normalizedEmail).catch(() => {});
 
+      const shouldSendWelcome =
+        Boolean(registrationRequestId) ||
+        sendWelcomeWhatsapp === true ||
+        sendWelcomeWhatsapp === "true";
+
       if (registrationRequestId) {
-        notifyPatientApproved(nutriUserId, user);
+        const override =
+          typeof welcomeMessageOverride === "string" && welcomeMessageOverride.trim()
+            ? welcomeMessageOverride.trim()
+            : user.approvalWhatsappMessage;
+        notifyPatientApproved(nutriUserId, {
+          ...user,
+          approvalWhatsappMessage: override,
+        });
+      } else if (shouldSendWelcome && user.phone?.trim()) {
+        const override =
+          typeof welcomeMessageOverride === "string" && welcomeMessageOverride.trim()
+            ? welcomeMessageOverride.trim()
+            : null;
+
+        dispatchApprovalWhatsapp(
+          (async () => {
+            await approvalWhatsappService.sendApprovalMessage({
+              nutriUserId,
+              phone: user.phone,
+              name: user.name,
+              accessExpiresAt: user.accessExpiresAt,
+              messageOverride: override,
+            });
+            await userMgmtRepo.markApprovalWhatsappSent(user.id);
+          })(),
+          "boas-vindas de cadastro",
+        );
       }
 
       return res.status(201).json(user);
-    } catch {
+    } catch (error: any) {
+      console.error("[users] createPatient:", error?.message || error);
       return res.status(500).json({ error: "Erro ao criar paciente" });
     }
   };
@@ -240,7 +383,7 @@ export class UserMgmtController {
         return res.status(400).json({ error: "Somente pacientes podem ser editados aqui." });
       }
 
-      const { name, phone, status, plan, accessExpiresAt, billingPaymentMethod } = req.body;
+      const { name, phone, status, plan, accessExpiresAt, billingPaymentMethod, patientProfile, avatar } = req.body;
 
       let parsedAccessExpiresAt: Date | null | undefined;
       if (accessExpiresAt !== undefined) {
@@ -257,7 +400,15 @@ export class UserMgmtController {
 
       let parsedPhone: string | null | undefined;
       if (phone !== undefined) {
-        parsedPhone = phone === null || String(phone).trim() === "" ? null : String(phone).trim();
+        if (phone === null || String(phone).trim() === "") {
+          parsedPhone = null;
+        } else {
+          const normalized = normalizePhoneForWhatsapp(String(phone));
+          if (!normalized || !isValidWhatsappPhone(normalized)) {
+            return res.status(400).json({ error: "Telefone inválido." });
+          }
+          parsedPhone = normalized;
+        }
       }
 
       let approvalEmailSentAtUpdate: Date | null | undefined;
@@ -271,6 +422,28 @@ export class UserMgmtController {
         }
       }
 
+      let profileData: object | undefined;
+      if (patientProfile !== undefined) {
+        try {
+          profileData = mergeAdminPatientProfile(existing.patientProfileData, patientProfile || {});
+        } catch (error: any) {
+          return res.status(400).json({ error: error.message || "Dados de perfil inválidos." });
+        }
+      }
+
+      let parsedAvatar: string | null | undefined;
+      if (avatar !== undefined) {
+        if (avatar === null || String(avatar).trim() === "") {
+          parsedAvatar = null;
+        } else {
+          const url = String(avatar).trim();
+          if (!/^https?:\/\//i.test(url)) {
+            return res.status(400).json({ error: "URL de foto inválida." });
+          }
+          parsedAvatar = url.slice(0, 2000);
+        }
+      }
+
       const user = await this.userMgmtRepo.updatePatient(id, {
         ...(name ? { name: String(name).trim() } : {}),
         ...(parsedPhone !== undefined ? { phone: parsedPhone } : {}),
@@ -279,7 +452,17 @@ export class UserMgmtController {
         ...(parsedAccessExpiresAt !== undefined ? { accessExpiresAt: parsedAccessExpiresAt } : {}),
         ...(approvalEmailSentAtUpdate !== undefined ? { approvalEmailSentAt: approvalEmailSentAtUpdate } : {}),
         ...(billingPaymentMethod !== undefined ? { billingPaymentMethod } : {}),
+        ...(parsedAvatar !== undefined ? { avatar: parsedAvatar } : {}),
+        ...(profileData !== undefined
+          ? { patientProfileData: profileData as Prisma.InputJsonValue }
+          : {}),
       });
+
+      if (profileData) {
+        await patientTagsCatalogService.ensureFromPatientProfile(profileData as any).catch((err) => {
+          console.error("[users] ensure patient tags catalog on update:", err?.message || err);
+        });
+      }
 
       invalidateAuthUserCache(id);
 
@@ -291,7 +474,8 @@ export class UserMgmtController {
       }
 
       return res.json(user);
-    } catch {
+    } catch (error: any) {
+      console.error("[users] updatePatient:", error?.message || error);
       return res.status(500).json({ error: "Erro ao atualizar paciente" });
     }
   };

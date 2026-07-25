@@ -1,4 +1,5 @@
 import { Role, UserStatus } from "@prisma/client";
+import { networkInterfaces } from "node:os";
 import { prisma } from "../lib/prisma";
 import { readEnv } from "./env";
 
@@ -60,15 +61,49 @@ export function normalizeAppUrl(raw: string): string {
   }
 }
 
+function getDevLanPatientAppUrl(): string | null {
+  const lanOverride = readEnv("PATIENT_APP_LAN_URL");
+  if (lanOverride) return normalizeAppUrl(lanOverride);
+
+  try {
+    for (const nets of Object.values(networkInterfaces())) {
+      for (const net of nets || []) {
+        if (net.family !== "IPv4" || net.internal) continue;
+        if (
+          net.address.startsWith("192.168.")
+          || net.address.startsWith("10.")
+        ) {
+          return `http://${net.address}:3002`;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 export function getPatientAppUrl(): string {
   const configured = readEnv("PATIENT_APP_URL");
-  if (configured) return normalizeAppUrl(configured);
+  if (configured) {
+    const normalized = normalizeAppUrl(configured);
+    // Em dev, se PATIENT_APP_URL aponta para produção, preferir LAN para testes no celular
+    if (
+      process.env.NODE_ENV !== "production"
+      && !LOCAL_HOSTNAMES.has(new URL(normalized).hostname.toLowerCase())
+      && !normalized.includes("192.168.")
+    ) {
+      const lan = getDevLanPatientAppUrl();
+      if (lan) return lan;
+    }
+    return normalized;
+  }
 
   if (process.env.NODE_ENV === "production") {
     return "https://app.nutrisabellajardim.com.br";
   }
 
-  return "http://127.0.0.1:3002";
+  return getDevLanPatientAppUrl() || "http://127.0.0.1:3002";
 }
 
 /** Link que passa por /abrir — melhor chance de abrir o PWA instalado (Android/iOS). */

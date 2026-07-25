@@ -1,4 +1,5 @@
 import { WhatsappService } from "./whatsapp.service";
+import { isUazapiProvider } from "../config/whatsapp-provider.config";
 import whatsappMessageService from "./whatsapp-message.service";
 import { whatsappMessageRepository } from "../repositories/whatsapp_message.repository";
 import {
@@ -11,12 +12,15 @@ const whatsappService = new WhatsappService();
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-const BACKFILL_ENABLED = String(process.env.WHATSAPP_HISTORY_BACKFILL_ENABLED || "1") !== "0";
+const BACKFILL_ENABLED = String(process.env.WHATSAPP_HISTORY_BACKFILL_ENABLED || "0") !== "0";
 const CONNECT_GRACE_MS = Number(process.env.WHATSAPP_HISTORY_BACKFILL_GRACE_MS || 4 * 60 * 1000);
-const CHAT_DELAY_MS = Number(process.env.WHATSAPP_HISTORY_BACKFILL_CHAT_DELAY_MS || 2500);
-const MAX_CHATS_PER_RUN = Number(process.env.WHATSAPP_HISTORY_BACKFILL_MAX_CHATS || 100);
-const BACKFILL_COOLDOWN_MS = Number(process.env.WHATSAPP_HISTORY_BACKFILL_COOLDOWN_MS || 30 * 60 * 1000);
-const POLL_AFTER_BATCH_MS = [3000, 6000, 12000, 20000, 35000];
+const CHAT_DELAY_MS = Number(process.env.WHATSAPP_HISTORY_BACKFILL_CHAT_DELAY_MS || 4000);
+const MAX_CHATS_PER_RUN = Number(process.env.WHATSAPP_HISTORY_BACKFILL_MAX_CHATS || 20);
+const BACKFILL_COOLDOWN_MS = Number(process.env.WHATSAPP_HISTORY_BACKFILL_COOLDOWN_MS || 6 * 60 * 60 * 1000);
+const POLL_AFTER_BATCH_MS = [5000, 12000];
+/** Pulls automáticos em webhook history — desligado por padrão (derruba sync multi-device/GuzzApp). */
+const AUTO_HISTORY_WEBHOOK_PULL = String(process.env.WHATSAPP_HISTORY_WEBHOOK_PULL || "0") === "1";
+const AUTO_BACKFILL_ON_CONNECT = String(process.env.WHATSAPP_HISTORY_BACKFILL_ON_CONNECT || "0") === "1";
 
 type UazChatRow = Record<string, unknown>;
 
@@ -166,7 +170,7 @@ export class WhatsappMessageHistoryBackfillService {
   }
 
   scheduleOnConnect(userId: string, reason = "connection"): void {
-    if (!BACKFILL_ENABLED || !userId) return;
+    if (!isUazapiProvider() || !BACKFILL_ENABLED || !AUTO_BACKFILL_ON_CONNECT || !userId) return;
 
     const state = getState(userId);
     if (state.running || state.scheduledTimer) return;
@@ -182,7 +186,7 @@ export class WhatsappMessageHistoryBackfillService {
   }
 
   noteHistoryWebhook(userId: string, payload: unknown): void {
-    if (!BACKFILL_ENABLED || !userId) return;
+    if (!isUazapiProvider() || !BACKFILL_ENABLED || !AUTO_HISTORY_WEBHOOK_PULL || !userId) return;
 
     const chatJid = extractUazapiWebhookChatJid(payload);
     if (!chatJid) return;
@@ -207,17 +211,29 @@ export class WhatsappMessageHistoryBackfillService {
     userId: string,
     options: { force?: boolean; reason?: string; chatJids?: string[] } = {},
   ): Promise<BackfillStats> {
+    const emptyStats = (): BackfillStats => ({
+      startedAt: new Date().toISOString(),
+      chatsScanned: 0,
+      chatsSynced: 0,
+      chatsSkipped: 0,
+      messagesPulled: 0,
+      historyRequests: 0,
+      errors: 0,
+    });
+
+    // Desligado por padrão — só force (botão manual) ou WHATSAPP_HISTORY_BACKFILL_ENABLED=1.
+    if (!isUazapiProvider()) {
+      console.log(`[WhatsApp Backfill] Ignorado (WuzAPI ativa — use webhook HistorySync) reason=${options.reason || "manual"}`);
+      return emptyStats();
+    }
+    if (!BACKFILL_ENABLED && !options.force) {
+      console.log(`[WhatsApp Backfill] Ignorado (desligado) reason=${options.reason || "manual"}`);
+      return emptyStats();
+    }
+
     const state = getState(userId);
     if (state.running) {
-      return state.lastStats || {
-        startedAt: new Date().toISOString(),
-        chatsScanned: 0,
-        chatsSynced: 0,
-        chatsSkipped: 0,
-        messagesPulled: 0,
-        historyRequests: 0,
-        errors: 0,
-      };
+      return state.lastStats || emptyStats();
     }
 
     if (
@@ -270,7 +286,8 @@ export class WhatsappMessageHistoryBackfillService {
         try {
           const before = await whatsappMessageRepository.countByChat(userId, chatJid);
           const result = await whatsappMessageService.syncChatFromUazapi(userId, chatJid, {
-            anchorRounds: before === 0 ? 10 : 4,
+            // Manual: no máximo 2 rounds (history-sync derruba GuzzApp no celular).
+            anchorRounds: before === 0 ? 2 : 1,
           });
           stats.messagesPulled += result.pulled;
           stats.historyRequests += result.historyRequests;

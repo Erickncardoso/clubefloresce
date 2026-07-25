@@ -114,4 +114,24 @@ export class FoodDiaryController {
       return res.status(400).json({ message: error.message });
     }
   }
+
+  async getAdminFeed(req: Request, res: Response): Promise<any> {
+    try {
+      const limit = Number(req.query.limit) || 18;
+      const data = await foodDiaryService.getAdminFeed(limit);
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+
+  async getAdminConsumption(req: Request, res: Response): Promise<any> {
+    try {
+      const dateKey = typeof req.query.date === "string" ? req.query.date : undefined;
+      const data = await foodDiaryService.getAdminConsumptionToday(dateKey);
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
 }

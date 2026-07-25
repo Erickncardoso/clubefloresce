@@ -4,6 +4,26 @@ import { FoodService } from "../services/food.service";
 export class FoodController {
   private service = new FoodService();
 
+  async catalogMeta(_req: Request, res: Response) {
+    try {
+      const meta = await this.service.getCatalogMeta();
+      res.json(meta);
+    } catch (err) {
+      console.error("[foods.catalogMeta]", err);
+      res.status(500).json({ message: "Erro ao carregar metadados da base de alimentos." });
+    }
+  }
+
+  async catalog(_req: Request, res: Response) {
+    try {
+      const catalog = await this.service.getCatalog();
+      res.json(catalog);
+    } catch (err) {
+      console.error("[foods.catalog]", err);
+      res.status(500).json({ message: "Erro ao carregar base de alimentos." });
+    }
+  }
+
   async stats(_req: Request, res: Response) {
     try {
       const stats = await this.service.getStats();
@@ -40,6 +60,29 @@ export class FoodController {
     } catch (err) {
       console.error("[foods.match]", err);
       res.status(500).json({ message: "Erro ao localizar alimento." });
+    }
+  }
+
+  async matchBatch(req: Request, res: Response) {
+    try {
+      const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+      const items = rawItems
+        .map((entry: { key?: unknown; name?: unknown }) => ({
+          key: String(entry?.key || "").trim(),
+          name: String(entry?.name || "").trim(),
+        }))
+        .filter((entry: { key: string; name: string }) => entry.key && entry.name);
+
+      if (!items.length) {
+        res.status(400).json({ message: "Informe os alimentos para vincular." });
+        return;
+      }
+
+      const matches = await this.service.matchBatchForMealPlan(items.slice(0, 120));
+      res.json({ matches });
+    } catch (err) {
+      console.error("[foods.matchBatch]", err);
+      res.status(500).json({ message: "Erro ao vincular alimentos em lote." });
     }
   }
 

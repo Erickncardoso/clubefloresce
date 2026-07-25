@@ -48,4 +48,8 @@ export class WhatsappMediaArchiveRepository {
       },
     });
   }
+
+  async deleteAllByUser(userId: string): Promise<void> {
+    await prisma.whatsappMediaArchive.deleteMany({ where: { userId } });
+  }
 }

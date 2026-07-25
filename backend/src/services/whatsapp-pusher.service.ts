@@ -1,4 +1,5 @@
-import { WhatsappService } from "./whatsapp.service";
+import { isUazapiProvider, isWuzapiProvider } from "../config/whatsapp-provider.config";
+import type { WhatsappService } from "./whatsapp.service";
 import { getPusherClient, isPusherConfigured, whatsappPusherChannel } from "../utils/pusher-config";
 import {
   extractUazapiWebhookChatJid,
@@ -6,6 +7,16 @@ import {
   parseUazapiChatDeletion,
   parseUazapiGroupMembershipChange,
 } from "../utils/uazapi-webhook-event.util";
+import {
+  extractWuzapiWebhookChatJid,
+  normalizeWuzapiWebhookEventType,
+  resolveUserIdFromWuzapiWebhook,
+} from "../utils/wuzapi-webhook.util";
+import { extractUazapiMessagesFromPayload } from "../utils/uazapi-message-ingest.util";
+import {
+  adaptWuzapiWebhookForIngest,
+  extractWuzapiMessagesFromPayload,
+} from "../utils/wuzapi-message-ingest.util";
 
 const SYNC_EVENT_TYPES = new Set([
   "messages",
@@ -25,10 +36,15 @@ const SYNC_EVENT_TYPES = new Set([
   "contacts",
 ]);
 
-const whatsappService = new WhatsappService();
+const whatsappServiceLazy = (): WhatsappService => {
+  // Lazy init evita ciclo wuzapi-whatsapp → pusher → whatsapp.service → wuzapi-whatsapp
+  const { WhatsappService: Facade } = require("./whatsapp.service") as typeof import("./whatsapp.service");
+  return new Facade();
+};
 
 export class WhatsappPusherService {
   normalizeEventType(payload: unknown): string {
+    if (isWuzapiProvider()) return normalizeWuzapiWebhookEventType(payload);
     return normalizeUazapiWebhookEventType(payload);
   }
 
@@ -39,11 +55,20 @@ export class WhatsappPusherService {
   }
 
   extractChatJid(payload: unknown): string | null {
+    if (isWuzapiProvider()) {
+      return extractWuzapiWebhookChatJid(payload) || extractUazapiWebhookChatJid(payload);
+    }
     return extractUazapiWebhookChatJid(payload);
   }
 
   async resolveUserIdFromWebhook(payload: unknown): Promise<string | null> {
     if (!payload || typeof payload !== "object") return null;
+
+    if (!isUazapiProvider()) {
+      const wuzUserId = resolveUserIdFromWuzapiWebhook(payload);
+      if (wuzUserId) return wuzUserId;
+    }
+
     const body = payload as Record<string, unknown>;
 
     const directAdmin = String(
@@ -73,7 +98,7 @@ export class WhatsappPusherService {
     ).trim();
 
     if (instanceRef) {
-      return whatsappService.resolveUserIdByInstanceRef(instanceRef);
+      return whatsappServiceLazy().resolveUserIdByInstanceRef(instanceRef);
     }
 
     return null;
@@ -100,7 +125,15 @@ export class WhatsappPusherService {
 
     const body = payload as Record<string, unknown>;
     const chat = body.chat && typeof body.chat === "object" ? body.chat : undefined;
-    const message = body.message && typeof body.message === "object" ? body.message : undefined;
+    let extractedMessages = isWuzapiProvider()
+      ? extractWuzapiMessagesFromPayload(payload)
+      : extractUazapiMessagesFromPayload(payload);
+    if (!extractedMessages.length && isWuzapiProvider()) {
+      extractedMessages = extractUazapiMessagesFromPayload(adaptWuzapiWebhookForIngest(payload));
+    }
+    const message = body.message && typeof body.message === "object"
+      ? body.message
+      : extractedMessages[0];
     const eventPayload = body.event && typeof body.event === "object" && !Array.isArray(body.event) ? body.event : undefined;
     const dataPayload = body.data && typeof body.data === "object" ? body.data : undefined;
 
@@ -113,6 +146,7 @@ export class WhatsappPusherService {
         groupChange,
         chat,
         message,
+        messages: extractedMessages,
         event: eventPayload,
         data: dataPayload,
         at: Date.now(),
@@ -123,6 +157,25 @@ export class WhatsappPusherService {
       console.log(`[Pusher] whatsapp-sync → ${userId.slice(0, 8)}… (${eventType}${groupHint})`);
     } catch (error) {
       console.error("[Pusher] Falha ao disparar whatsapp-sync:", error);
+    }
+  }
+
+  async notifySessionReset(userId: string, reason = "session-change"): Promise<void> {
+    if (!isPusherConfigured()) return;
+
+    const pusher = getPusherClient();
+    if (!pusher) return;
+
+    try {
+      await pusher.trigger(whatsappPusherChannel(userId), "whatsapp-sync", {
+        eventType: "session.reset",
+        sessionReset: true,
+        reason,
+        at: Date.now(),
+      });
+      console.log(`[Pusher] whatsapp session reset → ${userId.slice(0, 8)}… (${reason})`);
+    } catch (error) {
+      console.error("[Pusher] Falha ao disparar session reset:", error);
     }
   }
 }

@@ -7,35 +7,31 @@ import { getDateKeyInTimeZone } from "../utils/patient-timezone";
 import { resolveDocumentDeliveryUrl } from "../utils/media/bunny-document-delivery";
 
 const mealPlanService = new MealPlanService();
+const foodDiaryService = new FoodDiaryService();
 
 export class PatientOverviewService {
   async getOverview(userId: string) {
     const patient = await assertPatientUser(userId);
     const weekStart = getWeekStart();
 
-    const [
-      currentCheckIn,
-      checkInCount,
-      latestCheckIn,
-      mealPlan,
-      nutritionTarget,
-      todayDiary,
-      foodDiaryDays,
-      courseProgress,
-      recentBella,
-      recentCheckIns,
-    ] = await Promise.all([
+    const [checkInRows, checkInCount, currentCheckIn, mealPlan, nutritionTarget] = await Promise.all([
+      prisma.weeklyCheckIn.findMany({
+        where: { userId },
+        orderBy: { weekStart: "desc" },
+        take: 8,
+      }),
+      prisma.weeklyCheckIn.count({ where: { userId } }),
       prisma.weeklyCheckIn.findUnique({
         where: { userId_weekStart: { userId, weekStart } },
       }),
-      prisma.weeklyCheckIn.count({ where: { userId } }),
-      prisma.weeklyCheckIn.findFirst({
-        where: { userId },
-        orderBy: { weekStart: "desc" },
-      }),
       mealPlanService.getForUser(userId),
       prisma.nutritionTarget.findUnique({ where: { userId } }),
-      new FoodDiaryService().getDailySummary(userId, getDateKeyInTimeZone("UTC")).catch(() => null),
+    ]);
+
+    const latestCheckIn = checkInRows[0] ?? null;
+
+    const [todayDiary, foodDiaryDays, courseProgress] = await Promise.all([
+      foodDiaryService.getDailySummary(userId, getDateKeyInTimeZone("UTC")).catch(() => null),
       prisma.foodDiaryEntry.groupBy({
         by: ["entryDate"],
         where: { userId },
@@ -44,24 +40,21 @@ export class PatientOverviewService {
         take: 7,
       }),
       this.getCourseProgress(userId),
+    ]);
+
+    const [recentBella, latestSubscription] = await Promise.all([
       prisma.bellaMessage.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
         take: 5,
         select: { id: true, role: true, topic: true, content: true, createdAt: true },
       }),
-      prisma.weeklyCheckIn.findMany({
+      prisma.billingSubscription.findFirst({
         where: { userId },
-        orderBy: { weekStart: "desc" },
-        take: 8,
+        orderBy: { updatedAt: "desc" },
+        select: { paymentMethod: true, status: true },
       }),
     ]);
-
-    const latestSubscription = await prisma.billingSubscription.findFirst({
-      where: { userId },
-      orderBy: { updatedAt: "desc" },
-      select: { paymentMethod: true, status: true },
-    });
 
     return {
       patient: {
@@ -74,7 +67,7 @@ export class PatientOverviewService {
         current: currentCheckIn,
         total: checkInCount,
         latest: latestCheckIn,
-        recent: recentCheckIns,
+        recent: checkInRows,
         missingThisWeek: !currentCheckIn,
       },
       mealPlan: mealPlan

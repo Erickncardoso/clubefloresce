@@ -131,6 +131,31 @@ export class FoodDiaryRepository {
     });
   }
 
+  async findRecentForNutri(limit = 24) {
+    return prisma.foodDiaryEntry.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: {
+        user: { select: { id: true, name: true, avatar: true } },
+      },
+    });
+  }
+
+  async findTodayConsumptionSummary(entryDate: Date) {
+    const entries = await prisma.foodDiaryEntry.findMany({
+      where: { entryDate },
+      select: {
+        userId: true,
+        caloriesKcal: true,
+        proteinG: true,
+        carbsG: true,
+        fatG: true,
+        user: { select: { id: true, name: true, avatar: true } },
+      },
+    });
+    return entries;
+  }
+
   async findPlanCheckEntry(userId: string, entryDate: Date, mealType: string) {
     const entries = await this.findEntriesByDate(userId, entryDate);
     return entries.find((entry) => entry.mealType === mealType && !entry.imageUrl) || null;

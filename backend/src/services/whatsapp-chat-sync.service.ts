@@ -1,4 +1,5 @@
 import { WhatsappChatRepository, UpsertWhatsappChatInput } from "../repositories/whatsapp_chat.repository";
+import { isUazapiProvider, isWuzapiProvider, resolveWhatsappDatastoreUserId } from "../config/whatsapp-provider.config";
 import { WhatsappService } from "./whatsapp.service";
 
 const UAZAPI_BASE_URL = String(process.env.UAZAPI_SERVER_URL || "").replace(/\/+$/, "");
@@ -6,6 +7,20 @@ const HTTP_TIMEOUT_MS = 8000;
 const AVATAR_ENRICH_LIMIT = 20;
 
 type UazChat = Record<string, any>;
+
+type WhatsappChatListRow = {
+  id: string;
+  chatJid: string;
+  name: string;
+  pushName: string;
+  avatarUrl: string;
+  isGroup: boolean;
+  isPinned: boolean;
+  lastMessage: string;
+  lastMessageTime: number;
+  unreadCount: number;
+  raw: UazChat;
+};
 
 export class WhatsappChatSyncService {
   private async fetchWithTimeout(url: string, init: RequestInit, timeoutMs = HTTP_TIMEOUT_MS): Promise<Response> {
@@ -232,12 +247,68 @@ export class WhatsappChatSyncService {
     };
   }
 
+  private mapUazChatToListRow(chat: UazChat): WhatsappChatListRow | null {
+    const chatJid = String(chat.wa_chatid || chat.chatid || chat.id || "").trim();
+    if (!chatJid) return null;
+    const lastMessageTime = Number(chat.wa_lastMsgTimestamp || chat.lastMessageTime || chat.timestamp || 0);
+    return {
+      id: chatJid,
+      chatJid,
+      name: String(chat.name || chat.wa_name || ""),
+      pushName: String(chat.wa_contactName || chat.wa_name || chat.name || ""),
+      avatarUrl: String(chat.imagePreview || chat.image || chat.avatarUrl || ""),
+      isGroup: Boolean(chat.wa_isGroup || chatJid.endsWith("@g.us")),
+      isPinned: Boolean(chat.wa_isPinned),
+      lastMessage: String(chat.wa_lastMsgText || chat.wa_lastMessageTextVote || ""),
+      lastMessageTime,
+      unreadCount: Number(chat.wa_unreadCount || 0),
+      raw: chat,
+    };
+  }
+
   async listCachedChats(userId: string): Promise<any[]> {
-    const rows = await this.repository.listByUser(userId);
-    return rows.map((chat) => this.mapDbChatRow(chat));
+    if (isWuzapiProvider()) {
+      return this.syncAndList(userId, false);
+    }
+    const dataUserId = resolveWhatsappDatastoreUserId(userId);
+    const rows = await this.repository.listByUser(dataUserId);
+    return rows
+      .filter((chat) => chat.lastMessage && chat.lastMessageTime)
+      .map((chat) => this.mapDbChatRow(chat));
   }
 
   async syncAndList(userId: string, _forceRefresh = false): Promise<any[]> {
+    const dataUserId = resolveWhatsappDatastoreUserId(userId);
+    if (isWuzapiProvider()) {
+      try {
+        const page = await this.whatsappService.findChats(userId, { limit: 1000 });
+        const chats = Array.isArray(page?.chats) ? page.chats : [];
+        const rows: WhatsappChatListRow[] = chats
+          .map((chat: UazChat) => this.mapUazChatToListRow(chat))
+          .filter((row: WhatsappChatListRow | null): row is WhatsappChatListRow => Boolean(row));
+
+        const missingAvatars = rows.filter((chat) => !chat.avatarUrl).slice(0, AVATAR_ENRICH_LIMIT);
+        await Promise.allSettled(
+          missingAvatars.map(async (chat) => {
+            try {
+              const details = await this.whatsappService.getChatDetails(userId, {
+                number: chat.chatJid,
+                preview: true,
+              });
+              chat.avatarUrl = String(details?.imagePreview || details?.image || "").trim();
+            } catch { /* ignore */ }
+          }),
+        );
+
+        return rows
+          .filter((chat) => Number(chat.lastMessageTime || 0) > 0)
+          .sort((a, b) => Number(b.lastMessageTime || 0) - Number(a.lastMessageTime || 0));
+      } catch (error: any) {
+        console.warn("[WhatsApp] Falha ao buscar chats na WuzAPI:", error?.message || error);
+        return [];
+      }
+    }
+
     const instanceToken = await this.whatsappService.getInstanceToken(userId);
     if (!instanceToken) throw new Error("Instância não configurada.");
 

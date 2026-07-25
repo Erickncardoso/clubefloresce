@@ -381,4 +381,87 @@ export class FoodDiaryService {
     const dailySummary = await this.getDailySummary(userId, key);
     return { entry, dailySummary };
   }
+
+  async getAdminFeed(limit = 18) {
+    const take = Math.min(40, Math.max(1, Number(limit) || 18));
+    const entries = await getFoodDiaryRepository().findRecentForNutri(take);
+    return {
+      entries: entries.map((entry) => ({
+        id: entry.id,
+        entryDate: entry.entryDate,
+        mealType: entry.mealType,
+        mealLabel: entry.mealLabel,
+        imageUrl: entry.imageUrl,
+        caloriesKcal: entry.caloriesKcal,
+        proteinG: entry.proteinG,
+        carbsG: entry.carbsG,
+        fatG: entry.fatG,
+        createdAt: entry.createdAt,
+        patient: entry.user,
+      })),
+    };
+  }
+
+  async getAdminConsumptionToday(dateKey?: string) {
+    const key = dateKey || getDateKeyInTimeZone("America/Sao_Paulo");
+    const entryDate = entryDateFromKey(key);
+    const rows = await getFoodDiaryRepository().findTodayConsumptionSummary(entryDate);
+
+    const byPatient = new Map<
+      string,
+      {
+        patient: { id: string; name: string; avatar: string | null };
+        meals: number;
+        caloriesKcal: number;
+        proteinG: number;
+        carbsG: number;
+        fatG: number;
+      }
+    >();
+
+    for (const row of rows) {
+      const current = byPatient.get(row.userId) || {
+        patient: {
+          id: row.user.id,
+          name: row.user.name,
+          avatar: row.user.avatar,
+        },
+        meals: 0,
+        caloriesKcal: 0,
+        proteinG: 0,
+        carbsG: 0,
+        fatG: 0,
+      };
+      current.meals += 1;
+      current.caloriesKcal += row.caloriesKcal;
+      current.proteinG += row.proteinG;
+      current.carbsG += row.carbsG;
+      current.fatG += row.fatG;
+      byPatient.set(row.userId, current);
+    }
+
+    const patients = Array.from(byPatient.values())
+      .map((item) => ({
+        ...item,
+        caloriesKcal: Math.round(item.caloriesKcal),
+        proteinG: Math.round(item.proteinG * 10) / 10,
+        carbsG: Math.round(item.carbsG * 10) / 10,
+        fatG: Math.round(item.fatG * 10) / 10,
+      }))
+      .sort((a, b) => b.caloriesKcal - a.caloriesKcal);
+
+    const totals = patients.reduce(
+      (acc, item) => ({
+        patients: acc.patients + 1,
+        meals: acc.meals + item.meals,
+        caloriesKcal: acc.caloriesKcal + item.caloriesKcal,
+        proteinG: Math.round((acc.proteinG + item.proteinG) * 10) / 10,
+        carbsG: Math.round((acc.carbsG + item.carbsG) * 10) / 10,
+        fatG: Math.round((acc.fatG + item.fatG) * 10) / 10,
+      }),
+      { patients: 0, meals: 0, caloriesKcal: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+    );
+
+    return { date: key, totals, patients: patients.slice(0, 8) };
+  }
 }

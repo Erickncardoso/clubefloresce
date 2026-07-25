@@ -37,6 +37,30 @@ router.post(
   authorize(["NUTRICIONISTA"]),
   userMgmtController.syncRegistrationPhones,
 );
+router.get(
+  "/patient-tags",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  userMgmtController.listPatientTags,
+);
+router.post(
+  "/patient-tags",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  userMgmtController.createPatientTag,
+);
+router.delete(
+  "/patient-tags/:tagId",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  userMgmtController.deletePatientTag,
+);
+router.get(
+  "/cep/:cep",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  userMgmtController.lookupCep,
+);
 router.post("/", authenticate, authorize(["NUTRICIONISTA"]), userMgmtController.createPatient);
 router.get("/:id", authenticate, authorize(["NUTRICIONISTA"]), userMgmtController.getById);
 router.patch("/:id", authenticate, authorize(["NUTRICIONISTA"]), userMgmtController.updatePatient);
