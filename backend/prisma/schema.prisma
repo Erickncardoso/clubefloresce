@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
@@ -53,54 +53,60 @@ model PatientRegistrationRequest {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String
-  name          String
-  phone         String?
-  role          Role       @default(PACIENTE)
-  avatar        String?
-  status        UserStatus @default(ATIVO)
-  plan          UserPlan   @default(FREE)
-  accessExpiresAt DateTime?
-  billingPaymentMethod String?
-  approvalEmailSentAt DateTime?
-  approvalWhatsappSentAt DateTime?
-  approvalWhatsappMessage String? @db.Text
-  patientGoalsData Json?
-  patientProfileData Json?
-  onboardingCompletedAt DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id                      String     @id @default(uuid())
+  email                   String     @unique
+  password                String
+  name                    String
+  phone                   String?
+  role                    Role       @default(PACIENTE)
+  avatar                  String?
+  status                  UserStatus @default(ATIVO)
+  plan                    UserPlan   @default(FREE)
+  accessExpiresAt         DateTime?
+  billingPaymentMethod    String?
+  approvalEmailSentAt     DateTime?
+  approvalWhatsappSentAt  DateTime?
+  approvalWhatsappMessage String?    @db.Text
+  patientGoalsData        Json?
+  patientProfileData      Json?
+  onboardingCompletedAt   DateTime?
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
 
-  transactions  Transaction[]
+  transactions Transaction[]
 
-  courses       Course[]
-  posts         Post[]
-  comments      Comment[]
-  notifications Notification[]
-  pushSubscriptions PushSubscription[]
-  lessonProgress LessonProgress[]
-  likedComments Comment[]        @relation("CommentLikes")
-  likedPosts    Post[]           @relation("PostLikes")
-  whatsappChats WhatsappChat[]
-  whatsappContactStates WhatsappContactState[]
-  whatsappContactDirectory WhatsappContactDirectory?
+  courses                      Course[]
+  posts                        Post[]
+  comments                     Comment[]
+  notifications                Notification[]
+  pushSubscriptions            PushSubscription[]
+  lessonProgress               LessonProgress[]
+  likedComments                Comment[]                      @relation("CommentLikes")
+  likedPosts                   Post[]                         @relation("PostLikes")
+  whatsappChats                WhatsappChat[]
+  whatsappContactStates        WhatsappContactState[]
+  whatsappContactDirectory     WhatsappContactDirectory?
   whatsappGroupObservedSenders WhatsappGroupObservedSenders[]
-  whatsappMediaArchives WhatsappMediaArchive[]
-  whatsappMessages WhatsappMessage[]
-  weeklyCheckIns WeeklyCheckIn[]
-  checkInTemplates CheckInTemplate[] @relation("CheckInTemplateAuthor")
-  checkInDispatchSchedules CheckInDispatchSchedule[] @relation("CheckInDispatchAuthor")
-  checkInResponses CheckInResponse[]
-  bellaMessages  BellaMessage[]
-  nutritionTarget NutritionTarget?
-  foodDiaryEntries FoodDiaryEntry[]
-  patientMealPlan PatientMealPlan?
-  passwordResetTokens PasswordResetToken[]
-  billingSubscriptions BillingSubscription[]
-  billingCheckoutSessions BillingCheckoutSession[]
-  billingNotificationLogs BillingNotificationLog[]
+  whatsappMediaArchives        WhatsappMediaArchive[]
+  whatsappMessages             WhatsappMessage[]
+  whatsappSessionBinding       WhatsappSessionBinding?
+  weeklyCheckIns               WeeklyCheckIn[]
+  checkInTemplates             CheckInTemplate[]              @relation("CheckInTemplateAuthor")
+  checkInDispatchSchedules     CheckInDispatchSchedule[]      @relation("CheckInDispatchAuthor")
+  checkInResponses             CheckInResponse[]
+  bellaMessages                BellaMessage[]
+  nutritionTarget              NutritionTarget?
+  foodDiaryEntries             FoodDiaryEntry[]
+  patientMealPlan              PatientMealPlan?
+  passwordResetTokens          PasswordResetToken[]
+  billingSubscriptions         BillingSubscription[]
+  billingCheckoutSessions      BillingCheckoutSession[]
+  billingNotificationLogs      BillingNotificationLog[]
+  instagramConfig              InstagramConfig?
+  instagramAutomations         InstagramAutomation[]
+  instagramContacts            InstagramContact[]
+  instagramQueueItems          InstagramQueueItem[]
+  instagramEvents              InstagramEvent[]
 }
 
 model PasswordResetToken {
@@ -149,19 +155,19 @@ model WeeklyCheckIn {
 }
 
 model CheckInTemplate {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  frequency   String   @default("weekly")
-  active      Boolean  @default(true)
-  steps       Json
-  sortOrder   Int      @default(0)
-  isDefault   Boolean  @default(false)
-  authorId    String
-  author      User     @relation("CheckInTemplateAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  responses   CheckInResponse[]
+  id                String                    @id @default(uuid())
+  title             String
+  description       String?
+  frequency         String                    @default("weekly")
+  active            Boolean                   @default(true)
+  steps             Json
+  sortOrder         Int                       @default(0)
+  isDefault         Boolean                   @default(false)
+  authorId          String
+  author            User                      @relation("CheckInTemplateAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  responses         CheckInResponse[]
   dispatchSchedules CheckInDispatchSchedule[]
 
   @@index([active, sortOrder])
@@ -169,19 +175,19 @@ model CheckInTemplate {
 }
 
 model CheckInDispatchSchedule {
-  id          String            @id @default(uuid())
+  id          String           @id @default(uuid())
   templateId  String?
-  template    CheckInTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  userIds     Json              @default("[]")
+  template    CheckInTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  userIds     Json             @default("[]")
   periodDate  String?
   scheduledAt DateTime
   sentAt      DateTime?
-  status      String            @default("pending")
+  status      String           @default("pending")
   title       String?
   body        String?
   authorId    String
-  author      User              @relation("CheckInDispatchAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  createdAt   DateTime          @default(now())
+  author      User             @relation("CheckInDispatchAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
 
   @@index([status, scheduledAt])
   @@index([authorId])
@@ -296,32 +302,32 @@ model FoodDiaryEntry {
 }
 
 model Course {
-  id              String   @id @default(uuid())
-  title           String
-  description     String?
-  thumbnail       String?
-  thumbnailMobile String?
-  bannerImage     String?
-  bannerImageMobile String?
-  bannerImagePosition String?
+  id                        String   @id @default(uuid())
+  title                     String
+  description               String?
+  thumbnail                 String?
+  thumbnailMobile           String?
+  bannerImage               String?
+  bannerImageMobile         String?
+  bannerImagePosition       String?
   bannerImageMobilePosition String?
-  bannerKicker    String?
-  bannerTitle     String?
-  bannerSubtitle  String?
-  bannerCtaText   String?
-  bannerKickerColor String?
-  bannerKickerBg String?
-  bannerTitleColor String?
-  bannerSubtitleColor String?
-  bannerCtaBg String?
-  bannerCtaColor String?
-  bannerSecondaryBtnBg String?
-  bannerSecondaryBtnColor String?
-  authorId        String
-  author          User     @relation(fields: [authorId], references: [id])
-  modules         Module[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  bannerKicker              String?
+  bannerTitle               String?
+  bannerSubtitle            String?
+  bannerCtaText             String?
+  bannerKickerColor         String?
+  bannerKickerBg            String?
+  bannerTitleColor          String?
+  bannerSubtitleColor       String?
+  bannerCtaBg               String?
+  bannerCtaColor            String?
+  bannerSecondaryBtnBg      String?
+  bannerSecondaryBtnColor   String?
+  authorId                  String
+  author                    User     @relation(fields: [authorId], references: [id])
+  modules                   Module[]
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 }
 
 model Module {
@@ -336,33 +342,33 @@ model Module {
 }
 
 model Lesson {
-  id       String  @id @default(uuid())
-  title    String
-  videoUrl String
-  content  String?
+  id        String  @id @default(uuid())
+  title     String
+  videoUrl  String
+  content   String?
   thumbnail String?
   duration  String?
   order     Int     @default(0)
   moduleId  String
   module    Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  
-  materials     Json?    @default("[]")
-  transcription Json?    @default("[]")
+
+  materials     Json?            @default("[]")
+  transcription Json?            @default("[]")
   progress      LessonProgress[]
   comments      Comment[]
 }
 
 model LessonProgress {
-  id         String   @id @default(uuid())
-  userId     String
-  lessonId   String
-  watched    Boolean  @default(false)
-  liked      Boolean  @default(false)
-  disliked   Boolean  @default(false)
-  favorited  Boolean  @default(false)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(uuid())
+  userId    String
+  lessonId  String
+  watched   Boolean  @default(false)
+  liked     Boolean  @default(false)
+  disliked  Boolean  @default(false)
+  favorited Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, lessonId])
 }
@@ -377,11 +383,11 @@ model Ebook {
 }
 
 model Post {
-  id        String    @id @default(uuid())
-  content   String
-  imageUrl  String?
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id])
+  id         String    @id @default(uuid())
+  content    String
+  imageUrl   String?
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id])
   createdAt  DateTime  @default(now())
   likesCount Int       @default(0)
   likedBy    User[]    @relation("PostLikes")
@@ -479,13 +485,13 @@ model BillingWebhookEvent {
 }
 
 model BillingCheckoutSession {
-  id              String    @id @default(uuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  startedAt       DateTime  @default(now())
-  lastSeenAt      DateTime  @default(now())
-  completedAt     DateTime?
-  reminder5SentAt DateTime?
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt        DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  completedAt      DateTime?
+  reminder5SentAt  DateTime?
   reminder15SentAt DateTime?
 
   @@index([userId, completedAt])
@@ -513,6 +519,7 @@ model WhatsappChat {
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chatJid         String
+  sessionJid      String?
   name            String?
   pushName        String?
   avatarUrl       String?
@@ -526,6 +533,7 @@ model WhatsappChat {
 
   @@unique([userId, chatJid])
   @@index([userId, lastMessageTime])
+  @@index([userId, sessionJid, lastMessageTime])
 }
 
 // Diretório de contatos salvos: { jid/phone: nome } — fonte de nomes no chat.
@@ -534,7 +542,7 @@ model WhatsappContactDirectory {
   id        String   @id @default(uuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  data      Json     // { "55119...@s.whatsapp.net": "Nome Salvo", ... }
+  data      Json // { "55119...@s.whatsapp.net": "Nome Salvo", ... }
   updatedAt DateTime @updatedAt
 }
 
@@ -544,7 +552,7 @@ model WhatsappGroupObservedSenders {
   userId    String
   groupJid  String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  data      Json     // { "....@lid": "Maria", "5511...@s.whatsapp.net": "João", ... }
+  data      Json // { "....@lid": "Maria", "5511...@s.whatsapp.net": "João", ... }
   updatedAt DateTime @updatedAt
 
   @@unique([userId, groupJid])
@@ -572,11 +580,20 @@ model WhatsappContactState {
 }
 
 // Mensagens persistidas (webhook history/messages + sync message/find).
+// JID da conta WhatsApp vinculada ao nutri — detecta troca de aparelho/conta e purga cache local.
+model WhatsappSessionBinding {
+  userId     String   @id
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionJid String
+  updatedAt  DateTime @updatedAt
+}
+
 model WhatsappMessage {
   id               String   @id @default(uuid())
   userId           String
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chatJid          String
+  sessionJid       String?
   messageId        String
   messageTimestamp BigInt
   fromMe           Boolean  @default(false)
@@ -586,6 +603,151 @@ model WhatsappMessage {
 
   @@unique([userId, messageId])
   @@index([userId, chatJid, messageTimestamp])
+  @@index([userId, sessionJid, chatJid, messageTimestamp])
+}
+
+// ============================================================
+// Instagram — automação comentário/story/DM → DM com link
+// ============================================================
+
+enum InstagramMatchType {
+  EXACT
+  CONTAINS
+}
+
+enum InstagramQueueStatus {
+  pending
+  sending
+  sent
+  failed
+  skipped
+}
+
+enum InstagramQueueKind {
+  PRIVATE_REPLY // resposta privada a comentário (recipient.comment_id)
+  PUBLIC_REPLY // reply público no comentário
+  WELCOME_DM // DM de boas-vindas (story/DM com palavra-chave)
+  FOLLOWUP // link/lembrete após quick reply
+}
+
+// Conexão da conta Instagram do nutri (token de longa duração, 60d).
+model InstagramConfig {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken       String   @db.Text
+  tokenExpiresAt    DateTime
+  instagramUserId   String
+  instagramUsername String
+  profilePictureUrl String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tokenExpiresAt])
+}
+
+model InstagramAutomation {
+  id                    String             @id @default(uuid())
+  userId                String
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                  String
+  active                Boolean            @default(true)
+  // gatilhos
+  triggerComment        Boolean            @default(true)
+  triggerStory          Boolean            @default(false)
+  triggerDm             Boolean            @default(false)
+  keywords              Json               @default("[]") // ["EBOOK", "QUERO"]
+  matchType             InstagramMatchType @default(CONTAINS)
+  targetMediaId         String? // null = qualquer post/reels
+  // respostas
+  publicReplyVariations Json               @default("[]") // sorteia uma
+  welcomeMessage        String             @db.Text
+  quickReplyLabel       String             @default("Quero o link!")
+  // link enviado após o quick reply
+  linkText              String?            @db.Text
+  linkButtonLabel       String?
+  linkUrl               String?
+  // lembrete se não houver clique/resposta
+  reminderText          String?            @db.Text
+  reminderDelayMinutes  Int                @default(60)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  followups  InstagramFollowup[]
+  queueItems InstagramQueueItem[]
+
+  @@index([userId, active])
+}
+
+// Sequência extra de follow-ups por automação (além de link + lembrete).
+model InstagramFollowup {
+  id           String              @id @default(uuid())
+  automationId String
+  automation   InstagramAutomation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  type         String              @default("message") // message | link
+  delayMinutes Int                 @default(0)
+  body         String              @db.Text
+  buttonLabel  String?
+  url          String?
+  sortOrder    Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([automationId, sortOrder])
+}
+
+// Pessoa que interagiu (IGSID — id com escopo do app, único por pessoa).
+model InstagramContact {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instagramScopedId String    @unique
+  username          String?
+  firstContactAt    DateTime  @default(now())
+  lastReplyAt       DateTime?
+  lastAutomationId  String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId, lastReplyAt])
+}
+
+// Fila de envio — worker drena com FOR UPDATE SKIP LOCKED (~2/s).
+model InstagramQueueItem {
+  id           String               @id @default(uuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  automationId String?
+  automation   InstagramAutomation? @relation(fields: [automationId], references: [id], onDelete: SetNull)
+  kind         InstagramQueueKind
+  status       InstagramQueueStatus @default(pending)
+  recipientId  String? // IGSID para DM
+  commentId    String? // para private/public reply
+  payload      Json // corpo da mensagem a enviar
+  scheduledFor DateTime             @default(now())
+  claimedAt    DateTime?
+  claimedBy    String?
+  attempts     Int                  @default(0)
+  lastError    String?              @db.Text
+  sentAt       DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([status, scheduledFor])
+  @@index([userId, createdAt])
+}
+
+// Log bruto de tudo que chega no webhook.
+model InstagramEvent {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  field     String? // comments | messages | ...
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([field, createdAt])
 }
 
 // Mídia do WhatsApp arquivada no Backblaze B2 (links da UAZAPI expiram).

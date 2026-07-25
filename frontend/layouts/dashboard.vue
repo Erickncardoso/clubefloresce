@@ -4,35 +4,60 @@
     :class="{
       'patient-app-layout': isPatientApp,
       'dashboard-layout--sidebar': useAdminSidebar,
+      'dashboard-layout--sidebar-collapsed': useAdminSidebar && sidebarCollapsed,
     }"
   >
-    <aside v-if="useAdminSidebar" class="admin-sidebar" aria-label="Menu principal">
+    <aside
+      v-if="useAdminSidebar"
+      class="admin-sidebar"
+      :class="{ 'admin-sidebar--patient-chart': isPatientChartPage }"
+      :aria-label="isPatientChartPage ? 'Seções do paciente' : 'Menu principal'"
+    >
       <div class="admin-sidebar-inner">
-        <NuxtLink to="/dashboard" class="admin-sidebar-brand" aria-label="Ir para o início">
-          <img src="/logoflorescer.svg" alt="Logo Clube Florescer" class="admin-sidebar-logo" />
-        </NuxtLink>
+        <div class="admin-sidebar-brand">
+          <NuxtLink to="/dashboard" class="admin-sidebar-logo-link" aria-label="Ir para o início">
+            <img src="/icons/logovetorcarregamento.svg" alt="Logo Clube Florescer" class="admin-sidebar-logo" width="24" height="34" />
+          </NuxtLink>
+          <button
+            type="button"
+            class="admin-sidebar-toggle"
+            :aria-expanded="!sidebarCollapsed"
+            :aria-label="sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'"
+            :title="sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'"
+            @click="toggleSidebarCollapsed"
+          >
+            <PanelLeftOpen v-if="sidebarCollapsed" class="admin-sidebar-toggle-icon" />
+            <PanelLeftClose v-else class="admin-sidebar-toggle-icon" />
+          </button>
+        </div>
 
         <nav class="admin-sidebar-nav">
-          <template v-for="item in menuItems" :key="'sidebar-' + (item.path || item.label)">
+          <PatientsPatientChartSidebarNav
+            v-if="isPatientChartPage"
+            :collapsed="sidebarCollapsed"
+          />
+          <template v-else v-for="item in menuItems" :key="'sidebar-' + (item.path || item.label)">
             <div v-if="item.children?.length" class="admin-sidebar-group">
               <button
                 type="button"
                 class="admin-sidebar-group-toggle"
-                :class="{ active: isWhatsappMenuActive, open: whatsappSidebarOpen }"
-                :aria-expanded="whatsappSidebarOpen"
-                @click="whatsappSidebarOpen = !whatsappSidebarOpen"
+                :class="{ active: isGroupActive(item), open: openSidebarGroups[item.label] && !sidebarCollapsed }"
+                :aria-expanded="openSidebarGroups[item.label] && !sidebarCollapsed"
+                :title="item.label"
+                @click="onSidebarGroupClick(item)"
               >
                 <component :is="item.icon" class="icon" />
                 <span>{{ item.label }}</span>
                 <ChevronDown class="admin-sidebar-chevron" />
               </button>
-              <div v-show="whatsappSidebarOpen" class="admin-sidebar-subnav">
+              <div v-show="openSidebarGroups[item.label] && !sidebarCollapsed" class="admin-sidebar-subnav">
                 <NuxtLink
                   v-for="child in item.children"
                   :key="child.path"
                   :to="child.path"
                   class="admin-sidebar-link admin-sidebar-link--child"
                   :class="{ active: $route.path === child.path }"
+                  :title="child.label"
                 >
                   <component :is="child.icon" class="icon" />
                   <span>{{ child.label }}</span>
@@ -98,7 +123,13 @@
       </div>
     </aside>
 
-    <main class="main-content" :class="{ 'patient-courses-main': isPacienteCoursesPage }">
+    <main
+      class="main-content"
+      :class="{
+        'patient-courses-main': isPacienteCoursesPage,
+        'main-content--document-editor': isPatientDocumentEditorPage,
+      }"
+    >
       <header
         v-if="showTopHeader"
         class="top-nav"
@@ -110,7 +141,7 @@
       >
         <div class="top-nav-left">
           <NuxtLink to="/dashboard" class="top-nav-brand" aria-label="Ir para o início">
-            <img src="/logoflorescer.svg" alt="Logo Clube Florescer" class="top-nav-logo" />
+            <img src="/icons/logovetorcarregamento.svg" alt="Logo Clube Florescer" class="top-nav-logo" width="23" height="32" />
           </NuxtLink>
           <nav v-if="!isPatientApp && !useAdminSidebar" class="top-nav-menu">
             <template v-for="item in menuItems" :key="item.path || item.label">
@@ -190,47 +221,59 @@
         </div>
       </header>
 
-      <Teleport to="body">
-        <div v-if="profileMenuOpen && !useAdminSidebar" class="profile-dropdown-layer">
-          <div class="profile-dropdown-backdrop" aria-hidden="true" @click="closeProfileMenu" />
-          <div
-            class="profile-menu-dropdown"
-            :style="profileDropdownStyle"
-            role="menu"
-            aria-label="Menu de perfil"
-          >
-            <div class="profile-menu-card">
-              <PatientAvatar
-                :src="sessionProfile.avatar"
-                :name="sessionProfile.name"
-                size="xl"
-                :ring="false"
-              />
-              <p class="profile-menu-name">{{ sessionProfile.name }}</p>
-              <p v-if="userEmail" class="profile-menu-email">{{ userEmail }}</p>
-              <span v-if="roleLabel" class="profile-menu-role">{{ roleLabel }}</span>
-            </div>
-            <button type="button" class="profile-menu-logout" role="menuitem" @click="handleLogout">
-              <LogOut class="profile-menu-logout-icon" />
-              <span>Sair</span>
-            </button>
-          </div>
-        </div>
-      </Teleport>
+      <AdminTopbar
+        v-if="useAdminSidebar"
+        ref="adminTopbarRef"
+        :profile="sessionProfile"
+        :role-label="roleLabel"
+        :profile-open="profileMenuOpen"
+        @toggle-profile="toggleProfileMenu"
+      />
 
-      <Teleport v-if="!isPatientApp" to="body">
-        <div
-          v-if="mobileNavOpen"
-          class="mobile-nav-backdrop"
-          aria-hidden="true"
-          @click="closeMobileNav"
-        />
-        <nav
-          id="mobile-nav-drawer"
-          class="mobile-nav-drawer"
-          :class="{ open: mobileNavOpen }"
-          :aria-hidden="!mobileNavOpen"
-        >
+      <ClientOnly>
+        <Teleport to="body">
+          <div v-if="profileMenuOpen" class="profile-dropdown-layer">
+            <div class="profile-dropdown-backdrop" aria-hidden="true" @click="closeProfileMenu" />
+            <div
+              class="profile-menu-dropdown"
+              :style="profileDropdownStyle"
+              role="menu"
+              aria-label="Menu de perfil"
+            >
+              <div class="profile-menu-card">
+                <PatientAvatar
+                  :src="sessionProfile.avatar"
+                  :name="sessionProfile.name"
+                  size="xl"
+                  :ring="false"
+                />
+                <p class="profile-menu-name">{{ sessionProfile.name }}</p>
+                <p v-if="userEmail" class="profile-menu-email">{{ userEmail }}</p>
+                <span v-if="roleLabel" class="profile-menu-role">{{ roleLabel }}</span>
+              </div>
+              <button type="button" class="profile-menu-logout" role="menuitem" @click="handleLogout">
+                <LogOut class="profile-menu-logout-icon" />
+                <span>Sair</span>
+              </button>
+            </div>
+          </div>
+        </Teleport>
+      </ClientOnly>
+
+      <ClientOnly>
+        <Teleport v-if="!isPatientApp" to="body">
+          <div
+            v-if="mobileNavOpen"
+            class="mobile-nav-backdrop"
+            aria-hidden="true"
+            @click="closeMobileNav"
+          />
+          <nav
+            v-if="mobileNavOpen"
+            id="mobile-nav-drawer"
+            class="mobile-nav-drawer open"
+            aria-hidden="false"
+          >
           <div class="mobile-nav-profile">
             <PatientAvatar
               :src="sessionProfile.avatar"
@@ -246,7 +289,12 @@
           </div>
 
           <div class="mobile-nav-drawer-body">
-            <template v-for="item in menuItems" :key="'mobile-' + (item.path || item.label)">
+            <PatientsPatientChartSidebarNav
+              v-if="isPatientChartPage"
+              mobile
+              @navigate="closeMobileNav"
+            />
+            <template v-else v-for="item in menuItems" :key="'mobile-' + (item.path || item.label)">
               <div v-if="item.children?.length" class="mobile-nav-group">
                 <p class="mobile-nav-group-label">
                   <component :is="item.icon" class="icon" />
@@ -283,15 +331,24 @@
               <span>Sair</span>
             </button>
           </div>
-        </nav>
-      </Teleport>
-      
-      <div class="content-body" :class="{ 'patient-courses-content': isPacienteCoursesPage }">
+          </nav>
+        </Teleport>
+      </ClientOnly>
+
+      <div
+        class="content-body"
+        :class="{
+          'patient-courses-content': isPacienteCoursesPage,
+          'patient-chart-content': isPatientChartPage && !isPatientDocumentEditorPage,
+          'patient-document-editor-content': isPatientDocumentEditorPage,
+        }"
+      >
         <slot />
       </div>
     </main>
 
     <AppToast />
+    <GlobalTranscriptionIndicator v-if="!isPatientApp" />
     <CoursesVideoUploadQueuePanel v-if="!isPatientApp && showVideoUploadPanel" />
   </div>
 </template>
@@ -300,8 +357,6 @@
 import { 
   BookOpen, 
   Users, 
-  Settings, 
-  FileText, 
   DollarSign, 
   Palette, 
   LogOut,
@@ -309,12 +364,17 @@ import {
   Send,
   Menu,
   X,
+  Calendar,
   CalendarCheck,
   LineChart,
   Sparkles,
-  LayoutDashboard
+  LayoutDashboard,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Instagram,
+  Zap,
 } from 'lucide-vue-next'
-import { hasAuthSession, logoutAuthSession, verifyAuthSession, getVerifiedRole } from '~/composables/useAuthSession.js'
+import { authHeaders, hasAuthSession, logoutAuthSession, verifyAuthSession, getVerifiedRole } from '~/composables/useAuthSession.js'
 import { stopWhatsappToastListener } from '~/composables/whatsapp/useWhatsappToastNotifications.js'
 import WhatsAppIcon from '~/components/WhatsAppIcon.vue'
 
@@ -325,6 +385,8 @@ const config = useRuntimeConfig()
 const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 /** Só no PWA paciente — no admin /cursos usa scroll normal da sidebar. */
 const isPacienteCoursesPage = computed(() => isPatientApp.value && route.path.startsWith('/cursos'))
+const isPatientChartPage = computed(() => /^\/pacientes\//.test(String(route.path || '')))
+const isPatientDocumentEditorPage = computed(() => /\/pacientes\/[^/]+\/documentos\//.test(String(route.path || '')))
 const showVideoUploadPanel = computed(() => /^\/(modulos|cursos)(\/|$)/.test(route.path || ''))
 const { hydrateProfile, persistSession, profile: sessionProfile } = usePatientApp()
 const useCoursesOverlayNav = computed(() => isPatientApp.value && isPacienteCoursesPage.value)
@@ -333,20 +395,62 @@ const isWhatsappMenuActive = computed(() => String(route.path || '').startsWith(
 const isWhatsappRoute = computed(() => isWhatsappMenuActive.value)
 const useAdminSidebar = computed(() => !isPatientApp.value && !isWhatsappRoute.value)
 const showTopHeader = computed(() => isPatientApp.value || isWhatsappRoute.value || useAdminSidebar.value)
-const whatsappSidebarOpen = ref(false)
+const SIDEBAR_COLLAPSED_KEY = 'cf-admin-sidebar-collapsed'
+const openSidebarGroups = ref({})
+
+function isGroupActive(item) {
+  const prefix = item.prefix || ''
+  return prefix ? String(route.path || '').startsWith(prefix) : false
+}
+const sidebarCollapsed = ref(false)
 const profileMenuOpen = ref(false)
 const profileMenuRef = ref(null)
 const profileTriggerRef = ref(null)
+const adminTopbarRef = ref(null)
 const profileDropdownStyle = ref({ top: '0px', right: '0px' })
 const mobileNavOpen = ref(false)
+
+function toggleSidebarCollapsed() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  if (sidebarCollapsed.value) openSidebarGroups.value = {}
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.value ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
+function onSidebarGroupClick(item) {
+  if (sidebarCollapsed.value) {
+    sidebarCollapsed.value = false
+    openSidebarGroups.value = { ...openSidebarGroups.value, [item.label]: true }
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '0')
+    } catch {
+      /* ignore */
+    }
+    return
+  }
+  openSidebarGroups.value = {
+    ...openSidebarGroups.value,
+    [item.label]: !openSidebarGroups.value[item.label],
+  }
+}
 
 const updateHeaderScrollState = () => {
   hasScrolledHeader.value = useCoursesOverlayNav.value && window.scrollY > 20
 }
 
+function resolveProfileTrigger() {
+  if (useAdminSidebar.value) {
+    const exposed = adminTopbarRef.value?.profileTriggerRef
+    return exposed?.value ?? exposed ?? null
+  }
+  return profileTriggerRef.value
+}
+
 function updateProfileDropdownPosition() {
-  if (useAdminSidebar.value) return
-  const trigger = profileTriggerRef.value
+  const trigger = resolveProfileTrigger()
   if (!trigger || !profileMenuOpen.value) return
   const rect = trigger.getBoundingClientRect()
   profileDropdownStyle.value = {
@@ -410,8 +514,9 @@ const handleClickOutsideProfileMenu = (event) => {
   const container = profileMenuRef.value
   const panel = document.querySelector('.profile-menu-dropdown')
   const sidebarPanel = document.querySelector('.admin-sidebar-dropup')
-  if (!container) return
-  if (container.contains(event.target)) return
+  const topbarProfile = resolveProfileTrigger()
+  if (container?.contains(event.target)) return
+  if (topbarProfile?.contains(event.target)) return
   if (panel?.contains(event.target)) return
   if (sidebarPanel?.contains(event.target)) return
   closeProfileMenu()
@@ -459,6 +564,11 @@ const PACIENTE_MENU = [
 
 onMounted(async () => {
   ensureAdminPageScroll()
+  try {
+    sidebarCollapsed.value = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    sidebarCollapsed.value = false
+  }
   await loadSessionUser()
   role.value = getVerifiedRole() || role.value || 'PACIENTE'
 
@@ -479,6 +589,7 @@ onMounted(async () => {
 
   const nutricionistaMenu = [
     { label: 'Início', path: '/dashboard', icon: LayoutDashboard },
+    { label: 'Agenda', path: '/agenda', icon: Calendar },
     ...commonMenu,
     { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
     { label: 'Financeiro', path: '/financeiro', icon: DollarSign },
@@ -487,10 +598,20 @@ onMounted(async () => {
     {
       label: 'WhatsApp',
       icon: WhatsAppIcon,
+      prefix: '/whatsapp/',
       children: [
         { label: 'Conexão', path: '/whatsapp/conexao', icon: WhatsAppIcon },
         { label: 'Chat ao Vivo', path: '/whatsapp/chat', icon: WhatsAppIcon },
         { label: 'Transmissão', path: '/whatsapp/disparos', icon: Send },
+      ]
+    },
+    {
+      label: 'Instagram',
+      icon: Instagram,
+      prefix: '/instagram',
+      children: [
+        { label: 'Conexão', path: '/instagram', icon: Instagram },
+        { label: 'Automações', path: '/instagram/automacoes', icon: Zap },
       ]
     },
   ]
@@ -528,7 +649,9 @@ watch(() => route.path, () => {
   updateHeaderScrollState()
   closeProfileMenu()
   closeMobileNav()
-  if (isWhatsappMenuActive.value) whatsappSidebarOpen.value = true
+  const path = String(route.path || '')
+  if (path.startsWith('/whatsapp/')) openSidebarGroups.value = { ...openSidebarGroups.value, WhatsApp: true }
+  if (path.startsWith('/instagram')) openSidebarGroups.value = { ...openSidebarGroups.value, Instagram: true }
 })
 
 watch(mobileNavOpen, (open) => {
@@ -561,6 +684,7 @@ const handleLogout = async () => {
   --nav-text-muted: #66706e;
   --nav-pill: #f3f4f2;
   --admin-sidebar-width: 260px;
+  --admin-sidebar-collapsed-width: 76px;
   min-height: 100vh;
   overflow: visible;
 }
@@ -569,6 +693,10 @@ const handleLogout = async () => {
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
+}
+
+.dashboard-layout--sidebar-collapsed {
+  --admin-sidebar-width: var(--admin-sidebar-collapsed-width);
 }
 
 .admin-sidebar {
@@ -584,30 +712,135 @@ const handleLogout = async () => {
   max-height: 100dvh;
   overflow: hidden;
   z-index: 70;
+  transition: width 0.22s ease;
 }
 
 .admin-sidebar-inner {
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-height: 100dvh;
-  padding: 1.15rem 0.85rem 1rem;
+  max-height: 100%;
+  padding: 0.85rem 0.85rem 1rem;
   box-sizing: border-box;
   overflow: hidden;
 }
 
 .admin-sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  margin-bottom: 0.85rem;
+  padding: 0 0.15rem;
+}
+
+.admin-sidebar-logo-link {
   display: inline-flex;
-  flex-shrink: 0;
-  padding: 0.35rem 0.55rem 1rem;
+  align-items: center;
+  min-width: 0;
   text-decoration: none;
 }
 
 .admin-sidebar-logo {
-  width: 118px;
+  width: auto;
   height: 34px;
   object-fit: contain;
   object-position: left center;
+}
+
+.admin-sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--cf-radius-control, 1.625rem);
+  background: transparent;
+  color: var(--nav-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-sidebar:hover .admin-sidebar-toggle,
+.admin-sidebar:focus-within .admin-sidebar-toggle,
+.admin-sidebar-toggle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.admin-sidebar-toggle:hover,
+.admin-sidebar-toggle:focus-visible {
+  background: var(--nav-surface-hover);
+  border-color: var(--nav-border);
+  color: var(--primary, #8B967C);
+}
+
+.admin-sidebar-toggle-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.dashboard-layout--sidebar-collapsed .admin-sidebar-brand {
+  justify-content: center;
+}
+
+.dashboard-layout--sidebar-collapsed .admin-sidebar-logo-link {
+  display: none;
+}
+
+.dashboard-layout--sidebar-collapsed .admin-sidebar-toggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .admin-sidebar-toggle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.dashboard-layout--sidebar-collapsed .admin-sidebar-link,
+.dashboard-layout--sidebar-collapsed .admin-sidebar-group-toggle {
+  justify-content: center;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+}
+
+.dashboard-layout--sidebar-collapsed .admin-sidebar-link span,
+.dashboard-layout--sidebar-collapsed .admin-sidebar-group-toggle span,
+.dashboard-layout--sidebar-collapsed .admin-sidebar-chevron,
+.dashboard-layout--sidebar-collapsed .admin-sidebar-profile-copy,
+.dashboard-layout--sidebar-collapsed .admin-sidebar-profile .profile-arrow-icon,
+.dashboard-layout--sidebar-collapsed .admin-sidebar-dropup-email,
+.dashboard-layout--sidebar-collapsed .admin-sidebar-dropup-item span {
+  display: none;
+}
+
+.dashboard-layout--sidebar-collapsed .admin-sidebar-profile {
+  justify-content: center;
+  padding: 0.45rem;
+}
+
+.dashboard-layout--sidebar-collapsed .admin-sidebar-link--child {
+  padding-left: 0.65rem;
+}
+
+.admin-sidebar--patient-chart .admin-sidebar-nav {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-sidebar--patient-chart .pc-sidebar-nav {
+  height: 100%;
 }
 
 .admin-sidebar-nav {
@@ -857,6 +1090,7 @@ const handleLogout = async () => {
 
 .dashboard-layout--sidebar .main-content {
   margin-left: var(--admin-sidebar-width);
+  margin-top: 0;
   width: calc(100% - var(--admin-sidebar-width));
   max-width: calc(100% - var(--admin-sidebar-width));
   box-sizing: border-box;
@@ -865,6 +1099,7 @@ const handleLogout = async () => {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  transition: margin-left 0.22s ease, width 0.22s ease, max-width 0.22s ease;
 }
 
 .dashboard-layout--sidebar .content-body {
@@ -891,6 +1126,10 @@ const handleLogout = async () => {
 }
 
 .dashboard-layout--sidebar .top-nav--admin-mobile-only {
+  display: none;
+}
+
+.dashboard-layout--sidebar .admin-sidebar-footer {
   display: none;
 }
 
@@ -928,7 +1167,7 @@ const handleLogout = async () => {
 }
 
 .top-nav-logo {
-  width: 108px;
+  width: auto;
   height: 32px;
   object-fit: contain;
   object-position: left center;
@@ -1215,6 +1454,29 @@ const handleLogout = async () => {
   overflow: visible;
 }
 
+.content-body.patient-chart-content {
+  padding-top: 0.35rem;
+}
+
+.content-body.patient-document-editor-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.dashboard-layout--sidebar .main-content.main-content--document-editor {
+  overflow: hidden;
+}
+
+.dashboard-layout--sidebar .main-content.main-content--document-editor .content-body {
+  overflow: hidden;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
 .top-nav.patient-courses-top-nav {
   position: sticky;
   top: 0;
@@ -1252,6 +1514,10 @@ const handleLogout = async () => {
   }
 
   .dashboard-layout--sidebar .admin-sidebar {
+    display: none;
+  }
+
+  .dashboard-layout--sidebar .admin-sidebar-footer {
     display: none;
   }
 
@@ -1492,6 +1758,14 @@ const handleLogout = async () => {
 
   .content-body {
     padding: 1rem;
+  }
+
+  .content-body.patient-chart-content {
+    padding-top: 0.25rem;
+  }
+
+  .content-body.patient-document-editor-content {
+    padding: 0;
   }
 
   .top-nav.patient-courses-top-nav {

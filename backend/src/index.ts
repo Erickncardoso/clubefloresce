@@ -13,6 +13,7 @@ import userRoutes from "./routes/user.routes";
 import financialRoutes from "./routes/financial.routes";
 import uploadRoutes from "./routes/upload.routes";
 import whatsappRoutes from "./routes/whatsapp.routes";
+import wuzapiRoutes from "./routes/wuzapi.routes";
 import checkinRoutes from "./routes/checkin.routes";
 import bellaRoutes from "./routes/bella.routes";
 import foodDiaryRoutes from "./routes/food-diary.routes";
@@ -26,6 +27,8 @@ import patientGoalsRoutes from "./routes/patient-goals.routes";
 import patientProfileRoutes from "./routes/patient-profile.routes";
 import registrationRequestRoutes from "./routes/registration-request.routes";
 import billingRoutes from "./routes/billing.routes";
+import agendaRoutes from "./routes/agenda.routes";
+import instagramRoutes, { instagramWebhookRouter } from "./routes/instagram.routes";
 import { prisma } from "./lib/prisma";
 import { readEnv, maskSecret } from "./utils/env";
 import { getAllowedCorsOrigins, isOriginAllowed } from "./utils/cors-origins";
@@ -40,6 +43,8 @@ import { startMealReminderDispatchScheduler } from "./jobs/meal-reminder-dispatc
 import { startWhatsappMobilePresenceScheduler } from "./jobs/whatsapp-mobile-presence.job";
 import { startWhatsappDevMessageLog } from "./jobs/whatsapp-dev-message-log.job";
 import { startBillingNotificationScheduler } from "./jobs/billing-notifications.job";
+import { startInstagramQueueDrainScheduler } from "./jobs/instagram-queue-drain.job";
+import { startInstagramTokenRefreshScheduler } from "./jobs/instagram-token-refresh.job";
 import { assertJwtSecretOnBoot } from "./utils/jwt";
 import { isVapidConfigured } from "./utils/vapid-config";
 import { isPusherConfigured } from "./utils/pusher-config";
@@ -116,6 +121,9 @@ app.use(helmet({
 app.use(cookieParser());
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+// Webhook do Instagram ANTES do express.json(): a Meta assina o corpo CRU (HMAC).
+app.use("/api/instagram/webhook", instagramWebhookRouter);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -137,6 +145,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/financial", financialRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
+app.use("/api/whatsapp/wuzapi", wuzapiRoutes);
 app.use("/api/checkin", checkinRoutes);
 app.use("/api/bella", bellaRoutes);
 app.use("/api/food-diary", foodDiaryRoutes);
@@ -150,6 +159,17 @@ app.use("/api/push", pushRoutes);
 app.use("/api/pusher", pusherRoutes);
 app.use("/api/registration-requests", registrationRequestRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/agenda", agendaRoutes);
+app.use("/api/instagram", instagramRoutes);
+
+// Páginas exigidas pela Meta para publicar o app do Instagram (públicas via tunnel em dev).
+import { renderInstagramPrivacyPage, renderInstagramDataDeletionPage } from "./utils/instagram-legal-pages";
+app.get("/privacidade-instagram", (_req, res) => {
+  res.type("html").send(renderInstagramPrivacyPage());
+});
+app.get("/exclusao-de-dados-instagram", (_req, res) => {
+  res.type("html").send(renderInstagramDataDeletionPage());
+});
 
 // Basic Route for testing
 app.get("/", (req, res) => {
@@ -175,6 +195,9 @@ app.use((err: any, req: any, res: any, next: any) => {
       return res.status(413).json({ message });
     }
     return res.status(400).json({ message: err.message || "Erro no upload do arquivo." });
+  }
+  if (err?.message && /anamnese\/transcribe|áudio válido|Envie um áudio/i.test(String(req?.originalUrl || "") + String(err.message))) {
+    return res.status(400).json({ message: err.message });
   }
   return next(err);
 });
@@ -274,6 +297,9 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   startWhatsappDevMessageLog();
   startBillingNotificationScheduler();
   console.log("[BillingNotify] Agendador ativo — carrinho abandonado e renovação (3 dias).");
+  startInstagramQueueDrainScheduler();
+  startInstagramTokenRefreshScheduler();
+  console.log("[Instagram] Fila (60s) e renovação de token (diária) ativas.");
 });
 
 server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;
