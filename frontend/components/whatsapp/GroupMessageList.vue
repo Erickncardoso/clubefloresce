@@ -3,11 +3,18 @@
     <div v-if="loadingOlderMessages" class="chat-timeline-row chat-timeline-row--center chat-timeline-row--sync">
       <div class="chat-sync-banner" role="status">
         <RefreshCw class="chat-sync-banner__icon" aria-hidden="true" />
-        <span>Sincronizando mensagens mais antigas. Clique para ver o progresso.</span>
+        <span>Carregando mensagens anteriores…</span>
       </div>
     </div>
 
-    <template v-for="entry in displayEntries" :key="timelineEntryKey(entry)">
+    <div
+      v-if="windowEnabled && padTopPx > 0"
+      class="messages-window-spacer"
+      :style="{ height: `${padTopPx}px` }"
+      aria-hidden="true"
+    />
+
+    <template v-for="entry in visibleEntries" :key="timelineEntryKey(entry)">
       <div
         v-if="entry.kind === '__timeline' && entry.timelineKind === 'date'"
         class="chat-timeline-row chat-timeline-row--center"
@@ -459,6 +466,13 @@
       </button>
     </div>
     </template>
+
+    <div
+      v-if="windowEnabled && padBottomPx > 0"
+      class="messages-window-spacer"
+      :style="{ height: `${padBottomPx}px` }"
+      aria-hidden="true"
+    />
   </div>
 
   <WhatsappImageViewerModal
@@ -501,6 +515,7 @@ import { useWhatsappImageAlbumEntries } from '~/composables/useWhatsappImageAlbu
 import { expandGroupEntriesWithTimeline } from '~/composables/whatsapp/useWhatsappChatTimeline.js'
 import { isMessageCurrentlyPinned } from '~/composables/whatsapp/useWhatsappMessages.js'
 import { useWhatsappImageViewer } from '~/composables/whatsapp/useWhatsappImageViewer.js'
+import { useWhatsappMessageWindow } from '~/composables/whatsapp/useWhatsappMessageWindow.js'
 import { actionMenuMessageId, actionMenuMode } from '~/composables/whatsapp/useWhatsappState.js'
 
 const props = defineProps({
@@ -558,6 +573,13 @@ const { groupedEntries, albumVisibleItems, albumOverflowCount } = useWhatsappIma
 const displayEntries = computed(() =>
   expandGroupEntriesWithTimeline(groupedEntries.value, props.pinTimelineEvents)
 )
+
+const {
+  visibleItems: visibleEntries,
+  padTopPx,
+  padBottomPx,
+  windowEnabled,
+} = useWhatsappMessageWindow(displayEntries, { estimatePx: 100 })
 
 const timelineEntryKey = (entry) => {
   if (entry?.kind === '__timeline') return `${entry.timelineKind}-${entry.key}`

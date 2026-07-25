@@ -9,7 +9,7 @@
     <div
       class="msg-image-wrap"
       :class="{
-        'msg-image-wrap--loaded': fullLoaded,
+        'msg-image-wrap--loaded': showFullImage,
         'msg-image-wrap--thumb-only': !hasDistinctFullUrl && Boolean(thumbSrc),
         'msg-image-wrap--pending': isPending,
         'msg-image-wrap--downloading': showDownloadingOverlay,
@@ -21,20 +21,23 @@
       </div>
 
       <img
-        v-if="thumbSrc"
+        v-if="thumbSrc && !fullLoaded"
         :src="thumbSrc"
         class="msg-image msg-image--thumb"
         alt=""
         aria-hidden="true"
+        loading="eager"
         decoding="async"
       />
       <img
         v-if="fullSrc"
         :src="fullSrc"
         class="msg-image msg-image--full"
-        :class="{ 'is-visible': fullLoaded || !thumbSrc }"
+        :class="{ 'is-visible': showFullImage }"
         alt="Imagem enviada"
-        decoding="async"
+        loading="eager"
+        decoding="sync"
+        fetchpriority="high"
         @load="onFullLoad"
         @error="onFullError"
       />
@@ -75,19 +78,40 @@ const fullSrc = computed(() => {
 const hasDistinctFullUrl = computed(() => Boolean(fullSrc.value))
 const isPending = computed(() => !thumbSrc.value && !fullSrc.value)
 
-const showDownloadingOverlay = computed(() => props.loading && !fullLoaded.value)
+// Com URL full: mostra na hora (não espera @load — isso causava os “segundos” de atraso).
+const showFullImage = computed(() => Boolean(fullSrc.value) && (fullLoaded.value || isHttpUrl(fullSrc.value)))
 
-watch(
-  () => [props.fullUrl, props.thumbUrl],
-  () => {
-    fullLoaded.value = false
-  },
+const showDownloadingOverlay = computed(() =>
+  Boolean(props.loading) && !fullSrc.value
 )
 
 watch(
-  () => [isPending.value, props.loading],
-  ([pending, loading]) => {
-    if (!pending || loading || autoRequested.value) return
+  () => props.fullUrl,
+  (url) => {
+    const next = String(url || '').trim()
+    fullLoaded.value = false
+    if (!next || typeof window === 'undefined') return
+    // Prefetch/decode imediato — browser cache hit = instantâneo.
+    try {
+      const img = new window.Image()
+      img.decoding = 'async'
+      img.onload = () => { fullLoaded.value = true }
+      img.src = next
+      if (typeof img.decode === 'function') {
+        img.decode().then(() => { fullLoaded.value = true }).catch(() => {})
+      }
+    } catch {
+      /* ignore */
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => [isPending.value, props.loading, fullSrc.value],
+  ([pending, loading, full]) => {
+    // Só pede download se NÃO tem URL full ainda.
+    if (full || !pending || loading || autoRequested.value) return
     autoRequested.value = true
     emit('request-load')
   },

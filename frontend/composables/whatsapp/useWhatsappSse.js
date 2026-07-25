@@ -1,29 +1,61 @@
 /**
  * SSE da UAZAPI (via proxy autenticado) — mensagens em tempo real no painel.
+ *
+ * Saúde do transporte: conexão aberta NÃO basta — o backend manda heartbeat
+ * a cada ~15s; sem bytes por SSE_STALE_MS o stream é considerado morto,
+ * derrubado e reconectado (e o polling rápido reassume via isWhatsappSseConnected).
  */
+import { ref, readonly } from 'vue'
 import { getWhatsappApiBase, whatsappHasAuth } from './useWhatsappApi.js'
 import { authFetchInit } from '~/composables/useAuthSession.js'
 import { dispatchWhatsappRealtime } from './whatsapp-realtime-bus.js'
 
+/** 3 heartbeats de 15s perdidos → stream considerado mudo. */
+const SSE_STALE_MS = 45_000
+const SSE_WATCHDOG_INTERVAL_MS = 10_000
+
 let sseAbortController = null
 let sseReconnectTimer = null
+let sseWatchdogTimer = null
 let sseRunning = false
 let sseConnectionRefs = 0
+let lastSseActivityAt = 0
+let hadSseSessionBefore = false
+const sseConnected = ref(false)
 
 function getApiBase() {
   return getWhatsappApiBase()
 }
 
+const looksLikeUazapiMessageRow = (row) => Boolean(
+  row && typeof row === 'object' && !Array.isArray(row) &&
+  (row.messageid || row.key?.id || row.messageType || ((row.id || row.chatid) && (row.text || row.body || row.mediaType)))
+)
+
+const looksLikeUazapiChatRow = (row) => Boolean(
+  row && typeof row === 'object' && !Array.isArray(row) &&
+  (row.wa_chatid || row.wa_lastMsgTimestamp !== undefined || row.wa_unreadCount !== undefined)
+)
+
 function parseSsePayload(raw) {
   try {
     const body = JSON.parse(raw)
     const data = body?.data && typeof body.data === 'object' ? body.data : body
-    const chat = body?.chat && typeof body.chat === 'object'
+    const eventTypeRaw = String(body?.event || body?.EventType || body?.type || 'messages').trim().toLowerCase()
+    let chat = body?.chat && typeof body.chat === 'object'
       ? body.chat
       : (data?.chat && typeof data.chat === 'object' ? data.chat : undefined)
-    const message = body?.message && typeof body.message === 'object'
+    let message = body?.message && typeof body.message === 'object'
       ? body.message
       : (data?.message && typeof data.message === 'object' ? data.message : undefined)
+
+    // Formato UAZAPI {event, instance, data}: `data` É a entidade do evento.
+    if (!message && eventTypeRaw.includes('message') && !eventTypeRaw.includes('update') && looksLikeUazapiMessageRow(data)) {
+      message = data
+    }
+    if (!chat && eventTypeRaw.startsWith('chat') && looksLikeUazapiChatRow(data)) {
+      chat = data
+    }
     const chatJid = String(
       data?.chatid
       || data?.chatId
@@ -41,9 +73,8 @@ function parseSsePayload(raw) {
       || data?.message?.key?.remoteJid
       || '',
     ).trim()
-    const eventType = String(body?.event || body?.EventType || body?.type || 'messages').trim().toLowerCase()
     return {
-      eventType,
+      eventType: eventTypeRaw,
       chatJid: chatJid || null,
       chat,
       message,
@@ -76,6 +107,9 @@ async function consumeSseStream(response) {
   while (sseRunning) {
     const { done, value } = await reader.read()
     if (done) break
+    // Qualquer byte (inclusive heartbeat/comentário) conta como atividade.
+    lastSseActivityAt = Date.now()
+    if (!sseConnected.value) sseConnected.value = true
     buffer += decoder.decode(value, { stream: true })
 
     let boundary = buffer.indexOf('\n\n')
@@ -101,10 +135,31 @@ async function consumeSseStream(response) {
   }
 }
 
+function startSseWatchdog() {
+  if (sseWatchdogTimer) return
+  sseWatchdogTimer = setInterval(() => {
+    if (!sseRunning) return
+    if (!sseConnected.value) return
+    if (Date.now() - lastSseActivityAt <= SSE_STALE_MS) return
+    // Stream aberto porém mudo: derruba para reconectar; polling reassume já.
+    console.warn('[WhatsApp SSE] Stream sem atividade, reconectando…')
+    sseConnected.value = false
+    if (sseAbortController) sseAbortController.abort()
+  }, SSE_WATCHDOG_INTERVAL_MS)
+}
+
+function stopSseWatchdog() {
+  if (sseWatchdogTimer) {
+    clearInterval(sseWatchdogTimer)
+    sseWatchdogTimer = null
+  }
+}
+
 function startSseLoop() {
   if (typeof window === 'undefined') return
   if (sseRunning) return
   sseRunning = true
+  startSseWatchdog()
 
   const run = async () => {
     if (!sseRunning) return
@@ -116,6 +171,14 @@ function startSseLoop() {
     }
 
     sseAbortController = new AbortController()
+    const wasReconnect = hadSseSessionBefore
+
+    // Sem resposta em 20s (UAZAPI/backend pendurado) → aborta e reconecta.
+    // Sem isso, o fetch ficava pendente para sempre e o SSE nunca subia.
+    const localController = sseAbortController
+    const connectTimer = setTimeout(() => {
+      if (!sseConnected.value) localController.abort()
+    }, 20_000)
 
     try {
       const response = await fetch(`${base}/sse`, authFetchInit({
@@ -125,16 +188,28 @@ function startSseLoop() {
         },
         signal: sseAbortController.signal,
       }))
+      clearTimeout(connectTimer)
 
       if (!response.ok || !response.body) {
         throw new Error(`SSE ${response.status}`)
       }
 
+      lastSseActivityAt = Date.now()
+      sseConnected.value = true
+      hadSseSessionBefore = true
+      if (wasReconnect) {
+        // Reconectou após queda: pode ter perdido eventos — força resync HTTP.
+        dispatchWhatsappRealtime({ eventType: 'sse.reconnected', at: Date.now() })
+      }
       await consumeSseStream(response)
     } catch (error) {
-      if (!sseRunning || sseAbortController?.signal.aborted) return
-      console.warn('[WhatsApp SSE] Reconectando…', error?.message || error)
+      if (!sseRunning) return
+      if (!sseAbortController?.signal.aborted) {
+        console.warn('[WhatsApp SSE] Reconectando…', error?.message || error)
+      }
     } finally {
+      clearTimeout(connectTimer)
+      sseConnected.value = false
       sseAbortController = null
     }
 
@@ -162,6 +237,8 @@ export function disconnectWhatsappSse() {
   if (sseConnectionRefs > 0) return
 
   sseRunning = false
+  sseConnected.value = false
+  stopSseWatchdog()
   if (sseReconnectTimer) {
     clearTimeout(sseReconnectTimer)
     sseReconnectTimer = null
@@ -172,6 +249,17 @@ export function disconnectWhatsappSse() {
   }
 }
 
+/** Conectado E com atividade recente (heartbeat/eventos) — não só socket aberto. */
+export function isWhatsappSseConnected() {
+  if (!sseConnected.value) return false
+  return Date.now() - lastSseActivityAt <= SSE_STALE_MS
+}
+
 export function useWhatsappSse() {
-  return { connectWhatsappSse, disconnectWhatsappSse }
+  return {
+    sseConnected: readonly(sseConnected),
+    connectWhatsappSse,
+    disconnectWhatsappSse,
+    isWhatsappSseConnected,
+  }
 }

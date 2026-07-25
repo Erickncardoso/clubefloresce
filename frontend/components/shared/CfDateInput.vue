@@ -571,6 +571,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border: 1px solid #e2e8e4;
   background: #fff;
+  border-radius: var(--cf-radius-control);
   padding: 0.85rem 0.85rem 0.7rem;
   box-shadow:
     0 4px 6px rgba(26, 46, 36, 0.04),

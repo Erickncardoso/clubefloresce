@@ -10,7 +10,7 @@
     :aria-hidden="!animated && !label ? true : undefined"
   >
     <img
-      src="/icons/logovetorcarregamento.svg"
+      :src="BRAND_LOGO_SRC"
       alt=""
       class="cf-loading-logo__img"
       width="59"
@@ -21,6 +21,8 @@
 </template>
 
 <script setup>
+import { BRAND_LOGO_SRC } from '~/config/brand-logo.js'
+
 defineProps({
   size: {
     type: String,

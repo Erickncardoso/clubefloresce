@@ -1,6 +1,6 @@
 /**
  * Painel nutricionista — arredondamento global (tokens --cf-radius-*).
- * Inputs e botões de ação: cantos generosos (--cf-radius-control), como no login.
+ * Inputs, botões e cards: mesmo raio (--cf-radius-control), como no login.
  */
 
 /* ── Botões de ação (login / primários / secundários) ── */
@@ -10,7 +10,8 @@
   .btn-cancel,
   .btn-secondary,
   .admin-btn-primary,
-  .admin-btn-secondary
+  .admin-btn-secondary,
+  .mped-day-pill
 ) {
   border-radius: var(--cf-radius-control) !important;
 }
@@ -32,7 +33,13 @@
 .modal-overlay :is(
   .btn-primary,
   .btn-secondary,
-  .btn-cancel
+  .btn-cancel,
+  .mped-day-pill
+),
+.mpnew-overlay :is(
+  .btn-primary,
+  .btn-secondary,
+  .mpnew-tab
 ),
 .broadcast-modal-overlay :is(
   .btn-primary,
@@ -78,7 +85,134 @@
 .admin-shell :is(
   input:not([type='checkbox']):not([type='radio']):not([type='range']),
   textarea,
-  select
+  select,
+  .anw-fields .field input:not([type='range']),
+  .anw-fields .field textarea,
+  .anw-textarea-wrap textarea,
+  .mped-main .field input:not([type='range']),
+  .mped-main .field textarea,
+  .mped-main .field select:not(.cf-select-trigger),
+  .cf-select-trigger,
+  .cf-select-menu,
+  .cf-date-input-trigger,
+  .cf-date-panel,
+  .cf-time-trigger,
+  .cf-time-panel,
+  .cf-time-option,
+  .cf-time-foot-btn,
+  .mpwork-upload-pick,
+  .pawork-upload-pick,
+  .anw-goal,
+  .anw-summary-block,
+  .anw-slider-box,
+  .anw-slider-value,
+  .admin-topbar-search,
+  .admin-topbar-icon-btn,
+  .admin-topbar-profile,
+  .admin-topbar-search-item,
+  .admin-topbar-search-kbd
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+.admin-shell :is(
+  .anw-status-badge,
+  .anw-progress-bar,
+  .pawork-status,
+  .mpwork-badge,
+  .admin-topbar-badge
+) {
+  border-radius: var(--cf-radius-pill) !important;
+}
+
+.admin-shell :is(
+  .anw-goal-icon,
+  .anw-progress-list li
+) {
+  border-radius: var(--cf-radius-xs) !important;
+}
+
+.admin-shell :is(
+  .mped-icon-btn,
+  .mped-expand,
+  .cf-tile-actions-trigger
+) {
+  border-radius: var(--cf-radius-xs) !important;
+}
+
+@supports (corner-shape: squircle) {
+  .admin-shell :is(
+    .mped-icon-btn,
+    .mped-expand,
+    .cf-tile-actions-trigger
+  ) {
+    corner-shape: squircle;
+  }
+}
+
+.admin-shell .mped :is(
+  .mped-meal,
+  .mped-chip,
+  .cf-time-input--compact .cf-time-trigger
+) {
+  border-radius: var(--cf-radius-xs) !important;
+}
+
+@supports (corner-shape: squircle) {
+  .admin-shell .mped :is(
+    .mped-meal,
+    .mped-chip,
+    .cf-time-input--compact .cf-time-trigger
+  ) {
+    corner-shape: squircle;
+  }
+}
+
+/* Inputs compactos na grade de refeições — mesmo raio dos botões de ação */
+.admin-shell .mped :is(
+  .mped-meal-name,
+  .mped-food-edit__input,
+  .mped-equiv-group,
+  .mped-equiv-options
+) {
+  border-radius: var(--cf-radius-xs) !important;
+  border: 1px solid #e2e8e4 !important;
+  box-shadow: none !important;
+  min-height: 2rem;
+  padding: 0.35rem 0.5rem;
+  box-sizing: border-box;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  background: #fff;
+}
+
+.admin-shell .mped :is(
+  .mped-meal-name,
+  .mped-food-edit__input,
+  .mped-equiv-group,
+  .mped-equiv-options
+):focus {
+  outline: none !important;
+  border-color: #b8d4b4 !important;
+  box-shadow: 0 0 0 2px rgba(45, 90, 39, 0.08) !important;
+}
+
+@supports (corner-shape: squircle) {
+  .admin-shell .mped :is(
+    .mped-meal-name,
+    .mped-food-edit__input,
+    .mped-equiv-group,
+    .mped-equiv-options
+  ) {
+    corner-shape: squircle;
+  }
+}
+
+.dashboard-layout :is(
+  .admin-topbar-search,
+  .admin-topbar-icon-btn,
+  .admin-topbar-profile,
+  .admin-topbar-search-item
 ) {
   border-radius: var(--cf-radius-control) !important;
 }
@@ -110,6 +244,47 @@
   .field textarea,
   .field select
 ),
+.mpnew-overlay :is(
+  .modal-card,
+  .field input,
+  .field textarea
+),
+.mph-modal :is(
+  .modal-card,
+  .mph-preview,
+  .mph-preview__block,
+  .mph-tab,
+  .mph-segment,
+  .mph-segment__btn,
+  .mph-toggle,
+  .mph-formula,
+  .mph-interval-hint,
+  .mph-formula__code,
+  .btn-primary,
+  .btn-secondary,
+  .field input,
+  .field textarea,
+  .cf-select-trigger
+),
+.mpng-modal :is(
+  .modal-card,
+  .mpng-segment,
+  .mpng-segment__btn,
+  .btn-primary,
+  .btn-secondary,
+  .field input,
+  .field textarea
+),
+.mpsl-modal :is(
+  .modal-card,
+  .mpsl-period__btn,
+  .mpsl-smart-btn,
+  .mpsl-smart-hint,
+  .btn-primary,
+  .btn-secondary,
+  .field input,
+  .field textarea
+),
 .poll-modal-backdrop :is(
   .field input,
   .field textarea,
@@ -133,29 +308,223 @@
   .field input,
   .field textarea,
   .cf-select-trigger,
+  .cf-select-menu,
+  .cf-date-input-trigger,
+  .cf-date-panel,
   .cf-dt-trigger,
   .wa-contact-picker__search
+),
+.ptp-create-overlay :is(
+  .field input,
+  .field textarea,
+  .btn-primary
 ) {
   border-radius: var(--cf-radius-control) !important;
 }
 
-/* Cards e modais */
+/* Popovers de nutriente (teleportados ao body) */
+.mpns-nutrient-popover :is(
+  .field input,
+  .field textarea,
+  .btn-primary
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+/* Popovers de hidratação (teleportados ao body) */
+.mph-interval-hint,
+.mph-formula,
+.mph-modal-popover {
+  border-radius: var(--cf-radius-control) !important;
+  overflow: hidden;
+}
+
+.mph-interval-hint {
+  min-height: calc(var(--cf-radius-control) * 2 + 0.35rem);
+}
+
+.mph-interval-hint :is(.mph-formula__code),
+.mph-formula :is(.mph-formula__code) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+@supports (corner-shape: squircle) {
+  .mph-interval-hint,
+  .mph-formula,
+  .mph-modal-popover,
+  .mph-modal :is(
+    .modal-card,
+    .mph-preview,
+    .mph-preview__block,
+    .mph-tab,
+    .mph-segment,
+    .mph-segment__btn,
+    .mph-toggle,
+    .field input,
+    .field textarea,
+    .cf-select-trigger,
+    .btn-primary,
+    .btn-secondary
+  ) {
+    corner-shape: squircle;
+  }
+}
+
+/* Cards, modais e painéis — mesmo raio de botões/inputs */
 .admin-shell :is(
   .admin-shell-card,
   .checkin-table-card,
   .template-card,
   .nutri-empty,
-  .modal-card
+  .modal-card,
+  .anw-head,
+  .anw-main-card,
+  .anw-side-card,
+  .pawork-card,
+  .mpwork-row,
+  .mped-main,
+  .mped-side-card,
+  .mped-sidebar-footer,
+  .mpns-card,
+  .mpns-section,
+  .mpns-macro,
+  .mpns-table-wrap,
+  .mpns-detail-list,
+  .mpns-ratio,
+  .mpns-nutrient-popover,
+  .mph-interval-hint,
+  .mph-formula,
+  .mpns-overview-panel,
+  .mpns-macro-card,
+  .mpns-donut,
+  .mpwork-card,
+  .mpwork-table-card,
+  .mpwork-import,
+  .mpwork-import-card,
+  .mpwork-upload,
+  .mpwork-empty,
+  .pawork-banner,
+  .pawork-panel,
+  .pch-metrics
+),
+.dashboard-layout :is(
+  .admin-topbar-search-panel
 ),
 .dashboard-layout .admin-shell-card,
 .modal-overlay .modal-card,
 .courses-modal-overlay .modal-card,
+.mph-modal .modal-card,
 .lesson-modal-overlay .lesson-modal,
 .broadcast-modal-overlay .broadcast-modal,
 .modal-card--ebook,
 .modal-card--lesson,
 .modal-card--banner .banner-editor-preview {
-  border-radius: var(--cf-radius-surface) !important;
+  border-radius: var(--cf-radius-control) !important;
+}
+
+/* Início + ficha do paciente — mesmo arredondamento dos inputs/botões */
+.dashboard-layout :is(
+  .bento-card,
+  .engagement-pill,
+  .engagement-patient-btn,
+  .danger-wa-btn,
+  .bento-cta,
+  .patient-row,
+  .feed-row,
+  .consumption-row,
+  .feed-thumb,
+  .consumption-stats > div,
+  .admin-topbar-toggle,
+  .admin-topbar-icon-btn
+),
+.danger-wa-dialog,
+.danger-wa-textarea,
+.admin-shell :is(
+  .pco-card,
+  .pco-stat,
+  .pco-nutrition,
+  .pc-card,
+  .pc-subtab,
+  .pc-response,
+  .pc-history-card,
+  .pc-meal,
+  .pca,
+  .pch-badge,
+  .pch-pill,
+  .pch-tag,
+  .pco-flags span,
+  .pcm-modal,
+  .pcm-btn,
+  .pcm-toggle-row,
+  .pawork-empty
+),
+.pawork-overlay :is(
+  .pawork-tool-btn,
+  .pawork-action-btn,
+  .pawork-guide-btn,
+  .pawork-save
+),
+.admin-shell .pc-diary img,
+.pcm-overlay :is(
+  .pcm-modal,
+  .pcm-btn,
+  .pcm-toggle-row,
+  .field input,
+  .cf-date-input-trigger
+),
+.mpnew-overlay :is(
+  .modal-card,
+  .mpnew-modal,
+  .mpnew-tab,
+  .mpnew-close,
+  .field input,
+  .btn-primary
+),
+.mph-modal :is(
+  .modal-card,
+  .mph-preview,
+  .mph-preview__block,
+  .mph-tab,
+  .mph-segment,
+  .mph-segment__btn,
+  .mph-toggle,
+  .mph-formula,
+  .mph-interval-hint,
+  .mph-formula__code,
+  .btn-primary,
+  .btn-secondary,
+  .field input,
+  .field textarea,
+  .cf-select-trigger
+),
+.mped-day-confirm :is(
+  .modal-card,
+  .mped-day-confirm__panel,
+  .btn-primary,
+  .btn-secondary
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+.mpng-modal :is(
+  .modal-card,
+  .btn-primary,
+  .btn-secondary,
+  .field input,
+  .field textarea
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+.mpsl-modal :is(
+  .modal-card,
+  .mpsl-period__btn,
+  .mpsl-smart-btn,
+  .mpsl-smart-hint,
+  .btn-primary,
+  .btn-secondary,
+  .field input,
+  .field textarea
+) {
+  border-radius: var(--cf-radius-control) !important;
 }
 
 /* Nav e fechar — compacto */
@@ -190,7 +559,60 @@
     .admin-btn-primary,
     .admin-btn-secondary,
     .broadcast-page .tab-pill,
-    .broadcast-page .tab-pills
+    .broadcast-page .tab-pills,
+    .bento-card,
+    .engagement-pill,
+    .engagement-patient-btn,
+    .danger-wa-btn,
+  .bento-cta,
+  .admin-topbar-toggle,
+  .admin-topbar-icon-btn,
+  .anw-goal,
+  .anw-summary-block,
+  .anw-slider-box,
+  .anw-fields .field input:not([type='range']),
+  .anw-fields .field textarea,
+  .anw-textarea-wrap textarea,
+  .anw-head,
+  .anw-main-card,
+  .anw-side-card,
+  .pawork-card,
+  .mped-main,
+  .mped-side-card,
+  .mped-sidebar-footer,
+  .mpns-card,
+  .mpns-section,
+  .mpns-macro,
+  .mpns-table-wrap,
+  .mpns-detail-list,
+  .mpns-ratio,
+  .mpns-nutrient-popover,
+  .mph-interval-hint,
+  .mph-formula,
+  .mpns-overview-panel,
+  .mpns-macro-card,
+  .mpns-donut,
+  .mped-day-pill,
+  .mped-icon-btn,
+  .mped-expand,
+  .mpwork-card,
+  .mpwork-table-card,
+  .mpwork-table-foot
+),
+  .danger-wa-dialog,
+  .danger-wa-textarea,
+  .admin-shell :is(
+    .pco-card,
+    .pco-stat,
+    .pco-nutrition,
+    .pc-card,
+    .pc-subtab,
+    .pc-response,
+    .pc-history-card,
+    .pc-meal,
+    .pca,
+    .btn-primary,
+    .btn-secondary
   ),
   .courses-modal-overlay :is(
     .modal-card,
@@ -203,7 +625,21 @@
     .modal-card,
     .field input,
     .field textarea,
-    .field select
+    .field select,
+    .mped-day-pill,
+    .mpns-card,
+    .mpns-section,
+    .mpns-macro,
+    .mpns-table-wrap,
+    .mpns-detail-list,
+    .mpns-ratio
+  ),
+  .mpnew-overlay :is(
+    .modal-card,
+    .field input,
+    .field textarea,
+    .mpnew-tab,
+    .btn-primary
   ),
   .poll-modal-backdrop :is(
     .field input,
@@ -221,7 +657,11 @@
   .admin-shell :is(
     .admin-shell-card,
     input,
-    textarea
+    textarea,
+    .cf-select-trigger,
+    .cf-select-menu,
+    .cf-date-input-trigger,
+    .cf-date-panel
   ) {
     corner-shape: squircle;
   }

@@ -44,7 +44,7 @@ const scheduleNearTopLoad = () => {
     nearTopLoadTimer = null
     if (isNearTopLoadSuppressed()) return
     onNearTopLoad?.()
-  }, 120)
+  }, 280)
 }
 
 const handleChatBodyScroll = () => {
@@ -109,11 +109,24 @@ export const scrollToBottom = ({ resetPin = true } = {}) => {
 /** Ao abrir conversa: rola até a mensagem mais recente e evita paginação antiga prematura. */
 export const scrollToBottomOnChatOpen = () => {
   const token = ++chatOpenScrollToken
-  suppressChatNearTopLoad(1200)
+  // Janela maior: evita load-older + banner “Sincronizando” logo ao abrir o chat.
+  suppressChatNearTopLoad(2800)
   userPinnedAwayFromBottom = false
   lastScrollTop = 0
 
-  const attempt = (remaining = 10) => {
+  const jumpNow = () => {
+    const el = chatBodyRef.value
+    if (!el) return false
+    el.scrollTop = el.scrollHeight
+    lastScrollTop = el.scrollTop
+    const maxScroll = el.scrollHeight - el.clientHeight
+    return maxScroll <= 4 || (maxScroll - el.scrollTop) <= 8
+  }
+
+  // Síncrono quando o DOM já existe — evita 1 frame no topo.
+  jumpNow()
+
+  const attempt = (remaining = 14) => {
     if (token !== chatOpenScrollToken) return
     scrollToBottom({ resetPin: true })
     if (remaining <= 0) return
@@ -125,8 +138,7 @@ export const scrollToBottomOnChatOpen = () => {
         if (remaining > 0) window.setTimeout(() => attempt(remaining - 1), 40)
         return
       }
-      const maxScroll = el.scrollHeight - el.clientHeight
-      if (maxScroll <= 4 || (maxScroll - el.scrollTop) <= 8) return
+      if (jumpNow()) return
       attempt(remaining - 1)
     }
 
@@ -138,6 +150,29 @@ export const scrollToBottomOnChatOpen = () => {
   }
 
   attempt()
+
+  // Imagens/mídia mudam a altura depois do open — segura no fundo por um tempo curto.
+  if (typeof window !== 'undefined' && typeof ResizeObserver !== 'undefined') {
+    const el = chatBodyRef.value
+    if (el) {
+      let left = 8
+      const ro = new ResizeObserver(() => {
+        if (token !== chatOpenScrollToken) {
+          ro.disconnect()
+          return
+        }
+        if (userPinnedAwayFromBottom) {
+          ro.disconnect()
+          return
+        }
+        jumpNow()
+        left -= 1
+        if (left <= 0) ro.disconnect()
+      })
+      ro.observe(el)
+      window.setTimeout(() => ro.disconnect(), 2500)
+    }
+  }
 }
 
 export const stickChatScrollToBottomIfNeeded = () => {

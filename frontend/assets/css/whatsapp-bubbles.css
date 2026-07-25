@@ -68,10 +68,18 @@
   text-transform: uppercase;
 }
 
-/* Bolha principal */
+/* Bolha principal — tipografia WhatsApp Web (não herda Plus Jakarta do admin) */
 .message-bubble {
-  max-width: 65%; padding: 0.8rem 1rem; border-radius: 16px;
-  position: relative; line-height: 1.4;
+  max-width: 65%;
+  padding: 6px 9px 8px 9px;
+  border-radius: 7.5px;
+  position: relative;
+  line-height: var(--wa-msg-line-height, 19px);
+  font-family: 'Segoe UI', 'Helvetica Neue', Helvetica, 'Lucida Grande', Arial, sans-serif;
+  font-size: var(--wa-msg-font-size, 14.2px);
+  font-weight: var(--wa-msg-font-weight, 400);
+  color: #111b21;
+  letter-spacing: 0;
 }
 .message-bubble.message-bubble--menu {
   max-width: min(400px, 70%);
@@ -149,7 +157,7 @@
   display: inline-flex;
   flex-direction: column;
   align-items: stretch;
-  max-width: min(286px, 78%);
+  max-width: min(var(--wa-media-max-width, 330px), 78%);
   width: max-content;
   min-width: 0;
   padding: 3px 3px 4px;
@@ -196,8 +204,9 @@
 .message-bubble--album .msg-text--after-media {
   margin-top: 0;
   padding: 4px 3px 0;
-  font-size: 0.9375rem;
-  line-height: 1.35;
+  font-size: var(--wa-msg-font-size, 14.2px);
+  font-weight: var(--wa-msg-font-weight, 400);
+  line-height: var(--wa-msg-line-height, 19px);
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -259,7 +268,7 @@
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
 }
 .message-bubble--album .msg-image-album {
-  width: 280px;
+  width: var(--wa-media-max-width, 330px);
   max-width: 100%;
   margin: 0;
   border-radius: 6px;
@@ -280,7 +289,7 @@
   aspect-ratio: 1 / 1;
 }
 .message-bubble--video .msg-video {
-  max-width: min(280px, calc(78vw - 24px));
+  max-width: min(var(--wa-media-max-width, 330px), calc(78vw - 24px));
   width: 100%;
   border-radius: 6px;
   display: block;
@@ -455,17 +464,31 @@
   order: 1;
 }
 
-/* Texto formatado */
-.msg-text { margin: 0; font-size: 0.95rem; white-space: pre-wrap; word-break: break-word; }
+/* Texto formatado — tamanho/peso WhatsApp Web */
+.msg-text {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--wa-msg-font-size, 14.2px);
+  font-weight: var(--wa-msg-font-weight, 400);
+  line-height: var(--wa-msg-line-height, 19px);
+  color: #111b21;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .msg-text.wa-formatted { white-space: normal; }
 .msg-text.wa-formatted .wa-msg-list {
-  margin: 0.2em 0 0.35em; padding: 0 0 0 1.15em;
+  margin: 0.15em 0 0.25em; padding: 0 0 0 1.1em;
   list-style: disc; list-style-position: outside;
 }
 .msg-text.wa-formatted .wa-msg-list .wa-msg-li {
-  margin: 0.12em 0; padding-left: 0.15em; display: list-item;
+  margin: 0.08em 0; padding-left: 0.1em; display: list-item;
+  font-weight: 400;
 }
-.msg-text.wa-formatted .wa-bold { font-weight: 700; }
+.msg-text.wa-formatted .wa-bold { font-weight: 600; }
+.msg-text.wa-formatted strong,
+.msg-text.wa-formatted b {
+  font-weight: 600;
+}
 .msg-text.wa-formatted .wa-italic { font-style: italic; }
 .msg-text.wa-formatted .wa-strike { text-decoration: line-through; }
 .msg-text.wa-formatted .wa-inline-code {
@@ -506,7 +529,13 @@
 .message-out .msg-sender-meta { color: rgba(233, 237, 237, 0.72); }
 .msg-time {
   display: flex; justify-content: flex-end; align-items: center; gap: 0.25rem;
-  font-size: 0.65rem; margin-top: 0.4rem; text-align: right; opacity: 0.8;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+  color: #667781;
+  margin-top: 0.25rem;
+  text-align: right;
+  opacity: 1;
 }
 
 .msg-pin-icon {
@@ -731,12 +760,12 @@
 }
 .message-bubble--image .msg-image-wrap {
   width: max-content;
-  max-width: min(280px, calc(78vw - 24px));
+  max-width: min(var(--wa-media-max-width, 330px), calc(78vw - 24px));
 }
 .message-bubble--image .msg-image-wrap--pending {
   min-width: 0;
-  width: min(280px, calc(78vw - 24px));
-  min-height: 160px;
+  width: min(var(--wa-media-max-width, 330px), calc(78vw - 24px));
+  min-height: 200px;
   aspect-ratio: 4 / 3;
 }
 .msg-image-wrap--pending {
@@ -806,20 +835,21 @@
 }
 .msg-image-wrap--thumb-only {
   min-width: 0;
-  width: min(280px, calc(78vw - 24px));
-  min-height: 160px;
+  width: min(var(--wa-media-max-width, 330px), calc(78vw - 24px));
+  min-height: 200px;
   aspect-ratio: 4 / 3;
 }
 .msg-image-wrap--thumb-only .msg-image--thumb {
   position: relative;
   inset: auto;
   min-height: 200px;
-  filter: blur(16px);
-  transform: scale(1.14);
+  /* Preview nítido — blur só fazia parecer que a imagem “demorava” a aparecer */
+  filter: none;
+  transform: none;
 }
 .msg-image-wrap:not(.msg-image-wrap--thumb-only):not(.msg-image-wrap--loaded) .msg-image--thumb {
-  filter: blur(10px);
-  transform: scale(1.08);
+  filter: none;
+  transform: none;
 }
 .msg-image-wrap--loaded .msg-image--thumb {
   opacity: 0;
@@ -831,15 +861,15 @@
 }
 .message-bubble--image .msg-image-wrap--loaded:not(.msg-image-wrap--thumb-only) {
   width: max-content;
-  max-width: min(280px, calc(78vw - 24px));
+  max-width: min(var(--wa-media-max-width, 330px), calc(78vw - 24px));
 }
 .message-bubble--image .msg-image-wrap--loaded:not(.msg-image-wrap--thumb-only) .msg-image--full.is-visible {
   position: relative;
   inset: auto;
   width: auto;
-  max-width: min(280px, calc(78vw - 24px));
+  max-width: min(var(--wa-media-max-width, 330px), calc(78vw - 24px));
   height: auto;
-  max-height: 300px;
+  max-height: var(--wa-media-max-height, 420px);
   object-fit: contain;
   border-radius: 0;
   display: block;
@@ -848,16 +878,16 @@
   position: relative;
   inset: auto;
   width: auto;
-  max-width: min(280px, 100%);
+  max-width: min(var(--wa-media-max-width, 330px), 100%);
   height: auto;
-  max-height: 300px;
+  max-height: var(--wa-media-max-height, 420px);
   object-fit: contain;
   border-radius: 0;
 }
 .msg-image {
   display: block;
   width: 100%;
-  max-width: min(280px, 100%);
+  max-width: min(var(--wa-media-max-width, 330px), 100%);
   border-radius: 0;
 }
 .message-bubble--image .msg-image {
@@ -872,7 +902,7 @@
   max-width: none;
   object-fit: cover;
   border-radius: 0;
-  transition: opacity 0.22s ease, filter 0.22s ease, transform 0.22s ease;
+  transition: none;
 }
 .msg-image--full {
   opacity: 0;
@@ -899,7 +929,7 @@
   border-radius: 0;
 }
 .msg-image-album {
-  width: 280px;
+  width: var(--wa-media-max-width, 330px);
   max-width: 100%;
   display: grid;
   gap: 2px;
@@ -1230,7 +1260,7 @@
 .message-bubble.message-bubble--audio .msg-time {
   display: none;
 }
-.msg-video { max-width: min(280px, 100%); border-radius: 6px; display: block; }
+.msg-video { max-width: min(var(--wa-media-max-width, 330px), 100%); border-radius: 6px; display: block; }
 
 /* Áudio estilo WhatsApp */
 .wa-audio-msg {

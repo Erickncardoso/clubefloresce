@@ -98,21 +98,28 @@
       <div
         v-for="chat in chats"
         :key="chat.id"
+        v-memo="[chat, isActive(chat), contextMenuChat?.id === chat.id, isAvatarBroken(chat), whatsappLabelsById]"
         class="chat-item"
         :class="{
           active: isActive(chat),
           'is-context-open': contextMenuChat?.id === chat.id,
           'has-unread': Number(chat.unreadCount || 0) > 0 && !isActive(chat),
         }"
-        @click="$emit('select', chat)"
-        @pointerenter="$emit('prefetch', chat)"
+        @pointerdown.left="onChatPointerDown(chat, $event)"
+        @click="onChatClick(chat, $event)"
+        @pointerenter="onChatPointerEnter(chat, $event)"
+        @pointerleave="onChatPointerLeave"
       >
         <div class="chat-avatar">
           <img
-            v-if="chatAvatarUrl(chat)"
+            v-if="chatAvatarUrl(chat) && !isAvatarBroken(chat)"
             :src="chatAvatarUrl(chat)"
             :alt="chatDisplayName(chat)"
             class="avatar-img"
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+            @error="onAvatarError(chat)"
           />
           <User v-else class="icon-medium" />
         </div>
@@ -261,6 +268,55 @@ const emit = defineEmits([
   'select', 'prefetch', 'refresh', 'update:modelValue', 'update:listFilter', 'mark-all-read', 'header-menu-action',
 ])
 
+/** Abre no pointerdown (~100ms antes do click) — sensação de instantâneo. */
+let lastPointerSelectKey = ''
+let lastPointerSelectAt = 0
+const chatSelectKey = (chat) => String(chat?.id || chat?.chatJid || chat?.wa_chatid || '').trim()
+
+const onChatPointerDown = (chat, event) => {
+  // Só mouse: em touch, pointerdown dispara ao iniciar scroll da lista.
+  if (event?.pointerType && event.pointerType !== 'mouse') return
+  if (event?.button != null && event.button !== 0) return
+  const key = chatSelectKey(chat)
+  if (!key) return
+  lastPointerSelectKey = key
+  lastPointerSelectAt = Date.now()
+  emit('select', chat)
+}
+
+/** Hover-intent: só prefaz o fetch se o mouse parar ~90ms na linha (varrer a lista não dispara rajada). */
+let prefetchHoverTimer = null
+
+const onChatPointerEnter = (chat, event) => {
+  if (event?.pointerType && event.pointerType !== 'mouse') return
+  if (prefetchHoverTimer) clearTimeout(prefetchHoverTimer)
+  prefetchHoverTimer = setTimeout(() => {
+    prefetchHoverTimer = null
+    emit('prefetch', chat)
+  }, 90)
+}
+
+const onChatPointerLeave = () => {
+  if (prefetchHoverTimer) {
+    clearTimeout(prefetchHoverTimer)
+    prefetchHoverTimer = null
+  }
+}
+
+const onChatClick = (chat, event) => {
+  const key = chatSelectKey(chat)
+  // Já abriu no pointerdown — evita selectChat duplicado no mesmo gesto.
+  if (
+    key &&
+    key === lastPointerSelectKey &&
+    Date.now() - lastPointerSelectAt < 800
+  ) {
+    event?.preventDefault?.()
+    return
+  }
+  emit('select', chat)
+}
+
 const markingAllRead = ref(false)
 const chatMenuOpen = ref(false)
 const isChatMuted = (chat) => resolveChatIsMuted(chat)
@@ -292,8 +348,28 @@ const chatHeaderMenuItems = [
   { id: 'disconnect', label: 'Desconectar', icon: LogOut }
 ]
 
+const brokenAvatarKeys = ref(new Set())
+
+const chatAvatarKey = (chat) => String(chat?.id || chat?.chatJid || chat?.wa_chatid || '').trim()
+
 const chatDisplayName = (chat) => resolveChatListDisplayName(chat)
 const chatAvatarUrl = (chat) => resolveChatListAvatarUrl(chat)
+const isAvatarBroken = (chat) => brokenAvatarKeys.value.has(chatAvatarKey(chat))
+const onAvatarError = (chat) => {
+  const key = chatAvatarKey(chat)
+  if (!key || brokenAvatarKeys.value.has(key)) return
+  const next = new Set(brokenAvatarKeys.value)
+  next.add(key)
+  brokenAvatarKeys.value = next
+  // Limpa URL morta e pede foto fresca (CDN WhatsApp expira / bloqueia referrer).
+  void import('~/composables/whatsapp/useWhatsappChats.js').then(async (m) => {
+    await m.clearChatAvatarAndRefresh?.(chat)
+    // Permite tentar de novo quando a URL nova chegar.
+    const cleared = new Set(brokenAvatarKeys.value)
+    cleared.delete(key)
+    brokenAvatarKeys.value = cleared
+  }).catch(() => {})
+}
 const chatLabels = (chat) => resolveChatLabelViews(chat, whatsappLabelsById.value)
 const previewText = (chat) => resolveChatListPresencePreview(chat) || resolveChatListLastMessage(chat)
 const isPresencePreview = (chat) => Boolean(resolveChatListPresencePreview(chat))
@@ -419,6 +495,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (prefetchHoverTimer) {
+    clearTimeout(prefetchHoverTimer)
+    prefetchHoverTimer = null
+  }
   if (typeof document === 'undefined') return
   document.removeEventListener('pointerdown', onGlobalPointerDown, true)
   document.removeEventListener('keydown', onGlobalKeydown, true)

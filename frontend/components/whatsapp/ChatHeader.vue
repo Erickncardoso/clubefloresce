@@ -28,10 +28,14 @@
       >
         <span class="chat-avatar chat-header-avatar">
           <img
-            v-if="chat?.avatarUrl"
-            :src="chat.avatarUrl"
+            v-if="headerAvatarUrl && !headerAvatarBroken"
+            :src="headerAvatarUrl"
             :alt="displayTitle"
             class="avatar-img"
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+            @error="headerAvatarBroken = true"
           />
           <User v-else class="icon-medium" />
         </span>
@@ -52,7 +56,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { User, MoreVertical, Search, ArrowLeft } from 'lucide-vue-next'
 import { isGroupJid } from '~/composables/whatsapp/useWhatsappUtils.js'
 import { resolveChatListDisplayName } from '~/composables/whatsapp/useWhatsappContacts.js'
@@ -72,6 +76,7 @@ const emit = defineEmits([
 
 const searchOpen = ref(false)
 const searchInputRef = ref(null)
+const headerAvatarBroken = ref(false)
 
 const isGroupChat = computed(() => {
   if (!props.chat) return false
@@ -80,6 +85,15 @@ const isGroupChat = computed(() => {
 
 const displayTitle = computed(() =>
   props.chat ? resolveChatListDisplayName(props.chat) : ''
+)
+
+const headerAvatarUrl = computed(() =>
+  String(props.chat?.avatarUrl || props.chat?.image || props.chat?.imagePreview || '').trim()
+)
+
+watch(
+  () => [props.chat?.chatJid, props.chat?.avatarUrl, props.chat?.image],
+  () => { headerAvatarBroken.value = false },
 )
 
 const openSearch = async () => {

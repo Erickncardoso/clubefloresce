@@ -3,6 +3,7 @@
     <button
       type="button"
       class="cf-tile-actions-trigger cf-squircle cf-squircle--tile"
+      :class="{ 'cf-tile-actions-trigger--open': open }"
       :aria-expanded="open"
       aria-haspopup="menu"
       aria-label="Mais opções"
@@ -11,14 +12,16 @@
       <MoreVertical class="cf-tile-actions-trigger-icon" />
     </button>
 
-    <div
-      v-if="open"
-      class="cf-tile-actions-dropdown cf-squircle cf-squircle--tile"
-      role="menu"
-      @click.stop="close"
-    >
-      <slot />
-    </div>
+    <Transition name="cf-tile-actions-drop">
+      <div
+        v-if="open"
+        class="cf-tile-actions-dropdown cf-squircle cf-squircle--tile"
+        role="menu"
+        @click.stop="close"
+      >
+        <slot />
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -72,7 +75,13 @@ onBeforeUnmount(() => {
   cursor: pointer;
   line-height: 0;
   overflow: hidden;
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cf-tile-actions-trigger--open {
+  background: #f8faf9;
+  border-color: rgba(139, 150, 124, 0.35);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
 }
 
 /* Herda --cf-radius-squircle-tile do card (raio absoluto ~3rem) */
@@ -113,6 +122,62 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0;
   overflow: hidden;
+  transform-origin: top right;
+  will-change: transform, opacity;
+}
+
+.cf-tile-actions-drop-enter-active {
+  transition:
+    opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cf-tile-actions-drop-leave-active {
+  transition:
+    opacity 0.16s cubic-bezier(0.4, 0, 1, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.cf-tile-actions-drop-enter-from,
+.cf-tile-actions-drop-leave-to {
+  opacity: 0;
+  transform: translateY(-0.35rem) scale(0.94);
+}
+
+.cf-tile-actions-drop-enter-active :deep(.cf-tile-actions-item) {
+  animation: cf-tile-actions-item-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.cf-tile-actions-drop-enter-active :deep(.cf-tile-actions-item:nth-child(1)) { animation-delay: 0.03s; }
+.cf-tile-actions-drop-enter-active :deep(.cf-tile-actions-item:nth-child(2)) { animation-delay: 0.06s; }
+.cf-tile-actions-drop-enter-active :deep(.cf-tile-actions-item:nth-child(3)) { animation-delay: 0.09s; }
+.cf-tile-actions-drop-enter-active :deep(.cf-tile-actions-item:nth-child(4)) { animation-delay: 0.12s; }
+
+@keyframes cf-tile-actions-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-tile-actions-drop-enter-active,
+  .cf-tile-actions-drop-leave-active {
+    transition: opacity 0.01s linear;
+  }
+
+  .cf-tile-actions-drop-enter-from,
+  .cf-tile-actions-drop-leave-to {
+    transform: none;
+  }
+
+  .cf-tile-actions-drop-enter-active :deep(.cf-tile-actions-item) {
+    animation: none;
+  }
 }
 
 .cf-tile-actions-dropdown :deep(.cf-tile-actions-item) {

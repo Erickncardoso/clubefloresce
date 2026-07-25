@@ -14,6 +14,10 @@ export type PatientAccessFields = {
   approvalEmailSentAt?: Date | string | null
 }
 
+function normalizedPlan(plan?: string | null): string {
+  return String(plan || 'FREE').toUpperCase()
+}
+
 /** Acesso liberado manualmente pela nutricionista (fora do checkout automático). */
 export function isPatientManuallyGrantedAccess(fields: PatientAccessFields): boolean {
   if (!fields.approvalEmailSentAt) return false
@@ -21,17 +25,38 @@ export function isPatientManuallyGrantedAccess(fields: PatientAccessFields): boo
   return !isPatientAccessExpired(fields.accessExpiresAt)
 }
 
+/** Plano pago (Essencial/Completo) ainda válido. FREE nunca é full. */
+export function isPatientFullAccessActive(
+  plan?: string | null,
+  accessExpiresAt?: Date | string | null,
+  approvalEmailSentAt?: Date | string | null,
+): boolean {
+  if (normalizedPlan(plan) === 'FREE') return false
+  if (isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt })) {
+    return true
+  }
+  return !isPatientAccessExpired(accessExpiresAt)
+}
+
+/** FREE liberado pela nutri: só dieta/metas. */
+export function isPatientLimitedAccessActive(
+  plan?: string | null,
+  accessExpiresAt?: Date | string | null,
+  approvalEmailSentAt?: Date | string | null,
+): boolean {
+  if (normalizedPlan(plan) !== 'FREE') return false
+  return isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt })
+}
+
 export function isPatientPaidAccessActive(
   plan?: string | null,
   accessExpiresAt?: Date | string | null,
   approvalEmailSentAt?: Date | string | null,
 ): boolean {
-  if (isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt })) {
-    return true
-  }
-  const normalizedPlan = String(plan || 'FREE').toUpperCase()
-  if (normalizedPlan === 'FREE') return false
-  return !isPatientAccessExpired(accessExpiresAt)
+  return (
+    isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+    || isPatientLimitedAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+  )
 }
 
 export function isPatientAppAccessBlocked(
@@ -42,9 +67,34 @@ export function isPatientAppAccessBlocked(
   return !isPatientPaidAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
 }
 
+export function isPatientPremiumFeatureBlocked(
+  plan?: string | null,
+  accessExpiresAt?: Date | string | null,
+  approvalEmailSentAt?: Date | string | null,
+): boolean {
+  return !isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+}
+
+/** Rotas liberadas no plano Gratuito (dieta + metas + básicos). */
+export const PATIENT_LIMITED_APP_PATHS = [
+  '/inicio',
+  '/dieta',
+  '/evolucao',
+  '/perfil',
+  '/onboarding',
+  '/assinatura',
+  '/substituicao',
+]
+
+export function isPatientLimitedAppPath(path?: string | null): boolean {
+  const normalized = String(path || '').split('?')[0]
+  return PATIENT_LIMITED_APP_PATHS.some(
+    (allowed) => normalized === allowed || normalized.startsWith(`${allowed}/`),
+  )
+}
+
 export function patientHadGrantedAccess(fields: PatientAccessFields): boolean {
-  const normalizedPlan = String(fields.plan || 'FREE').toUpperCase()
-  if (normalizedPlan !== 'FREE') return true
+  if (normalizedPlan(fields.plan) !== 'FREE') return true
   if (fields.approvalEmailSentAt) return true
   if (fields.accessExpiresAt) return true
   return false
@@ -55,6 +105,9 @@ export const PATIENT_ACCESS_EXPIRED_MESSAGE =
 
 export const PATIENT_PAYMENT_REQUIRED_MESSAGE =
   'Finalize sua assinatura para acessar o Clube Florescer.'
+
+export const PATIENT_PREMIUM_REQUIRED_MESSAGE =
+  'Este recurso faz parte do plano Essencial ou Completo. Faça upgrade para liberar.'
 
 /** Rotas em que o paciente pode estar sem plano pago (checkout / obrigado). */
 export const PATIENT_CHECKOUT_PATHS = ['/assinatura', '/assinatura/obrigado']
@@ -81,6 +134,7 @@ export function isPatientAccessBlockedMessage(message: string): boolean {
     || normalized.includes('assinatura expirou')
     || normalized.includes('finalize sua assinatura')
     || normalized.includes('conta desativada')
+    || normalized.includes('plano essencial ou completo')
 }
 
 export function isPatientAccessBlockedError(err: unknown): boolean {
@@ -88,4 +142,13 @@ export function isPatientAccessBlockedError(err: unknown): boolean {
     ?? (err as { status?: number })?.status
   if (status !== 403) return false
   return isPatientAccessBlockedMessage(getFetchErrorMessage(err))
+}
+
+export function isPatientPremiumRequiredError(err: unknown): boolean {
+  const status = (err as { statusCode?: number; status?: number })?.statusCode
+    ?? (err as { status?: number })?.status
+  if (status !== 403) return false
+  const code = (err as { data?: { code?: string } })?.data?.code
+  if (code === 'PATIENT_PREMIUM_REQUIRED') return true
+  return getFetchErrorMessage(err).toLowerCase().includes('plano essencial ou completo')
 }

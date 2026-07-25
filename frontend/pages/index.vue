@@ -20,7 +20,7 @@
     <main class="auth-main">
       <div class="auth-card cf-squircle cf-squircle--surface">
         <header class="auth-header">
-          <img src="/logoflorescer.svg" alt="Florescer" class="auth-logo" width="128" height="38">
+          <img src="/icons/logovetorcarregamento.svg" alt="Florescer" class="auth-logo" width="28" height="40">
           <h2>Bem-vindo de volta</h2>
           <p>Insira suas credenciais para acessar o portal.</p>
         </header>
@@ -442,6 +442,8 @@ onMounted(async () => {
 .auth-logo {
   display: block;
   margin: 0 auto 1rem;
+  width: auto;
+  height: 2.5rem;
   object-fit: contain;
 }
 

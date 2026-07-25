@@ -23,6 +23,7 @@
       </button>
 
       <button
+        v-if="hasFullAccess"
         type="button"
         class="cf-tab cf-tab--fab"
         :class="{ 'cf-tab--fab-open': bellaMenuOpen }"
@@ -34,6 +35,7 @@
           <CirclePlus class="cf-tab-icon cf-tab-icon--fab" aria-hidden="true" />
         </span>
       </button>
+      <div v-else class="cf-tab cf-tab--fab cf-tab--fab-spacer" aria-hidden="true" />
 
       <button
         v-for="item in rightTabs"
@@ -62,24 +64,37 @@
 import { BookOpen, CirclePlus, Home, LineChart, Users } from 'lucide-vue-next'
 import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
 import { usePatientTabBarScrollReveal } from '~/composables/usePatientTabBarScrollReveal'
+import { isPatientFullAccessActive } from '~/utils/patient-access'
 
 const route = useRoute()
 const router = useRouter()
 const { startNavigation, finishNavigation } = usePatientNavigationLoading()
 const { hidden: scrollHidden, reveal: revealTabBar } = usePatientTabBarScrollReveal()
+const { verifiedUser } = useAuthSession()
 const bellaMenuOpen = ref(false)
 const navigating = ref(false)
 const evolucaoLastTab = useState('evolucao-last-tab', () => 'metas')
+
+const hasFullAccess = computed(() => {
+  const user = verifiedUser.value
+  if (!user) return true
+  return isPatientFullAccessActive(user.plan, user.accessExpiresAt, user.approvalEmailSentAt)
+})
 
 const leftTabs = [
   { key: 'inicio', label: 'Início', to: '/inicio', icon: Home },
   { key: 'evolucao', label: 'Evolução', to: '/evolucao', icon: LineChart },
 ]
 
-const rightTabs = [
-  { key: 'conteudo', label: 'Biblioteca', to: '/conteudo', icon: BookOpen },
-  { key: 'comunidade', label: 'Comunidade', to: '/comunidade', icon: Users },
-]
+const rightTabs = computed(() => {
+  if (!hasFullAccess.value) {
+    return [{ key: 'dieta', label: 'Dieta', to: '/dieta', icon: BookOpen }]
+  }
+  return [
+    { key: 'conteudo', label: 'Biblioteca', to: '/conteudo', icon: BookOpen },
+    { key: 'comunidade', label: 'Comunidade', to: '/comunidade', icon: Users },
+  ]
+})
 
 function normalizeEvoTab(tab) {
   if (tab === 'peso' || tab === 'metas') return tab
@@ -114,6 +129,7 @@ function isTabActive(item) {
     return route.path.startsWith('/evolucao')
   }
   if (item.key === 'comunidade') return route.path.startsWith('/comunidade')
+  if (item.key === 'dieta') return route.path.startsWith('/dieta')
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
 }
 
@@ -149,6 +165,10 @@ async function goTab(item) {
 }
 
 function toggleBellaMenu() {
+  if (!hasFullAccess.value) {
+    navigateTo('/assinatura')
+    return
+  }
   bellaMenuOpen.value = !bellaMenuOpen.value
   if (bellaMenuOpen.value) revealTabBar()
 }

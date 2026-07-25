@@ -1,6 +1,7 @@
 export const phoneCountries = [
   { code: 'BR', name: 'Brasil', dial: '+55', flag: '🇧🇷', mask: '(##) #####-####', maxDigits: 11 },
   { code: 'US', name: 'Estados Unidos', dial: '+1', flag: '🇺🇸', mask: '(###) ###-####', maxDigits: 10 },
+  { code: 'CA', name: 'Canadá', dial: '+1', flag: '🇨🇦', mask: '(###) ###-####', maxDigits: 10 },
   { code: 'PT', name: 'Portugal', dial: '+351', flag: '🇵🇹', mask: '### ### ###', maxDigits: 9 },
   { code: 'AR', name: 'Argentina', dial: '+54', flag: '🇦🇷', mask: '## ####-####', maxDigits: 10 },
   { code: 'ES', name: 'Espanha', dial: '+34', flag: '🇪🇸', mask: '### ### ###', maxDigits: 9 },
@@ -11,14 +12,22 @@ export const phoneCountries = [
   { code: 'MX', name: 'México', dial: '+52', flag: '🇲🇽', mask: '## #### ####', maxDigits: 10 },
   { code: 'CL', name: 'Chile', dial: '+56', flag: '🇨🇱', mask: '# #### ####', maxDigits: 9 },
   { code: 'CO', name: 'Colômbia', dial: '+57', flag: '🇨🇴', mask: '### ### ####', maxDigits: 10 },
+  { code: 'PE', name: 'Peru', dial: '+51', flag: '🇵🇪', mask: '### ### ###', maxDigits: 9 },
   { code: 'PY', name: 'Paraguai', dial: '+595', flag: '🇵🇾', mask: '### ### ###', maxDigits: 9 },
   { code: 'UY', name: 'Uruguai', dial: '+598', flag: '🇺🇾', mask: '## ### ###', maxDigits: 8 },
+  { code: 'BO', name: 'Bolívia', dial: '+591', flag: '🇧🇴', mask: '# ### ####', maxDigits: 8 },
+  { code: 'EC', name: 'Equador', dial: '+593', flag: '🇪🇨', mask: '## ### ####', maxDigits: 9 },
+  { code: 'VE', name: 'Venezuela', dial: '+58', flag: '🇻🇪', mask: '### ### ####', maxDigits: 10 },
+  { code: 'JP', name: 'Japão', dial: '+81', flag: '🇯🇵', mask: '## #### ####', maxDigits: 10 },
+  { code: 'AU', name: 'Austrália', dial: '+61', flag: '🇦🇺', mask: '### ### ###', maxDigits: 9 },
 ]
 
 export const defaultPhoneCountry = phoneCountries[0]
 
+/** ISO 3166-1 alpha-2 → código do flagcdn (minúsculo). */
 export function countryFlagUrl(code) {
-  return `https://flagcdn.com/w40/${String(code || 'BR').toLowerCase()}.png`
+  const normalized = String(code || 'BR').trim().toLowerCase()
+  return `https://flagcdn.com/w40/${normalized}.png`
 }
 
 export function digitsOnly(value = '') {
@@ -27,12 +36,14 @@ export function digitsOnly(value = '') {
 
 export function applyPhoneMask(digits, mask) {
   if (!mask) return digits
+  const clean = digitsOnly(digits)
   let result = ''
   let digitIndex = 0
 
-  for (let i = 0; i < mask.length && digitIndex < digits.length; i += 1) {
+  for (let i = 0; i < mask.length; i += 1) {
+    if (digitIndex >= clean.length) break
     if (mask[i] === '#') {
-      result += digits[digitIndex]
+      result += clean[digitIndex]
       digitIndex += 1
     } else {
       result += mask[i]
@@ -42,13 +53,29 @@ export function applyPhoneMask(digits, mask) {
   return result
 }
 
+function resolveMask(digits, country = defaultPhoneCountry) {
+  if (country.code === 'BR') {
+    return digits.length <= 10 ? '(##) ####-####' : '(##) #####-####'
+  }
+  return country.mask
+}
+
 export function formatNationalPhone(digits, country = defaultPhoneCountry) {
-  const limited = digitsOnly(digits).slice(0, country.maxDigits)
-  return applyPhoneMask(limited, country.mask)
+  const max = Number(country?.maxDigits) || 15
+  const limited = digitsOnly(digits).slice(0, max)
+  return applyPhoneMask(limited, resolveMask(limited, country))
+}
+
+export function phonePlaceholder(country = defaultPhoneCountry) {
+  if (country.code === 'BR') {
+    return '(00) 00000-0000'
+  }
+  return (country.mask || '').replace(/#/g, '0')
 }
 
 export function toInternationalPhone(digits, country = defaultPhoneCountry) {
-  const national = digitsOnly(digits).slice(0, country.maxDigits)
+  const max = Number(country?.maxDigits) || 15
+  const national = digitsOnly(digits).slice(0, max)
   if (!national) return ''
   return `${country.dial}${national}`
 }
@@ -61,7 +88,12 @@ export function parseInternationalPhone(value, countries = phoneCountries) {
 
   const normalized = raw.startsWith('+') ? raw : `+${digitsOnly(raw)}`
   const sorted = [...countries].sort((a, b) => b.dial.length - a.dial.length)
-  const matched = sorted.find((country) => normalized.startsWith(country.dial))
+
+  // Prefer BR when dial is +55; for +1 prefer US over CA unless already known.
+  let matched = sorted.find((country) => normalized.startsWith(country.dial))
+  if (matched?.dial === '+1') {
+    matched = countries.find((c) => c.code === 'US') || matched
+  }
 
   if (!matched) {
     const fallbackDigits = digitsOnly(raw).slice(0, defaultPhoneCountry.maxDigits)

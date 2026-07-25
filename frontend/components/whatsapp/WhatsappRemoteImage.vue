@@ -5,6 +5,7 @@
       :src="src"
       :alt="alt"
       class="msg-remote-image-img"
+      loading="lazy"
       decoding="async"
       @load="loaded = true"
       @error="failed = true"

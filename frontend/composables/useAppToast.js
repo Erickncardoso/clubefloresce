@@ -8,6 +8,8 @@ export function useAppToast() {
     message = '',
     detail = '',
     duration = 4500,
+    actionLabel = '',
+    onAction = null,
   } = {}) {
     if (hideTimer) {
       clearTimeout(hideTimer)
@@ -20,6 +22,8 @@ export function useAppToast() {
       title,
       message,
       detail,
+      actionLabel: actionLabel || '',
+      onAction: typeof onAction === 'function' ? onAction : null,
     }
 
     if (duration > 0) {

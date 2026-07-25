@@ -6,7 +6,12 @@
           <div class="page-header-copy">
             <h1>Pacientes</h1>
             <p>
-              {{ users.length }} {{ users.length === 1 ? 'paciente cadastrado' : 'pacientes cadastrados' }}
+              <template v-if="hasActiveFilters && !usersLoading">
+                {{ filteredUsers.length }} de {{ users.length }} pacientes na seleção
+              </template>
+              <template v-else>
+                {{ users.length }} {{ users.length === 1 ? 'paciente cadastrado' : 'pacientes cadastrados' }}
+              </template>
               <span v-if="activeCount !== users.length"> · {{ activeCount }} ativas</span>
               <span v-if="pendingApprovalEmailCount"> · {{ pendingApprovalEmailCount }} sem e-mail de aprovação</span>
               <span v-if="pendingApprovalWhatsappCount"> · {{ pendingApprovalWhatsappCount }} sem WhatsApp de aprovação</span>
@@ -44,6 +49,17 @@
             </button>
           </div>
         </div>
+
+        <PatientsPatientListAdvancedFilters
+          v-if="!usersLoading && users.length"
+          :filter-groups="filterGroups"
+          :active-filter-count="activeFilterCount"
+          :filtered-count="filteredUsers.length"
+          :total-count="users.length"
+          :engagement-loading="engagementLoading"
+          @toggle="toggleFilter"
+          @clear="clearFilters"
+        />
 
         <section v-if="requestsLoading || registrationRequests.length || requestsError" class="requests-section">
           <div class="requests-head">
@@ -110,10 +126,30 @@
                     v-for="user in filteredUsers"
                     :key="user.id"
                     class="user-row"
-                    @click="goToPatient(user)"
                   >
                     <td>
-                      <div class="user-cell">
+                      <NuxtLink
+                        v-if="user.role === 'PACIENTE'"
+                        :to="buildPatientPath(user)"
+                        class="user-cell-link"
+                      >
+                        <div class="user-cell">
+                          <PatientAvatar :src="user.avatar" :name="user.name" size="sm" :ring="false" />
+                          <div class="user-copy">
+                            <span class="user-name">{{ user.name }}</span>
+                            <span class="user-email">{{ user.email }}</span>
+                            <span class="user-access-until">
+                              Assinatura até
+                              <strong
+                                v-if="isAccessUntilExpired(user)"
+                                class="user-access-until--expired"
+                              >Expirado</strong>
+                              <strong v-else>{{ formatAccessUntilLabel(user) }}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      </NuxtLink>
+                      <div v-else class="user-cell">
                         <PatientAvatar :src="user.avatar" :name="user.name" size="sm" :ring="false" />
                         <div class="user-copy">
                           <span class="user-name">{{ user.name }}</span>
@@ -227,11 +263,13 @@
           </div>
 
           <div v-if="filteredUsers.length" class="users-mobile-list">
-            <article
+            <NuxtLink
               v-for="user in filteredUsers"
               :key="`mobile-${user.id}`"
+              :to="user.role === 'PACIENTE' ? buildPatientPath(user) : '/usuarios'"
               class="user-mobile-card"
-              @click="goToPatient(user)"
+              :class="{ 'user-mobile-card--static': user.role !== 'PACIENTE' }"
+              @click="user.role !== 'PACIENTE' ? $event.preventDefault() : undefined"
             >
               <div class="user-mobile-head">
                 <PatientAvatar :src="user.avatar" :name="user.name" size="sm" :ring="false" />
@@ -362,97 +400,33 @@
                   <Trash2 class="icon-xs" />
                 </button>
               </div>
-            </article>
+            </NuxtLink>
           </div>
 
           <div v-else-if="!usersError" class="users-table-card empty-state">
             <UserPlus class="empty-icon" />
-            <h3>{{ searchQuery ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado' }}</h3>
-            <p>{{ searchQuery ? 'Tente outro termo na busca.' : 'Clique em Adicionar paciente para começar.' }}</p>
+            <h3>{{ emptyStateTitle }}</h3>
+            <p>{{ emptyStateDescription }}</p>
           </div>
         </div>
       </div>
     </div>
 
-    <Teleport to="body">
-      <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
-        <form class="modal-card" @submit.prevent="createPatient">
-          <h3>{{ creatingFromRequest ? 'Aprovar solicitação' : 'Novo paciente' }}</h3>
-          <p v-if="creatingFromRequest" class="modal-hint">
-            A senha já foi definida pelo paciente. Informe o plano e até quando terá acesso.
-          </p>
+    <PatientsQuickAddPatientModal
+      :open="showCreateModal"
+      :mode="creatingFromRequest ? 'approve' : 'create'"
+      :seed="createModalSeed"
+      :registration-request-id="approvingRequestId"
+      @close="closeCreateModal"
+      @created="onPatientCreated"
+    />
 
-          <div class="modal-fields">
-            <div class="field field--float">
-              <label for="create-name">Nome</label>
-              <input id="create-name" v-model="createForm.name" required placeholder="Nome completo" />
-            </div>
-
-            <div class="field field--float">
-              <label for="create-email">E-mail</label>
-              <input id="create-email" v-model="createForm.email" type="email" required placeholder="email@exemplo.com" />
-            </div>
-
-            <div v-if="!creatingFromRequest" class="field field--float">
-              <label for="create-password">Senha inicial</label>
-              <input
-                id="create-password"
-                v-model="createForm.password"
-                type="password"
-                required
-                minlength="8"
-                placeholder="Mínimo 8 caracteres"
-              />
-            </div>
-
-            <p v-else class="field-hint field-hint--password">
-              O paciente já escolheu a senha no app. Após aprovar, entra direto com e-mail e senha.
-            </p>
-
-            <div class="field field--float">
-              <label for="create-plan">Plano</label>
-              <SharedCfSelect
-                id="create-plan"
-                v-model="createForm.plan"
-                :options="planOptions"
-              />
-            </div>
-
-            <div class="field field--float">
-              <label for="create-payment-method">Forma de pagamento</label>
-              <SharedCfSelect
-                id="create-payment-method"
-                v-model="createForm.billingPaymentMethod"
-                :options="paymentMethodOptions"
-              />
-            </div>
-
-            <div class="field field--float">
-              <label for="create-access-expires">
-                Acesso válido até
-                <span v-if="creatingFromRequest" class="label-required">*</span>
-              </label>
-              <SharedCfDateInput
-                id="create-access-expires"
-                v-model="createForm.accessExpiresAt"
-                :min="minAccessDate"
-                :required="creatingFromRequest"
-              />
-            </div>
-          </div>
-
-          <p v-if="!creatingFromRequest" class="field-hint">Opcional. Deixe em branco para acesso sem data limite.</p>
-          <p class="field-hint">Forma de pagamento: opcional. Use Pix ou Cartão se o paciente pagou fora do app ou você quiser registrar como ele paga.</p>
-          <p v-if="createError" class="create-error">{{ createError }}</p>
-          <div class="modal-actions">
-            <button type="button" class="btn-secondary" @click="showCreateModal = false">Cancelar</button>
-            <button type="submit" class="btn-primary modal-submit" :disabled="creating">
-              {{ creating ? 'Salvando...' : (creatingFromRequest ? 'Aprovar e liberar acesso' : 'Criar paciente') }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </Teleport>
+    <PatientsPostCreateConsultationModal
+      :open="consultationPrompt.open"
+      :patient="consultationPrompt.patient"
+      @close="consultationPrompt.open = false"
+      @done="onConsultationPromptDone"
+    />
 
     <Teleport to="body">
       <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
@@ -637,6 +611,7 @@ definePageMeta({
 
 const config = useRuntimeConfig()
 const apiBase = useApiBase()
+const route = useRoute()
 
 import { Search, UserPlus, Edit3, Trash2 } from 'lucide-vue-next'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
@@ -647,12 +622,26 @@ import {
   paymentAccessLabel,
   paymentTagClass,
 } from '~/utils/patient-billing-display'
+import { usePatientListFilters } from '~/composables/usePatientListFilters.js'
 import { formatWhatsappTextForDisplay } from '~/composables/whatsapp/useWhatsappUtils.js'
 import { verifyAuthSession } from '~/composables/useAuthSession.js'
+import { buildPatientPath } from '~/utils/patient-slug.js'
 
 const users = ref([])
 const registrationRequests = ref([])
 const searchQuery = ref('')
+const engagementLoading = ref(false)
+
+const {
+  filteredUsers,
+  filterGroups,
+  activeFilterCount,
+  hasActiveFilters,
+  toggleFilter,
+  clearFilters,
+  setEngagementZones,
+  setTagCatalog,
+} = usePatientListFilters(users, { searchQuery })
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const editingUserId = ref('')
@@ -672,23 +661,13 @@ const individualWhatsappUser = ref(null)
 const defaultWhatsappTemplate = ref('')
 const cachedGeneralWhatsappMessage = ref('')
 const loadingIndividualWhatsapp = ref(false)
-const creating = ref(false)
 const savingEdit = ref(false)
-const createError = ref('')
 const editError = ref('')
 const usersLoading = ref(true)
 const requestsLoading = ref(true)
 const usersError = ref('')
 const requestsError = ref('')
-
-const createForm = reactive({
-  name: '',
-  email: '',
-  password: '',
-  plan: 'PREMIUM',
-  accessExpiresAt: '',
-  billingPaymentMethod: '',
-})
+const createModalSeed = ref(null)
 
 const editForm = reactive({
   name: '',
@@ -806,11 +785,26 @@ const fetchPatients = async () => {
     users.value = Array.isArray(usersData)
       ? usersData.filter((u) => u.role === 'PACIENTE')
       : []
+    await fetchPatientFilterMeta()
   } catch (err) {
     users.value = []
     usersError.value = resolveFetchError(err, 'Não foi possível carregar os pacientes.')
   } finally {
     usersLoading.value = false
+  }
+}
+
+async function fetchPatientFilterMeta() {
+  engagementLoading.value = true
+  try {
+    const [zonesData, tagsData] = await Promise.all([
+      $fetch(`${apiBase.value}/patients/engagement-zones`, { headers: authHeaders() }).catch(() => null),
+      $fetch(`${apiBase.value}/users/patient-tags`, { headers: authHeaders() }).catch(() => null),
+    ])
+    if (zonesData) setEngagementZones(zonesData)
+    if (tagsData?.tags) setTagCatalog(tagsData.tags)
+  } finally {
+    engagementLoading.value = false
   }
 }
 
@@ -829,12 +823,17 @@ const fetchUsers = async () => {
   await Promise.all([fetchPatients(), fetchRegistrationRequests()])
 }
 
-const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users.value
-  return users.value.filter(u =>
-    u.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchQuery.value.toLowerCase())
-  )
+const emptyStateTitle = computed(() => {
+  if (searchQuery.value || hasActiveFilters.value) return 'Nenhum paciente encontrado'
+  return 'Nenhum paciente cadastrado'
+})
+
+const emptyStateDescription = computed(() => {
+  if (hasActiveFilters.value && !searchQuery.value) {
+    return 'Nenhuma paciente corresponde aos filtros selecionados. Tente combinar outros critérios ou limpar os filtros.'
+  }
+  if (searchQuery.value) return 'Tente outro termo na busca ou ajuste os filtros avançados.'
+  return 'Clique em Adicionar paciente para começar.'
 })
 
 const activeCount = computed(() =>
@@ -1088,36 +1087,59 @@ const saveIndividualWhatsappMessage = async () => {
   }
 }
 
-const goToPatient = (user) => {
-  if (user.role === 'PACIENTE') {
-    navigateTo(`/usuarios/${user.id}`)
-  }
-}
-
 const openCreateModal = () => {
   creatingFromRequest.value = false
   approvingRequestId.value = ''
-  createForm.name = ''
-  createForm.email = ''
-  createForm.password = ''
-  createForm.plan = 'PREMIUM'
-  createForm.accessExpiresAt = ''
-  createForm.billingPaymentMethod = ''
-  createError.value = ''
+  createModalSeed.value = null
   showCreateModal.value = true
 }
 
 const openCreateFromRequest = (req) => {
   creatingFromRequest.value = true
   approvingRequestId.value = req.id
-  createForm.name = req.name
-  createForm.email = req.email
-  createForm.password = ''
-  createForm.plan = 'PREMIUM'
-  createForm.accessExpiresAt = ''
-  createForm.billingPaymentMethod = ''
-  createError.value = ''
+  createModalSeed.value = {
+    name: req.name,
+    email: req.email,
+    phone: req.phone || '',
+  }
   showCreateModal.value = true
+}
+
+const closeCreateModal = () => {
+  showCreateModal.value = false
+  creatingFromRequest.value = false
+  approvingRequestId.value = ''
+  createModalSeed.value = null
+}
+
+const { showToast } = useAppToast()
+
+const consultationPrompt = reactive({
+  open: false,
+  patient: null,
+})
+
+const onPatientCreated = async (user) => {
+  const wasApprove = creatingFromRequest.value
+  closeCreateModal()
+  showToast({
+    type: 'success',
+    title: wasApprove ? 'Acesso liberado' : 'Paciente cadastrado',
+    message: user?.name
+      ? (wasApprove ? `${user.name} foi aprovada.` : `${user.name} foi adicionado.`)
+      : 'Cadastro concluído.',
+  })
+  await fetchUsers()
+  await fetchRegistrationRequests()
+  if (user?.id) {
+    consultationPrompt.patient = user
+    consultationPrompt.open = true
+  }
+}
+
+function onConsultationPromptDone() {
+  consultationPrompt.open = false
+  consultationPrompt.patient = null
 }
 
 const rejectRequest = async (req) => {
@@ -1141,53 +1163,6 @@ const rejectRequest = async (req) => {
     alert(err.data?.error || 'Erro ao reprovar solicitação.')
   } finally {
     rejectingRequestId.value = ''
-  }
-}
-
-const createPatient = async () => {
-  creating.value = true
-  createError.value = ''
-
-  if (creatingFromRequest.value && !createForm.accessExpiresAt) {
-    createError.value = 'Informe até quando o paciente terá acesso.'
-    creating.value = false
-    return
-  }
-
-  try {
-    const body = {
-      name: createForm.name,
-      email: createForm.email,
-      plan: createForm.plan,
-      accessExpiresAt: createForm.accessExpiresAt || null,
-      billingPaymentMethod: createForm.billingPaymentMethod || null,
-    }
-
-    if (creatingFromRequest.value) {
-      body.registrationRequestId = approvingRequestId.value
-    } else {
-      body.password = createForm.password
-    }
-
-    const user = await $fetch(`${apiBase.value}/users`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body,
-    })
-    showCreateModal.value = false
-    creatingFromRequest.value = false
-    approvingRequestId.value = ''
-    createForm.name = ''
-    createForm.email = ''
-    createForm.password = ''
-    createForm.plan = 'PREMIUM'
-    createForm.accessExpiresAt = ''
-    await fetchUsers()
-    navigateTo(`/usuarios/${user.id}`)
-  } catch (err) {
-    createError.value = err.data?.error || 'Erro ao criar paciente.'
-  } finally {
-    creating.value = false
   }
 }
 
@@ -1295,7 +1270,13 @@ const handleDelete = async (id) => {
   }
 }
 
-onMounted(fetchUsers)
+onMounted(async () => {
+  await fetchUsers()
+  if (String(route.query.novo || '') === '1') {
+    openCreateModal()
+    navigateTo({ path: '/usuarios', query: {} }, { replace: true })
+  }
+})
 </script>
 
 <style scoped>
@@ -1654,6 +1635,9 @@ onMounted(fetchUsers)
 }
 
 .user-mobile-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
   background: #fff;
   border: 1px solid var(--admin-border, #e8ece9);
   border-radius: 14px;
@@ -1661,6 +1645,10 @@ onMounted(fetchUsers)
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.user-mobile-card--static {
+  cursor: default;
 }
 
 .user-mobile-card:hover {
@@ -1748,6 +1736,16 @@ onMounted(fetchUsers)
 
 .user-row:hover td {
   background: #fafcfb;
+}
+
+.user-cell-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.user-cell-link:hover {
+  color: inherit;
 }
 
 .user-cell {

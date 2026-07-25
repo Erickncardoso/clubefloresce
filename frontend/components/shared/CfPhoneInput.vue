@@ -19,10 +19,11 @@
             <img
               class="cf-phone-flag-img"
               :src="countryFlagUrl(selectedCountry.code)"
-              :alt="selectedCountry.name"
+              :alt="selectedCountry.code"
               width="20"
               height="15"
               loading="lazy"
+              decoding="async"
             >
           </span>
           <span class="cf-phone-dial">{{ selectedCountry.dial }}</span>
@@ -41,10 +42,11 @@
               <img
                 class="cf-phone-flag-img"
                 :src="countryFlagUrl(country.code)"
-                :alt="country.name"
+                :alt="country.code"
                 width="20"
                 height="15"
                 loading="lazy"
+                decoding="async"
               >
             </span>
             <span class="cf-phone-country-name">{{ country.name }}</span>
@@ -57,14 +59,16 @@
         :id="inputId"
         ref="inputRef"
         type="tel"
-        inputmode="tel"
-        autocomplete="tel"
+        inputmode="numeric"
+        autocomplete="tel-national"
         :value="displayValue"
-        :placeholder="selectedCountry.mask.replace(/#/g, '0')"
+        :placeholder="currentPlaceholder"
+        :maxlength="inputMaxLength"
         :required="required"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"
+        @keydown="onKeydown"
       >
     </div>
     <p v-if="hint" class="field-hint">{{ hint }}</p>
@@ -80,6 +84,7 @@ import {
   formatNationalPhone,
   parseInternationalPhone,
   phoneCountries,
+  phonePlaceholder,
   toInternationalPhone,
 } from '~/utils/phone-countries.js'
 
@@ -101,6 +106,13 @@ const selectedCountry = ref(defaultPhoneCountry)
 const nationalDigits = ref('')
 const displayValue = ref('')
 
+const currentPlaceholder = computed(() => phonePlaceholder(selectedCountry.value))
+const inputMaxLength = computed(() => {
+  // BR celular: (11) 99999-9999 = 15 chars
+  const max = Number(selectedCountry.value?.maxDigits) || 11
+  return formatNationalPhone('9'.repeat(max), selectedCountry.value).length
+})
+
 function syncFromModel(value) {
   const parsed = parseInternationalPhone(value)
   selectedCountry.value = parsed.country
@@ -119,18 +131,48 @@ function emitValue() {
   emit('update:modelValue', toInternationalPhone(nationalDigits.value, selectedCountry.value))
 }
 
-function onInput(event) {
-  nationalDigits.value = digitsOnly(event.target.value).slice(0, selectedCountry.value.maxDigits)
-  displayValue.value = formatNationalPhone(nationalDigits.value, selectedCountry.value)
+function applyDigits(rawDigits) {
+  const max = Number(selectedCountry.value?.maxDigits) || 11
+  const limited = digitsOnly(rawDigits).slice(0, max)
+  nationalDigits.value = limited
+  displayValue.value = formatNationalPhone(limited, selectedCountry.value)
+
+  // Força o DOM — evita digitar além da máscara
+  nextTick(() => {
+    if (inputRef.value && inputRef.value.value !== displayValue.value) {
+      inputRef.value.value = displayValue.value
+    }
+  })
+
   emitValue()
+}
+
+function onInput(event) {
+  applyDigits(event.target.value)
+  // Sync imediato no mesmo evento (antes do nextTick)
+  event.target.value = displayValue.value
+}
+
+function onKeydown(event) {
+  // Bloqueia digitação extra quando já atingiu o máximo de dígitos
+  const max = Number(selectedCountry.value?.maxDigits) || 11
+  const isDigit = event.key.length === 1 && /\d/.test(event.key)
+  if (!isDigit) return
+  if (nationalDigits.value.length >= max && !isSelectionReplacing()) {
+    event.preventDefault()
+  }
+}
+
+function isSelectionReplacing() {
+  const el = inputRef.value
+  if (!el) return false
+  return el.selectionStart !== el.selectionEnd
 }
 
 function selectCountry(country) {
   selectedCountry.value = country
-  nationalDigits.value = nationalDigits.value.slice(0, country.maxDigits)
-  displayValue.value = formatNationalPhone(nationalDigits.value, country)
+  applyDigits(nationalDigits.value)
   countryMenuOpen.value = false
-  emitValue()
   nextTick(() => inputRef.value?.focus())
 }
 
@@ -175,13 +217,13 @@ onBeforeUnmount(() => {
   min-height: 3.1rem;
   border: 1.5px solid #e8ece9;
   background: var(--cf-surface, #fff);
-  overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  overflow: visible;
+  transition: border-color 0.15s ease;
 }
 
 .cf-phone-field.focused .cf-phone-input {
-  border-color: #d4a8ac;
-  box-shadow: 0 0 0 3px rgba(201, 137, 142, 0.1);
+  border-color: #b8d4b4;
+  box-shadow: none;
 }
 
 .cf-phone-country {
@@ -206,16 +248,21 @@ onBeforeUnmount(() => {
 .cf-phone-flag {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1rem;
+  flex-shrink: 0;
   line-height: 0;
+  overflow: hidden;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .cf-phone-flag-img {
-  display: block;
-  width: 1.25rem;
-  height: 0.9rem;
-  border-radius: 2px;
+  width: 1.35rem;
+  height: 1rem;
   object-fit: cover;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  display: block;
 }
 
 .cf-phone-dial {
@@ -246,9 +293,9 @@ onBeforeUnmount(() => {
   position: absolute;
   top: calc(100% + 0.35rem);
   left: 0;
-  z-index: 30;
-  width: min(16rem, 78vw);
-  max-height: 14rem;
+  z-index: 80;
+  width: min(17rem, 82vw);
+  max-height: 16rem;
   overflow-y: auto;
   margin: 0;
   padding: 0.35rem;
@@ -272,7 +319,7 @@ onBeforeUnmount(() => {
 
 .cf-phone-country-menu li:hover,
 .cf-phone-country-menu li[aria-selected='true'] {
-  background: #faf5f6;
+  background: rgba(139, 150, 124, 0.12);
 }
 
 .cf-phone-country-name {

@@ -27,12 +27,17 @@ function notifyVisibleClients(clients, data) {
 
 self.addEventListener('push', (event) => {
   const data = parsePushPayload(event)
+  const tag = String(data.tag || '')
+  const url = String(data.url || '')
+  const isVideoCall = tag.startsWith('video-call:') || url.includes('/chamada')
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // App aberto: atualiza UI in-app
       if (hasVisibleAppClient(clients)) {
         notifyVisibleClients(clients, data)
-        return undefined
+        // Chamada de vídeo: também mostra notificação do sistema
+        if (!isVideoCall) return undefined
       }
 
       const title = data.title || 'Clube Florescer'
@@ -41,7 +46,8 @@ self.addEventListener('push', (event) => {
         icon: data.icon || '/pwa/icon-192.png',
         badge: '/pwa/icon-192.png',
         tag: data.tag || 'clube-florescer',
-        renotify: false,
+        renotify: !!isVideoCall,
+        requireInteraction: !!isVideoCall,
         data: {
           url: data.url || '/perfil/notificacoes',
         },

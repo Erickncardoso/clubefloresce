@@ -3,11 +3,18 @@
     <div v-if="loadingOlderMessages" class="chat-timeline-row chat-timeline-row--center chat-timeline-row--sync">
       <div class="chat-sync-banner" role="status">
         <RefreshCw class="chat-sync-banner__icon" aria-hidden="true" />
-        <span>Sincronizando mensagens mais antigas. Clique para ver o progresso.</span>
+        <span>Carregando mensagens anteriores…</span>
       </div>
     </div>
 
-    <template v-for="(msg, msgIndex) in displayMessages" :key="timelineItemKey(msg, msgIndex)">
+    <div
+      v-if="windowEnabled && padTopPx > 0"
+      class="messages-window-spacer"
+      :style="{ height: `${padTopPx}px` }"
+      aria-hidden="true"
+    />
+
+    <template v-for="(msg, msgIndex) in visibleMessages" :key="timelineItemKey(msg, windowStartIndex + msgIndex)">
       <div
         v-if="msg.__timelineKind === 'date'"
         class="chat-timeline-row chat-timeline-row--center"
@@ -25,7 +32,7 @@
       <div
         v-else
       v-memo="[msg.id, msg.text, msg.mediaUrl, msg.deliveryStatus, msg.reactions?.length, actionMenuMessageId === msg.id, actionMenuMode, isMessagePinned(msg)]"
-      :data-message-index="msg.__timelineMsgIndex ?? msgIndex"
+      :data-message-index="msg.__timelineMsgIndex ?? (windowStartIndex + msgIndex)"
       :data-message-id="String(msg.id)"
       :data-message-provider-id="String(msg.normalizedMessageId || msg.messageid || '')"
       :data-message-internal-id="String(msg.normalizedInternalId || '')"
@@ -425,6 +432,13 @@
       </button>
     </div>
     </template>
+
+    <div
+      v-if="windowEnabled && padBottomPx > 0"
+      class="messages-window-spacer"
+      :style="{ height: `${padBottomPx}px` }"
+      aria-hidden="true"
+    />
   </div>
 
   <WhatsappImageViewerModal
@@ -466,6 +480,7 @@ import { handleInteractiveMenuOptionClick } from '~/composables/whatsapp/useWhat
 import { expandMessagesWithTimeline } from '~/composables/whatsapp/useWhatsappChatTimeline.js'
 import { isMessageCurrentlyPinned } from '~/composables/whatsapp/useWhatsappMessages.js'
 import { useWhatsappImageViewer } from '~/composables/whatsapp/useWhatsappImageViewer.js'
+import { useWhatsappMessageWindow } from '~/composables/whatsapp/useWhatsappMessageWindow.js'
 import { actionMenuMessageId, actionMenuMode } from '~/composables/whatsapp/useWhatsappState.js'
 
 const props = defineProps({
@@ -513,6 +528,14 @@ const isMessagePinned = (msg) => isMessageCurrentlyPinned(msg, props.pinnedMessa
 const displayMessages = computed(() =>
   expandMessagesWithTimeline(props.messages, props.pinTimelineEvents)
 )
+
+const {
+  visibleItems: visibleMessages,
+  padTopPx,
+  padBottomPx,
+  windowEnabled,
+  windowStartIndex,
+} = useWhatsappMessageWindow(displayMessages, { estimatePx: 92 })
 
 const messagesRef = toRef(props, 'messages')
 

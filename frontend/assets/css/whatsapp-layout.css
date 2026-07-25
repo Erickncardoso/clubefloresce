@@ -271,7 +271,31 @@ body:has(.whatsapp-chat-page) {
   --wa-text: #111b21;
   --wa-muted: #667781;
   --wa-icon: #54656f;
+  /* Tipografia WhatsApp Web */
+  --wa-msg-font-size: 14.2px;
+  --wa-msg-line-height: 19px;
+  --wa-msg-font-weight: 400;
+  --wa-media-max-width: 330px;
+  --wa-media-max-height: 420px;
   font-family: 'Segoe UI', 'Helvetica Neue', Helvetica, 'Lucida Grande', Arial, sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.whatsapp-chat-page .chat-body,
+.whatsapp-chat-page .chat-body-scroll,
+.whatsapp-chat-page .messages-container,
+.whatsapp-chat-page .message-bubble,
+.whatsapp-chat-page .msg-text {
+  font-family: 'Segoe UI', 'Helvetica Neue', Helvetica, 'Lucida Grande', Arial, sans-serif !important;
+  font-weight: 400;
+}
+
+.whatsapp-chat-page .msg-text strong,
+.whatsapp-chat-page .msg-text b,
+.whatsapp-chat-page .msg-text .wa-bold {
+  font-weight: 600;
 }
 
 .whatsapp-chat-page .text-primary {

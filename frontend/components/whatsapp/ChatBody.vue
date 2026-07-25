@@ -264,14 +264,27 @@ watch(chatBodyRef, (el) => {
 })
 
 watch(
-  () => displayMessages.value.length,
-  (nextLen, prevLen) => {
-    if (nextLen <= prevLen) return
-    if (prevLen === 0 || props.loadingMessages) {
+  () => {
+    const list = displayMessages.value
+    const len = list.length
+    const firstId = len ? String(list[0]?.id || list[0]?.messageid || '') : ''
+    const lastId = len ? String(list[len - 1]?.id || list[len - 1]?.messageid || '') : ''
+    return `${len}:${firstId}:${lastId}`
+  },
+  (nextSig, prevSig) => {
+    if (!nextSig || nextSig === '0::') return
+    const nextLen = Number(String(nextSig).split(':')[0] || 0)
+    const prevLen = prevSig ? Number(String(prevSig).split(':')[0] || 0) : 0
+    // Troca de conversa (ids mudam) ou primeiro paint → sempre última mensagem.
+    if (!prevSig || prevLen === 0 || props.loadingMessages || nextSig !== prevSig) {
+      const sameThreadGrew = prevSig && prevLen > 0 && nextLen > prevLen &&
+        String(nextSig).split(':')[1] === String(prevSig).split(':')[1]
+      if (sameThreadGrew && !props.loadingMessages) {
+        stickChatScrollToBottomIfNeeded()
+        return
+      }
       scrollToBottomOnChatOpen()
-      return
     }
-    stickChatScrollToBottomIfNeeded()
   },
   { flush: 'post' },
 )

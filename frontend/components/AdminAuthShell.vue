@@ -20,7 +20,7 @@
     <main class="auth-main">
       <div class="auth-card cf-squircle cf-squircle--surface">
         <header v-if="title" class="auth-header">
-          <img src="/logoflorescer.svg" alt="Florescer" class="auth-logo" width="128" height="38">
+          <img src="/icons/logovetorcarregamento.svg" alt="Florescer" class="auth-logo" width="28" height="40">
           <h2>{{ title }}</h2>
           <p v-if="subtitle">{{ subtitle }}</p>
         </header>
@@ -182,6 +182,8 @@ defineProps({
 .auth-logo {
   display: block;
   margin: 0 auto 1rem;
+  width: auto;
+  height: 2.5rem;
   object-fit: contain;
 }
 

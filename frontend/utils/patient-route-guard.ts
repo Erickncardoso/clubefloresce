@@ -3,6 +3,8 @@ import {
   isPatientAppAccessBlocked,
   isPatientCheckoutPath,
   isPatientAccessBlockedError,
+  isPatientLimitedAccessActive,
+  isPatientLimitedAppPath,
 } from '~/utils/patient-access'
 
 export const PATIENT_PUBLIC_PATHS = [
@@ -47,6 +49,7 @@ export async function fetchFreshPatientUser() {
 
 /**
  * Valida sessão no backend e bloqueia rotas sem acesso pago/liberado.
+ * FREE liberado: só dieta/metas (e rotas básicas).
  * Retorna destino de redirect ou null se a rota pode seguir.
  */
 export async function resolvePatientRouteAccess(path: string): Promise<string | null> {
@@ -56,12 +59,19 @@ export async function resolvePatientRouteAccess(path: string): Promise<string | 
     const user = await fetchFreshPatientUser()
     if (!user?.id || user.role !== 'PACIENTE') return '/'
 
-    if (isPatientAppAccessBlocked(
-      user.plan as string | null | undefined,
-      user.accessExpiresAt as string | Date | null | undefined,
-      user.approvalEmailSentAt as string | Date | null | undefined,
-    )) {
+    const plan = user.plan as string | null | undefined
+    const accessExpiresAt = user.accessExpiresAt as string | Date | null | undefined
+    const approvalEmailSentAt = user.approvalEmailSentAt as string | Date | null | undefined
+
+    if (isPatientAppAccessBlocked(plan, accessExpiresAt, approvalEmailSentAt)) {
       return '/assinatura'
+    }
+
+    if (
+      isPatientLimitedAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+      && !isPatientLimitedAppPath(path)
+    ) {
+      return '/dieta'
     }
 
     return null

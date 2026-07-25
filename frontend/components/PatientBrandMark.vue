@@ -1,7 +1,7 @@
 <template>
   <div class="cf-brand-mark" :class="[`cf-brand-mark--${size}`, { 'cf-brand-mark--stacked': stacked }]">
     <img
-      src="/icons/logovetorcarregamento.svg"
+      :src="BRAND_LOGO_SRC"
       alt=""
       class="cf-brand-mark__icon"
       width="28"
@@ -13,6 +13,8 @@
 </template>
 
 <script setup>
+import { BRAND_LOGO_SRC } from '~/config/brand-logo.js'
+
 defineProps({
   size: { type: String, default: 'md' },
   stacked: { type: Boolean, default: false },

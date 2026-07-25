@@ -10,7 +10,15 @@
       :aria-labelledby="id ? `${id}-label` : undefined"
       @click="toggle"
     >
-      <span class="cf-select-value">{{ selectedLabel }}</span>
+      <span class="cf-select-value">
+        <component
+          :is="selectedOption?.icon"
+          v-if="selectedOption?.icon"
+          class="cf-select-option-icon"
+          aria-hidden="true"
+        />
+        <span>{{ selectedLabel }}</span>
+      </span>
       <ChevronDown class="cf-select-chevron" aria-hidden="true" />
     </button>
 
@@ -32,7 +40,15 @@
           :aria-selected="option.value === modelValue"
           @click="select(option.value)"
         >
-          <span class="cf-select-option-label">{{ option.label }}</span>
+          <span class="cf-select-option-main">
+            <component
+              :is="option.icon"
+              v-if="option.icon"
+              class="cf-select-option-icon"
+              aria-hidden="true"
+            />
+            <span class="cf-select-option-label">{{ option.label }}</span>
+          </span>
           <Check v-if="option.value === modelValue" class="cf-select-option-check" aria-hidden="true" />
         </button>
       </div>
@@ -73,10 +89,11 @@ const rootRef = ref(null)
 const menuRef = ref(null)
 const menuStyle = ref({})
 
-const selectedLabel = computed(() => {
-  const match = props.options.find((option) => option.value === props.modelValue)
-  return match?.label ?? props.placeholder
-})
+const selectedOption = computed(() =>
+  props.options.find((option) => option.value === props.modelValue) || null,
+)
+
+const selectedLabel = computed(() => selectedOption.value?.label ?? props.placeholder)
 
 function updateMenuPosition() {
   const root = rootRef.value
@@ -219,9 +236,38 @@ onBeforeUnmount(() => {
 .cf-select-value {
   flex: 1;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.cf-select-value > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-select-option-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.cf-select-option-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  color: #7a8a82;
+}
+
+.cf-select-option--active .cf-select-option-icon {
+  color: #6b8f64;
 }
 
 .cf-select-chevron {
@@ -241,7 +287,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border: 1px solid #dce8d9;
   background: #fff;
-  border-radius: 14px;
+  border-radius: var(--cf-radius-control);
   box-shadow:
     0 4px 6px rgba(26, 46, 36, 0.04),
     0 16px 32px rgba(26, 46, 36, 0.12);
@@ -262,7 +308,7 @@ onBeforeUnmount(() => {
   font-weight: 500;
   text-align: left;
   padding: 0.72rem 0.85rem;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }

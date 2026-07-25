@@ -173,7 +173,10 @@ const pickSessionJidFromValue = (value) => {
 export const resolveConnectedSessionJidFromStatus = (data) => {
   if (!data || typeof data !== 'object') return ''
   return (
+    pickSessionJidFromValue(data.jid) ||
+    pickSessionJidFromValue(data.sessionJid) ||
     pickSessionJidFromValue(data.status?.jid) ||
+    pickSessionJidFromValue(data.status?.JID) ||
     pickSessionJidFromValue(data.status?.instance?.jid) ||
     pickSessionJidFromValue(data.instance?.jid) ||
     pickSessionJidFromValue(data.instance?.instance?.jid) ||
@@ -211,6 +214,13 @@ export const getContactDirectoryApi = () => `${getBase()}/contact-directory`
 // ─── Polling intervals ────────────────────────────────────────────────────────
 export const CHATS_POLL_INTERVAL_MS = 8000
 export const MESSAGES_POLL_INTERVAL_MS = 4000
+/**
+ * Safety-net quando Pusher/SSE estão saudáveis — pega msgs que o merge perdeu.
+ * Precisa ser LONGO: com realtime ok, pollar a cada 3s inundava a UAZAPI
+ * (/chat/find ×600 + pinned) e atrasava justamente a chegada das mensagens.
+ */
+export const CHATS_POLL_REALTIME_SAFE_MS = 30000
+export const MESSAGES_POLL_REALTIME_SAFE_MS = 15000
 export const CONTACTS_SYNC_MIN_INTERVAL_MS = 60000
 export const UNKNOWN_SENDER_ENRICH_POLL_MIN_MS = 35000
 
@@ -264,6 +274,7 @@ export function useWhatsappApi() {
     getProxyBase, getWhatsappApiBase, getContactStatesBase, getContactDirectoryApi, getAuthToken,
     fetchChatDetailsSafe, fetchWhatsappSessionConnected, isWhatsappConnectedFromStatusPayload,
     CHATS_POLL_INTERVAL_MS, MESSAGES_POLL_INTERVAL_MS,
+    CHATS_POLL_REALTIME_SAFE_MS, MESSAGES_POLL_REALTIME_SAFE_MS,
     CONTACTS_SYNC_MIN_INTERVAL_MS, UNKNOWN_SENDER_ENRICH_POLL_MIN_MS
   }
 }

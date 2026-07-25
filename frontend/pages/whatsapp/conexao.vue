@@ -17,6 +17,14 @@
         </span>
       </header>
 
+      <div v-if="providerInfo?.provider === 'wuzapi'" class="wa-migration-banner admin-shell-card" role="status">
+        <strong>Migração WuzAPI</strong>
+        <p>
+          A UAZAPI está desativada neste ambiente. Conexão e envio básico usam WuzAPI;
+          recursos avançados (chat completo, grupos, campanhas) serão habilitados aos poucos.
+        </p>
+      </div>
+
       <div class="wa-grid">
         <section class="admin-shell-card wa-main">
           <div v-if="loading" class="wa-state">
@@ -58,7 +66,7 @@
             </div>
 
             <div class="wa-actions">
-              <div v-if="initialSyncActive" class="wa-sync-alert" role="status">
+              <div v-if="initialSyncActive && providerInfo?.provider !== 'wuzapi'" class="wa-sync-alert" role="status">
                 <Loader class="wa-spin wa-icon-sm" aria-hidden="true" />
                 <div>
                   <strong>Mantenha o celular aberto com o WhatsApp ativo</strong>
@@ -242,7 +250,8 @@ import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
 import {
   CheckCircle, Smartphone, Scan, Loader, RefreshCw, LogOut, Settings,
 } from 'lucide-vue-next'
-import { resetWhatsappAfterDisconnect } from '~/composables/whatsapp/useWhatsappChats.js'
+import { resetWhatsappAfterDisconnect, loadChats } from '~/composables/whatsapp/useWhatsappChats.js'
+import { getStoredSessionJid } from '~/composables/whatsapp/useWhatsappUtils.js'
 import {
   initialSyncActive,
   beginInitialSyncWatch,
@@ -250,6 +259,7 @@ import {
   markWhatsappConnectedNow,
   probeInitialSyncProgress,
   SYNC_PROBE_INTERVAL_MS,
+  setWhatsappProviderKind,
 } from '~/composables/whatsapp/useWhatsappInitialSync.js'
 import { isWhatsappConnectedFromStatusPayload, resolveConnectedSessionJidFromStatus, whatsappHasAuth, whatsappJsonHeaders, whatsappAuthHeaders, whatsappFetchInit } from '~/composables/whatsapp/useWhatsappApi.js'
 
@@ -266,6 +276,7 @@ const awaitingQrScanUntil = ref(0)
 const instanceData = ref(null)
 const pollInterval = ref(null)
 const qrRefreshCountdown = ref(0)
+const providerInfo = ref(null)
 
 const QR_REFRESH_INTERVAL_SEC = 30
 let qrCountdownInterval = null
@@ -337,6 +348,7 @@ function extractQrFromPayload(data) {
     data.instance?.qrcode,
     data.instance?.qr,
     data.status?.qrcode,
+    data.status?.QRCode,
   ]
   for (const candidate of candidates) {
     const value = typeof candidate === 'string' ? candidate.trim() : ''
@@ -357,6 +369,8 @@ const instanceProfilePicUrl = computed(() => {
     i.instance?.profilePictureUrl,
     i.me?.profilePictureUrl,
     i.me?.imgUrl,
+    i.status?.profilePicUrl,
+    i.status?.profilePictureUrl,
   ]
   for (const c of candidates) {
     if (typeof c !== 'string') continue
@@ -447,6 +461,7 @@ function applyConnectionState({
     status.value = 'connecting'
     qrcode.value = ''
     stopQrRefreshTimers()
+    // Pairing = acabou de escanear o QR → sync inicial de verdade.
     markWhatsappConnectedNow({ force: true })
     beginInitialSyncWatch({ force: true })
     return
@@ -486,7 +501,12 @@ const fetchStatus = async ({ silent = false } = {}) => {
     }
 
     const inst = data.instance || null
-    instanceData.value = inst
+    instanceData.value = {
+      ...(inst || {}),
+      profilePicUrl: data.profilePicUrl || inst?.profilePicUrl || '',
+      profilePictureUrl: data.profilePictureUrl || inst?.profilePictureUrl || '',
+      jid: data.jid || data.sessionJid || inst?.jid || '',
+    }
 
     const resolveStatus = (value) => {
       if (!value) return ''
@@ -525,14 +545,26 @@ const fetchStatus = async ({ silent = false } = {}) => {
 
     if (isConnected) {
       const sessionJid = resolveConnectedSessionJidFromStatus(data)
+      const prevSessionJid = getStoredSessionJid()
+      const sessionChanged = Boolean(
+        data.sessionPurged ||
+        (sessionJid && prevSessionJid && sessionJid !== prevSessionJid),
+      )
+      if (sessionChanged) {
+        resetWhatsappAfterDisconnect()
+      }
       markWhatsappConnectedNow({ sessionJid })
       if (sessionJid && typeof window !== 'undefined') {
         localStorage.setItem('wa_session_jid', sessionJid)
       }
-      if (!wasConnectedPreviously.value) {
+      if (!wasConnectedPreviously.value || sessionChanged) {
+        // Transição desconectado → conectado ou troca de conta WhatsApp.
         beginInitialSyncWatch({ sessionJid, force: true })
         prefetchWhatsappChatsCatalog()
         wasConnectedPreviously.value = true
+        if (sessionChanged) {
+          void loadChats(true, { silent: true, gentle: false })
+        }
       }
       if (initialSyncActive.value) startSyncProbe()
     } else {
@@ -588,6 +620,8 @@ const generateQrCode = async () => {
 
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.message || 'Falha ao gerar QR Code')
+
+    resetWhatsappAfterDisconnect()
 
     if (data.connectionStatus === 'qrreadsuccess') {
       applyConnectionState({
@@ -741,14 +775,29 @@ const startSyncProbe = () => {
 }
 
 const prefetchWhatsappChatsCatalog = () => {
-  void fetch(`${API_BASE}/chats?cache=1`, whatsappFetchInit()).catch(() => {})
+  void fetch(`${API_BASE}/chats?refresh=1`, whatsappFetchInit()).catch(() => {})
 }
 
-onMounted(() => {
+const fetchProviderInfo = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/provider`, whatsappFetchInit())
+    if (res.ok) {
+      providerInfo.value = await res.json()
+      if (providerInfo.value?.provider) {
+        setWhatsappProviderKind(providerInfo.value.provider)
+      }
+    }
+  } catch {
+    /* opcional */
+  }
+}
+
+onMounted(async () => {
   if (!whatsappHasAuth()) {
     navigateTo('/')
     return
   }
+  await fetchProviderInfo()
   resumeInitialSyncIfNeeded()
   fetchStatus().then(() => {
     if (initialSyncActive.value) startSyncProbe()
@@ -781,6 +830,24 @@ onUnmounted(() => {
 .wa-header-copy {
   flex: 1 1 220px;
   min-width: 0;
+}
+
+.wa-migration-banner {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--cf-accent, #059669) 35%, transparent);
+  background: color-mix(in srgb, var(--cf-accent, #059669) 8%, var(--cf-surface, #fff));
+}
+
+.wa-migration-banner strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.wa-migration-banner p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--cf-text-muted, #64748b);
 }
 
 .wa-title-row {

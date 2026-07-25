@@ -653,10 +653,10 @@
               <PatientsPatientNutritionSection
                 v-model:active-tab="modalNutritionTab"
                 :patient-id="selectedResponse.user.id"
+                :patient="selectedResponse.user"
                 compact
                 show-links
                 :photo-limit="12"
-                @navigate="goToPatient(selectedResponse.user.id, $event)"
               />
             </aside>
           </div>
@@ -690,13 +690,14 @@
               >
                 Nutrição
               </button>
-              <button
-                type="button"
+              <NuxtLink
+                v-if="selectedResponse.user?.id"
+                :to="buildPatientPath(selectedResponse.user, { query: { tab: 'visao' } })"
                 class="btn-primary"
-                @click="goToPatient(selectedResponse.user.id, 'resumo')"
+                @click="closeViewModal"
               >
                 Perfil do paciente
-              </button>
+              </NuxtLink>
             </div>
           </footer>
         </div>
@@ -719,6 +720,7 @@ import {
   defaultEditorStep,
   editorStepFromApi,
 } from '~/utils/checkin-step-schema'
+import { buildPatientPath } from '~/utils/patient-slug.js'
 
 definePageMeta({
   layout: false,
@@ -946,13 +948,6 @@ function closeViewModal() {
   viewModalOpen.value = false
   selectedResponse.value = null
   modalNutritionTab.value = 'fotos'
-}
-
-function goToPatient(userId, tab = 'resumo') {
-  if (!userId) return
-  closeViewModal()
-  const profileTab = tab === 'desempenho' ? 'nutricao' : tab
-  navigateTo(`/usuarios/${userId}?tab=${profileTab}`)
 }
 
 async function loadResponses() {

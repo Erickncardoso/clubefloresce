@@ -3,7 +3,12 @@
  * Durante este período evitamos polling agressivo que pausa o sync no celular.
  */
 import { ref, computed } from 'vue'
-import { CHATS_POLL_INTERVAL_MS, getWhatsappApiBase, whatsappFetchInit } from './useWhatsappApi.js'
+import {
+  CHATS_POLL_INTERVAL_MS,
+  CHATS_POLL_REALTIME_SAFE_MS,
+  getWhatsappApiBase,
+  whatsappFetchInit,
+} from './useWhatsappApi.js'
 
 const LS_CONNECTED_AT = 'wa_connected_at'
 const LS_SYNC_DONE_JID = 'wa_initial_sync_done_jid'
@@ -20,6 +25,37 @@ const GENTLE_CHAT_PAGE_LIMIT = 120
 
 export const initialSyncActive = ref(false)
 export const initialSyncChatCount = ref(0)
+
+/** Provider ativo — WuzAPI não usa sync gentil (histórico vem direto da API). */
+let whatsappProviderKind = ''
+
+export function setWhatsappProviderKind(kind = '') {
+  whatsappProviderKind = String(kind || '').trim().toLowerCase()
+}
+
+export function isWhatsappWuzapiProvider() {
+  return whatsappProviderKind === 'wuzapi'
+}
+
+/** Carrega provider uma vez e desliga sync gentil quando for WuzAPI. */
+export async function ensureWhatsappProviderKind() {
+  if (whatsappProviderKind) return whatsappProviderKind
+  const apiBase = getWhatsappApiBase()
+  if (!apiBase) return ''
+  try {
+    const res = await fetch(`${apiBase}/provider`, whatsappFetchInit())
+    if (!res.ok) return ''
+    const data = await res.json().catch(() => ({}))
+    whatsappProviderKind = String(data?.provider || '').trim().toLowerCase()
+  } catch {
+    /* silencioso */
+  }
+  return whatsappProviderKind
+}
+
+export function getWhatsappProviderKind() {
+  return whatsappProviderKind
+}
 
 let lastCount = 0
 let lastChangeAt = 0
@@ -91,11 +127,18 @@ export const initialSyncElapsedLabel = computed(() => {
 })
 
 export function isInitialSyncGentleMode() {
+  if (isWhatsappWuzapiProvider()) return false
   return initialSyncActive.value
 }
 
-export function getGentleChatsPollIntervalMs() {
-  return isInitialSyncGentleMode() ? GENTLE_CHATS_POLL_INTERVAL_MS : CHATS_POLL_INTERVAL_MS
+/**
+ * Intervalo do poll de chats.
+ * @param {{ realtimeHealthy?: boolean }} [opts]
+ */
+export function getGentleChatsPollIntervalMs(opts = {}) {
+  if (isInitialSyncGentleMode()) return GENTLE_CHATS_POLL_INTERVAL_MS
+  if (opts.realtimeHealthy) return CHATS_POLL_REALTIME_SAFE_MS
+  return CHATS_POLL_INTERVAL_MS
 }
 
 export function getGentleChatPageLimit() {
@@ -113,7 +156,9 @@ export function markWhatsappConnectedNow(options = {}) {
   const storedAt = readConnectedAt()
   const now = Date.now()
 
-  if (force || jidChanged || !storedAt || now - storedAt > INITIAL_SYNC_MAX_MS * 2) {
+  // NÃO reinicia o relógio só porque passou o MAX — isso reabria o banner “Sincronizando”
+  // a cada visita. Só grava connected_at em force, troca de sessão ou primeira conexão.
+  if (force || jidChanged || !storedAt) {
     writeConnectedAt(now)
   }
   return readConnectedAt() || now
@@ -188,11 +233,23 @@ const scheduleCompletionChecks = () => {
 }
 
 export function beginInitialSyncWatch(options = {}) {
+  if (isWhatsappWuzapiProvider()) {
+    markWhatsappConnectedNow(options)
+    completeInitialSync('wuzapi-direct')
+    return
+  }
+
   const { force = false, sessionJid = '' } = options
   const nextJid = String(sessionJid || readSessionJid() || '').trim()
-  if (!force && isInitialSyncDoneForCurrentSession()) return
 
-  if (force && nextJid && readSyncDoneJid() !== nextJid) {
+  // Já sincronizou esta sessão → nunca reabre o banner (exceto force explícito de novo QR).
+  if (!force && isInitialSyncDoneForCurrentSession()) {
+    initialSyncActive.value = false
+    return
+  }
+
+  if (force) {
+    // force só limpa o marcador se for realmente uma nova conexão / novo QR
     clearSyncDoneMarker()
   }
 
@@ -221,7 +278,20 @@ export async function probeInitialSyncProgress() {
     if (!cacheRes.ok) return
     const cacheData = await cacheRes.json().catch(() => ({}))
     const cacheCount = Array.isArray(cacheData?.chats) ? cacheData.chats.length : 0
-    if (cacheCount > 0) noteInitialSyncChatCount(cacheCount)
+    if (cacheCount > 0) {
+      noteInitialSyncChatCount(cacheCount)
+      return
+    }
+
+    const connectedAt = readConnectedAt()
+    const elapsed = connectedAt ? Date.now() - connectedAt : 0
+    if (elapsed < INITIAL_SYNC_MIN_MS) return
+
+    const refreshRes = await fetch(`${apiBase}/chats?refresh=1`, whatsappFetchInit())
+    if (!refreshRes.ok) return
+    const refreshData = await refreshRes.json().catch(() => ({}))
+    const refreshCount = Array.isArray(refreshData?.chats) ? refreshData.chats.length : 0
+    if (refreshCount > 0) noteInitialSyncChatCount(refreshCount)
   } catch {
     /* silencioso */
   } finally {
@@ -230,7 +300,15 @@ export async function probeInitialSyncProgress() {
 }
 
 export function resumeInitialSyncIfNeeded() {
-  if (isInitialSyncDoneForCurrentSession()) return false
+  if (isWhatsappWuzapiProvider()) {
+    initialSyncActive.value = false
+    return false
+  }
+
+  if (isInitialSyncDoneForCurrentSession()) {
+    initialSyncActive.value = false
+    return false
+  }
 
   const connectedAt = readConnectedAt()
   if (!connectedAt) return false
@@ -238,6 +316,11 @@ export function resumeInitialSyncIfNeeded() {
   if (elapsed >= INITIAL_SYNC_MAX_MS) {
     initialSyncActive.value = false
     markSyncDoneForSession()
+    return false
+  }
+  // Se já há conversas no painel, encerra — não fica “sincronizando” eternamente.
+  if (lastCount > 0 || initialSyncChatCount.value > 0) {
+    completeInitialSync('resume-already-populated')
     return false
   }
   initialSyncActive.value = true
@@ -269,6 +352,10 @@ export function useWhatsappInitialSync() {
     initialSyncChatCount,
     initialSyncElapsedLabel,
     isInitialSyncGentleMode,
+    isWhatsappWuzapiProvider,
+    setWhatsappProviderKind,
+    ensureWhatsappProviderKind,
+    getWhatsappProviderKind,
     getGentleChatsPollIntervalMs,
     getGentleChatPageLimit,
     beginInitialSyncWatch,

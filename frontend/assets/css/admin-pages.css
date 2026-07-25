@@ -350,7 +350,7 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
 .admin-shell-card {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
-  border-radius: var(--cf-radius-surface);
+  border-radius: var(--cf-radius-control);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
@@ -365,7 +365,7 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
   }
 }
 
-/* Campos flutuantes — mesmo padrão do modal Nova aula */
+/* Campos flutuantes — modal, cadastro paciente e anamnese */
 .modal-card .modal-fields {
   display: flex;
   flex-direction: column;
@@ -373,12 +373,28 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
   margin-top: 0.5rem;
 }
 
-.modal-card .field--float {
+.modal-card .field--float,
+.anw-fields .field--float,
+.mped-main .field--float {
   position: relative;
   margin-top: 0.35rem;
+  width: 100%;
+  min-width: 0;
 }
 
-.modal-card .field--float label {
+.mped-main .field--float.mped-meal-notes {
+  margin-top: 1rem;
+}
+
+.mped-main .field--float.mped-meal-notes textarea {
+  min-height: 4.75rem;
+  padding: 0.95rem 0.9rem 0.85rem;
+  line-height: 1.45;
+}
+
+.modal-card .field--float label,
+.anw-fields .field--float > label,
+.mped-main .field--float > label {
   position: absolute;
   top: -0.58rem;
   left: 0.78rem;
@@ -392,9 +408,14 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
   line-height: 1;
 }
 
-.modal-card .field input,
+.modal-card .field input:not([type='range']),
 .modal-card .field textarea,
-.modal-card .field select:not(.cf-select-trigger) {
+.modal-card .field select:not(.cf-select-trigger),
+.anw-fields .field input:not([type='range']),
+.anw-fields .field textarea,
+.mped-main .field input:not([type='range']),
+.mped-main .field textarea,
+.mped-main .field select:not(.cf-select-trigger) {
   width: 100%;
   padding: 0.85rem 0.9rem;
   border: 1.5px solid #e8ece9;
@@ -406,18 +427,69 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.modal-card .field input:focus,
+.modal-card .field input:not([type='range']):focus,
 .modal-card .field textarea:focus,
-.modal-card .field select:not(.cf-select-trigger):focus {
+.modal-card .field select:not(.cf-select-trigger):focus,
+.anw-fields .field input:not([type='range']):focus,
+.anw-fields .field textarea:focus,
+.mped-main .field input:not([type='range']):focus,
+.mped-main .field textarea:focus {
   outline: none;
   border-color: #b8d4b4;
   box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
 }
 
-.modal-card .field--float input,
+.modal-card .field--float input:not([type='range']),
 .modal-card .field--float textarea,
-.modal-card .field--float select:not(.cf-select-trigger) {
+.modal-card .field--float select:not(.cf-select-trigger),
+.anw-fields .field--float input:not([type='range']),
+.anw-fields .field--float textarea,
+.mped-main .field--float input:not([type='range']),
+.mped-main .field--float textarea {
   padding-top: 0.95rem;
+}
+
+.modal-card .field--float input:not([type='range']) {
+  min-height: 2.75rem;
+}
+
+.modal-card .field--float textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.anw-fields .field textarea {
+  min-height: 4.5rem;
+  max-height: 9rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.anw-fields .field input {
+  min-height: 2.35rem;
+  resize: none;
+}
+
+.anw-fields .field input::placeholder,
+.anw-fields .field textarea::placeholder {
+  color: #9ca3af;
+}
+
+.anw-fields .anw-textarea-wrap textarea {
+  min-height: 6.5rem;
+  max-height: 10rem;
+  padding-left: 2rem;
+  padding-bottom: 1.5rem;
+  background: #faf8f9;
+}
+
+.anw-fields .anw-textarea-wrap textarea:focus {
+  background: #fff;
+}
+
+.anw-fields .anw-slider-box {
+  border-radius: var(--cf-radius-control);
 }
 
 .modal-card .field--float .cf-select,
@@ -425,6 +497,534 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
   width: 100%;
 }
 
-.modal-card .label-required {
-  color: #c2410c;
+.admin-shell .patient-skeleton:not(.patient-skeleton--circle):not(.patient-skeleton--chip):not(.patient-skeleton--text) {
+  border-radius: var(--cf-radius-control);
+}
+
+.admin-shell .patient-skeleton--text,
+.admin-shell .patient-skeleton--title {
+  border-radius: var(--cf-radius-pill);
+}
+
+.admin-shell .patient-skeleton--chip {
+  border-radius: var(--cf-radius-pill);
+}
+
+/* Lista compartilhada — anamnese, planos alimentares (regras.md) */
+.pawork {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pawork-history-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pawork-history-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #2c322c;
+}
+
+.pawork-history-head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.84rem;
+  color: #6b7368;
+}
+
+.pawork-history-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pawork-btn {
+  min-height: 2.1rem !important;
+  padding: 0.35rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+}
+
+.pawork-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  font-size: 0.8125rem;
+  color: #5f675f;
+}
+
+.pawork-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pawork-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+}
+
+.pawork-card-main {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pawork-card-main:focus-visible {
+  outline: none;
+}
+
+.pawork-card-main:hover .pawork-card-preview,
+.pawork-card-main:focus-visible .pawork-card-preview,
+.pawork-card-main:hover .pawork-card-meta,
+.pawork-card-main:focus-visible .pawork-card-meta {
+  color: #374151;
+}
+
+.pawork-card-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.1rem;
+}
+
+.pawork-card-main strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #2c322c;
+  line-height: 1.3;
+}
+
+.pawork-card--draft .pawork-card-main strong {
+  color: #6b7368;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.pawork-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: var(--cf-radius-pill);
+}
+
+.pawork-status--draft {
+  background: rgba(202, 138, 4, 0.14);
+  color: #8a6a00;
+}
+
+.pawork-status--completed,
+.pawork-status--active {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.pawork-status--archived {
+  background: #eef1ee;
+  color: #6b7368;
+}
+
+.pawork-status-dot {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.pawork-card-preview,
+.pawork-card-meta {
+  margin: 0.15rem 0 0.2rem;
+  font-size: 0.8125rem;
+  color: #5f675f;
+  line-height: 1.4;
+}
+
+.pawork-card-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.pawork-card-main small {
+  display: block;
+  color: #8a9288;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+
+.pawork-card-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 0.05rem;
+}
+
+.pawork-panel {
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+}
+
+.pawork-panel strong {
+  display: block;
+  font-size: 0.8125rem;
+  color: #2c322c;
+}
+
+.pawork-panel p {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: #6b7368;
+  line-height: 1.45;
+}
+
+.pawork-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.pawork-upload-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px dashed #c5cdc7;
+  border-radius: var(--cf-radius-control);
+  font-size: 0.78rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.pawork-upload-pick svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.pawork-upload-pick--disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.pawork-upload-input {
+  display: none;
+}
+
+.pawork-upload-name {
+  flex: 1;
+  min-width: 8rem;
+  font-size: 0.75rem;
+  color: #6b7368;
+}
+
+.pawork-foot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  align-self: center;
+  font-size: 0.78rem;
+  color: #6b7368;
+}
+
+.pawork-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: #6b7368;
+  cursor: pointer;
+}
+
+.pawork-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pawork-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.82rem;
+}
+
+.pawork-notice {
+  margin: 0;
+  color: #047857;
+  font-size: 0.82rem;
+}
+
+.pawork-msg {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: #15803d;
+}
+
+.pawork-msg--error {
+  color: #b42318;
+}
+
+/* Tabela — planos alimentares (ficha paciente, estilo referência Dietbox) */
+.mpwork-table-card {
+  overflow: hidden;
+  isolation: isolate;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.mpwork-table-scroll {
+  overflow-x: auto;
+  background: #fff;
+}
+
+.mpwork-table-card:has(.mpwork-table-foot) .mpwork-table-scroll {
+  border-radius: var(--cf-radius-control) var(--cf-radius-control) 0 0;
+}
+
+.mpwork-table-card:not(:has(.mpwork-table-foot)) .mpwork-table-scroll {
+  border-radius: var(--cf-radius-control);
+}
+
+.mpwork-table {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.mpwork-table thead th {
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid #eef1ee;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #8a9288;
+  text-align: left;
+  white-space: nowrap;
+  background: #fafbfa;
+}
+
+.mpwork-table thead th:first-child {
+  border-top-left-radius: var(--cf-radius-control);
+}
+
+.mpwork-table thead th:last-child {
+  border-top-right-radius: var(--cf-radius-control);
+}
+
+.mpwork-table tbody td {
+  padding: 0.9rem;
+  border-bottom: 1px solid #f1f3f2;
+  font-size: 0.8125rem;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.mpwork-table-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mpwork-table-row:hover td {
+  background: #f8faf9;
+}
+
+.mpwork-table-row:last-child td {
+  border-bottom: none;
+}
+
+.mpwork-table-title {
+  min-width: 12rem;
+  max-width: 20rem;
+  font-weight: 500;
+  color: #2c322c;
+  line-height: 1.35;
+}
+
+.mpwork-table-title--draft {
+  color: #8a9288;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.mpwork-table-objective {
+  max-width: 11rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #5f675f;
+}
+
+.mpwork-table-empty {
+  padding: 1.25rem 1rem !important;
+  background: #fafbfa;
+}
+
+.mpwork-table-actions-head,
+.mpwork-table-actions {
+  width: 2.75rem;
+  text-align: right;
+}
+
+.mpwork-table-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  color: #6b7368;
+}
+
+.mpwork-table-status--active {
+  color: #15803d;
+}
+
+.mpwork-table-status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.mpwork-table-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid #eef1ee;
+  background: #fafbfa;
+  border-radius: 0 0 var(--cf-radius-control) var(--cf-radius-control);
+}
+
+.mpwork-table-foot-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.mpwork-table-new {
+  min-height: 2.5rem !important;
+  padding: 0.5rem 1rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  border-radius: var(--cf-radius-control) !important;
+}
+
+.mpwork-table-meta {
+  font-size: 0.75rem;
+  color: #8a9288;
+}
+
+.mpwork-table-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  color: #6b7368;
+}
+
+@media (max-width: 720px) {
+  .pawork-history-head,
+  .pawork-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pawork-card {
+    align-items: flex-start;
+  }
+
+  .pawork-card-actions {
+    align-self: center;
+  }
+
+  .mpwork-table-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mpwork-table-foot-left {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Anamnese / orientações bottom sheet — Teleport no body precisa de CSS global garantido */
+.pa-sheet-overlay,
+.po-sheet-overlay,
+.pd-sheet-overlay,
+.pawork-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: stretch;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  background: rgba(28, 32, 28, 0.45);
+  box-sizing: border-box;
+}
+
+.pa-sheet,
+.po-sheet,
+.pd-sheet,
+.pawork-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  height: min(96dvh, 100%);
+  margin: 0;
+  background: #f7f8f6;
+  border-radius: var(--cf-radius-md, 1.25rem) var(--cf-radius-md, 1.25rem) 0 0;
+  box-shadow: 0 -16px 48px rgba(28, 32, 28, 0.2);
+  overflow: hidden;
+  box-sizing: border-box;
 }

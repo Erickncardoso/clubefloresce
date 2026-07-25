@@ -5,13 +5,22 @@
         v-if="toast"
         :key="toast.id"
         class="app-toast"
-        :class="`app-toast--${toast.type || 'success'}`"
+        :class="[
+          `app-toast--${toast.type || 'success'}`,
+          { 'app-toast--actionable': !!toast.actionLabel },
+        ]"
         role="status"
         aria-live="polite"
+        @click="onToastClick"
       >
         <div class="app-toast__row">
+          <span
+            v-if="(toast.type || 'success') === 'call'"
+            class="app-toast__pulse"
+            aria-hidden="true"
+          />
           <FlorescerPlayerIcons
-            v-if="(toast.type || 'success') === 'success'"
+            v-else-if="(toast.type || 'success') === 'success'"
             name="check"
             class="app-toast__icon"
           />
@@ -30,9 +39,21 @@
             <circle cx="12" cy="12" r="10" />
             <path d="m15 9-6 6M9 9l6 6" />
           </svg>
-          <p class="app-toast__text">{{ primaryText }}</p>
+
+          <div class="app-toast__copy">
+            <p class="app-toast__text">{{ primaryText }}</p>
+            <p v-if="secondaryText" class="app-toast__sub">{{ secondaryText }}</p>
+          </div>
+
+          <button
+            v-if="toast.actionLabel"
+            type="button"
+            class="app-toast__cta"
+            @click.stop="runAction"
+          >
+            {{ toast.actionLabel }}
+          </button>
         </div>
-        <p v-if="secondaryText" class="app-toast__sub">{{ secondaryText }}</p>
       </div>
     </Transition>
   </Teleport>
@@ -42,7 +63,7 @@
 import { computed } from 'vue'
 import FlorescerPlayerIcons from '~/components/courses/FlorescerPlayerIcons.vue'
 
-const { toast } = useAppToast()
+const { toast, hideToast } = useAppToast()
 
 const primaryText = computed(() => {
   if (!toast.value) return ''
@@ -58,6 +79,17 @@ const secondaryText = computed(() => {
   if (detail) parts.push(detail)
   return parts.join(' · ')
 })
+
+function runAction() {
+  const action = toast.value?.onAction
+  hideToast()
+  if (typeof action === 'function') action()
+}
+
+function onToastClick() {
+  if (!toast.value?.actionLabel) return
+  runAction()
+}
 </script>
 
 <style scoped>
@@ -66,7 +98,7 @@ const secondaryText = computed(() => {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 10001;
+  z-index: 2147483000;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -81,7 +113,15 @@ const secondaryText = computed(() => {
   backface-visibility: hidden;
 }
 
-.app-toast--success {
+.app-toast--actionable {
+  cursor: pointer;
+  min-height: 48px;
+  padding: 0.55rem 1rem;
+  padding-top: max(0.55rem, env(safe-area-inset-top));
+}
+
+.app-toast--success,
+.app-toast--call {
   background: #5cdb95;
   color: #0f1a14;
 }
@@ -95,8 +135,32 @@ const secondaryText = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.55rem;
   max-width: min(960px, 100%);
+  width: 100%;
+}
+
+.app-toast__copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  text-align: left;
+}
+
+.app-toast:not(.app-toast--actionable) .app-toast__copy {
+  align-items: center;
+  text-align: center;
+}
+
+.app-toast__pulse {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: #0f1a14;
+  flex-shrink: 0;
+  animation: app-toast-pulse 1.4s ease-out infinite;
 }
 
 .app-toast__icon {
@@ -138,6 +202,20 @@ const secondaryText = computed(() => {
   opacity: 0.92;
 }
 
+.app-toast__cta {
+  flex-shrink: 0;
+  margin-left: auto;
+  min-height: 2rem;
+  padding: 0.35rem 0.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 26, 20, 0.16);
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .app-toast-enter-active {
   transition:
     transform 0.48s cubic-bezier(0.16, 1, 0.3, 1),
@@ -158,5 +236,11 @@ const secondaryText = computed(() => {
 .app-toast-leave-to {
   opacity: 0;
   transform: translate3d(0, -100%, 0);
+}
+
+@keyframes app-toast-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(15, 26, 20, 0.45); }
+  70% { box-shadow: 0 0 0 10px rgba(15, 26, 20, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(15, 26, 20, 0); }
 }
 </style>

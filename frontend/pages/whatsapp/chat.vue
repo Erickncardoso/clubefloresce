@@ -102,7 +102,7 @@
             <!-- Corpo de Mensagens + painel de ações -->
             <!-- chatBodyRef do estado é preenchido dentro de ChatBody.vue -->
             <ChatBody
-              :messages="chatBodyDisplayMessages"
+              :messages="chatBodyMessages"
               :wallpaper-style="chatWallpaperStyle"
               :pin-timeline-events="chatPinTimelineEvents"
               :pinned-message-id-set="pinnedMessageIdSet"
@@ -574,6 +574,7 @@ import {
   resumeInitialSyncIfNeeded,
   beginInitialSyncWatch,
   isInitialSyncGentleMode,
+  ensureWhatsappProviderKind,
 } from '~/composables/whatsapp/useWhatsappInitialSync.js'
 import { useWhatsappContacts } from '~/composables/whatsapp/useWhatsappContacts.js'
 import { useWhatsappMessages } from '~/composables/whatsapp/useWhatsappMessages.js'
@@ -585,7 +586,6 @@ import {
 import { formatBuilderChoicesToUazapi } from '~/composables/whatsapp/useWhatsappInteractive.js'
 import { useWhatsappMessageActions } from '~/composables/whatsapp/useWhatsappMessageActions.js'
 import { useWhatsappBusinessProfile } from '~/composables/whatsapp/useWhatsappBusinessProfile.js'
-import { fetchContactChatDetails } from '~/composables/whatsapp/useWhatsappChatDetails.js'
 import { useWhatsappSharedContacts } from '~/composables/whatsapp/useWhatsappSharedContacts.js'
 import {
   blockConfirmOpen,
@@ -594,17 +594,11 @@ import {
   blockActionLoading,
   blockContactSnackbar,
   resolveChatDisplayName,
-  openUnblockContactDialog,
-  requestToggleBlockDialog,
   closeBlockConfirmDialog,
   closeUnblockConfirmDialog,
-  executeBlockContact,
-  executeUnblockContact,
-  undoBlockContact,
   dismissBlockContactSnackbar,
   isPrivateChatBlocked,
 } from '~/composables/whatsapp/useWhatsappBlockContact.js'
-import { deleteChatFromList } from '~/composables/whatsapp/useWhatsappChatListActions.js'
 import {
   quickRepliesSidebarOpen,
   quickRepliesPickerOpen,
@@ -673,17 +667,10 @@ import {
   applyWallpaperSelection,
   setCustomWallpaperFromFile,
 } from '~/composables/whatsapp/useWhatsappWallpaper.js'
-import {
-  createGroup as createGroupApi,
-  getGroupInfo as getGroupInfoApi,
-  leaveGroup as leaveGroupApi,
-  resetGroupInviteCode as resetGroupInviteCodeApi,
-  updateGroupAnnounce as updateGroupAnnounceApi,
-  updateGroupDescription as updateGroupDescriptionApi,
-  updateGroupLocked as updateGroupLockedApi,
-  updateGroupName as updateGroupNameApi,
-  updateGroupParticipants as updateGroupParticipantsApi
-} from '~/composables/whatsapp/useWhatsappGroupsApi.js'
+import { createGroup as createGroupApi } from '~/composables/whatsapp/useWhatsappGroupsApi.js'
+import { useWhatsappMediaComposer } from '~/composables/whatsapp/useWhatsappMediaComposer.js'
+import { useWhatsappGroupPanel, selectedChatIsGroup, sessionJid } from '~/composables/whatsapp/useWhatsappGroupPanel.js'
+import { useWhatsappContactPanel } from '~/composables/whatsapp/useWhatsappContactPanel.js'
 
 // ─── Estado compartilhado ─────────────────────────────────────────────────────
 const {
@@ -819,10 +806,53 @@ const {
   filteredGroupChats, openConversationFromSharedContact, openBusinessProfileFromSharedContact
 } = useWhatsappSharedContacts()
 
-// ─── Handlers locais ──────────────────────────────────────────────────────────
-
+// ─── Compositor de mídia, painel de grupo e painel de contato ─────────────────
 // chatBodyRef do estado é preenchido diretamente por ChatBody.vue via template ref
 const chatFooterRef = ref(null)
+
+// addressBookNormalizedCache declarado cedo para ser passado ao painel de grupo
+const addressBookNormalizedCache = ref([])
+
+const {
+  mediaComposerOpen, mediaComposerSending, mediaComposerCaption, mediaComposerFiles, mediaComposerActiveIndex,
+  documentViewerOpen, documentViewerUrl, documentViewerName, documentViewerMimeType,
+  pendingDocumentUploads, closeMediaComposer, triggerComposerAddMore, onFooterMediaChange,
+  appendMediaComposerEmoji, confirmSendMediaComposer, openDocumentViewer, closeDocumentViewer, handleSendVoice,
+} = useWhatsappMediaComposer({ chatFooterRef })
+
+const {
+  groupInfoModalOpen, groupSidePanelView, groupInfoLoading, groupInfoError, groupInfoData,
+  groupInfoLoadedJid, groupInfoLoadSeq, groupPermissionsSaving, groupMediaModalOpen, groupMediaActiveTab,
+  groupMutedChats, groupFavoriteChats, groupAccessByJid, addGroupMembersOpen, addGroupMembersContacts,
+  addGroupMembersSelectedIds, addGroupMembersSearchQuery, addGroupMembersSending, addGroupMembersLoading,
+  addGroupMembersFeedback, activeGroupInfoForPanel, selectedGroupAccess, selectedGroupViewerIsAdmin,
+  selectedGroupComposeLocked, groupInfoParticipantsRaw, groupMemberLookupContext,
+  groupInfoMediaItems, groupInfoDocumentItems, groupInfoLinkItems, groupInfoPreviewItems, groupInfoMediaDocsCount,
+  filteredAddGroupMembersContacts, openGroupInfoModal, closeGroupInfoModal, handleGroupMediaPanelBack,
+  handleGroupPermissionsBack, closeAddGroupMembersPanel, handleGroupAddMembersBack,
+  toggleAddGroupMembersSelection, confirmAddGroupMembers,
+  handleGroupInfoAddMembers,
+  handleGroupInfoPermissions, handleGroupPermissionToggle, handleGroupInfoEditAdmins, handleGroupInfoInviteLink,
+  handleGroupInfoEditName, handleGroupInfoDescription, handleGroupInfoLeave, handleGroupInfoToggleMute,
+  handleGroupInfoToggleFavorite, handleGroupInfoMediaDocs, handleGroupInfoStarredMessages,
+  syncGroupAccessFromInfo, refreshSelectedGroupAccess, refreshOpenedGroupInfo,
+} = useWhatsappGroupPanel({
+  ensureAddressBookContactsNormalized: (...args) => ensureAddressBookContactsNormalized(...args),
+  startBackgroundContactAvatarHydration: (...args) => startBackgroundContactAvatarHydration(...args),
+  addressBookNormalizedCache,
+})
+
+const {
+  contactInfoModalOpen, contactSidePanelView, contactInfoLoading, contactInfoError, contactInfoDetails,
+  openContactInfoModal, closeContactInfoModal, handleContactMediaPanelBack, handleContactInfoMediaDocs,
+  handleContactInfoSearch, handleContactInfoStarredMessages, handleContactInfoEditNotes,
+  handleContactInfoClearChat, handleContactInfoReport, handleContactInfoToggleMute,
+  handleContactInfoToggleFavorite, handleContactInfoToggleBlock, handleConfirmBlockContact,
+  handleConfirmUnblockContact, handleUndoBlockContact, handleBlockedFooterUnblock,
+  handleContactInfoDeleteChat, handleBlockedFooterDeleteChat, handleContactInfoOpenGroup, openChatByJid,
+} = useWhatsappContactPanel()
+
+// ─── Handlers locais ──────────────────────────────────────────────────────────
 const messageSearchQuery = ref('')
 const chatListFilter = ref('all')
 
@@ -1133,14 +1163,6 @@ const sendContactsSending = ref(false)
 const sendContactsFeedback = ref('')
 const sendContactsSearchQuery = ref('')
 const sendContactsList = ref([])
-const addGroupMembersContacts = ref([])
-const addGroupMembersOpen = ref(false)
-const addGroupMembersSelectedIds = ref([])
-const addGroupMembersSearchQuery = ref('')
-const addGroupMembersSending = ref(false)
-const addGroupMembersLoading = ref(false)
-const addGroupMembersFeedback = ref('')
-const addressBookNormalizedCache = ref([])
 const sendContactsSelectedIds = ref([])
 const createGroupModalOpen = ref(false)
 const createGroupSending = ref(false)
@@ -1149,89 +1171,6 @@ const createGroupName = ref('')
 const createGroupSearchQuery = ref('')
 const createGroupContacts = ref([])
 const createGroupSelectedIds = ref([])
-const groupInfoModalOpen = ref(false)
-const groupSidePanelView = ref('info')
-const groupInfoLoading = ref(false)
-const groupInfoError = ref('')
-const groupInfoData = ref(null)
-const groupInfoLoadedJid = ref('')
-const groupInfoLoadSeq = ref(0)
-const groupPermissionsSaving = ref(false)
-const contactInfoModalOpen = ref(false)
-const contactSidePanelView = ref('contact')
-const contactInfoLoading = ref(false)
-const contactInfoError = ref('')
-const contactInfoDetails = ref(null)
-const groupMediaModalOpen = ref(false)
-const groupMediaActiveTab = ref('media')
-const mediaComposerOpen = ref(false)
-const mediaComposerSending = ref(false)
-const mediaComposerCaption = ref('')
-const mediaComposerFiles = ref([])
-const mediaComposerActiveIndex = ref(0)
-const documentViewerOpen = ref(false)
-const documentViewerUrl = ref('')
-const documentViewerName = ref('')
-const documentViewerMimeType = ref('')
-const documentViewerObjectUrl = ref('')
-const autoMediaPrefetchAttemptedById = ref({})
-const pendingDocumentUploads = ref({})
-const groupMutedChats = ref({})
-const groupFavoriteChats = ref({})
-const sessionJid = ref('')
-const groupAccessByJid = ref({})
-
-const selectedChatIsGroup = computed(() => {
-  const chat = selectedChat.value
-  if (!chat) return false
-  return Boolean(chat.isGroup || chat.wa_isGroup) || isGroupJid(chat.chatJid || chat.wa_chatid || '')
-})
-
-const activeGroupInfoForPanel = computed(() => {
-  const currentJid = normalizeJid(resolveSelectedChatJid())
-  const loadedJid = normalizeJid(
-    groupInfoLoadedJid.value ||
-    groupInfoData.value?.JID ||
-    groupInfoData.value?.jid ||
-    groupInfoData.value?.groupjid ||
-    ''
-  )
-  if (!currentJid || !loadedJid || currentJid !== loadedJid || !groupInfoData.value) return null
-  return groupInfoData.value
-})
-
-const selectedGroupAccess = computed(() => {
-  const jid = normalizeJid(resolveSelectedChatJid())
-  if (!jid || !selectedChatIsGroup.value) {
-    return { isAnnounce: false, viewerIsAdmin: false, loaded: false }
-  }
-  const cached = groupAccessByJid.value[jid]
-  const modalJid = normalizeJid(groupInfoData.value?.JID || groupInfoData.value?.jid || groupInfoData.value?.groupjid || '')
-  if (modalJid && modalJid === jid) {
-    const participants = Array.isArray(groupInfoData.value?.Participants)
-      ? groupInfoData.value.Participants
-      : (Array.isArray(groupInfoData.value?.participants) ? groupInfoData.value.participants : [])
-    const membership = resolveViewerGroupMembership(
-      participants,
-      sessionJid.value || getStoredSessionJid(),
-      { lidMap: lidToJidMap.value, groupInfo: groupInfoData.value }
-    )
-    return {
-      isAnnounce: isGroupAnnounceRestricted(groupInfoData.value),
-      viewerIsAdmin: membership.isAdmin,
-      loaded: true
-    }
-  }
-  return cached || { isAnnounce: false, viewerIsAdmin: false, loaded: false }
-})
-
-const selectedGroupViewerIsAdmin = computed(() => Boolean(selectedGroupAccess.value.viewerIsAdmin))
-
-const selectedGroupComposeLocked = computed(() => {
-  const access = selectedGroupAccess.value
-  if (!selectedChatIsGroup.value || !access.loaded) return false
-  return access.isAnnounce && !access.viewerIsAdmin
-})
 
 const selectedContactBlocked = computed(() => {
   if (!selectedChat.value || selectedChatIsGroup.value) return false
@@ -1241,11 +1180,6 @@ const selectedContactBlocked = computed(() => {
 const blockDialogDisplayName = computed(() =>
   resolveChatDisplayName(blockDialogTarget.value || selectedChat.value)
 )
-
-const syncContactInfoBlockedState = (blocked) => {
-  if (!contactInfoDetails.value) return
-  contactInfoDetails.value = { ...contactInfoDetails.value, isBlocked: blocked }
-}
 const addressBookContactsCache = ref([])
 const addressBookContactsCacheAt = ref(0)
 const contactAvatarCache = ref({})
@@ -1287,42 +1221,6 @@ const filteredSendContacts = computed(() => {
   )
 })
 
-const existingGroupMemberKeys = computed(() => {
-  const participants = groupInfoParticipantsRaw.value
-  const keys = new Set()
-  participants.forEach((participant) => {
-    const jid = String(participant?.JID || participant?.jid || participant?.PhoneNumber || '').trim()
-    const lid = String(participant?.LID || participant?.lid || '').trim()
-    const phoneFromJid = jid.includes('@') ? jid.split('@')[0].replace(/\D/g, '') : ''
-    const phone = String(participant?.PhoneNumber || phoneFromJid || '').replace(/\D/g, '')
-    if (phone.length >= 10) keys.add(phone)
-    if (jid) keys.add(normalizeJid(jid))
-    if (lid) keys.add(normalizeJid(lid))
-  })
-  return keys
-})
-
-const isContactAlreadyInGroup = (contact) => {
-  const memberKeys = existingGroupMemberKeys.value
-  const number = String(contact?.number || '').replace(/\D/g, '')
-  if (number.length >= 10 && memberKeys.has(number)) return true
-  const jid = normalizeJid(contact?.jid || '')
-  if (jid && memberKeys.has(jid)) return true
-  return false
-}
-
-const filteredAddGroupMembersContacts = computed(() => {
-  const query = String(addGroupMembersSearchQuery.value || '').trim().toLowerCase()
-  return addGroupMembersContacts.value.filter((item) => {
-    if (isContactAlreadyInGroup(item)) return false
-    if (!query) return true
-    return String(item?.name || '').toLowerCase().includes(query) ||
-      String(item?.number || '').includes(query) ||
-      String(item?.displayNumber || '').includes(query) ||
-      String(item?.subtitle || '').toLowerCase().includes(query)
-  })
-})
-
 const filteredCreateGroupContacts = computed(() => {
   const query = String(createGroupSearchQuery.value || '').trim().toLowerCase()
   if (!query) return createGroupContacts.value
@@ -1331,205 +1229,6 @@ const filteredCreateGroupContacts = computed(() => {
     String(item?.number || '').toLowerCase().includes(query)
   )
 })
-
-const groupInfoMediaItems = computed(() => {
-  const source = Array.isArray(renderedMessages.value) ? renderedMessages.value : []
-  return source
-    .filter((msg) => {
-      const mediaType = String(msg?.mediaType || '').toLowerCase()
-      return ['image', 'video', 'sticker'].includes(mediaType)
-    })
-    .map((msg, index) => {
-      const { previewUrl, mediaUrl, thumbUrl } = resolveMediaGalleryPreviewUrl(msg)
-      const mediaType = String(msg?.mediaType || msg?.type || 'media').toLowerCase()
-      const label = mediaType.includes('video') ? 'Vídeo' : mediaType.includes('sticker') ? 'Figurinha' : 'Imagem'
-      return {
-        id: String(msg?.id || msg?.messageid || `media-${index}`),
-        kind: 'media',
-        previewUrl,
-        mediaUrl: mediaUrl || previewUrl,
-        thumbUrl,
-        mediaType,
-        label,
-        timestamp: Number(msg?.timestamp || 0)
-      }
-    })
-    .filter((item) => Boolean(item.previewUrl || item.mediaUrl))
-    .sort((a, b) => b.timestamp - a.timestamp)
-})
-
-const groupInfoDocumentItems = computed(() => {
-  const source = Array.isArray(renderedMessages.value) ? renderedMessages.value : []
-  return source
-    .filter((msg) => String(msg?.mediaType || '').toLowerCase() === 'document')
-    .map((msg, index) => {
-      const documentNode = msg?.content?.documentMessage || {}
-      const fileName = String(documentNode?.fileName || msg?.text || `Documento ${index + 1}`).trim()
-      const mediaUrl = String(msg?.mediaUrl || '').trim()
-      const pageCountRaw = Number(documentNode?.pageCount || documentNode?.pageCountV2 || 0)
-      const pageCount = Number.isFinite(pageCountRaw) && pageCountRaw > 0 ? Math.floor(pageCountRaw) : 0
-      const mimeType = String(documentNode?.mimetype || documentNode?.mimeType || '').trim().toUpperCase() || 'DOC'
-      const fileLengthRaw = Number(documentNode?.fileLength || documentNode?.fileSize || 0)
-      const fileKb = Number.isFinite(fileLengthRaw) && fileLengthRaw > 0 ? `${Math.max(1, Math.round(fileLengthRaw / 1024))} KB` : ''
-      const metadata = [pageCount ? `${pageCount} ${pageCount > 1 ? 'páginas' : 'página'}` : '', mimeType, fileKb].filter(Boolean).join(' · ')
-      const previewImage = String(extractUazapiJpegThumbDataUrl(msg?.content) || '').trim()
-      return {
-        id: String(msg?.id || msg?.messageid || `doc-${index}`),
-        kind: 'document',
-        fileName,
-        subtitle: metadata || 'Documento',
-        previewUrl: previewImage,
-        mediaUrl,
-        timestamp: Number(msg?.timestamp || 0),
-        senderLabel: String(msg?.senderDisplayName || '').trim() || 'Contato',
-        dayLabel: msg?.timestamp ? new Date(msg.timestamp).toLocaleDateString('pt-BR', { weekday: 'long' }) : '',
-        dateLabel: msg?.timestamp ? new Date(msg.timestamp).toLocaleDateString('pt-BR') : '',
-        timeLabel: msg?.timestamp ? new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''
-      }
-    })
-    .sort((a, b) => b.timestamp - a.timestamp)
-})
-
-const linkUrlPattern = /(https?:\/\/[^\s<>"']+)/gi
-
-const cleanLinkHref = (href) => String(href || '').trim().replace(/[)\],.;!?]+$/g, '')
-
-const linkHostFromHref = (href) => {
-  try {
-    return new URL(String(href || '')).hostname.replace(/^www\./i, '')
-  } catch {
-    return ''
-  }
-}
-
-const isUrlLikeText = (value) => /^https?:\/\//i.test(String(value || '').trim())
-
-const buildLinkPanelTitle = (linkPreview, href) => {
-  const title = String(linkPreview?.title || '').trim()
-  const source = String(linkPreview?.source || linkHostFromHref(href)).trim()
-  if (title && title !== href && !isUrlLikeText(title)) return title
-  return source || href
-}
-
-const buildLinkPanelDescription = (linkPreview, href, title) => {
-  const description = String(linkPreview?.description || '').trim()
-  if (!description || description === href || description === title || isUrlLikeText(description)) return ''
-  return description
-}
-
-const buildLinkPanelCaption = (linkPreview, href) => {
-  const caption = String(linkPreview?.bodyText || '').trim()
-  if (!caption || caption === href || isUrlLikeText(caption)) return ''
-  if (caption.includes(href)) return ''
-  return caption
-}
-
-const groupInfoLinkItems = computed(() => {
-  const source = Array.isArray(renderedMessages.value) ? renderedMessages.value : []
-  const links = []
-
-  source.forEach((msg, msgIndex) => {
-    const pushLink = (href, linkPreview = null) => {
-      const cleanHref = cleanLinkHref(href)
-      if (!cleanHref || !/^https?:\/\//i.test(cleanHref)) return
-      const title = buildLinkPanelTitle(linkPreview, cleanHref)
-      const description = linkPreview ? buildLinkPanelDescription(linkPreview, cleanHref, title) : ''
-      const caption = linkPreview ? buildLinkPanelCaption(linkPreview, cleanHref) : ''
-      const previewImage = String(linkPreview?.imageUrl || '').trim()
-      const sourceLabel = String(linkPreview?.source || linkHostFromHref(cleanHref)).trim()
-
-      links.push({
-        id: `${String(msg?.id || msg?.messageid || `link-${msgIndex}`)}-${cleanHref}`,
-        kind: 'link',
-        href: cleanHref,
-        title,
-        description,
-        caption,
-        previewImage,
-        source: sourceLabel,
-        senderLabel: String(msg?.senderDisplayName || msg?.pushName || '').trim() || 'Contato',
-        timeLabel: msg?.timestamp ? new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '',
-        dayLabel: msg?.timestamp ? new Date(msg.timestamp).toLocaleDateString('pt-BR', { weekday: 'long' }) : '',
-        timestamp: Number(msg?.timestamp || 0)
-      })
-    }
-
-    if (msg?.linkPreview?.url) {
-      pushLink(msg.linkPreview.url, msg.linkPreview)
-      return
-    }
-
-    const text = String(msg?.text || '').trim()
-    if (!text) return
-    const hrefSet = new Set()
-    for (const match of text.match(linkUrlPattern) || []) {
-      const clean = cleanLinkHref(match)
-      if (clean) hrefSet.add(clean)
-    }
-    hrefSet.forEach((href) => pushLink(href, null))
-  })
-  const uniqueByHref = new Map()
-  links.forEach((item) => {
-    const key = String(item.href || '').toLowerCase()
-    if (!key) return
-    const current = uniqueByHref.get(key)
-    if (!current) {
-      uniqueByHref.set(key, item)
-      return
-    }
-
-    const score = (entry) => {
-      if (!entry || typeof entry !== 'object') return 0
-      let points = 0
-      if (String(entry.previewImage || '').trim()) points += 100
-      if (String(entry.title || '').trim() && String(entry.title || '').trim() !== String(entry.href || '').trim()) points += 20
-      if (String(entry.description || '').trim()) points += 15
-      if (String(entry.caption || '').trim()) points += 8
-      if (String(entry.source || '').trim()) points += 5
-      return points
-    }
-
-    const currentScore = score(current)
-    const incomingScore = score(item)
-    if (incomingScore > currentScore) {
-      uniqueByHref.set(key, item)
-      return
-    }
-    if (incomingScore === currentScore && Number(item.timestamp || 0) > Number(current?.timestamp || 0)) {
-      uniqueByHref.set(key, item)
-    }
-  })
-  return Array.from(uniqueByHref.values()).sort((a, b) => b.timestamp - a.timestamp)
-})
-
-const groupInfoPreviewItems = computed(() =>
-  groupInfoMediaItems.value
-    .filter((item) => Boolean(item.previewUrl))
-    .slice(0, 4)
-)
-
-const groupInfoMediaDocsCount = computed(
-  () => groupInfoMediaItems.value.length + groupInfoDocumentItems.value.length + groupInfoLinkItems.value.length
-)
-
-const groupInfoParticipantsRaw = computed(() => {
-  if (!groupInfoModalOpen.value) return []
-  const data = activeGroupInfoForPanel.value
-  if (!data) return []
-  if (Array.isArray(data.Participants)) return data.Participants
-  if (Array.isArray(data.participants)) return data.participants
-  return []
-})
-
-const groupMemberLookupContext = computed(() => ({
-  contactsDirectory: contactsDirectory.value,
-  groupParticipantsDirectory: groupParticipantsDirectory.value,
-  groupParticipantsByJid: groupParticipantsByJid.value,
-  groupParticipantsByLid: groupParticipantsByLid.value,
-  observedSenderDirectory: observedSenderDirectory.value,
-  senderAvatarDirectory: senderAvatarDirectory.value,
-  lidToJidMap: lidToJidMap.value
-}))
 
 const handleOpenConversation = (sharedContact) => {
   openConversationFromSharedContact(
@@ -1553,388 +1252,8 @@ const handleOpenBusinessProfile = async (sharedContact) => {
   })
 }
 
-const closeMediaComposer = (force = false) => {
-  if (mediaComposerSending.value && !force) return
-  mediaComposerFiles.value.forEach((item) => {
-    const url = String(item?.previewUrl || '').trim()
-    if (url && url.startsWith('blob:') && typeof URL !== 'undefined') {
-      try { URL.revokeObjectURL(url) } catch {}
-    }
-  })
-  mediaComposerOpen.value = false
-  mediaComposerCaption.value = ''
-  mediaComposerFiles.value = []
-  mediaComposerActiveIndex.value = 0
-}
-
-const triggerComposerAddMore = () => {
-  triggerFilePicker(
-    chatFooterRef.value?.mediaInputEl,
-    sending.value || mediaComposerSending.value,
-    selectedChat.value,
-    'image/*,video/*,audio/*,application/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.csv'
-  )
-}
-
-const normalizeMediaComposerFiles = (fileList) => {
-  const buildDocumentFallbackThumbnail = (fileName = 'Documento') => {
-    if (typeof document === 'undefined') return ''
-    try {
-      const canvas = document.createElement('canvas')
-      canvas.width = 640
-      canvas.height = 360
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return ''
-      ctx.fillStyle = '#0b2a2e'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = '#123f44'
-      ctx.fillRect(0, 0, canvas.width, 84)
-      ctx.fillStyle = '#ff4d6d'
-      ctx.fillRect(28, 122, 72, 88)
-      ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 28px Arial'
-      ctx.fillText('PDF', 36, 175)
-      const safeName = String(fileName || 'Documento').trim().slice(0, 42)
-      ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 30px Arial'
-      ctx.fillText(safeName || 'Documento', 120, 168)
-      return canvas.toDataURL('image/jpeg', 0.82)
-    } catch {
-      return ''
-    }
-  }
-
-  const next = []
-  Array.from(fileList || []).forEach((file, index) => {
-    if (!file) return
-    const mime = String(file.type || '').toLowerCase()
-    const extension = String(file.name || '').split('.').pop() || ''
-    const normalizedExtension = String(extension || '').trim().toLowerCase()
-    const isPdfByMime = mime === 'application/pdf'
-    const isPdfByExtension = normalizedExtension === 'pdf'
-    const isPdfDocument = isPdfByMime || isPdfByExtension
-    const type = mime.startsWith('image/')
-      ? 'image'
-      : mime.startsWith('video/')
-        ? 'video'
-        : mime.startsWith('audio/')
-          ? 'audio'
-          : 'document'
-    const previewUrl = (type === 'image' || type === 'video' || isPdfDocument) ? URL.createObjectURL(file) : ''
-    const sizeMb = Number(file.size || 0) / (1024 * 1024)
-    next.push({
-      id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-      file,
-      type,
-      previewUrl,
-      documentThumbDataUrl: type === 'document' ? buildDocumentFallbackThumbnail(file.name || 'Documento') : '',
-      name: String(file.name || 'Arquivo').trim(),
-      sizeLabel: sizeMb > 0 ? `${sizeMb.toFixed(1)} MB` : '',
-      extensionLabel: extension ? extension.toUpperCase() : (isPdfDocument ? 'PDF' : type.toUpperCase())
-    })
-  })
-  return next
-}
-
-const onFooterMediaChange = (event) => {
-  if (selectedGroupComposeLocked.value) return
-  const files = normalizeMediaComposerFiles(event?.target?.files)
-  event.target.value = ''
-  if (!files.length || !selectedChat.value?.chatJid) return
-  mediaComposerFiles.value = [...mediaComposerFiles.value, ...files]
-  mediaComposerOpen.value = true
-  mediaComposerActiveIndex.value = Math.max(0, mediaComposerFiles.value.length - files.length)
-}
-
-const appendMediaComposerEmoji = (emoji) => {
-  mediaComposerCaption.value = String(emoji || '')
-}
-
-const upsertPendingDocumentMessages = (chatJid, files, caption) => {
-  const targetChatJid = String(chatJid || '').trim()
-  if (!targetChatJid || !Array.isArray(files) || !files.length) return []
-  const now = Date.now()
-  const pendingRows = files.map((item, idx) => {
-    const pendingId = `pending-doc-${now}-${idx}-${Math.random().toString(36).slice(2, 8)}`
-    pendingDocumentUploads.value[pendingId] = {
-      chatJid: targetChatJid,
-      fileName: String(item?.file?.name || item?.name || 'Documento').trim().toLowerCase(),
-      createdAt: now
-    }
-    return {
-      id: pendingId,
-      messageid: pendingId,
-      fromMe: true,
-      timestamp: now + idx,
-      text: String(caption || '').trim(),
-      isMedia: true,
-      mediaType: 'document',
-      mediaUrl: '',
-      previewUrl: String(item?.documentThumbDataUrl || '').trim(),
-      documentFileName: String(item?.file?.name || item?.name || 'Documento').trim(),
-      documentSizeBytes: Number(item?.file?.size || 0),
-      mimetype: String(item?.file?.type || '').trim(),
-      isPendingUpload: true,
-      deliveryStatus: 'pending',
-      deliveryIndicator: '⏳'
-    }
-  })
-  messages.value = [...messages.value, ...pendingRows]
-  return pendingRows.map((row) => row.id)
-}
-
-const reconcilePendingDocumentMessages = () => {
-  const currentChatJid = String(selectedChat.value?.chatJid || '').trim()
-  if (!currentChatJid) return
-  const rendered = Array.isArray(renderedMessages.value) ? renderedMessages.value : []
-  const deliveredDocNames = new Set(
-    rendered
-      .filter((msg) => msg && !msg.isPendingUpload && msg.fromMe && String(msg.mediaType || '').toLowerCase() === 'document')
-      .map((msg) => String(msg.documentFileName || msg.fileName || msg.text || '').trim().toLowerCase())
-      .filter(Boolean)
-  )
-  const now = Date.now()
-  const toRemove = new Set()
-  Object.entries(pendingDocumentUploads.value).forEach(([pendingId, meta]) => {
-    if (String(meta?.chatJid || '') !== currentChatJid) return
-    const matchedDelivered = meta?.fileName && deliveredDocNames.has(String(meta.fileName || '').toLowerCase())
-    const expired = Number(now - Number(meta?.createdAt || now)) > 180000
-    if (matchedDelivered || expired) {
-      toRemove.add(pendingId)
-      delete pendingDocumentUploads.value[pendingId]
-    }
-  })
-  if (!toRemove.size) return
-  messages.value = messages.value.filter((msg) => !toRemove.has(String(msg?.id || '')))
-}
-
-const preloadMissingMediaInBackground = async (items = []) => {
-  const candidates = (Array.isArray(items) ? items : [])
-    .filter((msg) =>
-      msg &&
-      msg.isMedia &&
-      !msg.isPendingUpload &&
-      !msg.mediaUrl &&
-      String(msg.mediaType || '').toLowerCase() !== 'document' &&
-      !autoMediaPrefetchAttemptedById.value[msg.id] &&
-      !downloadingMediaById.value[msg.id]
-    )
-    .slice(0, 20)
-  if (!candidates.length) return
-  await Promise.allSettled(candidates.map(async (item) => {
-    const ok = await downloadMessageMedia(item)
-    if (ok) {
-      autoMediaPrefetchAttemptedById.value = {
-        ...autoMediaPrefetchAttemptedById.value,
-        [item.id]: true,
-      }
-    }
-  }))
-}
-
-const fileToBase64DataUrl = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader()
-  reader.onload = () => resolve(reader.result)
-  reader.onerror = reject
-  reader.readAsDataURL(file)
-})
-
-const toPureBase64 = (value) => {
-  const raw = String(value || '').trim()
-  if (!raw) return ''
-  const marker = 'base64,'
-  const markerIndex = raw.indexOf(marker)
-  if (markerIndex >= 0) return raw.slice(markerIndex + marker.length).trim()
-  return raw
-}
-
-const sendMediaWithTimeout = async (proxyBase, payload, timeoutMs = 45000) => {
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
-  const timeoutId = controller
-    ? setTimeout(() => controller.abort(new Error('timeout')), timeoutMs)
-    : null
-  try {
-    const response = await fetch(`${proxyBase}/send/media`, {
-      method: 'POST',
-      headers: whatsappJsonHeaders(),
-      body: JSON.stringify(payload),
-      signal: controller?.signal
-    })
-    const body = await response.json().catch(() => ({}))
-    return { response, body }
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId)
-  }
-}
-
-const blobToBase64DataUrl = (blob) => new Promise((resolve, reject) => {
-  const reader = new FileReader()
-  reader.onload = () => resolve(reader.result)
-  reader.onerror = reject
-  reader.readAsDataURL(blob)
-})
-
 const handleVoiceRecorderError = (message) => {
   chatActionFeedback.value = String(message || 'Não foi possível gravar áudio.')
-}
-
-const handleSendVoice = async (payload) => {
-  if (!selectedChat.value?.chatJid || sending.value || !payload?.blob) return
-  const chatJid = selectedChat.value.chatJid
-  const savedReplyingTo = replyingTo.value
-  const mimeType = String(payload.mimeType || payload.blob.type || 'audio/webm').trim() || 'audio/webm'
-
-  try {
-    sending.value = true
-    const base64File = await blobToBase64DataUrl(payload.blob)
-    const requestPayload = {
-      number: chatJid,
-      type: 'ptt',
-      file: toPureBase64(base64File),
-      mimetype: mimeType,
-    }
-    if (savedReplyingTo?.messageid) requestPayload.replyid = savedReplyingTo.messageid
-
-    const { response, body } = await sendMediaWithTimeout(getProxyBase(), requestPayload, 45000)
-    if (!response.ok) {
-      throw new Error(body?.message || body?.error || 'Falha ao enviar mensagem de voz')
-    }
-
-    replyingTo.value = null
-    refreshChatPreview(chatJid, {
-      lastMessage: '🎤 Mensagem de voz',
-      lastMessageFromMe: true,
-      lastMessagePrefix: '',
-      lastMessageTime: Date.now(),
-      wa_lastMessageTextVote: '🎤 Mensagem de voz',
-    })
-    await refreshSelectedChatMessages()
-    scrollToBottom()
-  } catch (error) {
-    chatActionFeedback.value = String(error?.message || 'Falha ao enviar mensagem de voz')
-  } finally {
-    sending.value = false
-  }
-}
-
-const confirmSendMediaComposer = async () => {
-  if (!selectedChat.value?.chatJid || mediaComposerSending.value || !mediaComposerFiles.value.length) return
-  const chatToRefresh = selectedChat.value
-  mediaComposerSending.value = true
-  try {
-    const proxyBase = getProxyBase()
-    const items = [...mediaComposerFiles.value]
-    const caption = String(mediaComposerCaption.value || '').trim()
-    const documentItems = items.filter((item) => String(item?.type || '').toLowerCase() === 'document')
-    if (documentItems.length) {
-      upsertPendingDocumentMessages(selectedChat.value.chatJid, documentItems, caption)
-    }
-    const hasDocument = items.some((item) => String(item?.type || '').toLowerCase() === 'document')
-    const CONCURRENCY = hasDocument ? 1 : 2
-    let cursor = 0
-    let hasAsyncDocumentPending = false
-    const looksLikeTimeoutError = (value) => {
-      const t = String(value || '').trim().toLowerCase()
-      return t.includes('timeout') || t.includes('timed out') || t.includes('gateway timeout')
-    }
-    const isDocAsyncPendingCase = (status, message, errorObj) => {
-      const statusNum = Number(status || 0)
-      if ([408, 502, 503, 504, 524].includes(statusNum)) return true
-      if (looksLikeTimeoutError(message)) return true
-      const errMsg = String(errorObj?.message || '').toLowerCase()
-      const errName = String(errorObj?.name || '').toLowerCase()
-      if (errName === 'aborterror') return true
-      return errMsg.includes('timeout') || errMsg.includes('failed to fetch') || errMsg.includes('networkerror')
-    }
-    const scheduleBackgroundRefreshes = () => {
-      const delays = [1000, 2500, 5000, 8000, 12000, 17000, 23000, 30000, 40000, 55000, 70000, 90000, 120000]
-      delays.forEach((delayMs) => {
-        setTimeout(() => {
-          if (normalizeJid(selectedChat.value?.chatJid || '') === normalizeJid(chatToRefresh?.chatJid || '')) {
-            refreshSelectedChatMessages().catch(() => {})
-          }
-        }, delayMs)
-      })
-    }
-
-    const worker = async () => {
-      while (cursor < items.length) {
-        const currentIndex = cursor++
-        const item = items[currentIndex]
-        const file = item?.file
-        if (!file) continue
-        const base64File = await fileToBase64DataUrl(file)
-        const isDocumentType = String(item?.type || '').toLowerCase() === 'document'
-        const normalizedMimeType = String(file.type || '').trim()
-        const normalizedDocName = String(file.name || '').trim()
-        const requestPayload = {
-          number: selectedChat.value.chatJid,
-          type: item.type,
-          file: toPureBase64(base64File),
-          mimetype: normalizedMimeType,
-          text: caption,
-          async: isDocumentType
-        }
-        if (isDocumentType && normalizedDocName) requestPayload.docName = normalizedDocName
-
-        let response
-        let body
-        const requestTimeoutMs = (isDocumentType && requestPayload.async === true) ? 5000 : 20000
-        try {
-          ({ response, body } = await sendMediaWithTimeout(proxyBase, requestPayload, requestTimeoutMs))
-        } catch (requestError) {
-          if (isDocumentType && requestPayload.async === true && isDocAsyncPendingCase(0, '', requestError)) {
-            hasAsyncDocumentPending = true
-            continue
-          }
-          throw requestError
-        }
-        if (!response.ok && isDocumentType && requestPayload.async === true && isDocAsyncPendingCase(response.status, body?.message || body?.error || '', null)) {
-          hasAsyncDocumentPending = true
-          continue
-        }
-        if (!response.ok && (response.status === 504 || response.status === 502)) {
-          try {
-            ;({ response, body } = await sendMediaWithTimeout(proxyBase, requestPayload, 25000))
-          } catch (retryError) {
-            if (isDocumentType && requestPayload.async === true && isDocAsyncPendingCase(0, '', retryError)) {
-              hasAsyncDocumentPending = true
-              continue
-            }
-            throw retryError
-          }
-        }
-        if (!response.ok && isDocumentType && requestPayload.async === true && isDocAsyncPendingCase(response.status, body?.message || body?.error || '', null)) {
-          hasAsyncDocumentPending = true
-          continue
-        }
-        const responseErrorMessage = String(body?.message || body?.error || '').trim()
-        if (!response.ok && isDocumentType && requestPayload.async === true && isDocAsyncPendingCase(response.status, responseErrorMessage, null)) {
-          hasAsyncDocumentPending = true
-          continue
-        }
-        if (!response.ok) {
-          throw new Error(body?.message || body?.error || `Falha ao enviar ${file.name}`)
-        }
-      }
-    }
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, () => worker()))
-    mediaComposerSending.value = false
-    closeMediaComposer(true)
-    if (hasAsyncDocumentPending) {
-      chatActionFeedback.value = 'Documento em processamento no servidor. Atualizando conversa em segundo plano...'
-      scheduleBackgroundRefreshes()
-    } else {
-      selectChat(chatToRefresh).catch(() => {})
-    }
-  } catch (error) {
-    const aborted = String(error?.name || '').toLowerCase() === 'aborterror'
-    chatActionFeedback.value = aborted
-      ? 'Tempo de envio excedido. Tente novamente com arquivo menor ou aguarde a conexão estabilizar.'
-      : String(error?.message || 'Falha ao enviar arquivo(s)')
-    mediaComposerSending.value = false
-    return
-  }
 }
 
 const jumpToMessageById = (targetId) => {
@@ -2261,19 +1580,6 @@ const closeSendContactsModal = () => {
   sendContactsSelectedIds.value = []
 }
 
-const closeAddGroupMembersPanel = () => {
-  addGroupMembersOpen.value = false
-  addGroupMembersSending.value = false
-  addGroupMembersLoading.value = false
-  addGroupMembersFeedback.value = ''
-  addGroupMembersSearchQuery.value = ''
-  addGroupMembersSelectedIds.value = []
-}
-
-const handleGroupAddMembersBack = () => {
-  closeAddGroupMembersPanel()
-}
-
 const resetCreateGroupState = () => {
   createGroupSending.value = false
   createGroupFeedback.value = ''
@@ -2557,64 +1863,6 @@ const ensureAddressBookContactsNormalized = async ({ force = false } = {}) => {
   return normalized
 }
 
-const prefetchAddressBookForGroupPanel = () => {
-  if (addressBookNormalizedCache.value.length) {
-    startBackgroundContactAvatarHydration(
-      () => addressBookNormalizedCache.value,
-      (nextRows) => { addressBookNormalizedCache.value = nextRows }
-    )
-    return
-  }
-  void ensureAddressBookContactsNormalized()
-    .then((normalized) => {
-      addressBookNormalizedCache.value = normalized
-      startBackgroundContactAvatarHydration(
-        () => addressBookNormalizedCache.value,
-        (nextRows) => { addressBookNormalizedCache.value = nextRows }
-      )
-    })
-    .catch(() => {})
-}
-
-const loadAddGroupMembersContacts = async ({ force = false } = {}) => {
-  const normalized = await ensureAddressBookContactsNormalized({ force })
-  addGroupMembersContacts.value = normalized
-  startBackgroundContactAvatarHydration(
-    () => addGroupMembersContacts.value,
-    (nextRows) => { addGroupMembersContacts.value = nextRows }
-  )
-}
-
-const openAddGroupMembersPanel = () => {
-  if (!selectedGroupViewerIsAdmin.value) {
-    groupInfoError.value = 'Somente admins podem adicionar membros.'
-    return
-  }
-  addGroupMembersOpen.value = true
-  addGroupMembersFeedback.value = ''
-  addGroupMembersSearchQuery.value = ''
-  addGroupMembersSelectedIds.value = ''
-
-  if (addressBookNormalizedCache.value.length) {
-    addGroupMembersContacts.value = addressBookNormalizedCache.value
-    addGroupMembersLoading.value = false
-    startBackgroundContactAvatarHydration(
-      () => addGroupMembersContacts.value,
-      (nextRows) => { addGroupMembersContacts.value = nextRows }
-    )
-    return
-  }
-
-  addGroupMembersLoading.value = true
-  void loadAddGroupMembersContacts()
-    .catch((error) => {
-      addGroupMembersFeedback.value = String(error?.message || 'Falha ao carregar contatos')
-    })
-    .finally(() => {
-      addGroupMembersLoading.value = false
-    })
-}
-
 const openCreateGroupModal = async () => {
   createGroupModalOpen.value = true
   resetCreateGroupState()
@@ -2659,46 +1907,6 @@ const confirmCreateGroup = async () => {
   } catch (error) {
     createGroupFeedback.value = String(error?.message || 'Falha ao criar grupo')
     createGroupSending.value = false
-  }
-}
-
-const toggleAddGroupMembersSelection = (id) => {
-  const key = String(id || '').trim()
-  if (!key || addGroupMembersSending.value) return
-  if (addGroupMembersSelectedIds.value.includes(key)) {
-    addGroupMembersSelectedIds.value = addGroupMembersSelectedIds.value.filter((item) => item !== key)
-    return
-  }
-  addGroupMembersSelectedIds.value = [...addGroupMembersSelectedIds.value, key]
-}
-
-const confirmAddGroupMembers = async () => {
-  if (addGroupMembersSending.value || addGroupMembersSelectedIds.value.length === 0) return
-  const groupjid = normalizeJid(requireGroupJid())
-  const selectedContacts = addGroupMembersContacts.value.filter((item) =>
-    addGroupMembersSelectedIds.value.includes(item.id)
-  )
-  const participants = selectedContacts
-    .map((item) => String(item.number || '').replace(/\D/g, ''))
-    .filter((value, index, list) => value.length >= 10 && list.indexOf(value) === index)
-  if (!participants.length) {
-    addGroupMembersFeedback.value = 'Selecione contatos com numero valido.'
-    return
-  }
-  addGroupMembersSending.value = true
-  addGroupMembersFeedback.value = ''
-  try {
-    await updateGroupParticipantsApi({ groupjid, action: 'add', participants })
-    await refreshOpenedGroupInfo()
-    void loadGroupParticipantsDirectory(groupjid, { force: true }).catch(() => {})
-    closeAddGroupMembersPanel()
-    chatActionFeedback.value = participants.length === 1
-      ? '1 membro adicionado ao grupo.'
-      : `${participants.length} membros adicionados ao grupo.`
-  } catch (error) {
-    addGroupMembersFeedback.value = String(error?.message || 'Falha ao adicionar membros ao grupo')
-  } finally {
-    addGroupMembersSending.value = false
   }
 }
 
@@ -2932,101 +2140,8 @@ watch(
   }
 )
 
-const closeGroupInfoModal = () => {
-  groupInfoLoadSeq.value += 1
-  groupInfoModalOpen.value = false
-  groupSidePanelView.value = 'info'
-  groupInfoLoading.value = false
-  groupInfoError.value = ''
-  groupInfoData.value = null
-  groupInfoLoadedJid.value = ''
-  closeAddGroupMembersPanel()
-}
-
-const handleGroupMediaPanelBack = () => {
-  groupSidePanelView.value = 'info'
-}
-
-const handleGroupPermissionsBack = () => {
-  groupSidePanelView.value = 'info'
-  groupInfoError.value = ''
-}
-
-const openGroupPermissionsPanel = () => {
-  if (!selectedGroupViewerIsAdmin.value) return
-  groupSidePanelView.value = 'permissions'
-  groupInfoError.value = ''
-}
-
-const closeContactInfoModal = () => {
-  contactInfoModalOpen.value = false
-  contactSidePanelView.value = 'contact'
-  contactInfoLoading.value = false
-  contactInfoError.value = ''
-}
-
-const handleContactMediaPanelBack = () => {
-  contactSidePanelView.value = 'contact'
-}
-
-const applyContactDetailsToChat = (details) => {
-  if (!details || !selectedChat.value?.chatJid) return
-  const jid = String(selectedChat.value.chatJid)
-  if (details.avatarUrl) {
-    selectedChat.value.avatarUrl = details.avatarUrl
-    chats.value = chats.value.map((chat) => (
-      chat.chatJid === jid
-        ? {
-          ...chat,
-          avatarUrl: details.avatarUrl,
-          name: details.displayName || chat.name,
-          pushName: details.waName || chat.pushName
-        }
-        : chat
-    ))
-  }
-}
-
 const resolveSelectedChatJid = () =>
   String(selectedChat.value?.chatJid || selectedChat.value?.wa_chatid || selectedChat.value?.chatid || '').trim()
-
-const syncGroupAccessFromInfo = (groupjid, groupInfo) => {
-  const key = normalizeJid(groupjid)
-  if (!key || !groupInfo) return
-  const participants = Array.isArray(groupInfo?.Participants)
-    ? groupInfo.Participants
-    : (Array.isArray(groupInfo?.participants) ? groupInfo.participants : [])
-  const membership = resolveViewerGroupMembership(
-    participants,
-    sessionJid.value || getStoredSessionJid(),
-    { lidMap: lidToJidMap.value, groupInfo }
-  )
-  groupAccessByJid.value = {
-    ...groupAccessByJid.value,
-    [key]: {
-      isAnnounce: isGroupAnnounceRestricted(groupInfo),
-      viewerIsAdmin: membership.isAdmin,
-      loaded: true
-    }
-  }
-}
-
-const refreshSelectedGroupAccess = async (groupjid, { force = false } = {}) => {
-  const key = normalizeJid(groupjid)
-  if (!key || !isGroupJid(key)) return
-  if (!force && groupAccessByJid.value[key]?.loaded) return
-  try {
-    const data = await getGroupInfoApi({
-      groupjid: key,
-      getInviteLink: false,
-      getRequestsParticipants: false,
-      force
-    })
-    syncGroupAccessFromInfo(key, data)
-  } catch {
-    // Mantém composer liberado até confirmar restrição.
-  }
-}
 
 const handleSendMessage = async () => {
   if (selectedGroupComposeLocked.value) return
@@ -3049,167 +2164,6 @@ const handleSendMessage = async () => {
   await sendMessage()
 }
 
-const openContactInfoModal = async () => {
-  const jid = resolveSelectedChatJid()
-  if (!jid || selectedChatIsGroup.value) return
-  closeGroupInfoModal()
-  contactSidePanelView.value = 'contact'
-  contactInfoModalOpen.value = true
-  contactInfoLoading.value = true
-  contactInfoError.value = ''
-  try {
-    const details = await fetchContactChatDetails(jid, {
-      preview: false,
-      force: true
-    })
-    contactInfoDetails.value = details
-    applyContactDetailsToChat(details)
-    void preloadMissingMediaInBackground(renderedMessages.value)
-  } catch (error) {
-    contactInfoError.value = String(error?.message || 'Falha ao carregar detalhes do contato')
-  } finally {
-    contactInfoLoading.value = false
-  }
-}
-
-const handleChatHeaderMenu = () => {
-  if (!selectedChat.value) return
-  if (selectedChatIsGroup.value) {
-    openGroupInfoModal()
-    return
-  }
-  openContactInfoModal()
-}
-
-const handleContactInfoMediaDocs = () => {
-  groupMediaActiveTab.value = 'media'
-  contactSidePanelView.value = 'media'
-  void preloadMissingMediaInBackground(renderedMessages.value)
-}
-
-const handleContactInfoPreviewMedia = (item) => {
-  if (item) {
-    handleChatPanelOpenMedia(item)
-    return
-  }
-  handleContactInfoMediaDocs()
-}
-
-const handleContactInfoSearch = () => {
-  chatActionFeedback.value = 'Busca na conversa será disponibilizada em breve.'
-}
-
-const handleContactInfoStarredMessages = () => {
-  chatActionFeedback.value = 'Mensagens favoritas será disponibilizado em breve.'
-}
-
-const handleContactInfoEditNotes = () => {
-  const notes = String(contactInfoDetails.value?.waNotes || contactInfoDetails.value?.lead?.notes || '').trim()
-  chatActionFeedback.value = notes
-    ? `Notas: ${notes}`
-    : 'Edição de notas será disponibilizada em breve.'
-}
-
-const handleContactInfoClearChat = () => {
-  chatActionFeedback.value = 'Limpar conversa será disponibilizado em breve.'
-}
-
-const handleContactInfoReport = () => {
-  chatActionFeedback.value = 'Denúncia será disponibilizada em breve.'
-}
-
-const handleContactInfoToggleMute = () => {
-  const chatJid = String(selectedChat.value?.chatJid || '').trim()
-  if (!chatJid) return
-  const current = Boolean(groupMutedChats.value[chatJid]) || Boolean(selectedChat.value?.isMuted)
-  const next = !current
-  groupMutedChats.value = { ...groupMutedChats.value, [chatJid]: next }
-  refreshChatPreview(chatJid, { isMuted: next, muteEndTime: next ? -1 : 0 })
-}
-
-const handleContactInfoToggleFavorite = () => {
-  const chatJid = String(selectedChat.value?.chatJid || '').trim()
-  if (!chatJid) return
-  const current = Boolean(groupFavoriteChats.value[chatJid])
-  groupFavoriteChats.value = { ...groupFavoriteChats.value, [chatJid]: !current }
-}
-
-const handleContactInfoToggleBlock = () => {
-  if (!selectedChat.value) return
-  requestToggleBlockDialog(selectedChat.value)
-}
-
-const handleConfirmBlockContact = async (report) => {
-  const ok = await executeBlockContact({ report: Boolean(report) })
-  if (ok) syncContactInfoBlockedState(true)
-}
-
-const handleConfirmUnblockContact = async () => {
-  const ok = await executeUnblockContact()
-  if (ok) syncContactInfoBlockedState(false)
-}
-
-const handleUndoBlockContact = async () => {
-  await undoBlockContact()
-  syncContactInfoBlockedState(false)
-}
-
-const handleBlockedFooterUnblock = () => {
-  if (!selectedChat.value) return
-  openUnblockContactDialog(selectedChat.value)
-}
-
-const handleBlockedFooterDeleteChat = () => {
-  if (!selectedChat.value) return
-  void deleteChatFromList(selectedChat.value)
-}
-
-const handleContactInfoDeleteChat = () => {
-  if (!selectedChat.value) return
-  void deleteChatFromList(selectedChat.value)
-}
-
-const handleContactInfoBusinessProfile = async () => {
-  if (!selectedChat.value) return
-  await openBusinessProfile(selectedChat.value)
-}
-
-const handleContactInfoCrm = () => {
-  navigateTo('/whatsapp/crm')
-}
-
-const handleContactInfoOpenGroup = (group) => {
-  const jid = String(group?.jid || '').trim()
-  if (!jid) return
-  closeContactInfoModal()
-  openChatByJid(jid, { name: String(group?.name || 'Grupo').trim(), isGroup: true })
-}
-
-const openChatByJid = async (rawJid, fallback = {}) => {
-  const jid = normalizeJid(String(rawJid || '').trim())
-  if (!jid) return
-
-  const existing = (Array.isArray(chats.value) ? chats.value : []).find(
-    (chat) => normalizeJid(chat?.chatJid || '') === jid,
-  )
-  if (existing) {
-    await selectChat(existing)
-    return
-  }
-
-  await selectChat({
-    id: jid,
-    chatJid: jid,
-    name: String(fallback.name || formatJidAsPhoneLine(jid) || 'Contato').trim(),
-    pushName: String(fallback.name || formatJidAsPhoneLine(jid) || 'Contato').trim(),
-    avatarUrl: '',
-    isGroup: Boolean(fallback.isGroup ?? jid.endsWith('@g.us')),
-    lastMessage: '',
-    lastMessageTime: Date.now(),
-    unreadCount: 0,
-  })
-}
-
 const openChatFromDeepLink = async () => {
   const route = useRoute()
   const pendingJid = typeof sessionStorage !== 'undefined'
@@ -3222,202 +2176,6 @@ const openChatFromDeepLink = async () => {
     sessionStorage.removeItem('wa_pending_open_chat')
   }
   await openChatByJid(jid)
-}
-
-const requireGroupJid = () => {
-  const groupjid = String(selectedChat.value?.chatJid || '').trim()
-  if (!groupjid || !groupjid.endsWith('@g.us')) {
-    throw new Error('Grupo invalido para esta acao')
-  }
-  return groupjid
-}
-
-const refreshOpenedGroupInfo = async () => {
-  const groupjid = normalizeJid(requireGroupJid())
-  const loadSeq = ++groupInfoLoadSeq.value
-  const data = await getGroupInfoApi({
-    groupjid,
-    getInviteLink: true,
-    getRequestsParticipants: false,
-    force: true
-  })
-  if (loadSeq !== groupInfoLoadSeq.value) return
-  if (normalizeJid(resolveSelectedChatJid()) !== groupjid) return
-  groupInfoData.value = data
-  groupInfoLoadedJid.value = groupjid
-  syncGroupAccessFromInfo(groupjid, data)
-}
-
-const runGroupInfoAction = async (action) => {
-  if (groupInfoLoading.value) return
-  groupInfoError.value = ''
-  groupInfoLoading.value = true
-  try {
-    await action()
-  } catch (error) {
-    groupInfoError.value = String(error?.message || 'Falha ao executar acao do grupo')
-  } finally {
-    groupInfoLoading.value = false
-  }
-}
-
-const handleGroupInfoAddMembers = () => {
-  openAddGroupMembersPanel()
-}
-
-const handleGroupInfoInviteLink = async () => runGroupInfoAction(async () => {
-  const groupjid = requireGroupJid()
-  let inviteLink = String(
-    groupInfoData.value?.invite_link ||
-    groupInfoData.value?.inviteLink ||
-    ''
-  ).trim()
-  if (!inviteLink) {
-    await refreshOpenedGroupInfo()
-    inviteLink = String(groupInfoData.value?.invite_link || groupInfoData.value?.inviteLink || '').trim()
-  }
-  if (!inviteLink) {
-    await resetGroupInviteCodeApi({ groupjid })
-    await refreshOpenedGroupInfo()
-    inviteLink = String(groupInfoData.value?.invite_link || groupInfoData.value?.inviteLink || '').trim()
-  }
-  if (!inviteLink) {
-    groupInfoError.value = 'Nao foi possivel obter o link de convite.'
-    return
-  }
-  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(inviteLink)
-    groupInfoError.value = 'Link de convite copiado para a area de transferencia.'
-    return
-  }
-  groupInfoError.value = `Link de convite: ${inviteLink}`
-})
-
-const handleGroupInfoPermissions = () => {
-  if (!selectedGroupViewerIsAdmin.value) {
-    groupInfoError.value = 'Somente admins podem alterar permissoes do grupo.'
-    return
-  }
-  openGroupPermissionsPanel()
-}
-
-const handleGroupPermissionToggle = async (key, enabled) => {
-  if (groupPermissionsSaving.value || !selectedGroupViewerIsAdmin.value) return
-  const groupjid = normalizeJid(requireGroupJid())
-  groupInfoError.value = ''
-  groupPermissionsSaving.value = true
-  try {
-    if (key === 'membersCanEdit') {
-      await updateGroupLockedApi({ groupjid, locked: !enabled })
-    } else if (key === 'membersCanSend') {
-      await updateGroupAnnounceApi({ groupjid, announce: !enabled })
-    } else {
-      groupInfoError.value = 'Esta permissao ainda nao pode ser alterada pela API.'
-      return
-    }
-    await refreshOpenedGroupInfo()
-    syncGroupAccessFromInfo(groupjid, groupInfoData.value)
-  } catch (error) {
-    groupInfoError.value = String(error?.message || 'Falha ao atualizar permissao do grupo')
-  } finally {
-    groupPermissionsSaving.value = false
-  }
-}
-
-const handleGroupInfoEditAdmins = () => {
-  groupInfoError.value = 'Promover ou rebaixar admins sera integrado na proxima etapa.'
-}
-
-const handleGroupInfoEditName = async () => runGroupInfoAction(async () => {
-  if (!selectedGroupViewerIsAdmin.value) {
-    groupInfoError.value = 'Somente admins podem editar o nome do grupo.'
-    return
-  }
-  const groupjid = requireGroupJid()
-  const current = String(
-    groupInfoData.value?.Name ||
-    groupInfoData.value?.name ||
-    selectedChat.value?.pushName ||
-    selectedChat.value?.name ||
-    ''
-  ).trim()
-  const next = typeof window !== 'undefined'
-    ? window.prompt('Novo nome do grupo:', current)
-    : null
-  if (next === null) return
-  const name = String(next || '').trim()
-  if (!name) {
-    groupInfoError.value = 'Informe um nome valido para o grupo.'
-    return
-  }
-  await updateGroupNameApi({ groupjid, name })
-  await refreshOpenedGroupInfo()
-  if (selectedChat.value) {
-    selectedChat.value.name = name
-    selectedChat.value.pushName = name
-    chats.value = chats.value.map((chat) => (
-      normalizeJid(chat.chatJid) === normalizeJid(groupjid)
-        ? { ...chat, name, pushName: name }
-        : chat
-    ))
-  }
-})
-
-const handleGroupInfoDescription = async () => runGroupInfoAction(async () => {
-  if (!selectedGroupViewerIsAdmin.value) {
-    groupInfoError.value = 'Somente admins podem editar a descricao do grupo.'
-    return
-  }
-  const groupjid = requireGroupJid()
-  const current = String(groupInfoData.value?.Topic || '').trim()
-  const next = typeof window !== 'undefined'
-    ? window.prompt('Nova descricao do grupo:', current)
-    : null
-  if (next === null) return
-  await updateGroupDescriptionApi({ groupjid, description: String(next || '').trim() })
-  await refreshOpenedGroupInfo()
-})
-
-const handleGroupInfoLeave = async () => runGroupInfoAction(async () => {
-  const groupjid = requireGroupJid()
-  const confirmed = typeof window !== 'undefined' ? window.confirm('Deseja realmente sair deste grupo?') : false
-  if (!confirmed) return
-  await leaveGroupApi({ groupjid })
-  closeGroupInfoModal()
-  await loadChats(true)
-  selectedChat.value = null
-})
-
-const handleGroupInfoToggleMute = () => {
-  const groupjid = String(selectedChat.value?.chatJid || '').trim()
-  if (!groupjid) return
-  const current = Boolean(groupMutedChats.value[groupjid]) || Boolean(selectedChat.value?.isMuted)
-  const next = !current
-  groupMutedChats.value = { ...groupMutedChats.value, [groupjid]: next }
-  refreshChatPreview(groupjid, { isMuted: next, muteEndTime: next ? -1 : 0 })
-  groupInfoError.value = next ? 'Notificacoes silenciadas localmente.' : 'Notificacoes reativadas localmente.'
-}
-
-const handleGroupInfoToggleFavorite = () => {
-  const groupjid = String(selectedChat.value?.chatJid || '').trim()
-  if (!groupjid) return
-  const current = Boolean(groupFavoriteChats.value[groupjid])
-  groupFavoriteChats.value = { ...groupFavoriteChats.value, [groupjid]: !current }
-  groupInfoError.value = !current ? 'Grupo marcado como favorito.' : 'Grupo removido dos favoritos.'
-}
-
-const handleGroupInfoMediaDocs = () => {
-  groupMediaActiveTab.value = 'media'
-  groupSidePanelView.value = 'media'
-  void preloadMissingMediaInBackground(renderedMessages.value)
-}
-
-const handleGroupInfoStarredMessages = () => {
-  const starred = (Array.isArray(renderedMessages.value) ? renderedMessages.value : [])
-    .filter((msg) => Boolean(msg?.isStarred || msg?.starred || msg?.favorite))
-  groupInfoError.value = starred.length
-    ? `Foram encontradas ${starred.length} mensagens favoritas.`
-    : 'Nenhuma mensagem favorita encontrada.'
 }
 
 const handleChatPanelOpenMedia = (item) => {
@@ -3434,76 +2192,6 @@ const handleChatPanelOpenMedia = (item) => {
   const url = String(item?.mediaUrl || item?.previewUrl || item?.href || '').trim()
   if (!url || typeof window === 'undefined') return
   window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-const openDocumentViewer = async (item) => {
-  const url = String(item?.mediaUrl || item?.fileURL || item?.fileUrl || '').trim()
-  if (!url) {
-    chatActionFeedback.value = 'Documento ainda indisponível para visualização.'
-    return
-  }
-  let viewerUrl = url
-  if (typeof window !== 'undefined') {
-    try {
-      const response = await fetch(url)
-      if (response.ok) {
-        const blob = await response.blob()
-        const objectUrl = URL.createObjectURL(blob)
-        documentViewerObjectUrl.value = objectUrl
-        viewerUrl = objectUrl
-      }
-    } catch {}
-  }
-  documentViewerUrl.value = viewerUrl
-  documentViewerName.value = String(
-    item?.documentFileName || item?.fileName || item?.name || item?.text || 'Documento'
-  ).trim()
-  documentViewerMimeType.value = String(item?.mimetype || item?.mimeType || '').trim()
-  documentViewerOpen.value = true
-}
-
-const closeDocumentViewer = () => {
-  documentViewerOpen.value = false
-  if (documentViewerObjectUrl.value && typeof URL !== 'undefined') {
-    try { URL.revokeObjectURL(documentViewerObjectUrl.value) } catch {}
-  }
-  documentViewerObjectUrl.value = ''
-  documentViewerUrl.value = ''
-  documentViewerName.value = ''
-  documentViewerMimeType.value = ''
-}
-
-const openGroupInfoModal = async () => {
-  const groupjid = normalizeJid(resolveSelectedChatJid())
-  if (!groupjid || !isGroupJid(groupjid)) return
-  closeContactInfoModal()
-  const loadSeq = ++groupInfoLoadSeq.value
-  groupInfoData.value = null
-  groupInfoLoadedJid.value = ''
-  groupInfoModalOpen.value = true
-  groupSidePanelView.value = 'info'
-  groupInfoLoading.value = true
-  groupInfoError.value = ''
-  try {
-    const data = await getGroupInfoApi({
-      groupjid,
-      getInviteLink: true,
-      getRequestsParticipants: false,
-      force: true
-    })
-    if (loadSeq !== groupInfoLoadSeq.value) return
-    if (normalizeJid(resolveSelectedChatJid()) !== groupjid) return
-    groupInfoData.value = data
-    groupInfoLoadedJid.value = groupjid
-    syncGroupAccessFromInfo(groupjid, data)
-  } catch (error) {
-    if (loadSeq !== groupInfoLoadSeq.value) return
-    groupInfoError.value = String(error?.message || 'Falha ao carregar dados do grupo')
-  } finally {
-    if (loadSeq === groupInfoLoadSeq.value) groupInfoLoading.value = false
-  }
-  void loadGroupParticipantsDirectory(groupjid, { force: true }).catch(() => {})
-  prefetchAddressBookForGroupPanel()
 }
 
 watch(
@@ -3528,6 +2216,13 @@ watch(
   () => (selectedChatIsGroup.value ? normalizeJid(resolveSelectedChatJid()) : ''),
   (groupjid) => {
     if (!groupjid) return
+    // Depois do paint do chat — group/info não pode atrasar a abertura.
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        void refreshSelectedGroupAccess(groupjid, { force: false })
+      }, 500)
+      return
+    }
     void refreshSelectedGroupAccess(groupjid, { force: false })
   },
   { immediate: true }
@@ -3544,16 +2239,6 @@ watch(actionMenuMessageId, (newId) => {
 watch(actionMenuMode, () => {
   if (actionMenuMessageId.value) scheduleMessageActionsLayoutRefine()
 })
-
-watch(
-  () => renderedMessages.value,
-  (items) => {
-    if (!selectedChat.value?.chatJid) return
-    preloadMissingMediaInBackground(items)
-    reconcilePendingDocumentMessages()
-  },
-  { immediate: true }
-)
 
 // ─── Ciclo de vida ────────────────────────────────────────────────────────────
 
@@ -3589,6 +2274,8 @@ onMounted(async () => {
     return
   }
 
+  await ensureWhatsappProviderKind()
+
   const { ok: statusOk, data: statusData } = await fetchWhatsappStatusPayload()
   const connected = statusOk
     ? isWhatsappConnectedFromStatusPayload(statusData)
@@ -3619,30 +2306,25 @@ onMounted(async () => {
     sessionJid.value = getStoredSessionJid()
   }
 
-  const sessionChanged = Boolean(connectedSessionJid && prevSessionJid && connectedSessionJid !== prevSessionJid)
-
   await restoreContactsFromCache()
   startRealtimeSync()
 
-  if (sessionChanged) {
+  // Vai direto na lista fresca da UAZAPI — o cache do DB local mistura contatos
+  // sem preview ("Nenhuma mensagem") e causa o flash de chats aleatórios no reload.
+  loadingChats.value = true
+  try {
     await loadChats(true, { silent: true, gentle: false })
-  } else {
-    await loadChats(false, { silent: true, preferCache: true })
-    await loadChats(false, { lightSync: true, gentle: isInitialSyncGentleMode() })
-    if (!(chats.value || []).length) {
-      await loadChats(true, { silent: true, gentle: false })
-    } else if (!isInitialSyncGentleMode()) {
-      loadChats(true, { silent: true }).catch(() => {})
-    }
+  } finally {
+    loadingChats.value = false
   }
-
+  // Se ainda vazio (history sync no celular), tenta de novo em breve
   if (!(chats.value || []).length && connected) {
     const retryLoadChats = async () => {
-      if ((chats.value || []).length > 0) return
       await loadChats(true, { silent: true, gentle: false })
     }
-    window.setTimeout(() => { void retryLoadChats() }, 6000)
-    window.setTimeout(() => { void retryLoadChats() }, 18000)
+    window.setTimeout(() => { void retryLoadChats() }, 4000)
+    window.setTimeout(() => { void retryLoadChats() }, 12000)
+    window.setTimeout(() => { void retryLoadChats() }, 30000)
   }
 
   if (!isInitialSyncGentleMode()) {

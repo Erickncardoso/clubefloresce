@@ -1,4 +1,5 @@
 // Nuxt compartilhado — admin (:3000) ou paciente via cliente/ (:3002) com NUXT_PUBLIC_MOBILE_APP=true
+// (tocar neste arquivo reinicia o dev server — útil após HMR fragmentar módulos)
 import { fileURLToPath } from 'node:url'
 import { fixWindowsVitePaths } from './utils/fix-windows-vite-paths'
 import { ensurePwaDevSwPlaceholder, mirrorPwaDevSwDist } from './utils/mirror-pwa-dev-sw'
@@ -27,17 +28,19 @@ const securityHeaders = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  // Câmera/mic liberados para iframe Jitsi (consulta por vídeo)
+  'Permissions-Policy': 'camera=*, microphone=*, display-capture=*, picture-in-picture=*, geolocation=()',
   'Content-Security-Policy': [
     "default-src 'self'",
     isDev
-      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-      : "script-src 'self' 'unsafe-inline'",
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://meet.nutrisabellajardim.com.br https://cdn.jsdelivr.net https: blob:"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://meet.nutrisabellajardim.com.br https://cdn.jsdelivr.net https://unpkg.com blob:",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' https: wss: blob:",
-    "media-src 'self' blob: https:",
+    "media-src 'self' blob: mediastream: https:",
+    "worker-src 'self' blob: https://cdn.jsdelivr.net https://unpkg.com https://meet.nutrisabellajardim.com.br",
     "frame-src 'self' https: blob:",
     "child-src 'self' https: blob:",
     "frame-ancestors 'none'",
@@ -60,12 +63,12 @@ export default defineNuxtConfig({
       charset: 'utf-8',
       link: isMobileApp
         ? [
-            { rel: 'icon', type: 'image/svg+xml', href: '/logoflorescer.svg' },
+            { rel: 'icon', type: 'image/svg+xml', href: '/icons/logovetorcarregamento.svg' },
             { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/pwa/icon-192.png' },
             { rel: 'apple-touch-icon', href: '/pwa/apple-touch-icon.png', sizes: '180x180' },
             { rel: 'manifest', href: '/manifest.webmanifest' },
           ]
-        : [{ rel: 'icon', type: 'image/svg+xml', href: '/logoflorescer.svg' }],
+        : [{ rel: 'icon', type: 'image/svg+xml', href: '/icons/logovetorcarregamento.svg' }],
       meta: isMobileApp
         ? [
             {
@@ -94,12 +97,12 @@ export default defineNuxtConfig({
     },
   },
   css: [
-    '@fontsource/inter/latin-300.css',
-    '@fontsource/inter/latin-400.css',
-    '@fontsource/inter/latin-500.css',
-    '@fontsource/inter/latin-600.css',
-    '@fontsource/inter/latin-700.css',
-    '@fontsource/inter/latin-800.css',
+    '@fontsource/inter/300.css',
+    '@fontsource/inter/400.css',
+    '@fontsource/inter/500.css',
+    '@fontsource/inter/600.css',
+    '@fontsource/inter/700.css',
+    '@fontsource/inter/800.css',
     '~/assets/css/fonts.css',
     '~/assets/css/whatsapp-helpers.css',
     '~/assets/css/whatsapp-layout.css',
@@ -135,6 +138,26 @@ export default defineNuxtConfig({
   experimental: {
     appManifest: false,
   },
+  hooks: {
+    'render:html'(html: { head: string[]; body: string[]; bodyAppend: string[]; bodyPrepend: string[] }) {
+      if (process.platform !== 'win32') return
+      for (const bucket of [html.head, html.body, html.bodyAppend, html.bodyPrepend]) {
+        for (let i = 0; i < bucket.length; i += 1) {
+          bucket[i] = bucket[i].replace(/\/_nuxt\/C:(?=\/)/g, '/_nuxt/@fs/C:')
+        }
+      }
+    },
+    'nitro:init'(nitro) {
+      if (process.platform !== 'win32') return
+      nitro.hooks.hook('render:response', (response) => {
+        const contentType = String(response.headers?.['content-type'] || '')
+        if (!contentType.includes('text/html')) return
+        if (typeof response.body === 'string') {
+          response.body = response.body.replace(/\/_nuxt\/C:(?=\/)/g, '/_nuxt/@fs/C:')
+        }
+      })
+    },
+  },
   ...(isMobileApp
     ? {
         routeRules: {
@@ -144,7 +167,7 @@ export default defineNuxtConfig({
         pwa: {
           registerType: 'prompt',
           injectRegister: 'auto',
-          includeAssets: ['logoflorescer.svg', 'pwa/apple-touch-icon.png'],
+          includeAssets: ['icons/logovetorcarregamento.svg', 'pwa/apple-touch-icon.png'],
           manifest: {
             id: 'clube-florescer-paciente',
             name: 'Clube Florescer',
@@ -191,9 +214,10 @@ export default defineNuxtConfig({
     host: devHost,
   },
   vite: {
-    ...(isMobileApp
-      ? { plugins: [fixWindowsVitePaths(), mirrorPwaDevSwDist(frontendRoot, '.nuxt-mobile')] }
-      : {}),
+    plugins: [
+      ...(process.platform === 'win32' && isDev ? [fixWindowsVitePaths()] : []),
+      ...(isMobileApp ? [mirrorPwaDevSwDist(frontendRoot, '.nuxt-mobile')] : []),
+    ],
     server: {
       ...(isMobileApp
         ? {

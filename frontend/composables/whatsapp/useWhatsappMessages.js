@@ -158,6 +158,136 @@ export const extractUazapiJpegThumbDataUrl = (content) => {
 
 export const isHttpMediaUrl = (value) => /^https?:\/\//i.test(String(value || '').trim())
 
+/** Cache local do URL full da mídia — evita “Baixando imagem” a cada abertura do chat. */
+const MEDIA_URL_CACHE_LS_KEY = 'wa_media_url_cache_v1'
+const MEDIA_URL_CACHE_MAX = 400
+/** @type {Map<string, string>|null} */
+let mediaUrlCacheMap = null
+
+const mediaCacheKeysForMessage = (msg = {}) => {
+  const keys = []
+  const push = (value) => {
+    const raw = String(value || '').trim()
+    if (!raw) return
+    const norm = normalizeProviderMessageId(raw) || raw
+    if (norm && !keys.includes(norm)) keys.push(norm)
+    if (raw !== norm && !keys.includes(raw)) keys.push(raw)
+    // Sufixo após ":" (UAZAPI às vezes muda o prefixo do id).
+    if (norm.includes(':')) {
+      const tail = norm.split(':').pop()
+      if (tail && tail.length >= 8 && !keys.includes(tail)) keys.push(tail)
+    }
+  }
+  push(msg?.normalizedMessageId)
+  push(msg?.messageid)
+  push(msg?.id)
+  push(msg?.normalizedInternalId)
+  const chat = normalizeJid(msg?.chatid || msg?.chatJid || msg?.wa_chatid || '')
+  const ts = Number(msg?.timestamp || msg?.messageTimestamp || 0)
+  if (chat && ts > 0) {
+    const composite = `ts:${chat}:${ts}`
+    if (!keys.includes(composite)) keys.push(composite)
+  }
+  return keys
+}
+
+const loadMediaUrlCache = () => {
+  if (mediaUrlCacheMap) return mediaUrlCacheMap
+  mediaUrlCacheMap = new Map()
+  if (typeof window === 'undefined') return mediaUrlCacheMap
+  try {
+    const raw = window.localStorage.getItem(MEDIA_URL_CACHE_LS_KEY)
+    if (!raw) return mediaUrlCacheMap
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return mediaUrlCacheMap
+    for (const [key, url] of Object.entries(parsed)) {
+      if (isHttpMediaUrl(url)) mediaUrlCacheMap.set(String(key), String(url))
+    }
+  } catch {
+    /* ignore */
+  }
+  return mediaUrlCacheMap
+}
+
+const persistMediaUrlCache = () => {
+  if (typeof window === 'undefined' || !mediaUrlCacheMap) return
+  try {
+    const entries = Array.from(mediaUrlCacheMap.entries())
+    const trimmed = entries.length > MEDIA_URL_CACHE_MAX
+      ? entries.slice(entries.length - MEDIA_URL_CACHE_MAX)
+      : entries
+    window.localStorage.setItem(
+      MEDIA_URL_CACHE_LS_KEY,
+      JSON.stringify(Object.fromEntries(trimmed)),
+    )
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export const rememberDownloadedMediaUrl = (msg, fileURL) => {
+  const url = String(fileURL || '').trim()
+  if (!isHttpMediaUrl(url)) return
+  const keys = mediaCacheKeysForMessage(msg)
+  if (!keys.length) return
+  const cache = loadMediaUrlCache()
+  for (const key of keys) cache.set(key, url)
+  persistMediaUrlCache()
+  // Aquece o cache do browser — próxima abertura pinta na hora.
+  if (typeof window !== 'undefined') {
+    try {
+      const img = new window.Image()
+      img.decoding = 'async'
+      img.src = url
+    } catch { /* ignore */ }
+  }
+}
+
+export const lookupCachedMediaUrl = (msg) => {
+  const cache = loadMediaUrlCache()
+  if (!cache.size) return ''
+  for (const key of mediaCacheKeysForMessage(msg)) {
+    const hit = cache.get(key)
+    if (isHttpMediaUrl(hit)) return hit
+  }
+  return ''
+}
+
+/** Aplica URLs do localStorage nas msgs (síncrono) — evita “Baixando” ao reabrir. */
+export const hydrateMessagesMediaFromCache = (rows = []) => {
+  if (!Array.isArray(rows) || rows.length === 0) return rows
+  let changed = false
+  const next = rows.map((msg) => {
+    if (!msg || typeof msg !== 'object') return msg
+    if (isHttpMediaUrl(msg.mediaUrl)) {
+      // Já tem URL: aquece decode do browser.
+      if (typeof window !== 'undefined') {
+        try { const img = new window.Image(); img.src = msg.mediaUrl } catch { /* ignore */ }
+      }
+      return msg
+    }
+    const mediaType = String(msg.mediaType || '').toLowerCase()
+    const looksMedia = Boolean(msg.isMedia) ||
+      mediaType === 'image' || mediaType === 'video' || mediaType === 'sticker' ||
+      Boolean(msg.mediaThumbUrl)
+    if (!looksMedia) return msg
+    const cached = lookupCachedMediaUrl(msg)
+    if (!cached) return msg
+    changed = true
+    if (typeof window !== 'undefined') {
+      try { const img = new window.Image(); img.src = cached } catch { /* ignore */ }
+    }
+    return {
+      ...msg,
+      mediaUrl: cached,
+      fileURL: cached,
+      fileUrl: cached,
+      isMediaThumbOnly: false,
+    }
+  })
+  return changed ? next : rows
+}
+
 /** URL de exibição na galeria — prioriza mídia full-res; thumb só como fallback. */
 export const resolveMediaGalleryPreviewUrl = (msg) => {
   if (!msg || typeof msg !== 'object') {
@@ -477,7 +607,11 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
   const mediaThumbUrl = extractMessageThumbDataUrl(msg, content)
   const fullMediaUrl = strTrim(msg.fileURL || msg.fileUrl || msg.url || msg.mediaUrl ||
     content?.fileURL || content?.fileUrl || content?.url || mediaFromContent || '')
-  const mediaUrl = isHttpMediaUrl(fullMediaUrl) ? fullMediaUrl : ''
+  let mediaUrl = isHttpMediaUrl(fullMediaUrl) ? fullMediaUrl : ''
+  if (!mediaUrl) {
+    const cachedMediaUrl = lookupCachedMediaUrl(msg)
+    if (cachedMediaUrl) mediaUrl = cachedMediaUrl
+  }
   const isMediaThumbOnly = !mediaUrl && Boolean(mediaThumbUrl)
 
   const mimeType = strTrim(msg?.mimetype || msg?.mimeType || content?.mimetype || content?.mimeType ||
@@ -1294,6 +1428,20 @@ export const pickRicherDuplicateBaseMessage = (prev, next) => {
     if (nextOptLen !== prevOptLen) return nextOptLen > prevOptLen ? next : prev
     if (nextVotes !== prevVotes) return nextVotes > prevVotes ? next : prev
   }
+  // Nunca perder URL full já baixada (DB costuma voltar sem mediaUrl).
+  const prevMedia = isHttpMediaUrl(prev?.mediaUrl)
+  const nextMedia = isHttpMediaUrl(next?.mediaUrl)
+  if (prevMedia !== nextMedia) {
+    const richer = nextMedia ? next : prev
+    const poorer = richer === next ? prev : next
+    return {
+      ...richer,
+      text: strTrim(richer.text || '') ? richer.text : poorer.text,
+      mediaThumbUrl: richer.mediaThumbUrl || poorer.mediaThumbUrl || '',
+      previewUrl: richer.previewUrl || poorer.previewUrl || '',
+      deliveryStatus: richer.deliveryStatus || poorer.deliveryStatus,
+    }
+  }
   const sp = rawReactionPayloadScore(prev), sn = rawReactionPayloadScore(next)
   if (sn !== sp) return sn > sp ? next : prev
   const tp = strTrim(prev.text || '').length, tn = strTrim(next.text || '').length
@@ -1301,7 +1449,18 @@ export const pickRicherDuplicateBaseMessage = (prev, next) => {
   if (tn !== tp) base = tn > tp ? next : prev
   else base = (next.timestamp || 0) >= (prev.timestamp || 0) ? next : prev
   const loser = base === next ? prev : next
-  return promoteDeliveryStatus(base, loser)
+  const promoted = promoteDeliveryStatus(base, loser)
+  if (isHttpMediaUrl(loser?.mediaUrl) && !isHttpMediaUrl(promoted?.mediaUrl)) {
+    return {
+      ...promoted,
+      mediaUrl: loser.mediaUrl,
+      fileURL: loser.fileURL || loser.mediaUrl,
+      fileUrl: loser.fileUrl || loser.mediaUrl,
+      isMediaThumbOnly: false,
+      mediaThumbUrl: promoted.mediaThumbUrl || loser.mediaThumbUrl || '',
+    }
+  }
+  return promoted
 }
 
 export const getMessageMergeKey = (msg) => {
@@ -1708,23 +1867,105 @@ export const resolvePinnedMessagesFromThread = (
     .slice(-3)
 }
 
-// ─── Computed renderedMessages ────────────────────────────────────────────────
+// ─── Computed renderedMessages (cache incremental por messageId) ──────────────
+
+/** Assinatura barata: só muda quando o conteúdo relevante da msg muda. */
+const messageRenderFingerprint = (msg) => {
+  if (!msg || typeof msg !== 'object') return ''
+  const reactionsLen = Array.isArray(msg.reactions) ? msg.reactions.length : 0
+  return [
+    msg.id,
+    msg.messageid,
+    msg.text,
+    msg.body,
+    msg.caption,
+    msg.mediaUrl,
+    msg.mediaThumbUrl,
+    msg.previewUrl,
+    msg.deliveryStatus,
+    msg.timestamp,
+    msg.fromMe,
+    msg.isEdited,
+    msg.pinned,
+    msg.isPinEvent,
+    msg.audioPlayed,
+    reactionsLen,
+    msg.quoted?.textPreview,
+    msg.interactive?.kind,
+  ].join('\u0001')
+}
+
+const renderedMessageCacheById = new Map()
+let renderedMessagesCacheChatKey = ''
+let lastRenderedListSig = ''
+let lastRenderedDirRefs = null
+let lastRenderedOutput = null
+
+const touchDirectoryDeps = () => [
+  contactsDirectory.value,
+  groupParticipantsDirectory.value,
+  groupParticipantsByJid.value,
+  groupParticipantsByLid.value,
+  observedSenderDirectory.value,
+  unknownProfilesDirectory.value,
+  lidToJidMap.value,
+  senderAvatarDirectory.value,
+  optimisticReactionsByNormalizedId.value,
+]
 
 export const renderedMessages = computed(() => {
-  // Lê versões das dependências para disparar reatividade quando diretórios mudam
-  void Object.keys(contactsDirectory.value).length
-  void Object.keys(groupParticipantsDirectory.value).length
-  void Object.keys(groupParticipantsByJid.value).length
-  void Object.keys(groupParticipantsByLid.value).length
-  void Object.keys(observedSenderDirectory.value).length
-  void Object.keys(unknownProfilesDirectory.value).length
-  void Object.keys(lidToJidMap.value).length
-  void Object.keys(senderAvatarDirectory.value || {}).length
-  void optimisticReactionsByNormalizedId.value
+  const dirRefs = touchDirectoryDeps()
+  const dirsChanged = !lastRenderedDirRefs || dirRefs.some((d, i) => d !== lastRenderedDirRefs[i])
+  if (dirsChanged) {
+    renderedMessageCacheById.clear()
+    lastRenderedDirRefs = dirRefs
+    lastRenderedOutput = null
+  }
+
   const list = Array.isArray(messages.value) ? messages.value : []
-  if (!list.length) return []
+  const chatKey = String(selectedChat.value?.chatJid || '')
+  if (chatKey !== renderedMessagesCacheChatKey) {
+    renderedMessageCacheById.clear()
+    renderedMessagesCacheChatKey = chatKey
+    lastRenderedListSig = ''
+    lastRenderedOutput = null
+  }
+  if (!list.length) {
+    renderedMessageCacheById.clear()
+    lastRenderedListSig = ''
+    lastRenderedOutput = null
+    return []
+  }
+
+  // Assinatura: length + ids + campos que mudam com frequência (evita map fingerprint em todo recompute).
+  const listSig = list.map((m) =>
+    `${m?.id}\u0001${m?.timestamp}\u0001${m?.text || ''}\u0001${m?.mediaUrl || ''}\u0001${m?.deliveryStatus || ''}\u0001${Array.isArray(m?.reactions) ? m.reactions.length : 0}`
+  ).join('\u0002')
+  if (lastRenderedOutput && listSig === lastRenderedListSig && !dirsChanged) {
+    return lastRenderedOutput
+  }
+
   try {
-    return hydrateQuotedFromThread(attachReactionsToMessages(list))
+    // Reações/quotes precisam do thread completo; cacheamos o resultado por id+fingerprint.
+    const withReactions = attachReactionsToMessages(list)
+    const hydrated = hydrateQuotedFromThread(withReactions)
+    const nextIds = new Set()
+    const out = hydrated.map((msg) => {
+      const id = String(msg?.id || msg?.messageid || '')
+      if (!id) return msg
+      nextIds.add(id)
+      const fp = messageRenderFingerprint(msg)
+      const cached = renderedMessageCacheById.get(id)
+      if (cached && cached.fp === fp) return cached.msg
+      renderedMessageCacheById.set(id, { fp, msg })
+      return msg
+    })
+    for (const key of renderedMessageCacheById.keys()) {
+      if (!nextIds.has(key)) renderedMessageCacheById.delete(key)
+    }
+    lastRenderedListSig = listSig
+    lastRenderedOutput = out
+    return out
   } catch (error) {
     console.warn('[WhatsApp] renderedMessages indisponível:', error?.message || error)
     return list
@@ -1897,6 +2138,7 @@ export const downloadMessageMedia = async (msg) => {
     if (!res.ok) throw new Error(data?.message || data?.error || 'Falha ao baixar mídia')
     const fileURL = data?.fileURL || data?.fileUrl || ''
     if (!fileURL) return false
+    rememberDownloadedMediaUrl(msg, fileURL)
     let pdfPreviewUrl = ''
     if (String(msg?.mediaType || '').toLowerCase() === 'document') {
       const maybePdf = /\.(pdf)(\?|#|$)/i.test(String(fileURL || '')) ||
@@ -1906,16 +2148,31 @@ export const downloadMessageMedia = async (msg) => {
         pdfPreviewUrl = await buildPdfFirstPageThumbnail(fileURL)
       }
     }
-    messages.value = messages.value.map((item) =>
-      item.id === msg.id
-        ? {
-          ...item,
-          mediaUrl: fileURL,
-          isMediaThumbOnly: false,
-          previewUrl: String(pdfPreviewUrl || item.previewUrl || item.mediaThumbUrl || '').trim(),
+    const targetId = msg.id
+    const idx = messages.value.findIndex((item) => item.id === targetId)
+    if (idx >= 0) {
+      const item = messages.value[idx]
+      const next = {
+        ...item,
+        mediaUrl: fileURL,
+        fileURL,
+        fileUrl: fileURL,
+        isMediaThumbOnly: false,
+        previewUrl: String(pdfPreviewUrl || item.previewUrl || item.mediaThumbUrl || '').trim(),
+      }
+      const copy = messages.value.slice()
+      copy[idx] = next
+      messages.value = copy
+      // Mantém cache do chat com a URL — reabrir não dispara download de novo.
+      try {
+        const { storeOpenChatMessagesCache } = await import('./useWhatsappChats.js')
+        if (typeof storeOpenChatMessagesCache === 'function') {
+          storeOpenChatMessagesCache(selectedChat.value, copy)
         }
-        : item
-    )
+      } catch {
+        /* ignore circular/runtime */
+      }
+    }
     stickChatScrollToBottomIfNeeded()
     return true
   } catch (e) {
@@ -1927,22 +2184,33 @@ export const downloadMessageMedia = async (msg) => {
 }
 
 export const preloadMessageMediaIfNeeded = async (items = []) => {
-  const candidates = (Array.isArray(items) ? items : [])
-    .filter((m) =>
-      m &&
-      m.isMedia &&
-      !isHttpMediaUrl(m.mediaUrl) &&
-      (m.mediaType === 'image' || m.mediaType === 'video' || m.mediaType === 'sticker') &&
-      !autoMediaLoadAttemptedById.value[m.id] &&
-      !downloadingMediaById.value[m.id]
-    )
+  const list = Array.isArray(items) ? items : []
+  // 1) Hidrata cache local NA HORA (sem esperar API / sem overlay).
+  const hydrated = hydrateMessagesMediaFromCache(list)
+  if (hydrated !== list) {
+    messages.value = hydrateMessagesMediaFromCache(messages.value)
+    try {
+      const { storeOpenChatMessagesCache } = await import('./useWhatsappChats.js')
+      storeOpenChatMessagesCache?.(selectedChat.value, messages.value)
+    } catch { /* ignore */ }
+  }
+
+  const source = Array.isArray(messages.value) && messages.value.length ? messages.value : hydrated
+  const candidates = source
+    .filter((m) => {
+      if (!m || !m.isMedia) return false
+      if (m.mediaType !== 'image' && m.mediaType !== 'video' && m.mediaType !== 'sticker') return false
+      if (isHttpMediaUrl(m.mediaUrl)) return false
+      if (autoMediaLoadAttemptedById.value[m.id]) return false
+      if (downloadingMediaById.value[m.id]) return false
+      return true
+    })
     .slice(0, 32)
   if (candidates.length === 0) return
   await Promise.allSettled(candidates.map(async (m) => {
     const ok = await downloadMessageMedia(m)
-    if (ok) {
-      autoMediaLoadAttemptedById.value = { ...autoMediaLoadAttemptedById.value, [m.id]: true }
-    }
+    autoMediaLoadAttemptedById.value = { ...autoMediaLoadAttemptedById.value, [m.id]: true }
+    void ok
   }))
 }
 

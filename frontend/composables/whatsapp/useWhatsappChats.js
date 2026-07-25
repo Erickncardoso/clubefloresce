@@ -19,9 +19,17 @@ import {
   collectMessageFindChatIds,
   collectChatIdentityIds,
 } from './useWhatsappUtils.js'
-import { getProxyBase, getWhatsappApiBase, CHATS_POLL_INTERVAL_MS, MESSAGES_POLL_INTERVAL_MS, whatsappJsonHeaders, whatsappFetchInit } from './useWhatsappApi.js'
+import {
+  getProxyBase,
+  getWhatsappApiBase,
+  MESSAGES_POLL_INTERVAL_MS,
+  MESSAGES_POLL_REALTIME_SAFE_MS,
+  whatsappJsonHeaders,
+  whatsappFetchInit,
+} from './useWhatsappApi.js'
 import {
   isInitialSyncGentleMode,
+  isWhatsappWuzapiProvider,
   getGentleChatsPollIntervalMs,
   getGentleChatPageLimit,
   markInitialSyncActivity,
@@ -62,6 +70,7 @@ import { loadWhatsappLabels, syncWhatsappLabelsInBackground, normalizeChatLabelI
 import {
   connectWhatsappPusher,
   disconnectWhatsappPusher,
+  isWhatsappPusherConnected,
 } from './useWhatsappPusher.js'
 import {
   connectWhatsappSse,
@@ -74,7 +83,7 @@ import {
   loadPersistedGroupObservedSenders, schedulePersistGroupObservedSenders, cancelScheduledGroupObservedPersist,
   resolvePrivateChatPhoneJid,
 } from './useWhatsappContacts.js'
-import { normalizeMessage, getMessageMergeKey, pickRicherDuplicateBaseMessage, preloadMessageMediaIfNeeded, normalizeIncomingMessage, isStoredNormalizedMessage, normalizeMessageForDisplay } from './useWhatsappMessages.js'
+import { normalizeMessage, getMessageMergeKey, pickRicherDuplicateBaseMessage, preloadMessageMediaIfNeeded, hydrateMessagesMediaFromCache, normalizeIncomingMessage, isStoredNormalizedMessage, normalizeMessageForDisplay } from './useWhatsappMessages.js'
 import { handleInteractiveMenuOptionClick } from './useWhatsappInteractive.js'
 import {
   scrollToBottom,
@@ -114,6 +123,11 @@ const storeMessagesInChatCache = (chatRow, normalizedMessages) => {
   messagesCacheByChatJid.set(key, [...normalizedMessages])
 }
 
+/** Atualiza cache do chat aberto (ex.: após download de mídia). */
+export const storeOpenChatMessagesCache = (chatRow, normalizedMessages) => {
+  storeMessagesInChatCache(chatRow || selectedChat.value, normalizedMessages)
+}
+
 const isSelectedChatListKey = (expectedListKey) => {
   if (!expectedListKey) return true
   return canonicalChatListKey(selectedChat.value) === expectedListKey
@@ -127,11 +141,16 @@ const normalizeRawMessagesBatch = (rawMessages = []) => {
   return [...aggregated].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
 }
 
+/** Máx. de prefetches simultâneos — sobra conexão para o fetch do clique (HTTP/1.1 ≈ 6/origem). */
+const PREFETCH_MAX_CONCURRENT = 3
+
 export const prefetchChatMessagesFromDb = (chat) => {
   if (!chat || typeof window === 'undefined') return
   const listKey = getChatRuntimeCacheKey(chat)
   if (!listKey || getMessagesCacheForChat(chat)) return
   if (prefetchMessagesInflight.has(listKey)) return
+  // Prefetch é oportunista: no teto, simplesmente pula (o clique busca na hora com prioridade alta).
+  if (prefetchMessagesInflight.size >= PREFETCH_MAX_CONCURRENT) return
   prefetchMessagesInflight.add(listKey)
 
   const jid = resolveActiveChatFetchJid(chat)
@@ -142,13 +161,25 @@ export const prefetchChatMessagesFromDb = (chat) => {
 
   void fetchChatMessages(jid, CHAT_MESSAGES_INITIAL_BATCH, 0, {
     syncFromUazapi: false,
-    timeoutMs: 5000,
+    timeoutMs: 4000,
+    priority: 'low',
   })
     .then((pageResult) => {
       if (!Array.isArray(pageResult?.messages) || pageResult.messages.length === 0) return
       const normalized = normalizeRawMessagesBatch(pageResult.messages)
       storeMessagesInChatCache(chat, normalized)
       indexMessagesForPreviewCache(normalized)
+      // Clique ganhou a corrida do prefetch: aplica no chat aberto sem esperar outro round-trip.
+      if (
+        listKey &&
+        canonicalChatListKey(selectedChat.value) === listKey &&
+        (loadingMessages.value || !Array.isArray(messages.value) || messages.value.length === 0)
+      ) {
+        messages.value = normalized
+        loadingMessages.value = false
+        chatHistorySyncPending.value = false
+        applySelectChatScroll()
+      }
     })
     .catch(() => {})
     .finally(() => {
@@ -159,7 +190,22 @@ export const prefetchChatMessagesFromDb = (chat) => {
 const prefetchTopChatsMessagesFromDb = (chatList, limit = 10) => {
   if (typeof window === 'undefined') return
   const list = Array.isArray(chatList) ? chatList.slice(0, limit) : []
-  for (const chat of list) prefetchChatMessagesFromDb(chat)
+  // 2 em paralelo — cobre o topo da sidebar sem saturar o backend.
+  let i = 0
+  let inflight = 0
+  const maxParallel = 2
+  const runNext = () => {
+    while (inflight < maxParallel && i < list.length) {
+      const chat = list[i++]
+      inflight += 1
+      prefetchChatMessagesFromDb(chat)
+      window.setTimeout(() => {
+        inflight -= 1
+        runNext()
+      }, 180)
+    }
+  }
+  runNext()
 }
 
 export const resetChatsRuntimeCaches = () => {
@@ -757,6 +803,7 @@ export const applyWhatsappRealtimePayload = (payload = {}) => {
   })
 
   mergeChatsSliceIntoList([row])
+  syncSelectedChatAfterChatsMutation()
 
   const chatJid = row.chatJid
   if (chatJid && isReactionMessageType(chat.wa_lastMessageType || chat.lastMessageType)) {
@@ -1167,18 +1214,48 @@ export const mergeDuplicateChatRows = (prevRow, incomingRow) => {
 export const mergeChatsSliceIntoList = (rawIncoming) => {
   const byKey = new Map()
   for (const chat of (chats.value || [])) {
+    if (!hasRealConversation(chat)) continue
     const key = canonicalChatListKey(chat)
     if (key && isChatDeletedLocally(chat)) continue
     if (key) byKey.set(key, chat)
   }
   for (const rawChat of rawIncoming) {
     const normalized = normalizeChat(rawChat)
+    if (!hasRealConversation(normalized)) continue
     if (isChatDeletedLocally(normalized)) continue
     const key = canonicalChatListKey(normalized)
     if (!key) continue
     byKey.set(key, mergeDuplicateChatRows(byKey.get(key) || null, normalized))
   }
   chats.value = sortChatsByPriority(Array.from(byKey.values()))
+}
+
+let openChatCatchUpTimer = null
+let lastOpenChatCatchUpAt = 0
+
+const scheduleOpenChatCatchUp = (options = {}) => {
+  if (typeof window === 'undefined') return
+  if (!selectedChat.value) return
+  if (!sidebarLooksNewerThanThread(selectedChat.value, messages.value)) return
+  const now = Date.now()
+  // Evita rajada de findMessages (GuzzApp) em lightSync/pin refresh.
+  if (now - lastOpenChatCatchUpAt < 2500 && !options.force) return
+  if (openChatCatchUpTimer) clearTimeout(openChatCatchUpTimer)
+  openChatCatchUpTimer = setTimeout(() => {
+    openChatCatchUpTimer = null
+    if (!selectedChat.value) return
+    if (!sidebarLooksNewerThanThread(selectedChat.value, messages.value)) return
+    lastOpenChatCatchUpAt = Date.now()
+    void refreshSelectedChatMessages({}, { force: true, light: true }).then(() => {
+      stickChatScrollToBottomIfNeeded()
+      if (!sidebarLooksNewerThanThread(selectedChat.value, messages.value)) return
+      void refreshSelectedChatMessages({}, {
+        force: true,
+        light: true,
+        syncFromUazapi: true,
+      }).then(() => stickChatScrollToBottomIfNeeded())
+    })
+  }, options.immediate ? 0 : 350)
 }
 
 export const syncSelectedChatAfterChatsMutation = () => {
@@ -1192,8 +1269,13 @@ export const syncSelectedChatAfterChatsMutation = () => {
     found.wa_chatid || cur.wa_chatid,
     preferWhatsappNetPrivateJid(cur.chatJid, found.chatJid),
   )
-  if (found === cur && normalizeJid(cur.chatJid) === normalizeJid(preferJid)) return
-  selectedChat.value = { ...found, chatJid: preferJid }
+  const next = found === cur && normalizeJid(cur.chatJid) === normalizeJid(preferJid)
+    ? cur
+    : { ...found, chatJid: preferJid }
+  if (next !== cur) selectedChat.value = next
+
+  // Sidebar do chat aberto à frente → agenda catch-up do thread.
+  scheduleOpenChatCatchUp()
 }
 
 export const refreshChatPreview = (chatJid, payload) => {
@@ -1327,7 +1409,7 @@ const listAllChatsFromUazapi = async () => {
     if (pageResult.chats.length === 0) break
     for (const chat of pageResult.chats) {
       const normalized = normalizeChat(chat), key = canonicalChatListKey(normalized)
-      if (!key) continue
+      if (!key || !hasRealConversation(normalized)) continue
       byKey.set(key, mergeDuplicateChatRows(byKey.get(key) || null, normalized))
     }
     offset += pageResult.chats.length
@@ -1337,6 +1419,19 @@ const listAllChatsFromUazapi = async () => {
   return Array.from(byKey.values())
 }
 
+const hasRealConversation = (chat = {}) => {
+  const ts = Number(
+    chat?.lastMessageTime ||
+    chat?.wa_lastMsgTimestamp ||
+    chat?.timestamp ||
+    0,
+  )
+  return ts > 0
+}
+
+const filterRealConversations = (rows = []) =>
+  (Array.isArray(rows) ? rows : []).filter((chat) => hasRealConversation(chat))
+
 const loadChatsFromBackendCache = async () => {
   const apiBase = getWhatsappApiBase()
   if (!apiBase) return []
@@ -1345,7 +1440,20 @@ const loadChatsFromBackendCache = async () => {
     const data = await parseJsonBodySafe(res)
     if (!res.ok) return []
     const rows = Array.isArray(data?.chats) ? data.chats : []
-    return rows.map((chat) => normalizeChat(chat)).filter((chat) => canonicalChatListKey(chat))
+    const normalized = rows.map((chat) => normalizeChat(chat)).filter((chat) => canonicalChatListKey(chat))
+    // Cache do DB costuma ter contatos sem preview — isso vira o flash de "Nenhuma mensagem".
+    const withPreview = filterRealConversations(normalized).filter((chat) => {
+      const preview = String(
+        chat?.lastMessage ||
+        chat?.wa_lastMessageTextVote ||
+        chat?.wa_lastMsgText ||
+        chat?.wa_lastMessageText ||
+        ''
+      ).trim().toLowerCase()
+      return preview && preview !== 'nenhuma mensagem'
+    })
+    if (withPreview.length >= 8) return withPreview
+    return []
   } catch {
     return []
   }
@@ -1360,16 +1468,19 @@ const loadChatsFromBackendSync = async (forceRefresh = false) => {
     const data = await parseJsonBodySafe(res)
     if (!res.ok) return []
     const rows = Array.isArray(data?.chats) ? data.chats : []
-    return rows.map((chat) => normalizeChat(chat)).filter((chat) => canonicalChatListKey(chat))
+    return filterRealConversations(
+      rows.map((chat) => normalizeChat(chat)).filter((chat) => canonicalChatListKey(chat)),
+    )
   } catch {
     return []
   }
 }
 
 const applyResolvedChatsList = async (resolvedChats, { skipPinnedFetch = false } = {}) => {
-  if (!Array.isArray(resolvedChats) || resolvedChats.length === 0) return false
+  const realChats = filterRealConversations(resolvedChats)
+  if (!Array.isArray(realChats) || realChats.length === 0) return false
 
-  const chatsWithPin = resolvedChats.map((chat) => ({
+  const chatsWithPin = realChats.map((chat) => ({
     ...chat,
     isPinned: parseWaPinnedFlag(chat.wa_isPinned),
     muteEndTime: Number(chat.wa_muteEndTime ?? chat.muteEndTime ?? 0),
@@ -1404,6 +1515,12 @@ const applyResolvedChatsList = async (resolvedChats, { skipPinnedFetch = false }
   )
   syncSelectedChatAfterChatsMutation()
   enrichMissingChatAvatars().catch(() => {})
+  // Mais avatares após lista fresca (grupos/contatos com URL CDN expirada).
+  if (typeof window !== 'undefined') {
+    window.setTimeout(() => {
+      enrichMissingChatAvatars({ limit: 40 }).catch(() => {})
+    }, 1500)
+  }
   prefetchTopChatsMessagesFromDb(chats.value)
   return true
 }
@@ -1427,6 +1544,17 @@ const listPinnedChatsFromUazapi = async () => {
     if (pageResult.chats.length < pageSize) break
   }
   return byKey
+}
+
+/** Pinned flags custam 1-10 POST /chat/find na UAZAPI — no lightSync, no máx. 1×/60s. */
+let lastPinnedFlagsRefreshAt = 0
+const PINNED_FLAGS_REFRESH_MIN_MS = 60_000
+
+const refreshPinnedChatFlagsThrottled = async () => {
+  const now = Date.now()
+  if (now - lastPinnedFlagsRefreshAt < PINNED_FLAGS_REFRESH_MIN_MS) return
+  lastPinnedFlagsRefreshAt = now
+  await refreshPinnedChatFlags()
 }
 
 export const refreshPinnedChatFlags = async () => {
@@ -1466,7 +1594,7 @@ export const enrichMissingChatAvatars = async ({ chatList = null, limit = 10 } =
 
   const batch = withoutAvatar.slice(0, Math.max(1, Number(limit) || 10))
 
-  await Promise.allSettled(batch.map(async (chat) => {
+  const enrichOne = async (chat) => {
     const key = canonicalChatListKey(chat)
     if (!key) return
     const numberOrJid = resolveChatMessagesFetchJid(chat) || normalizeJid(chat.chatJid || chat.id || '')
@@ -1484,8 +1612,63 @@ export const enrichMissingChatAvatars = async ({ chatList = null, limit = 10 } =
       senderAvatarDirectory.value = nextAvatars
     }
 
-    chats.value = chats.value.map((item) => canonicalChatListKey(item) === key ? { ...item, avatarUrl: avatar } : item)
-  }))
+    chats.value = chats.value.map((item) => canonicalChatListKey(item) === key ? { ...item, avatarUrl: avatar, image: avatar, imagePreview: avatar } : item)
+  }
+
+  // Pool de 3 — antes eram até 40 requests simultâneos brigando com o fetch do chat aberto.
+  const queue = [...batch]
+  const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
+    while (queue.length) {
+      const chat = queue.shift()
+      if (!chat) break
+      try { await enrichOne(chat) } catch {}
+    }
+  })
+  await Promise.allSettled(workers)
+}
+
+/** URL de avatar quebrou no <img> — limpa e busca foto fresca via /chat/details. */
+export const clearChatAvatarAndRefresh = async (chat = {}) => {
+  const key = canonicalChatListKey(chat)
+  if (!key) return
+  chats.value = chats.value.map((item) => {
+    if (canonicalChatListKey(item) !== key) return item
+    return { ...item, avatarUrl: '', image: '', imagePreview: '' }
+  })
+  if (selectedChat.value && canonicalChatListKey(selectedChat.value) === key) {
+    selectedChat.value = { ...selectedChat.value, avatarUrl: '', image: '', imagePreview: '' }
+  }
+  // Bust cache do /chat/details para não devolver a mesma URL morta.
+  const numberOrJid = resolveChatMessagesFetchJid(chat) || normalizeJid(chat.chatJid || chat.id || '')
+  if (numberOrJid) {
+    const data = await fetchChatDetailsSafe(numberOrJid, {
+      preview: true,
+      timeoutMs: 5000,
+      cacheTtlMs: 0,
+      force: true,
+    })
+    const avatar = extractAvatarFromDetailsPayload(data)
+    if (!avatar) return
+    const lookupKeys = buildLookupKeys(numberOrJid, chat.wa_chatlid, chat.phone, chat.wa_chatid)
+    if (lookupKeys.length) {
+      const nextAvatars = { ...senderAvatarDirectory.value }
+      for (const k of lookupKeys) nextAvatars[k] = avatar
+      senderAvatarDirectory.value = nextAvatars
+    }
+    chats.value = chats.value.map((item) =>
+      canonicalChatListKey(item) === key
+        ? { ...item, avatarUrl: avatar, image: avatar, imagePreview: avatar }
+        : item
+    )
+    if (selectedChat.value && canonicalChatListKey(selectedChat.value) === key) {
+      selectedChat.value = {
+        ...selectedChat.value,
+        avatarUrl: avatar,
+        image: avatar,
+        imagePreview: avatar,
+      }
+    }
+  }
 }
 
 // ─── fetchChatMessages ────────────────────────────────────────────────────────
@@ -1557,7 +1740,7 @@ export const fetchChatMessages = async (chatJid, limit = 200, offset = 0, option
   if (!normalizedChatId) throw new Error('CHAT_ID_INVALID')
 
   const syncFromUazapi = options.syncFromUazapi === true
-  const timeoutMs = Math.min(60_000, Math.max(8_000, Number(options.timeoutMs) || 22_000))
+  const timeoutMs = Math.min(60_000, Math.max(3_000, Number(options.timeoutMs) || (syncFromUazapi ? 12_000 : 4_000)))
   const params = new URLSearchParams({
     limit: String(Math.min(200, Math.max(1, Number(limit) || 50))),
     offset: String(Math.max(0, Number(offset) || 0)),
@@ -1575,10 +1758,12 @@ export const fetchChatMessages = async (chatJid, limit = 200, offset = 0, option
     const init = whatsappFetchInit()
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
+    // Priority hint: clique do usuário fura a fila de prefetches/avatares no pool de conexões.
+    const priority = options.priority === 'high' || options.priority === 'low' ? options.priority : undefined
     try {
       res = await fetch(
         `${apiBase}/chats/${encodeURIComponent(normalizedChatId)}/messages?${params.toString()}`,
-        { ...init, signal: controller?.signal },
+        { ...init, signal: controller?.signal, ...(priority ? { priority } : {}) },
       )
     } finally {
       if (timer) clearTimeout(timer)
@@ -1605,11 +1790,34 @@ export const fetchChatMessages = async (chatJid, limit = 200, offset = 0, option
 }
 
 const chatHistorySyncInflight = new Set()
+/** Evita re-disparar history/backfill na UAZAPI (celular/GuzzApp fica “sincronizando”). */
+const chatProviderSyncCooldownUntil = new Map()
+/** 30 min — history-sync / findMessages na UAZAPI derruba a sessão multi-device. */
+const PROVIDER_SYNC_COOLDOWN_MS = 30 * 60 * 1000
+/** Sync UAZAPI automático desligado: só botão “Tentar sincronizar” / force explícito. */
+const AUTO_PROVIDER_MESSAGE_SYNC = false
+
+const providerSyncKeyForChat = (chatJid = '') =>
+  canonicalChatListKey({ chatJid }) || normalizeJid(chatJid) || String(chatJid || '').trim()
+
+const isProviderSyncOnCooldown = (chatJid = '') => {
+  const key = providerSyncKeyForChat(chatJid)
+  if (!key) return false
+  return Number(chatProviderSyncCooldownUntil.get(key) || 0) > Date.now()
+}
+
+const markProviderSyncCooldown = (chatJid = '', ttlMs = PROVIDER_SYNC_COOLDOWN_MS) => {
+  const key = providerSyncKeyForChat(chatJid)
+  if (!key) return
+  chatProviderSyncCooldownUntil.set(key, Date.now() + Math.max(60_000, Number(ttlMs) || PROVIDER_SYNC_COOLDOWN_MS))
+}
 
 /** Dispara backfill de histórico no backend (varre chats + history-sync + persistência). */
 export const requestChatHistoryBackfill = async (chatJids = [], { force = true } = {}) => {
   const apiBase = getWhatsappApiBase()
   if (!apiBase) return false
+  const targets = (Array.isArray(chatJids) ? chatJids : []).filter(Boolean)
+  if (!force && targets.some((jid) => isProviderSyncOnCooldown(jid))) return false
   try {
     const res = await fetch(`${apiBase}/messages/backfill`, {
       ...whatsappFetchInit(),
@@ -1620,9 +1828,12 @@ export const requestChatHistoryBackfill = async (chatJids = [], { force = true }
       },
       body: JSON.stringify({
         force: Boolean(force),
-        chatJids: Array.isArray(chatJids) ? chatJids.filter(Boolean) : [],
+        chatJids: targets,
       }),
     })
+    if (res.ok) {
+      for (const jid of targets) markProviderSyncCooldown(jid)
+    }
     return res.ok
   } catch {
     return false
@@ -1635,6 +1846,7 @@ export const requestChatHistorySync = async (chatJid, count = 100) => {
   if (!number) return false
 
   const syncKey = canonicalChatListKey({ chatJid: number }) || number
+  if (isProviderSyncOnCooldown(number)) return false
   if (chatHistorySyncInflight.has(syncKey)) return true
   chatHistorySyncInflight.add(syncKey)
 
@@ -1647,6 +1859,7 @@ export const requestChatHistorySync = async (chatJid, count = 100) => {
       whatsappFetchInit()
     )
     if (!res.ok) return false
+    markProviderSyncCooldown(number)
     markInitialSyncActivity('history-sync')
     return true
   } catch {
@@ -1668,6 +1881,10 @@ const extractRealtimeMessagesFromPayload = (payload = {}) => {
 
   push(payload?.message)
 
+  if (Array.isArray(payload?.messages)) {
+    for (const entry of payload.messages) push(entry)
+  }
+
   const data = payload?.data
   if (Array.isArray(data)) {
     for (const entry of data) push(entry)
@@ -1676,6 +1893,13 @@ const extractRealtimeMessagesFromPayload = (payload = {}) => {
       for (const entry of data.messages) push(entry)
     }
     push(data.message)
+    // Formato UAZAPI {event, data}: `data` pode SER a mensagem — mas nunca uma linha de chat.
+    const looksLikeMessage = Boolean(
+      data.messageid || data.key?.id || data.messageType ||
+      ((data.id || data.chatid) && (data.text || data.body || data.mediaType))
+    )
+    const looksLikeChatRow = Boolean(data.wa_chatid && !data.messageid && !data.messageType && !data.chatid)
+    if (looksLikeMessage && !looksLikeChatRow) push(data)
   }
 
   const event = payload?.event
@@ -1691,17 +1915,94 @@ const applyFetchedMessagesToOpenChat = (pageResult, activeFetchJid, enrichShared
   if (expectedListKey && !isSelectedChatListKey(expectedListKey)) return false
   if (!Array.isArray(pageResult?.messages) || pageResult.messages.length === 0) return false
 
+  // Primeiro paint do thread (abertura) vs refresh em background com msgs na tela.
+  const isInitialThreadPaint = !Array.isArray(messages.value) || messages.value.length === 0 || loadingMessages.value
+
   const aggregated = []
   const seenIds = new Set()
   const rawByMergeKey = new Map()
   appendRawMessagesToAggregate(aggregated, seenIds, rawByMergeKey, pageResult.messages)
 
-  const normalizedMessages = [...aggregated].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+  // Preserva mediaUrl já na tela / no cache do chat (DB costuma voltar sem URL).
+  const prevMediaByKey = new Map()
+  for (const row of messages.value || []) {
+    const key = getMessageMergeKey(row)
+    const url = String(row?.mediaUrl || '').trim()
+    if (key && /^https?:\/\//i.test(url)) prevMediaByKey.set(key, url)
+  }
+
+  let normalizedMessages = hydrateMessagesMediaFromCache(
+    [...aggregated].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)),
+  )
+  if (prevMediaByKey.size) {
+    normalizedMessages = normalizedMessages.map((row) => {
+      if (/^https?:\/\//i.test(String(row?.mediaUrl || ''))) return row
+      const kept = prevMediaByKey.get(getMessageMergeKey(row))
+      if (!kept) return row
+      return {
+        ...row,
+        mediaUrl: kept,
+        fileURL: kept,
+        fileUrl: kept,
+        isMediaThumbOnly: false,
+      }
+    })
+  }
+
+  const recentSynthetic = (messages.value || []).filter((row) => {
+    if (!String(row?.id || row?.messageid || '').startsWith('rt-chat-preview:')) return false
+    const ageMs = Date.now() - Number(row.timestamp || 0)
+    if (!Number.isFinite(ageMs) || ageMs < -5000 || ageMs > 15000) return false
+    const text = strTrim(row.text || row.body || '')
+    if (!text) return false
+    return !normalizedMessages.some((real) => (
+      Boolean(real.fromMe) === Boolean(row.fromMe) &&
+      strTrim(real.text || real.body || '') === text &&
+      Math.abs(Number(real.timestamp || 0) - Number(row.timestamp || 0)) <= 90000
+    ))
+  })
+  if (recentSynthetic.length) {
+    normalizedMessages = [...normalizedMessages, ...recentSynthetic]
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+  }
+
+  // MERGE com o thread atual — não descarta histórico que só existe no cache/tela
+  // (o DB local pode ter menos mensagens que o cache; substituir encolhia o thread).
+  const fetchedKeys = new Set(normalizedMessages.map((m) => getMessageMergeKey(m)).filter(Boolean))
+  const keepFromThread = (messages.value || []).filter((row) => {
+    const key = getMessageMergeKey(row)
+    if (!key || fetchedKeys.has(key)) return false
+    if (String(row?.id || row?.messageid || '').startsWith('rt-chat-preview:')) return false
+    return true
+  })
+  if (keepFromThread.length) {
+    normalizedMessages = dropStaleOptimisticOutbound(
+      [...normalizedMessages, ...keepFromThread].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+    )
+  }
+
+  // Refresh em background sem mudança estrutural → não mexe em nada (evita flicker).
+  const prevRows = Array.isArray(messages.value) ? messages.value : []
+  const structuralChange =
+    prevRows.length !== normalizedMessages.length ||
+    getMessageMergeKey(prevRows[prevRows.length - 1] || {}) !== getMessageMergeKey(normalizedMessages[normalizedMessages.length - 1] || {})
+  if (!isInitialThreadPaint && !structuralChange) {
+    storeMessagesInChatCache(selectedChat.value || chat, normalizedMessages)
+    return true
+  }
+
   messages.value = normalizedMessages
   storeMessagesInChatCache(selectedChat.value || chat, normalizedMessages)
   indexMessagesForPreviewCache(normalizedMessages)
   refreshReactionPreviewForChatJid(activeFetchJid, normalizedMessages)
-  applySelectChatScroll()
+  // Abertura: vai para a última msg. Background: só acompanha se o usuário JÁ está no fundo.
+  if (isInitialThreadPaint) {
+    applySelectChatScroll()
+  } else {
+    stickChatScrollToBottomIfNeeded()
+  }
+  // Mídia do cache já está na bolha; só baixa o que ainda falta (sem delay).
+  void preloadMessageMediaIfNeeded(normalizedMessages)
   runSelectChatBackgroundEnrichment(activeFetchJid, aggregated, rawByMergeKey, enrichSharedFns, chat)
 
   const paginationKey = expectedListKey || getChatRuntimeCacheKey(selectedChat.value || chat)
@@ -1724,7 +2025,8 @@ const pollChatMessagesAfterHistorySync = async (chatRow, activeFetchJid, enrichS
   if (typeof window === 'undefined') return
   chatHistorySyncPending.value = true
   try {
-    const delays = [0, 700, 1500, 2800, 4500, 7000, 12_000]
+    // Só DB — NÃO puxar UAZAPI no poll (isso reinicia sync no celular/GuzzApp).
+    const delays = [0, 900, 2000, 4000, 8000]
     for (const delayMs of delays) {
       if (delayMs > 0) {
         await new Promise((resolve) => window.setTimeout(resolve, delayMs))
@@ -1732,7 +2034,7 @@ const pollChatMessagesAfterHistorySync = async (chatRow, activeFetchJid, enrichS
       if (mySeq !== selectChatLoadSeq.value) return
       if (expectedListKey && !isSelectedChatListKey(expectedListKey)) return
       try {
-        let applied = await refreshOpenChatMessages(
+        const applied = await refreshOpenChatMessages(
           chatRow,
           activeFetchJid,
           enrichSharedFns,
@@ -1741,17 +2043,6 @@ const pollChatMessagesAfterHistorySync = async (chatRow, activeFetchJid, enrichS
           { syncFromUazapi: false, awaitHistory: false },
           expectedListKey,
         )
-        if (!applied) {
-          applied = await refreshOpenChatMessages(
-            chatRow,
-            activeFetchJid,
-            enrichSharedFns,
-            chat,
-            mySeq,
-            { syncFromUazapi: true, awaitHistory: false },
-            expectedListKey,
-          )
-        }
         if (applied) {
           noteInitialSyncChatCount((chats.value || []).length)
           return
@@ -1771,7 +2062,52 @@ let lastPollUnknownEnrichAt = 0
 const UNKNOWN_ENRICH_MIN_MS = 35000
 let pendingMessageRefresh = false
 
+const resolvePrivateJidAlias = (jid = '') => {
+  const n = normalizeJid(jid)
+  if (!n) return ''
+  if (n.endsWith('@s.whatsapp.net') || n.endsWith('@g.us')) return n
+  if (n.endsWith('@lid')) {
+    const map = lidToJidMap.value || {}
+    const mapped = normalizeJid(map[n] || map[n.split('@')[0]] || '')
+    if (mapped) return mapped
+  }
+  return n
+}
+
 const jidsReferToSameChat = (a, b) => {
+  const left = normalizeJid(a)
+  const right = normalizeJid(b)
+  if (!left || !right) return false
+  if (left === right) return true
+  if (canonicalChatListKey({ chatJid: left }) === canonicalChatListKey({ chatJid: right })) return true
+  // LID ↔ PN: webhook manda @lid, chat aberto costuma ser @s.whatsapp.net
+  const leftAlias = resolvePrivateJidAlias(left)
+  const rightAlias = resolvePrivateJidAlias(right)
+  if (leftAlias && rightAlias && leftAlias === rightAlias) return true
+  if (leftAlias && canonicalChatListKey({ chatJid: leftAlias }) === canonicalChatListKey({ chatJid: right })) return true
+  if (rightAlias && canonicalChatListKey({ chatJid: left }) === canonicalChatListKey({ chatJid: rightAlias })) return true
+  // Cruza com a linha da sidebar (wa_chatlid / wa_chatid).
+  const selected = selectedChat.value
+  if (selected) {
+    const aliases = [
+      selected.chatJid,
+      selected.wa_chatid,
+      selected.wa_chatlid,
+      selected.chatlid,
+      selected.chatid,
+    ].map((v) => normalizeJid(v)).filter(Boolean)
+    const leftHit = aliases.some((alias) => alias === left || alias === leftAlias || jidsLooseEqual(alias, left))
+    const rightHit = aliases.some((alias) => alias === right || alias === rightAlias || jidsLooseEqual(alias, right))
+    if (leftHit && rightHit) return true
+    if ((leftHit || rightHit) && aliases.some((alias) => {
+      const other = leftHit ? right : left
+      return alias === other || resolvePrivateJidAlias(alias) === resolvePrivateJidAlias(other)
+    })) return true
+  }
+  return false
+}
+
+const jidsLooseEqual = (a, b) => {
   const left = normalizeJid(a)
   const right = normalizeJid(b)
   if (!left || !right) return false
@@ -1780,7 +2116,7 @@ const jidsReferToSameChat = (a, b) => {
 }
 
 export const refreshSelectedChatMessages = async (enrichSharedFns = {}, options = {}) => {
-  const { force = false, light = false } = options
+  const { force = false, light = false, syncFromUazapi = false } = options
   const currentChatJid = resolveActiveChatFetchJid(selectedChat.value)
   if (!currentChatJid) return
   if (loadingMessages.value && !force) return
@@ -1795,9 +2131,11 @@ export const refreshSelectedChatMessages = async (enrichSharedFns = {}, options 
     if (!light) await syncContactsDirectoryIfNeeded(false)
     if (selectChatLoadSeq.value !== seqSnapshot) return
     const scrollSnapshot = captureChatScrollSnapshot()
+    // light = sem enrich pesado; syncFromUazapi = puxa mensagem nova quando sidebar está à frente.
     const pageResult = await fetchChatMessages(currentChatJid, 120, 0, {
-      syncFromUazapi: !light,
+      syncFromUazapi: Boolean(syncFromUazapi),
       awaitHistory: false,
+      timeoutMs: syncFromUazapi ? 10_000 : 4_000,
     })
     if (messagesBackendOfflineLogged.value) { console.info('Conexao com backend restabelecida.'); messagesBackendOfflineLogged.value = false }
     if (!Array.isArray(pageResult.messages) || pageResult.messages.length === 0) return
@@ -2051,10 +2389,12 @@ export const loadChats = async (forceRefresh = false, options = {}) => {
   const {
     silent = false,
     lightSync = false,
-    gentle = isInitialSyncGentleMode(),
     preferCache = false,
   } = options
-  const gentleMode = gentle || isInitialSyncGentleMode()
+  // Se o caller passa gentle explicitamente, respeita — senão segue o modo do sync inicial.
+  const gentleMode = Object.prototype.hasOwnProperty.call(options, 'gentle')
+    ? Boolean(options.gentle)
+    : isInitialSyncGentleMode()
   if (!lightSync && !preferCache) {
     loadWhatsappLabels({ showLoading: false, refresh: false }).catch(() => {})
   } else {
@@ -2063,7 +2403,8 @@ export const loadChats = async (forceRefresh = false, options = {}) => {
   try {
     if (!silent) loadingChats.value = true
 
-    if (preferCache || (chats.value || []).length === 0) {
+    // Cache só para pintar rápido — com forceRefresh sempre segue para UAZAPI.
+    if (!forceRefresh && (preferCache || (chats.value || []).length === 0)) {
       const cached = await loadChatsFromBackendCache()
       if (cached.length > 0) {
         await applyResolvedChatsList(cached, { skipPinnedFetch: preferCache || gentleMode })
@@ -2072,21 +2413,21 @@ export const loadChats = async (forceRefresh = false, options = {}) => {
       }
     }
 
-    if (lightSync || (gentleMode && !forceRefresh)) {
+    if (!forceRefresh && (lightSync || gentleMode)) {
       const pageLimit = gentleMode ? getGentleChatPageLimit() : 600
       const pageResult = await fetchChatsPage(pageLimit, 0)
       if (chatsBackendOfflineLogged.value) { console.info('Conexao com backend restabelecida.'); chatsBackendOfflineLogged.value = false }
       if (Array.isArray(pageResult.chats) && pageResult.chats.length > 0) {
         mergeChatsSliceIntoList(pageResult.chats)
-        await refreshPinnedChatFlags()
+        await refreshPinnedChatFlagsThrottled()
         noteInitialSyncChatCount((chats.value || []).length)
-        if (gentleMode && !forceRefresh) return
-      } else if (gentleMode && !forceRefresh && (chats.value || []).length > 0) {
+        if (gentleMode) return
+      } else if (gentleMode && (chats.value || []).length > 0) {
         noteInitialSyncChatCount((chats.value || []).length)
         return
       }
     }
-    if (gentleMode && !forceRefresh && (chats.value || []).length > 0) {
+    if (!forceRefresh && gentleMode && (chats.value || []).length > 0) {
       noteInitialSyncChatCount((chats.value || []).length)
       return
     }
@@ -2130,9 +2471,9 @@ export const loadChats = async (forceRefresh = false, options = {}) => {
 // ─── selectChat ───────────────────────────────────────────────────────────────
 
 /** Mensagens carregadas ao abrir o chat */
-export const CHAT_MESSAGES_INITIAL_BATCH = 40
+export const CHAT_MESSAGES_INITIAL_BATCH = 30
 /** Mensagens carregadas a cada scroll até o topo */
-export const CHAT_MESSAGES_OLDER_BATCH = 40
+export const CHAT_MESSAGES_OLDER_BATCH = 30
 
 const appendRawMessagesToAggregate = (aggregated, seenIds, rawByMergeKey, rawMessages = []) => {
   for (const rawMessage of rawMessages) {
@@ -2167,11 +2508,12 @@ const loadOlderMessagesPage = async (paginationKey, activeFetchJid, mySeq) => {
 
   loadingOlderMessages.value = true
   try {
-      const pageResult = await fetchChatMessages(
+      // Sempre do DB/cache — sync=1 na UAZAPI faz o celular “sincronizar” de novo.
+    const pageResult = await fetchChatMessages(
       activeFetchJid,
       CHAT_MESSAGES_OLDER_BATCH,
       pagination.nextOffset,
-      { syncFromUazapi: true },
+      { syncFromUazapi: false },
     )
     if (mySeq !== selectChatLoadSeq.value) return
     if (!isSelectedChatListKey(paginationKey)) return
@@ -2224,38 +2566,57 @@ export const loadOlderChatMessages = () => {
 setChatScrollNearTopHandler(tryLoadOlderMessagesNearTop)
 
 const runSelectChatBackgroundEnrichment = (activeFetchJid, aggregated, rawByMergeKey, enrichSharedFns, chat) => {
-  const rawForLearn = aggregated.map((m) => rawByMergeKey.get(getMessageMergeKey(m)) || m)
-  ingestLidPnHintsFromMessages(rawForLearn)
-  learnObservedSenderNames(rawForLearn)
-  enrichUnknownSenderNames(rawForLearn).catch(() => {})
+  // Adia trabalho pesado para não competir com o paint do chat aberto.
+  const run = () => {
+    try {
+      const rawForLearn = aggregated.map((m) => rawByMergeKey.get(getMessageMergeKey(m)) || m)
+      ingestLidPnHintsFromMessages(rawForLearn)
+      learnObservedSenderNames(rawForLearn)
+      enrichUnknownSenderNames(rawForLearn).catch(() => {})
 
-  if (enrichSharedFns.enrichSharedContactAvatars) enrichSharedFns.enrichSharedContactAvatars(aggregated)
-  if (enrichSharedFns.enrichSharedContactBusinessProfiles) enrichSharedFns.enrichSharedContactBusinessProfiles(aggregated)
+      if (enrichSharedFns.enrichSharedContactAvatars) enrichSharedFns.enrichSharedContactAvatars(aggregated)
+      if (enrichSharedFns.enrichSharedContactBusinessProfiles) enrichSharedFns.enrichSharedContactBusinessProfiles(aggregated)
 
-  if (enrichSharedFns.hydratePersistedContactStatesFromMessages) {
-    enrichSharedFns.hydratePersistedContactStatesFromMessages(aggregated).catch(() => {})
-  }
+      if (enrichSharedFns.hydratePersistedContactStatesFromMessages) {
+        enrichSharedFns.hydratePersistedContactStatesFromMessages(aggregated).catch(() => {})
+      }
 
-  const hasSharedContact = aggregated.some((msg) => msg.isContactShare && msg.sharedContact?.phone)
-  if (hasSharedContact) {
-    syncContactsDirectoryIfNeeded(true)
-      .then(() => {
-        if (enrichSharedFns.persistSavedStatesFromMessages) {
-          return enrichSharedFns.persistSavedStatesFromMessages(aggregated)
+      const hasSharedContact = aggregated.some((msg) => msg.isContactShare && msg.sharedContact?.phone)
+      if (hasSharedContact) {
+        syncContactsDirectoryIfNeeded(true)
+          .then(() => {
+            if (enrichSharedFns.persistSavedStatesFromMessages) {
+              return enrichSharedFns.persistSavedStatesFromMessages(aggregated)
+            }
+            return undefined
+          })
+          .catch(() => {})
+      }
+
+      // Avatares de grupo: depois. Mídia já hidratada no applyFetched / selectChat.
+      window.setTimeout?.(() => {
+        if (chat?.isGroup) {
+          ensureGroupSenderAvatars(messages.value, { forceRefresh: false }).catch(() => {})
         }
-        return undefined
-      })
-      .catch(() => {})
+      }, 600)
+
+      if (normalizeJid(activeFetchJid).endsWith('@g.us')) {
+        schedulePersistGroupObservedSenders(activeFetchJid, rawForLearn)
+      }
+
+      markCurrentChatAsRead({ ...selectedChat.value, chatJid: activeFetchJid }, aggregated).catch(() => {})
+    } catch (e) {
+      console.warn('[WhatsApp] enrich pós-open falhou', e?.message || e)
+    }
   }
 
-  preloadMessageMediaIfNeeded(messages.value).catch(() => {})
-  ensureGroupSenderAvatars(messages.value, { forceRefresh: Boolean(chat?.isGroup) }).catch(() => {})
-
-  if (normalizeJid(activeFetchJid).endsWith('@g.us')) {
-    schedulePersistGroupObservedSenders(activeFetchJid, rawForLearn)
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(run, { timeout: 1200 })
+  } else if (typeof window !== 'undefined') {
+    window.setTimeout(run, 120)
+  } else {
+    run()
   }
-
-  markCurrentChatAsRead({ ...selectedChat.value, chatJid: activeFetchJid }, aggregated).catch(() => {})
 }
 
 const loadOlderSelectChatPages = (paginationKey, startOffset, aggregated, seenIds, rawByMergeKey) => {
@@ -2269,10 +2630,22 @@ const loadOlderSelectChatPages = (paginationKey, startOffset, aggregated, seenId
   chatMessagesHasMore.value = true
 }
 
+/** PN (@s.whatsapp.net) primeiro: é como o DB grava; LID costuma voltar vazio. */
+const sortMessageFindCandidates = (candidates = []) => {
+  const rank = (jid) => {
+    const j = String(jid || '').toLowerCase()
+    if (j.endsWith('@s.whatsapp.net')) return 0
+    if (j.endsWith('@g.us')) return 1
+    if (j.endsWith('@lid')) return 3
+    return 2
+  }
+  return [...candidates].sort((a, b) => rank(a) - rank(b))
+}
+
 const fetchSelectChatMessages = async (chatRow, limit, offset, options = {}) => {
   const awaitHistory = options.awaitHistory === true
   const syncFromUazapi = options.syncFromUazapi === true
-  const candidates = collectMessageFindChatIds(chatRow)
+  const candidates = sortMessageFindCandidates(collectMessageFindChatIds(chatRow))
 
   if (!candidates.length) throw new Error('CHAT_ID_INVALID')
 
@@ -2283,16 +2656,18 @@ const fetchSelectChatMessages = async (chatRow, limit, offset, options = {}) => 
       const pageResult = await fetchChatMessages(chatid, limit, offset, {
         syncFromUazapi,
         awaitHistory: awaitHistory && offset === 0,
-        timeoutMs: syncFromUazapi ? 14_000 : 8_000,
+        timeoutMs: syncFromUazapi ? 10_000 : 4_000,
+        priority: 'high',
       })
       if (Array.isArray(pageResult.messages) && pageResult.messages.length > 0) {
         return { ...pageResult, usedChatId: chatid }
       }
       lastEmpty = { ...pageResult, usedChatId: chatid }
-      if (!syncFromUazapi) break
+      // sync=0 é só o DB local (barato) — tenta TODOS os aliases antes de desistir.
+      // Antes desistia no 1º vazio: se o 1º era @lid, o thread abria velho para sempre.
     } catch (error) {
       lastError = error
-      if (!syncFromUazapi) break
+      if (syncFromUazapi) break
     }
   }
 
@@ -2312,16 +2687,72 @@ const refreshOpenChatMessages = async (chatRow, activeFetchJid, enrichSharedFns,
   return applyFetchedMessagesToOpenChat(pageResult, activeFetchJid, enrichSharedFns, chat, mySeq, expectedListKey)
 }
 
+const threadLastActivityMs = (rows = []) => {
+  let max = 0
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const ts = normalizeTimestampToMs(row?.timestamp || row?.messageTimestamp || 0)
+    if (ts > max) max = ts
+  }
+  return max
+}
+
+const sidebarLooksNewerThanThread = (chatRow = {}, threadRows = []) => {
+  const sidebarTs = getChatActivityTimestamp(chatRow)
+  if (!sidebarTs) return false
+  const threadTs = threadLastActivityMs(threadRows)
+  if (!threadTs) return true
+
+  // Se a última bolha do thread já é o preview da sidebar, NÃO está atrás —
+  // o ts da sidebar pode vir segundos à frente (evento chats/ingest) e isso
+  // criava loop de refresh: bolha piscando + scroll pulando para o fundo.
+  const rows = Array.isArray(threadRows) ? threadRows : []
+  for (let i = rows.length - 1; i >= 0 && i >= rows.length - 4; i -= 1) {
+    const text = strTrim(rows[i]?.text || rows[i]?.body || '')
+    if (!text) continue
+    const preview = strTrim(resolveChatListLastMessage(chatRow) || '').replace(/…$/, '')
+    if (preview && (text === preview || text.startsWith(preview))) return false
+    break
+  }
+
+  // Sidebar à frente do thread aberto (mensagem nova ainda não no painel).
+  return sidebarTs > threadTs + 1500
+}
+
 const syncOpenChatMessagesInBackground = (chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, expectedListKey = '') => {
   void (async () => {
     try {
-      const applied = await refreshOpenChatMessages(chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, {
+      // Só DB/cache. UAZAPI automática = sync no celular (GuzzApp) o tempo todo.
+      const fromDb = await refreshOpenChatMessages(chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, {
+        syncFromUazapi: false,
+        awaitHistory: false,
+      }, expectedListKey)
+      if (mySeq !== selectChatLoadSeq.value) return
+      if (expectedListKey && !isSelectedChatListKey(expectedListKey)) return
+
+      if (fromDb) {
+        chatHistorySyncPending.value = false
+        return
+      }
+
+      // Sem msgs no DB: mostra estado vazio/sync pendente — NÃO dispara history/backfill sozinho.
+      if (chatHasListPreview(selectedChat.value || chat)) {
+        chatHistorySyncPending.value = true
+      } else {
+        chatHistorySyncPending.value = false
+      }
+
+      if (!AUTO_PROVIDER_MESSAGE_SYNC) return
+      if (isProviderSyncOnCooldown(activeFetchJid)) return
+
+      const fromProvider = await refreshOpenChatMessages(chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, {
         syncFromUazapi: true,
         awaitHistory: false,
       }, expectedListKey)
-      if (applied || mySeq !== selectChatLoadSeq.value) return
-      if (expectedListKey && !isSelectedChatListKey(expectedListKey)) return
-      chatHistorySyncPending.value = true
+      markProviderSyncCooldown(activeFetchJid, fromProvider ? PROVIDER_SYNC_COOLDOWN_MS : PROVIDER_SYNC_COOLDOWN_MS)
+      if (fromProvider) {
+        chatHistorySyncPending.value = false
+        return
+      }
       void requestChatHistoryBackfill([activeFetchJid], { force: false })
       await pollChatMessagesAfterHistorySync(chatRow, activeFetchJid, enrichSharedFns, chat, mySeq, expectedListKey)
     } catch {
@@ -2390,101 +2821,143 @@ export const retrySelectedChatHistorySync = async (enrichSharedFns = {}) => {
   }
 }
 
-export const selectChat = async (chat, enrichSharedFns = {}) => {
+export const selectChat = (chat, enrichSharedFns = {}) => {
+  if (!chat) return
+  const openKey = canonicalChatListKey(chat)
+  // Já está neste chat — não refaz o pipeline (clique/pointerdown duplicado).
+  if (
+    selectedChat.value &&
+    openKey &&
+    canonicalChatListKey(selectedChat.value) === openKey &&
+    Array.isArray(messages.value) &&
+    messages.value.length > 0 &&
+    !loadingMessages.value
+  ) {
+    return
+  }
+
   const mySeq = ++selectChatLoadSeq.value
   const chatJid = chat.chatJid
   chatHistorySyncPending.value = false
+  loadingMessages.value = false
 
   resetChatScrollBehavior()
   cancelScheduledGroupObservedPersist()
 
-  const openKey = canonicalChatListKey(chat)
-  chats.value = chats.value.map((item) => {
-    if (openKey && canonicalChatListKey(item) !== openKey) return item
-    if (!openKey && item.id !== chat.id && item.chatJid !== chatJid) return item
-    return { ...item, unreadCount: 0, wa_unreadCount: 0 }
-  })
+  // Abre o chat NA HORA — sem remapear a lista inteira no clique (isso travava a UI).
+  const resolved = (openKey ? (chats.value || []).find((item) => canonicalChatListKey(item) === openKey) : null) ||
+    (chats.value || []).find((item) => item.id === chat.id || item.chatJid === chatJid) ||
+    chat
+  const nextJid = preferWhatsappNetPrivateJid(
+    resolved?.wa_chatid,
+    preferWhatsappNetPrivateJid(resolved?.chatJid, chatJid),
+  )
+  selectedChat.value = { ...resolved, chatJid: nextJid, unreadCount: 0, wa_unreadCount: 0 }
 
-  const resolved = (openKey ? chats.value.find((item) => canonicalChatListKey(item) === openKey) : null) ||
-    chats.value.find((item) => item.id === chat.id || item.chatJid === chatJid) || null
-  selectedChat.value = resolved
-    ? { ...resolved, chatJid: preferWhatsappNetPrivateJid(resolved.wa_chatid, preferWhatsappNetPrivateJid(resolved.chatJid, chatJid)), unreadCount: 0 }
-    : { ...chat, chatJid: preferWhatsappNetPrivateJid(chat.wa_chatid, preferWhatsappNetPrivateJid(chatJid, chatJid)), unreadCount: 0 }
+  // Zera badge só do item clicado (barato).
+  if (openKey || chatJid) {
+    const list = chats.value || []
+    const idx = list.findIndex((item) =>
+      (openKey && canonicalChatListKey(item) === openKey) ||
+      (!openKey && (item.id === chat.id || item.chatJid === chatJid))
+    )
+    if (idx >= 0 && Number(list[idx]?.unreadCount || list[idx]?.wa_unreadCount || 0) > 0) {
+      const copy = list.slice()
+      copy[idx] = { ...copy[idx], unreadCount: 0, wa_unreadCount: 0 }
+      chats.value = copy
+    }
+  }
 
   const activeFetchJid = resolveActiveChatFetchJid(selectedChat.value) || String(chatJid || '').trim()
   const listKey = canonicalChatListKey(selectedChat.value) || openKey
   const cacheHit = getMessagesCacheForChat(selectedChat.value)
   const cachedMessages = cacheHit?.messages
   const hadCache = Array.isArray(cachedMessages) && cachedMessages.length > 0
-  messages.value = hadCache ? [...cachedMessages] : []
+  // Hidrata URLs de mídia do localStorage ANTES do paint — sem “Baixando…” se já baixou.
+  messages.value = hadCache ? hydrateMessagesMediaFromCache(cachedMessages) : []
+  // Sem cache: loading NA HORA (evita flash de “Nenhuma mensagem” que parece atraso).
+  // Com cache: mensagens já na tela — zero spinner.
+  loadingMessages.value = !hadCache
 
-  if (chat?.isGroup && chatJid) {
-    senderAvatarDirectory.value = {}
-    void loadGroupParticipantsDirectory(chatJid, { force: false }).then(() => {
-      if (mySeq !== selectChatLoadSeq.value) return
-      return loadPersistedGroupObservedSenders(chatJid)
-    }).catch(() => {})
-    window.setTimeout(() => {
-      if (mySeq !== selectChatLoadSeq.value) return
-      loadGroupParticipantsDirectory(chatJid, { force: true }).catch(() => {})
-    }, 2000)
-  } else {
-    groupParticipantsDirectory.value = {}
-    groupParticipantsByJid.value = {}
-    groupParticipantsByLid.value = {}
-    observedSenderDirectory.value = {}
-  }
-
+  // Sempre última mensagem ao abrir (cache ou após fetch).
   if (hadCache) {
     applySelectChatScroll()
-    loadingMessages.value = false
-    syncOpenChatMessagesInBackground(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq, listKey)
-    return
+    void preloadMessageMediaIfNeeded(messages.value)
   }
 
-  let loadingDelayTimer = null
-  try {
-    loadingMessages.value = false
-    if (typeof window !== 'undefined') {
-      loadingDelayTimer = window.setTimeout(() => {
-        if (mySeq === selectChatLoadSeq.value && messages.value.length === 0) {
-          loadingMessages.value = true
+  // Grupo / sync: tudo depois, sem competir com o fetch das mensagens.
+  if (typeof window !== 'undefined') {
+    window.setTimeout(() => {
+      if (mySeq !== selectChatLoadSeq.value) return
+      if (chat?.isGroup && chatJid) {
+        void loadGroupParticipantsDirectory(chatJid, { force: false }).then(() => {
+          if (mySeq !== selectChatLoadSeq.value) return
+          return loadPersistedGroupObservedSenders(chatJid)
+        }).catch(() => {})
+      }
+    }, 1200)
+  }
+
+  void (async () => {
+    try {
+      if (hadCache) {
+        // Cache: mostra na hora; refresh só do DB (sem UAZAPI — evita sync no celular).
+        syncOpenChatMessagesInBackground(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq, listKey)
+        return
+      }
+
+      const applied = await refreshOpenChatMessages(
+        selectedChat.value,
+        activeFetchJid,
+        enrichSharedFns,
+        chat,
+        mySeq,
+        { syncFromUazapi: false, awaitHistory: false },
+        listKey,
+      )
+      if (mySeq !== selectChatLoadSeq.value) return
+      loadingMessages.value = false
+
+      if (applied) {
+        // Sidebar à frente: só DB de novo — NÃO sync UAZAPI automático.
+        if (sidebarLooksNewerThanThread(selectedChat.value, messages.value)) {
+          syncOpenChatMessagesInBackground(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq, listKey)
         }
-      }, 280)
-    } else {
-      loadingMessages.value = true
-    }
+        return
+      }
 
-    const applied = await refreshOpenChatMessages(
-      selectedChat.value,
-      activeFetchJid,
-      enrichSharedFns,
-      chat,
-      mySeq,
-      { syncFromUazapi: false, awaitHistory: false },
-      listKey,
-    )
+      // Sem msgs no DB: banner + botão retry. Não dispara history/backfill sozinho (GuzzApp).
+      chatHistorySyncPending.value = chatHasListPreview(selectedChat.value)
+      if (!AUTO_PROVIDER_MESSAGE_SYNC) return
+      if (isProviderSyncOnCooldown(activeFetchJid)) return
 
-    if (applied) {
-      syncOpenChatMessagesInBackground(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq, listKey)
-      return
+      const fromProvider = await refreshOpenChatMessages(
+        selectedChat.value,
+        activeFetchJid,
+        enrichSharedFns,
+        chat,
+        mySeq,
+        { syncFromUazapi: true, awaitHistory: false },
+        listKey,
+      )
+      markProviderSyncCooldown(activeFetchJid, PROVIDER_SYNC_COOLDOWN_MS)
+      if (fromProvider) {
+        chatHistorySyncPending.value = false
+        return
+      }
+      void requestChatHistoryBackfill([activeFetchJid], { force: false })
+    } catch (e) {
+      if (mySeq !== selectChatLoadSeq.value) return
+      loadingMessages.value = false
+      if (e?.message === 'BAD_REQUEST_MESSAGE_FIND' || e?.message === 'CHAT_ID_INVALID') return
+      console.error('Erro ao carregar mensagens', e)
+      chatHistorySyncPending.value = false
+    } finally {
+      if (mySeq === selectChatLoadSeq.value) {
+        loadingMessages.value = false
+      }
     }
-
-    chatHistorySyncPending.value = chatHasListPreview(selectedChat.value)
-    void requestChatHistoryBackfill([activeFetchJid], { force: false })
-    syncOpenChatMessagesInBackground(selectedChat.value, activeFetchJid, enrichSharedFns, chat, mySeq, listKey)
-  } catch (e) {
-    if (mySeq !== selectChatLoadSeq.value) return
-    if (e?.message === 'BAD_REQUEST_MESSAGE_FIND' || e?.message === 'CHAT_ID_INVALID') return
-    console.error('Erro ao carregar mensagens', e)
-    chatHistorySyncPending.value = false
-  } finally {
-    if (loadingDelayTimer && typeof window !== 'undefined') window.clearTimeout(loadingDelayTimer)
-    loadingMessages.value = false
-    if (mySeq === selectChatLoadSeq.value) {
-      applySelectChatScroll()
-    }
-  }
+  })()
 }
 
 // ─── sendMessage ──────────────────────────────────────────────────────────────
@@ -2758,14 +3231,71 @@ export const sendInteractiveMenuReply = async (message, opt) => {
 let forceRealtimeSyncDebounceTimer = null
 let chatRealtimeUnsub = null
 let initialSyncCompleteUnsub = null
+let lastRealtimeHealthy = null
+
+/** Pusher ou SSE saudável → polling vira safety-net, não fonte primária. */
+const isRealtimeTransportHealthy = () => isWhatsappPusherConnected() || isWhatsappSseConnected()
+
+let chatsPollInflight = false
 
 const rescheduleChatsPolling = (enrichSharedFns = {}) => {
   if (typeof window === 'undefined') return
   if (chatsPollingTimer.value) clearInterval(chatsPollingTimer.value)
-  const interval = getGentleChatsPollIntervalMs()
+  const healthy = isRealtimeTransportHealthy()
+  lastRealtimeHealthy = healthy
+  const interval = getGentleChatsPollIntervalMs({ realtimeHealthy: healthy })
   chatsPollingTimer.value = setInterval(() => {
+    const nowHealthy = isRealtimeTransportHealthy()
+    if (nowHealthy !== lastRealtimeHealthy) {
+      rescheduleChatsPolling(enrichSharedFns)
+      rescheduleMessagesPolling(enrichSharedFns)
+      return
+    }
+    // Poll anterior ainda rodando (UAZAPI lenta) → pula o tick, não empilha requests.
+    if (chatsPollInflight) return
+    chatsPollInflight = true
     loadChats(false, { silent: true, lightSync: true, gentle: isInitialSyncGentleMode() })
+      .catch(() => {})
+      .finally(() => { chatsPollInflight = false })
   }, interval)
+}
+
+const pollOpenChatCatchUp = (enrichSharedFns = {}) => {
+  if (!selectedChat.value) return
+  const behind = sidebarLooksNewerThanThread(selectedChat.value, messages.value)
+  // Sidebar à frente → findMessages (sem history-sync). Caso normal: só DB.
+  refreshSelectedChatMessages(enrichSharedFns, {
+    light: true,
+    force: behind,
+    syncFromUazapi: behind,
+  }).catch(() => {})
+}
+
+const rescheduleMessagesPolling = (enrichSharedFns = {}) => {
+  if (typeof window === 'undefined') return
+  if (messagesPollingTimer.value) clearInterval(messagesPollingTimer.value)
+  const healthy = isRealtimeTransportHealthy()
+  // Com realtime ok, não pollar mensagens a cada 4s — só safety-net longo.
+  if (healthy && !isInitialSyncGentleMode()) {
+    messagesPollingTimer.value = setInterval(() => {
+      if (!isRealtimeTransportHealthy()) {
+        rescheduleMessagesPolling(enrichSharedFns)
+        rescheduleChatsPolling(enrichSharedFns)
+        return
+      }
+      pollOpenChatCatchUp(enrichSharedFns)
+    }, MESSAGES_POLL_REALTIME_SAFE_MS)
+    return
+  }
+  messagesPollingTimer.value = setInterval(() => {
+    if (isInitialSyncGentleMode()) return
+    if (isRealtimeTransportHealthy()) {
+      rescheduleMessagesPolling(enrichSharedFns)
+      rescheduleChatsPolling(enrichSharedFns)
+      return
+    }
+    pollOpenChatCatchUp(enrichSharedFns)
+  }, MESSAGES_POLL_INTERVAL_MS)
 }
 
 const watchInitialSyncCompletion = (enrichSharedFns = {}) => {
@@ -2774,29 +3304,58 @@ const watchInitialSyncCompletion = (enrichSharedFns = {}) => {
   let prevActive = isInitialSyncGentleMode()
   initialSyncCompleteUnsub = setInterval(() => {
     const active = isInitialSyncGentleMode()
+    const healthy = isRealtimeTransportHealthy()
     if (prevActive && !active) {
       rescheduleChatsPolling(enrichSharedFns)
+      rescheduleMessagesPolling(enrichSharedFns)
       loadChats(true, { silent: true }).catch(() => {})
+    } else if (healthy !== lastRealtimeHealthy) {
+      rescheduleChatsPolling(enrichSharedFns)
+      rescheduleMessagesPolling(enrichSharedFns)
     }
     prevActive = active
   }, 3000)
 }
 
-export const mergeIncomingWhatsappMessage = (rawMessage, chatJid = '') => {
+export const mergeIncomingWhatsappMessage = (rawMessage, chatJid = '', options = {}) => {
   if (!rawMessage || typeof rawMessage !== 'object') return false
-  const selectedJid = normalizeJid(selectedChat.value?.chatJid)
-  const incomingJid = normalizeJid(
-    chatJid ||
-    rawMessage.chatid ||
-    rawMessage.chatJid ||
-    rawMessage.wa_chatid ||
-    rawMessage.sender_pn ||
-    rawMessage.sender
+  const selected = selectedChat.value
+  const selectedJid = normalizeJid(selected?.chatJid)
+  if (!selectedJid) return false
+  const forceOpenChat = options.forceOpenChat === true
+
+  const incomingCandidates = [
+    chatJid,
+    rawMessage.chatid,
+    rawMessage.chatJid,
+    rawMessage.wa_chatid,
+    rawMessage.wa_chatlid,
+    rawMessage.chatlid,
+    rawMessage.sender_pn,
+    // Em chat privado, fromMe=false: sender pode ser o contato (mesmo chat).
+    !rawMessage.fromMe && !selectedJid.endsWith('@g.us') ? rawMessage.sender : '',
+    !rawMessage.fromMe && !selectedJid.endsWith('@g.us') ? rawMessage.sender_lid : '',
+  ].map((v) => normalizeJid(v)).filter(Boolean)
+
+  // Aliases conhecidos do chat aberto (PN, LID, chatid) — resolve LID↔PN sem forçar.
+  const openChatAliases = [
+    selectedJid,
+    normalizeJid(selected?.wa_chatid),
+    normalizeJid(selected?.wa_chatlid),
+    normalizeJid(selected?.chatid),
+  ].filter(Boolean)
+
+  const matchesOpenChat = forceOpenChat || (
+    incomingCandidates.length > 0 &&
+    incomingCandidates.some((jid) => openChatAliases.some((alias) => jidsReferToSameChat(jid, alias)))
   )
-  if (!selectedJid || !incomingJid || !jidsReferToSameChat(incomingJid, selectedJid)) return false
+  if (!matchesOpenChat) return false
 
   const normalized = normalizeIncomingMessage(rawMessage)
   if (!normalized) return false
+  // Garante chatid do thread aberto (evita merge key estranha / cache errado).
+  normalized.chatid = selectedJid
+  normalized.chatJid = selectedJid
   const key = getMessageMergeKey(normalized)
   const mergedByKey = new Map()
 
@@ -2845,8 +3404,100 @@ const isChatMetadataEvent = (eventType = '') => {
   return root === 'chat' || root === 'chats'
 }
 
+const buildRealtimeMessageFromChatPreview = (payload = {}, selectedJid = '') => {
+  const chat = payload?.chat
+  if (!chat || typeof chat !== 'object' || Array.isArray(chat)) return null
+
+  const row = normalizeChat({
+    ...chat,
+    chatJid: chat.wa_chatid || chat.chatid || chat.chatJid || payload?.chatJid || '',
+  })
+  const chatJid = normalizeJid(row.chatJid || payload?.chatJid || '')
+  if (!chatJid || !selectedJid || !jidsReferToSameChat(chatJid, selectedJid)) return null
+
+  const msgType = String(chat.wa_lastMessageType || chat.lastMessageType || '').trim()
+  if (isReactionMessageType(msgType)) return null
+
+  const text = pickFirstNonEmptyText(
+    chat.wa_lastMessageTextVote,
+    chat.wa_lastMsgText,
+    chat.wa_lastMessageText,
+    chat.lastMessage,
+    row.lastMessage,
+  )
+  if (!text || detectChatPresenceKindFromText(text)) return null
+
+  const ts = normalizeTimestampToMs(
+    chat.wa_lastMsgTimestamp ||
+    chat.wa_lastMessageTimestamp ||
+    chat.wa_lastMessageTime ||
+    chat.lastMessageTime ||
+    chat.timestamp ||
+    Date.now()
+  ) || Date.now()
+
+  const syntheticId = `rt-chat-preview:${chatJid}:${ts}:${text.slice(0, 24)}`
+  return {
+    id: syntheticId,
+    messageid: syntheticId,
+    chatid: selectedJid,
+    chatJid: selectedJid,
+    sender: row.lastMessageSender || chat.wa_lastMessageSender || '',
+    sender_pn: row.lastMessageSender || chat.wa_lastMessageSender || '',
+    fromMe: Boolean(row.lastMessageFromMe),
+    text,
+    body: text,
+    message: text,
+    messageTimestamp: ts,
+    timestamp: ts,
+    messageType: msgType || 'Conversation',
+    type: msgType || 'text',
+  }
+}
+
+/**
+ * Evento realtime só com `message` (sem objeto `chat`): sintetiza o chat para
+ * atualizar preview/ordem/unread da sidebar NA HORA, sem esperar poll HTTP.
+ */
+const buildChatPayloadFromRealtimeMessage = (raw = {}) => {
+  if (!raw || typeof raw !== 'object') return null
+  const chatJid = normalizeJid(
+    raw.chatid ||
+    raw.chatJid ||
+    raw.wa_chatid ||
+    (!raw.fromMe ? raw.sender_pn : '') ||
+    ''
+  )
+  if (!chatJid) return null
+  const text = strTrim(raw.text || raw.body || raw.caption || '')
+  const ts = normalizeTimestampToMs(raw.messageTimestamp || raw.timestamp || 0) || Date.now()
+  return {
+    wa_chatid: chatJid,
+    chatJid,
+    wa_lastMsgTimestamp: ts,
+    lastMessageTime: ts,
+    wa_lastMessageType: String(raw.messageType || raw.type || ''),
+    wa_lastMessageSender: String(raw.sender || raw.participant || raw.sender_pn || ''),
+    ...(text ? { wa_lastMessageTextVote: text, lastMessage: text } : {}),
+  }
+}
+
 export const handleWhatsappRealtimeEvent = (payload = {}, enrichSharedFns = {}) => {
   const eventType = String(payload?.eventType || '').trim().toLowerCase()
+  if (eventType === 'session.reset' || payload?.sessionReset === true) {
+    if (isWhatsappWuzapiProvider()) {
+      void loadChats(true)
+      return
+    }
+    resetWhatsappAfterDisconnect()
+    void loadChats(true)
+    return
+  }
+  if (eventType === 'sse.reconnected') {
+    // Stream caiu e voltou: eventos podem ter se perdido no intervalo — resync HTTP.
+    forceRealtimeSync(enrichSharedFns)
+    return
+  }
   if (eventType === 'history' || eventType.includes('history')) {
     markInitialSyncActivity('history')
     const historyChatJid = String(
@@ -2899,34 +3550,166 @@ export const handleWhatsappRealtimeEvent = (payload = {}, enrichSharedFns = {}) 
     applyPresenceFromRealtimePayload(payload)
   } else {
     appliedChatFromPayload = applyWhatsappRealtimePayload(payload)
+
+    // Evento sem objeto `chat` (só message): atualiza a sidebar direto do message.
+    if (!appliedChatFromPayload) {
+      const rawMsgs = payload?.message && typeof payload.message === 'object'
+        ? [payload.message]
+        : extractRealtimeMessagesFromPayload(payload)
+      for (const raw of rawMsgs) {
+        const syntheticChat = buildChatPayloadFromRealtimeMessage(raw)
+        if (!syntheticChat) continue
+        // messages_update de msg antiga não pode regredir preview/ordem da sidebar.
+        const existingRow = (chats.value || []).find(
+          (item) => canonicalChatListKey(item) === canonicalChatListKey(syntheticChat)
+        )
+        if (existingRow && Number(syntheticChat.lastMessageTime || 0) < getChatActivityTimestamp(existingRow) - 1000) {
+          continue
+        }
+        if (applyWhatsappRealtimePayload({ chat: syntheticChat, message: raw })) {
+          appliedChatFromPayload = true
+        }
+      }
+    }
   }
 
   const eventChatJid = String(
     payload?.chatJid ||
     payload?.chat?.wa_chatid ||
+    payload?.chat?.wa_chatlid ||
     payload?.message?.chatid ||
+    payload?.message?.sender_pn ||
     parsePresenceFromRealtimePayload(payload)?.chatJid ||
     ''
   ).trim()
   const selectedJid = normalizeJid(selectedChat.value?.chatJid)
-  const affectsOpenChat = !eventChatJid || !selectedJid || jidsReferToSameChat(eventChatJid, selectedJid)
+  // NÃO confiar só no JID do evento — LID vs PN falhava e a bolha nunca entrava.
+  const affectsOpenChat = Boolean(selectedJid) && (
+    !eventChatJid ||
+    jidsReferToSameChat(eventChatJid, selectedJid) ||
+    sidebarLooksNewerThanThread(selectedChat.value, messages.value)
+  )
   const isGroupEvent = eventType === 'groups' || eventType === 'group'
 
   let mergedOpenChatMessage = false
-  if (payload?.message && affectsOpenChat) {
-    mergedOpenChatMessage = mergeIncomingWhatsappMessage(payload.message, eventChatJid)
+  let mergedSyntheticChatPreview = false
+  const tryMergeIntoOpenChat = (raw, hintJid = '', force = false) => {
+    if (!selectedJid || !raw) return false
+    // Sem id/texto/mídia — provavelmente só metadado de chat, não bolha.
+    const hasBody = Boolean(
+      raw.id || raw.messageid || raw.messageId || raw.key?.id ||
+      raw.text || raw.body || raw.message || raw.content ||
+      raw.messageType || raw.type || raw.mediaType
+    )
+    if (!hasBody) return false
+    if (mergeIncomingWhatsappMessage(raw, hintJid || eventChatJid || selectedJid, { forceOpenChat: force })) return true
+    // 2ª tentativa forçada SÓ quando o evento é do chat aberto (LID vs PN) —
+    // sem isso, mensagem de OUTRA conversa era injetada no thread aberto.
+    if (force && mergeIncomingWhatsappMessage(raw, selectedJid, { forceOpenChat: true })) return true
+    return false
+  }
+
+  // Força merge SÓ quando o JID do evento é comprovadamente o chat aberto.
+  // "sidebar à frente" NÃO é critério: forçava mensagem de OUTRA conversa
+  // para dentro do thread aberto. LID↔PN é resolvido pelos aliases no merge.
+  const forceMergeOpen = Boolean(selectedJid) &&
+    !isPresenceEvent &&
+    Boolean(eventChatJid) &&
+    jidsReferToSameChat(eventChatJid, selectedJid)
+
+  if (payload?.message && selectedJid && !isPresenceEvent) {
+    mergedOpenChatMessage = tryMergeIntoOpenChat(payload.message, eventChatJid, forceMergeOpen)
     if (mergedOpenChatMessage) stickChatScrollToBottomIfNeeded()
   }
 
-  // Evento de chat (mute, pin, arquivar…) já traz wa_muteEndTime no payload — não sobrescrever com lightSync stale.
-  const skipLightSync = appliedChatFromPayload && isChatMetadataEvent(eventType) && !payload?.message
-  if (affectsOpenChat && selectedJid) {
-    forceRealtimeSync(enrichSharedFns)
-    if (isGroupEvent && selectedChat.value?.isGroup) {
-      loadGroupParticipantsDirectory(selectedJid, { force: true }).catch(() => {})
+  // Extração ampla: alguns webhooks trazem message em data/event.
+  if (!mergedOpenChatMessage && selectedJid && !isPresenceEvent) {
+    const extras = extractRealtimeMessagesFromPayload(payload)
+    if (extras.length) {
+      let any = false
+      for (const raw of extras) {
+        if (tryMergeIntoOpenChat(raw, eventChatJid, forceMergeOpen)) any = true
+      }
+      if (any) {
+        mergedOpenChatMessage = true
+        stickChatScrollToBottomIfNeeded()
+      }
     }
-  } else if (!skipLightSync) {
-    loadChats(false, { silent: true, lightSync: true, gentle: isInitialSyncGentleMode() }).catch(() => {})
+  }
+
+  // Sidebar do chat aberto à frente do thread → puxa DB; se ainda falhar, findMessages (sem history-sync).
+  if (!mergedOpenChatMessage && selectedJid && !isPresenceEvent && appliedChatFromPayload) {
+    const synthetic = buildRealtimeMessageFromChatPreview(payload, selectedJid)
+    // A mensagem REAL pode já ter entrado via evento `messages` — a bolha sintética
+    // do preview tem outro id e duplicava o balão (ex.: "Ihhh" ×2).
+    const syntheticText = strTrim(synthetic?.text || '')
+    const syntheticTs = Number(synthetic?.timestamp || 0)
+    const alreadyInThread = Boolean(syntheticText) && (messages.value || []).some((m) =>
+      strTrim(m?.text || m?.body || '') === syntheticText &&
+      Math.abs(Number(m?.timestamp || 0) - syntheticTs) < 5 * 60_000
+    )
+    if (synthetic && !alreadyInThread && tryMergeIntoOpenChat(synthetic, selectedJid, true)) {
+      mergedOpenChatMessage = true
+      mergedSyntheticChatPreview = true
+      stickChatScrollToBottomIfNeeded()
+    }
+  }
+
+  const openChatBehindSidebar = Boolean(selectedJid) &&
+    !isPresenceEvent &&
+    sidebarLooksNewerThanThread(selectedChat.value, messages.value)
+
+  if (
+    selectedJid &&
+    !mergedOpenChatMessage &&
+    !isPresenceEvent &&
+    (affectsOpenChat || openChatBehindSidebar || appliedChatFromPayload || payload?.message)
+  ) {
+    void refreshSelectedChatMessages(enrichSharedFns, { force: true, light: true }).then(() => {
+      stickChatScrollToBottomIfNeeded()
+      if (!sidebarLooksNewerThanThread(selectedChat.value, messages.value)) return
+      // DB ainda vazio (chats.update sem message / race) → pull findMessages só deste chat.
+      window.setTimeout?.(() => {
+        void refreshSelectedChatMessages(enrichSharedFns, {
+          force: true,
+          light: true,
+          syncFromUazapi: true,
+        }).then(() => {
+          stickChatScrollToBottomIfNeeded()
+        })
+      }, 400)
+    })
+  }
+
+  // Evento de chat (mute, pin, arquivar…) já traz wa_muteEndTime no payload — não sobrescrever com lightSync stale.
+  if (mergedSyntheticChatPreview) {
+    window.setTimeout?.(() => {
+      void refreshSelectedChatMessages(enrichSharedFns, { force: true, light: true }).then(() => {
+        stickChatScrollToBottomIfNeeded()
+      })
+    }, 250)
+  }
+
+  const skipLightSync = appliedChatFromPayload && isChatMetadataEvent(eventType) && !payload?.message
+  // Com Pusher/SSE ok: confiar no merge local; HTTP completo só em gaps (history já trata acima).
+  const needsHttpRefresh =
+    selectedJid &&
+    !mergedOpenChatMessage &&
+    !appliedChatFromPayload &&
+    !isPresenceEvent &&
+    !isRealtimeTransportHealthy()
+
+  if (needsHttpRefresh) {
+    forceRealtimeSync(enrichSharedFns)
+  } else if (!skipLightSync && !mergedOpenChatMessage && !appliedChatFromPayload && !isPresenceEvent) {
+    // Sidebar: só se o payload não trouxe chat/mensagem aplicável
+    if (!isRealtimeTransportHealthy()) {
+      loadChats(false, { silent: true, lightSync: true, gentle: isInitialSyncGentleMode() }).catch(() => {})
+    }
+  }
+
+  if (isGroupEvent && selectedJid && selectedChat.value?.isGroup) {
+    loadGroupParticipantsDirectory(selectedJid, { force: true }).catch(() => {})
   }
 
   if (appliedChatFromPayload || payload?.message) {
@@ -2943,23 +3726,35 @@ export const startRealtimeSync = async (enrichSharedFns = {}) => {
   }
 
   connectWhatsappSse()
-  void connectWhatsappPusher()
-
   rescheduleChatsPolling(enrichSharedFns)
+  rescheduleMessagesPolling(enrichSharedFns)
   watchInitialSyncCompletion(enrichSharedFns)
 
-  if (messagesPollingTimer.value) clearInterval(messagesPollingTimer.value)
-  messagesPollingTimer.value = setInterval(() => {
-    if (isInitialSyncGentleMode()) return
-    refreshSelectedChatMessages(enrichSharedFns, { light: true })
-  }, MESSAGES_POLL_INTERVAL_MS)
+  // Após Pusher conectar, reavaliar intervalos (connect é async).
+  void connectWhatsappPusher().then(() => {
+    rescheduleChatsPolling(enrichSharedFns)
+    rescheduleMessagesPolling(enrichSharedFns)
+  })
 
   if (!visibilitySyncHandler.value) {
-    visibilitySyncHandler.value = () => { if (document.visibilityState === 'visible') forceRealtimeSync(enrichSharedFns) }
+    visibilitySyncHandler.value = () => {
+      if (document.visibilityState !== 'visible') return
+      rescheduleChatsPolling(enrichSharedFns)
+      rescheduleMessagesPolling(enrichSharedFns)
+      forceRealtimeSync(enrichSharedFns)
+    }
     document.addEventListener('visibilitychange', visibilitySyncHandler.value)
   }
   if (!windowFocusSyncHandler.value) {
-    windowFocusSyncHandler.value = () => forceRealtimeSync(enrichSharedFns)
+    windowFocusSyncHandler.value = () => {
+      // Focus com realtime ok: não forçar HTTP completo — só reavaliar poll.
+      if (isRealtimeTransportHealthy()) {
+        rescheduleChatsPolling(enrichSharedFns)
+        rescheduleMessagesPolling(enrichSharedFns)
+        return
+      }
+      forceRealtimeSync(enrichSharedFns)
+    }
     window.addEventListener('focus', windowFocusSyncHandler.value)
   }
   if (!windowOnlineSyncHandler.value) {
@@ -2992,6 +3787,7 @@ export const resetWhatsappAfterDisconnect = () => {
   resetChatsRuntimeCaches()
   void import('./useWhatsappQuickReplies.js').then((m) => m.resetQuickRepliesState?.()).catch(() => {})
   chatOlderPaginationByJid.clear()
+  chatProviderSyncCooldownUntil.clear()
   loadingOlderMessages.value = false
   chatMessagesHasMore.value = false
   unbindChatBodyScrollListeners()
@@ -3012,7 +3808,7 @@ export function useWhatsappChats() {
     refreshSelectedChatMessages, refreshChatPreview, markCurrentChatAsRead, markMessageAsPlayed, markAllChatsAsRead,
     toggleChatPinned, startRealtimeSync, stopRealtimeSync, resetWhatsappAfterDisconnect, forceRealtimeSync,
     handleWhatsappRealtimeEvent, handleWhatsappPusherEvent,
-    enrichMissingChatAvatars, mergeChatsSliceIntoList, sortChatsByPriority,
+    enrichMissingChatAvatars, clearChatAvatarAndRefresh, mergeChatsSliceIntoList, sortChatsByPriority,
     canonicalChatListKey, preferWhatsappNetPrivateJid, isActiveChatListItem,
     normalizeChat, mergeDuplicateChatRows, chatListPreviewPrefix,
     resolveChatListLastMessage, formatReactionListPreview, buildChatListPreviewFromMessage,
