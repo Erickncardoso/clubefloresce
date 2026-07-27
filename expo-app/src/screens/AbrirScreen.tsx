@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CfButton from '@/components/ui/CfButton';
@@ -10,7 +10,6 @@ export default function AbrirScreen() {
   const { to } = useLocalSearchParams<{ to?: string }>();
   const { refreshUser, resolvePostLoginRoute, hasSession } = useAuth();
   const [checking, setChecking] = useState(true);
-  const isIos = Platform.OS === 'ios';
 
   function resolveTargetPath() {
     const value = typeof to === 'string' ? to.trim() : '';
@@ -48,11 +47,6 @@ export default function AbrirScreen() {
                 Toque em entrar para abrir com o e-mail e a senha que você cadastrou.
               </Text>
               <CfButton label="Entrar agora" onPress={goToDestination} />
-              {isIos ? (
-                <Text style={styles.hint}>
-                  Dica: no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início para instalar o app.
-                </Text>
-              ) : null}
             </>
           )}
         </View>

@@ -25,20 +25,8 @@
   --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   --cf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
   --cf-fab-size: 2.5rem;
-  --cf-tab-fab-rise: 0;
-  --cf-tab-pill-h: 3.75rem;
-  --cf-tab-float-margin-x: 1rem;
-  --cf-tab-float-margin-bottom: 0.75rem;
-  --cf-tab-nav-h: var(--cf-tab-pill-h);
-  --cf-tab-nav-pad-y: 0;
-  --cf-tab-safe-bottom: env(safe-area-inset-bottom, 0px);
-  --cf-tab-struct: calc(var(--cf-tab-pill-h) + var(--cf-tab-float-margin-bottom));
-  --cf-tab-h: var(--cf-tab-pill-h);
-  --cf-tab-overlay-h: calc(var(--cf-tab-pill-h) + var(--cf-tab-float-margin-bottom) + var(--cf-tab-safe-bottom));
-  --cf-tab-clearance: calc(var(--cf-tab-overlay-h) + 0.75rem);
   --cf-page-pad-x: 1rem;
   --cf-page-pad-bottom: 1.25rem;
-  --cf-page-pad-bottom-tab: var(--cf-tab-clearance);
   --cf-avatar-mask: url('/icons/userAvatar.svg');
   --cf-space-1: 0.25rem;
   --cf-space-2: 0.5rem;
@@ -63,30 +51,15 @@
   --pa-radius: var(--cf-radius);
   --pa-radius-sm: var(--cf-radius-sm);
   --pa-shadow: var(--cf-shadow);
-  --pa-tab-h: var(--cf-tab-h);
   --pa-red: #d64545;
 }
 
 html:has(.patient-shell),
 html:has(.patient-login-mode),
-html:has(.cf-tab-bar-wrap) {
+html:has(.patient-nav) {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   font-family: var(--cf-font);
-}
-
-/* PWA instalado: barra mais estreita e mais baixa */
-@media (display-mode: standalone) {
-  :root {
-    --cf-tab-safe-bottom: env(safe-area-inset-bottom, 0px);
-    --cf-tab-float-margin-x: 1.125rem;
-    --cf-tab-float-margin-bottom: 0.125rem;
-  }
-}
-
-html.cf-pwa-standalone {
-  --cf-tab-float-margin-x: 1.125rem;
-  --cf-tab-float-margin-bottom: 0.125rem;
 }
 
 html:has(.patient-login-mode):not(:has(.patient-shell)) {
@@ -219,7 +192,7 @@ html:has(body > .dieta-subs-overlay) .patient-shell-body {
   overscroll-behavior: none;
 }
 
-html.meal-sheet-keyboard .cf-tab-bar-wrap,
+html.meal-sheet-keyboard .patient-nav,
 html.meal-sheet-keyboard .bella-composer-dock {
   visibility: hidden;
   pointer-events: none;
@@ -231,7 +204,7 @@ html.meal-sheet-keyboard .bella-composer-dock {
   overscroll-behavior: none !important;
 }
 
-html:has(.cf-tab-bar-wrap) .patient-shell-body {
+html:has(.patient-nav) .patient-shell-body {
   scroll-padding-bottom: var(--cf-tab-clearance);
   scroll-padding-top: calc(3.25rem + env(safe-area-inset-top, 0px));
 }
@@ -304,7 +277,7 @@ html.bella-chat-active .bella-chat-shell {
   transition: bottom 0.2s ease, padding-bottom 0.2s ease;
 }
 
-html.bella-chat-active:has(.cf-tab-bar-wrap):not(.vk-open) .bella-composer-dock {
+html.bella-chat-active:has(.patient-nav):not(.vk-open) .bella-composer-dock {
   --bella-dock-bottom: var(--cf-tab-overlay-h);
   padding-bottom: 0;
 }
@@ -313,15 +286,14 @@ html.vk-open .bella-composer-dock {
   background: #f8f8fa;
 }
 
-html:has(.cf-tab-bar-wrap) .lesson-design-page,
-html:has(.cf-tab-bar-wrap) .onboarding-page {
+html:has(.patient-nav) .lesson-design-page,
+html:has(.patient-nav) .onboarding-page {
   padding-bottom: var(--cf-tab-clearance);
   box-sizing: border-box;
 }
 
 .patient-shell .patient-page,
-html:has(.cf-tab-bar) .patient-page,
-html:has(.cf-tab-bar-wrap) .patient-page {
+html:has(.patient-nav) .patient-page {
   padding:
     0
     var(--cf-page-pad-x)
@@ -332,8 +304,8 @@ html:has(.cf-tab-bar-wrap) .patient-page {
   box-sizing: border-box;
 }
 
-html:has(.cf-tab-bar-wrap) .patient-shell .patient-page:not(.patient-page--no-tab),
-html:has(.cf-tab-bar-wrap) .patient-page:not(.patient-page--no-tab) {
+html:has(.patient-nav) .patient-shell .patient-page:not(.patient-page--no-tab),
+html:has(.patient-nav) .patient-page:not(.patient-page--no-tab) {
   padding-bottom: var(--cf-page-pad-bottom-tab);
 }
 
@@ -450,63 +422,6 @@ html:has(.doc-page) .patient-shell-body {
   max-height: 100%;
   min-height: 0;
 }
-/* Menu inferior: só a pílula — sem faixa colorida, gradiente ou altura fixa */
-.cf-tab-bar-wrap {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 120;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  width: 100%;
-  height: auto;
-  min-height: 0;
-  max-height: none;
-  margin: 0;
-  padding:
-    0
-    var(--cf-tab-float-margin-x);
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  box-sizing: border-box;
-  overflow: visible;
-  pointer-events: none;
-  transition:
-    transform 0.34s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.28s ease;
-}
-
-.cf-tab-bar-wrap.cf-tab-bar-wrap--scroll-hidden {
-  transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom, 0px)));
-  opacity: 0;
-  pointer-events: none;
-}
-
-.cf-tab-bar-wrap.cf-tab-bar-wrap--scroll-hidden .cf-tab-bar {
-  pointer-events: none;
-}
-
-.cf-tab-bar-wrap .cf-tab-bar {
-  pointer-events: auto;
-  touch-action: manipulation;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cf-tab-bar-wrap {
-    transition: none;
-  }
-}
-
-/* Esconde tab bar quando teclado virtual está aberto */
-html.vk-open .cf-tab-bar-wrap {
-  transform: translateY(100%);
-  opacity: 0;
-  pointer-events: none;
-}
-
 
 .cf-card {
   background: var(--cf-surface);
@@ -945,14 +860,13 @@ html.vk-open .cf-tab-bar-wrap {
 
 html:has(.patient-shell) body,
 html:has(.patient-login-mode) body,
-html:has(.cf-tab-bar) body,
-html:has(.cf-tab-bar-wrap) body {
+html:has(.patient-nav) body {
   -webkit-tap-highlight-color: transparent;
 }
 
 html.cf-mobile-app:has(.patient-shell) body,
 html.cf-mobile-app:has(.patient-login-mode) body,
-html.cf-mobile-app:has(.cf-tab-bar-wrap) body {
+html.cf-mobile-app:has(.patient-nav) body {
   overscroll-behavior: none;
   overscroll-behavior-y: none;
 }
@@ -1316,7 +1230,11 @@ html.cf-mobile-app:has(.cf-tab-bar-wrap) body {
 
 .patient-login-mode .modal-overlay {
   position: fixed;
-  inset: 0;
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  right: 0;
+  bottom: auto;
+  left: 0;
+  min-height: calc(100lvh + env(safe-area-inset-top, 0px));
   z-index: 1000;
   display: flex;
   align-items: center;

@@ -1,0 +1,225 @@
+/**
+ * Tab bar fixa — PWA iOS (64px + safe-area-inset-bottom, sem duplicar inset).
+ */
+
+:root {
+  --patient-nav-height: 64px;
+  --patient-nav-safe: 0px;
+  --patient-nav-total: calc(var(--patient-nav-height) + var(--patient-nav-safe));
+  --patient-nav-content-gap: 24px;
+
+  --cf-tab-inner-h: var(--patient-nav-height);
+  --cf-tab-h: var(--patient-nav-total);
+  --cf-tab-overlay-h: var(--patient-nav-total);
+  --cf-tab-clearance: calc(var(--patient-nav-total) + var(--patient-nav-content-gap));
+  --cf-tab-content-h: var(--patient-nav-height);
+  --cf-tab-pill-h: var(--patient-nav-height);
+  --cf-tab-nav-h: var(--patient-nav-height);
+  --cf-tab-safe-bottom: var(--patient-nav-safe);
+  --cf-tab-float-margin-x: 0;
+  --cf-tab-float-margin-bottom: 0;
+  --cf-tab-fab-rise: 0;
+  --cf-tab-nav-pad-y: 0;
+  --cf-page-pad-bottom-tab: var(--cf-tab-clearance);
+  --pa-tab-h: var(--cf-tab-h);
+}
+
+/* PWA instalado no iPhone — home indicator (só modo standalone real) */
+html.cf-ios-pwa {
+  --patient-nav-safe: env(safe-area-inset-bottom, 0px);
+}
+
+/* Safari / IP local — sem inset no menu (Safari já reserva a área do browser) */
+html.cf-safari-inline,
+html.cf-safari-inline.cf-ios,
+html.cf-safari-inline.cf-pwa-standalone,
+html.cf-safari-inline.cf-pwa-standalone.cf-ios {
+  --patient-nav-safe: 0px;
+}
+
+.patient-nav {
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  pointer-events: auto;
+
+  height: var(--patient-nav-total);
+
+  display: grid;
+  grid-template-columns: repeat(var(--patient-nav-columns, 5), minmax(0, 1fr));
+  align-items: center;
+
+  padding:
+    6px
+    max(8px, env(safe-area-inset-right, 0px))
+    var(--patient-nav-safe)
+    max(8px, env(safe-area-inset-left, 0px));
+
+  background: rgba(255, 255, 255, 0.94);
+  border-top: 1px solid rgba(23, 32, 20, 0.08);
+
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+@supports not (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
+  .patient-nav {
+    background: #ffffff;
+  }
+}
+
+.patient-nav__item {
+  position: relative;
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: #7b8377;
+  font-family: var(--cf-font);
+  font: inherit;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.patient-nav__icon {
+  display: block;
+  width: 23px;
+  height: 23px;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  color: inherit;
+}
+
+.patient-nav__icon :is(svg) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.patient-nav__label {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+.patient-nav__item.is-active {
+  color: var(--cf-pink-dark);
+}
+
+.patient-nav__item.is-active .patient-nav__label {
+  font-weight: 650;
+}
+
+.patient-nav__item.is-active .patient-nav__icon {
+  color: var(--cf-pink-dark);
+}
+
+.patient-nav__item:active {
+  opacity: 0.65;
+  transform: scale(0.96);
+}
+
+.patient-nav__item:focus-visible {
+  outline: 2px solid var(--cf-pink);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
+.patient-nav__item--bella {
+  color: var(--cf-pink-dark);
+}
+
+.patient-nav__bella-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cf-pink);
+  color: #ffffff;
+  transform: translateY(-3px);
+  flex: none;
+}
+
+.patient-nav__bella-icon .patient-nav__icon {
+  width: 21px;
+  height: 21px;
+  color: #ffffff;
+}
+
+.patient-nav__item--bella .patient-nav__label {
+  margin-top: -2px;
+}
+
+.patient-nav__item--bella.is-open .patient-nav__bella-icon {
+  background: var(--cf-pink-dark);
+}
+
+.patient-nav__item--bella.is-open {
+  color: var(--cf-pink-dark);
+}
+
+/* Teclado virtual — esconde tab bar e libera espaço no conteúdo */
+html.vk-open .patient-nav,
+html.meal-sheet-keyboard .patient-nav,
+body.keyboard-open .patient-nav {
+  display: none;
+}
+
+html.vk-open:has(.patient-nav) .patient-shell .patient-page:not(.patient-page--no-tab),
+html.vk-open:has(.patient-nav) .patient-page:not(.patient-page--no-tab),
+body.keyboard-open:has(.patient-nav) .patient-shell .patient-page:not(.patient-page--no-tab),
+body.keyboard-open:has(.patient-nav) .patient-page:not(.patient-page--no-tab) {
+  padding-bottom: max(24px, var(--cf-page-pad-bottom));
+}
+
+@media (min-width: 768px) {
+  .patient-nav {
+    left: 50%;
+    right: auto;
+    width: min(100%, 560px);
+    transform: translateX(-50%);
+    border-left: 1px solid rgba(23, 32, 20, 0.08);
+    border-right: 1px solid rgba(23, 32, 20, 0.08);
+    border-radius: 20px 20px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .patient-nav__item:active {
+    transform: none;
+  }
+}

@@ -44,7 +44,7 @@ ${conversationBlock}
 - get_user_profile: dados básicos do paciente na plataforma
 - get_checkin_summary: humor, energia e aderência das últimas semanas
 - list_recommended_courses: cursos e trilhas disponíveis
-- search_educational_content: busca por tema em cursos e ebooks
+- search_knowledge_base: busca semântica na base (aulas, ebooks, cursos, alimentos, plano e orientações)
 - get_patient_meal_plan: plano alimentar individual (refeições prescritas)
 - get_daily_diary_summary: diário alimentar de hoje (metas, consumido, restante)`;
 }

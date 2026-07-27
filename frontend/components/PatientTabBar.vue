@@ -1,355 +1,135 @@
-<template>
-  <div
-    class="cf-tab-bar-wrap"
-    :class="{ 'cf-tab-bar-wrap--scroll-hidden': scrollHidden && !bellaMenuOpen }"
-  >
-    <nav class="cf-tab-bar" aria-label="Navegação principal">
-      <button
-        v-for="item in leftTabs"
-        :key="item.key"
-        type="button"
-        class="cf-tab"
-        :class="{ active: isTabActive(item) }"
-        :aria-label="item.label"
-        :aria-current="isTabActive(item) ? 'page' : undefined"
-        @click="goTab(item)"
-      >
-        <span class="cf-tab-pill">
-          <component :is="item.icon" class="cf-tab-icon" aria-hidden="true" />
-          <span class="cf-tab-label" :class="{ 'cf-tab-label--open': isTabActive(item) }">
-            <span class="cf-tab-label-text">{{ item.label }}</span>
-          </span>
-        </span>
-      </button>
-
-      <button
-        v-if="hasFullAccess"
-        type="button"
-        class="cf-tab cf-tab--fab"
-        :class="{ 'cf-tab--fab-open': bellaMenuOpen }"
-        :aria-label="bellaMenuOpen ? 'Fechar menu da Bella' : 'Abrir menu da Bella'"
-        :aria-expanded="bellaMenuOpen"
-        @click="toggleBellaMenu"
-      >
-        <span class="cf-tab-pill cf-tab-pill--fab">
-          <CirclePlus class="cf-tab-icon cf-tab-icon--fab" aria-hidden="true" />
-        </span>
-      </button>
-      <div v-else class="cf-tab cf-tab--fab cf-tab--fab-spacer" aria-hidden="true" />
-
-      <button
-        v-for="item in rightTabs"
-        :key="item.key"
-        type="button"
-        class="cf-tab"
-        :class="{ active: isTabActive(item) }"
-        :aria-label="item.label"
-        :aria-current="isTabActive(item) ? 'page' : undefined"
-        @click="goTab(item)"
-      >
-        <span class="cf-tab-pill">
-          <component :is="item.icon" class="cf-tab-icon" aria-hidden="true" />
-          <span class="cf-tab-label" :class="{ 'cf-tab-label--open': isTabActive(item) }">
-            <span class="cf-tab-label-text">{{ item.label }}</span>
-          </span>
-        </span>
-      </button>
-    </nav>
-
-    <BellaActionSheet v-model="bellaMenuOpen" />
-  </div>
-</template>
-
-<script setup>
-import { BookOpen, CirclePlus, Home, LineChart, Users } from 'lucide-vue-next'
-import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
-import { usePatientTabBarScrollReveal } from '~/composables/usePatientTabBarScrollReveal'
-import { isPatientFullAccessActive } from '~/utils/patient-access'
-
-const route = useRoute()
-const router = useRouter()
-const { startNavigation, finishNavigation } = usePatientNavigationLoading()
-const { hidden: scrollHidden, reveal: revealTabBar } = usePatientTabBarScrollReveal()
-const { verifiedUser } = useAuthSession()
-const bellaMenuOpen = ref(false)
-const navigating = ref(false)
-const evolucaoLastTab = useState('evolucao-last-tab', () => 'metas')
-
-const hasFullAccess = computed(() => {
-  const user = verifiedUser.value
-  if (!user) return true
-  return isPatientFullAccessActive(user.plan, user.accessExpiresAt, user.approvalEmailSentAt)
-})
-
-const leftTabs = [
-  { key: 'inicio', label: 'Início', to: '/inicio', icon: Home },
-  { key: 'evolucao', label: 'Evolução', to: '/evolucao', icon: LineChart },
-]
-
-const rightTabs = computed(() => {
-  if (!hasFullAccess.value) {
-    return [{ key: 'dieta', label: 'Dieta', to: '/dieta', icon: BookOpen }]
-  }
-  return [
-    { key: 'conteudo', label: 'Biblioteca', to: '/conteudo', icon: BookOpen },
-    { key: 'comunidade', label: 'Comunidade', to: '/comunidade', icon: Users },
-  ]
-})
-
-function normalizeEvoTab(tab) {
-  if (tab === 'peso' || tab === 'metas') return tab
-  return 'metas'
-}
-
-watch(
-  () => [route.path, route.query.tab],
-  () => {
-    if (route.path.startsWith('/evolucao')) {
-      evolucaoLastTab.value = normalizeEvoTab(String(route.query.tab || 'metas'))
-    }
-  },
-  { immediate: true },
-)
-
-function evolucaoTarget() {
-  const tab = evolucaoLastTab.value
-  return tab === 'metas' ? '/evolucao' : `/evolucao?tab=${tab}`
-}
-
-function tabTarget(item) {
-  if (item.key === 'evolucao') return evolucaoTarget()
-  return item.to
-}
-
-function isTabActive(item) {
-  if (item.key === 'conteudo') {
-    return route.path.startsWith('/conteudo') || route.path.startsWith('/cursos') || route.path.startsWith('/ebooks')
-  }
-  if (item.key === 'evolucao') {
-    return route.path.startsWith('/evolucao')
-  }
-  if (item.key === 'comunidade') return route.path.startsWith('/comunidade')
-  if (item.key === 'dieta') return route.path.startsWith('/dieta')
-  return route.path === item.to || route.path.startsWith(`${item.to}/`)
-}
-
-function sameRoute(target) {
-  const resolved = router.resolve(target)
-  if (resolved.path !== route.path) return false
-
-  if (resolved.path.startsWith('/evolucao')) {
-    const targetTab = normalizeEvoTab(String(resolved.query.tab || 'metas'))
-    const currentTab = normalizeEvoTab(String(route.query.tab || 'metas'))
-    return targetTab === currentTab
-  }
-
-  return JSON.stringify(resolved.query || {}) === JSON.stringify(route.query || {})
-}
-
-async function goTab(item) {
-  if (navigating.value) return
-
-  const target = tabTarget(item)
-  if (sameRoute(target)) return
-
-  bellaMenuOpen.value = false
-  navigating.value = true
-  startNavigation()
-
-  try {
-    await navigateTo(target)
-  } finally {
-    navigating.value = false
-    finishNavigation()
-  }
-}
-
-function toggleBellaMenu() {
-  if (!hasFullAccess.value) {
-    navigateTo('/assinatura')
-    return
-  }
-  bellaMenuOpen.value = !bellaMenuOpen.value
-  if (bellaMenuOpen.value) revealTabBar()
-}
-
-watch(() => route.fullPath, () => {
-  bellaMenuOpen.value = false
-  revealTabBar()
-})
-</script>
-
-<style scoped>
-.cf-tab-bar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.1875rem;
-  width: fit-content;
-  max-width: min(24.5rem, calc(100vw - 2rem));
-  margin-inline: auto;
-  margin-bottom: calc(var(--cf-tab-float-margin-bottom) + env(safe-area-inset-bottom, 0px));
-  padding: 0.5rem 0.625rem;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow:
-    0 12px 36px rgba(20, 20, 20, 0.14),
-    0 2px 8px rgba(20, 20, 20, 0.08),
-    0 0 0 1px rgba(20, 20, 20, 0.04);
-  box-sizing: border-box;
-  touch-action: manipulation;
-}
-
-.cf-tab {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: #a3a3a3;
-  font-family: var(--cf-font);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.cf-tab.active {
-  width: auto;
-  min-width: 2.75rem;
-}
-
-.cf-tab:active:not(.active) {
-  opacity: 0.72;
-}
-
-.cf-tab:focus-visible {
-  outline: none;
-}
-
-.cf-tab:focus-visible .cf-tab-pill {
-  outline: 2px solid var(--cf-pink);
-  outline-offset: 1px;
-}
-
-.cf-tab-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  max-width: 100%;
-  min-height: 2.5rem;
-  padding: 0.375rem 0.5rem;
-  border-radius: 999px;
-  white-space: nowrap;
-  border: 1.5px solid transparent;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    gap 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.cf-tab.active .cf-tab-pill {
-  gap: 0.4rem;
-  padding-inline: 0.8rem;
-  background: var(--cf-pink-soft);
-  color: var(--cf-pink-dark);
-  border-color: transparent;
-  box-shadow: none;
-}
-
-.cf-tab.active .cf-tab-icon {
-  color: var(--cf-pink);
-}
-
-.cf-tab-icon {
-  width: 1.4375rem;
-  height: 1.4375rem;
-  flex-shrink: 0;
-  stroke-width: 1.85;
-  transition: color 0.2s ease;
-}
-
-.cf-tab-label {
-  display: grid;
-  grid-template-columns: 0fr;
-  min-width: 0;
-  opacity: 0;
-  transition:
-    grid-template-columns 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.2s ease;
-}
-
-.cf-tab-label--open {
-  grid-template-columns: 1fr;
-  opacity: 1;
-}
-
-.cf-tab-label-text {
-  overflow: hidden;
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.cf-tab--fab {
-  flex: 0 0 2.75rem;
-  width: 2.75rem;
-  transition: none;
-}
-
-.cf-tab-pill--fab {
-  padding: 0.375rem;
-  min-height: 2.5rem;
-}
-
-.cf-tab-icon--fab {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: #a3a3a3;
-  stroke-width: 1.75;
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-.cf-tab--fab-open .cf-tab-pill--fab {
-  background: var(--cf-pink-soft);
-  border-color: transparent;
-  box-shadow: none;
-}
-
-.cf-tab--fab-open .cf-tab-icon--fab {
-  color: var(--cf-pink);
-  transform: rotate(45deg);
-}
-
-@media (max-width: 360px) {
-  .cf-tab.active .cf-tab-pill {
-    padding-inline: 0.625rem;
-  }
-
-  .cf-tab-label-text {
-    font-size: 0.6875rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cf-tab,
-  .cf-tab-pill,
-  .cf-tab-icon,
-  .cf-tab-icon--fab,
-  .cf-tab-label {
-    transition: none;
-  }
-}
-</style>
+<template>
+  <nav
+    class="patient-nav"
+    role="navigation"
+    aria-label="Navegação principal"
+    :style="{ '--patient-nav-columns': navItems.length }"
+  >
+    <button
+      v-for="item in navItems"
+      :key="item.key"
+      type="button"
+      class="patient-nav__item"
+      :class="{ 'is-active': isItemActive(item) }"
+      :aria-label="item.label"
+      :aria-current="isItemActive(item) ? 'page' : undefined"
+      @click="onItemClick(item)"
+    >
+      <component
+        :is="item.icon"
+        class="patient-nav__icon"
+        :size="23"
+        :stroke-width="1.8"
+        aria-hidden="true"
+      />
+      <span class="patient-nav__label">{{ item.label }}</span>
+    </button>
+  </nav>
+</template>
+
+<script setup>
+import { BookOpen, Home, LineChart, UtensilsCrossed, Users } from 'lucide-vue-next'
+import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
+import { isPatientFullAccessActive } from '~/utils/patient-access'
+
+const route = useRoute()
+const router = useRouter()
+const { startNavigation, finishNavigation } = usePatientNavigationLoading()
+const { verifiedUser } = useAuthSession()
+const navigating = ref(false)
+const evolucaoLastTab = useState('evolucao-last-tab', () => 'metas')
+
+const hasFullAccess = computed(() => {
+  const user = verifiedUser.value
+  if (!user) return true
+  return isPatientFullAccessActive(user.plan, user.accessExpiresAt, user.approvalEmailSentAt)
+})
+
+const navItems = computed(() => {
+  const items = [
+    { key: 'inicio', label: 'Início', to: '/inicio', icon: Home },
+    { key: 'evolucao', label: 'Evolução', to: '/evolucao', icon: LineChart },
+  ]
+
+  if (hasFullAccess.value) {
+    items.push(
+      { key: 'conteudo', label: 'Biblioteca', to: '/conteudo', icon: BookOpen },
+      { key: 'comunidade', label: 'Comunidade', to: '/comunidade', icon: Users },
+    )
+  } else {
+    items.push({ key: 'dieta', label: 'Dieta', to: '/dieta', icon: UtensilsCrossed })
+  }
+
+  return items
+})
+
+function normalizeEvoTab(tab) {
+  if (tab === 'peso' || tab === 'metas') return tab
+  return 'metas'
+}
+
+watch(
+  () => [route.path, route.query.tab],
+  () => {
+    if (route.path.startsWith('/evolucao')) {
+      evolucaoLastTab.value = normalizeEvoTab(String(route.query.tab || 'metas'))
+    }
+  },
+  { immediate: true },
+)
+
+function evolucaoTarget() {
+  const tab = evolucaoLastTab.value
+  return tab === 'metas' ? '/evolucao' : `/evolucao?tab=${tab}`
+}
+
+function routeTarget(item) {
+  if (item.key === 'evolucao') return evolucaoTarget()
+  return item.to
+}
+
+function isItemActive(item) {
+  if (item.key === 'conteudo') {
+    return route.path.startsWith('/conteudo') || route.path.startsWith('/cursos') || route.path.startsWith('/ebooks')
+  }
+  if (item.key === 'evolucao') return route.path.startsWith('/evolucao')
+  if (item.key === 'comunidade') return route.path.startsWith('/comunidade')
+  if (item.key === 'dieta') return route.path.startsWith('/dieta')
+  return route.path === item.to || route.path.startsWith(`${item.to}/`)
+}
+
+function sameRoute(target) {
+  const resolved = router.resolve(target)
+  if (resolved.path !== route.path) return false
+
+  if (resolved.path.startsWith('/evolucao')) {
+    const targetTab = normalizeEvoTab(String(resolved.query.tab || 'metas'))
+    const currentTab = normalizeEvoTab(String(route.query.tab || 'metas'))
+    return targetTab === currentTab
+  }
+
+  return JSON.stringify(resolved.query || {}) === JSON.stringify(route.query || {})
+}
+
+async function goRoute(item) {
+  if (navigating.value) return
+
+  const target = routeTarget(item)
+  if (sameRoute(target)) return
+
+  navigating.value = true
+  startNavigation()
+
+  try {
+    await navigateTo(target)
+  } finally {
+    navigating.value = false
+    finishNavigation()
+  }
+}
+
+function onItemClick(item) {
+  goRoute(item)
+}
+</script>
+

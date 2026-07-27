@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -12,22 +13,31 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { AlertCircle, Eye, EyeOff, Lock, Mail } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import CfButton from '@/components/ui/CfButton';
+import FormField from '@/components/ui/FormField';
 import { useAuth } from '@/providers/AuthProvider';
 import {
   PATIENT_ACCESS_EXPIRED_MESSAGE,
   PATIENT_PAYMENT_REQUIRED_MESSAGE,
 } from '@/lib/patient-access';
+import { BrandLogo } from '@/components/BrandLogo';
+import { getApiBase } from '@/config/env';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 /** Porta `cliente/pages/index.vue` (login). */
 export default function LoginScreen() {
   const router = useRouter();
-  const { booting, login, resolvePostLoginRoute } = useAuth();
+  const { booting, login, resolvePostLoginRoute, changeFirstAccessPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [firstAccessOpen, setFirstAccessOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstAccessLoading, setFirstAccessLoading] = useState(false);
+  const [firstAccessError, setFirstAccessError] = useState('');
 
   async function handleLogin() {
     setLoading(true);
@@ -35,7 +45,7 @@ export default function LoginScreen() {
     try {
       const result = await login(email.trim(), password);
       if (result.mustChangePassword) {
-        setError('Primeiro acesso: troca de senha será portada na próxima etapa.');
+        setFirstAccessOpen(true);
         return;
       }
       const next = await resolvePostLoginRoute();
@@ -47,6 +57,35 @@ export default function LoginScreen() {
       setError(message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleFirstAccessPasswordChange() {
+    setFirstAccessError('');
+    if (newPassword.length < 8) {
+      setFirstAccessError('A nova senha deve ter pelo menos 8 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setFirstAccessError('As senhas não coincidem.');
+      return;
+    }
+    setFirstAccessLoading(true);
+    try {
+      await changeFirstAccessPassword(newPassword);
+      setFirstAccessOpen(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      const next = await resolvePostLoginRoute();
+      router.replace(next as never);
+    } catch (err) {
+      setFirstAccessError(
+        (err as { data?: { message?: string }; message?: string })?.data?.message
+          || (err as Error).message
+          || 'Não foi possível alterar a senha.',
+      );
+    } finally {
+      setFirstAccessLoading(false);
     }
   }
 
@@ -66,7 +105,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.card}>
-          <Text style={styles.brand}>Clube Florescer</Text>
+          <BrandLogo size="xl" animated />
           <Text style={styles.title}>Entrar</Text>
 
           <View style={styles.field}>
@@ -137,8 +176,49 @@ export default function LoginScreen() {
               Criar conta
             </Link>
           </Text>
+
+          {__DEV__ ? (
+            <Text style={styles.devHint} selectable>
+              API: {getApiBase()}
+            </Text>
+          ) : null}
         </View>
       </KeyboardAvoidingView>
+
+      <Modal visible={firstAccessOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Primeiro acesso</Text>
+            <Text style={styles.modalLead}>
+              Por segurança, crie uma nova senha para continuar.
+            </Text>
+            <FormField
+              label="Nova senha"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              hint="Mínimo 8 caracteres"
+            />
+            <FormField
+              label="Confirmar nova senha"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+            {firstAccessError ? (
+              <View style={styles.errorBox}>
+                <AlertCircle size={18} color={colors.error} />
+                <Text style={styles.errorText}>{firstAccessError}</Text>
+              </View>
+            ) : null}
+            <CfButton
+              label={firstAccessLoading ? 'Salvando…' : 'Salvar nova senha'}
+              loading={firstAccessLoading}
+              onPress={handleFirstAccessPasswordChange}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -171,12 +251,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing[5],
     gap: spacing[4],
-  },
-  brand: {
-    fontFamily: fonts.extrabold,
-    fontSize: 14,
-    color: colors.primary,
-    textAlign: 'center',
   },
   title: {
     fontFamily: fonts.bold,
@@ -250,5 +324,39 @@ const styles = StyleSheet.create({
   footerLink: {
     fontFamily: fonts.bold,
     color: colors.primary,
+  },
+  devHint: {
+    textAlign: 'center',
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    fontSize: 11,
+    opacity: 0.85,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: spacing[4],
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing[5],
+    gap: spacing[3],
+  },
+  modalTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  modalLead: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

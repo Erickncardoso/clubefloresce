@@ -42,6 +42,8 @@ type AuthContextValue = {
   fetchOnboarding: (force?: boolean) => Promise<OnboardingStatus | null>;
   saveProfile: (partial: PatientProfileData, options?: { complete?: boolean }) => Promise<OnboardingStatus>;
   resolvePostLoginRoute: () => Promise<string>;
+  changeFirstAccessPassword: (newPassword: string) => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   hasSession: boolean;
 };
 
@@ -215,6 +217,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOnboarding(null);
   }, [token]);
 
+  const changeFirstAccessPassword = useCallback(async (newPassword: string) => {
+    const activeToken = token || (await getStoredToken());
+    if (!activeToken) throw new Error('Sessão expirada.');
+
+    const data = await apiFetch<{ user: PatientUser }>(
+      '/auth/first-access/change-password',
+      {
+        method: 'POST',
+        token: activeToken,
+        body: JSON.stringify({ newPassword }),
+      },
+    );
+    if (data.user) setUser(data.user);
+  }, [token]);
+
+  const deleteAccount = useCallback(async (password: string) => {
+    const activeToken = token || (await getStoredToken());
+    if (!activeToken) throw new Error('Sessão expirada.');
+
+    await apiFetch<void>('/auth/me', {
+      method: 'DELETE',
+      token: activeToken,
+      body: JSON.stringify({ password }),
+    });
+    await clearStoredSession();
+    setToken(null);
+    setUser(null);
+    setOnboarding(null);
+  }, [token]);
+
   const value = useMemo<AuthContextValue>(() => ({
     user,
     token,
@@ -227,9 +259,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchOnboarding,
     saveProfile,
     resolvePostLoginRoute,
+    changeFirstAccessPassword,
+    deleteAccount,
     hasSession: Boolean(token),
   }), [
     booting,
+    changeFirstAccessPassword,
+    deleteAccount,
     fetchOnboarding,
     login,
     logout,

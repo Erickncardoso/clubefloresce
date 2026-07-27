@@ -88,7 +88,7 @@ async function togglePush() {
     return
   }
   const ok = await subscribePush()
-  if (ok) localStorage.removeItem('push_prompt_dismissed')
+  if (ok) clearPushPromptDismiss()
 }
 
 async function toggleMealReminders() {

@@ -1,5 +1,6 @@
 /** Imagens espelhadas do PWA `frontend/public` e `cliente/public`. */
 export const patientAssets = {
+  brandLogo: require('../../assets/brand-logo.png'),
   quick: {
     dieta: require('../../assets/imgs/quick/quick-dieta.png'),
     evolucao: require('../../assets/imgs/quick/quick-evolucao.png'),

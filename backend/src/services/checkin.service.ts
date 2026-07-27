@@ -1,6 +1,7 @@
 import { CheckInRepository } from "../repositories/checkin.repository";
 import { assertPatientUser, resolveWeekStart } from "../utils/patient-access";
 import { resolvePatientWeekStart, type PatientWeekHeaders } from "../utils/week-start";
+import { scheduleRagReindex } from "./rag/rag-hooks";
 
 const checkInRepository = new CheckInRepository();
 
@@ -56,7 +57,9 @@ export class CheckInService {
   async submitCheckIn(userId: string, data: CheckInPayload, patientHeaders?: PatientWeekHeaders) {
     const weekStart = resolvePatientWeekStart(patientHeaders);
     const payload = this.normalizePayload(data, weekStart);
-    return checkInRepository.upsert({ userId, ...payload });
+    const saved = await checkInRepository.upsert({ userId, ...payload });
+    scheduleRagReindex({ type: "checkin", userId });
+    return saved;
   }
 
   async getPatientCheckIns(userId: string) {
@@ -71,7 +74,9 @@ export class CheckInService {
     await assertPatientUser(userId);
     const weekStart = resolveWeekStart(data.weekStart);
     const payload = this.normalizePayload(data, weekStart);
-    return checkInRepository.upsert({ userId, ...payload });
+    const saved = await checkInRepository.upsert({ userId, ...payload });
+    scheduleRagReindex({ type: "checkin", userId });
+    return saved;
   }
 
   async listForNutricionista() {

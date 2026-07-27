@@ -5,6 +5,12 @@ import type {
   ParsedMeal,
   ParsedMealPlan,
 } from "../../types/meal-plan.types";
+import {
+  cutInlineSectionText,
+  isMealPlanSectionStopLine,
+  looksLikeFoodPortionLine,
+  normalizePdfExtractedText,
+} from "./meal-plan-text-sanitize";
 
 const MEAL_HEADER_RE = /^(\d{2}:\d{2})\s*-\s*(.+)$/;
 const PAGE_NOISE_RE =
@@ -112,7 +118,7 @@ function buildFoodItem(raw: string, substitutions: ParsedFoodItem[] = []): Parse
     };
   }
 
-  const plainMatch = text.match(/^(.*)(\d+(?:\.\d+)?)(g|ml)\s*$/i);
+  const plainMatch = text.match(/^(.*?)(\d+(?:\.\d+)?)\s*(g|ml)\s*$/i);
   if (plainMatch) {
     const body = plainMatch[1].trim();
     const measure = Number(plainMatch[2]);
@@ -148,7 +154,7 @@ function buildFoodItem(raw: string, substitutions: ParsedFoodItem[] = []): Parse
     };
   }
 
-  if (text.length >= 4 && !/^observa/i.test(text)) {
+  if (text.length >= 4 && !/^observa/i.test(text) && looksLikeFoodPortionLine(text)) {
     return {
       key: slugify(text),
       name: text,
@@ -165,7 +171,8 @@ function buildFoodItem(raw: string, substitutions: ParsedFoodItem[] = []): Parse
 }
 
 function parseSubstitutionOptions(raw: string): ParsedFoodItem[] {
-  const chunks = raw
+  const cleaned = cutInlineSectionText(raw);
+  const chunks = cleaned
     .split(/\s+-\s+ou\s+-\s+/i)
     .map((part) => part.trim())
     .filter(Boolean);
@@ -289,15 +296,17 @@ function attachMealMacros(
 }
 
 export function parseDietboxMealPlan(text: string, fileName: string): ParsedMealPlan {
-  const meta = extractMeta(text);
-  const nutrition = extractNutritionReport(text);
-  const lines = cleanLines(trimMealPlanText(text)).filter((line) => !isNoiseLine(line));
+  const normalizedText = normalizePdfExtractedText(text);
+  const meta = extractMeta(normalizedText);
+  const nutrition = extractNutritionReport(normalizedText);
+  const lines = cleanLines(trimMealPlanText(normalizedText)).filter((line) => !isNoiseLine(line));
 
   const meals: ParsedMeal[] = [];
   let currentMeal: ParsedMeal | null = null;
   let itemBuffer: string[] = [];
   let pendingSubTarget: string | null = null;
   let pendingSubLines: string[] = [];
+  let skippingNotesSection = false;
 
   const flushItemBuffer = () => {
     if (!currentMeal || !itemBuffer.length) {
@@ -305,11 +314,13 @@ export function parseDietboxMealPlan(text: string, fileName: string): ParsedMeal
       return;
     }
 
-    const joined = itemBuffer.join(" ").replace(/\s+/g, " ").trim();
+    const joined = cutInlineSectionText(itemBuffer.join(" ").replace(/\s+/g, " ").trim());
     itemBuffer = [];
 
+    if (!joined || !looksLikeFoodPortionLine(joined)) return;
+
     const item = buildFoodItem(joined);
-    if (item) currentMeal.items.push(item);
+    if (item && looksLikeFoodPortionLine(item.display)) currentMeal.items.push(item);
   };
 
   const attachPendingSubstitutions = () => {
@@ -340,6 +351,7 @@ export function parseDietboxMealPlan(text: string, fileName: string): ParsedMeal
 
     const mealMatch = line.match(MEAL_HEADER_RE);
     if (mealMatch) {
+      skippingNotesSection = false;
       flushItemBuffer();
       attachPendingSubstitutions();
 
@@ -355,6 +367,15 @@ export function parseDietboxMealPlan(text: string, fileName: string): ParsedMeal
       continue;
     }
 
+    if (/^Observa[cç][õo]es/i.test(line)) {
+      skippingNotesSection = true;
+      flushItemBuffer();
+      attachPendingSubstitutions();
+      continue;
+    }
+
+    if (skippingNotesSection) continue;
+
     const subMatch = line.match(SUB_HEADER_RE);
     if (subMatch) {
       flushItemBuffer();
@@ -365,7 +386,7 @@ export function parseDietboxMealPlan(text: string, fileName: string): ParsedMeal
     }
 
     if (pendingSubTarget) {
-      if (MEAL_HEADER_RE.test(line)) {
+      if (isMealPlanSectionStopLine(line)) {
         attachPendingSubstitutions();
         continue;
       }

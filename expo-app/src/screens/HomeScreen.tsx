@@ -20,6 +20,7 @@ import { usePatientApi } from '@/hooks/usePatientApi';
 import { usePatientGoals } from '@/hooks/usePatientGoals';
 import { getBellaDailyTip } from '@/lib/bella-tips';
 import { firstNameFrom, timeGreeting } from '@/lib/format';
+import { hasMealPlan as checkMealPlan, type MealPlanApiResponse } from '@/lib/meal-plan-api';
 import { QUICK_ACTIONS, patientAssets } from '@/lib/patient-assets';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -55,8 +56,8 @@ export default function HomeScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const plan = await request<{ plan?: { meals?: unknown[] } }>('/meal-plan/me');
-        setHasMealPlan(Boolean(plan?.plan?.meals?.length));
+        const plan = await request<MealPlanApiResponse>('/meal-plan/me');
+        setHasMealPlan(checkMealPlan(plan?.plan));
       } catch {
         setHasMealPlan(false);
       }

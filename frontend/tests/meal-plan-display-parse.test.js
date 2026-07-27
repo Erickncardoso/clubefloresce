@@ -51,3 +51,23 @@ test('resolveMealItemName ignora prefixo lixo no name', () => {
     'Ovo de galinha',
   )
 })
+
+test('normalizeMealPlanItem extrai 20g de Aveia em flocos 20g no name', () => {
+  const item = normalizeMealPlanItem({
+    name: 'Aveia em flocos 20g',
+    grams: 60,
+    amount: 4,
+    unit: 'colher',
+    display: null,
+  })
+
+  assert.equal(item.name, 'Aveia em flocos')
+  assert.equal(item.grams, 20)
+  assert.equal(item.display, 'Aveia em flocos 20g')
+})
+
+test('parseDietboxItemLine extrai gramas no sufixo sem parênteses', () => {
+  const parsed = parseDietboxItemLine('Aveia em flocos 20g')
+  assert.equal(parsed.name, 'Aveia em flocos')
+  assert.equal(parsed.grams, 20)
+})

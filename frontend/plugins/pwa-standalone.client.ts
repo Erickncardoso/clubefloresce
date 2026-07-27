@@ -1,3 +1,4 @@
+import { isIOSDevice } from '~/utils/ios-pwa-chrome'
 import {
   clearPwaUpdating,
   hasInstalledPwa,
@@ -13,19 +14,17 @@ export default defineNuxtPlugin(() => {
   if (isStandalonePwa()) {
     markPwaInstalled()
     document.documentElement.classList.add('cf-pwa-standalone')
-    document.documentElement.style.removeProperty('--cf-vvh')
+    // iOS usa --cf-vvh sincronizado pelo ios-pwa-chrome (altura física real).
+    if (!isIOSDevice()) {
+      document.documentElement.style.removeProperty('--cf-vvh')
+    }
     return
   }
 
+  // Safari inline (ex.: IP local no iPhone): só registrar instalação — NÃO aplicar cf-pwa-standalone,
+  // senão o CSS de PWA (safe-area no menu) vence e cria faixa branca extra na tab bar.
   const nuxtApp = useNuxtApp()
-  if (nuxtApp.$pwa?.isPWAInstalled?.value) {
+  if (nuxtApp.$pwa?.isPWAInstalled?.value || hasInstalledPwa()) {
     markPwaInstalled()
-    document.documentElement.classList.add('cf-pwa-standalone')
-    return
-  }
-
-  if (hasInstalledPwa()) {
-    document.documentElement.classList.add('cf-pwa-standalone')
-    return
   }
 })

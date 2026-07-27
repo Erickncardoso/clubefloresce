@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,6 +34,8 @@ import {
   onlyDigits,
 } from '@/lib/masks';
 import { useAuth } from '@/providers/AuthProvider';
+import { SUBSCRIPTION_WEB_URL } from '@/config/legal';
+import { requiresWebSubscription } from '@/lib/platform-billing';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type BillingPlan = {
@@ -208,6 +211,11 @@ export default function SubscriptionScreen() {
     () => (needsFirstPayment ? 'Finalize sua assinatura' : 'Renovar assinatura'),
     [needsFirstPayment],
   );
+  const iosWebBilling = requiresWebSubscription();
+
+  async function openWebSubscription() {
+    await Linking.openURL(SUBSCRIPTION_WEB_URL);
+  }
 
   if (pageLoading) {
     return (
@@ -261,7 +269,24 @@ export default function SubscriptionScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {!billingConfig?.enabled ? (
+        {iosWebBilling ? (
+          <View style={styles.webBillingCard}>
+            <CreditCard color={colors.primary} size={32} />
+            <Text style={styles.webBillingTitle}>Assine pelo site oficial</Text>
+            <Text style={styles.webBillingText}>
+              No iPhone, a contratação e renovação da assinatura do Clube Florescer são feitas
+              pelo site, conforme as diretrizes da App Store. Depois de pagar, volte ao app e
+              toque em atualizar acesso.
+            </Text>
+            <CfButton label="Abrir site para assinar" onPress={openWebSubscription} />
+            <CfButton
+              variant="ghost"
+              label={pageLoading ? 'Atualizando…' : 'Já assinei — atualizar acesso'}
+              loading={pageLoading}
+              onPress={load}
+            />
+          </View>
+        ) : !billingConfig?.enabled ? (
           <View style={styles.emptyCard}>
             <CreditCard color={colors.textMuted} size={32} />
             <Text style={styles.emptyTitle}>Pagamentos em configuração</Text>
@@ -471,5 +496,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.control,
+  },
+  webBillingCard: {
+    alignItems: 'center',
+    gap: spacing[3],
+    padding: spacing[5],
+    borderRadius: radii.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  webBillingTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 18,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  webBillingText: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 21,
   },
 });

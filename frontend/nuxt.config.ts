@@ -120,7 +120,7 @@ export default defineNuxtConfig({
     '~/assets/css/course-video-player.css',
     '~/assets/css/lesson-player-page.css',
     ...(isMobileApp ? [] : ['~/assets/css/admin-pages.css', '~/assets/css/admin-rounding.css']),
-    ...(isMobileApp ? ['~/assets/css/mobile-app.css'] : []),
+    ...(isMobileApp ? ['~/assets/css/patient-tab-bar.css', '~/assets/css/mobile-app.css'] : []),
   ],
   runtimeConfig: {
     public: {

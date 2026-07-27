@@ -20,8 +20,8 @@
           {{ saving ? 'Salvando…' : 'Salvar peso' }}
         </button>
       </div>
-      <p v-if="saveSuccess" class="evo-weight-success">Peso salvo com sucesso.</p>
-      <p v-if="formError" class="evo-weight-error">{{ formError }}</p>
+      <p v-if="saveSuccess" class="evo-weight-success" aria-live="polite">Peso salvo com sucesso.</p>
+      <p v-if="formError" class="evo-weight-error" role="alert">{{ formError }}</p>
     </form>
 
     <div v-if="loading" class="evo-weight-loading">Carregando histórico…</div>
@@ -180,19 +180,16 @@ onBeforeUnmount(() => {
 }
 
 .evo-weight-hero {
-  padding: 1.05rem 1.1rem;
-  border-radius: 1.35rem;
-  border: none;
+  padding: 1rem;
+  border: 1px solid #e5e5ea;
+  border-radius: 1rem;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .evo-weight-hero-label {
   margin: 0;
   font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 500;
   color: var(--cf-text-muted);
 }
 
@@ -204,22 +201,23 @@ onBeforeUnmount(() => {
 }
 
 .evo-weight-hero-value strong {
-  font-size: 2rem;
+  font-size: 1.75rem;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 500;
+  letter-spacing: -0.035em;
   color: var(--cf-text);
 }
 
 .evo-weight-hero-value span {
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--cf-text-muted);
 }
 
 .evo-weight-hero-delta {
   margin: 0;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--cf-text-muted);
 }
 
@@ -234,11 +232,10 @@ onBeforeUnmount(() => {
 .evo-weight-form,
 .evo-weight-empty,
 .evo-measures {
-  padding: 1.05rem 1.1rem;
-  border-radius: 1.35rem;
-  border: none;
+  padding: 1rem;
+  border: 1px solid #e5e5ea;
+  border-radius: 1rem;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .evo-weight-form h3,
@@ -246,6 +243,7 @@ onBeforeUnmount(() => {
 .evo-weight-history-title {
   margin: 0 0 0.65rem;
   font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .evo-weight-hint {
@@ -261,14 +259,22 @@ onBeforeUnmount(() => {
 
 .evo-weight-save {
   width: 100%;
+  min-height: 2.75rem;
   padding: 0.75rem 1rem;
   border: none;
-  border-radius: 999px;
+  border-radius: 0.75rem;
   background: var(--cf-green-dark);
   color: #fff;
-  font-weight: 700;
+  font-family: inherit;
+  font-weight: 500;
   font-size: 0.85rem;
   cursor: pointer;
+  touch-action: manipulation;
+}
+
+.evo-weight-save:focus-visible {
+  outline: 2px solid var(--cf-green-dark, #6f7863);
+  outline-offset: 2px;
 }
 
 .evo-weight-save:disabled {
@@ -286,7 +292,7 @@ onBeforeUnmount(() => {
   margin: 0.5rem 0 0;
   font-size: 0.75rem;
   color: var(--cf-green-dark);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .evo-weight-loading {
@@ -305,10 +311,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-radius: 1.35rem;
-  border: none;
+  border: 1px solid #e5e5ea;
+  border-radius: 1rem;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   overflow: hidden;
 }
 
@@ -318,7 +323,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.8rem 0.95rem;
-  border-bottom: 1px solid rgba(28, 24, 22, 0.06);
+  border-bottom: 1px solid #ededf0;
 }
 
 .evo-weight-item:last-child {
@@ -328,6 +333,7 @@ onBeforeUnmount(() => {
 .evo-weight-item-main strong {
   display: block;
   font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .evo-weight-item-main span {
@@ -341,7 +347,7 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: #f3f3f3;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 500;
   text-align: center;
   color: var(--cf-text-muted);
 }

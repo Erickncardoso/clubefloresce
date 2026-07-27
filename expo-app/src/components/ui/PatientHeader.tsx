@@ -1,8 +1,9 @@
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'expo-router';
 import { Bell, ChevronLeft, Menu } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import PatientMenuDrawer from '@/components/PatientMenuDrawer';
 import { colors, fonts, spacing } from '@/theme/tokens';
 
 type Props = {
@@ -33,6 +34,7 @@ export default function PatientHeader({
 }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [menuOpen, setMenuOpen] = useState(false);
   const fg = light ? '#fff' : colors.text;
   const muted = light ? 'rgba(255,255,255,0.7)' : colors.textMuted;
   const showMenuButton = showMenu && (menuLeft || !showBack);
@@ -50,10 +52,19 @@ export default function PatientHeader({
     router.push('/inicio' as never);
   }
 
+  function openMenu() {
+    setMenuOpen(true);
+  }
+
   function renderStart() {
     if (showMenuButton && menuLeft) {
       return (
-        <Pressable accessibilityRole="button" accessibilityLabel="Menu" style={styles.iconBtn}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Menu"
+          style={styles.iconBtn}
+          onPress={openMenu}
+        >
           <Menu color={fg} size={20} strokeWidth={1.75} />
         </Pressable>
       );
@@ -106,7 +117,12 @@ export default function PatientHeader({
               <Bell color={fg} size={20} strokeWidth={1.75} />
             </Pressable>
           ) : showMenuButton && !menuLeft ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Menu" style={styles.iconBtn}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Menu"
+              style={styles.iconBtn}
+              onPress={openMenu}
+            >
               <Menu color={fg} size={20} strokeWidth={1.75} />
             </Pressable>
           ) : (
@@ -115,6 +131,9 @@ export default function PatientHeader({
         </View>
       </View>
       {subtitle ? <Text style={[styles.subtitle, { color: muted }]}>{subtitle}</Text> : null}
+      {showMenu ? (
+        <PatientMenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
+      ) : null}
     </View>
   );
 }

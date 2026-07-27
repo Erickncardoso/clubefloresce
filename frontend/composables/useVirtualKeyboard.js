@@ -25,6 +25,7 @@ export function useVirtualKeyboard() {
       if (isOpen !== keyboardOpen.value) {
         keyboardOpen.value = isOpen
         document.documentElement.classList.toggle('vk-open', isOpen)
+        document.body.classList.toggle('keyboard-open', isOpen)
       }
 
       if (!isOpen) {
@@ -54,6 +55,7 @@ export function useVirtualKeyboard() {
     cleanup = () => {
       vv.removeEventListener('resize', sync)
       document.documentElement.classList.remove('vk-open')
+      document.body.classList.remove('keyboard-open')
     }
   })
 

@@ -22,14 +22,31 @@ export async function apiFetch<T>(
     mergedHeaders.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(url, {
-    ...rest,
-    headers: mergedHeaders,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...rest,
+      headers: mergedHeaders,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/network request failed|failed to connect|timed out/i.test(message)) {
+      throw new Error(
+        `Sem conexão com a API (${getApiBase()}). Verifique sua internet e tente novamente.`,
+      );
+    }
+    throw error;
+  }
 
   const text = await response.text();
   let data: unknown = null;
   if (text) {
+    const trimmed = text.trimStart();
+    if (/^<!doctype html|^<html/i.test(trimmed)) {
+      throw new Error(
+        `Resposta inválida da API (${getApiBase()}). Confira EXPO_PUBLIC_API_BASE e reinicie o Expo.`,
+      );
+    }
     try {
       data = JSON.parse(text);
     } catch {

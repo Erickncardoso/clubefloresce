@@ -366,45 +366,19 @@ export class FoodRepository {
   }
 
   /**
-   * Match para plano alimentar: busca em TBCA + TACO + overrides CUSTOM (Florescer)
-   * e escolhe o melhor score entre todas as fontes — sem priorizar TBCA cegamente.
+   * Match para plano alimentar: TBCA + TACO + CUSTOM (Florescer), com proteção anti-absurdo.
    */
   async findBestMealPlanMatch(name: string): Promise<FoodItemDto | null> {
     const trimmed = name.trim();
     if (!trimmed) return null;
 
-    const candidates = extractFoodMatchCandidates(trimmed);
-    const merged = new Map<string, FoodItemDto>();
+    const { smartMatchFood } = await import("../services/food-smart-match.service");
+    const group = resolveSwapGroup({ category: null, name: trimmed, per100g: undefined });
 
-    for (const candidate of candidates) {
-      const exact = await this.findExactMatch(candidate);
-      if (exact) merged.set(exact.id, exact);
-
-      const { items } = await this.search({ q: candidate, limit: 30 });
-      for (const item of items) merged.set(item.id, item);
-    }
-
-    const pool = [...merged.values()];
-    if (!pool.length) return null;
-
-    let best: FoodItemDto | null = null;
-    let bestScore = MEAL_PLAN_MATCH_MIN_SCORE - 1;
-
-    for (const item of pool) {
-      let itemScore = 0;
-      for (const candidate of [trimmed, ...candidates]) {
-        itemScore = Math.max(
-          itemScore,
-          scoreFoodForMealPlanSearch(candidate, item.name, item.source, item.sourceCode),
-        );
-      }
-      if (itemScore > bestScore) {
-        bestScore = itemScore;
-        best = item;
-      }
-    }
-
-    return best;
+    return smartMatchFood(trimmed, {
+      originalName: trimmed,
+      expectedGroup: group !== "mixed" ? group : undefined,
+    });
   }
 
   async search(input: { q: string; source?: FoodSource; limit?: number }) {

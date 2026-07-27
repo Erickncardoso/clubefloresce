@@ -20,6 +20,8 @@ import {
 } from "./conversation-memory";
 import { getBellaModels, getModelForTask, resolveTaskType } from "./model-config";
 import { extractPdfText } from "./pdf-extractor";
+import { processPdfBlocksSequentially } from "../ai/pdf-block-reader";
+import { buildAiKnowledgeContext } from "../ai/ai-knowledge-context";
 import { executeTool, getToolsForTopic, isKnownTool } from "./tools";
 import {
   getTopicOfflineReply,
@@ -268,10 +270,9 @@ export class BellaOrchestratorService {
       };
     }
 
-    let pdfText: string;
+    let extracted;
     try {
-      const extracted = await extractPdfText(attachment.buffer, attachment.fileName);
-      pdfText = extracted.text;
+      extracted = await extractPdfText(attachment.buffer, attachment.fileName);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro ao ler PDF.";
       return {
@@ -280,26 +281,91 @@ export class BellaOrchestratorService {
       };
     }
 
-    const prompt =
-      buildVisionMemoryPrefix(userContext) +
-      buildPdfAnalysisPrompt(
+    const ragBlock = await buildAiKnowledgeContext({
+      userId,
+      query: userMessage || extracted.fileName,
       topic,
-      userContext,
-      attachment.fileName,
-      pdfText,
-      userMessage || "Resuma este documento para mim.",
-    );
-
-    const completion = await this.llm.complete({
-      messages: [{ role: "user", content: prompt }],
-      model,
-      temperature: 0.35,
-      maxTokens: 1000,
     });
 
-    const reply =
-      completion.content ||
-      "Li o PDF, mas não consegui montar um resumo agora. Tente enviar novamente ou pergunte sobre um trecho específico.";
+    const userQuestion = userMessage || "Resuma este documento para mim.";
+
+    let reply: string;
+
+    if (extracted.blocks.length <= 1) {
+      const prompt =
+        buildVisionMemoryPrefix(userContext) +
+        (ragBlock ? `${ragBlock}\n\n` : "") +
+        buildPdfAnalysisPrompt(
+          topic,
+          userContext,
+          attachment.fileName,
+          extracted.text,
+          userQuestion,
+        );
+
+      const completion = await this.llm.complete({
+        messages: [{ role: "user", content: prompt }],
+        model,
+        temperature: 0.35,
+        maxTokens: 1000,
+      });
+
+      reply =
+        completion.content ||
+        "Li o PDF, mas não consegui montar um resumo agora. Tente enviar novamente ou pergunte sobre um trecho específico.";
+    } else {
+      const blockNotes = await processPdfBlocksSequentially(extracted.blocks, async (block) => {
+        const blockPrompt =
+          buildVisionMemoryPrefix(userContext) +
+          buildPdfAnalysisPrompt(
+            topic,
+            userContext,
+            `${attachment.fileName} — ${block.label}`,
+            block.text,
+            `Resuma em tópicos curtos apenas o que aparece em ${block.label}. Não extrapole.`,
+          );
+
+        const completion = await this.llm.complete({
+          messages: [{ role: "user", content: blockPrompt }],
+          model,
+          temperature: 0.25,
+          maxTokens: 700,
+        });
+
+        return `[${block.label}]\n${completion.content || "Sem conteúdo relevante neste trecho."}`;
+      });
+
+      const synthesisPrompt =
+        buildVisionMemoryPrefix(userContext) +
+        (ragBlock ? `${ragBlock}\n\n` : "") +
+        `Você é BELLA analisando o PDF "${attachment.fileName}" em ${extracted.blocks.length} trechos.
+
+Notas por trecho:
+${blockNotes.join("\n\n")}
+
+Com base SOMENTE nas notas acima, responda em português do Brasil:
+${userQuestion}
+
+Regras:
+- Não invente informação que não esteja nas notas.
+- Cite quando algo veio de trecho específico (ex.: "na página 2...").
+- Não prescreva dieta, medicamentos ou dosagens.`;
+
+      const synthesis = await this.llm.complete({
+        messages: [{ role: "user", content: synthesisPrompt }],
+        model,
+        temperature: 0.35,
+        maxTokens: 1200,
+      });
+
+      reply =
+        synthesis.content ||
+        "Li o PDF em partes, mas não consegui montar a resposta final. Tente perguntar sobre uma seção específica.";
+    }
+
+    if (extracted.truncated) {
+      reply += "\n\n_Obs.: o PDF é longo; analisei os primeiros trechos. Se faltar algo, envie a página específica._";
+    }
 
     return {
       reply: sanitizeOutput(reply),
@@ -380,6 +446,14 @@ export class BellaOrchestratorService {
           )
         : undefined;
 
+    const ragBlock = userMessage.trim()
+      ? await buildAiKnowledgeContext({
+        userId,
+        query: userMessage,
+        topic,
+      })
+      : "";
+
     const handoffPrefix = handoffFromTopic
       ? `O paciente veio do chat "${handoffFromTopic}" e continua uma dúvida sobre a imagem que já havia enviado. Responda considerando a imagem e o contexto da conversa anterior.\n\nPergunta: `
       : crossTopicContext
@@ -396,6 +470,7 @@ export class BellaOrchestratorService {
       : userMessage;
 
     const topicExtraBlock = [
+      ragBlock,
       topicExtra,
       crossTopicContext,
     ]

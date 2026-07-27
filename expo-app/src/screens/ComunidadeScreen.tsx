@@ -49,11 +49,7 @@ type Post = {
   newComment?: string;
 };
 
-const TABS = [
-  { id: 'feed', label: 'Feed' },
-  { id: 'groups', label: 'Grupos' },
-  { id: 'friends', label: 'Amigas' },
-];
+const TABS = [{ id: 'feed', label: 'Feed' }];
 
 const COMPOSE_CHIPS = [
   { id: 'achievement', label: 'Conquista', Icon: Star },

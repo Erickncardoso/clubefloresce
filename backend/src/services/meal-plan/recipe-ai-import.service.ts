@@ -2,6 +2,11 @@ import { randomUUID } from "crypto";
 import { OpenAIClient, buildImageDataUrl } from "../bella/openai.client";
 import { getModelForTask } from "../bella/model-config";
 import { extractPdfText } from "../bella/pdf-extractor";
+import {
+  processPdfBlocksSequentially,
+  splitPlainTextIntoBlocks,
+  type PdfTextBlock,
+} from "../ai/pdf-block-reader";
 import { matchFoodCandidatesBatch } from "./meal-plan-food-enricher";
 import type { MealPlanRecipeIngredient } from "../../types/meal-plan-recipe.types";
 
@@ -46,12 +51,17 @@ function numOrNull(value: unknown): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
-function buildParsePrompt(sourceLabel: string, content: string): string {
+function buildParsePrompt(sourceLabel: string, content: string, partial = false): string {
+  const partialRule = partial
+    ? "Extraia SOMENTE ingredientes e passos visíveis neste trecho. Se não houver receita aqui, retorne ingredients []."
+    : "Extraia a receita completa deste trecho.";
+
   return `Você extrai receitas culinárias para nutricionistas do Clube Florescer.
 Analise ${sourceLabel} e retorne SOMENTE JSON válido (sem markdown) neste formato:
 ${RECIPE_JSON_SCHEMA}
 
 Regras:
+- ${partialRule}
 - Extraia título, porções (servingsLabel, ex.: "4 porções", "1 prato"), tempo de preparo em minutos (prepMinutes), ingredientes com quantidade e unidade, e modo de preparo (steps).
 - Ingredientes: use nomes que existam na base TBCA/TACO quando possível (ex.: "Ovo, de galinha, inteiro, cru", "Banana, prata, crua").
 - amount e unit separados (ex.: amount "2", unit "unidades"; amount "200", unit "g").
@@ -62,14 +72,32 @@ Regras:
 
 Conteúdo:
 ---
-${content.slice(0, 12000)}
+${content}
 ---`;
 }
 
 async function parseRecipeFromText(text: string, sourceLabel: string): Promise<RecipeImportDraft> {
+  const blocks = splitPlainTextIntoBlocks(text, "Trecho da receita");
+
+  if (blocks.length <= 1) {
+    return parseRecipeBlock(blocks[0] || { index: 0, label: sourceLabel, text }, sourceLabel, false);
+  }
+
+  const partials = await processPdfBlocksSequentially(blocks, (block) =>
+    parseRecipeBlock(block, block.label, true),
+  );
+
+  return mergeRecipePartials(partials);
+}
+
+async function parseRecipeBlock(
+  block: PdfTextBlock,
+  sourceLabel: string,
+  partial: boolean,
+): Promise<RecipeImportDraft> {
   const result = await llm.complete({
     model: getModelForTask("pdf"),
-    messages: [{ role: "user", content: buildParsePrompt(sourceLabel, text) }],
+    messages: [{ role: "user", content: buildParsePrompt(sourceLabel, block.text, partial) }],
     temperature: 0.1,
     maxTokens: 4000,
     responseFormat: { type: "json_object" },
@@ -81,6 +109,34 @@ async function parseRecipeFromText(text: string, sourceLabel: string): Promise<R
     .trim();
 
   return normalizeParsedRecipe(JSON.parse(raw));
+}
+
+function mergeRecipePartials(partials: RecipeImportDraft[]): RecipeImportDraft {
+  let title = "";
+  let servingsLabel = "1 porção";
+  let prepMinutes: number | null = null;
+  const steps: string[] = [];
+  const ingredientMap = new Map<string, MealPlanRecipeIngredient>();
+
+  for (const partial of partials) {
+    if (!title && partial.title && partial.title !== "Receita importada") title = partial.title;
+    if (partial.servingsLabel) servingsLabel = partial.servingsLabel;
+    if (partial.prepMinutes != null) prepMinutes = partial.prepMinutes;
+    if (partial.steps) steps.push(partial.steps);
+
+    for (const ingredient of partial.ingredients) {
+      const key = `${ingredient.name}|${ingredient.amount}|${ingredient.unit}`.toLowerCase();
+      if (!ingredientMap.has(key)) ingredientMap.set(key, ingredient);
+    }
+  }
+
+  return {
+    title: title || "Receita importada",
+    servingsLabel,
+    prepMinutes,
+    steps: steps.filter(Boolean).join("\n\n"),
+    ingredients: [...ingredientMap.values()],
+  };
 }
 
 async function parseRecipeFromImage(buffer: Buffer, mimeType: string): Promise<RecipeImportDraft> {

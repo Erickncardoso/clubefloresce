@@ -10,6 +10,13 @@ html.cf-mobile-app {
   touch-action: manipulation;
 }
 
+/* PWA instalado — status bar / safe area com a mesma cor do header (--cf-bg). */
+html.cf-pwa-standalone.cf-mobile-app,
+html.cf-pwa-standalone.cf-mobile-app body,
+html.cf-pwa-standalone.cf-mobile-app #__nuxt {
+  background: var(--cf-bg) !important;
+}
+
 html.cf-mobile-app,
 html.cf-mobile-app body {
   position: fixed;
@@ -32,18 +39,29 @@ html.cf-mobile-app #__nuxt {
 }
 
 /*
- * PWA instalado: altura real da tela. Não depende de classe nem de --cf-vvh do JS.
+ * PWA instalado — Android: 100dvh. iOS: --cf-vvh (altura física via ios-pwa-chrome).
  */
 @media (display-mode: standalone) {
-  html.cf-mobile-app,
-  html.cf-mobile-app body,
-  html.cf-mobile-app #__nuxt,
-  html.cf-mobile-app:has(.patient-shell),
-  html.cf-mobile-app:has(.patient-shell) body,
-  html.cf-mobile-app:has(.patient-shell) #__nuxt {
+  html.cf-mobile-app:not(.cf-ios-pwa),
+  html.cf-mobile-app:not(.cf-ios-pwa) body,
+  html.cf-mobile-app:not(.cf-ios-pwa) #__nuxt,
+  html.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell),
+  html.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell) body,
+  html.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell) #__nuxt {
     height: 100dvh !important;
     min-height: 100dvh !important;
     max-height: none !important;
+  }
+
+  html.cf-ios-pwa.cf-mobile-app,
+  html.cf-ios-pwa.cf-mobile-app body,
+  html.cf-ios-pwa.cf-mobile-app #__nuxt,
+  html.cf-ios-pwa.cf-mobile-app:has(.patient-shell),
+  html.cf-ios-pwa.cf-mobile-app:has(.patient-shell) body,
+  html.cf-ios-pwa.cf-mobile-app:has(.patient-shell) #__nuxt {
+    height: var(--cf-vvh, 100dvh) !important;
+    min-height: var(--cf-vvh, 100dvh) !important;
+    max-height: var(--cf-vvh, 100dvh) !important;
   }
 }
 
@@ -59,12 +77,40 @@ html.cf-ios-pwa .patient-shell-body {
   scroll-behavior: auto;
 }
 
+/*
+ * iOS — camada extra de escurecimento (abaixo dos modais, acima do conteúdo).
+ * Complementa backdrops que no PWA não alcançam a safe area / topo.
+ */
+html.cf-ios .cf-drawer-backdrop,
+html.cf-ios .cf-confirm-overlay {
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  bottom: auto !important;
+  min-height: calc(100lvh + env(safe-area-inset-top, 0px));
+}
+
+html.cf-ios .modal-overlay,
+html.cf-ios .courses-modal-overlay,
+html.cf-ios .netflix-modal-overlay,
+html.cf-ios .bella-sheet-backdrop,
+html.cf-ios .meal-sheet-backdrop {
+  bottom: auto !important;
+  min-height: calc(100lvh + env(safe-area-inset-top, 0px));
+}
+
+html.cf-ios.cf-ios-pwa-overlay-active {
+  background: #1f211c !important;
+}
+
 /* Modais — scroll interno sem vazar para o shell */
 .patient-shell .modal-overlay,
 .patient-shell .courses-modal-overlay,
 .patient-shell .netflix-modal-overlay {
   position: fixed;
-  inset: 0;
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  right: 0;
+  bottom: auto;
+  left: 0;
+  min-height: calc(100lvh + env(safe-area-inset-top, 0px));
   z-index: 300;
   align-items: center;
   justify-content: center;

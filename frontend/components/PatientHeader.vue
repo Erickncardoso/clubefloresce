@@ -21,13 +21,15 @@
       </button>
     </div>
 
-    <div class="cf-header-brand">
-      <template v-if="title">
-        <span class="cf-header-title">{{ title }}</span>
-      </template>
-      <template v-else>
-        <PatientBrandMark size="sm" />
-      </template>
+    <div class="cf-header-brand" :class="{ 'cf-header-brand--interactive': $slots.brand }">
+      <slot name="brand">
+        <template v-if="title">
+          <span class="cf-header-title">{{ title }}</span>
+        </template>
+        <template v-else>
+          <PatientBrandMark size="sm" />
+        </template>
+      </slot>
     </div>
 
     <div class="cf-header-actions">
@@ -129,7 +131,7 @@ onMounted(() => {
   justify-content: space-between;
   gap: 0.5rem;
   padding: calc(0.5rem + env(safe-area-inset-top)) 1rem 0.75rem;
-  background: #ffffff;
+  background: var(--cf-bg);
 }
 
 .cf-header-start {
@@ -202,6 +204,11 @@ onMounted(() => {
   min-width: 0;
   max-width: calc(100% - 8.5rem);
   pointer-events: none;
+}
+
+.cf-header-brand--interactive {
+  pointer-events: auto;
+  max-width: calc(100% - 6.5rem);
 }
 
 .cf-header-title {

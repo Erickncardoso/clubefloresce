@@ -3,6 +3,7 @@ import { OpenAIClient, buildImageDataUrl } from "./openai.client";
 import { buildUserContext } from "./context-builder";
 import { BELLA_MEMORY_RULES } from "./memory-rules";
 import { getModelForTask } from "./model-config";
+import { buildAiKnowledgeContext } from "../ai/ai-knowledge-context";
 import type { UserContextSnapshot } from "./types";
 import type { MealAnalysisDraft, MealItemDraft } from "../../types/food-diary.types";
 import { round1, sumItems } from "./meal-item-math";
@@ -110,10 +111,22 @@ export async function analyzeMealStructured(
   const ctx = await buildUserContext(userId, patientDateKey);
   const model = getModelForTask("image");
   const dataUrl = buildImageDataUrl(buffer, mimeType);
+  const knowledgeBlock = await buildAiKnowledgeContext({
+    userId,
+    query: userQuestion || "análise de prato alimentos TBCA TACO",
+    topic: "meal",
+    sourceTypes: ["food", "meal_plan", "nutri_note"],
+    limit: 3,
+  });
+
+  const systemPrompt = [
+    buildMealJsonPrompt(ctx, userQuestion),
+    knowledgeBlock,
+  ].filter(Boolean).join("\n\n");
 
   const completion = await llm.complete({
     messages: [
-      { role: "system", content: buildMealJsonPrompt(ctx, userQuestion) },
+      { role: "system", content: systemPrompt },
       {
         role: "user",
         content: [

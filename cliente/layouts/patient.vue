@@ -9,7 +9,7 @@
 <script setup>
 const scrollRootRef = ref(null)
 const { hydrateProfile, syncPatientProfile } = usePatientApp()
-const { hasUnread, fetchNotifications } = usePatientNotifications()
+const { fetchNotifications } = usePatientNotifications()
 
 usePatientHorizontalWheelBridge(scrollRootRef)
 

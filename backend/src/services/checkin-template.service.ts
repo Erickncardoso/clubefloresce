@@ -9,6 +9,7 @@ import {
   resolvePeriodKey as resolvePeriodKeyForDate,
 } from "../utils/patient-local-date";
 import { CheckInDispatchService } from "./checkin-dispatch.service";
+import { scheduleRagReindex } from "./rag/rag-hooks";
 import {
   formatNextFridayLabel,
   isFridayCheckInDay,
@@ -339,6 +340,8 @@ export class CheckInTemplateService {
         console.error("[checkin] Falha ao sincronizar check-in legado:", syncError);
       }
     }
+
+    scheduleRagReindex({ type: "checkin", userId });
 
     return response;
   }

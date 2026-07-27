@@ -35,7 +35,7 @@ const FRUIT_NAME_PATTERN =
   /\b(mam[aã]o|banana|ma[cç][aã]|laranja|uva|morango|abacaxi|manga|melancia|mel[aã]o|kiwi|pera|goiaba|a[cç]a[ií]|lim[aã]o)\b/i;
 
 const VEG_NAME_PATTERN =
-  /\b(br[oó]colis|couve|espinafre|alface|tomate|pepino|abobrinha|berinjela|repolho|vagem|r[uú]cula|cenoura|beterraba|chuchu)\b/i;
+  /\b(br[oó]colis|couve|espinafre|alface|tomate|pepino|abobrinha|berinjela|repolho|vagem|r[uú]cula|cenoura|beterraba|chuchu|legumes?)\b/i;
 
 const FAT_NAME_PATTERN =
   /\b(azeite|[oó]leo\b|castanha|amendoim|noz\b|semente|abacate|manteiga|creme de leite|margarina)\b/i;
@@ -130,6 +130,8 @@ export function resolveSwapGroup(input: {
   if (PROTEIN_ANIMAL_PATTERN.test(name)) return "protein_rich";
 
   if (FRUIT_NAME_PATTERN.test(name) && !TUBER_PATTERN.test(name)) return "fruit";
+
+  if (VEG_NAME_PATTERN.test(name) || /\bmix de legumes?\b/i.test(name)) return "vegetable";
 
   if (TUBER_PATTERN.test(name) || CARB_NAME_PATTERN.test(name)) return "carb_rich";
 

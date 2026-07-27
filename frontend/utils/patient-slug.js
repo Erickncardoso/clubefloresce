@@ -1,23 +1,50 @@
-import { isUuid, slugify, assignSlugs } from './course-slug.ts'
+import { isUuid, slugify } from './course-slug.ts'
 
 export { isUuid, slugify }
 
-export function assignPatientSlugs(patients) {
-  return assignSlugs(
-    (patients || []).map((patient) => ({
-      id: patient.id,
-      title: patient.name || '',
-    })),
-  )
+function patientNameBase(patient) {
+  return slugify(patient?.name || '') || (patient?.id ? `paciente-${patient.id.slice(0, 8)}` : '')
 }
 
-export function getPatientUrlSlug(patient, patients = null) {
-  if (!patient?.id) return ''
-  if (patient.urlSlug) return patient.urlSlug
-  if (patients?.length) {
-    return assignPatientSlugs(patients).get(patient.id) || slugify(patient.name || '') || patient.id
+function patientEmailSlugPart(patient) {
+  const local = String(patient?.email || '').split('@')[0] || ''
+  return slugify(local)
+}
+
+/** Slug legível (legado) — inclui parte do e-mail quando o nome se repete. */
+export function buildPatientLegacySlug(patient, patients = []) {
+  const base = patientNameBase(patient)
+  const sameNameCount = (patients || []).filter(
+    (item) => patientNameBase(item) === base,
+  ).length
+
+  if (sameNameCount <= 1) return base
+
+  const emailPart = patientEmailSlugPart(patient)
+  if (emailPart) return `${base}-${emailPart}`.slice(0, 120)
+
+  return `${base}-${patient.id.slice(0, 8)}`
+}
+
+export function assignPatientSlugs(patients) {
+  const sorted = [...(patients || [])].sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    if (aTime !== bTime) return aTime - bTime
+    return String(a.id).localeCompare(String(b.id))
+  })
+
+  const result = new Map()
+  for (const patient of sorted) {
+    result.set(patient.id, buildPatientLegacySlug(patient, sorted))
   }
-  return slugify(patient.name || '') || patient.id
+  return result
+}
+
+/** Identificador canônico de rota — sempre o UUID (nunca confunde homônimos). */
+export function getPatientUrlSlug(patient, _patients = null) {
+  if (!patient?.id) return ''
+  return patient.id
 }
 
 export function buildPatientPath(patient, options = {}) {
@@ -43,7 +70,7 @@ export function buildPatientChartTabLink(currentPath, tabId, options = {}) {
   return { path: currentPath, query }
 }
 
-/** Link para evolução a partir do id/slug do paciente. */
+/** Link para evolução a partir do id do paciente. */
 export function buildPatientEvolucaoLink(patient, sub = 'checkins') {
   return buildPatientPath(patient, { query: { tab: 'evolucao', sub } })
 }

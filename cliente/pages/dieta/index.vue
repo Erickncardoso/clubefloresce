@@ -16,38 +16,65 @@
     <DietaMealPlanUploadCard v-else-if="!hasPlan" @uploaded="onPlanUploaded" />
 
     <template v-else>
-    <div class="dieta-tabs">
-      <button type="button" class="dieta-tab" :class="{ active: view === 'today' }" @click="view = 'today'">
+    <div class="dieta-tabs" role="tablist" aria-label="Visualização do plano alimentar">
+      <button type="button" role="tab" class="dieta-tab" :class="{ active: view === 'today' }" :aria-selected="view === 'today'" @click="setView('today')">
         Hoje
       </button>
-      <button type="button" class="dieta-tab" :class="{ active: view === 'week' }" @click="view = 'week'">
-        Plano semanal
+      <button type="button" role="tab" class="dieta-tab" :class="{ active: view === 'week' }" :aria-selected="view === 'week'" @click="setView('week')">
+        Plano completo
       </button>
     </div>
 
-    <!-- Hoje: refeição selecionada -->
     <template v-if="view === 'today'">
-      <div class="dieta-meals">
+      <div class="dieta-section-heading">
+        <h1 class="dieta-section-title">Refeições de hoje</h1>
+        <span class="dieta-section-count">{{ completedMealsCount }}/{{ mealList.length }} concluídas</span>
+      </div>
+
+      <div class="dieta-meals" role="tablist" aria-label="Refeições de hoje">
         <button
           v-for="meal in mealList"
           :key="meal.id"
           type="button"
+          role="tab"
           class="dieta-meal-btn"
           :class="{ active: activeMeal === meal.id }"
+          :aria-selected="activeMeal === meal.id"
           @click="selectMeal(meal.id)"
         >
-          <component :is="meal.icon" class="dieta-meal-icon" />
-          <span>{{ meal.short }}</span>
+          <span class="dieta-meal-icon-wrap">
+            <component :is="meal.icon" class="dieta-meal-icon" aria-hidden="true" />
+          </span>
+          <span class="dieta-meal-short">{{ meal.short }}</span>
+          <CircleCheck v-if="isMealComplete(meal.id)" class="dieta-meal-complete" aria-label="Concluída" />
         </button>
       </div>
 
-      <section class="cf-card dieta-card">
-        <p class="dieta-meal-label">
-          {{ currentMeal.label }}
-          <span class="dieta-meal-meta">{{ currentMeal.time }} · Refeição {{ currentMeal.index }} de {{ currentMeal.total }}</span>
-        </p>
+      <section v-if="currentMeal" class="dieta-card">
+        <header class="dieta-card-header">
+          <div class="dieta-card-heading">
+            <span class="dieta-card-icon">
+              <component :is="activeMealDefinition?.icon" aria-hidden="true" />
+            </span>
+            <div>
+              <p class="dieta-meal-label">{{ currentMeal.label }}</p>
+              <p class="dieta-meal-meta">{{ currentMeal.time }} · Refeição {{ currentMeal.index }} de {{ currentMeal.total }}</p>
+            </div>
+          </div>
+          <span class="dieta-card-percent">{{ currentMealPercent }}%</span>
+        </header>
 
-        <div v-if="progressLabel" class="dieta-progress">{{ progressLabel }}</div>
+        <div
+          class="dieta-progress-track"
+          role="progressbar"
+          :aria-label="`Progresso de ${currentMeal.label}`"
+          :aria-valuenow="currentMealPercent"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <span :style="{ transform: `scaleX(${currentMealPercent / 100})` }" />
+        </div>
+        <p v-if="progressLabel" class="dieta-progress">{{ progressLabel }}</p>
 
         <ul class="dieta-checklist">
           <li v-for="(item, index) in currentMeal.items" :key="item.key || `${activeMeal}-${index}`">
@@ -61,106 +88,81 @@
               <DietaCheckIcon :completed="checkedItems[index]" />
             </button>
             <div class="dieta-item-copy">
-              <button
-                v-if="item.recipe"
-                type="button"
-                class="dieta-recipe-link"
-                @click="openRecipeDetail(item.recipe)"
-              >
-                <span
-                  :class="{
-                    'dieta-item-done': checkedItems[index],
-                    'dieta-item-substituted': item.isSubstituted,
-                    'dieta-item-extra': item.isExtra,
-                  }"
-                >
+              <button v-if="item.recipe" type="button" class="dieta-recipe-link" @click="openRecipeDetail(item.recipe)">
+                <span :class="{ 'dieta-item-done': checkedItems[index], 'dieta-item-substituted': item.isSubstituted, 'dieta-item-extra': item.isExtra }">
                   {{ item.display || currentMeal.itemLabels[index] }}
                 </span>
               </button>
-              <span
-                v-else
-                :class="{
-                  'dieta-item-done': checkedItems[index],
-                  'dieta-item-substituted': item.isSubstituted,
-                  'dieta-item-extra': item.isExtra,
-                }"
-              >
+              <span v-else :class="{ 'dieta-item-done': checkedItems[index], 'dieta-item-substituted': item.isSubstituted, 'dieta-item-extra': item.isExtra }">
                 {{ item.display || currentMeal.itemLabels[index] }}
               </span>
               <span v-if="item.isSubstituted" class="dieta-item-swap-tag">Substituído</span>
               <span v-else-if="item.isExtra" class="dieta-item-extra-tag">Fora do plano</span>
             </div>
-            <button
-              v-if="item.isExtra"
-              type="button"
-              class="dieta-item-remove"
-              aria-label="Remover alimento adicionado"
-              @click="removeExtraItemAt(index, item.id)"
-            >
+            <button v-if="item.isExtra" type="button" class="dieta-item-remove" aria-label="Remover alimento adicionado" @click="removeExtraItemAt(index, item.id)">
               <Trash2 aria-hidden="true" />
             </button>
           </li>
         </ul>
 
-        <button type="button" class="dieta-add-extra-btn" @click="extraFoodOpen = true">
-          <Plus class="dieta-add-extra-icon" aria-hidden="true" />
-          Adicionar outro alimento
-        </button>
-
-        <button
-          v-if="hasSubstitutions"
-          type="button"
-          class="dieta-subs-btn"
-          @click="substitutionsOpen = true"
-        >
-          <ArrowLeftRight class="dieta-subs-btn-icon" aria-hidden="true" />
-          Ver opções de substituições
-        </button>
-        <NuxtLink to="/substituicao" class="dieta-subs-link">
-          <ArrowLeftRight class="dieta-subs-btn-icon" aria-hidden="true" />
-          Calculadora de substituição
-        </NuxtLink>
-
-        <div class="dieta-actions">
-          <button type="button" class="dieta-action-btn dieta-action-btn--primary" @click="takePhotoNow">
-            <Camera class="dieta-action-icon" aria-hidden="true" />
-            Tirar foto agora
+        <div class="dieta-tools" aria-label="Opções da refeição">
+          <button type="button" class="dieta-tool-btn" @click="extraFoodOpen = true">
+            <Plus aria-hidden="true" />
+            <span>Adicionar alimento</span>
           </button>
-
-          <NuxtLink
-            :to="bellaMealLink"
-            class="dieta-action-btn dieta-action-btn--outline"
-          >
-            Escolher da galeria
+          <button v-if="hasSubstitutions" type="button" class="dieta-tool-btn" @click="substitutionsOpen = true">
+            <ArrowLeftRight aria-hidden="true" />
+            <span>Substituições</span>
+          </button>
+          <NuxtLink to="/substituicao" class="dieta-tool-btn">
+            <Calculator aria-hidden="true" />
+            <span>Calcular troca</span>
           </NuxtLink>
         </div>
 
-        <button type="button" class="dieta-plan-link" @click="view = 'week'">
-          Ver plano completo
+        <div class="dieta-register">
+          <div class="dieta-register-copy">
+            <p>Registrar refeição</p>
+            <span>Envie uma foto para a Bella analisar.</span>
+          </div>
+          <div class="dieta-actions">
+            <button type="button" class="dieta-action-btn dieta-action-btn--primary" @click="takePhotoNow">
+              <Camera class="dieta-action-icon" aria-hidden="true" />
+              Tirar foto
+            </button>
+            <NuxtLink :to="bellaMealLink" class="dieta-action-btn dieta-action-btn--outline">
+              <ImagePlus class="dieta-action-icon" aria-hidden="true" />
+              Galeria
+            </NuxtLink>
+          </div>
+        </div>
+
+        <button type="button" class="dieta-plan-link" @click="setView('week')">
+          Ver todas as refeições
+          <ChevronRight aria-hidden="true" />
         </button>
       </section>
     </template>
 
-    <!-- Plano semanal: todas as refeições -->
     <template v-else>
-      <p class="dieta-week-intro">Seu plano alimentar de hoje, refeição por refeição.</p>
+      <div class="dieta-section-heading dieta-section-heading--week">
+        <h1 class="dieta-section-title">Plano do dia</h1>
+        <span class="dieta-section-count">{{ completedMealsCount }}/{{ mealList.length }} concluídas</span>
+      </div>
 
-      <article
-        v-for="meal in mealList"
-        :key="meal.id"
-        class="cf-card dieta-week-card"
-      >
+      <article v-for="meal in mealList" :key="meal.id" class="dieta-week-card">
         <button type="button" class="dieta-week-head" @click="openMealFromWeek(meal.id)">
+          <span class="dieta-week-icon"><component :is="meal.icon" aria-hidden="true" /></span>
           <div class="dieta-week-info">
-            <h2 class="dieta-week-title">{{ mealPlanEntry(meal.id).label }}</h2>
-            <p class="dieta-week-meta">{{ mealPlanEntry(meal.id).time }} · {{ mealPlanEntry(meal.id).index }} de {{ mealPlanEntry(meal.id).total }}</p>
+            <div class="dieta-week-title-row">
+              <h2 class="dieta-week-title">{{ mealPlanEntry(meal.id).label }}</h2>
+              <span>{{ mealPlanEntry(meal.id).time }}</span>
+            </div>
             <p class="dieta-week-progress">{{ weekProgressLabel(meal.id) }}</p>
           </div>
+          <ChevronRight class="dieta-week-chevron" aria-hidden="true" />
         </button>
-
-        <ul class="dieta-week-items">
-          <li v-for="(item, index) in mealPlanEntry(meal.id).itemLabels" :key="`${meal.id}-${index}`">{{ item }}</li>
-        </ul>
+        <div class="dieta-week-track" aria-hidden="true"><span :style="{ transform: `scaleX(${mealProgressPercent(meal.id) / 100})` }" /></div>
       </article>
     </template>
 
@@ -168,7 +170,7 @@
       <p class="dieta-plan-source">{{ planTitle }}</p>
       <label class="dieta-plan-reupload">
         <Upload class="dieta-plan-reupload-icon" aria-hidden="true" />
-        <span>{{ planUploading ? 'Atualizando...' : 'Atualizar PDF' }}</span>
+        <span>{{ planUploading ? 'Atualizando…' : 'Atualizar PDF' }}</span>
         <input type="file" accept="application/pdf,.pdf" class="dieta-upload-input" :disabled="planUploading" @change="onReupload" />
       </label>
     </div>
@@ -208,7 +210,17 @@
 </template>
 
 <script setup>
-import { ArrowLeftRight, Camera, Plus, Trash2, Upload } from 'lucide-vue-next'
+import {
+  ArrowLeftRight,
+  Calculator,
+  Camera,
+  ChevronRight,
+  CircleCheck,
+  ImagePlus,
+  Plus,
+  Trash2,
+  Upload,
+} from 'lucide-vue-next'
 import DietaAddExtraFoodModal from '~/components/dieta/AddExtraFoodModal.vue'
 import MealPlanRecipeDetailSheet from '~/components/dieta/MealPlanRecipeDetailSheet.vue'
 import { useDietaProgress } from '~/composables/useDietaProgress'
@@ -223,6 +235,7 @@ import { normalizeMealItemsForSave } from '~/utils/meal-diary'
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const route = useRoute()
+const router = useRouter()
 const view = ref('today')
 const activeMeal = ref('lunch')
 const checkedItems = ref([])
@@ -255,9 +268,12 @@ const currentMeal = computed(() => {
   overridesRevision.value
   return getMealById(activeMeal.value)
 })
+const activeMealDefinition = computed(() => mealList.value.find(meal => meal.id === activeMeal.value))
 const planTitle = computed(() => planRecord.value?.title || planRecord.value?.fileName || 'Plano alimentar')
 const substitutionGroups = computed(() => getSubstitutionGroupsForMeal(activeMeal.value))
 const hasSubstitutions = computed(() => mealHasSubstitutions(activeMeal.value))
+const currentMealPercent = computed(() => mealProgressPercent(activeMeal.value))
+const completedMealsCount = computed(() => mealList.value.filter(meal => isMealComplete(meal.id)).length)
 
 const progressLabel = computed(() => {
   if (!currentMeal.value) return ''
@@ -332,12 +348,24 @@ function selectMeal(mealId) {
   substitutionsOpen.value = false
 }
 
+function setView(nextView) {
+  const normalized = nextView === 'week' ? 'week' : 'today'
+  view.value = normalized
+  router.replace({
+    query: {
+      ...route.query,
+      view: normalized === 'week' ? 'week' : undefined,
+    },
+  })
+}
+
 function openRecipeDetail(recipe) {
   selectedRecipe.value = recipe
   recipeDetailOpen.value = true
 }
 
 function toggleItem(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= checkedItems.value.length) return
   const next = [...checkedItems.value]
   next[index] = !next[index]
   checkedItems.value = next
@@ -346,6 +374,20 @@ function toggleItem(index) {
   queueSyncMealCheck(activeMeal.value, meal, next, (summary) => {
     if (summary) dailySummary.value = summary
   })
+}
+
+function mealProgressPercent(mealId) {
+  const meal = getMealById(mealId)
+  if (!meal?.itemLabels?.length) return 0
+  const states = mealId === activeMeal.value
+    ? checkedItems.value
+    : loadChecked(mealId, meal.itemLabels.length)
+  return Math.round((countDone(states) / meal.itemLabels.length) * 100)
+}
+
+function isMealComplete(mealId) {
+  const meal = getMealById(mealId)
+  return Boolean(meal?.itemLabels?.length && mealProgressPercent(mealId) === 100)
 }
 
 function weekProgressLabel(mealId) {
@@ -376,6 +418,18 @@ function onPlanUploaded() {
 async function onReupload(event) {
   const file = event.target.files?.[0]
   if (!file) return
+  if (file.type && file.type !== 'application/pdf') {
+    const { showToast } = useAppToast()
+    showToast({ type: 'error', title: 'Arquivo inválido', message: 'Escolha um arquivo PDF.' })
+    event.target.value = ''
+    return
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    const { showToast } = useAppToast()
+    showToast({ type: 'error', title: 'PDF muito grande', message: 'Envie um arquivo de até 15 MB.' })
+    event.target.value = ''
+    return
+  }
   try {
     await uploadPdf(file)
     onPlanUploaded()
@@ -389,10 +443,11 @@ async function onReupload(event) {
 function openMealFromWeek(mealId) {
   activeMeal.value = mealId
   syncChecked(mealId)
-  view.value = 'today'
+  setView('today')
 }
 
 function takePhotoNow() {
+  if (!currentMeal.value) return
   navigateTo({
     path: '/bella/chat/meal',
     query: {
@@ -489,25 +544,33 @@ watch(nutritionRefresh, () => {
 })
 
 async function syncAllCheckedMealsIfNeeded() {
-  const summary = await resyncAllCheckedMeals(
-    getMealById,
-    mealOrder.value,
-    loadChecked,
-    countDone,
-  )
-  if (summary) dailySummary.value = summary
-  else await loadDailySummary()
+  try {
+    const summary = await resyncAllCheckedMeals(
+      getMealById,
+      mealOrder.value,
+      loadChecked,
+      countDone,
+    )
+    if (summary) dailySummary.value = summary
+    else await loadDailySummary()
+  } catch {
+    await loadDailySummary()
+  }
 }
 
 onMounted(async () => {
-  await fetchPlan()
-  planLoading.value = false
-  if (hasPlan.value) {
-    activeMeal.value = resolveActiveMealFromRoute()
-    syncChecked(activeMeal.value)
-    await syncAllCheckedMealsIfNeeded()
-  } else {
-    loadDailySummary()
+  view.value = route.query.view === 'week' ? 'week' : 'today'
+  try {
+    await fetchPlan()
+    if (hasPlan.value) {
+      activeMeal.value = resolveActiveMealFromRoute()
+      syncChecked(activeMeal.value)
+      await syncAllCheckedMealsIfNeeded()
+    } else {
+      await loadDailySummary()
+    }
+  } finally {
+    planLoading.value = false
   }
 })
 
@@ -537,6 +600,13 @@ watch(
       activeMeal.value = queryMeal
       syncChecked(queryMeal)
     }
+  },
+)
+
+watch(
+  () => route.query.view,
+  queryView => {
+    view.value = queryView === 'week' ? 'week' : 'today'
   },
 )
 </script>
@@ -722,6 +792,7 @@ watch(
   margin-left: auto;
   flex-shrink: 0;
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   width: 1.75rem;
@@ -986,5 +1057,599 @@ watch(
   gap: 0.35rem;
   font-size: 0.82rem;
   color: var(--cf-text);
+}
+</style>
+
+<style scoped>
+.patient-page.dieta-page {
+  min-height: 100%;
+  padding: 0 1rem calc(var(--cf-tab-clearance) + 1rem);
+  background: #fff;
+  color: #20221f;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+.dieta-page :where(button, a, label) {
+  -webkit-tap-highlight-color: rgba(121, 138, 112, 0.14);
+  touch-action: manipulation;
+}
+
+.dieta-page :where(button, a, label):focus-visible {
+  outline: 2px solid #65785c;
+  outline-offset: 2px;
+}
+
+.dieta-diary-bar {
+  margin: 0 0 0.875rem !important;
+}
+
+.dieta-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin: 0 0 1.25rem;
+  padding: 0.1875rem;
+  border: 1px solid #e4e6e2;
+  border-radius: 0.875rem;
+  background: #f5f6f4;
+  box-shadow: none;
+}
+
+.dieta-tab {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 0.6875rem;
+  background: transparent;
+  color: #777c75;
+  font: 500 0.8125rem/1.2 inherit;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.dieta-tab.active {
+  background: #fff;
+  color: #272a26;
+  font-weight: 500;
+  box-shadow: 0 1px 4px rgba(22, 28, 20, 0.08);
+}
+
+.dieta-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.dieta-section-heading--week {
+  margin-bottom: 0.875rem;
+}
+
+.dieta-section-title {
+  margin: 0;
+  color: #20221f;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.dieta-section-count {
+  flex-shrink: 0;
+  padding-bottom: 0.125rem;
+  color: #7d837a;
+  font-size: 0.71875rem;
+  font-weight: 400;
+}
+
+.dieta-meals {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 -1rem 1rem;
+  padding: 0 1rem 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.dieta-meals::-webkit-scrollbar {
+  display: none;
+}
+
+.dieta-meal-btn {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  min-height: 2.75rem;
+  min-width: auto;
+  padding: 0.375rem 0.6875rem 0.375rem 0.375rem;
+  border: 1px solid #e4e6e2;
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow: none;
+  color: #72776f;
+  font: 400 0.75rem/1.15 inherit;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.dieta-meal-btn.active {
+  border-color: #9aa891;
+  background: #f5f7f3;
+  color: #3f493a;
+}
+
+.dieta-meal-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6875rem;
+  background: #f1f3ef;
+  color: #7f8d76;
+}
+
+.dieta-meal-btn.active .dieta-meal-icon-wrap {
+  background: #e7ece3;
+  color: #687a5f;
+}
+
+.dieta-meal-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.dieta-meal-short {
+  max-width: 6.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dieta-meal-complete {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #6f8d65;
+}
+
+.dieta-card {
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid #dfe2dd;
+  border-radius: 1.125rem;
+  background: #fff;
+}
+
+.dieta-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.75rem;
+}
+
+.dieta-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6875rem;
+  min-width: 0;
+}
+
+.dieta-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  border-radius: 0.8125rem;
+  background: #f0f3ed;
+  color: #74836c;
+}
+
+.dieta-card-icon :deep(svg) {
+  width: 1.1875rem;
+  height: 1.1875rem;
+}
+
+.dieta-meal-label {
+  display: block;
+  margin: 0;
+  color: #20221f;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.dieta-meal-meta {
+  display: block;
+  margin: 0.1875rem 0 0;
+  color: #858a82;
+  font-size: 0.71875rem;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.dieta-card-percent {
+  color: #4f5c49;
+  font-size: 1.125rem;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+.dieta-progress-track,
+.dieta-week-track {
+  height: 0.25rem;
+  overflow: hidden;
+  background: #eceeeb;
+}
+
+.dieta-progress-track {
+  margin: 0 1rem;
+  border-radius: 999px;
+}
+
+.dieta-progress-track > span,
+.dieta-week-track > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #839678;
+  transform-origin: left center;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dieta-progress {
+  margin: 0.4375rem 1rem 0.5rem;
+  color: #778173;
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
+.dieta-checklist {
+  display: block;
+  margin: 0;
+  padding: 0 1rem;
+  list-style: none;
+}
+
+.dieta-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.6875rem;
+  min-height: 3.5rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid #eceeeb;
+  color: #343733;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.dieta-check-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.375rem;
+  padding: 0.375rem;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dieta-item-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1875rem;
+  min-width: 0;
+}
+
+.dieta-recipe-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: #bdc6b8;
+  text-underline-offset: 0.1875rem;
+  cursor: pointer;
+}
+
+.dieta-item-done {
+  color: #9a9e98;
+  text-decoration: line-through;
+  text-decoration-color: #b9bdb7;
+}
+
+.dieta-item-substituted {
+  color: #5f7556;
+}
+
+.dieta-item-extra {
+  color: #806c64;
+}
+
+.dieta-item-swap-tag,
+.dieta-item-extra-tag {
+  width: fit-content;
+  padding: 0.125rem 0.375rem;
+  border-radius: 999px;
+  background: #eef3eb;
+  color: #687b60;
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.dieta-item-extra-tag {
+  background: #f6f0ed;
+  color: #8a7067;
+}
+
+.dieta-item-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.375rem;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #9b8178;
+  cursor: pointer;
+}
+
+.dieta-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding: 0.875rem 1rem 1rem;
+}
+
+.dieta-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3125rem;
+  min-height: 2.75rem;
+  padding: 0.4375rem;
+  border: 1px solid #e2e5e0;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: #60665e;
+  font: 400 0.6875rem/1.2 inherit;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dieta-tool-btn :deep(svg) {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 auto;
+  color: #7e8b76;
+}
+
+.dieta-register {
+  padding: 0.875rem 1rem 1rem;
+  border-top: 1px solid #e8eae6;
+  background: #f8f9f7;
+}
+
+.dieta-register-copy p {
+  margin: 0;
+  color: #2b2e2a;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.dieta-register-copy span {
+  display: block;
+  margin-top: 0.125rem;
+  color: #888d85;
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
+.dieta-actions {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.dieta-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  font: 500 0.75rem/1.2 inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dieta-action-btn--primary {
+  border: 1px solid #798a70;
+  background: #798a70;
+  color: #fff;
+}
+
+.dieta-action-btn--outline {
+  border: 1px solid #dfe2dd;
+  background: #fff;
+  color: #555b53;
+}
+
+.dieta-action-icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+
+.dieta-plan-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0 1rem;
+  border: 0;
+  border-top: 1px solid #e8eae6;
+  background: #fff;
+  color: #687264;
+  font: 400 0.75rem/1.2 inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dieta-plan-link :deep(svg) {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+
+.dieta-week-card {
+  overflow: hidden;
+  margin-bottom: 0.625rem;
+  padding: 0;
+  border: 1px solid #e0e3de;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.dieta-week-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 4.5rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dieta-week-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8125rem;
+  background: #f0f3ed;
+  color: #75846d;
+}
+
+.dieta-week-icon :deep(svg) {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.dieta-week-info {
+  min-width: 0;
+}
+
+.dieta-week-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dieta-week-title {
+  margin: 0;
+  overflow: hidden;
+  color: #282b27;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dieta-week-title-row > span,
+.dieta-week-progress {
+  color: #8b9089;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.dieta-week-progress {
+  margin: 0.1875rem 0 0;
+}
+
+.dieta-week-chevron {
+  width: 1rem;
+  height: 1rem;
+  color: #a0a49e;
+}
+
+.dieta-week-track {
+  height: 0.1875rem;
+  border-radius: 0;
+}
+
+.dieta-plan-footer {
+  margin-top: 1rem;
+  padding: 0.75rem 0.25rem 0.5rem;
+  border-top: 1px solid #eceeeb;
+}
+
+.dieta-plan-source {
+  overflow: hidden;
+  color: #949891;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dieta-plan-reupload {
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border-radius: 0.625rem;
+  color: #6d7b66;
+  font-size: 0.71875rem;
+  font-weight: 500;
+}
+
+@media (max-width: 360px) {
+  .dieta-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .dieta-tool-btn {
+    justify-content: flex-start;
+    padding-inline: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dieta-tab,
+  .dieta-meal-btn,
+  .dieta-progress-track > span,
+  .dieta-week-track > span {
+    transition: none;
+  }
 }
 </style>

@@ -5,8 +5,10 @@
         ref="inputEl"
         :value="modelValue"
         type="text"
+        name="food-search"
         class="food-picker-input"
         :placeholder="placeholder"
+        aria-label="Buscar alimento"
         autocomplete="off"
         @input="onInput"
         @focus="onFocus"
@@ -20,47 +22,50 @@
         @mousedown.prevent
         @click="toggleOpen"
       >
-        <ChevronDown class="food-picker-chevron" :class="{ 'food-picker-chevron--open': open }" />
+        <ChevronDown class="food-picker-chevron" :class="{ 'food-picker-chevron--open': open }" aria-hidden="true" />
       </button>
     </div>
 
-    <div v-if="open" class="food-picker-panel" role="listbox">
-      <div class="food-picker-panel-head">
-        <Search class="food-picker-search-icon" />
+    <div v-if="open" class="food-picker-panel">
+      <div v-if="showPanelSearch" class="food-picker-panel-head">
+        <Search class="food-picker-search-icon" aria-hidden="true" />
         <input
           ref="searchEl"
           v-model="searchQuery"
           type="search"
+          name="food-search-filter"
           class="food-picker-search"
           placeholder="Digite para buscar (TBCA / TACO)…"
+          aria-label="Filtrar resultados de alimentos"
           autocomplete="off"
           @keydown="onSearchKeydown"
         />
       </div>
 
-      <p v-if="loading" class="food-picker-status">Buscando…</p>
-      <p v-else-if="searchError" class="food-picker-status food-picker-status--error">{{ searchError }}</p>
-      <p v-else-if="!results.length" class="food-picker-status">
+      <p v-if="loading" class="food-picker-status" role="status">Buscando…</p>
+      <p v-else-if="searchError" class="food-picker-status food-picker-status--error" role="alert">{{ searchError }}</p>
+      <p v-else-if="!results.length" class="food-picker-status" role="status">
         {{ searchQuery.trim() ? 'Nenhum alimento encontrado.' : 'Digite o nome do alimento.' }}
       </p>
 
-      <ul v-else class="food-picker-results">
-        <li
-          v-for="(food, idx) in results"
-          :key="food.id"
-          role="option"
-          :aria-selected="idx === activeIndex"
-          class="food-picker-option"
-          :class="{ 'food-picker-option--active': idx === activeIndex }"
-          @mousedown.prevent
-          @click="selectFood(food)"
-          @mouseenter="activeIndex = idx"
-        >
-          <span class="food-picker-option-name">{{ food.name }}</span>
-          <span class="food-picker-option-meta">
-            <span class="food-picker-badge">{{ formatFoodSourceLabel(food.source) }}</span>
-            {{ food.per100g?.caloriesKcal ?? '—' }} kcal / 100 g
-          </span>
+      <ul v-else class="food-picker-results" role="listbox">
+        <li v-for="(food, idx) in results" :key="food.id">
+          <button
+            type="button"
+            role="option"
+            :aria-selected="idx === activeIndex"
+            class="food-picker-option"
+            :class="{ 'food-picker-option--active': idx === activeIndex }"
+            @mousedown.prevent
+            @click="selectFood(food)"
+            @mouseenter="activeIndex = idx"
+          >
+            <span class="food-picker-option-name">{{ food.name }}</span>
+            <span class="food-picker-option-meta">
+              <span class="food-picker-badge">{{ formatFoodSourceLabel(food.source) }}</span>
+              {{ food.per100g?.caloriesKcal ?? '—' }} kcal / 100 g
+            </span>
+          </button>
         </li>
       </ul>
     </div>
@@ -74,6 +79,7 @@ import { formatFoodSourceLabel } from '~/utils/food-bank.js'
 const props = defineProps({
   modelValue: { type: String, default: '' },
   placeholder: { type: String, default: 'Ex.: Frango grelhado' },
+  showPanelSearch: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['update:modelValue', 'select', 'blur-commit'])
@@ -101,6 +107,13 @@ function syncSearchFromModel() {
 
 async function runSearch(query) {
   const q = String(query || '').trim()
+  if (q.length < 2) {
+    results.value = []
+    loading.value = false
+    searchError.value = ''
+    activeIndex.value = -1
+    return
+  }
   loading.value = true
   searchError.value = ''
   activeIndex.value = -1
@@ -251,25 +264,26 @@ onBeforeUnmount(() => {
 .food-picker-input-wrap {
   display: flex;
   align-items: stretch;
-  border: 1.5px solid var(--pa-border);
-  border-radius: 8px;
+  min-height: 2.875rem;
+  border: 1px solid var(--pa-border);
+  border-radius: 0.75rem;
   background: #fff;
   overflow: hidden;
 }
 
 .food-picker--open .food-picker-input-wrap {
   border-color: var(--pa-green, #8B967C);
-  box-shadow: 0 0 0 2px rgba(45, 138, 78, 0.12);
+  box-shadow: 0 0 0 2px rgba(111, 132, 101, 0.12);
 }
 
 .food-picker-input {
   flex: 1;
   min-width: 0;
-  padding: 0.45rem 0.55rem;
+  padding: 0.625rem 0.75rem;
   border: none;
   font-family: inherit;
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 0.8125rem;
+  font-weight: 400;
   color: var(--pa-text);
   background: transparent;
 }
@@ -278,17 +292,25 @@ onBeforeUnmount(() => {
   outline: none;
 }
 
+.food-picker-input::placeholder,
+.food-picker-search::placeholder {
+  color: #6f746d;
+  opacity: 1;
+}
+
 .food-picker-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
+  width: 2.75rem;
   flex-shrink: 0;
   border: none;
   border-left: 1px solid var(--pa-border);
-  background: #f8faf9;
+  background: #f7f8f6;
   color: var(--pa-text-muted);
   cursor: pointer;
+  -webkit-tap-highlight-color: rgba(111, 132, 101, 0.14);
+  touch-action: manipulation;
 }
 
 .food-picker-chevron {
@@ -367,18 +389,30 @@ onBeforeUnmount(() => {
 .food-picker-results {
   list-style: none;
   margin: 0;
-  padding: 0.25rem 0;
+  padding: 0.25rem;
   overflow-y: auto;
   flex: 1;
 }
 
-.food-picker-option {
-  padding: 0.55rem 0.75rem;
-  cursor: pointer;
-  border-bottom: 1px solid #f1f5f9;
+.food-picker-results > li {
+  list-style: none;
 }
 
-.food-picker-option:last-child {
+.food-picker-option {
+  display: block;
+  width: 100%;
+  padding: 0.625rem;
+  border: 0;
+  border-bottom: 1px solid #eceeeb;
+  background: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(111, 132, 101, 0.14);
+  touch-action: manipulation;
+}
+
+.food-picker-results > li:last-child .food-picker-option {
   border-bottom: none;
 }
 
@@ -387,10 +421,14 @@ onBeforeUnmount(() => {
   background: var(--cf-green-soft, #eef0eb);
 }
 
+.food-picker-option:active {
+  background: #e5eadf;
+}
+
 .food-picker-option-name {
   display: block;
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--pa-text);
   line-height: 1.35;
 }
@@ -400,7 +438,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.4rem;
   margin-top: 0.15rem;
-  font-size: 0.68rem;
+  font-size: 0.625rem;
   color: var(--pa-text-muted);
 }
 
@@ -409,9 +447,20 @@ onBeforeUnmount(() => {
   padding: 0.05rem 0.35rem;
   border-radius: 4px;
   background: #e2e8f0;
-  font-weight: 700;
-  font-size: 0.62rem;
+  font-weight: 500;
+  font-size: 0.5625rem;
   letter-spacing: 0.02em;
   color: #475569;
+}
+
+.food-picker-input-wrap:focus-within {
+  border-color: var(--pa-green, #8B967C);
+  box-shadow: 0 0 0 2px rgba(111, 132, 101, 0.12);
+}
+
+.food-picker-option:focus-visible,
+.food-picker-toggle:focus-visible {
+  outline: 2px solid #66785e;
+  outline-offset: -2px;
 }
 </style>

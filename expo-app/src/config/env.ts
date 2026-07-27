@@ -1,14 +1,17 @@
 import Constants from 'expo-constants';
+import { PROD_API_BASE } from './api-env';
 
-const DEFAULT_DEV_API = 'http://127.0.0.1:3001/api';
-const PROD_API = 'https://apiclube.nutrisabellajardim.com.br/api';
+export { PROD_API_BASE } from './api-env';
 
 export function getApiBase(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_BASE?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  const fromExtra = Constants.expoConfig?.extra?.apiBase;
+  const candidate =
+    fromEnv
+    || (typeof fromExtra === 'string' ? fromExtra : '')
+    || PROD_API_BASE;
 
-  if (__DEV__) return DEFAULT_DEV_API;
-  return PROD_API;
+  return candidate.replace(/\/$/, '');
 }
 
 export const NATIVE_CLIENT_HEADER = 'expo';

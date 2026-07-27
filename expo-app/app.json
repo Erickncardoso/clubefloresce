@@ -6,6 +6,11 @@
     "orientation": "portrait",
     "scheme": "clubeflorescer",
     "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -23,10 +28,8 @@
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },

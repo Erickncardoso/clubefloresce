@@ -48,12 +48,10 @@ function syncViewportMetrics() {
   const vv = window.visualViewport
   const vvHeight = vv?.height ?? window.innerHeight
   const offsetTop = vv?.offsetTop ?? 0
+  const keyboardOpen =
+    isTextInputFocused() || document.documentElement.classList.contains('vk-open')
 
-  // Sem teclado aberto, usamos a altura total da tela. Em alguns aparelhos (ex.: iPhone 13)
-  // o visualViewport.height reporta menos que a tela física, deixando faixa branca embaixo
-  // e empurrando o menu flutuante para cima. Com teclado aberto mantemos o visualViewport
-  // (menor) para o conteúdo caber acima do teclado.
-  const height = isTextInputFocused()
+  const height = keyboardOpen
     ? vvHeight
     : Math.max(vvHeight, window.innerHeight || 0)
 
@@ -62,12 +60,46 @@ function syncViewportMetrics() {
 }
 
 /**
+ * PWA instalado no iOS: sincroniza --cf-vvh com a altura física (evita faixa branca embaixo).
+ * Sem bloquear scroll — o shell (.patient-shell-body) continua rolando normalmente.
+ */
+export function installIOSPwaViewportSync() {
+  if (typeof window === 'undefined' || !isIOSDevice()) return () => {}
+
+  syncViewportMetrics()
+
+  const onViewportChange = () => {
+    syncViewportMetrics()
+  }
+
+  const onFocusChange = () => {
+    requestAnimationFrame(syncViewportMetrics)
+  }
+
+  window.addEventListener('orientationchange', onViewportChange, { passive: true })
+  document.addEventListener('focusin', onFocusChange, { passive: true, capture: true })
+  document.addEventListener('focusout', onFocusChange, { passive: true, capture: true })
+
+  const vv = window.visualViewport
+  vv?.addEventListener('resize', onViewportChange, { passive: true })
+  vv?.addEventListener('scroll', onViewportChange, { passive: true })
+
+  return () => {
+    document.documentElement.style.removeProperty('--cf-vvh')
+    document.documentElement.style.removeProperty('--cf-vv-offset-top')
+    window.removeEventListener('orientationchange', onViewportChange)
+    document.removeEventListener('focusin', onFocusChange, { capture: true })
+    document.removeEventListener('focusout', onFocusChange, { capture: true })
+    vv?.removeEventListener('resize', onViewportChange)
+    vv?.removeEventListener('scroll', onViewportChange)
+  }
+}
+
+/**
  * Evita rubber-band no documento e scroll fantasma que faz o Safari exibir/esconder barras.
  */
 export function installIOSPwaChromeGuard() {
   if (typeof window === 'undefined' || !isIOSDevice()) return () => {}
-
-  document.documentElement.classList.add('cf-ios-pwa')
 
   syncViewportMetrics()
   clampWindowScroll()

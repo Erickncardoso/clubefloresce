@@ -4,14 +4,16 @@
     <div class="patient-app-shell__main" :inert="showAppGate">
       <NuxtPage />
     </div>
+    <PatientScreenDim v-if="config.public.mobileApp" />
     <PatientNavigationLoader />
     <PatientTabBar v-if="showTabBar" />
+    <PatientQuickAccessFab v-if="showTabBar && config.public.mobileApp" />
     <PatientPwaUpdate />
     <PatientPwaPrompt />
     <CfConfirmModal />
     <AppToast />
     <PatientMealPlanUploadOverlay />
-    <PatientPushPrompt :open="showPushPrompt" />
+    <PatientPushPrompt :open="showPushPrompt" @dismiss="onPushPromptDismiss" />
     <PatientMealPlanGate :open="showMealPlanGate" />
     <InstagramSafariEscape />
   </div>
@@ -19,8 +21,12 @@
 
 <script setup>
 import PatientNavigationLoader from '~/components/PatientNavigationLoader.vue'
+import PatientQuickAccessFab from '~/components/PatientQuickAccessFab.vue'
+import PatientScreenDim from '~/components/PatientScreenDim.vue'
 import { usePatientTabBar } from '~/composables/usePatientTabBar'
 import { isPatientAppAccessBlocked } from '~/utils/patient-access'
+import { dismissPushPrompt, isPushPromptDismissed } from '~/utils/push-prompt-dismiss'
+import { isPrivateLanHostname, isPushSecureContext } from '~/utils/resolve-api-base.mjs'
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -39,8 +45,16 @@ const {
   enabledOnServer: pushEnabledOnServer,
   supported: pushSupported,
   standalone: pushStandalone,
+  needsHttps: pushNeedsHttps,
   initPushState,
 } = usePushNotifications()
+
+const pushPromptDismissed = useState('push-prompt-dismissed', () => false)
+
+function onPushPromptDismiss() {
+  dismissPushPrompt()
+  pushPromptDismissed.value = true
+}
 
 const hideTabBarPaths = ['/', '/register', '/documento', '/onboarding', '/esqueci-senha', '/redefinir-senha', '/abrir']
 const publicPaths = hideTabBarPaths
@@ -67,6 +81,7 @@ const hasActivePatientAccess = computed(() => {
 })
 
 if (import.meta.client && config.public.mobileApp) {
+  pushPromptDismissed.value = isPushPromptDismissed()
   void initPushState()
 
   watch(isAuthenticatedRoute, (authenticated) => {
@@ -83,9 +98,16 @@ const showPushPrompt = computed(() => {
   if (isCheckoutPath(route.path)) return false
   if (!hasActivePatientAccess.value) return false
   if (route.path.startsWith('/onboarding')) return false
+  if (pushPromptDismissed.value) return false
   if (pushChecking.value) return false
   if (!pushEnabledOnServer.value) return false
   if (pushSubscribed.value) return false
+  // HTTP na rede local (ex.: 192.168.x) não suporta push — não bloquear o app.
+  if (pushNeedsHttps.value) return false
+  if (import.meta.client) {
+    const host = window.location.hostname
+    if (isPrivateLanHostname(host) && !isPushSecureContext(host)) return false
+  }
   if (!pushSupported.value && !pushStandalone.value) return false
   return true
 })

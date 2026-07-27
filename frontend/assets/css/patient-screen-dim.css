@@ -1,0 +1,38 @@
+/**
+ * Escurecimento dentro do shell — no iOS PWA overlays no body ficam atrás do scroll.
+ * z-index acima da tab bar (1000), abaixo do menu + / dial (24000+).
+ */
+.patient-screen-dim {
+  position: fixed;
+  z-index: 23900;
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  min-height: calc(100lvh + env(safe-area-inset-top, 0px));
+  min-height: calc(100dvh + env(safe-area-inset-top, 0px));
+  margin: 0;
+  padding: 0;
+  border: none;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.46);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.patient-screen-dim--interactive {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+html.patient-quick-dial-open .patient-app-shell__main,
+html.cf-ios-pwa-overlay-active .patient-app-shell__main {
+  pointer-events: none;
+  user-select: none;
+}
+
+html.patient-quick-dial-open .patient-nav {
+  pointer-events: none;
+}

@@ -15,12 +15,12 @@ interface FallbackPlan {
 }
 
 const TOOLS_BY_TOPIC: Record<BellaChatTopic, BellaToolName[]> = {
-  general: ["get_user_profile", "get_checkin_summary", "list_recommended_courses", "search_educational_content"],
-  ask: ["get_user_profile", "get_checkin_summary", "list_recommended_courses", "search_educational_content"],
-  label: ["search_educational_content"],
-  meal: ["search_educational_content", "get_daily_diary_summary"],
-  restaurant: ["get_patient_meal_plan", "get_daily_diary_summary", "search_educational_content", "get_user_profile"],
-  swap: ["search_educational_content", "get_user_profile"],
+  general: ["get_user_profile", "get_checkin_summary", "list_recommended_courses", "search_knowledge_base"],
+  ask: ["get_user_profile", "get_checkin_summary", "list_recommended_courses", "search_knowledge_base"],
+  label: ["search_knowledge_base"],
+  meal: ["search_knowledge_base", "get_daily_diary_summary"],
+  restaurant: ["get_patient_meal_plan", "get_daily_diary_summary", "search_knowledge_base", "get_user_profile"],
+  swap: ["search_knowledge_base", "get_user_profile"],
   goal: ["get_checkin_summary", "get_user_profile", "list_recommended_courses"],
 };
 
@@ -56,8 +56,8 @@ function detectTopicFallbackPlan(message: string, topic: BellaChatTopic): Fallba
     if (/ingrediente|açúcar|acucar|sódio|sodio|gordura|fibra|tabela|rotulo|rótulo/i.test(lower)) {
       const query = extractSearchQuery(message);
       return {
-        tools: ["search_educational_content"],
-        toolArgs: { search_educational_content: { query, limit: 3 } },
+        tools: ["search_knowledge_base"],
+        toolArgs: { search_knowledge_base: { query, limit: 3 } },
         intro: "Conteúdos sobre rótulos e tabelas nutricionais:",
       };
     }
@@ -73,8 +73,8 @@ function detectTopicFallbackPlan(message: string, topic: BellaChatTopic): Fallba
       ? extractSearchQuery(message)
       : "montar prato equilibrado";
     return {
-      tools: ["search_educational_content"],
-      toolArgs: { search_educational_content: { query, limit: 3 } },
+      tools: ["search_knowledge_base"],
+      toolArgs: { search_knowledge_base: { query, limit: 3 } },
       intro: "Conteúdos sobre refeições e equilíbrio no prato:",
     };
   }
@@ -84,8 +84,8 @@ function detectTopicFallbackPlan(message: string, topic: BellaChatTopic): Fallba
       ? extractSearchQuery(message)
       : "comer fora restaurante";
     return {
-      tools: ["search_educational_content"],
-      toolArgs: { search_educational_content: { query, limit: 3 } },
+      tools: ["search_knowledge_base"],
+      toolArgs: { search_knowledge_base: { query, limit: 3 } },
       intro: "Dicas para escolhas ao comer fora:",
     };
   }
@@ -93,8 +93,8 @@ function detectTopicFallbackPlan(message: string, topic: BellaChatTopic): Fallba
   if (topic === "swap") {
     const query = extractSearchQuery(message);
     return {
-      tools: ["search_educational_content"],
-      toolArgs: { search_educational_content: { query: query || "substituir alimentos", limit: 3 } },
+      tools: ["search_knowledge_base"],
+      toolArgs: { search_knowledge_base: { query: query || "substituir alimentos", limit: 3 } },
       intro: "Ideias de substituições:",
     };
   }
@@ -124,8 +124,8 @@ function detectFallbackPlan(message: string): FallbackPlan {
   if (/ebook|material|receita|prote[ií]na|carbo|metabol|hidrata|sono|lanche|dieta|refei/i.test(lower)) {
     const query = extractSearchQuery(message);
     return {
-      tools: ["search_educational_content"],
-      toolArgs: { search_educational_content: { query, limit: 5 } },
+      tools: ["search_knowledge_base"],
+      toolArgs: { search_knowledge_base: { query, limit: 5 } },
       intro: `Busquei conteúdos sobre "${query}":`,
     };
   }
@@ -140,8 +140,8 @@ function detectFallbackPlan(message: string): FallbackPlan {
 
   if (/água|agua|hidrata/i.test(lower)) {
     return {
-      tools: ["search_educational_content"],
-      toolArgs: { search_educational_content: { query: "hidratação", limit: 3 } },
+      tools: ["search_knowledge_base"],
+      toolArgs: { search_knowledge_base: { query: "hidratação", limit: 3 } },
       intro: "",
     };
   }

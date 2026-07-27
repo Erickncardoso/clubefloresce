@@ -3,6 +3,9 @@
  * O campo display do PDF é a fonte de verdade (nome, unidade, g/ml).
  */
 import { resolveItemGrams } from './meal-portion-measures.js'
+import { cutMealPlanInlineNoise } from './meal-plan-text-sanitize.js'
+
+export { cutMealPlanInlineNoise } from './meal-plan-text-sanitize.js'
 
 function normalizeFractions(value) {
   return String(value || '')
@@ -78,7 +81,7 @@ export function parseDietboxItemLine(raw) {
     }
   }
 
-  const plainMatch = text.match(/^(.*)(\d+(?:\.\d+)?)\s*(g|ml)\s*$/i)
+  const plainMatch = text.match(/^(.*?)(\d+(?:\.\d+)?)\s*(g|ml)\s*$/i)
   if (plainMatch) {
     const body = plainMatch[1].trim()
     const measure = Number(plainMatch[2])
@@ -157,12 +160,36 @@ function inferGramsFromParsed(parsed, item) {
   return parsed.grams ?? (legacy === 100 ? null : legacy) ?? null
 }
 
+function hasEmbeddedMeasure(text) {
+  const raw = String(text || '').trim()
+  if (!raw) return false
+  return (
+    /\(\s*\d+(?:[.,]\d+)?\s*(g|ml)\s*\)/i.test(raw)
+    || /\d+(?:[.,]\d+)?\s*(g|ml)\b/i.test(raw)
+  )
+}
+
+function parseMealPlanItemLine(item) {
+  const displaySource = cutMealPlanInlineNoise(String(item.display || item.originalDisplay || '').trim())
+  if (displaySource) {
+    const fromDisplay = parseDietboxItemLine(displaySource)
+    if (fromDisplay?.name) return fromDisplay
+  }
+
+  const nameSource = cutMealPlanInlineNoise(String(item.name || item.food || '').trim())
+  if (nameSource && hasEmbeddedMeasure(nameSource)) {
+    const fromName = parseDietboxItemLine(nameSource)
+    if (fromName?.name) return fromName
+  }
+
+  return null
+}
+
 /** Normaliza item do plano usando display do PDF como fonte de verdade. */
 export function normalizeMealPlanItem(item) {
   if (!item || typeof item !== 'object') return item
 
-  const displaySource = String(item.display || item.originalDisplay || '').trim()
-  const parsed = displaySource ? parseDietboxItemLine(displaySource) : null
+  const parsed = parseMealPlanItemLine(item)
 
   if (parsed?.name) {
     const grams = inferGramsFromParsed(parsed, item)
@@ -174,7 +201,7 @@ export function normalizeMealPlanItem(item) {
       unit: parsed.unit ?? item.unit ?? '',
       grams: grams ?? null,
       ml: parsed.ml ?? item.ml ?? null,
-      display: parsed.display,
+      display: parsed.display || item.display || item.originalDisplay || null,
     }
   }
 

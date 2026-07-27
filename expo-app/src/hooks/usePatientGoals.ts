@@ -1,95 +1,152 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePatientApi } from '@/hooks/usePatientApi';
+import {
+  STORAGE_KEY,
+  addGoalToStore,
+  buildTodaySummary,
+  getFoodSelectedDays,
+  getProgress,
+  getSleepSchedule,
+  goalsAverageFromSummary,
+  readGoalsStore,
+  repairSleepScheduleInStore,
+  setProgressInStore,
+  setSleepScheduleInStore,
+  shiftSleepTimeInStore,
+  toggleFoodDayInStore,
+  updateGoalInStore,
+  weekdayIndex,
+  type GoalsStore,
+  type PatientGoal,
+} from '@/lib/patient-goals-core';
 
-const STORAGE_KEY = 'cf-expo-patient-goals-v1';
-
-export type PatientGoal = {
-  id: string;
-  label: string;
-  type: string;
-  target: number;
-  unit: string;
-  frequency: 'daily' | 'weekly';
-};
-
-const DEFAULT_GOALS: PatientGoal[] = [
-  { id: 'water', label: 'Água', type: 'water', target: 2, unit: 'litros', frequency: 'daily' },
-  { id: 'food', label: 'Refeição livre', type: 'food', target: 7, unit: 'dias', frequency: 'weekly' },
-  { id: 'exercise', label: 'Exercício', type: 'exercise', target: 3, unit: 'vezes', frequency: 'weekly' },
-  { id: 'sleep', label: 'Sono', type: 'sleep', target: 8, unit: 'horas', frequency: 'daily' },
-];
-
-function dateKey(date = new Date()) {
-  return date.toISOString().slice(0, 10);
-}
-
-function weekStartKey(date = new Date()) {
-  const copy = new Date(date);
-  const day = copy.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + diff);
-  return dateKey(copy);
-}
+export type { PatientGoal, GoalsStore } from '@/lib/patient-goals-core';
+export { FOOD_WEEKDAYS } from '@/lib/patient-goals-core';
 
 export function usePatientGoals() {
-  const [goals, setGoals] = useState<PatientGoal[]>(DEFAULT_GOALS);
-  const [progress, setProgress] = useState<Record<string, number>>({});
+  const { request } = usePatientApi();
+  const [store, setStore] = useState<GoalsStore>(() => readGoalsStore(null));
   const [ready, setReady] = useState(false);
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    (async () => {
+  const persist = useCallback(async (next: GoalsStore) => {
+    setStore(next);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed.goals) && parsed.goals.length) setGoals(parsed.goals);
-          if (parsed.progress && typeof parsed.progress === 'object') setProgress(parsed.progress);
+        await request('/patient-goals/me', {
+          method: 'PUT',
+          body: JSON.stringify({ goals: next.goals, progress: next.progress }),
+        });
+      } catch {
+        /* sync opcional */
+      }
+    }, 900);
+  }, [request]);
+
+  const hydrate = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      let next = readGoalsStore(raw);
+      next = repairSleepScheduleInStore(next);
+      try {
+        const data = await request<{ goals?: PatientGoal[]; progress?: Record<string, number> }>(
+          '/patient-goals/me',
+        );
+        if (Array.isArray(data?.goals) && data.goals.length) {
+          next = readGoalsStore(JSON.stringify({ goals: data.goals, progress: data.progress || {} }));
+          next = repairSleepScheduleInStore(next);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         }
       } catch {
-        /* defaults */
-      } finally {
-        setReady(true);
+        /* local only */
       }
-    })();
-  }, []);
+      setStore(next);
+    } finally {
+      setReady(true);
+    }
+  }, [request]);
 
-  const persist = useCallback(async (nextGoals: PatientGoal[], nextProgress: Record<string, number>) => {
-    setGoals(nextGoals);
-    setProgress(nextProgress);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ goals: nextGoals, progress: nextProgress }));
-  }, []);
+  useEffect(() => {
+    void hydrate();
+    return () => {
+      if (syncTimer.current) clearTimeout(syncTimer.current);
+    };
+  }, [hydrate]);
 
-  const todaySummary = useMemo(() => goals.map((goal) => {
-    const key = goal.frequency === 'weekly'
-      ? `${goal.id}:${weekStartKey()}`
-      : `${goal.id}:${dateKey()}`;
-    const value = Number(progress[key] || 0);
-    const percent = goal.id === 'food'
-      ? Math.min(100, Math.round((value / goal.target) * 100))
-      : Math.min(100, Math.round((value / goal.target) * 100));
-    return { goal, progress: value, percent };
-  }), [goals, progress]);
+  const todaySummary = useMemo(() => buildTodaySummary(store), [store]);
+  const goalsAverage = useMemo(() => goalsAverageFromSummary(todaySummary), [todaySummary]);
+  const sleepSchedule = useMemo(() => getSleepSchedule(store), [store]);
 
-  const goalsAverage = useMemo(() => {
-    const items = todaySummary.filter((item) => item.goal.id !== 'food');
-    if (!items.length) return 0;
-    return Math.round(items.reduce((sum, item) => sum + item.percent, 0) / items.length);
-  }, [todaySummary]);
+  const incrementGoal = useCallback(async (goalId: string) => {
+    if (goalId === 'food') return;
+    const goal = store.goals.find((item) => item.id === goalId);
+    if (!goal) return;
+    const delta = goal.step ?? 1;
+    const next = setProgressInStore(store, goalId, getProgress(store, goal) + delta);
+    await persist(next);
+  }, [persist, store]);
+
+  const decrementGoal = useCallback(async (goalId: string) => {
+    if (goalId === 'food') return;
+    const goal = store.goals.find((item) => item.id === goalId);
+    if (!goal) return;
+    const delta = goal.step ?? 1;
+    const next = setProgressInStore(store, goalId, getProgress(store, goal) - delta);
+    await persist(next);
+  }, [persist, store]);
 
   const setGoalProgress = useCallback(async (goalId: string, value: number) => {
-    const goal = goals.find((g) => g.id === goalId);
-    if (!goal) return;
-    const period = goal.frequency === 'weekly' ? weekStartKey() : dateKey();
-    const key = `${goalId}:${period}`;
-    const next = { ...progress, [key]: value };
-    await persist(goals, next);
-  }, [goals, persist, progress]);
+    const next = setProgressInStore(store, goalId, value);
+    await persist(next);
+  }, [persist, store]);
+
+  const toggleFoodDay = useCallback(async (dayIndex: number) => {
+    const next = toggleFoodDayInStore(store, dayIndex);
+    await persist(next);
+  }, [persist, store]);
+
+  const setSleepSchedule = useCallback(async (bedMinutes: number, wakeMinutes: number) => {
+    const next = setSleepScheduleInStore(store, bedMinutes, wakeMinutes);
+    await persist(next);
+  }, [persist, store]);
+
+  const shiftSleepTime = useCallback(async (kind: 'bed' | 'wake', deltaMinutes: number) => {
+    const next = shiftSleepTimeInStore(store, kind, deltaMinutes);
+    await persist(next);
+  }, [persist, store]);
+
+  const updateGoal = useCallback(async (
+    goalId: string,
+    patch: Partial<Pick<PatientGoal, 'label' | 'target' | 'unit' | 'frequency'>>,
+  ) => {
+    const next = updateGoalInStore(store, goalId, patch);
+    await persist(next);
+  }, [persist, store]);
+
+  const addGoal = useCallback(async (goal: Omit<PatientGoal, 'id'>) => {
+    const next = addGoalToStore(store, goal);
+    await persist(next);
+  }, [persist, store]);
 
   return {
     ready,
-    goals,
+    goals: store.goals,
     todaySummary,
     goalsAverage,
+    sleepSchedule,
+    hydrate,
+    incrementGoal,
+    decrementGoal,
     setGoalProgress,
+    getFoodSelectedDays: () => getFoodSelectedDays(store),
+    toggleFoodDay,
+    setSleepSchedule,
+    shiftSleepTime,
+    updateGoal,
+    addGoal,
+    weekdayIndex,
   };
 }

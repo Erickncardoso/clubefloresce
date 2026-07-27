@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CfButton from '@/components/ui/CfButton';
 import FormField from '@/components/ui/FormField';
 import { maskPhoneBr, onlyDigits } from '@/lib/masks';
+import { requiresWebSubscription } from '@/lib/platform-billing';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -25,11 +26,16 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [phone, setPhone] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function handleSubmit() {
     setError('');
+    if (!acceptedTerms) {
+      setError('Aceite os Termos de Uso e a Política de Privacidade para continuar.');
+      return;
+    }
     if (password.length < 8) {
       setError('A senha deve ter pelo menos 8 caracteres.');
       return;
@@ -54,6 +60,10 @@ export default function RegisterScreen() {
         phone: maskPhoneBr(phone),
       });
       const next = data.redirectTo || (await resolvePostLoginRoute()) || '/assinatura';
+      if (requiresWebSubscription() && next.includes('assinatura')) {
+        router.replace('/assinatura' as never);
+        return;
+      }
       router.replace(next as never);
     } catch (err) {
       setError((err as { data?: { message?: string }; message?: string })?.data?.message
@@ -110,8 +120,31 @@ export default function RegisterScreen() {
               hint="Obrigatório — usaremos para avisos da sua assinatura"
             />
 
+            <Pressable
+              style={styles.termsRow}
+              onPress={() => setAcceptedTerms((value) => !value)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: acceptedTerms }}
+            >
+              <View style={[styles.checkbox, acceptedTerms && styles.checkboxOn]}>
+                {acceptedTerms ? <Text style={styles.checkMark}>✓</Text> : null}
+              </View>
+              <Text style={styles.termsText}>
+                Li e aceito os{' '}
+                <Link href="/legal/termos" style={styles.link}>Termos de Uso</Link>
+                {' '}e a{' '}
+                <Link href="/legal/privacidade" style={styles.link}>Política de Privacidade</Link>.
+              </Text>
+            </Pressable>
+
             <CfButton
-              label={loading ? 'Criando conta…' : 'Criar conta e ir ao pagamento'}
+              label={
+                loading
+                  ? 'Criando conta…'
+                  : requiresWebSubscription()
+                    ? 'Criar conta'
+                    : 'Criar conta e ir ao pagamento'
+              }
               loading={loading}
               onPress={handleSubmit}
             />
@@ -159,4 +192,18 @@ const styles = StyleSheet.create({
   errorText: { flex: 1, fontFamily: fonts.medium, color: colors.error, fontSize: 14 },
   footer: { textAlign: 'center', fontFamily: fonts.regular, color: colors.textMuted },
   link: { fontFamily: fonts.bold, color: colors.primary },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkMark: { color: '#fff', fontFamily: fonts.bold, fontSize: 12 },
+  termsText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, lineHeight: 20 },
 });

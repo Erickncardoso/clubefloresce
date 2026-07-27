@@ -9,6 +9,7 @@ import { normalizePersonName, syncUserNameFromMealPlan } from "./sync-patient-na
 import { syncNutritionTargetsFromMealPlan } from "./sync-nutrition-targets";
 import { enrichParsedMealPlan, parsedMealPlanNeedsFoodEnrichment, sanitizeParsedMealPlan } from "./meal-plan-food-enricher";
 import type { User } from "@prisma/client";
+import { scheduleRagReindex } from "../rag/rag-hooks";
 
 const repo = new MealPlanRepository();
 const mealPlanEnrichInFlight = new Set<string>();
@@ -81,7 +82,24 @@ export class MealPlanService {
     if (!record) return null;
 
     const plan = record.plan as unknown as ParsedMealPlan;
+    const before = JSON.stringify(plan);
     sanitizeParsedMealPlan(plan);
+    const cleaned = JSON.stringify(plan) !== before;
+
+    if (cleaned) {
+      void repo.upsert(userId, {
+        fileName: record.fileName,
+        pdfUrl: record.pdfUrl,
+        title: record.title,
+        patientName: record.patientName,
+        prescribedAt: record.prescribedAt,
+        plan,
+        parserSource: record.parserSource,
+      }).catch((err) => {
+        console.warn("[meal-plan] falha ao persistir plano sanitizado:", err?.message || err);
+      });
+    }
+
     if (parsedMealPlanNeedsFoodEnrichment(plan)) {
       scheduleMealPlanFoodEnrichment(userId, record, plan);
     }
@@ -173,6 +191,8 @@ export class MealPlanService {
 
     const syncedUser = await syncUserNameFromMealPlan(userId, patientName);
     const syncedTargets = await syncNutritionTargetsFromMealPlan(userId, plan.nutritionTotals);
+    scheduleRagReindex({ type: "meal_plan", userId });
+    scheduleRagReindex({ type: "profile", userId });
 
     return {
       plan: toResponse(saved, userId),
@@ -227,6 +247,7 @@ export class MealPlanService {
 
     const syncedUser = await syncUserNameFromMealPlan(userId, plan.patientName);
     const syncedTargets = await syncNutritionTargetsFromMealPlan(userId, plan.nutritionTotals);
+    scheduleRagReindex({ type: "meal_plan", userId });
 
     return {
       plan: toResponse(saved, userId),

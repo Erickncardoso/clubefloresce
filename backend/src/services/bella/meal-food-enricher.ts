@@ -2,7 +2,8 @@ import { FoodService } from "../food.service";
 import type { FoodItemDto } from "../../types/food.types";
 import type { MealItemDraft } from "../../types/food-diary.types";
 import { macrosAtGramsFromPer100g, normalizePer100gMacros } from "../../utils/food-macros";
-import { matchFoodCandidate } from "../meal-plan/meal-plan-food-enricher";
+import { smartMatchFood } from "../food-smart-match.service";
+import { resolveSwapGroup } from "./food-category";
 import { sumItems } from "./meal-item-math";
 
 const foodService = new FoodService();
@@ -19,35 +20,50 @@ function macrosFromFood(food: FoodItemDto, grams: number) {
   };
 }
 
+/** CUSTOM = produto/marca do plano; mantém o texto exato do PDF, só usa a tabela para macros. */
+export function resolveEnrichedDisplayName(item: MealItemDraft, food: FoodItemDto): string {
+  const pdfLabel = String(item.originalName || item.name || "").trim();
+  if (food.source === "CUSTOM" && pdfLabel) return pdfLabel;
+  return food.displayName || food.name;
+}
+
 async function enrichItem(item: MealItemDraft): Promise<MealItemDraft> {
+  const lookupName = String(item.name || "").trim();
+  const originalName = String(item.originalName || item.name || "").trim();
+  const expectedGroup = resolveSwapGroup({ category: null, name: lookupName, per100g: undefined });
+  const groupHint = expectedGroup !== "mixed" ? expectedGroup : undefined;
+
+  // Match pelo texto do PDF — corrige vínculos errados gravados no plano (ex.: mix de castanhas).
+  const smartMatched = lookupName
+    ? await smartMatchFood(lookupName, { originalName, expectedGroup: groupHint })
+    : null;
+
+  if (smartMatched) {
+    return {
+      ...item,
+      name: resolveEnrichedDisplayName(item, smartMatched),
+      foodId: smartMatched.id,
+      source: "food_bank",
+      originalName: originalName || lookupName,
+      ...macrosFromFood(smartMatched, item.grams),
+    };
+  }
+
   if (item.foodId) {
     const byId = await foodService.getById(item.foodId);
     if (byId) {
       return {
         ...item,
-        name: byId.name,
+        name: resolveEnrichedDisplayName(item, byId),
         foodId: byId.id,
         source: "food_bank",
-        originalName: item.originalName || item.name,
+        originalName: originalName || lookupName,
         ...macrosFromFood(byId, item.grams),
       };
     }
   }
 
-  // Matcher robusto: TBCA + TACO + overrides Florescer (CUSTOM), melhor score global.
-  // Garante que itens sem foodId (ex.: whey, mussarela) também contabilizem calorias.
-  const matched = await matchFoodCandidate(item.name);
-  if (!matched) return item;
-
-  const aiName = item.name;
-  return {
-    ...item,
-    name: matched.name,
-    foodId: matched.id,
-    source: "food_bank",
-    originalName: aiName,
-    ...macrosFromFood(matched, item.grams),
-  };
+  return item;
 }
 
 export async function enrichMealItemsWithFoodBank(items: MealItemDraft[]): Promise<MealItemDraft[]> {

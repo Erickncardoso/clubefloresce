@@ -1,4 +1,8 @@
-import { installIOSPwaChromeGuard } from '~/utils/ios-pwa-chrome'
+import {
+  installIOSPwaChromeGuard,
+  installIOSPwaViewportSync,
+  isIOSDevice,
+} from '~/utils/ios-pwa-chrome'
 import { isStandalonePwa } from '~/utils/pwa-standalone'
 
 export default defineNuxtPlugin(() => {
@@ -9,12 +13,24 @@ export default defineNuxtPlugin(() => {
 
   document.documentElement.classList.add('cf-mobile-app')
 
-  if (isStandalonePwa()) {
-    // PWA instalado: não aplicar --cf-vvh nem bloquear scroll do documento
+  const ios = isIOSDevice()
+  const standalone = isStandalonePwa()
+
+  if (ios) {
+    document.documentElement.classList.add('cf-ios')
+  }
+
+  if (standalone) {
+    if (ios) {
+      document.documentElement.classList.add('cf-ios-pwa')
+      installIOSPwaViewportSync()
+    }
     return
   }
 
   document.documentElement.classList.add('cf-safari-inline')
 
-  installIOSPwaChromeGuard()
+  if (ios) {
+    installIOSPwaChromeGuard()
+  }
 })

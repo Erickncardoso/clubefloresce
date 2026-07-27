@@ -77,3 +77,46 @@ test('resolvePlanItemGrams corrige item com name corrompido', () => {
     50,
   )
 })
+
+test('resolvePlanItemGrams usa 20g de Aveia em flocos no name, não colheres', () => {
+  assert.equal(
+    resolvePlanItemGrams({
+      name: 'Aveia em flocos 20g',
+      display: null,
+      grams: 60,
+      amount: 4,
+      unit: 'colher',
+    }),
+    20,
+  )
+  assert.equal(
+    resolvePlanItemGrams({
+      display: 'Aveia em flocos 20g',
+      name: 'Aveia em flocos',
+      grams: 60,
+      amount: 4,
+      unit: 'colher',
+    }),
+    20,
+  )
+})
+
+test('buildPlanDiaryItems envia 20g para Aveia marcada no plano', async () => {
+  const { buildPlanDiaryItems } = await import('../utils/plan-diary-sync.js')
+  const items = buildPlanDiaryItems(
+    {
+      itemLabels: ['Aveia em flocos 20g'],
+      items: [{
+        name: 'Aveia em flocos 20g',
+        grams: 60,
+        amount: 4,
+        unit: 'colher',
+        display: null,
+      }],
+    },
+    [true],
+  )
+  assert.equal(items.length, 1)
+  assert.equal(items[0].grams, 20)
+  assert.equal(items[0].name, 'Aveia em flocos')
+})

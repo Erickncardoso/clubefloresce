@@ -1,145 +1,76 @@
 <template>
-  <div class="water-bottle" :aria-label="`Água: ${displayCurrent} de ${displayTarget}`">
-    <div class="water-bottle__viz" aria-hidden="true">
-      <svg class="water-bottle__svg" viewBox="0 0 88 176" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <clipPath :id="clipId">
-            <path :d="bottleInnerPath" />
-          </clipPath>
-          <linearGradient :id="gradWater" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#6dbde8" />
-            <stop offset="100%" stop-color="#6dbde8" />
-          </linearGradient>
-          <linearGradient :id="gradShine" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="#fff" stop-opacity="0.35" />
-            <stop offset="100%" stop-color="#fff" stop-opacity="0.08" />
-          </linearGradient>
-          <filter :id="filterShadow" x="-20%" y="-10%" width="140%" height="130%">
-            <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#5ba4d9" flood-opacity="0.18" />
-          </filter>
-        </defs>
-
-        <!-- Tampa -->
-        <rect x="35" y="5" width="18" height="6" rx="3" fill="#6eb5e0" />
-        <rect x="37" y="11" width="14" height="3" rx="1.5" fill="#8ecae8" />
-        <ellipse cx="44" cy="11" rx="7" ry="1.5" fill="#5aa8d4" opacity="0.35" />
-
-        <!-- Corpo da garrafa (vidro) -->
-        <path
-          :d="bottleOuterPath"
-          fill="#f4fbff"
-          stroke="#a8d4ef"
-          stroke-width="2"
-          stroke-linejoin="round"
-          :filter="`url(#${filterShadow})`"
-        />
-
-        <!-- Água (clipada no interior) -->
-        <g :clip-path="`url(#${clipId})`">
-          <rect
-            x="28"
-            :y="waterTop"
-            width="34"
-            :height="waterHeightPx"
-            :fill="`url(#${gradWater})`"
-          />
-          <ellipse
-            v-if="fillPercent > 2"
-            cx="44"
-            :cy="waterTop"
-            rx="16"
-            ry="3"
-            fill="#b8e8fa"
-            opacity="0.85"
-          >
-            <animate attributeName="rx" values="14;17;14" dur="2.8s" repeatCount="indefinite" />
-          </ellipse>
-          <ellipse
-            v-if="fillPercent > 2"
-            cx="44"
-            :cy="waterTop + 1.5"
-            rx="18"
-            ry="2"
-            fill="#fff"
-            opacity="0.35"
-          />
-        </g>
-
-        <!-- Brilho no vidro -->
-        <path
-          :d="bottleInnerPath"
-          :fill="`url(#${gradShine})`"
-          opacity="0.7"
-          pointer-events="none"
-        />
-
-        <!-- Marcas de nível -->
-        <g class="water-bottle__marks" opacity="0.35">
-          <line
-            v-for="mark in levelMarks"
-            :key="mark"
-            x1="28"
-            :y1="mark"
-            x2="60"
-            :y2="mark"
-            stroke="#5ba4d9"
-            stroke-width="1"
-            stroke-dasharray="3 4"
-          />
-        </g>
-
-        <!-- Contorno interno -->
-        <path
-          :d="bottleInnerPath"
-          fill="none"
-          stroke="#c5e4f5"
-          stroke-width="1"
-          opacity="0.6"
-        />
-
-        <!-- Reflexo lateral -->
-        <path
-          d="M 31 48 C 30 72, 30 102, 31 126"
-          fill="none"
-          stroke="#fff"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          opacity="0.45"
-        />
-
-        <!-- Litros no centro -->
-        <text
-          x="44"
-          y="98"
-          text-anchor="middle"
-          dominant-baseline="middle"
-          class="water-bottle__label"
-          :class="{ 'water-bottle__label--filled': fillPercent > 45 }"
+  <div class="water-intake" :aria-label="`Água: ${displayCurrent} de ${displayTarget}`">
+    <div v-if="!readonly" class="water-intake__picker">
+      <p class="water-intake__picker-label">Escolha o recipiente</p>
+      <div class="water-intake__options" aria-label="Volume a registrar">
+        <button
+          v-for="option in vesselOptions"
+          :key="option.id"
+          type="button"
+          class="water-intake__option"
+          :class="{ 'water-intake__option--active': selectedVessel === option.id }"
+          :aria-pressed="selectedVessel === option.id"
+          @click="selectedVessel = option.id"
         >
-          {{ displayCurrent }}
-        </text>
-      </svg>
+          <span class="water-intake__option-icon" aria-hidden="true">
+            <EvolucaoWaterVesselIcon
+              :kind="option.id"
+              :fill-percent="72"
+              :animated="selectedVessel === option.id"
+            />
+          </span>
+          <span class="water-intake__option-copy">
+            <strong>{{ option.label }}</strong>
+            <span>{{ formatMilliliters(option.amount) }}</span>
+          </span>
+          <span class="water-intake__option-check" aria-hidden="true">
+            <Check v-if="selectedVessel === option.id" />
+          </span>
+        </button>
+      </div>
     </div>
 
-    <p class="water-bottle__count" aria-hidden="true">
-      <strong>{{ displayCurrent }}</strong>
-      <span>/ {{ displayTarget }}</span>
-    </p>
+    <div class="water-intake__summary">
+      <div class="water-intake__visual" aria-hidden="true">
+        <EvolucaoWaterVesselIcon
+          :kind="selectedOption.id"
+          :fill-percent="fillPercent"
+          animated
+        />
+      </div>
+      <div class="water-intake__summary-copy">
+        <span>{{ readonly ? 'Consumo registrado' : 'Próximo registro' }}</span>
+        <strong>{{ readonly ? displayCurrent : formatMilliliters(selectedOption.amount) }}</strong>
+        <p>{{ displayCurrent }} de {{ displayTarget }}</p>
+      </div>
+    </div>
 
-    <div v-if="!readonly" class="water-bottle__actions">
-      <button type="button" class="water-bottle__btn" aria-label="Remover 250 ml" @click="emit('decrement')">
-        <Minus class="water-bottle__btn-icon" aria-hidden="true" />
+    <div v-if="!readonly" class="water-intake__actions">
+      <button
+        type="button"
+        class="water-intake__undo"
+        :aria-label="`Remover ${formatMilliliters(selectedOption.amount)}`"
+        :disabled="current <= 0"
+        @click="emit('decrement', selectedOption.amount)"
+      >
+        <Minus aria-hidden="true" />
+        Remover
       </button>
-      <button type="button" class="water-bottle__btn water-bottle__btn--primary" aria-label="Adicionar 250 ml" @click="emit('increment')">
-        <Plus class="water-bottle__btn-icon" aria-hidden="true" />
+      <button
+        type="button"
+        class="water-intake__add"
+        :aria-label="`Adicionar ${formatMilliliters(selectedOption.amount)}`"
+        @click="emit('increment', selectedOption.amount)"
+      >
+        <Plus aria-hidden="true" />
+        Adicionar {{ formatMilliliters(selectedOption.amount) }}
       </button>
     </div>
-    <p v-if="!readonly" class="water-bottle__hint">+250 ml por toque</p>
   </div>
 </template>
 
 <script setup>
-import { Minus, Plus } from 'lucide-vue-next'
+import { Check, Minus, Plus } from 'lucide-vue-next'
 import { useConfetti } from '~/composables/useConfetti'
 
 const props = defineProps({
@@ -149,81 +80,44 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['increment', 'decrement'])
-
 const { burstRain } = useConfetti()
+const { waterVesselSettings, hydrateWaterVessels } = useWaterVesselSettings()
 
-watch(
-  () => props.current,
-  (current, previous) => {
-    if (!props.target || current < props.target) return
-    const before = previous ?? 0
-    if (before < props.target) burstRain()
-  },
+const literFormatter = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
+const milliliterFormatter = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 })
+
+const vesselOptions = computed(() => [
+  { id: 'glass', label: 'Copo', amount: waterVesselSettings.value.glassMl / 1000 },
+  { id: 'bottle', label: 'Garrafa', amount: waterVesselSettings.value.bottleMl / 1000 },
+])
+
+const selectedVessel = ref('glass')
+const selectedOption = computed(() =>
+  vesselOptions.value.find((option) => option.id === selectedVessel.value) || vesselOptions.value[0],
 )
-
-const uid = String(useId()).replace(/[^a-zA-Z0-9]/g, '') || 'wb'
-const clipId = `wb-clip-${uid}`
-const gradWater = `wb-water-${uid}`
-const gradShine = `wb-shine-${uid}`
-const filterShadow = `wb-shadow-${uid}`
-
-const FILL_TOP = 34
-const FILL_BOTTOM = 142
-const FILL_RANGE = FILL_BOTTOM - FILL_TOP
-
-const bottleOuterPath = `
-  M 38 14
-  L 38 32
-  C 31 36, 26 44, 26 54
-  L 26 138
-  L 26 144
-  Q 26 146 28 146
-  L 60 146
-  Q 62 146 62 144
-  L 62 138
-  L 62 54
-  C 62 44, 57 36, 50 32
-  L 50 14
-  Z
-`
-
-const bottleInnerPath = `
-  M 39 32
-  L 39 34
-  C 32 38, 28 46, 28 56
-  L 28 134
-  L 28 140
-  Q 28 142 30 142
-  L 58 142
-  Q 60 142 60 140
-  L 60 134
-  L 60 56
-  C 60 46, 56 38, 51 34
-  L 51 32
-  Z
-`
 
 const fillPercent = computed(() => {
   if (!props.target) return 0
   return Math.min(100, (props.current / props.target) * 100)
 })
 
-const waterHeightPx = computed(() => Math.max(0, (fillPercent.value / 100) * FILL_RANGE))
+watch(
+  () => props.current,
+  (current, previous) => {
+    if (!props.target || current < props.target) return
+    if ((previous ?? 0) < props.target) burstRain()
+  },
+)
 
-const waterTop = computed(() => FILL_BOTTOM - waterHeightPx.value)
-
-const levelMarks = computed(() => {
-  const marks = []
-  for (let i = 1; i <= 3; i += 1) {
-    marks.push(FILL_BOTTOM - (FILL_RANGE * i) / 4)
-  }
-  return marks
-})
+onMounted(hydrateWaterVessels)
 
 function formatLiters(value) {
-  const rounded = Math.round(value * 4) / 4
-  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace('.', ',')
-  return `${text} L`
+  const rounded = Math.round(value * 100) / 100
+  return `${literFormatter.format(rounded)} L`
+}
+
+function formatMilliliters(value) {
+  return `${milliliterFormatter.format(Math.round(value * 1000))} ml`
 }
 
 const displayCurrent = computed(() => formatLiters(props.current))
@@ -231,103 +125,237 @@ const displayTarget = computed(() => formatLiters(props.target))
 </script>
 
 <style scoped>
-.water-bottle {
+.water-intake {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.45rem;
+  gap: 0.85rem;
 }
 
-.water-bottle__viz {
-  width: 4.75rem;
-  height: 9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.water-intake__picker-label {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #737378;
 }
 
-.water-bottle__svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  overflow: visible;
-}
-
-.water-bottle__label {
-  font-size: 11px;
-  font-weight: 800;
-  fill: #2f6f9e;
-  font-family: inherit;
-  paint-order: stroke;
-  stroke: rgba(255, 255, 255, 0.75);
-  stroke-width: 2.5px;
-}
-
-.water-bottle__label--filled {
-  fill: #fff;
-  stroke: rgba(47, 111, 158, 0.35);
-}
-
-.water-bottle__count {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.water-bottle__hint {
-  margin: 0;
-  font-size: 0.64rem;
-  color: rgba(28, 24, 22, 0.45);
-}
-
-.water-bottle__actions {
-  display: flex;
+.water-intake__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
-  margin-top: 0.15rem;
 }
 
-.water-bottle__btn {
-  display: inline-flex;
+.water-intake__option {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  font-family: inherit;
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: 1;
+  gap: 0.55rem;
+  min-height: 3.25rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #e2e2e7;
+  border-radius: 0.75rem;
+  background: #fff;
   color: var(--cf-text);
+  font-family: inherit;
+  text-align: left;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.water-bottle__btn--primary {
-  background: #5ba4d9;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(91, 164, 217, 0.28);
+.water-intake__option--active {
+  border-color: #7bb7dc;
+  background: #f1f8fc;
 }
 
-.water-bottle__btn-icon {
-  width: 1rem;
-  height: 1rem;
-  stroke-width: 2.5;
+.water-intake__option-icon {
+  width: 1.5rem;
+  height: 2.1rem;
   flex-shrink: 0;
 }
 
+.water-intake__option-copy {
+  min-width: 0;
+}
+
+.water-intake__option-copy strong,
+.water-intake__option-copy span {
+  display: block;
+}
+
+.water-intake__option-copy strong {
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.water-intake__option-copy span {
+  margin-top: 0.1rem;
+  font-size: 0.62rem;
+  color: #7f7f85;
+  font-variant-numeric: tabular-nums;
+}
+
+.water-intake__option-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin-left: auto;
+  border: 1px solid #d9d9de;
+  border-radius: 50%;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.water-intake__option--active .water-intake__option-check {
+  border-color: #5ba4d9;
+  background: #5ba4d9;
+}
+
+.water-intake__option-check svg {
+  width: 0.65rem;
+  height: 0.65rem;
+  stroke-width: 2.5;
+}
+
+.water-intake__summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 7.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.8rem;
+  background: #f8fafb;
+}
+
+.water-intake__visual {
+  width: 3.5rem;
+  height: 5.4rem;
+  flex-shrink: 0;
+}
+
+.water-intake__summary-copy {
+  min-width: 7.5rem;
+}
+
+.water-intake__summary-copy > span {
+  display: block;
+  font-size: 0.64rem;
+  color: #7f7f85;
+}
+
+.water-intake__summary-copy strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+.water-intake__summary-copy p {
+  margin: 0.28rem 0 0;
+  font-size: 0.68rem;
+  color: #737378;
+  font-variant-numeric: tabular-nums;
+}
+
+.water-intake__actions {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 0.72fr) minmax(0, 1.5fr);
+  gap: 0.5rem;
+}
+
+.water-intake__undo,
+.water-intake__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.72rem;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.water-intake__undo {
+  border: 1px solid #dedee3;
+  background: #fff;
+  color: #5f5f65;
+}
+
+.water-intake__add {
+  border: 1px solid #5ba4d9;
+  background: #5ba4d9;
+  color: #fff;
+}
+
+.water-intake__undo:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.water-intake__undo svg,
+.water-intake__add svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  stroke-width: 2;
+}
+
+.water-intake__option:focus-visible,
+.water-intake__undo:focus-visible,
+.water-intake__add:focus-visible {
+  outline: 2px solid #2f759f;
+  outline-offset: 2px;
+}
+
+.water-intake__option:active,
+.water-intake__undo:active:not(:disabled),
+.water-intake__add:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .water-intake__option:hover {
+    border-color: #a9cee5;
+    background: #f7fbfd;
+  }
+
+  .water-intake__option--active:hover {
+    border-color: #5ba4d9;
+    background: #edf7fc;
+  }
+
+  .water-intake__undo:hover:not(:disabled) {
+    background: #f5f5f7;
+  }
+
+  .water-intake__add:hover {
+    background: #4b96c5;
+  }
+}
+
+@media (max-width: 350px) {
+  .water-intake__option {
+    gap: 0.4rem;
+    padding-inline: 0.45rem;
+  }
+
+  .water-intake__summary {
+    gap: 0.75rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .water-bottle__svg animate {
-    display: none;
+  .water-intake__option {
+    transition: none;
   }
 }
 </style>

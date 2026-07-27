@@ -27,3 +27,14 @@ export function formatDateKeyPtBr(
   if (!parsed) return dateKey;
   return parsed.date.toLocaleDateString('pt-BR', options);
 }
+
+export function formatPatientDateLabel(value: string | Date | null | undefined): string {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}

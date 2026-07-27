@@ -4,8 +4,8 @@ import {
   checkinToolDefinition,
 } from "./tools/checkin.tool";
 import {
-  contentSearchToolDefinition,
-} from "./tools/content-search.tool";
+  knowledgeSearchToolDefinition,
+} from "./tools/knowledge-search.tool";
 import {
   coursesToolDefinition,
 } from "./tools/courses.tool";
@@ -84,7 +84,7 @@ const ALL_TOOLS: OpenAIToolDefinition[] = [
   checkinToolDefinition,
   coursesToolDefinition,
   userProfileToolDefinition,
-  contentSearchToolDefinition,
+  knowledgeSearchToolDefinition,
   mealPlanToolDefinition,
   dailyDiaryToolDefinition,
 ];
@@ -96,7 +96,7 @@ const TOOLS_BY_TOPIC: Record<BellaChatTopic, BellaToolName[]> = {
     "get_patient_meal_plan",
     "get_daily_diary_summary",
     "list_recommended_courses",
-    "search_educational_content",
+    "search_knowledge_base",
   ],
   ask: [
     "get_user_profile",
@@ -104,12 +104,12 @@ const TOOLS_BY_TOPIC: Record<BellaChatTopic, BellaToolName[]> = {
     "get_patient_meal_plan",
     "get_daily_diary_summary",
     "list_recommended_courses",
-    "search_educational_content",
+    "search_knowledge_base",
   ],
-  label: ["search_educational_content"],
-  meal: ["search_educational_content", "get_daily_diary_summary"],
-  restaurant: ["get_patient_meal_plan", "get_daily_diary_summary", "search_educational_content", "get_user_profile"],
-  swap: ["search_educational_content", "get_user_profile"],
+  label: ["search_knowledge_base"],
+  meal: ["search_knowledge_base", "get_daily_diary_summary"],
+  restaurant: ["get_patient_meal_plan", "get_daily_diary_summary", "search_knowledge_base", "get_user_profile"],
+  swap: ["search_knowledge_base", "get_user_profile"],
   goal: ["get_checkin_summary", "get_user_profile", "list_recommended_courses"],
 };
 

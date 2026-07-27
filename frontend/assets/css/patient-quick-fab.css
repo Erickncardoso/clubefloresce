@@ -1,0 +1,97 @@
+/**
+ * Botão flutuante (+) e overlay do menu rápido.
+ * CSS global — Teleport to body não recebe scoped styles no iOS PWA.
+ */
+
+.patient-quick-fab {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+  bottom: calc(var(--cf-tab-h, 64px) + 12px);
+  z-index: 24002;
+  width: 3.5rem;
+  height: 3.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--cf-pink, #8b967c);
+  color: #ffffff;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  pointer-events: auto;
+  transform: translateZ(0);
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.16s ease,
+    visibility 0s linear,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.patient-quick-dial {
+  z-index: 24001;
+}
+
+.patient-quick-fab--open {
+  background: var(--cf-pink-dark, #6f7863);
+}
+
+.patient-quick-fab:active {
+  transform: scale(0.94);
+}
+
+.patient-quick-fab__icon {
+  display: block;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+html:not(:has(.patient-nav)) .patient-quick-fab {
+  display: none !important;
+}
+
+html.vk-open .patient-quick-fab,
+html.meal-sheet-keyboard .patient-quick-fab,
+body.keyboard-open .patient-quick-fab {
+  display: none !important;
+}
+
+html.evo-goal-modal-open .patient-quick-fab {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.84);
+  transition:
+    transform 0.16s ease,
+    opacity 0.16s ease,
+    visibility 0s linear 0.16s,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+html.evo-goal-modal-open .patient-quick-dial {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .patient-quick-fab {
+    transition:
+      visibility 0s linear,
+      background 0.2s ease;
+  }
+
+  html.evo-goal-modal-open .patient-quick-fab {
+    transform: none;
+    transition: visibility 0s linear;
+  }
+
+  .patient-quick-fab:active {
+    transform: none;
+  }
+}

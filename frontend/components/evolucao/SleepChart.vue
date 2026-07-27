@@ -3,6 +3,44 @@
     class="sleep-clock"
     :aria-label="`Sono: ${durationLabel} hoje. Dormir ${bedLabel}, acordar ${wakeLabel}`"
   >
+    <template v-if="compact">
+      <div class="sleep-clock__compact-summary">
+        <div class="sleep-clock__compact-duration">
+          <span>Tempo de sono</span>
+          <strong>{{ durationLabel }}</strong>
+          <small>Meta de {{ target }}h</small>
+        </div>
+
+        <div class="sleep-clock__compact-times">
+          <div>
+            <span class="sleep-clock__compact-icon" aria-hidden="true">
+              <Moon />
+            </span>
+            <span>Dormir</span>
+            <strong>{{ bedLabel }}</strong>
+          </div>
+          <div>
+            <span class="sleep-clock__compact-icon sleep-clock__compact-icon--sun" aria-hidden="true">
+              <Sun />
+            </span>
+            <span>Acordar</span>
+            <strong>{{ wakeLabel }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <button
+        v-if="!readonly"
+        type="button"
+        class="sleep-clock__open"
+        @click="emit('open-editor')"
+      >
+        <Moon aria-hidden="true" />
+        Ajustar sono
+      </button>
+    </template>
+
+    <template v-else>
     <div class="sleep-clock__panel cf-squircle">
       <div class="sleep-clock__dial-wrap">
         <svg
@@ -11,12 +49,6 @@
           class="sleep-clock__svg"
           aria-hidden="true"
         >
-          <defs>
-            <filter id="sleepHandleShadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#6f7863" flood-opacity="0.14" />
-            </filter>
-          </defs>
-
           <circle cx="100" cy="100" :r="RING_R" class="sleep-clock__ring-bg" />
 
           <circle
@@ -24,7 +56,7 @@
             cy="100"
             :r="RING_R"
             class="sleep-clock__ring-active"
-            stroke="#8B967C"
+            stroke="#6B74B8"
             :stroke-dasharray="`${sleepArcLength} ${RING_CIRCUMFERENCE}`"
             stroke-dashoffset="0"
             :transform="`rotate(${sleepArcRotation} 100 100)`"
@@ -68,7 +100,7 @@
             :transform="`translate(${moonPos.x}, ${moonPos.y})`"
             @pointerdown="(e) => startDrag('bed', e)"
           >
-            <circle :r="HANDLE_R" class="sleep-clock__handle-bg sleep-clock__handle-bg--moon" filter="url(#sleepHandleShadow)" />
+            <circle :r="HANDLE_R" class="sleep-clock__handle-bg sleep-clock__handle-bg--moon" />
             <circle :r="HANDLE_R - 2" class="sleep-clock__handle-inner sleep-clock__handle-inner--moon" />
             <g class="sleep-clock__handle-glyph sleep-clock__handle-glyph--moon" transform="scale(0.52) translate(-12,-12)">
               <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
@@ -81,7 +113,7 @@
             :transform="`translate(${sunPos.x}, ${sunPos.y})`"
             @pointerdown="(e) => startDrag('wake', e)"
           >
-            <circle :r="HANDLE_R" class="sleep-clock__handle-bg sleep-clock__handle-bg--sun" filter="url(#sleepHandleShadow)" />
+            <circle :r="HANDLE_R" class="sleep-clock__handle-bg sleep-clock__handle-bg--sun" />
             <circle :r="HANDLE_R - 2" class="sleep-clock__handle-inner sleep-clock__handle-inner--sun" />
             <g class="sleep-clock__handle-glyph sleep-clock__handle-glyph--sun">
               <circle r="3.2" />
@@ -104,11 +136,11 @@
           </div>
           <div v-if="!readonly" class="sleep-clock__card-actions">
             <button type="button" class="sleep-clock__step-btn" aria-label="Adiantar horário de dormir" @click="emitShift('bed', -15)">
-              <Minus class="sleep-clock__step-icon" />
+              <Minus class="sleep-clock__step-icon" aria-hidden="true" />
             </button>
             <span class="sleep-clock__step-label">15 min</span>
             <button type="button" class="sleep-clock__step-btn sleep-clock__step-btn--primary" aria-label="Atrasar horário de dormir" @click="emitShift('bed', 15)">
-              <Plus class="sleep-clock__step-icon" />
+              <Plus class="sleep-clock__step-icon" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -125,11 +157,11 @@
           </div>
           <div v-if="!readonly" class="sleep-clock__card-actions">
             <button type="button" class="sleep-clock__step-btn" aria-label="Acordar mais cedo" @click="emitShift('wake', -15)">
-              <Minus class="sleep-clock__step-icon" />
+              <Minus class="sleep-clock__step-icon" aria-hidden="true" />
             </button>
             <span class="sleep-clock__step-label">15 min</span>
             <button type="button" class="sleep-clock__step-btn sleep-clock__step-btn--primary sleep-clock__step-btn--sun" aria-label="Acordar mais tarde" @click="emitShift('wake', 15)">
-              <Plus class="sleep-clock__step-icon" />
+              <Plus class="sleep-clock__step-icon" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -145,6 +177,7 @@
         </span>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
@@ -154,6 +187,7 @@ import { Check, Minus, Moon, Plus, Sun } from 'lucide-vue-next'
 const props = defineProps({
   target: { type: Number, default: 8 },
   readonly: { type: Boolean, default: false },
+  compact: { type: Boolean, default: false },
   schedule: {
     type: Object,
     default: () => ({
@@ -165,7 +199,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['shift-bed', 'shift-wake', 'set-schedule'])
+const emit = defineEmits(['shift-bed', 'shift-wake', 'set-schedule', 'open-editor'])
 
 const CX = 100
 const CY = 100
@@ -377,8 +411,146 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
+.sleep-clock__compact-summary {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 0.72fr) minmax(0, 1.35fr);
+  align-items: center;
+  gap: 1rem;
+  min-height: 5rem;
+}
+
+.sleep-clock__compact-duration {
+  text-align: center;
+}
+
+.sleep-clock__compact-duration span,
+.sleep-clock__compact-duration strong,
+.sleep-clock__compact-duration small {
+  display: block;
+}
+
+.sleep-clock__compact-duration > span {
+  color: #74778a;
+  font-size: 0.62rem;
+}
+
+.sleep-clock__compact-duration strong {
+  margin-top: 0.2rem;
+  color: #555c98;
+  font-size: 1.55rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.sleep-clock__compact-duration small {
+  margin-top: 0.28rem;
+  color: #858797;
+  font-size: 0.58rem;
+}
+
+.sleep-clock__compact-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid #ececf1;
+  border-bottom: 1px solid #ececf1;
+}
+
+.sleep-clock__compact-times > div {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.45rem;
+  min-width: 0;
+  padding: 0.55rem 0.4rem;
+}
+
+.sleep-clock__compact-times > div:first-child {
+  border-right: 1px solid #ececf1;
+}
+
+.sleep-clock__compact-icon {
+  display: flex;
+  grid-row: 1 / 3;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: #eef0fb;
+  color: #6b74b8;
+}
+
+.sleep-clock__compact-icon--sun {
+  background: #fff4dc;
+  color: #d49a2a;
+}
+
+.sleep-clock__compact-icon svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  stroke-width: 2;
+}
+
+.sleep-clock__compact-times span:not(.sleep-clock__compact-icon),
+.sleep-clock__compact-times strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sleep-clock__compact-times span:not(.sleep-clock__compact-icon) {
+  color: #7d7f8d;
+  font-size: 0.56rem;
+}
+
+.sleep-clock__compact-times strong {
+  color: #353641;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.sleep-clock__open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 2.75rem;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #6b74b8;
+  border-radius: 0.72rem;
+  background: #6b74b8;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.sleep-clock__open svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  stroke-width: 2;
+}
+
+.sleep-clock__open:focus-visible {
+  outline: 2px solid #555c98;
+  outline-offset: 2px;
+}
+
+.sleep-clock__open:active {
+  transform: scale(0.98);
+}
+
 .sleep-clock__panel {
-  padding: 0.15rem 0.1rem 0;
+  padding: 0;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -387,12 +559,12 @@ onBeforeUnmount(() => {
 .sleep-clock__dial-wrap {
   display: flex;
   justify-content: center;
-  margin-bottom: 0.75rem;
-  padding: 0.15rem 0 0;
+  margin-bottom: 0.9rem;
+  padding: 0;
 }
 
 .sleep-clock__svg {
-  width: min(100%, 14.5rem);
+  width: min(100%, 13.25rem);
   height: auto;
   touch-action: none;
   overflow: visible;
@@ -400,26 +572,26 @@ onBeforeUnmount(() => {
 
 .sleep-clock__ring-bg {
   fill: none;
-  stroke: #e8f0e6;
-  stroke-width: 12;
+  stroke: #e8e9f0;
+  stroke-width: 11;
 }
 
 .sleep-clock__ring-active {
   fill: none;
-  stroke-width: 12;
+  stroke-width: 11;
   stroke-linecap: round;
 }
 
 .sleep-clock__tick-line {
-  stroke: #d4e4d0;
-  stroke-width: 1.5;
+  stroke: #d8dae7;
+  stroke-width: 1.2;
   stroke-linecap: round;
 }
 
 .sleep-clock__number {
-  fill: #a8bda4;
+  fill: #989cab;
   font-size: 7.5px;
-  font-weight: 600;
+  font-weight: 500;
   font-family: var(--cf-font, system-ui, sans-serif);
   text-anchor: middle;
 }
@@ -430,14 +602,14 @@ onBeforeUnmount(() => {
 
 .sleep-clock__face-ring {
   fill: none;
-  stroke: #edf5eb;
-  stroke-width: 1.5;
+  stroke: #ececf2;
+  stroke-width: 1;
 }
 
 .sleep-clock__duration {
   font-family: var(--cf-font, system-ui, sans-serif);
-  fill: var(--cf-green-dark, #6f7863);
-  font-weight: 800;
+  fill: #4f568f;
+  font-weight: 500;
   letter-spacing: -0.03em;
 }
 
@@ -453,10 +625,9 @@ onBeforeUnmount(() => {
 
 .sleep-clock__duration-caption {
   font-family: var(--cf-font, system-ui, sans-serif);
-  fill: #8aa886;
+  fill: #85899b;
   font-size: 7px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 400;
 }
 
 .sleep-clock__handle {
@@ -470,7 +641,7 @@ onBeforeUnmount(() => {
 
 .sleep-clock__handle-bg {
   fill: #fff;
-  stroke-width: 2.5;
+  stroke-width: 2;
 }
 
 .sleep-clock__handle-bg--moon {
@@ -518,24 +689,24 @@ onBeforeUnmount(() => {
 .sleep-clock__cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
+  gap: 0;
+  border-top: 1px solid #ececf0;
+  border-bottom: 1px solid #ececf0;
 }
 
 .sleep-clock__card {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.65rem 0.6rem 0.6rem;
-  border-radius: 0.95rem;
+  gap: 0.65rem;
+  padding: 0.8rem 0.65rem;
+  border-radius: 0;
   border: none;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  background: transparent;
+  box-shadow: none;
 }
 
-.sleep-clock__card--night,
-.sleep-clock__card--day {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: transparent;
+.sleep-clock__card:first-child {
+  border-right: 1px solid #ececf0;
 }
 
 .sleep-clock__card-top {
@@ -549,8 +720,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 999px;
   flex-shrink: 0;
   background: #eef0fb;
@@ -575,17 +746,15 @@ onBeforeUnmount(() => {
 .sleep-clock__card-label {
   display: block;
   font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 400;
   color: var(--cf-text-muted);
 }
 
 .sleep-clock__card-time {
   display: block;
   margin-top: 0.12rem;
-  font-size: 1.02rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--cf-text);
   font-variant-numeric: tabular-nums;
@@ -596,22 +765,24 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
 }
 
 .sleep-clock__step-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  border: none;
-  border-radius: 999px;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid #e0e0e5;
+  border-radius: 0.72rem;
   background: #fff;
   color: var(--cf-green-dark, #6f7863);
   cursor: pointer;
   padding: 0;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
@@ -638,8 +809,8 @@ onBeforeUnmount(() => {
 }
 
 .sleep-clock__step-label {
-  font-size: 0.58rem;
-  font-weight: 600;
+  font-size: 0.56rem;
+  font-weight: 400;
   color: var(--cf-text-muted);
   white-space: nowrap;
 }
@@ -649,22 +820,22 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.28rem 0.35rem;
-  margin-top: 0.65rem;
-  padding: 0.45rem 0.65rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  font-size: 0.72rem;
-  color: rgba(28, 24, 22, 0.52);
+  gap: 0.3rem 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.66rem;
+  color: #777982;
 }
 
 .sleep-clock__meta--ok {
-  background: rgba(255, 255, 255, 0.72);
+  background: transparent;
 }
 
 .sleep-clock__meta strong {
-  color: var(--cf-green-dark, #6f7863);
-  font-weight: 700;
+  color: #555c98;
+  font-weight: 500;
 }
 
 .sleep-clock__meta-dot {
@@ -675,17 +846,48 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.15rem 0.45rem;
+  padding: 0.15rem 0.4rem;
   border-radius: 999px;
   background: #fff;
   color: var(--cf-green-dark, #6f7863);
   font-size: 0.62rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .sleep-clock__meta-check {
   width: 0.75rem;
   height: 0.75rem;
   stroke-width: 3;
+}
+
+.sleep-clock__step-btn:focus-visible {
+  outline: 2px solid #555c98;
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .sleep-clock__open:hover {
+    background: #5b63a4;
+  }
+
+  .sleep-clock__step-btn:hover {
+    background: #f4f4f6;
+  }
+
+  .sleep-clock__step-btn--primary:hover {
+    background: #737f68;
+  }
+
+  .sleep-clock__step-btn--sun:hover {
+    background: #d9a438;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sleep-clock__handle,
+  .sleep-clock__step-btn,
+  .sleep-clock__open {
+    transition: none;
+  }
 }
 </style>

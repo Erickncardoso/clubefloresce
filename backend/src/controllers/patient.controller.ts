@@ -200,6 +200,7 @@ export class PatientController {
       const content = typeof req.body?.content === "string" ? req.body.content : "";
 
       const result = await anamneseTranscriptionService.interpretAnamnese({
+        userId: patient.id,
         title,
         content,
         patientName: patient.name,

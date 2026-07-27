@@ -1727,7 +1727,7 @@ function syncComposerDockPosition() {
   const root = document.documentElement
   const keyboardInset = getKeyboardInset()
   const keyboardOpen = keyboardInset > 80 || root.classList.contains('vk-open')
-  const tabBar = root.querySelector('.cf-tab-bar-wrap')
+  const tabBar = root.querySelector('.patient-nav')
   const tabBarVisible = Boolean(tabBar) && !keyboardOpen
   let dockBottomPx = 0
 
@@ -1768,7 +1768,7 @@ function bindComposerHeightObserver() {
   if (!dock || typeof ResizeObserver === 'undefined') return
   composerHeightObserver = new ResizeObserver(() => updateComposerDockHeight())
   composerHeightObserver.observe(dock)
-  const tabBar = document.querySelector('.cf-tab-bar-wrap')
+  const tabBar = document.querySelector('.patient-nav')
   if (tabBar) composerHeightObserver.observe(tabBar)
 }
 

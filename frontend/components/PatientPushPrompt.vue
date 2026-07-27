@@ -57,6 +57,14 @@
             >
               Já liberei — verificar
             </button>
+            <button
+              type="button"
+              class="push-prompt-btn push-prompt-btn--ghost"
+              :disabled="pushLoading"
+              @click="dismiss"
+            >
+              {{ pushNeedsHttps ? 'Continuar sem notificações' : 'Agora não' }}
+            </button>
           </div>
 
           <p v-if="pushError" class="push-prompt-error" role="alert">{{ pushError }}</p>
@@ -68,10 +76,13 @@
 
 <script setup>
 import { BellRing } from 'lucide-vue-next'
+import { clearPushPromptDismiss } from '~/utils/push-prompt-dismiss'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['dismiss'])
 
 const {
   supported: pushSupported,
@@ -99,8 +110,12 @@ const canActivate = computed(() => (
 async function activate() {
   const ok = await subscribePush()
   if (ok && import.meta.client) {
-    localStorage.removeItem('push_prompt_dismissed')
+    clearPushPromptDismiss()
   }
+}
+
+function dismiss() {
+  emit('dismiss')
 }
 
 async function recheck() {
@@ -182,7 +197,8 @@ onUnmounted(() => {
 
 .push-prompt-actions {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .push-prompt-btn {
@@ -211,6 +227,16 @@ onUnmounted(() => {
 .push-prompt-btn--secondary {
   background: var(--cf-track);
   color: var(--cf-text);
+}
+
+.push-prompt-btn--ghost {
+  background: transparent;
+  color: var(--cf-text-muted);
+  font-weight: 600;
+}
+
+.push-prompt-btn--ghost:disabled {
+  opacity: 0.6;
 }
 
 .push-prompt-spinner {

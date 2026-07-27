@@ -4,12 +4,19 @@ import { fixWindowsVitePaths } from '../frontend/utils/fix-windows-vite-paths'
 import { mirrorPwaDevSwDist, ensurePwaDevSwPlaceholder } from '../frontend/utils/mirror-pwa-dev-sw'
 import { resolveApiBaseAtBuild } from '../frontend/utils/resolve-api-base.mjs'
 import { buildInstagramExternalBrowserInlineScript } from '../frontend/utils/instagram-external-browser.js'
+import {
+  PATIENT_APP_SPLASH_BG,
+  PATIENT_APP_SPLASH_HTML,
+  PATIENT_APP_SPLASH_INLINE_CSS,
+  PATIENT_APP_THEME_COLOR,
+} from '../frontend/utils/patient-app-splash.mjs'
 
 const pwaDevEnabled = process.env.NUXT_PWA_DEV === 'true'
 
 const isGenerate =
   process.argv.some((arg) => arg.includes('generate')) ||
   process.env.npm_lifecycle_event?.includes('generate')
+const isDev = process.env.NODE_ENV !== 'production' && !isGenerate
 const pwaSwEnabled = isGenerate || pwaDevEnabled
 const devHost = process.env.NUXT_HOST || '0.0.0.0'
 const devPort = Number(process.env.NUXT_CLIENTE_PORT || 3002)
@@ -18,6 +25,26 @@ const lanMode = process.env.NUXT_LAN === 'true' || devHost === '0.0.0.0'
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url))
 const frontendRoot = fileURLToPath(new URL('../frontend', import.meta.url))
+
+const securityHeaders = {
+  'X-Content-Type-Options': 'nosniff',
+  'Permissions-Policy': 'camera=*, microphone=*, display-capture=*, picture-in-picture=*',
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://meet.nutrisabellajardim.com.br https: blob:"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://meet.nutrisabellajardim.com.br blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https: wss: blob:",
+    "media-src 'self' blob: mediastream: https:",
+    "worker-src 'self' blob:",
+    "frame-src 'self' https: blob:",
+    "child-src 'self' https: blob:",
+    "base-uri 'self'",
+  ].join('; '),
+}
 
 if (!isGenerate) {
   ensurePwaDevSwPlaceholder(rootDir, '.nuxt-mobile')
@@ -51,6 +78,8 @@ export default defineNuxtConfig({
 
   plugins: [
     join(rootDir, 'plugins/instagram-external-browser.client.ts'),
+    join(rootDir, 'plugins/incoming-video-call.client.ts'),
+    join(frontendRoot, 'plugins/patient-app-splash.client.ts'),
     join(frontendRoot, 'plugins/pwa-dev-unregister.client.ts'),
     join(frontendRoot, 'plugins/auth-session-bootstrap.client.ts'),
     join(frontendRoot, 'plugins/api-base.client.js'),
@@ -61,6 +90,7 @@ export default defineNuxtConfig({
     join(frontendRoot, 'plugins/patient-notifications.client.ts'),
     join(frontendRoot, 'plugins/pwa-standalone.client.ts'),
     join(frontendRoot, 'plugins/ios-pwa-chrome.client.ts'),
+    join(frontendRoot, 'plugins/ios-pwa-overlay.client.ts'),
     join(frontendRoot, 'plugins/push-notifications.client.ts'),
     join(frontendRoot, 'plugins/mercadopago.client.ts'),
   ],
@@ -81,6 +111,12 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/pwa/icon-192.png' },
         { rel: 'icon', type: 'image/png', sizes: '512x512', href: '/pwa/icon-512.png' },
         { rel: 'apple-touch-icon', href: '/pwa/apple-touch-icon.png', sizes: '180x180' },
+        {
+          rel: 'preload',
+          href: '/icons/logovetorcarregamento.svg',
+          as: 'image',
+          type: 'image/svg+xml',
+        },
         { rel: 'manifest', href: '/manifest.webmanifest' },
       ],
       meta: [
@@ -90,16 +126,35 @@ export default defineNuxtConfig({
             'width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no, interactive-widget=overlays-content',
         },
         { name: 'mobile-web-app-capable', content: 'yes' },
+        { name: 'theme-color', content: PATIENT_APP_THEME_COLOR },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
-        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
         { name: 'apple-mobile-web-app-title', content: 'Florescer' },
         { name: 'application-name', content: 'Clube Florescer' },
         {
           name: 'description',
           content: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
         },
+        {
+          'http-equiv': 'Permissions-Policy',
+          content: 'camera=*, microphone=*, display-capture=*, picture-in-picture=*',
+        },
+      ],
+      style: [
+        {
+          key: 'patient-app-splash-inline',
+          innerHTML: PATIENT_APP_SPLASH_INLINE_CSS,
+          type: 'text/css',
+          tagPriority: 'critical',
+        },
       ],
       script: [
+        {
+          key: 'patient-app-splash-bg',
+          type: 'text/javascript',
+          innerHTML: `document.documentElement.style.backgroundColor='${PATIENT_APP_SPLASH_BG}';document.documentElement.classList.add('cf-mobile-app-splash-pending');`,
+          tagPriority: 'critical',
+        },
         {
           key: 'instagram-external-browser',
           type: 'text/javascript',
@@ -119,13 +174,16 @@ export default defineNuxtConfig({
   },
 
   css: [
-    '@fontsource/plus-jakarta-sans/latin-400.css',
-    '@fontsource/plus-jakarta-sans/latin-500.css',
-    '@fontsource/plus-jakarta-sans/latin-600.css',
-    '@fontsource/plus-jakarta-sans/latin-700.css',
-    '@fontsource/plus-jakarta-sans/latin-800.css',
+    '@fontsource/plus-jakarta-sans/400.css',
+    '@fontsource/plus-jakarta-sans/500.css',
+    '@fontsource/plus-jakarta-sans/600.css',
+    '@fontsource/plus-jakarta-sans/700.css',
+    '@fontsource/plus-jakarta-sans/800.css',
     join(frontendRoot, 'assets/css/fonts.css'),
     join(frontendRoot, 'assets/css/patient-app.css'),
+    join(frontendRoot, 'assets/css/patient-tab-bar.css'),
+    join(frontendRoot, 'assets/css/patient-quick-fab.css'),
+    join(frontendRoot, 'assets/css/patient-screen-dim.css'),
     join(frontendRoot, 'assets/css/mobile-app.css'),
     join(frontendRoot, 'assets/css/course-video-player.css'),
     join(frontendRoot, 'assets/css/lesson-player-page.css'),
@@ -153,6 +211,8 @@ export default defineNuxtConfig({
       description: 'App do paciente Clube Florescer — vídeos, dieta, Bella IA e check-in.',
       lang: 'pt-BR',
       display: 'standalone',
+      background_color: PATIENT_APP_SPLASH_BG,
+      theme_color: PATIENT_APP_THEME_COLOR,
       display_override: ['standalone', 'fullscreen'],
       scope: '/',
       start_url: '/?source=pwa',
@@ -173,7 +233,7 @@ export default defineNuxtConfig({
     workbox: {
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/api\//],
-      globPatterns: ['**/*.{js,css,png,svg,ico,webp,woff2,woff,webmanifest}'],
+      globPatterns: ['**/*.{js,css,png,svg,ico,webp,woff2,woff,webmanifest,wasm,tflite}'],
       // Tutorial asset ~2.1MB — acima do limite padrão do Workbox (2 MiB); carrega sob demanda.
       globIgnores: ['**/meal-photo-guide-plate.png'],
       maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
@@ -209,6 +269,8 @@ export default defineNuxtConfig({
 
   hooks: {
     'render:html'(html: { head: string[]; body: string[]; bodyAppend: string[]; bodyPrepend: string[] }) {
+      html.bodyPrepend.push(PATIENT_APP_SPLASH_HTML)
+
       if (process.platform !== 'win32') return
       for (const bucket of [html.head, html.body, html.bodyAppend, html.bodyPrepend]) {
         for (let i = 0; i < bucket.length; i += 1) {
@@ -241,6 +303,7 @@ export default defineNuxtConfig({
       strictPort: true,
       allowedHosts: true,
       headers: {
+        ...securityHeaders,
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         Pragma: 'no-cache',
       },
@@ -283,6 +346,9 @@ export default defineNuxtConfig({
             '/documento',
           ],
         },
+        routeRules: {
+          '/**': { headers: securityHeaders },
+        },
       }
     : {
         devProxy: {
@@ -290,6 +356,9 @@ export default defineNuxtConfig({
             target: devApiOrigin,
             changeOrigin: true,
           },
+        },
+        routeRules: {
+          '/**': { headers: securityHeaders },
         },
       },
 })

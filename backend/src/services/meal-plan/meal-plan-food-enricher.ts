@@ -1,8 +1,24 @@
 import type { FoodItemDto } from "../../types/food.types";
 import type { ParsedFoodItem, ParsedMealPlan } from "../../types/meal-plan.types";
-import { FoodRepository } from "../../repositories/food.repository";
+import { sanitizeFoodDisplay, sanitizeMealPlanSubstitutions } from "./meal-plan-text-sanitize";
+import { resolveSwapGroup } from "../bella/food-category";
+import { smartMatchFood } from "../food-smart-match.service";
 
-const foodRepository = new FoodRepository();
+function inferExpectedGroupFromPlanName(name: string) {
+  const group = resolveSwapGroup({ category: null, name, per100g: undefined });
+  return group !== "mixed" ? group : undefined;
+}
+
+async function matchFoodCandidate(item: ParsedFoodItem): Promise<FoodItemDto | null> {
+  const lookupName = resolveFoodMatchName(item);
+  if (!lookupName) return null;
+
+  const originalName = String(item.display || item.name || lookupName).trim();
+  return smartMatchFood(lookupName, {
+    originalName,
+    expectedGroup: inferExpectedGroupFromPlanName(lookupName),
+  });
+}
 
 function mapPer100g(food: FoodItemDto) {
   return {
@@ -13,10 +29,6 @@ function mapPer100g(food: FoodItemDto) {
     fiberG: food.per100g?.fiberG ?? null,
     sodiumMg: food.per100g?.sodiumMg ?? null,
   };
-}
-
-async function matchFoodCandidate(name: string): Promise<FoodItemDto | null> {
-  return foodRepository.findBestMealPlanMatch(name);
 }
 
 export { matchFoodCandidate };
@@ -43,20 +55,41 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+type MatchFoodBatchEntry =
+  | { key: string; item: ParsedFoodItem }
+  | { key: string; name: string };
+
+function toMatchPlanItem(entry: MatchFoodBatchEntry): ParsedFoodItem {
+  if ("name" in entry) {
+    return {
+      key: entry.key,
+      name: entry.name,
+      amount: null,
+      unit: "",
+      grams: null,
+      ml: null,
+      display: entry.name,
+      substitutions: [],
+    };
+  }
+
+  return entry.item;
+}
+
 export async function matchFoodCandidatesBatch(
-  entries: Array<{ key: string; name: string }>,
+  entries: MatchFoodBatchEntry[],
   concurrency = 10,
 ): Promise<Array<{ key: string; item: FoodItemDto | null }>> {
   return mapWithConcurrency(entries, concurrency, async (entry) => ({
     key: entry.key,
-    item: await matchFoodCandidate(entry.name),
+    item: await matchFoodCandidate(toMatchPlanItem(entry)),
   }));
 }
 
 /** Extrai o nome do alimento a partir do display Dietbox ("Ovo de galinha 1 Unidade(s) (50g)"). */
 export function sanitizeParsedFoodItem(item: ParsedFoodItem): ParsedFoodItem {
   const fixedName = resolveFoodMatchName(item);
-  const display = String(item.display || "").trim();
+  const display = sanitizeFoodDisplay(String(item.display || "").trim());
 
   let grams = item.grams ?? null;
   let ml = item.ml ?? null;
@@ -72,17 +105,20 @@ export function sanitizeParsedFoodItem(item: ParsedFoodItem): ParsedFoodItem {
   return {
     ...item,
     name: fixedName || item.name,
+    display,
     grams,
     ml,
   };
 }
 
 export function sanitizeParsedMealPlan(plan: ParsedMealPlan): ParsedMealPlan {
+  sanitizeMealPlanSubstitutions(plan);
   walkParsedMealPlanItems(plan, (item) => {
     const sanitized = sanitizeParsedFoodItem(item);
     item.name = sanitized.name;
     item.grams = sanitized.grams;
     item.ml = sanitized.ml;
+    item.display = sanitized.display;
   });
   return plan;
 }
@@ -150,7 +186,7 @@ export async function enrichParsedFoodItem(item: ParsedFoodItem): Promise<Parsed
     return { ...item, substitutions: enrichedSubs };
   }
 
-  const matched = await matchFoodCandidate(resolveFoodMatchName(item));
+  const matched = await matchFoodCandidate(item);
   if (!matched) {
     return { ...item, substitutions: enrichedSubs };
   }
@@ -176,7 +212,7 @@ export async function enrichParsedMealPlan(plan: ParsedMealPlan): Promise<Parsed
   const batch = await matchFoodCandidatesBatch(
     pending.map((item, index) => ({
       key: String(index),
-      name: resolveFoodMatchName(item),
+      item,
     })),
     10,
   );

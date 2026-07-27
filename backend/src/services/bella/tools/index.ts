@@ -8,6 +8,7 @@ import {
   executeMealPlanTool,
   mealPlanToolDefinition,
 } from "./meal-plan.tool";
+import { executeKnowledgeSearchTool, knowledgeSearchToolDefinition } from "./knowledge-search.tool";
 import { executeUserProfileTool, userProfileToolDefinition } from "./user-profile.tool";
 
 type ToolExecutor = (args: Record<string, unknown>, ctx: BellaToolContext) => Promise<string>;
@@ -16,7 +17,7 @@ const executors: Record<BellaToolName, ToolExecutor> = {
   get_checkin_summary: executeCheckinTool,
   list_recommended_courses: executeCoursesToolForUser,
   get_user_profile: executeUserProfileTool,
-  search_educational_content: executeContentSearchTool,
+  search_knowledge_base: executeKnowledgeSearchTool,
   get_patient_meal_plan: executeMealPlanTool,
   get_daily_diary_summary: executeDailyDiaryTool,
 };
@@ -26,7 +27,7 @@ export function getOpenAIToolDefinitions(): OpenAIToolDefinition[] {
     checkinToolDefinition,
     coursesToolDefinition,
     userProfileToolDefinition,
-    contentSearchToolDefinition,
+    knowledgeSearchToolDefinition,
     mealPlanToolDefinition,
     dailyDiaryToolDefinition,
   ];

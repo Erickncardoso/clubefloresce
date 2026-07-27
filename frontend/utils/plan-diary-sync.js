@@ -1,4 +1,5 @@
 import { createMealItemId } from './meal-diary.js'
+import { formatMealItemLabel } from './meal-plan-format.js'
 import { normalizeMealPlanItem, resolveMealItemName } from './meal-plan-display-parse.js'
 import { resolveItemGrams } from './meal-portion-measures.js'
 
@@ -42,23 +43,37 @@ export function parseMeasureFromDisplay(text) {
   return null
 }
 
-function displayTextsForGramResolve(item) {
+function displayTextsForGramResolve(item, labelFallback = '') {
   if (!item || typeof item !== 'object') return []
+
   const normalized = normalizeMealPlanItem(item)
-  return [
+  const texts = [
     normalized.display,
+    item.display,
     item.originalDisplay,
-  ].filter(Boolean)
+    labelFallback,
+    formatMealItemLabel(normalized),
+    formatMealItemLabel(item),
+  ]
+
+  return [...new Set(texts.map((text) => String(text || '').trim()).filter(Boolean))]
 }
 
 /** Gramas reais do item do plano — display do PDF tem prioridade sobre grams placeholder. */
-export function resolvePlanItemGrams(item) {
+export function resolvePlanItemGrams(item, options = {}) {
   if (!item) return 0
   const normalized = normalizeMealPlanItem(item)
   if (normalized.unit === 'avontade') return 0
 
+  const labelFallback = String(options.labelFallback || '').trim()
+
+  // 0) Medida embutida no name bruto (ex.: "Aveia em flocos 20g" sem display)
+  const rawNameMeasure = parseMeasureFromDisplay(String(item.name || item.food || ''))
+  if (rawNameMeasure?.grams > 0) return rawNameMeasure.grams
+  if (rawNameMeasure?.ml > 0) return rawNameMeasure.ml
+
   // 1) (50g) / 30g no texto exibido — fonte de verdade do Dietbox
-  for (const text of displayTextsForGramResolve(normalized)) {
+  for (const text of displayTextsForGramResolve(item, labelFallback)) {
     const fromText = parseMeasureFromDisplay(text)
     if (fromText?.grams > 0) return fromText.grams
     if (fromText?.ml > 0) return fromText.ml
@@ -81,8 +96,12 @@ export function buildPlanDiaryItems(meal, checkedStates = []) {
   return meal.items
     .map((item, index) => ({ item, index }))
     .filter(({ index }) => Boolean(checkedStates[index]))
-    .map(({ item }) => {
-      const normalized = normalizeMealPlanItem(item)
+    .map(({ item, index }) => {
+      const labelFallback = meal?.itemLabels?.[index] || ''
+      const sourceItem = item.display || !labelFallback
+        ? item
+        : { ...item, display: labelFallback }
+      const normalized = normalizeMealPlanItem(sourceItem)
       const name = resolveMealItemName(normalized)
       if (!name) return null
 
@@ -104,10 +123,11 @@ export function buildPlanDiaryItems(meal, checkedStates = []) {
         }
       }
 
-      const grams = resolvePlanItemGrams(normalized)
+      const grams = resolvePlanItemGrams(sourceItem, { labelFallback })
       if (grams <= 0) return null
 
       const foodId = normalized.foodId || null
+      const displayLabel = normalized.display || labelFallback || name
 
       return {
         id: createMealItemId(),
@@ -119,7 +139,7 @@ export function buildPlanDiaryItems(meal, checkedStates = []) {
         fatG: 0,
         foodId,
         source: foodId ? 'food_bank' : 'meal_plan',
-        originalName: normalized.display || normalized.key || name,
+        originalName: displayLabel,
       }
     })
     .filter(Boolean)

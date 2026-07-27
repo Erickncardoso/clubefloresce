@@ -11,6 +11,7 @@ import {
   buildExtractedLabelFactsBlock,
   extractLabelNutritionFromImage,
 } from "./label-structured-extractor";
+import { buildAiKnowledgeContext } from "../ai/ai-knowledge-context";
 import type { LabelNutritionExtraction } from "../../types/label-analysis.types";
 const llm = new OpenAIClient();
 const userRepository = new UserRepository();
@@ -81,7 +82,17 @@ export async function analyzeLabelFromImage(
   if (!user) throw new Error("Usuário não encontrado.");
   const patientFirstName = firstName(user.name);
   const model = getModelForTask("chat");
-  const prompt = buildClassificationPrompt(patientFirstName, extraction, userQuestion);
+  const knowledgeBlock = await buildAiKnowledgeContext({
+    userId,
+    query: userQuestion || `${extraction.productHint || "rótulo"} tabela nutricional`,
+    topic: "label",
+    sourceTypes: ["food", "nutri_note"],
+    limit: 3,
+  });
+  const prompt = [
+    knowledgeBlock,
+    buildClassificationPrompt(patientFirstName, extraction, userQuestion),
+  ].filter(Boolean).join("\n\n");
 
   const completion = await llm.complete({
     messages: [{ role: "user", content: prompt }],

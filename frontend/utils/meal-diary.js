@@ -1,5 +1,5 @@
-import { macrosForFoodRecord } from '~/utils/food-bank'
-import { resolveItemGrams } from '~/utils/meal-portion-measures.js'
+import { macrosForFoodRecord } from './food-bank.js'
+import { resolveItemGrams } from './meal-portion-measures.js'
 
 export function roundMacro(value) {
   return Math.round(Number(value) * 10) / 10

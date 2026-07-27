@@ -1,5 +1,6 @@
 import { formatMealItemLabel, formatMealItemsLabels } from '~/utils/meal-plan-format'
 import { normalizeMealPlanItem } from '~/utils/meal-plan-display-parse'
+import { looksLikeFoodPortionLine } from '~/utils/meal-plan-text-sanitize'
 import { getMealIdForTimeFromMeals } from '~/utils/meal-plan-time'
 import { pickMealIcon } from '~/utils/meal-slot-options'
 import { useMealExtraItems } from '~/composables/useMealExtraItems'
@@ -7,6 +8,9 @@ import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 
 function mapApiItem(item) {
   const normalized = normalizeMealPlanItem(item)
+  const display = normalized.display || formatMealItemLabel(normalized)
+  if (!looksLikeFoodPortionLine(display)) return null
+
   return {
     key: normalized.key,
     food: normalized.name,
@@ -15,8 +19,8 @@ function mapApiItem(item) {
     unit: normalized.unit,
     grams: normalized.grams,
     ml: normalized.ml,
-    display: normalized.display,
-    substitutions: (normalized.substitutions || []).map(mapApiItem),
+    display: normalized.display || display,
+    substitutions: (normalized.substitutions || []).map(mapApiItem).filter(Boolean),
     itemType: normalized.itemType || null,
     recipeId: normalized.recipeId || null,
     recipe: normalized.recipe || null,
@@ -27,7 +31,7 @@ function mapApiItem(item) {
 }
 
 function mapApiMeal(meal, index, total) {
-  const items = (meal.items || []).map(mapApiItem)
+  const items = (meal.items || []).map(mapApiItem).filter(Boolean)
   return {
     id: meal.id,
     time: meal.time,

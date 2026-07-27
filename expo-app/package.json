@@ -4,10 +4,15 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
+    "start:clear": "expo start -c",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "routes:sync": "node scripts/generate-mirror-routes.mjs"
+    "routes:sync": "node scripts/generate-mirror-routes.mjs",
+    "icons:generate": "node scripts/generate-app-icons.mjs",
+    "build:ios": "eas build --platform ios --profile production",
+    "build:ios:preview": "eas build --platform ios --profile preview",
+    "submit:ios": "eas submit --platform ios --profile production"
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
@@ -17,12 +22,14 @@
     "expo-blur": "~15.0.8",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
+    "expo-document-picker": "~14.0.8",
     "expo-font": "~14.0.12",
     "expo-glass-effect": "~0.1.10",
     "expo-image-picker": "~17.0.11",
     "expo-linking": "~8.0.12",
     "expo-router": "~6.0.24",
     "expo-secure-store": "~15.0.8",
+    "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-video": "~3.0.16",
     "lucide-react-native": "^1.23.0",
@@ -38,6 +45,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
+    "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },
   "private": true
