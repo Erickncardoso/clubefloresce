@@ -42,6 +42,10 @@ export function resolveTaskType(input: {
     if (input.hasFile && input.mimeType?.startsWith("image/")) return "image";
     if (!input.hasFile) return "chat";
   }
+  if (hint === "receipt" || hint === "cupom" || hint === "fatura") {
+    if (input.hasFile && input.mimeType?.startsWith("image/")) return "image";
+    if (!input.hasFile) return "chat";
+  }
   const mime = input.mimeType?.toLowerCase() || "";
   const hasImage = input.hasFile && mime.startsWith("image/");
   const hasPdf = input.hasFile && mime === "application/pdf";

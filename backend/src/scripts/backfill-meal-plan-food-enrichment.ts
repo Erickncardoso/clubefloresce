@@ -6,7 +6,6 @@ import {
   enrichParsedMealPlan,
   parsedMealPlanNeedsFoodEnrichment,
   walkParsedMealPlanItems,
-  foodItemNeedsEnrichment,
 } from "../services/meal-plan/meal-plan-food-enricher";
 
 dotenv.config();
@@ -38,46 +37,61 @@ async function main() {
     return;
   }
 
-  console.log(`Planos a processar: ${records.length}${dryRun ? " (dry-run)" : ""}`);
+  console.log(
+    `Planos a processar: ${records.length}${dryRun ? " (dry-run)" : ""}` +
+      ` | auto-CUSTOM=${process.env.FOOD_AUTO_CUSTOM ?? "on"}`,
+  );
 
   let updated = 0;
   let skipped = 0;
+  let failed = 0;
 
   for (const record of records) {
-    const plan = record.plan as unknown as ParsedMealPlan;
-    const before = countPlanFoodItems(plan);
+    try {
+      const plan = record.plan as unknown as ParsedMealPlan;
+      const before = countPlanFoodItems(plan);
 
-    if (!force && !parsedMealPlanNeedsFoodEnrichment(plan)) {
-      skipped += 1;
+      if (!force && !parsedMealPlanNeedsFoodEnrichment(plan)) {
+        skipped += 1;
+        console.log(
+          `[skip] user=${record.userId} itens=${before.total} vinculados=${before.linked}/${before.total}`,
+        );
+        continue;
+      }
+
+      const enriched = await enrichParsedMealPlan(structuredClone(plan));
+      const after = countPlanFoodItems(enriched);
+      const pending = after.total - after.linked;
+
+      if (!dryRun) {
+        await repo.upsert(record.userId, {
+          fileName: record.fileName,
+          pdfUrl: record.pdfUrl,
+          title: record.title,
+          patientName: record.patientName,
+          prescribedAt: record.prescribedAt,
+          plan: enriched,
+          parserSource: record.parserSource,
+        });
+      }
+
+      updated += 1;
       console.log(
-        `[skip] user=${record.userId} itens=${before.total} vinculados=${before.linked}/${before.total}`,
+        `[${dryRun ? "dry" : "ok"}] user=${record.userId} vinculados ${before.linked}/${before.total} → ${after.linked}/${after.total}${pending ? ` (sem match: ${pending})` : ""}`,
       );
-      continue;
+    } catch (error) {
+      failed += 1;
+      console.error(`[fail] user=${record.userId}`, error);
+      try {
+        await prisma.$disconnect();
+        await prisma.$connect();
+      } catch {
+        /* reconexão best-effort */
+      }
     }
-
-    const enriched = await enrichParsedMealPlan(structuredClone(plan));
-    const after = countPlanFoodItems(enriched);
-    const pending = after.total - after.linked;
-
-    if (!dryRun) {
-      await repo.upsert(record.userId, {
-        fileName: record.fileName,
-        pdfUrl: record.pdfUrl,
-        title: record.title,
-        patientName: record.patientName,
-        prescribedAt: record.prescribedAt,
-        plan: enriched,
-        parserSource: record.parserSource,
-      });
-    }
-
-    updated += 1;
-    console.log(
-      `[${dryRun ? "dry" : "ok"}] user=${record.userId} vinculados ${before.linked}/${before.total} → ${after.linked}/${after.total}${pending ? ` (sem match: ${pending})` : ""}`,
-    );
   }
 
-  console.log(JSON.stringify({ processed: records.length, updated, skipped, dryRun, force }, null, 2));
+  console.log(JSON.stringify({ processed: records.length, updated, skipped, failed, dryRun, force }, null, 2));
 }
 
 main()

@@ -3,6 +3,14 @@ import type { ParsedFoodItem, ParsedMealPlan } from "../../types/meal-plan.types
 import { sanitizeFoodDisplay, sanitizeMealPlanSubstitutions } from "./meal-plan-text-sanitize";
 import { resolveSwapGroup } from "../bella/food-category";
 import { smartMatchFood } from "../food-smart-match.service";
+import {
+  isFoodAutoCustomEnabled,
+  researchAndCreateCustomFood,
+} from "../food-custom-research.service";
+import {
+  isAbsurdFoodMatch,
+  sanitizeResearchedPer100g,
+} from "../../utils/food-match-guards";
 
 function inferExpectedGroupFromPlanName(name: string) {
   const group = resolveSwapGroup({ category: null, name, per100g: undefined });
@@ -13,7 +21,8 @@ async function matchFoodCandidate(item: ParsedFoodItem): Promise<FoodItemDto | n
   const lookupName = resolveFoodMatchName(item);
   if (!lookupName) return null;
 
-  const originalName = String(item.display || item.name || lookupName).trim();
+  // Preferir o nome do alimento (sem porção "1.5 Fatia(s) (30g)"), que confunde frescor/prep
+  const originalName = String(item.name || item.display || lookupName).trim();
   return smartMatchFood(lookupName, {
     originalName,
     expectedGroup: inferExpectedGroupFromPlanName(lookupName),
@@ -149,7 +158,36 @@ export function resolveFoodMatchName(item: ParsedFoodItem): string {
 export function foodItemNeedsEnrichment(item: ParsedFoodItem): boolean {
   if (item.itemType === "recipe") return false;
   if (!resolveFoodMatchName(item)) return false;
-  return !item.foodId || item.per100g?.caloriesKcal == null;
+  if (!item.foodId || item.per100g?.caloriesKcal == null) return true;
+
+  const lookupName = resolveFoodMatchName(item);
+  if (
+    isAbsurdFoodMatch(lookupName, String(item.linkedFoodName || item.name || ""), item.per100g)
+  ) {
+    return true;
+  }
+
+  // CUSTOM com kcal incoerente (ex.: kJ lido como kcal)
+  if (item.foodSource === "CUSTOM" && item.per100g) {
+    const sanitized = sanitizeResearchedPer100g({
+      caloriesKcal: Number(item.per100g.caloriesKcal) || 0,
+      proteinG: Number(item.per100g.proteinG) || 0,
+      carbsG: Number(item.per100g.carbsG) || 0,
+      fatG: Number(item.per100g.fatG) || 0,
+      fiberG: item.per100g.fiberG == null ? null : Number(item.per100g.fiberG),
+    });
+    if (!sanitized) return true;
+    if (Math.abs(sanitized.caloriesKcal - Number(item.per100g.caloriesKcal)) > 40) return true;
+  }
+
+  return false;
+}
+
+function clearBadFoodLink(item: ParsedFoodItem): void {
+  item.foodId = undefined;
+  item.foodSource = undefined;
+  item.linkedFoodName = undefined;
+  item.per100g = undefined;
 }
 
 function applyFoodMatch(item: ParsedFoodItem, matched: FoodItemDto): void {
@@ -177,6 +215,13 @@ export function walkParsedMealPlanItems(
   }
 }
 
+async function researchUnmatchedFoodItem(item: ParsedFoodItem): Promise<FoodItemDto | null> {
+  if (!isFoodAutoCustomEnabled()) return null;
+  const lookupName = resolveFoodMatchName(item);
+  if (!lookupName) return null;
+  return researchAndCreateCustomFood(lookupName);
+}
+
 export async function enrichParsedFoodItem(item: ParsedFoodItem): Promise<ParsedFoodItem> {
   const enrichedSubs = await Promise.all(
     (item.substitutions || []).map((sub) => enrichParsedFoodItem(sub)),
@@ -186,7 +231,10 @@ export async function enrichParsedFoodItem(item: ParsedFoodItem): Promise<Parsed
     return { ...item, substitutions: enrichedSubs };
   }
 
-  const matched = await matchFoodCandidate(item);
+  let matched = await matchFoodCandidate(item);
+  if (!matched) {
+    matched = await researchUnmatchedFoodItem(item);
+  }
   if (!matched) {
     return { ...item, substitutions: enrichedSubs };
   }
@@ -204,6 +252,27 @@ export async function enrichParsedFoodItem(item: ParsedFoodItem): Promise<Parsed
 export async function enrichParsedMealPlan(plan: ParsedMealPlan): Promise<ParsedMealPlan> {
   const pending: ParsedFoodItem[] = [];
   walkParsedMealPlanItems(plan, (item) => {
+    if (!foodItemNeedsEnrichment(item)) return;
+    // Limpa vínculo absurdo antes de remarcar
+    if (item.foodId) {
+      const lookupName = resolveFoodMatchName(item);
+      if (
+        isAbsurdFoodMatch(lookupName, String(item.linkedFoodName || item.name || ""), item.per100g)
+      ) {
+        clearBadFoodLink(item);
+      } else if (item.foodSource === "CUSTOM" && item.per100g) {
+        const sanitized = sanitizeResearchedPer100g({
+          caloriesKcal: Number(item.per100g.caloriesKcal) || 0,
+          proteinG: Number(item.per100g.proteinG) || 0,
+          carbsG: Number(item.per100g.carbsG) || 0,
+          fatG: Number(item.per100g.fatG) || 0,
+          fiberG: item.per100g.fiberG == null ? null : Number(item.per100g.fiberG),
+        });
+        if (!sanitized || Math.abs(sanitized.caloriesKcal - Number(item.per100g.caloriesKcal)) > 40) {
+          clearBadFoodLink(item);
+        }
+      }
+    }
     if (foodItemNeedsEnrichment(item)) pending.push(item);
   });
 
@@ -214,13 +283,28 @@ export async function enrichParsedMealPlan(plan: ParsedMealPlan): Promise<Parsed
       key: String(index),
       item,
     })),
-    10,
+    4,
   );
 
   for (const entry of batch) {
     const item = pending[Number(entry.key)];
     if (!item || !entry.item) continue;
+    if (isAbsurdFoodMatch(resolveFoodMatchName(item), entry.item.name, entry.item.per100g)) {
+      continue;
+    }
     applyFoodMatch(item, entry.item);
+  }
+
+  const stillPending = pending.filter((item) => foodItemNeedsEnrichment(item));
+  if (stillPending.length && isFoodAutoCustomEnabled()) {
+    await mapWithConcurrency(stillPending, 2, async (item) => {
+      const researched = await researchUnmatchedFoodItem(item);
+      if (!researched) return;
+      if (isAbsurdFoodMatch(resolveFoodMatchName(item), researched.name, researched.per100g)) {
+        return;
+      }
+      applyFoodMatch(item, researched);
+    });
   }
 
   return plan;

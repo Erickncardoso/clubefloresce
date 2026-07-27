@@ -32,7 +32,8 @@ function formatPrescribedMeal(meal: ParsedMeal | null): string {
   }
   const items = meal.items.map(formatFoodItem).join("; ");
   const time = meal.time ? ` às ${meal.time}` : "";
-  return `**${meal.label}**${time}: ${items || "sem itens listados"}`;
+  const label = meal.label.replace(/\s*[-–—/|]\s*op(?:ç|c)(?:ã|a)o\s*\d+\s*:?.*/i, "").trim() || meal.label;
+  return `**${label}**${time}: ${items || "sem itens listados"}`;
 }
 
 export function classifyMealPeriod(meal: ParsedMeal): MealPeriod {

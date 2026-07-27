@@ -19,11 +19,37 @@ export function buildSwapSearchQueries(rawName: string): string[] {
     queries.add("carne bovina patinho grelhado");
     queries.add("carne bovina patinho");
   }
-  if (/ac[eé]m|m[uú]sculo|muscular|alcatra|picanha|contrafil/.test(lower)) {
+  if (/ac[eé]m|m[uú]sculo|muscular|alcatra|picanha|contrafil|cox[aã]o|lagarto|fil[eé] mignon/.test(lower)) {
     queries.add("carne bovina grelhado");
+    queries.add("carne boi de primeira");
+    queries.add("carne bovina alcatra");
   }
-  if (/frango|peito de frango/.test(lower)) {
+  if (/frango desfiado/.test(lower)) {
+    queries.add("frango peito cozida");
+    queries.add("carne frango peito sem pele cozida");
+    queries.add("frango desfiado");
+  } else if (/frango|peito de frango/.test(lower)) {
     queries.add("frango peito sem pele grelhado");
+  }
+  if (/molho de tomate|molho tomate/.test(lower)) {
+    queries.add("molho tomate artesanal");
+    queries.add("molho de tomate molho sugo");
+  }
+  if (/salada de folhas|mix de folhas/.test(lower)) {
+    queries.add("salada de folhas");
+    queries.add("alface crua");
+  }
+  if (/couve/.test(lower) && !/couve[\s-]?flor|couve[\s-]?rabano/.test(lower)) {
+    queries.add("couve manteiga");
+    queries.add("couve manteiga crua");
+  }
+  if (/tapioca/.test(lower)) {
+    queries.add("tapioca sem manteiga sem recheio");
+    queries.add("tapioca sem recheio");
+  }
+  if (/morango/.test(lower) && !/creme|biscoito|bolo/.test(lower)) {
+    queries.add("morango in natura");
+    queries.add("morango cru");
   }
   if (/arroz/.test(lower)) {
     queries.add("arroz tipo 1 cozido");

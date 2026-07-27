@@ -57,6 +57,13 @@ export const TOPIC_SCOPES: Record<BellaChatTopic, TopicScopeDefinition> = {
     greetingGuide: "Cumprimente, explique que a foto será analisada item a item e registrada no diário após confirmação, e peça foto de cima com boa luz",
     redirectHint: "Para rótulo use Ler rótulo; para comer fora use Restaurante",
   },
+  receipt: {
+    title: "Cupom / fatura",
+    focus: "ler cupom fiscal ou fatura de supermercado, extrair alimentos e vincular cada item à base TBCA/TACO após confirmação",
+    forbidden: "análise de pratos montados, rótulos de embalagem, cardápios de restaurante, metas semanais ou substituições genéricas",
+    greetingGuide: "Cumprimente e peça a foto do cupom/fatura pelo clipe, com as linhas dos produtos legíveis",
+    redirectHint: "Para registrar o que comeu use Meu prato; para rótulo use Ler rótulo",
+  },
   restaurant: {
     title: "Restaurante",
     focus: "sugerir a melhor opção ao comer fora com base no cardápio/foto/opções da paciente, alinhada ao plano alimentar e ao diário de hoje, incluindo culinárias tradicionais",
@@ -108,6 +115,7 @@ const TOOLS_BY_TOPIC: Record<BellaChatTopic, BellaToolName[]> = {
   ],
   label: ["search_knowledge_base"],
   meal: ["search_knowledge_base", "get_daily_diary_summary"],
+  receipt: ["search_knowledge_base"],
   restaurant: ["get_patient_meal_plan", "get_daily_diary_summary", "search_knowledge_base", "get_user_profile"],
   swap: ["search_knowledge_base", "get_user_profile"],
   goal: ["get_checkin_summary", "get_user_profile", "list_recommended_courses"],
@@ -121,6 +129,7 @@ export function getToolsForTopic(topic: BellaChatTopic): OpenAIToolDefinition[] 
 export function getTopicTaskHint(topic: BellaChatTopic): string | undefined {
   if (topic === "label") return "label";
   if (topic === "meal") return "meal";
+  if (topic === "receipt") return "receipt";
   return undefined;
 }
 
@@ -169,6 +178,12 @@ Fluxo obrigatório:
 3. Se só texto, oriente a enviar foto ou use get_daily_diary_summary para contexto do dia.
 - Preencha todos os campos nutricionais de cada item com coerência.
 - Use get_daily_diary_summary quando precisar da meta/restante do dia.`,
+    receipt: `## Modo: Cupom / fatura + base de alimentos
+Fluxo obrigatório:
+1. Paciente envia foto do cupom → você extrai alimentos e sugere vínculo TBCA/TACO.
+2. Paciente confirma no modal (pode corrigir matches).
+3. Se só texto, peça a foto do cupom pelo clipe.
+- Não registre no diário alimentar — o objetivo é vincular compras à base.`,
     restaurant: `## Modo: Restaurante + plano alimentar
 Foco exclusivo em escolher ao comer fora (restaurante, delivery, açaí, lanche, programas sociais).
 - Aceita foto de cardápio OU lista de pratos OU pergunta sobre comer fora.
@@ -202,6 +217,7 @@ export function getTopicOfflineReply(topic: BellaChatTopic, firstName: string): 
     ask: `${firstName}, pode fazer sua pergunta sobre nutrição ou hábitos. Estou pronta para responder.`,
     label: `${firstName}, envie a foto do rótulo pelo clipe. Classifico o consumo: 🟢 liberado, 🟡 moderar ou 🔴 evitar frequente.`,
     meal: `${firstName}, envie a foto do prato de cima, com boa luz. Estimo gramas, calorias e macros de cada item; você confirma e registro no diário de hoje.`,
+    receipt: `${firstName}, envie a foto do cupom ou fatura do supermercado pelo clipe. Extraio os alimentos e vinculo cada um à base TBCA/TACO para você confirmar.`,
     restaurant: `${firstName}, mande foto do cardápio ou as opções que você está em dúvida. Sugiro a melhor escolha alinhada ao seu plano alimentar e ao que falta no diário de hoje.`,
     swap: `${firstName}, qual alimento você quer substituir? Me diga o que costuma usar e seu objetivo.`,
     goal: `${firstName}, posso olhar sua evolução nos check-ins. O que você quer saber sobre sua meta da semana?`,

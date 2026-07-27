@@ -1,4 +1,4 @@
-export const BELLA_TOPICS = ["general", "label", "meal", "restaurant", "swap", "ask", "goal"] as const;
+export const BELLA_TOPICS = ["general", "label", "meal", "receipt", "restaurant", "swap", "ask", "goal"] as const;
 export type BellaChatTopic = (typeof BELLA_TOPICS)[number];
 
 export function normalizeTopic(raw?: string | null): BellaChatTopic {

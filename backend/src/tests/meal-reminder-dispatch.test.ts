@@ -36,9 +36,9 @@ test("preferences: lembretes ativos por padrão", () => {
   assert.equal(isMealRemindersEnabled({ mealRemindersEnabled: false }), false);
 });
 
-test("mealReminderSourceKey: chave única por dia, refeição e usuária", () => {
+test("mealReminderSourceKey: chave única por dia, slot e usuária", () => {
   assert.equal(
-    mealReminderSourceKey("2026-06-24", "lunch", "user-1"),
-    "meal-reminder:2026-06-24:lunch:user-1",
+    mealReminderSourceKey("2026-06-24", "lanche-da-tarde", "user-1"),
+    "meal-reminder:2026-06-24:lanche-da-tarde:user-1",
   );
 });

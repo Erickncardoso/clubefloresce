@@ -38,7 +38,19 @@ const VEG_NAME_PATTERN =
   /\b(br[oó]colis|couve|espinafre|alface|tomate|pepino|abobrinha|berinjela|repolho|vagem|r[uú]cula|cenoura|beterraba|chuchu|legumes?)\b/i;
 
 const FAT_NAME_PATTERN =
-  /\b(azeite|[oó]leo\b|castanha|amendoim|noz\b|semente|abacate|manteiga|creme de leite|margarina)\b/i;
+  /\b(azeite|[oó]leo\b|castanha|amendoim|noz\b|semente|abacate|creme de leite|margarina)\b/i;
+
+/** "manteiga" sozinho = gordura; "couve manteiga" / "sem manteiga" não. */
+function nameImpliesFatManteiga(name: string): boolean {
+  const n = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (!/\bmanteiga\b/.test(n)) return false;
+  if (/\bcouve[\s,-]*manteiga\b/.test(n)) return false;
+  if (/\b(sem|s\/)\s*manteiga\b/.test(n)) return false;
+  return true;
+}
 
 const DESSERT_PATTERN = /\b(picol[eé]|sorvete|gelato|pudim|doce de leite|brigadeiro|brownie)\b/i;
 
@@ -119,21 +131,31 @@ export function resolveSwapGroup(input: {
   per100g?: NormalizedPer100g;
 }): SwapGroup {
   const name = input.name.trim();
+  // Ignora lista de ingredientes em colchetes (ex.: molho com “c/ óleo de soja” na receita)
+  const nameForClass = name.replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
   const cat = (input.category || "").toLowerCase();
 
-  if (DESSERT_PATTERN.test(name)) {
-    return /picol[eé]|sorvete/i.test(name) ? "carb_rich" : "carb_rich";
+  if (DESSERT_PATTERN.test(nameForClass)) {
+    return /picol[eé]|sorvete/i.test(nameForClass) ? "carb_rich" : "carb_rich";
   }
 
-  if (FAT_NAME_PATTERN.test(name)) return "fat_rich";
+  // Molho de tomate é hortaliça/preparo, não gordura (mesmo se a receita cita óleo)
+  if (/^molho\s+(de\s+)?tomate\b/i.test(nameForClass) || /^molho tomate\b/i.test(nameForClass)) {
+    return "vegetable";
+  }
 
-  if (PROTEIN_ANIMAL_PATTERN.test(name)) return "protein_rich";
+  // Carb staple antes de gordura — evita "tapioca, sem manteiga" virar fat_rich
+  if (TUBER_PATTERN.test(nameForClass) || CARB_NAME_PATTERN.test(nameForClass)) return "carb_rich";
 
-  if (FRUIT_NAME_PATTERN.test(name) && !TUBER_PATTERN.test(name)) return "fruit";
+  if (FAT_NAME_PATTERN.test(nameForClass) || nameImpliesFatManteiga(nameForClass)) return "fat_rich";
 
-  if (VEG_NAME_PATTERN.test(name) || /\bmix de legumes?\b/i.test(name)) return "vegetable";
+  if (PROTEIN_ANIMAL_PATTERN.test(nameForClass)) return "protein_rich";
 
-  if (TUBER_PATTERN.test(name) || CARB_NAME_PATTERN.test(name)) return "carb_rich";
+  if (FRUIT_NAME_PATTERN.test(nameForClass) && !TUBER_PATTERN.test(nameForClass)) return "fruit";
+
+  if (VEG_NAME_PATTERN.test(nameForClass) || /\bmix de legumes?\b/i.test(nameForClass)) {
+    return "vegetable";
+  }
 
   const fromCategory = input.category ? categoryToGroup(input.category) : null;
   if (fromCategory === "protein_rich") return "protein_rich";

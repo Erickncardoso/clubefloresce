@@ -100,8 +100,8 @@ test("pickBestFoodForSwap: banana do plano prioriza TBCA in natura", () => {
     { originalName: "Banana 1 Unidade(s) grande(s) (100g)", expectedGroup: "fruit" },
   );
 
-  assert.match(picked?.name || "", /in natura|prata/i);
-  assert.equal(picked?.source, "TBCA");
+  assert.match(picked?.name || "", /in natura|prata|crua/i);
+  assert.ok(picked?.source === "TBCA" || picked?.source === "TACO");
 });
 
 test("pickBestFoodForSwap: banana do plano não vira doce em barra", () => {

@@ -1,7 +1,13 @@
 import { BellaRepository } from "../repositories/bella.repository";
 import { BellaOrchestratorService } from "./bella/bella-orchestrator.service";
 import { analyzeMealStructured } from "./bella/meal-structured-analyzer";
+import {
+  analyzeReceiptStructured,
+  buildReceiptAnalysisPreview,
+} from "./bella/receipt-structured-analyzer";
 import type { BellaTaskType, ChatMessage, OrchestratorInput, OrchestratorMeta } from "./bella/types";
+import type { MealItemDraft } from "../types/food-diary.types";
+import { enrichMealItemsWithFoodBank } from "./bella/meal-food-enricher";
 import { resolveTaskType } from "./bella/model-config";
 import { getTopicTaskHint, normalizeTopic, type BellaChatTopic } from "./bella/topic-config";
 import { FoodDiaryService } from "./food-diary.service";
@@ -218,6 +224,41 @@ export class BellaService {
         meta: {
           taskType: "image",
           topic: "meal",
+          pendingConfirmation: true,
+        },
+      };
+    }
+
+    if (topic === "receipt" && file && taskType === "image") {
+      const [attachmentUrl, receiptDraft] = await Promise.all([
+        attachmentUploadPromise,
+        analyzeReceiptStructured(file.buffer, file.mimetype, message || userContent),
+      ]);
+      const previewReply = buildReceiptAnalysisPreview(receiptDraft);
+
+      const previewMsg = await bellaRepository.create(userId, "assistant", previewReply, {
+        topic: "receipt",
+        metadata: {
+          topic: "receipt",
+          taskType: "receipt_match",
+          pendingConfirmation: true,
+        },
+      });
+
+      return {
+        topic,
+        userMessage: patchUserMessageAttachmentUrl(userMsg, attachmentUrl),
+        requiresReceiptConfirmation: true,
+        requiresMealConfirmation: false,
+        receiptDraft: {
+          ...receiptDraft,
+          imageUrl: attachmentUrl,
+          userMessageId: userMsg.id,
+        },
+        message: previewMsg,
+        meta: {
+          taskType: "image",
+          topic: "receipt",
           pendingConfirmation: true,
         },
       };
@@ -672,6 +713,54 @@ export class BellaService {
       requiresRestaurantIntent: false,
     };
   }
+
+  async confirmReceipt(
+    userId: string,
+    payload: {
+      items: MealItemDraft[];
+      storeName?: string;
+      imageUrl?: string;
+      userMessageId?: string;
+    },
+  ) {
+    const items = await enrichMealItemsWithFoodBank(payload.items || []);
+    if (!items.length) throw new Error("Nenhum alimento para confirmar.");
+
+    const matchedCount = items.filter((item) => Boolean(item.foodId)).length;
+    const unmatched = items.length - matchedCount;
+    const store = payload.storeName?.trim() ? ` de **${payload.storeName.trim()}**` : "";
+
+    const lines = items.map((item) => {
+      const from = item.originalName && item.originalName !== item.name
+        ? `${item.originalName} → `
+        : "";
+      const status = item.foodId ? "✓ base" : "⚠ sem match";
+      return `- ${from}**${item.name}** (${status})`;
+    });
+
+    const reply =
+      `Pronto! Cupom${store} vinculado: **${matchedCount}/${items.length}** itens na base TBCA/TACO` +
+      (unmatched ? ` (${unmatched} sem correspondência)` : "") +
+      `.\n\n` +
+      lines.join("\n");
+
+    const message = await bellaRepository.create(userId, "assistant", reply, {
+      topic: "receipt",
+      metadata: {
+        topic: "receipt",
+        taskType: "receipt_match",
+        confirmed: true,
+        matchedCount,
+        unmatchedCount: unmatched,
+        storeName: payload.storeName || null,
+        imageUrl: payload.imageUrl || null,
+        userMessageId: payload.userMessageId || null,
+        items,
+      },
+    });
+
+    return { message, matchedCount, unmatchedCount: unmatched, items };
+  }
 }
 
 async function resolveStoredAttachment(
@@ -743,6 +832,7 @@ function buildUserDisplayContent(
   if (taskType === "pdf") return "Analise este PDF, por favor.";
   if (topic === "meal") return "Analise meu prato para registrar no diário de hoje.";
   if (topic === "label") return "Analise este rótulo, por favor.";
+  if (topic === "receipt") return "Extraia os alimentos deste cupom e vincule à base de alimentos.";
   if (topic === "restaurant") return "Qual a melhor opção para mim neste cardápio?";
   return "Analise esta imagem, por favor.";
 }

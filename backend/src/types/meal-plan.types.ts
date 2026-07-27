@@ -74,6 +74,8 @@ export interface ParsedMealPlan {
   prescribedAt: string | null;
   fileName: string;
   meals: ParsedMeal[];
+  /** slotKey (label normalizado) → mealId ativo quando há 2+ opções do mesmo tipo */
+  selectedMealBySlot?: Record<string, string>;
   nutritionTotals?: MealPlanNutritionTotals;
   parserSource: "dietbox" | "ai";
 }

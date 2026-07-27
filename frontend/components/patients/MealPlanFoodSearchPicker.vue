@@ -72,7 +72,7 @@
               </div>
             </div>
             <div class="mpfs-item-macros">
-              <span class="mpfs-kcal">{{ food.per100g?.caloriesKcal ?? '—' }} kcal</span>
+              <span class="mpfs-kcal">{{ formatPer100gKcal(food.per100g?.caloriesKcal) }} kcal</span>
               <span class="mpfs-macro-line">
                 <span class="mpfs-macro mpfs-macro--c">C: {{ formatMacro(food.per100g?.carbsG) }}</span>
                 <span class="mpfs-macro mpfs-macro--p">P: {{ formatMacro(food.per100g?.proteinG) }}</span>
@@ -94,7 +94,7 @@
 
 <script setup>
 import { ArrowUpDown, Clock, CornerDownLeft, Star } from 'lucide-vue-next'
-import { formatFoodSourceLabel } from '~/utils/food-bank.js'
+import { formatFoodSourceLabel, formatPer100gKcal } from '~/utils/food-bank.js'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },

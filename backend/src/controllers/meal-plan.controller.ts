@@ -39,6 +39,29 @@ export class MealPlanController {
     }
   }
 
+  async updateSelections(req: Request, res: Response): Promise<any> {
+    try {
+      const selectedMealBySlot = req.body?.selectedMealBySlot;
+      if (!selectedMealBySlot || typeof selectedMealBySlot !== "object" || Array.isArray(selectedMealBySlot)) {
+        return res.status(400).json({ message: "Informe as opções escolhidas (selectedMealBySlot)." });
+      }
+
+      const plan = await mealPlanService.updateSelections(
+        req.user!.id,
+        selectedMealBySlot as Record<string, string>,
+      );
+
+      return res.json({
+        message: "Opções do cardápio atualizadas.",
+        plan,
+      });
+    } catch (error: any) {
+      const message = error.message || "Não foi possível salvar as opções.";
+      const status = /nenhum plano/i.test(message) ? 404 : 400;
+      return res.status(status).json({ message });
+    }
+  }
+
   async smartShoppingList(req: Request, res: Response): Promise<any> {
     try {
       const itemsText = String(req.body?.itemsText || "").trim();

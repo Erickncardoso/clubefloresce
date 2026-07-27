@@ -31,6 +31,20 @@
         <span class="dieta-section-count">{{ completedMealsCount }}/{{ mealList.length }} concluídas</span>
       </div>
 
+      <button
+        v-if="hasMealOptionGroups"
+        type="button"
+        class="dieta-options-banner"
+        @click="openAllMealOptions"
+      >
+        <Layers class="dieta-options-banner-icon" aria-hidden="true" />
+        <span class="dieta-options-banner-copy">
+          <strong>{{ needsOptionSelection ? 'Escolher opções do cardápio' : 'Alterar opções do cardápio' }}</strong>
+          <span>{{ needsOptionSelection ? 'Seu plano tem alternativas — escolha e salve' : 'Você pode trocar a opção salva quando quiser' }}</span>
+        </span>
+        <ChevronRight class="dieta-options-banner-chevron" aria-hidden="true" />
+      </button>
+
       <div class="dieta-meals" role="tablist" aria-label="Refeições de hoje">
         <button
           v-for="meal in mealList"
@@ -114,6 +128,15 @@
             <ArrowLeftRight aria-hidden="true" />
             <span>Substituições</span>
           </button>
+          <button
+            v-if="activeMealHasOptionAlternatives"
+            type="button"
+            class="dieta-tool-btn"
+            @click="openOptionPickerForActiveMeal"
+          >
+            <Layers aria-hidden="true" />
+            <span>Trocar opção</span>
+          </button>
           <NuxtLink to="/substituicao" class="dieta-tool-btn">
             <Calculator aria-hidden="true" />
             <span>Calcular troca</span>
@@ -184,6 +207,21 @@
       :groups="substitutionGroups"
     />
 
+    <DietaMealPlanOptionPickerModal
+      v-model:open="optionPickerOpen"
+      :required="optionPickerRequired"
+      :focus-slot-key="optionPickerFocusSlot"
+      :title="optionPickerTitle"
+      :confirm-label="optionPickerRequired ? 'Continuar' : 'Salvar opção'"
+      @saved="onOptionSelectionsSaved"
+    />
+
+    <MealPlanOptionsIntroModal
+      :open="optionIntroOpen"
+      :slots-label="optionSlotsLabel"
+      @choose="onOptionIntroChoose"
+    />
+
     <DietaAddExtraFoodModal
       v-if="currentMeal"
       v-model:open="extraFoodOpen"
@@ -217,16 +255,19 @@ import {
   ChevronRight,
   CircleCheck,
   ImagePlus,
+  Layers,
   Plus,
   Trash2,
   Upload,
 } from 'lucide-vue-next'
 import DietaAddExtraFoodModal from '~/components/dieta/AddExtraFoodModal.vue'
+import MealPlanOptionsIntroModal from '~/components/dieta/MealPlanOptionsIntroModal.vue'
 import MealPlanRecipeDetailSheet from '~/components/dieta/MealPlanRecipeDetailSheet.vue'
 import { useDietaProgress } from '~/composables/useDietaProgress'
 import { useMealExtraItems } from '~/composables/useMealExtraItems'
 import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 import { useMealPlan } from '~/composables/useMealPlan'
+import { useMealPlanOptionSelections } from '~/composables/useMealPlanOptionSelections'
 import { useMealSubstitutions } from '~/composables/useMealSubstitutions'
 import { usePatientMealPlan } from '~/composables/usePatientMealPlan'
 import { resetPatientScrollLock } from '~/composables/useVerticalWheelPassthrough'
@@ -253,11 +294,22 @@ const { queueSyncMealCheck, syncMealCheck, resyncAllCheckedMeals } = useDietaDia
 const { fetchPlan, uploadPdf, uploading: planUploading, planRecord } = usePatientMealPlan()
 const { mealList, mealOrder, getMealById, getMealIdForTime, hasPlan } = useMealPlan()
 const { getSubstitutionGroupsForMeal, mealHasSubstitutions } = useMealSubstitutions()
+const {
+  needsOptionSelection,
+  mealHasOptionAlternatives,
+  optionGroupForMeal,
+  optionGroups,
+} = useMealPlanOptionSelections()
 
 const { patientFetchInit } = usePatientLocalTime()
 
 const planLoading = ref(true)
 const substitutionsOpen = ref(false)
+const optionPickerOpen = ref(false)
+const optionPickerRequired = ref(false)
+const optionPickerFocusSlot = ref('')
+const optionPickerTitle = ref('Escolha suas opções')
+const optionIntroOpen = ref(false)
 const extraFoodOpen = ref(false)
 const recipeDetailOpen = ref(false)
 const selectedRecipe = ref(null)
@@ -272,6 +324,11 @@ const activeMealDefinition = computed(() => mealList.value.find(meal => meal.id 
 const planTitle = computed(() => planRecord.value?.title || planRecord.value?.fileName || 'Plano alimentar')
 const substitutionGroups = computed(() => getSubstitutionGroupsForMeal(activeMeal.value))
 const hasSubstitutions = computed(() => mealHasSubstitutions(activeMeal.value))
+const activeMealHasOptionAlternatives = computed(() => mealHasOptionAlternatives(activeMeal.value))
+const hasMealOptionGroups = computed(() => optionGroups.value.length > 0)
+const optionSlotsLabel = computed(() =>
+  optionGroups.value.map((group) => group.label).filter(Boolean).join(', '),
+)
 const currentMealPercent = computed(() => mealProgressPercent(activeMeal.value))
 const completedMealsCount = computed(() => mealList.value.filter(meal => isMealComplete(meal.id)).length)
 
@@ -403,6 +460,16 @@ function weekProgressLabel(mealId) {
 function resolveActiveMealFromRoute() {
   const queryMeal = route.query.meal
   if (typeof queryMeal === 'string' && mealOrder.value.includes(queryMeal)) return queryMeal
+
+  // Push antigo pode apontar para opção inativa — resolve para a ativa do mesmo slot
+  if (typeof queryMeal === 'string' && queryMeal) {
+    const group = optionGroupForMeal(queryMeal)
+    if (group) {
+      const selectedId = group.options.find((meal) => mealOrder.value.includes(meal.id))?.id
+      if (selectedId) return selectedId
+    }
+  }
+
   return getMealIdForTime() || mealOrder.value[0] || ''
 }
 
@@ -413,6 +480,65 @@ function onPlanUploaded() {
     syncChecked(mealId)
   }
   loadDailySummary()
+  openOptionIntroIfNeeded()
+}
+
+/** Modalzinho explicativo antes do seletor de opções. */
+function openOptionIntroIfNeeded() {
+  if (!needsOptionSelection.value) return false
+  optionIntroOpen.value = true
+  return true
+}
+
+function onOptionIntroChoose() {
+  optionIntroOpen.value = false
+  openOptionPicker({ required: true })
+}
+
+function openOptionPicker(options = {}) {
+  const { required = false, focusSlotKey = '', title = 'Escolha suas opções' } = options
+  optionPickerRequired.value = required
+  optionPickerFocusSlot.value = focusSlotKey
+  optionPickerTitle.value = title
+  optionPickerOpen.value = true
+}
+
+function openOptionPickerForActiveMeal() {
+  const group = optionGroupForMeal(activeMeal.value)
+  if (!group) {
+    openAllMealOptions()
+    return
+  }
+
+  openOptionPicker({
+    required: false,
+    focusSlotKey: group.slotKey,
+    title: `Trocar opção · ${group.label}`,
+  })
+}
+
+function openAllMealOptions() {
+  if (!hasMealOptionGroups.value) return
+  openOptionPicker({
+    required: needsOptionSelection.value,
+    focusSlotKey: '',
+    title: 'Escolha suas opções',
+  })
+}
+
+function onOptionSelectionsSaved() {
+  optionIntroOpen.value = false
+  optionPickerRequired.value = false
+  optionPickerFocusSlot.value = ''
+
+  const mealId = resolveActiveMealFromRoute()
+  if (mealId) {
+    activeMeal.value = mealId
+    syncChecked(mealId)
+  } else if (mealOrder.value.length) {
+    activeMeal.value = mealOrder.value[0]
+    syncChecked(activeMeal.value)
+  }
 }
 
 async function onReupload(event) {
@@ -566,6 +692,7 @@ onMounted(async () => {
       activeMeal.value = resolveActiveMealFromRoute()
       syncChecked(activeMeal.value)
       await syncAllCheckedMealsIfNeeded()
+      openOptionIntroIfNeeded()
     } else {
       await loadDailySummary()
     }
@@ -577,6 +704,8 @@ onMounted(async () => {
 onUnmounted(() => {
   substitutionsOpen.value = false
   extraFoodOpen.value = false
+  optionPickerOpen.value = false
+  optionIntroOpen.value = false
   resetPatientScrollLock()
 })
 
@@ -607,6 +736,14 @@ watch(
   () => route.query.view,
   queryView => {
     view.value = queryView === 'week' ? 'week' : 'today'
+  },
+)
+
+watch(
+  [needsOptionSelection, planLoading],
+  ([needs, loading]) => {
+    if (loading || optionPickerOpen.value || optionIntroOpen.value) return
+    if (needs) openOptionIntroIfNeeded()
   },
 )
 </script>
@@ -1141,6 +1278,60 @@ watch(
   color: #7d837a;
   font-size: 0.71875rem;
   font-weight: 400;
+}
+
+.dieta-options-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0 0 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #d5ddd0;
+  border-radius: 1rem;
+  background: #f3f7f1;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.dieta-options-banner:active {
+  transform: scale(0.99);
+}
+
+.dieta-options-banner-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  color: #62785a;
+}
+
+.dieta-options-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dieta-options-banner-copy strong {
+  color: #2d352b;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.dieta-options-banner-copy span {
+  color: #6f756d;
+  font-size: 0.71875rem;
+  line-height: 1.35;
+}
+
+.dieta-options-banner-chevron {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  color: #8a9086;
 }
 
 .dieta-meals {

@@ -1,5 +1,6 @@
 import type { ParsedFoodItem, ParsedMeal, ParsedMealPlan } from "../../types/meal-plan.types";
 import type { FoodItemDto } from "../../types/food.types";
+import { activeMeals, mealSlotDisplayLabel } from "../../utils/meal-plan-options";
 import { getMealPlanForUser } from "./meal-plan-context";
 import {
   buildPlanItemLabel,
@@ -210,10 +211,13 @@ export async function getSwapMealOptions(userId: string): Promise<SwapButtonOpti
   const plan = record?.plan as ParsedMealPlan | undefined;
   if (!plan?.meals?.length) return [];
 
-  return plan.meals.map((meal) => ({
-    id: meal.id,
-    label: meal.time ? `${meal.label} (${meal.time})` : meal.label,
-  }));
+  return activeMeals(plan.meals, plan.selectedMealBySlot).map((meal) => {
+    const label = mealSlotDisplayLabel(meal.label);
+    return {
+      id: meal.id,
+      label: meal.time ? `${label} (${meal.time})` : label,
+    };
+  });
 }
 
 export async function getSwapFoodOptions(

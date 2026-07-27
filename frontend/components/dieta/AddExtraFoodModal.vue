@@ -57,7 +57,7 @@
             <div>
               <strong>{{ selectedFood.name }}</strong>
               <span v-if="selectedFood.per100g?.caloriesKcal">
-                {{ selectedFood.per100g.caloriesKcal }} kcal a cada 100 g
+                {{ formatPer100gKcal(selectedFood.per100g.caloriesKcal) }} kcal a cada 100 g
               </span>
             </div>
           </div>
@@ -109,6 +109,7 @@
 import { Check, Plus, Utensils, X } from 'lucide-vue-next'
 import { lockPatientScroll, unlockPatientScroll, resetPatientScrollLock } from '~/composables/useVerticalWheelPassthrough'
 import { EXTRA_QUANTITY_UNITS, defaultExtraQuantityForUnit, formatExtraItemLabel } from '~/utils/meal-extra-quantity'
+import { formatPer100gKcal } from '~/utils/food-bank.js'
 
 const props = defineProps({
   open: { type: Boolean, default: false },

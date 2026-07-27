@@ -3,6 +3,7 @@ import type { DailyDiarySummary } from "../../types/food-diary.types";
 import type { ParsedFoodItem, ParsedMeal, ParsedMealPlan } from "../../types/meal-plan.types";
 import { getLocalMinutesInTimeZone } from "../../utils/patient-local-clock";
 import { inferMealSlotFromTime } from "../../utils/meal-time";
+import { activeMeals, mealSlotDisplayLabel } from "../../utils/meal-plan-options";
 import { getFoodDiaryService } from "./food-diary-access";
 import { buildPatientVerifiedMemory } from "./patient-memory";
 import { resolveRestaurantMealSlot } from "./restaurant-meal-slot";
@@ -16,16 +17,23 @@ function formatFoodItem(item: ParsedFoodItem): string {
 
 function formatMeal(meal: ParsedMeal): string {
   const items = meal.items.map(formatFoodItem).join("; ");
-  return `- **${meal.label}** (${meal.time || "horário livre"}): ${items || "sem itens listados"}`;
+  const label = mealSlotDisplayLabel(meal.label);
+  return `- **${label}** (${meal.time || "horário livre"}): ${items || "sem itens listados"}`;
+}
+
+function activePlanMeals(plan: ParsedMealPlan | null | undefined): ParsedMeal[] {
+  if (!plan?.meals?.length) return [];
+  return activeMeals(plan.meals, plan.selectedMealBySlot);
 }
 
 export function formatMealPlanForPrompt(plan: ParsedMealPlan | null | undefined): string {
-  if (!plan?.meals?.length) {
+  const mealsList = activePlanMeals(plan);
+  if (!mealsList.length) {
     return "Plano alimentar individual ainda não cadastrado no app. Sugira opções equilibradas de forma geral e convide a paciente a conferir com a nutricionista.";
   }
 
-  const header = plan.title ? `Plano: ${plan.title}` : "Plano alimentar da paciente";
-  const meals = plan.meals.map(formatMeal).join("\n");
+  const header = plan?.title ? `Plano: ${plan.title}` : "Plano alimentar da paciente";
+  const meals = mealsList.map(formatMeal).join("\n");
   return `${header}\n${meals}`;
 }
 
@@ -75,13 +83,15 @@ export async function resolveMealSlot(
   const record = await mealPlanRepository.findByUserId(userId);
   const plan = record?.plan as ParsedMealPlan | undefined;
 
+  const meals = activePlanMeals(plan);
+
   if (patientTimeZone?.trim()) {
     const nowMinutes = getLocalMinutesInTimeZone(patientTimeZone, date);
     const fakeDate = new Date(2000, 0, 1, Math.floor(nowMinutes / 60), nowMinutes % 60);
-    return inferMealSlotFromTime(fakeDate, plan?.meals || []);
+    return inferMealSlotFromTime(fakeDate, meals);
   }
 
-  return inferMealSlotFromTime(date, plan?.meals || []);
+  return inferMealSlotFromTime(date, meals);
 }
 
 export async function buildRestaurantAdvisorContext(
@@ -98,7 +108,7 @@ export async function buildRestaurantAdvisorContext(
   const loggedMealTypes = dailySummary.entries.map((entry) => entry.mealType).filter(Boolean);
 
   const restaurantSlot = resolveRestaurantMealSlot({
-    planMeals: plan?.meals || [],
+    planMeals: activePlanMeals(plan),
     loggedMealTypes,
     userMessage: options.userMessage,
     patientTimeZone: options.patientTimeZone,

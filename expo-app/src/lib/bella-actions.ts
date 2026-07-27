@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import {
   Camera,
   MessageCircle,
+  Receipt,
   RefreshCw,
   Salad,
   ScanBarcode,
@@ -18,6 +19,7 @@ export type BellaAction = {
 export const BELLA_ACTIONS: BellaAction[] = [
   { id: 'label', label: 'Ler rótulo', icon: ScanBarcode },
   { id: 'meal', label: 'Meu prato', icon: Camera },
+  { id: 'receipt', label: 'Cupom / fatura', icon: Receipt },
   { id: 'restaurant', label: 'Restaurante', icon: UtensilsCrossed },
   { id: 'swap', label: 'Substituir alimento', icon: RefreshCw },
   { id: 'diet', label: 'Minha dieta', icon: Salad, route: '/dieta' },
@@ -29,6 +31,7 @@ export const BELLA_TOPIC_TITLES: Record<string, { title: string; subtitle?: stri
   ask: { title: 'Fazer pergunta', subtitle: 'Tire suas dúvidas' },
   label: { title: 'Ler rótulo', subtitle: 'Analise ingredientes' },
   meal: { title: 'Meu prato', subtitle: 'Foto da refeição' },
+  receipt: { title: 'Cupom / fatura', subtitle: 'Vincule à base TBCA/TACO' },
   'meal-photo': { title: 'Foto da refeição', subtitle: 'Envie para análise' },
   restaurant: { title: 'Restaurante', subtitle: 'Escolhas fora de casa' },
   swap: { title: 'Substituir alimento', subtitle: 'Troque com segurança' },

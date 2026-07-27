@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, "../data/foods");
 
 const TACO_CSV_URL =
-  "https://raw.githubusercontent.com/brolesi/taco/main/data/processed/taco/alimentos.csv";
+  "https://raw.githubusercontent.com/brolesi/taco/main/data/processed/taco/taco_composicao.csv";
 const TBCA_SOURCE_FILE = path.join(OUT_DIR, "tbca-source.jsonl");
 const TBCA_META_FILE = path.join(OUT_DIR, "tbca-fetch-meta.json");
 const TBCA_VERSION = "7.3";

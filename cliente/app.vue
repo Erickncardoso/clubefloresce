@@ -7,7 +7,7 @@
     <PatientScreenDim v-if="config.public.mobileApp" />
     <PatientNavigationLoader />
     <PatientTabBar v-if="showTabBar" />
-    <PatientQuickAccessFab v-if="showTabBar && config.public.mobileApp" />
+    <PatientQuickAccessFab v-if="showQuickAccessFab" />
     <PatientPwaUpdate />
     <PatientPwaPrompt />
     <CfConfirmModal />
@@ -130,6 +130,13 @@ const showTabBar = computed(() => {
   if (isCheckoutPath(route.path)) return false
   if (hideTabBarPaths.includes(route.path)) return false
   if (route.path.startsWith('/modulos/')) return false
+  return true
+})
+
+/** FAB (+) cobre o composer da Bella — some no chat. */
+const showQuickAccessFab = computed(() => {
+  if (!showTabBar.value || !config.public.mobileApp) return false
+  if (route.path === '/bella' || route.path.startsWith('/bella/')) return false
   return true
 })
 </script>

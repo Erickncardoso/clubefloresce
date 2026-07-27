@@ -61,10 +61,11 @@ export class NotificationRepository {
     const contentChanged =
       existing.title !== input.title
       || existing.body !== input.body
-      || existing.type !== input.type
-      || (existing.actionPath ?? null) !== (input.actionPath ?? null);
+      || existing.type !== input.type;
 
-    if (!contentChanged) {
+    const pathChanged = (existing.actionPath ?? null) !== (input.actionPath ?? null);
+
+    if (!contentChanged && !pathChanged) {
       return existing;
     }
 
@@ -75,16 +76,20 @@ export class NotificationRepository {
         title: input.title,
         body: input.body,
         actionPath: input.actionPath ?? null,
-        read: false,
+        // Só reabre como não-lida se o texto mudou (não só o deep link)
+        ...(contentChanged ? { read: false } : {}),
       },
     });
 
-    dispatchPushToUser(input.userId, {
-      title: input.title,
-      body: input.body,
-      url: input.actionPath,
-      tag: input.sourceKey,
-    });
+    // Evita 2º push só porque o mealId da opção ativa mudou
+    if (contentChanged) {
+      dispatchPushToUser(input.userId, {
+        title: input.title,
+        body: input.body,
+        url: input.actionPath,
+        tag: input.sourceKey,
+      });
+    }
 
     return notification;
   }

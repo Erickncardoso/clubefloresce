@@ -25,5 +25,11 @@ router.post(
   handleBellaUpload,
   controller.chat.bind(controller),
 );
+router.post(
+  "/confirm-receipt",
+  authenticate,
+  authorize(["PACIENTE"]),
+  controller.confirmReceipt.bind(controller),
+);
 
 export default router;

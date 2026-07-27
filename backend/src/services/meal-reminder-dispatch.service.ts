@@ -2,9 +2,15 @@ import { Role, UserStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { FoodDiaryRepository } from "../repositories/food-diary.repository";
 import { NotificationRepository } from "../repositories/notification.repository";
-import type { ParsedMealPlan } from "../types/meal-plan.types";
+import type { ParsedMeal, ParsedMealPlan } from "../types/meal-plan.types";
 import type { PatientProfileData } from "../types/patient-profile.types";
 import { getMealsForReminder, parseTimeToMinutes } from "../utils/meal-time";
+import {
+  activeMeals,
+  groupMealOptions,
+  mealSlotDisplayLabel,
+  normalizeMealSlotKey,
+} from "../utils/meal-plan-options";
 import { getLocalMinutesInTimeZone } from "../utils/patient-local-clock";
 import {
   entryDateFromKey,
@@ -20,8 +26,15 @@ import { isVapidConfigured } from "../utils/vapid-config";
 const notificationRepository = new NotificationRepository();
 const foodDiaryRepository = new FoodDiaryRepository();
 
-export function mealReminderSourceKey(dateKey: string, mealId: string, userId: string) {
-  return `meal-reminder:${dateKey}:${mealId}:${userId}`;
+/** Janela de atraso (minutos) para não perder lembrete se o job atrasar. */
+const CATCH_UP_MINUTES = 2;
+
+/**
+ * Chave estável por dia + slot (não por mealId da opção).
+ * Assim trocar a opção do lanche não gera 2º push no mesmo dia.
+ */
+export function mealReminderSourceKey(dateKey: string, slotKey: string, userId: string) {
+  return `meal-reminder:${dateKey}:${slotKey}:${userId}`;
 }
 
 function asProfile(value: unknown): PatientProfileData {
@@ -34,6 +47,19 @@ function asMealPlan(value: unknown): ParsedMealPlan | null {
   const plan = value as ParsedMealPlan;
   if (!Array.isArray(plan.meals)) return null;
   return plan;
+}
+
+function siblingMealIds(planMeals: ParsedMeal[], mealId: string): string[] {
+  const groups = groupMealOptions(planMeals);
+  const group = groups.find((item) => item.options.some((meal) => meal.id === mealId));
+  if (group) return group.options.map((meal) => meal.id);
+  return [mealId];
+}
+
+function isMealDue(mealTime: string, localMinutes: number): boolean {
+  const mealMinutes = parseTimeToMinutes(mealTime);
+  const lag = localMinutes - mealMinutes;
+  return lag >= 0 && lag <= CATCH_UP_MINUTES;
 }
 
 type EligiblePatient = {
@@ -99,8 +125,24 @@ export class MealReminderDispatchService {
     const timeZone = resolvePatientTimezone(patient.profile);
     const dateKey = getDateKeyInTimeZone(timeZone, now);
     const localMinutes = getLocalMinutesInTimeZone(timeZone, now);
-    const meals = getMealsForReminder(patient.plan?.meals ?? []);
-    const dueMeals = meals.filter((meal) => parseTimeToMinutes(meal.time) === localMinutes);
+    const rawMeals = patient.plan?.meals ?? [];
+
+    // Só a opção ativa de cada slot (ex.: 1 Lanche da tarde, não as 3)
+    const activePlanMeals = activeMeals(rawMeals, patient.plan?.selectedMealBySlot);
+    const meals = getMealsForReminder(activePlanMeals)
+      .map((meal) => ({
+        ...meal,
+        label: mealSlotDisplayLabel(meal.label),
+        slotKey: normalizeMealSlotKey(meal.label),
+      }))
+      .filter((meal) => isMealDue(meal.time, localMinutes));
+
+    // Um lembrete por slot mesmo se horários coincidirem
+    const dueBySlot = new Map<string, (typeof meals)[number]>();
+    for (const meal of meals) {
+      if (!dueBySlot.has(meal.slotKey)) dueBySlot.set(meal.slotKey, meal);
+    }
+    const dueMeals = [...dueBySlot.values()];
 
     if (!dueMeals.length) return { sent: 0, skipped: 0 };
 
@@ -112,12 +154,13 @@ export class MealReminderDispatchService {
     let skipped = 0;
 
     for (const meal of dueMeals) {
-      if (loggedMealTypes.has(meal.id)) {
+      const relatedIds = siblingMealIds(rawMeals, meal.id);
+      if (relatedIds.some((id) => loggedMealTypes.has(id))) {
         skipped += 1;
         continue;
       }
 
-      const sourceKey = mealReminderSourceKey(dateKey, meal.id, patient.id);
+      const sourceKey = mealReminderSourceKey(dateKey, meal.slotKey, patient.id);
       const title = `Hora do ${meal.label}!`;
       const body = "Registre sua refeição no diário alimentar.";
 

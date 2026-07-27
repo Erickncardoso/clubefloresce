@@ -8,6 +8,7 @@ import { extractPdfRawText } from "./pdf-text";
 import { normalizePersonName, syncUserNameFromMealPlan } from "./sync-patient-name";
 import { syncNutritionTargetsFromMealPlan } from "./sync-nutrition-targets";
 import { enrichParsedMealPlan, parsedMealPlanNeedsFoodEnrichment, sanitizeParsedMealPlan } from "./meal-plan-food-enricher";
+import { validateSelectedMealBySlot } from "../../utils/meal-plan-options";
 import type { User } from "@prisma/client";
 import { scheduleRagReindex } from "../rag/rag-hooks";
 
@@ -33,6 +34,13 @@ function scheduleMealPlanFoodEnrichment(
     try {
       const enriched = await enrichParsedMealPlan(plan);
       sanitizeParsedMealPlan(enriched);
+
+      const current = await repo.findByUserId(userId);
+      const currentPlan = current?.plan as ParsedMealPlan | undefined;
+      if (currentPlan?.selectedMealBySlot) {
+        enriched.selectedMealBySlot = currentPlan.selectedMealBySlot;
+      }
+
       await repo.upsert(userId, {
         fileName: record.fileName,
         pdfUrl: record.pdfUrl,
@@ -261,5 +269,35 @@ export class MealPlanService {
           }
         : null,
     };
+  }
+
+  async updateSelections(
+    userId: string,
+    selectedMealBySlot: Record<string, string>,
+  ): Promise<PatientMealPlanResponse> {
+    const record = await repo.findByUserId(userId);
+    if (!record) {
+      throw new Error("Nenhum plano alimentar encontrado. Envie o PDF primeiro.");
+    }
+
+    const plan = record.plan as unknown as ParsedMealPlan;
+    const validated = validateSelectedMealBySlot(plan.meals || [], selectedMealBySlot || {});
+
+    const nextPlan: ParsedMealPlan = {
+      ...plan,
+      selectedMealBySlot: validated,
+    };
+
+    const saved = await repo.upsert(userId, {
+      fileName: record.fileName,
+      pdfUrl: record.pdfUrl,
+      title: record.title,
+      patientName: record.patientName,
+      prescribedAt: record.prescribedAt,
+      plan: nextPlan,
+      parserSource: record.parserSource,
+    });
+
+    return toResponse({ ...saved, plan: nextPlan }, userId);
   }
 }

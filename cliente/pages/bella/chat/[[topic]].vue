@@ -273,6 +273,15 @@
       @confirm="confirmMeal"
     />
 
+    <BellaReceiptConfirmModal
+      :open="showReceiptModal"
+      :draft="receiptDraft"
+      :saving="confirmingReceipt"
+      :error="receiptConfirmError"
+      @cancel="cancelReceiptConfirm"
+      @confirm="confirmReceipt"
+    />
+
     <BellaMealPhotoGuideSheet
       :open="showPhotoGuide"
       @close="onPhotoGuideClose"
@@ -372,6 +381,10 @@ const mealDraft = ref(null)
 const nutritionRefresh = useState('patient-nutrition-refresh', () => 0)
 const confirmingMeal = ref(false)
 const mealConfirmError = ref('')
+const showReceiptModal = ref(false)
+const receiptDraft = ref(null)
+const confirmingReceipt = ref(false)
+const receiptConfirmError = ref('')
 const pinningToBottom = ref(false)
 const selectedMealId = ref('')
 
@@ -1003,6 +1016,17 @@ async function applyChatResponse(res) {
     return
   }
 
+  if (res.requiresReceiptConfirmation && res.receiptDraft) {
+    receiptDraft.value = res.receiptDraft
+    await finishTypingIndicator()
+    stopTypingIndicator()
+    if (res.message) messages.value.push(res.message)
+    showReceiptModal.value = true
+    receiptConfirmError.value = ''
+    await stickScrollToBottom()
+    return
+  }
+
   if (res.message) {
     await finishTypingIndicator()
     stopTypingIndicator()
@@ -1337,6 +1361,12 @@ const cancelMealConfirm = () => {
   mealConfirmError.value = ''
 }
 
+const cancelReceiptConfirm = () => {
+  showReceiptModal.value = false
+  receiptDraft.value = null
+  receiptConfirmError.value = ''
+}
+
 const editDiaryEntry = (entry) => {
   if (!entry?.id) return
   mealDraft.value = {
@@ -1423,6 +1453,31 @@ const confirmMeal = async (items) => {
   }
 }
 
+const confirmReceipt = async (items) => {
+  if (!receiptDraft.value || confirmingReceipt.value) return
+  confirmingReceipt.value = true
+  receiptConfirmError.value = ''
+
+  try {
+    const res = await $fetch(`${apiBase}/bella/confirm-receipt`, patientFetchInit({
+      method: 'POST',
+      body: {
+        items: normalizeMealItemsForSave(items),
+        storeName: receiptDraft.value.storeName,
+        imageUrl: receiptDraft.value.imageUrl,
+        userMessageId: receiptDraft.value.userMessageId,
+      },
+    }))
+    if (res.message) messages.value.push(res.message)
+    cancelReceiptConfirm()
+    await scrollToBottomAfterLayout()
+  } catch (err) {
+    receiptConfirmError.value = err.data?.message || 'Não foi possível confirmar os vínculos.'
+  } finally {
+    confirmingReceipt.value = false
+  }
+}
+
 const sendMessage = async () => {
   const text = draft.value.trim()
   const file = selectedFile.value
@@ -1461,7 +1516,9 @@ const sendMessage = async () => {
       ? `Analise meu ${(selectedMeal.value?.label || 'prato').toLowerCase()} para registrar no diário de hoje.`
       : chatTopic.value === 'label'
         ? 'Analise este rótulo e classifique o consumo (Verde, Amarelo ou Vermelho).'
-        : 'Analise esta imagem, por favor.'
+        : chatTopic.value === 'receipt'
+          ? 'Extraia os alimentos deste cupom e vincule à base de alimentos.'
+          : 'Analise esta imagem, por favor.'
 
   const tempId = `temp-${Date.now()}`
   const localPreviewUrl = file && !isPdf ? attachmentPreview.value?.url : null

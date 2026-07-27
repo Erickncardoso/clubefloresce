@@ -44,6 +44,12 @@ router.delete(
 );
 
 router.get("/me", authenticate, authorize(["PACIENTE"]), controller.getMine.bind(controller));
+router.patch(
+  "/me/selections",
+  authenticate,
+  authorize(["PACIENTE"]),
+  controller.updateSelections.bind(controller),
+);
 router.post(
   "/shopping-list/smart",
   authenticate,

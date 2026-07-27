@@ -362,6 +362,80 @@ function buildSeed(): FoodOverrideSeed[] {
       fiberG: 0,
       aliases: ["iogurte natural", "iogurte desnatado"],
     }),
+
+    // ── CUSTOM só quando TBCA/TACO não cobrem o nome Dietbox ─────────────
+    // Fonte: Ipanema — tabela nutricional oficial do fabricante (por 100 g)
+    // https://ipanemaqueijos.com.br/produtos/requeijao-cremoso-light-180g/
+    item({
+      code: "REQUEIJAO_LIGHT_GENERIC",
+      name: "Requeijão cremoso light (genérico)",
+      category: "Laticínios",
+      caloriesKcal: 140,
+      proteinG: 13,
+      carbsG: 1.2,
+      fatG: 9.3,
+      fiberG: 0,
+      sodiumMg: 585,
+      aliases: [
+        "requeijao light",
+        "requeijao cremoso light",
+        "requeijao light generico",
+        "pocos de caldas light",
+      ],
+    }),
+    // Fonte: FatSecret (Verde Campo Mussarela Light) — 1 fatia 30 g = 80 kcal · 8,2 P · 1 C · 4,8 G
+    // Convertido para 100 g. https://www.fatsecret.com.br/calorias-nutricao/verde-campo/mussarela-light/1-fatia
+    item({
+      code: "MUSSARELA_LIGHT_VERDE_CAMPO",
+      name: "Queijo mussarela light Verde Campo",
+      category: "Laticínios",
+      caloriesKcal: 267,
+      proteinG: 27.3,
+      carbsG: 3.3,
+      fatG: 16,
+      fiberG: 0,
+      aliases: [
+        "mussarela light",
+        "mucarela light",
+        "mozarela light",
+        "queijo mussarela light",
+        "mussarela light verde campo",
+        "verde campo mussarela light",
+        "queijo mucarela light",
+      ],
+    }),
+    // Fonte: FatSecret (Verde Campo Requeijão Cremoso Light) — 30 g = 47 kcal · 4 P · 1 C · 3 G → /100 g
+    item({
+      code: "REQUEIJAO_LIGHT_VERDE_CAMPO",
+      name: "Requeijão cremoso light Verde Campo",
+      category: "Laticínios",
+      caloriesKcal: 157,
+      proteinG: 13.3,
+      carbsG: 3.3,
+      fatG: 10,
+      fiberG: 0,
+      aliases: ["requeijao light verde campo", "verde campo requeijao light"],
+    }),
+    // Folhas cruas — média ponderada alface/rúcula TACO (valores por 100 g da tabela TACO)
+    // Alface crespa crua TACO ~14 kcal; rúcula ~25 kcal. Uso conservador para "salada de folhas".
+    item({
+      code: "LEAFY_SALAD_MIX",
+      name: "Salada de folhas (genérica)",
+      category: "Verduras",
+      caloriesKcal: 17,
+      proteinG: 1.5,
+      carbsG: 2.2,
+      fatG: 0.2,
+      fiberG: 1.5,
+      sodiumMg: 10,
+      aliases: [
+        "salada de folhas",
+        "salada de alface",
+        "folhas",
+        "mix de folhas",
+        "salada folhas alface rucula agriao",
+      ],
+    }),
   ];
 }
 

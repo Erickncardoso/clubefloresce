@@ -98,4 +98,24 @@ export class BellaController {
       return res.status(status).json({ message: error.message });
     }
   }
+
+  async confirmReceipt(req: Request, res: Response): Promise<any> {
+    try {
+      const items = Array.isArray(req.body?.items) ? req.body.items : [];
+      const storeName = typeof req.body?.storeName === "string" ? req.body.storeName : undefined;
+      const imageUrl = typeof req.body?.imageUrl === "string" ? req.body.imageUrl : undefined;
+      const userMessageId =
+        typeof req.body?.userMessageId === "string" ? req.body.userMessageId : undefined;
+
+      const result = await bellaService.confirmReceipt(req.user!.id, {
+        items,
+        storeName,
+        imageUrl,
+        userMessageId,
+      });
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
 }

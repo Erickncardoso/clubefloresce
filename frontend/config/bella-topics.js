@@ -1,4 +1,4 @@
-export const BELLA_TOPIC_IDS = ['general', 'label', 'meal', 'restaurant', 'swap', 'ask']
+export const BELLA_TOPIC_IDS = ['general', 'label', 'meal', 'receipt', 'restaurant', 'swap', 'ask']
 
 export function normalizeBellaTopic(raw) {
   const value = Array.isArray(raw)
@@ -38,6 +38,16 @@ export const BELLA_TOPICS = {
       `Olá, ${name}! 📸 Escolha a refeição logo abaixo e envie a foto do prato. Estimo gramas, calorias e macros; você confirma e registro no diário de hoje.`,
     placeholder: 'Opcional: descreva a refeição...',
     taskHint: 'meal',
+    acceptPdf: false,
+    acceptImages: true,
+  },
+  receipt: {
+    title: 'Cupom / fatura',
+    subtitle: 'Vincule à base TBCA/TACO',
+    welcome: (name) =>
+      `Olá, ${name}! 🧾 Envie a foto do cupom ou fatura do supermercado. Extraio os alimentos e vinculo cada um à sua base TBCA/TACO para você confirmar.`,
+    placeholder: 'Opcional: diga o mercado ou o que comprou...',
+    taskHint: 'receipt',
     acceptPdf: false,
     acceptImages: true,
   },

@@ -14,6 +14,8 @@
     "foods:fetch-tbca:probe": "node scripts/fetch-tbca.mjs --probe",
     "foods:build-json": "node scripts/build-food-json.mjs",
     "foods:import": "ts-node scripts/import-foods.ts",
+    "foods:import-taco": "node scripts/import-taco-only.mjs",
+    "foods:patch-aliases": "ts-node scripts/patch-food-aliases.ts",
     "foods:update-tbca": "npm run foods:fetch-tbca && npm run foods:build-json && npm run foods:import",
     "foods:seed": "npm run foods:build-json && npm run foods:import",
     "patient:dev": "ts-node src/scripts/ensure-patient-dev.ts",

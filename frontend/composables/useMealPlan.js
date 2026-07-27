@@ -3,6 +3,7 @@ import { normalizeMealPlanItem } from '~/utils/meal-plan-display-parse'
 import { looksLikeFoodPortionLine } from '~/utils/meal-plan-text-sanitize'
 import { getMealIdForTimeFromMeals } from '~/utils/meal-plan-time'
 import { pickMealIcon } from '~/utils/meal-slot-options'
+import { activeMeals, mealSlotDisplayLabel } from '~/utils/meal-plan-options'
 import { useMealExtraItems } from '~/composables/useMealExtraItems'
 import { useMealItemOverrides } from '~/composables/useMealItemOverrides'
 
@@ -32,14 +33,15 @@ function mapApiItem(item) {
 
 function mapApiMeal(meal, index, total) {
   const items = (meal.items || []).map(mapApiItem).filter(Boolean)
+  const displayLabel = mealSlotDisplayLabel(meal.label)
   return {
     id: meal.id,
     time: meal.time,
-    label: meal.label,
+    label: displayLabel,
     index: index + 1,
     total,
-    short: meal.label.split('-')[0].trim().split(':').pop()?.trim() || meal.label,
-    icon: pickMealIcon(meal.label),
+    short: displayLabel.split('-')[0].trim().split(':').pop()?.trim() || displayLabel,
+    icon: pickMealIcon(displayLabel),
     items,
     itemLabels: items.map((item) => item.display || formatMealItemLabel(item)),
   }
@@ -50,7 +52,9 @@ export function useMealPlan(nowRef) {
   const { applyOverridesToMeal, overridesRevision } = useMealItemOverrides()
   const { applyExtraItemsToMeal, extrasRevision } = useMealExtraItems()
 
-  const apiMeals = computed(() => planRecord.value?.plan?.meals ?? [])
+  const rawApiMeals = computed(() => planRecord.value?.plan?.meals ?? [])
+  const selectedMealBySlot = computed(() => planRecord.value?.plan?.selectedMealBySlot || null)
+  const apiMeals = computed(() => activeMeals(rawApiMeals.value, selectedMealBySlot.value))
   const mealOrder = computed(() => apiMeals.value.map((meal) => meal.id))
 
   const currentMealId = computed(() => {
@@ -114,6 +118,6 @@ export function useMealPlan(nowRef) {
     getRawItems,
     formatMealItemLabel,
     getMealIdForTime,
-    hasPlan: computed(() => apiMeals.value.length > 0),
+    hasPlan: computed(() => rawApiMeals.value.length > 0),
   }
 }

@@ -63,7 +63,7 @@
             <span class="food-picker-option-name">{{ food.name }}</span>
             <span class="food-picker-option-meta">
               <span class="food-picker-badge">{{ formatFoodSourceLabel(food.source) }}</span>
-              {{ food.per100g?.caloriesKcal ?? '—' }} kcal / 100 g
+              {{ formatPer100gKcal(food.per100g?.caloriesKcal) }} kcal / 100 g
             </span>
           </button>
         </li>
@@ -74,7 +74,7 @@
 
 <script setup>
 import { ChevronDown, Search } from 'lucide-vue-next'
-import { formatFoodSourceLabel } from '~/utils/food-bank.js'
+import { formatFoodSourceLabel, formatPer100gKcal } from '~/utils/food-bank.js'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },

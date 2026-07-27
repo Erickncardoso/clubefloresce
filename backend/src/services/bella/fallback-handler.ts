@@ -19,6 +19,7 @@ const TOOLS_BY_TOPIC: Record<BellaChatTopic, BellaToolName[]> = {
   ask: ["get_user_profile", "get_checkin_summary", "list_recommended_courses", "search_knowledge_base"],
   label: ["search_knowledge_base"],
   meal: ["search_knowledge_base", "get_daily_diary_summary"],
+  receipt: ["search_knowledge_base"],
   restaurant: ["get_patient_meal_plan", "get_daily_diary_summary", "search_knowledge_base", "get_user_profile"],
   swap: ["search_knowledge_base", "get_user_profile"],
   goal: ["get_checkin_summary", "get_user_profile", "list_recommended_courses"],
@@ -162,6 +163,9 @@ function topicScopedDefaultReply(topic: BellaChatTopic, firstName: string, messa
   }
   if (topic === "meal") {
     return `${firstName}, neste chat você envia a foto do prato, confirma os itens e registro tudo no diário de hoje com calorias e macros.`;
+  }
+  if (topic === "receipt") {
+    return `${firstName}, neste chat você envia a foto do cupom ou fatura. Extraio os alimentos e vinculo cada um à base TBCA/TACO para você confirmar.`;
   }
   if (topic === "restaurant") {
     return `${firstName}, neste chat ajudo a escolher a melhor opção no restaurante, alinhada ao seu plano alimentar. Mande foto do cardápio ou as opções que você está em dúvida.`;

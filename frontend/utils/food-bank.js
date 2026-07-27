@@ -4,6 +4,27 @@ export { normalizePer100gMacros, macrosAtGramsFromPer100g, macrosForFoodAtGrams 
 
 export function mapFoodItemFromApi(item) {
   if (!item) return null
+  const rawPer100g = item.per100g || {
+    caloriesKcal: item.caloriesKcal,
+    proteinG: item.proteinG,
+    carbsG: item.carbsG,
+    fatG: item.fatG,
+    fiberG: item.fiberG,
+    sodiumMg: item.sodiumMg,
+  }
+  const per100g = rawPer100g
+    ? {
+        ...rawPer100g,
+        caloriesKcal:
+          rawPer100g.caloriesKcal == null
+            ? rawPer100g.caloriesKcal
+            : Math.round(Number(rawPer100g.caloriesKcal)),
+        proteinG: rawPer100g.proteinG == null ? rawPer100g.proteinG : round1(rawPer100g.proteinG),
+        carbsG: rawPer100g.carbsG == null ? rawPer100g.carbsG : round1(rawPer100g.carbsG),
+        fatG: rawPer100g.fatG == null ? rawPer100g.fatG : round1(rawPer100g.fatG),
+        fiberG: rawPer100g.fiberG == null ? rawPer100g.fiberG : round1(rawPer100g.fiberG),
+      }
+    : null
   return {
     id: item.id,
     source: item.source,
@@ -11,16 +32,9 @@ export function mapFoodItemFromApi(item) {
     name: item.name,
     displayName: item.displayName || item.name,
     category: item.category,
-    per100g: item.per100g || {
-      caloriesKcal: item.caloriesKcal,
-      proteinG: item.proteinG,
-      carbsG: item.carbsG,
-      fatG: item.fatG,
-      fiberG: item.fiberG,
-      sodiumMg: item.sodiumMg,
-    },
+    per100g,
     nutrients: item.nutrients,
-    nutrientsPer100g: extractNutrientsPer100gFromFood(item),
+    nutrientsPer100g: extractNutrientsPer100gFromFood({ ...item, per100g }),
   }
 }
 
@@ -56,5 +70,15 @@ export function macrosForFoodRecord(food, grams) {
 export function formatFoodSourceLabel(source) {
   const key = String(source || '').trim().toUpperCase()
   if (key === 'CUSTOM') return 'florescer'
+  if (key === 'TBCA') return 'TBCA 7.3'
+  if (key === 'TACO') return 'TACO'
+  if (key === 'TABNUT') return 'TABNUT'
+  if (key === 'TUCUNDUVA') return 'Tucunduva'
   return String(source || '').trim() || '—'
+}
+
+/** Exibe kcal/100 g sem lixo de ponto flutuante (ex.: 352.67334000000001 → 353). */
+export function formatPer100gKcal(value) {
+  if (value == null || value === '' || Number.isNaN(Number(value))) return '—'
+  return String(Math.round(Number(value)))
 }

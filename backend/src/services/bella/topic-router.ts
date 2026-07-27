@@ -12,12 +12,13 @@ export const TOPIC_ROUTES: Record<BellaChatTopic, TopicRouteInfo> = {
   ask: { id: "ask", title: "Fazer pergunta", path: "/bella/chat/ask" },
   label: { id: "label", title: "Ler rótulo", path: "/bella/chat/label" },
   meal: { id: "meal", title: "Meu prato", path: "/bella/chat/meal" },
+  receipt: { id: "receipt", title: "Cupom / fatura", path: "/bella/chat/receipt" },
   restaurant: { id: "restaurant", title: "Restaurante", path: "/bella/chat/restaurant" },
   swap: { id: "swap", title: "Substituir alimento", path: "/bella/chat/swap" },
   goal: { id: "goal", title: "Meta semanal", path: "/bella/chat/goal" },
 };
 
-const SPECIALIZED_TOPICS = new Set<BellaChatTopic>(["label", "meal", "restaurant", "swap", "goal"]);
+const SPECIALIZED_TOPICS = new Set<BellaChatTopic>(["label", "meal", "receipt", "restaurant", "swap", "goal"]);
 
 const LABEL_SIGNALS =
   /rótulo|rotulo|tabela nutricional|lista de ingredientes|ingredientes|embalagem|industrializado|ultraprocessado|semáforo|semaforo|rótulos|rotulos|produto embalado|informação nutricional|informacao nutricional|margarina|manteiga/i;
@@ -25,6 +26,8 @@ const LABEL_CONTINUATION_SIGNALS =
   /manteiga|margarina|melhor|comparar|vale a pena|alternativa|substituir|troca|ou\b|em vez de|no lugar|mesmo produto|esse produto|esse r[oó]tulo|classifica/i;
 const MEAL_SIGNALS =
   /meu prato|foto do prato|prato montado|refeição|refeicao|registrar no diário|registrar no diario|diário alimentar|diario alimentar|calorias do prato|macros do prato|almoco|almoço|jantar|lanche|café da manhã|cafe da manha/i;
+const RECEIPT_SIGNALS =
+  /cupom|fatura|nota fiscal|nfce|nfc-e|recibo|supermercado|mercado|compras do mercado|lista da compra|ticket fiscal|danfe/i;
 const RESTAURANT_SIGNALS =
   /restaurante|cardápio|cardapio|comer fora|delivery|ifood|fast food|sushi|pizza|hamburguer|hambúrguer/i;
 const RESTAURANT_EATING_OUT_SIGNALS =
@@ -52,6 +55,9 @@ export function isMessageInTopicScope(topic: BellaChatTopic, message: string): b
   if (topic === "meal") {
     return MEAL_SIGNALS.test(text) || /foto|imagem|prato|refei|di[aá]rio|registr/i.test(text);
   }
+  if (topic === "receipt") {
+    return RECEIPT_SIGNALS.test(text) || /foto|imagem|cupom|fatura|nota|compra|mercado|produto/i.test(text);
+  }
   if (topic === "restaurant") {
     if (RESTAURANT_SIGNALS.test(text) || RESTAURANT_EATING_OUT_SIGNALS.test(text)) return true;
     if (/encaixar|dieta|plano alimentar|refei[cç][aã]o livre|comer fora|card[aá]pio/i.test(text)) return true;
@@ -70,7 +76,7 @@ function scoreTopic(message: string, pattern: RegExp): number {
   return pattern.test(message) ? 1 : 0;
 }
 
-const TOPIC_PRIORITY: BellaChatTopic[] = ["label", "meal", "restaurant", "swap", "goal", "ask", "general"];
+const TOPIC_PRIORITY: BellaChatTopic[] = ["label", "receipt", "meal", "restaurant", "swap", "goal", "ask", "general"];
 
 function topicPriority(topic: BellaChatTopic): number {
   const index = TOPIC_PRIORITY.indexOf(topic);
@@ -87,6 +93,7 @@ export function detectBestTopicForMessage(message: string): BellaChatTopic | nul
     ask: scoreTopic(text, ASK_SIGNALS),
     label: scoreTopic(text, LABEL_SIGNALS),
     meal: scoreTopic(text, MEAL_SIGNALS),
+    receipt: scoreTopic(text, RECEIPT_SIGNALS),
     restaurant:
       scoreTopic(text, RESTAURANT_SIGNALS) +
       scoreTopic(text, RESTAURANT_EATING_OUT_SIGNALS) +
@@ -146,6 +153,13 @@ export function buildTopicRedirectReply(
     );
   }
 
+  if (targetTopic === "receipt") {
+    return (
+      `${firstName}, para ler cupom ou fatura e vincular à base de alimentos, use **${target.title}**.\n\n` +
+      `${link}`
+    );
+  }
+
   return (
     `${firstName}, esse assunto combina mais com **${target.title}** do que com **${current.title}**.\n\n` +
     `Toque para ir ao chat certo: ${link}`
@@ -158,6 +172,7 @@ function scopeShort(topic: BellaChatTopic): string {
     ask: "perguntas de nutrição",
     label: "rótulos e tabelas nutricionais",
     meal: "fotos de prato e diário alimentar",
+    receipt: "cupom/fatura e vínculo com a base de alimentos",
     restaurant: "escolhas ao comer fora",
     swap: "substituições de alimentos",
     goal: "meta e check-ins da semana",
@@ -214,7 +229,7 @@ export function getTopicRedirectPromptBlock(): string {
 Quando a pergunta NÃO for do escopo deste chat, NÃO responda o conteúdo. Redirecione gentilmente com link no formato:
 [[chat:ID|Texto do botão]]
 
-IDs disponíveis: ask (Fazer pergunta), label (Ler rótulo), meal (Meu prato), restaurant (Restaurante), swap (Substituir alimento), goal (Meta semanal), general (Conversa geral).
+IDs disponíveis: ask (Fazer pergunta), label (Ler rótulo), meal (Meu prato), receipt (Cupom / fatura), restaurant (Restaurante), swap (Substituir alimento), goal (Meta semanal), general (Conversa geral).
 
 Exemplo: "Para essa dúvida, use o chat certo: [[chat:ask|Fazer pergunta]]"`;
 }

@@ -12,6 +12,7 @@ import { resolveSwapGroup, type SwapGroup } from "../services/bella/food-categor
 import {
   isProcessedFoodName,
   looksLikeFreshProduceLabel,
+  scoreIngredientNaturalness,
   scorePreparationSwapFit,
 } from "../services/bella/swap-prep-state";
 
@@ -68,6 +69,8 @@ export function scoreFoodForSwapMatch(
       score += 45;
     }
   }
+
+  score += scoreIngredientNaturalness(query, name);
 
   if (COMPLEX_DISH_PATTERN.test(name)) score -= 120;
   if (PREPARED_IN_NAME.test(name)) score -= 45;
