@@ -291,7 +291,14 @@ const apiBase = config.public.apiBase
 
 const { loadChecked, saveChecked, countDone } = useDietaProgress()
 const { queueSyncMealCheck, syncMealCheck, resyncAllCheckedMeals } = useDietaDiarySync()
-const { fetchPlan, uploadPdf, uploading: planUploading, planRecord } = usePatientMealPlan()
+const {
+  fetchPlan,
+  uploadPdf,
+  uploading: planUploading,
+  planRecord,
+  planChecked,
+  loading: planFetchLoading,
+} = usePatientMealPlan()
 const { mealList, mealOrder, getMealById, getMealIdForTime, hasPlan } = useMealPlan()
 const { getSubstitutionGroupsForMeal, mealHasSubstitutions } = useMealSubstitutions()
 const {
@@ -303,7 +310,7 @@ const {
 
 const { patientFetchInit } = usePatientLocalTime()
 
-const planLoading = ref(true)
+const planLoading = ref(!planChecked.value)
 const substitutionsOpen = ref(false)
 const optionPickerOpen = ref(false)
 const optionPickerRequired = ref(false)
@@ -684,20 +691,49 @@ async function syncAllCheckedMealsIfNeeded() {
   }
 }
 
+function hydrateDietaFromPlan() {
+  if (!hasPlan.value) return false
+
+  activeMeal.value = resolveActiveMealFromRoute()
+  syncChecked(activeMeal.value)
+  openOptionIntroIfNeeded()
+  return true
+}
+
 onMounted(async () => {
   view.value = route.query.view === 'week' ? 'week' : 'today'
+
+  if (planChecked.value) {
+    if (hydrateDietaFromPlan()) {
+      planLoading.value = false
+      void syncAllCheckedMealsIfNeeded()
+      return
+    }
+    planLoading.value = false
+    void loadDailySummary()
+    return
+  }
+
   try {
     await fetchPlan()
-    if (hasPlan.value) {
-      activeMeal.value = resolveActiveMealFromRoute()
-      syncChecked(activeMeal.value)
-      await syncAllCheckedMealsIfNeeded()
-      openOptionIntroIfNeeded()
+    if (hydrateDietaFromPlan()) {
+      void syncAllCheckedMealsIfNeeded()
     } else {
-      await loadDailySummary()
+      void loadDailySummary()
     }
   } finally {
     planLoading.value = false
+  }
+})
+
+watch(planChecked, (checked) => {
+  if (!checked || planFetchLoading.value || !planLoading.value) return
+  if (hydrateDietaFromPlan()) {
+    planLoading.value = false
+    void syncAllCheckedMealsIfNeeded()
+  } else {
+    planLoading.value = false
+    void loadDailySummary()
   }
 })
 

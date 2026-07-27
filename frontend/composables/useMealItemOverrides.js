@@ -38,6 +38,21 @@ function slugify(value) {
     .slice(0, 60)
 }
 
+function normalizeOverrideDisplay(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function resolveOverrideDisplay(item) {
+  if (!item) return ''
+  return item.display || item.label || formatMealItemLabel(item) || ''
+}
+
 export function useMealItemOverrides() {
   const overridesCache = useState('meal-item-overrides-cache', () => ({}))
   const overridesRevision = useState('meal-item-overrides-revision', () => 0)
@@ -77,9 +92,13 @@ export function useMealItemOverrides() {
   function setOverride(mealId, itemKey, substituteItem) {
     const current = { ...getOverrides(mealId) }
     const normalized = normalizeOverrideItem(substituteItem)
+    const existing = current[itemKey] || null
 
     if (!normalized) {
+      if (!existing) return
       delete current[itemKey]
+    } else if (existing && isSameOverride(existing, normalized)) {
+      return
     } else {
       current[itemKey] = normalized
     }
@@ -96,9 +115,12 @@ export function useMealItemOverrides() {
   }
 
   function isSameOverride(a, b) {
+    if (!a && !b) return true
     if (!a || !b) return false
-    const aDisplay = a.display || a.label || ''
-    const bDisplay = b.display || b.label || ''
+
+    const aDisplay = normalizeOverrideDisplay(resolveOverrideDisplay(a))
+    const bDisplay = normalizeOverrideDisplay(resolveOverrideDisplay(b))
+    if (!aDisplay || !bDisplay) return false
     return aDisplay === bDisplay
   }
 

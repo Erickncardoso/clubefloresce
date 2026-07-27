@@ -34,12 +34,14 @@ import NavDietIcon from '~/components/icons/nav/NavDietIcon.vue'
 import NavEvolutionIcon from '~/components/icons/nav/NavEvolutionIcon.vue'
 import NavHomeIcon from '~/components/icons/nav/NavHomeIcon.vue'
 import NavLibraryIcon from '~/components/icons/nav/NavLibraryIcon.vue'
+import { usePatientMealPlan } from '~/composables/usePatientMealPlan'
 import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
 import { isPatientFullAccessActive } from '~/utils/patient-access'
 
 const route = useRoute()
 const router = useRouter()
 const { startNavigation, finishNavigation } = usePatientNavigationLoading()
+const { planChecked } = usePatientMealPlan()
 const { verifiedUser } = useAuthSession()
 const navigating = ref(false)
 const evolucaoLastTab = useState('evolucao-last-tab', () => 'metas')
@@ -122,13 +124,14 @@ async function goRoute(item) {
   if (sameRoute(target)) return
 
   navigating.value = true
-  startNavigation()
+  const skipNavLoader = item.key === 'dieta' && planChecked.value
+  if (!skipNavLoader) startNavigation()
 
   try {
     await navigateTo(target)
   } finally {
     navigating.value = false
-    finishNavigation()
+    if (!skipNavLoader) finishNavigation()
   }
 }
 

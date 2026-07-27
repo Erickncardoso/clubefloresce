@@ -162,7 +162,14 @@ function syncDraft() {
   const current = {}
 
   for (const group of props.groups) {
-    current[group.key] = getOverrideForItem(props.mealId, group.key)
+    const stored = getOverrideForItem(props.mealId, group.key)
+    if (!stored) {
+      current[group.key] = null
+      continue
+    }
+
+    const matched = group.options.find((option) => isSameOverride(stored, option)) || stored
+    current[group.key] = matched
   }
 
   initialOverrides.value = { ...current }
@@ -175,12 +182,16 @@ function areChoicesEqual(first, second) {
   return isSameOverride(first, second)
 }
 
+function resolveDraftChoice(itemKey) {
+  return draftOverrides.value[itemKey] ?? null
+}
+
 function isPrescribedActive(itemKey) {
-  return !draftOverrides.value[itemKey]
+  return !resolveDraftChoice(itemKey)
 }
 
 function isOptionActive(itemKey, option) {
-  return isSameOverride(draftOverrides.value[itemKey], option)
+  return isSameOverride(resolveDraftChoice(itemKey), option)
 }
 
 function selectSubstitution(itemKey, option) {
@@ -191,12 +202,13 @@ function selectSubstitution(itemKey, option) {
 }
 
 function saveChanges() {
-  for (const group of changedGroups.value) {
-    const option = draftOverrides.value[group.key] || null
+  for (const group of props.groups) {
+    const option = resolveDraftChoice(group.key)
     setOverride(props.mealId, group.key, option)
-    emit('substituted', { itemKey: group.key, option })
   }
 
+  initialOverrides.value = { ...draftOverrides.value }
+  emit('substituted', { mealId: props.mealId, changes: changesCount.value })
   close()
 }
 

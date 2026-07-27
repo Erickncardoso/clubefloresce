@@ -76,6 +76,13 @@ export function useMealPlan(nowRef) {
     }),
   )
 
+  function getRawMealById(mealId) {
+    const meals = apiMeals.value
+    const index = meals.findIndex((meal) => meal.id === mealId)
+    if (index < 0) return null
+    return mapApiMeal(meals[index], index, meals.length)
+  }
+
   function getMealById(mealId) {
     overridesRevision.value
     extrasRevision.value
@@ -114,6 +121,7 @@ export function useMealPlan(nowRef) {
     currentMealId,
     currentMeal,
     getMealById,
+    getRawMealById,
     getItemLabels,
     getRawItems,
     formatMealItemLabel,

@@ -2,7 +2,7 @@ import { formatMealItemLabel } from '~/utils/meal-plan-format'
 import { useMealPlan } from '~/composables/useMealPlan'
 
 export function useMealSubstitutions() {
-  const { planRecord, getMealById } = useMealPlan()
+  const { planRecord, getRawMealById } = useMealPlan()
 
   const pdfSource = computed(() => ({
     fileName: planRecord.value?.fileName || 'plano-alimentar.pdf',
@@ -10,7 +10,7 @@ export function useMealSubstitutions() {
   }))
 
   function getSubstitutionGroupsForMeal(mealId) {
-    const meal = getMealById(mealId)
+    const meal = getRawMealById(mealId)
     if (!meal) return []
 
     return (meal.items || [])

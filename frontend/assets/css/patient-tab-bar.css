@@ -52,7 +52,8 @@ html.cf-safari-inline.cf-pwa-standalone.cf-ios {
 
   display: grid;
   grid-template-columns: repeat(var(--patient-nav-columns, 5), minmax(0, 1fr));
-  align-items: center;
+  /* Ícones no topo da faixa de conteúdo — safe-area fica só embaixo, sem “faixa branca” extra */
+  align-items: start;
 
   padding:
     6px
@@ -202,6 +203,34 @@ body.keyboard-open:has(.patient-nav) .patient-page:not(.patient-page--no-tab) {
     border-left: 1px solid rgba(23, 32, 20, 0.08);
     border-right: 1px solid rgba(23, 32, 20, 0.08);
     border-radius: 20px 20px 0 0;
+  }
+}
+
+/* iPhones compactos — barra mais baixa; home indicator continua no padding inferior */
+@media (max-height: 740px) {
+  :root {
+    --patient-nav-height: 54px;
+    --patient-nav-content-gap: 16px;
+  }
+
+  .patient-nav {
+    padding-top: 4px;
+  }
+
+  .patient-nav__item {
+    min-height: 46px;
+    padding: 4px 2px;
+  }
+
+  .patient-nav__icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .patient-nav__bella-icon {
+    width: 42px;
+    height: 42px;
+    transform: translateY(-6px);
   }
 }
 

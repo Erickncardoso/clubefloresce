@@ -34,34 +34,46 @@ export function usePatientMealPlan() {
 
   const hasPlan = computed(() => Boolean(planRecord.value?.plan?.meals?.length))
 
+  let fetchPromise = null
+
   async function fetchPlan() {
-    if (!hasPatientSession()) {
-      planRecord.value = null
-      planChecked.value = true
-      return
-    }
+    if (fetchPromise) return fetchPromise
 
-    loading.value = true
-    error.value = ''
-    try {
-      const res = await $fetch(`${config.public.apiBase}/meal-plan/me`, authFetchInit({
-        timeout: 12_000,
-      }))
-      planRecord.value = res.plan ?? null
-
-      const planName = planRecord.value?.patientName || planRecord.value?.plan?.patientName
-      if (planName) {
-        const { profile, persistSession } = usePatientApp()
-        const currentName = profile.value.name?.trim() || ''
-        if (!currentName || currentName.toLowerCase() === 'paciente') {
-          persistSession({ name: planName })
-        }
+    fetchPromise = (async () => {
+      if (!hasPatientSession()) {
+        planRecord.value = null
+        planChecked.value = true
+        return
       }
-    } catch {
-      planRecord.value = null
+
+      loading.value = true
+      error.value = ''
+      try {
+        const res = await $fetch(`${config.public.apiBase}/meal-plan/me`, authFetchInit({
+          timeout: 12_000,
+        }))
+        planRecord.value = res.plan ?? null
+
+        const planName = planRecord.value?.patientName || planRecord.value?.plan?.patientName
+        if (planName) {
+          const { profile, persistSession } = usePatientApp()
+          const currentName = profile.value.name?.trim() || ''
+          if (!currentName || currentName.toLowerCase() === 'paciente') {
+            persistSession({ name: planName })
+          }
+        }
+      } catch {
+        planRecord.value = null
+      } finally {
+        loading.value = false
+        planChecked.value = true
+      }
+    })()
+
+    try {
+      await fetchPromise
     } finally {
-      loading.value = false
-      planChecked.value = true
+      fetchPromise = null
     }
   }
 
