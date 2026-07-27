@@ -768,3 +768,50 @@ model WhatsappMediaArchive {
   @@unique([userId, messageId])
   @@index([userId, chatJid])
 }
+
+enum KnowledgeSourceType {
+  lesson
+  ebook
+  course
+  post
+  meal_plan
+  checkin
+  profile
+  food
+  nutri_note
+}
+
+model KnowledgeChunk {
+  id          String              @id @default(uuid())
+  content     String              @db.Text
+  contentHash String
+  sourceType  KnowledgeSourceType
+  sourceId    String
+  userId      String?
+  title       String
+  url         String?
+  metadata    Json?
+  searchText  String              @db.Text
+  chunkIndex  Int                 @default(0)
+  indexedAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([sourceType, sourceId, userId, chunkIndex])
+  @@index([sourceType, sourceId])
+  @@index([userId, sourceType])
+}
+
+model RagQueryLog {
+  id              String   @id @default(uuid())
+  userId          String?
+  query           String   @db.Text
+  expandedQueries Json?
+  chunkIds        Json?
+  topScore        Float?
+  matched         Boolean  @default(false)
+  topic           String?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([matched, createdAt])
+}

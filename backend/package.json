@@ -19,7 +19,11 @@
     "patient:dev": "ts-node src/scripts/ensure-patient-dev.ts",
     "email:check-dns": "node scripts/check-email-dns.mjs",
     "whatsapp:backfill-messages": "ts-node src/scripts/backfill-whatsapp-messages.ts",
-    "meal-plan:backfill-foods": "ts-node src/scripts/backfill-meal-plan-food-enrichment.ts"
+    "meal-plan:backfill-foods": "ts-node src/scripts/backfill-meal-plan-food-enrichment.ts",
+    "rag:backfill": "ts-node src/scripts/backfill-knowledge-index.ts",
+    "rag:eval": "ts-node src/scripts/rag-eval.ts",
+    "rag:status": "ts-node src/scripts/rag-status.ts",
+    "rag:enable-pgvector": "ts-node src/scripts/enable-pgvector.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
