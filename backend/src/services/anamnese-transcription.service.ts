@@ -1,6 +1,8 @@
 import { readEnv } from "../utils/env";
 import { OpenAIClient } from "./bella/openai.client";
 import { getBellaModels } from "./bella/model-config";
+import { buildAiKnowledgeContext } from "./ai/ai-knowledge-context";
+import { processPdfBlocksSequentially, splitPlainTextIntoBlocks } from "./ai/pdf-block-reader";
 
 const OPENAI_TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions";
 const OPENAI_TRANSCRIBE_TIMEOUT_MS = Number(process.env.OPENAI_TRANSCRIBE_TIMEOUT_MS || 120_000);
@@ -48,6 +50,7 @@ export class AnamneseTranscriptionService {
   }
 
   async interpretAnamnese(input: {
+    userId?: string;
     title?: string;
     content: string;
     patientName?: string;
@@ -71,22 +74,93 @@ export class AnamneseTranscriptionService {
       "Não invente dados que não estejam no texto. Não use markdown pesado.",
     ].join(" ");
 
+    const knowledgeBlock = input.userId
+      ? await buildAiKnowledgeContext({
+        userId: input.userId,
+        query: `${input.title || "anamnese"} ${content.slice(0, 500)}`,
+        topic: "anamnese",
+        sourceTypes: ["profile", "checkin", "meal_plan", "nutri_note"],
+      })
+      : "";
+
+    const blocks = splitPlainTextIntoBlocks(content, "Trecho da anamnese");
+
+    if (blocks.length <= 1) {
+      return this.interpretAnamneseSingle({
+        system,
+        knowledgeBlock,
+        input,
+        content,
+        models,
+      });
+    }
+
+    const partials = await processPdfBlocksSequentially(blocks, async (block) => {
+      const partial = await this.interpretAnamneseSingle({
+        system: `${system} Analise apenas ${block.label}.`,
+        knowledgeBlock: "",
+        input,
+        content: block.text,
+        models,
+        maxTokens: 800,
+      });
+      return `[${block.label}]\n${partial.interpretation}`;
+    });
+
+    const synthesis = await this.openai.complete({
+      model: models.chat,
+      messages: [
+        {
+          role: "system",
+          content: `${system}\n\nConsolide as interpretações parciais abaixo em uma única interpretação coerente.`,
+        },
+        {
+          role: "user",
+          content: [
+            knowledgeBlock || null,
+            input.patientName ? `Paciente: ${input.patientName}` : null,
+            input.title ? `Título: ${input.title}` : null,
+            "",
+            partials.join("\n\n"),
+          ].filter((line) => line != null).join("\n"),
+        },
+      ],
+      temperature: 0.3,
+      maxTokens: 1400,
+    });
+
+    const text = String(synthesis.content || "").trim();
+    if (!text) {
+      throw new Error("A interpretação voltou vazia. Tente novamente.");
+    }
+    return { interpretation: text };
+  }
+
+  private async interpretAnamneseSingle(input: {
+    system: string;
+    knowledgeBlock?: string;
+    input: { title?: string; patientName?: string };
+    content: string;
+    models: ReturnType<typeof getBellaModels>;
+    maxTokens?: number;
+  }): Promise<{ interpretation: string }> {
     const userPrompt = [
-      input.patientName ? `Paciente: ${input.patientName}` : null,
-      input.title ? `Título: ${input.title}` : null,
+      input.knowledgeBlock || null,
+      input.input.patientName ? `Paciente: ${input.input.patientName}` : null,
+      input.input.title ? `Título: ${input.input.title}` : null,
       "",
       "Anamnese:",
-      content.slice(0, 12000),
+      input.content.slice(0, 12000),
     ].filter((line) => line != null).join("\n");
 
     const result = await this.openai.complete({
-      model: models.chat,
+      model: input.models.chat,
       messages: [
-        { role: "system", content: system },
+        { role: "system", content: input.system },
         { role: "user", content: userPrompt },
       ],
       temperature: 0.3,
-      maxTokens: 1200,
+      maxTokens: input.maxTokens || 1200,
     });
 
     const text = String(result.content || "").trim();
