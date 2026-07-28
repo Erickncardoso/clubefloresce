@@ -22,3 +22,12 @@ cliente/.tunnel-public-url
 
 .DS_Store
 Thumbs.db
+
+# Markdown (notas, docs locais, skills)
+*.md
+
+# Skills/agent tooling local (cópias Cursor/Claude — não versionar)
+.agents/skills/impeccable/
+.codex/
+.cursor/skills/impeccable/
+.claude/skills/impeccable/
