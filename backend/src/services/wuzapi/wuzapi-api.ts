@@ -68,6 +68,7 @@ export class WuzapiApi {
 
   setWebhook(body: { webhook: string; events?: string[] }) {
     return wuzapiHttp.postUser(this.userId, "/webhook", {
+      webhook: body.webhook,
       webhookurl: body.webhook,
       events: body.events,
     });
@@ -75,6 +76,7 @@ export class WuzapiApi {
 
   updateWebhook(body: { webhook: string; events?: string[]; Active?: boolean }) {
     return wuzapiHttp.putUser(this.userId, "/webhook", {
+      webhook: body.webhook,
       webhookurl: body.webhook,
       events: body.events,
       Active: body.Active,

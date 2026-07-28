@@ -5,6 +5,8 @@ export type ApiError = Error & {
   data?: { message?: string };
 };
 
+const API_TIMEOUT_MS = 15000;
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit & { token?: string | null } = {},
@@ -22,20 +24,31 @@ export async function apiFetch<T>(
     mergedHeaders.set('Authorization', `Bearer ${token}`);
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
   let response: Response;
   try {
     response = await fetch(url, {
       ...rest,
       headers: mergedHeaders,
+      signal: controller.signal,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        `A API demorou para responder (${getApiBase()}). Tente novamente em instantes.`,
+      );
+    }
     if (/network request failed|failed to connect|timed out/i.test(message)) {
       throw new Error(
         `Sem conexão com a API (${getApiBase()}). Verifique sua internet e tente novamente.`,
       );
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const text = await response.text();

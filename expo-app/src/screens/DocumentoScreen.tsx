@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { WebView } from 'react-native-webview';
+import DocumentViewer from '@/components/document/DocumentViewer';
 import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import CfButton from '@/components/ui/CfButton';
-import LoadingScreen from '@/components/ui/LoadingScreen';
-import { resolveDocumentSrcFromRoute, toAbsoluteDocumentUrl } from '@/lib/patient-document';
+import { resolveDocumentSrcFromRoute } from '@/lib/patient-document';
 import { colors, fonts, spacing } from '@/theme/tokens';
 
 export default function DocumentoScreen() {
@@ -26,14 +25,10 @@ export default function DocumentoScreen() {
     [params],
   );
 
-  const viewerUrl = documentSrc
-    ? `https://docs.google.com/viewer?url=${encodeURIComponent(toAbsoluteDocumentUrl(documentSrc))}&embedded=true`
-    : '';
-
   if (!documentSrc) {
     return (
       <PatientShell withTabClearance={false}>
-        <PatientHeader title={pageTitle} showBack backTo={backTo} showBell={false} showMenu={false} />
+        <PatientHeader title={pageTitle} showBack backTo={backTo} showBell={false} />
         <View style={styles.state}>
           <Text style={styles.stateText}>Documento indisponível.</Text>
           <CfButton label="Voltar" variant="ghost" onPress={() => router.replace(backTo as never)} />
@@ -44,27 +39,13 @@ export default function DocumentoScreen() {
 
   return (
     <PatientShell withTabClearance={false}>
-      <PatientHeader title={pageTitle} showBack backTo={backTo} showBell={false} showMenu={false} />
-      {viewerUrl ? (
-        <WebView
-          source={{ uri: viewerUrl }}
-          style={styles.web}
-          originWhitelist={['*']}
-          javaScriptEnabled
-          startInLoadingState
-          renderLoading={() => <LoadingScreen />}
-        />
-      ) : (
-        <View style={styles.state}>
-          <Text style={styles.stateText}>Link do documento inválido ou expirado.</Text>
-        </View>
-      )}
+      <PatientHeader title={pageTitle} showBack backTo={backTo} showBell={false} />
+      <DocumentViewer documentSrc={documentSrc} title={pageTitle} />
     </PatientShell>
   );
 }
 
 const styles = StyleSheet.create({
-  web: { flex: 1, backgroundColor: '#fff' },
   state: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing[5], gap: spacing[4] },
   stateText: { fontFamily: fonts.regular, color: colors.textMuted, textAlign: 'center' },
 });

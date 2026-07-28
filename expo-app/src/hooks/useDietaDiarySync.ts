@@ -26,6 +26,7 @@ export type DailySummary = {
     proteinG?: number;
     fatG?: number;
     imageUrl?: string | null;
+    createdAt?: string;
     items?: unknown[];
   }>;
 };
@@ -75,5 +76,28 @@ export function useDietaDiarySync() {
     syncTimers.current.set(key, timer);
   }, [syncMealCheck]);
 
-  return { syncMealCheck, queueSyncMealCheck };
+  const resyncAllCheckedMeals = useCallback(async (
+    getMealById: (mealId: string) => MappedMealPlanMeal | null,
+    mealIds: string[],
+    loadCheckedFn: (mealId: string, count: number) => Promise<boolean[]> | boolean[],
+    countDoneFn: (states: boolean[]) => number,
+  ) => {
+    let lastSummary: DailySummary | null = null;
+
+    for (const mealId of mealIds) {
+      const meal = getMealById(mealId);
+      if (!meal?.items?.length && !meal?.itemLabels?.length) continue;
+
+      const count = meal.itemLabels?.length || meal.items?.length || 0;
+      const states = await Promise.resolve(loadCheckedFn(mealId, count));
+      if (!countDoneFn(states)) continue;
+
+      const summary = await syncMealCheck(mealId, meal, states);
+      if (summary) lastSummary = summary;
+    }
+
+    return lastSummary;
+  }, [syncMealCheck]);
+
+  return { syncMealCheck, queueSyncMealCheck, resyncAllCheckedMeals };
 }

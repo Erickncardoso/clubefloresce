@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
-import { AlertCircle, ArrowLeft } from 'lucide-react-native';
+import { AlertCircle, ArrowLeft, Lock, Mail } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CfButton from '@/components/ui/CfButton';
 import FormField from '@/components/ui/FormField';
@@ -50,6 +50,7 @@ export default function EsqueciSenhaScreen() {
                 <Text style={styles.sub}>Informe seu e-mail. O link expira em 10 minutos.</Text>
                 <FormField
                   label="E-mail"
+                  leftIcon={Mail}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"

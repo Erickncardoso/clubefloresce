@@ -4,8 +4,12 @@ import { prisma } from "../lib/prisma";
 import { RegistrationRequestRepository } from "../repositories/registration-request.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { dispatchEmail, emailService } from "./email/email.service";
-import { getPatientAppUrl } from "../utils/email-config";
+import { getPatientCheckoutOpenUrl } from "../utils/email-config";
 import { isValidWhatsappPhone } from "../utils/phone";
+import {
+  dispatchRegistrationCheckoutWhatsapp,
+  registrationCheckoutWhatsappService,
+} from "./registration-checkout-whatsapp.service";
 
 const requestRepo = new RegistrationRequestRepository();
 const userRepo = new UserRepository();
@@ -108,7 +112,7 @@ export class RegistrationRequestService {
       status: RegistrationRequestStatus.APROVADO,
     });
 
-    const checkoutUrl = `${getPatientAppUrl()}/assinatura`;
+    const checkoutUrl = getPatientCheckoutOpenUrl("registration-email");
 
     dispatchEmail(
       emailService.sendRegistrationWelcomeCheckout({
@@ -117,6 +121,13 @@ export class RegistrationRequestService {
         checkoutUrl,
       }),
       "boas-vindas checkout",
+    );
+
+    dispatchRegistrationCheckoutWhatsapp(
+      registrationCheckoutWhatsappService.sendCheckoutLink({
+        name,
+        phone: phoneRaw,
+      }),
     );
 
     dispatchEmail(

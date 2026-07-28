@@ -218,6 +218,7 @@
 
 .chat-item.active {
   background: #f0f2f5;
+  box-shadow: inset 3px 0 0 #008069;
 }
 
 .chat-avatar {

@@ -44,6 +44,16 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "apiBase": "auto",
+      "patientWebUrl": "https://app.nutrisabellajardim.com.br",
+      "bunnyStreamLibraryId": "683348",
+      "router": {},
+      "eas": {
+        "projectId": "ae903e70-8c1b-4f17-95ff-fd603678340b"
+      }
+    },
+    "owner": "erickncardoso"
   }
 }

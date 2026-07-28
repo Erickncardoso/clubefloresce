@@ -4,10 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, type ApiError } from '@/lib/api';
 import {
   clearStoredSession,
   getStoredToken,
@@ -67,11 +68,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  const userRef = useRef<PatientUser | null>(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const refreshUser = useCallback(async () => {
     const activeToken = token || (await getStoredToken());
     if (!activeToken) {
       setUser(null);
+      userRef.current = null;
       return null;
     }
 
@@ -81,16 +88,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearStoredSession();
         setToken(null);
         setUser(null);
+        userRef.current = null;
         return null;
       }
       setUser(me);
+      userRef.current = me;
       if (me.id) await saveStoredUserId(me.id);
       return me;
-    } catch {
-      await clearStoredSession();
-      setToken(null);
-      setUser(null);
-      return null;
+    } catch (err) {
+      const status = (err as ApiError)?.status;
+      if (status === 401 || status === 403) {
+        await clearStoredSession();
+        setToken(null);
+        setUser(null);
+        userRef.current = null;
+        return null;
+      }
+      return userRef.current;
     }
   }, [token]);
 
@@ -161,13 +175,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setToken(stored);
-      await refreshUser();
-      if (!cancelled) setBooting(false);
+      try {
+        const me = await apiFetch<PatientUser>('/auth/me', { token: stored });
+        if (cancelled) return;
+        if (me.role === 'PACIENTE') {
+          setUser(me);
+          userRef.current = me;
+          if (me.id) await saveStoredUserId(me.id);
+        } else {
+          await clearStoredSession();
+          setToken(null);
+        }
+      } catch (err) {
+        const status = (err as ApiError)?.status;
+        if (status === 401 || status === 403) {
+          await clearStoredSession();
+          setToken(null);
+          setUser(null);
+          userRef.current = null;
+        }
+      } finally {
+        if (!cancelled) setBooting(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [refreshUser]);
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await apiFetch<LoginResult>('/auth/login', {
@@ -261,7 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resolvePostLoginRoute,
     changeFirstAccessPassword,
     deleteAccount,
-    hasSession: Boolean(token),
+    hasSession: Boolean(token || user),
   }), [
     booting,
     changeFirstAccessPassword,

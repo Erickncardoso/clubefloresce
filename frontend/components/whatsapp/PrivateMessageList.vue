@@ -31,7 +31,7 @@
 
       <div
         v-else
-      v-memo="[msg.id, msg.text, msg.mediaUrl, msg.deliveryStatus, msg.reactions?.length, actionMenuMessageId === msg.id, actionMenuMode, isMessagePinned(msg)]"
+      v-memo="[msg.id, msg.text, msg.fromMe, msg.mediaUrl, msg.deliveryStatus, msg.reactions?.length, actionMenuMessageId === msg.id, actionMenuMode, isMessagePinned(msg)]"
       :data-message-index="msg.__timelineMsgIndex ?? (windowStartIndex + msgIndex)"
       :data-message-id="String(msg.id)"
       :data-message-provider-id="String(msg.normalizedMessageId || msg.messageid || '')"
@@ -48,7 +48,16 @@
       @touchend="onTouchEnd"
       @contextmenu.prevent="onContextMenu($event, msg)"
     >
-      <!-- Sem avatar nem nome de remetente em chat privado -->
+      <div v-if="!msg.fromMe" class="msg-sender-avatar-wrap" aria-hidden="true">
+        <img
+          v-if="contactAvatarUrl"
+          :src="contactAvatarUrl"
+          class="msg-sender-avatar"
+          alt=""
+        />
+        <span v-else class="msg-sender-avatar-fallback">{{ contactInitial }}</span>
+      </div>
+
       <div
         class="message-bubble"
         :class="{
@@ -528,6 +537,12 @@ const isMessagePinned = (msg) => isMessageCurrentlyPinned(msg, props.pinnedMessa
 const displayMessages = computed(() =>
   expandMessagesWithTimeline(props.messages, props.pinTimelineEvents)
 )
+
+const contactInitial = computed(() => {
+  const name = String(props.contactDisplayName || '').trim()
+  if (!name) return '?'
+  return name.charAt(0).toUpperCase()
+})
 
 const {
   visibleItems: visibleMessages,

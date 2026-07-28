@@ -2,6 +2,7 @@ import { CourseRepository } from "../repositories/course.repository";
 import { Course, Module, Lesson } from "@prisma/client";
 import { lessonSummaryService, shouldScheduleLessonTranscriptionSync } from "./lesson-summary.service";
 import { lessonTranscriptionService } from "./lesson-transcription.service";
+import { scheduleRagDelete, scheduleRagReindex } from "./rag/rag-hooks";
 import { fetchBunnyVideoPlayMetadata, invalidateBunnyVideoPlayMetadataCache } from "../utils/media/bunny-play-data";
 import { parseBunnyStreamVideoId } from "../utils/media/bunny-config";
 
@@ -77,12 +78,16 @@ export class CourseService {
   }
 
   async createCourse(data: any): Promise<Course> {
-    return courseRepository.create(data);
+    const course = await courseRepository.create(data);
+    scheduleRagReindex({ type: "course", id: course.id });
+    return course;
   }
 
   async updateCourse(id: string, userId: string, data: any): Promise<Course> {
     await this.assertCourseOwner(id, userId);
-    return courseRepository.update(id, data);
+    const course = await courseRepository.update(id, data);
+    scheduleRagReindex({ type: "course", id: course.id });
+    return course;
   }
 
   async addModule(courseId: string, userId: string, data: any): Promise<Module> {
@@ -107,11 +112,13 @@ export class CourseService {
     if (shouldScheduleLessonTranscriptionSync(lesson.videoUrl)) {
       lessonTranscriptionService.scheduleLessonTranscriptionSync(lesson.id, lesson.videoUrl);
     }
+    scheduleRagReindex({ type: "lesson", id: lesson.id });
     return lesson;
   }
 
   async deleteCourse(id: string, userId: string): Promise<Course> {
     await this.assertCourseOwner(id, userId);
+    scheduleRagDelete("course", id);
     return courseRepository.delete(id);
   }
 
@@ -143,6 +150,7 @@ export class CourseService {
     ) {
       lessonTranscriptionService.scheduleLessonTranscriptionSync(lessonId, videoUrl);
     }
+    scheduleRagReindex({ type: "lesson", id: lessonId });
     return lesson;
   }
 
@@ -175,6 +183,7 @@ export class CourseService {
 
   async deleteLesson(lessonId: string, userId: string): Promise<Lesson> {
     await this.assertLessonOwner(lessonId, userId);
+    scheduleRagDelete("lesson", lessonId);
     return courseRepository.deleteLesson(lessonId);
   }
 

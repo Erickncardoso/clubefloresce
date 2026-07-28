@@ -72,7 +72,7 @@
 
         <!-- Main: Janela de Mensagens -->
         <main class="chat-main" :style="chatWallpaperStyle">
-          <WhatsappWebEmpty v-if="!selectedChat" />
+          <WhatsappWebEmpty v-if="!hasOpenChat" />
 
           <div
             v-else
@@ -575,6 +575,7 @@ import {
   beginInitialSyncWatch,
   isInitialSyncGentleMode,
   ensureWhatsappProviderKind,
+  isWhatsappWuzapiProvider,
 } from '~/composables/whatsapp/useWhatsappInitialSync.js'
 import { useWhatsappContacts } from '~/composables/whatsapp/useWhatsappContacts.js'
 import { useWhatsappMessages } from '~/composables/whatsapp/useWhatsappMessages.js'
@@ -709,6 +710,7 @@ const refreshSidebarChats = () => {
   return loadChats(true)
 }
 
+const hasOpenChat = computed(() => Boolean(selectedChat.value))
 const selectedChatHasListPreview = computed(() => chatHasListPreview(selectedChat.value || {}))
 
 const handleRetryChatHistorySync = () => {
@@ -2309,16 +2311,19 @@ onMounted(async () => {
   await restoreContactsFromCache()
   startRealtimeSync()
 
-  // Vai direto na lista fresca da UAZAPI — o cache do DB local mistura contatos
-  // sem preview ("Nenhuma mensagem") e causa o flash de chats aleatórios no reload.
+  // WuzAPI: cache local + lightSync — refresh=1 e /session/history disparam sync no celular.
   loadingChats.value = true
   try {
-    await loadChats(true, { silent: true, gentle: false })
+    await loadChats(false, { silent: true, preferCache: true, gentle: false })
+    if (!isWhatsappWuzapiProvider() && !(chats.value || []).length) {
+      await loadChats(true, { silent: true, gentle: false })
+    } else if (isWhatsappWuzapiProvider()) {
+      void loadChats(false, { silent: true, lightSync: true, gentle: false })
+    }
   } finally {
     loadingChats.value = false
   }
-  // Se ainda vazio (history sync no celular), tenta de novo em breve
-  if (!(chats.value || []).length && connected) {
+  if (!(chats.value || []).length && connected && !isWhatsappWuzapiProvider()) {
     const retryLoadChats = async () => {
       await loadChats(true, { silent: true, gentle: false })
     }
@@ -2343,6 +2348,10 @@ onMounted(async () => {
 })
 
 const onInitialSyncComplete = () => {
+  if (isWhatsappWuzapiProvider()) {
+    loadChats(false, { silent: true, lightSync: true, gentle: false }).catch(() => {})
+    return
+  }
   loadChats(true, { silent: true, gentle: false }).catch(() => {})
 }
 

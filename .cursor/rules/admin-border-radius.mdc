@@ -1,0 +1,43 @@
+---
+description: Arredondamento padrão do painel admin — inputs, botões e cards. Obrigatório em todo UI novo do nutricionista.
+alwaysApply: true
+---
+
+# Clube Florescer — Arredondamento admin (OBRIGATÓRIO)
+
+## Tokens (fonte de verdade)
+
+Definidos em `frontend/assets/css/fonts.css`:
+
+| Token | Uso |
+|-------|-----|
+| `--cf-radius-control` | **Inputs, textareas, selects, botões E cards/painéis** — padrão único do admin |
+| `--cf-radius-pill` | Chips pill / badges circulares |
+| `--cf-radius-xs` | Ícones internos compactos (raro) |
+| `--cf-radius-surface` | **Não usar no admin** — reservado ao app paciente; no nutri tudo = `--cf-radius-control` |
+
+Aplicação global: `frontend/assets/css/admin-rounding.css` (já com `!important`).
+
+## Regras para agentes
+
+1. **NUNCA** hardcodar `border-radius: 10px`, `14px`, `12px` etc. em componentes do **painel admin** (`frontend/`, aba paciente, modais nutri).
+2. **Inputs, botões e cards** usam o **mesmo** token: `--cf-radius-control`. Cards **não** são mais arredondados que botões.
+3. **Formulários admin:** wrapper `class="field field--float"`, `<label>` antes do `<input>`/`<textarea>` — label flutuante na borda superior (ver `admin-pages.css`).
+4. Use classes existentes (`.btn-primary`, `.admin-shell-card`, `.field input`) dentro de `.admin-shell` ou `.dashboard-layout` — o CSS global aplica o raio.
+5. Se precisar de estilo local, use **`border-radius: var(--cf-radius-control)`** — nunca px fixo nem `--cf-radius-surface`.
+6. **NÃO** sobrescrever com `border-radius: … !important` em componentes scoped (quebra o padrão).
+7. **NÃO** desativar `corner-shape: squircle` nos controles admin — faz parte do design system.
+8. App **paciente** (`cliente/`) pode ter regras próprias; admin estende `frontend/`.
+
+## Onde já está coberto
+
+- `.admin-shell input/textarea/select` → `--cf-radius-control`
+- `.admin-shell-card`, `.anw-*`, `.pawork-card`, `.modal-card` → `--cf-radius-control`
+- `.dashboard-layout .btn-primary/.btn-secondary` → `--cf-radius-control`
+- Menus ⋮ em listas → `SharedCfTileActionsMenu` (animação em `CfTileActionsMenu.vue`; ver também `regras.md` seção 3)
+
+## Checklist antes de entregar UI admin
+
+- [ ] Cards, inputs e botões com o **mesmo** arredondamento na tela
+- [ ] Nenhum `10px` / `14px` / `--cf-radius-surface` hardcoded em UI admin
+- [ ] Nenhum override scoped com `border-radius !important`

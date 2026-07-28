@@ -106,47 +106,47 @@ export const scrollToBottom = ({ resetPin = true } = {}) => {
   })
 }
 
+const isDomScrollAtBottom = (el) => {
+  if (!el) return false
+  const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
+  if (maxScroll <= 4) return true
+  return (maxScroll - el.scrollTop) <= 12
+}
+
 /** Ao abrir conversa: rola até a mensagem mais recente e evita paginação antiga prematura. */
 export const scrollToBottomOnChatOpen = () => {
   const token = ++chatOpenScrollToken
   // Janela maior: evita load-older + banner “Sincronizando” logo ao abrir o chat.
-  suppressChatNearTopLoad(2800)
+  suppressChatNearTopLoad(5000)
   userPinnedAwayFromBottom = false
-  lastScrollTop = 0
 
   const jumpNow = () => {
     const el = chatBodyRef.value
     if (!el) return false
-    el.scrollTop = el.scrollHeight
+    const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
+    el.scrollTop = maxScroll
     lastScrollTop = el.scrollTop
-    const maxScroll = el.scrollHeight - el.clientHeight
-    return maxScroll <= 4 || (maxScroll - el.scrollTop) <= 8
+    return isDomScrollAtBottom(el)
   }
 
-  // Síncrono quando o DOM já existe — evita 1 frame no topo.
-  jumpNow()
-
-  const attempt = (remaining = 14) => {
+  const attempt = (remaining = 12) => {
     if (token !== chatOpenScrollToken) return
-    scrollToBottom({ resetPin: true })
+    if (jumpNow()) return
     if (remaining <= 0) return
 
     const retry = () => {
       if (token !== chatOpenScrollToken) return
-      const el = chatBodyRef.value
-      if (!el) {
-        if (remaining > 0) window.setTimeout(() => attempt(remaining - 1), 40)
-        return
-      }
       if (jumpNow()) return
       attempt(remaining - 1)
     }
 
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => requestAnimationFrame(retry))
-    } else {
-      window.setTimeout(retry, 50)
-    }
+    nextTick(() => {
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => requestAnimationFrame(retry))
+      } else {
+        window.setTimeout(retry, 40)
+      }
+    })
   }
 
   attempt()
@@ -155,7 +155,7 @@ export const scrollToBottomOnChatOpen = () => {
   if (typeof window !== 'undefined' && typeof ResizeObserver !== 'undefined') {
     const el = chatBodyRef.value
     if (el) {
-      let left = 8
+      let left = 16
       const ro = new ResizeObserver(() => {
         if (token !== chatOpenScrollToken) {
           ro.disconnect()
@@ -170,9 +170,48 @@ export const scrollToBottomOnChatOpen = () => {
         if (left <= 0) ro.disconnect()
       })
       ro.observe(el)
-      window.setTimeout(() => ro.disconnect(), 2500)
+      window.setTimeout(() => ro.disconnect(), 4500)
     }
   }
+}
+
+/** Mantém scroll no fundo até o DOM estabilizar (abertura de chat). */
+export const settleChatOpenScroll = (onSettled) => {
+  suppressChatNearTopLoad(5000)
+  userPinnedAwayFromBottom = false
+  scrollToBottomOnChatOpen()
+
+  let attempts = 0
+  const maxAttempts = 30
+
+  const tick = () => {
+    const el = chatBodyRef.value
+    if (el) {
+      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
+      el.scrollTop = maxScroll
+      lastScrollTop = el.scrollTop
+    }
+
+    attempts += 1
+    if (!el || isDomScrollAtBottom(el) || attempts >= maxAttempts) {
+      onSettled?.()
+      return
+    }
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(tick))
+    } else {
+      window.setTimeout(tick, 32)
+    }
+  }
+
+  nextTick(() => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(tick))
+    } else {
+      tick()
+    }
+  })
 }
 
 export const stickChatScrollToBottomIfNeeded = () => {

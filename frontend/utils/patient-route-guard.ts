@@ -5,6 +5,7 @@ import {
   isPatientAccessBlockedError,
   isPatientLimitedAccessActive,
   isPatientLimitedAppPath,
+  isPatientSelfServicePath,
 } from '~/utils/patient-access'
 
 export const PATIENT_PUBLIC_PATHS = [
@@ -17,7 +18,11 @@ export const PATIENT_PUBLIC_PATHS = [
 ]
 
 export function isPatientPublicPath(path?: string | null): boolean {
-  return PATIENT_PUBLIC_PATHS.includes(String(path || ''))
+  const normalized = String(path || '').split('?')[0]
+  if (PATIENT_PUBLIC_PATHS.includes(normalized)) return true
+  // Política/termos acessíveis no cadastro e sem login (exigência App Store).
+  if (normalized === '/legal' || normalized.startsWith('/legal/')) return true
+  return false
 }
 
 /** Rotas que exigem assinatura paga ou liberação manual ativa. */
@@ -49,11 +54,12 @@ export async function fetchFreshPatientUser() {
 
 /**
  * Valida sessão no backend e bloqueia rotas sem acesso pago/liberado.
- * FREE liberado: só dieta/metas (e rotas básicas).
+ * FREE liberado: só início e conta (demais rotas → /inicio).
  * Retorna destino de redirect ou null se a rota pode seguir.
  */
 export async function resolvePatientRouteAccess(path: string): Promise<string | null> {
   if (!requiresPatientPaidAccess(path)) return null
+  if (isPatientSelfServicePath(path)) return null
 
   try {
     const user = await fetchFreshPatientUser()
@@ -63,7 +69,10 @@ export async function resolvePatientRouteAccess(path: string): Promise<string | 
     const accessExpiresAt = user.accessExpiresAt as string | Date | null | undefined
     const approvalEmailSentAt = user.approvalEmailSentAt as string | Date | null | undefined
 
-    if (isPatientAppAccessBlocked(plan, accessExpiresAt, approvalEmailSentAt)) {
+    if (
+      !isPatientSelfServicePath(path)
+      && isPatientAppAccessBlocked(plan, accessExpiresAt, approvalEmailSentAt)
+    ) {
       return '/assinatura'
     }
 
@@ -71,7 +80,7 @@ export async function resolvePatientRouteAccess(path: string): Promise<string | 
       isPatientLimitedAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
       && !isPatientLimitedAppPath(path)
     ) {
-      return '/dieta'
+      return '/inicio'
     }
 
     return null
@@ -79,7 +88,7 @@ export async function resolvePatientRouteAccess(path: string): Promise<string | 
     const status = (err as { statusCode?: number; status?: number })?.statusCode
       ?? (err as { status?: number })?.status
     if (status === 401) return '/'
-    if (isPatientAccessBlockedError(err)) return '/assinatura'
-    return '/assinatura'
+    if (isPatientAccessBlockedError(err) && !isPatientSelfServicePath(path)) return '/assinatura'
+    return '/'
   }
 }

@@ -22,6 +22,8 @@ export const loadingOlderMessages = ref(false)
 export const chatMessagesHasMore = ref(false)
 /** Incrementa a cada selectChat; evita resposta lenta de um chat sobrescrever o ativo. */
 export const selectChatLoadSeq = ref(0)
+/** true entre selectChat e o primeiro paint do thread — scroll deve ir ao fundo. */
+export const chatOpeningPending = ref(false)
 export const chatBodyRef = ref(null)
 
 // ─── Input / sending ─────────────────────────────────────────────────────────
@@ -161,6 +163,7 @@ export const clearWhatsappSessionState = () => {
   loadingOlderMessages.value = false
   chatMessagesHasMore.value = false
   selectChatLoadSeq.value += 1
+  chatOpeningPending.value = false
   newMessage.value = ''
   sending.value = false
   replyingTo.value = null

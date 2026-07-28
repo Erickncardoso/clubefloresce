@@ -1,12 +1,14 @@
 import { Router } from "express";
 import multer from "multer";
 import { PatientController } from "../controllers/patient.controller";
+import { CommunityBlockController } from "../controllers/community-block.controller";
 import { authenticate, authorize } from "../middleware/auth.middleware";
 import { createPdfUpload } from "../utils/pdf-upload";
 import { acceptByExtensionOrMime, hasAllowedExtension } from "../utils/upload-file-filter";
 
 const router = Router();
 const controller = new PatientController();
+const communityBlockController = new CommunityBlockController();
 const pdfUpload = createPdfUpload({ fileSizeMb: 20 });
 
 const AUDIO_EXTENSION = /\.(webm|ogg|mp3|mp4|m4a|wav|mpeg)$/i;
@@ -92,6 +94,19 @@ router.post(
   authenticate,
   authorize(["PACIENTE"]),
   controller.endMyVideoCall.bind(controller),
+);
+
+router.get(
+  "/me/community/blocks",
+  authenticate,
+  authorize(["PACIENTE"]),
+  communityBlockController.listMine.bind(communityBlockController),
+);
+router.post(
+  "/me/community/blocks/:userId",
+  authenticate,
+  authorize(["PACIENTE"]),
+  communityBlockController.block.bind(communityBlockController),
 );
 
 router.get(

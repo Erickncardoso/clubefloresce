@@ -1,70 +1,209 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import { useEventListener } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from 'react';
+
+import { Platform, StyleSheet, Text, View } from 'react-native';
+
 import { WebView } from 'react-native-webview';
+
 import {
   buildPlaybackUrlFromMetadata,
-  extractYoutubeId,
+  getBunnyEmbedPlayerHtml,
+  getDirectVideoHtml,
+  getHlsVideoHtml,
   getYoutubeEmbedUri,
-  resolveLessonPlaybackUrl,
+  resolveLessonPlayerSource,
 } from '@/lib/course-video';
-import { getBunnyStreamHlsUrl, isBunnyCdnHost } from '@/lib/bunny-video';
+
+import { isBunnyStreamVideoUrl } from '@/lib/bunny-video';
+
 import { usePatientApi } from '@/hooks/usePatientApi';
-import { colors, fonts } from '@/theme/tokens';
+
+import { fonts } from '@/theme/tokens';
 
 type BunnyMetadataResponse = {
   available?: boolean;
   metadata?: {
     cdnHost?: string;
     videoId?: string;
+    libraryId?: string;
+    embedUrl?: string;
   };
 };
 
 type Props = {
   lesson?: Record<string, unknown> | null;
   rawVideoUrl?: string;
+  fillContainer?: boolean;
+  onTimeUpdate?: (seconds: number) => void;
+  seekRef?: MutableRefObject<((seconds: number) => void) | null>;
 };
 
-function NativeLessonVideo({ url }: { url: string }) {
-  const [error, setError] = useState('');
-  const player = useVideoPlayer(url, (instance) => {
-    instance.loop = false;
-  });
+type BridgeFrameProps = {
+  html: string;
+  onTimeUpdate?: (seconds: number) => void;
+  seekRef?: MutableRefObject<((seconds: number) => void) | null>;
+};
 
-  useEventListener(player, 'statusChange', ({ status, error: playerError }) => {
-    if (status === 'error') {
-      setError(playerError?.message || 'Não foi possível reproduzir este vídeo.');
-    } else if (status === 'readyToPlay') {
-      setError('');
+function parseBridgeMessage(raw: unknown): number | null {
+  try {
+    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (
+      data
+      && typeof data === 'object'
+      && (data as { type?: string }).type === 'cf-video-time'
+      && typeof (data as { seconds?: number }).seconds === 'number'
+    ) {
+      return (data as { seconds: number }).seconds;
     }
-  });
+  } catch {
+    return null;
+  }
+  return null;
+}
 
-  if (error) {
-    return <Text style={styles.placeholder}>{error}</Text>;
+function BridgeVideoFrame({ html, onTimeUpdate, seekRef }: BridgeFrameProps) {
+  const webViewRef = useRef<WebView>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  const handleBridgeMessage = useCallback((raw: unknown) => {
+    const seconds = parseBridgeMessage(raw);
+    if (seconds !== null) onTimeUpdate?.(seconds);
+  }, [onTimeUpdate]);
+
+  useEffect(() => {
+    if (!seekRef) return;
+
+    seekRef.current = (seconds: number) => {
+      const safeSeconds = Number(seconds) || 0;
+      if (Platform.OS === 'web') {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: 'cf-video-seek', seconds: safeSeconds },
+          '*',
+        );
+        const frameWindow = iframeRef.current?.contentWindow as (Window & { __cfSeek?: (s: number) => void }) | null;
+        frameWindow?.__cfSeek?.(safeSeconds);
+        return;
+      }
+      webViewRef.current?.injectJavaScript(
+        `window.__cfSeek(${safeSeconds}); true;`,
+      );
+    };
+
+    return () => {
+      seekRef.current = null;
+    };
+  }, [html, seekRef]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      handleBridgeMessage(event.data);
+    };
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [handleBridgeMessage]);
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.fill}>
+        {createElement('iframe', {
+          ref: iframeRef,
+          srcDoc: html,
+          title: 'Vídeo',
+          style: {
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            display: 'block',
+            backgroundColor: '#000',
+          },
+          allow: 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen',
+          allowFullScreen: true,
+        })}
+      </View>
+    );
   }
 
   return (
-    <VideoView
-      player={player}
-      style={styles.nativeVideo}
-      nativeControls
-      contentFit="contain"
-      allowsFullscreen
+    <WebView
+      ref={webViewRef}
+      source={{ html }}
+      style={styles.fill}
+      originWhitelist={['*']}
+      javaScriptEnabled
+      allowsInlineMediaPlayback
+      mediaPlaybackRequiresUserAction={false}
+      allowsFullscreenVideo
+      onMessage={(event) => handleBridgeMessage(event.nativeEvent.data)}
     />
   );
 }
 
-export default function LessonVideoPlayer({ lesson, rawVideoUrl }: Props) {
+function WebYoutubeFrame({ src, title }: { src: string; title?: string }) {
+  return (
+    <View style={styles.fill}>
+      {createElement('iframe', {
+        src,
+        title: title || 'YouTube',
+        style: {
+          width: '100%',
+          height: '100%',
+          border: 'none',
+          display: 'block',
+          backgroundColor: '#000',
+        },
+        allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen',
+        allowFullScreen: true,
+      })}
+    </View>
+  );
+}
+
+function NativeYoutubeVideo({ uri }: { uri: string }) {
+  return (
+    <WebView
+      source={{ uri }}
+      style={styles.fill}
+      allowsFullscreenVideo
+      allowsInlineMediaPlayback
+      mediaPlaybackRequiresUserAction={false}
+      javaScriptEnabled
+      domStorageEnabled
+    />
+  );
+}
+
+export default function LessonVideoPlayer({
+  lesson,
+  rawVideoUrl,
+  fillContainer = false,
+  onTimeUpdate,
+  seekRef,
+}: Props) {
   const { request } = usePatientApi();
   const [playbackUrl, setPlaybackUrl] = useState('');
-  const [hlsFallbackUrl, setHlsFallbackUrl] = useState('');
+  const [bunnyMetadata, setBunnyMetadata] = useState<BunnyMetadataResponse['metadata'] | null>(null);
   const [resolving, setResolving] = useState(true);
   const [resolveError, setResolveError] = useState('');
 
   const lessonId = String(lesson?.id || '');
   const sourceUrl = rawVideoUrl || String(lesson?.videoUrl || '');
-  const playerHeight = Math.round((Dimensions.get('window').width * 9) / 16);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  onTimeUpdateRef.current = onTimeUpdate;
+
+  useEffect(() => {
+    onTimeUpdateRef.current?.(0);
+  }, [lessonId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,26 +212,31 @@ export default function LessonVideoPlayer({ lesson, rawVideoUrl }: Props) {
       setResolving(true);
       setResolveError('');
       setPlaybackUrl('');
-      setHlsFallbackUrl('');
+      setBunnyMetadata(null);
 
-      const initial = resolveLessonPlaybackUrl(sourceUrl);
-      if (isBunnyCdnHost(initial)) {
-        setHlsFallbackUrl(getBunnyStreamHlsUrl(initial));
+      const initial = sourceUrl.trim();
+      const isBareGuid = /^[a-f0-9-]{36}$/i.test(initial);
+      const hasDirectUrl = Boolean(initial && !isBareGuid);
+
+      if (hasDirectUrl && !cancelled) {
+        setPlaybackUrl(initial);
+        setResolving(false);
       }
 
-      if (initial && !/^[a-f0-9-]{36}$/i.test(initial)) {
+      if (!lessonId) {
         if (!cancelled) {
-          setPlaybackUrl(initial);
+          if (!initial) setResolveError('Esta aula ainda não possui vídeo configurado.');
           setResolving(false);
         }
         return;
       }
 
-      if (!lessonId) {
-        if (!cancelled) {
-          setPlaybackUrl(initial);
-          setResolving(false);
+      const shouldFetchMetadata = isBareGuid || isBunnyStreamVideoUrl(initial);
+
+      if (!shouldFetchMetadata) {
+        if (!cancelled && !hasDirectUrl) {
           if (!initial) setResolveError('Esta aula ainda não possui vídeo configurado.');
+          setResolving(false);
         }
         return;
       }
@@ -101,23 +245,33 @@ export default function LessonVideoPlayer({ lesson, rawVideoUrl }: Props) {
         const result = await request<BunnyMetadataResponse>(
           `/courses/lessons/${lessonId}/video-metadata`,
         );
+
+        if (cancelled) return;
+
+        if (result?.metadata) {
+          setBunnyMetadata(result.metadata);
+        }
+
         const fromMeta = buildPlaybackUrlFromMetadata(result?.metadata);
-        if (!cancelled) {
-          if (fromMeta) {
-            setPlaybackUrl(fromMeta);
-            setHlsFallbackUrl(getBunnyStreamHlsUrl(fromMeta));
-          } else {
-            setPlaybackUrl(initial);
-            if (!initial) setResolveError('Esta aula ainda não possui vídeo configurado.');
-          }
+        if (fromMeta) {
+          setPlaybackUrl(fromMeta);
+        } else if (!hasDirectUrl) {
+          setPlaybackUrl(initial);
+        }
+
+        if (!fromMeta && !initial) {
+          setResolveError('Esta aula ainda não possui vídeo configurado.');
         }
       } catch {
-        if (!cancelled) {
+        if (cancelled) return;
+        if (!hasDirectUrl) {
           setPlaybackUrl(initial);
           if (!initial) setResolveError('Esta aula ainda não possui vídeo configurado.');
         }
       } finally {
-        if (!cancelled) setResolving(false);
+        if (!cancelled && !hasDirectUrl) {
+          setResolving(false);
+        }
       }
     })();
 
@@ -126,30 +280,33 @@ export default function LessonVideoPlayer({ lesson, rawVideoUrl }: Props) {
     };
   }, [lessonId, request, sourceUrl]);
 
-  const youtubeId = useMemo(
-    () => extractYoutubeId(playbackUrl || sourceUrl),
-    [playbackUrl, sourceUrl],
+  const playerSource = useMemo(
+    () => resolveLessonPlayerSource(sourceUrl, playbackUrl, bunnyMetadata),
+    [bunnyMetadata, playbackUrl, sourceUrl],
   );
 
-  const nativeUrl = playbackUrl || hlsFallbackUrl;
+  const bridgeProps = { onTimeUpdate, seekRef };
+  const wrapStyle = fillContainer ? styles.fill : styles.wrap;
 
   return (
-    <View style={[styles.wrap, { height: playerHeight }]}>
+    <View style={wrapStyle}>
       {resolving ? (
         <Text style={styles.placeholder}>Carregando vídeo...</Text>
-      ) : youtubeId ? (
-        <WebView
-          key={`yt-${youtubeId}`}
-          source={{ uri: getYoutubeEmbedUri(youtubeId) }}
-          style={styles.webview}
-          allowsFullscreenVideo
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          javaScriptEnabled
-          domStorageEnabled
+      ) : playerSource.kind === 'youtube' ? (
+        Platform.OS === 'web' ? (
+          <WebYoutubeFrame src={getYoutubeEmbedUri(playerSource.youtubeId)} title="YouTube" />
+        ) : (
+          <NativeYoutubeVideo uri={getYoutubeEmbedUri(playerSource.youtubeId)} />
+        )
+      ) : playerSource.kind === 'bunny-embed' ? (
+        <BridgeVideoFrame
+          html={getBunnyEmbedPlayerHtml(playerSource.url)}
+          {...bridgeProps}
         />
-      ) : nativeUrl ? (
-        <NativeLessonVideo key={`${lessonId}-${nativeUrl}`} url={nativeUrl} />
+      ) : playerSource.kind === 'hls' ? (
+        <BridgeVideoFrame html={getHlsVideoHtml(playerSource.url)} {...bridgeProps} />
+      ) : playerSource.kind === 'mp4' ? (
+        <BridgeVideoFrame html={getDirectVideoHtml(playerSource.url)} {...bridgeProps} />
       ) : (
         <Text style={styles.placeholder}>
           {resolveError || 'Esta aula ainda não possui vídeo configurado.'}
@@ -162,17 +319,16 @@ export default function LessonVideoPlayer({ lesson, rawVideoUrl }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     width: '100%',
+    aspectRatio: 16 / 9,
     backgroundColor: '#000',
     overflow: 'hidden',
   },
-  webview: {
+  fill: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  nativeVideo: {
     width: '100%',
-    height: '100%',
+    minHeight: 180,
     backgroundColor: '#000',
+    overflow: 'hidden',
   },
   placeholder: {
     flex: 1,

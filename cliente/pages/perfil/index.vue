@@ -179,6 +179,17 @@
             </span>
             <ChevronRight class="perfil-row-arrow" aria-hidden="true" />
           </NuxtLink>
+
+          <NuxtLink to="/legal/termos" class="perfil-row">
+            <span class="perfil-row-icon" aria-hidden="true">
+              <ScrollText />
+            </span>
+            <span class="perfil-row-copy">
+              <strong>Termos de uso</strong>
+              <small>Condições do Clube Florescer</small>
+            </span>
+            <ChevronRight class="perfil-row-arrow" aria-hidden="true" />
+          </NuxtLink>
         </nav>
       </section>
 
@@ -260,6 +271,7 @@ import {
   Loader2,
   LogOut,
   Settings,
+  ScrollText,
   ShieldCheck,
   Sun,
   Target,

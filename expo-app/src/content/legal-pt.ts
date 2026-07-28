@@ -1,7 +1,7 @@
 export const LEGAL_DOCUMENTS = {
   privacidade: {
     title: 'Política de Privacidade',
-    updatedAt: '18 de julho de 2026',
+    updatedAt: '27 de julho de 2026',
     sections: [
       {
         heading: '1. Quem somos',
@@ -13,7 +13,8 @@ export const LEGAL_DOCUMENTS = {
         heading: '2. Dados que coletamos',
         body:
           'Coletamos dados de cadastro (nome, e-mail, telefone), dados de saúde informados voluntariamente '
-          + '(peso, metas, check-ins, diário alimentar), registros de uso do app, fotos que você publica na comunidade '
+          + '(peso, metas, check-ins, diário alimentar), registros de uso do app, fotos que você publica na comunidade, '
+          + 'denúncias de conteúdo (motivo e identificação da publicação) '
           + 'e dados técnicos necessários ao funcionamento (token de sessão, versão do app).',
       },
       {
@@ -57,7 +58,7 @@ export const LEGAL_DOCUMENTS = {
   },
   termos: {
     title: 'Termos de Uso',
-    updatedAt: '18 de julho de 2026',
+    updatedAt: '27 de julho de 2026',
     sections: [
       {
         heading: '1. Aceitação',
@@ -79,14 +80,17 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: '4. Assinatura',
         body:
-          'O acesso completo pode depender de assinatura ativa. No iPhone, a contratação ou renovação da assinatura '
-          + 'deve ser feita pelo site oficial do Clube Florescer, conforme orientação na tela de assinatura do app.',
+          'O acesso completo depende de assinatura ativa vinculada à sua conta. No aplicativo iOS, a contratação e '
+          + 'renovação são feitas exclusivamente no site oficial (app.nutrisabellajardim.com.br), fora da App Store. '
+          + 'Após pagar, entre no app com a mesma conta e toque em Atualizar acesso em Perfil → Status da assinatura. '
+          + 'Dúvidas: contato@nutrisabellajardim.com.br.',
       },
       {
         heading: '5. Conduta na comunidade',
         body:
           'É proibido publicar conteúdo ofensivo, ilegal, que viole privacidade de terceiros ou que promova práticas '
-          + 'de saúde inseguras. Conteúdos podem ser moderados ou removidos.',
+          + 'de saúde inseguras. Use Denunciar ou Bloquear publicação no menu de cada post. '
+          + 'Conteúdos podem ser moderados ou removidos pela equipe.',
       },
       {
         heading: '6. Propriedade intelectual',

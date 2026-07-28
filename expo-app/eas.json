@@ -13,6 +13,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE": "https://apiclube.nutrisabellajardim.com.br/api"
+      },
       "ios": {
         "simulator": false
       }
@@ -29,7 +32,9 @@
   },
   "submit": {
     "production": {
-      "ios": {}
+      "ios": {
+        "ascApiKeyPath": "./credentials/asc-api-key.p8"
+      }
     }
   }
 }

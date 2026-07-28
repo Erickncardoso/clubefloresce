@@ -37,7 +37,9 @@ export type BunnyPlayChapter = {
 export type BunnyVideoPlayMetadata = {
   provider: "bunny";
   videoId: string;
+  libraryId: string;
   cdnHost: string;
+  embedUrl: string;
   length: number;
   thumbnailCount: number;
   width: number;
@@ -168,6 +170,7 @@ async function fetchBunnyVideoPlayMetadataFromApi(
   if (!playVideo && !playData) return null;
 
   const cdnHost = getBunnyStreamCdnHostname();
+  const libraryId = getBunnyStreamLibraryId();
   const length = Math.max(0, Number(playVideo?.length || video?.length) || 0);
   const apiThumbnailCount = Math.max(0, Number(playVideo?.thumbnailCount || video?.thumbnailCount) || 0);
   const thumbnailCount = apiThumbnailCount || estimateBunnyThumbnailCount(length);
@@ -178,7 +181,9 @@ async function fetchBunnyVideoPlayMetadataFromApi(
   return {
     provider: "bunny",
     videoId,
+    libraryId,
     cdnHost,
+    embedUrl: `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=false&preload=true&playerjs=true`,
     length,
     thumbnailCount,
     width,

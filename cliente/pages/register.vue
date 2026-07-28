@@ -9,7 +9,7 @@
               Voltar
             </NuxtLink>
             <h2>Criar sua conta</h2>
-            <p>Cadastre-se e finalize o pagamento para liberar seu acesso ao Clube Florescer.</p>
+            <p>Crie sua conta e acesse o Clube Florescer no plano gratuito. Se quiser assinar, enviamos o link no seu WhatsApp.</p>
           </header>
 
           <form class="auth-form patient-auth-form" @submit.prevent="handlePatientRequest">
@@ -102,7 +102,7 @@
               v-model="patientForm.phone"
               input-id="req-phone"
               label="WhatsApp"
-              hint="Obrigatório — usaremos para avisos da sua assinatura"
+              hint="Obrigatório — usaremos para avisos importantes"
               required
               :focused="focusedField === 'phone'"
               @focus="focusedField = 'phone'"
@@ -111,7 +111,7 @@
 
             <button type="submit" class="btn-auth-submit patient-auth-submit cf-squircle--control" :disabled="loading">
               <span v-if="loading">Criando conta...</span>
-              <span v-else>Criar conta e ir ao pagamento</span>
+              <span v-else>Criar conta</span>
             </button>
 
             <p v-if="error" class="error-banner cf-squircle cf-squircle--control" role="alert">
@@ -213,7 +213,7 @@ const handlePatientRequest = async () => {
       })
     }
 
-    await navigateTo(data?.redirectTo || '/assinatura', { replace: true })
+    await navigateTo(data?.redirectTo || '/onboarding', { replace: true })
   } catch (err) {
     error.value = err.data?.message || 'Não foi possível criar sua conta. Tente novamente.'
   } finally {

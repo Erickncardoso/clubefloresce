@@ -4,24 +4,33 @@
       <div class="agenda-modal__backdrop" aria-hidden="true" @click="$emit('close')" />
       <div class="agenda-modal__panel admin-shell-card">
         <header class="agenda-modal__head">
-          <h2 id="agenda-modal-title">{{ editing ? 'Editar agendamento' : 'Novo agendamento' }}</h2>
+          <div>
+            <h2 id="agenda-modal-title">{{ modalTitle }}</h2>
+            <p v-if="selectedPatientName" class="agenda-modal__subtitle">{{ selectedPatientName }}</p>
+          </div>
           <button type="button" class="agenda-modal__close" @click="$emit('close')">Fechar</button>
         </header>
 
         <form class="agenda-modal__form" @submit.prevent="submit">
           <div class="field field--float">
-            <label for="agenda-patient">Paciente</label>
-            <select id="agenda-patient" v-model="form.patientId" required>
-              <option value="">Selecione a paciente</option>
-              <option v-for="patient in patients" :key="patient.id" :value="patient.id">
-                {{ patient.name }}
-              </option>
-            </select>
+            <label id="agenda-patient-label" for="agenda-patient">Paciente</label>
+            <SharedCfSelect
+              id="agenda-patient"
+              v-model="form.patientId"
+              :options="patientOptions"
+              placeholder="Selecione a paciente"
+              required
+            />
           </div>
 
           <div class="field field--float">
-            <label for="agenda-title">Título</label>
-            <input id="agenda-title" v-model="form.title" type="text" maxlength="120" placeholder="Consulta">
+            <label id="agenda-title-label" for="agenda-title">Tipo de consulta</label>
+            <SharedCfSelect
+              id="agenda-title"
+              v-model="form.title"
+              :options="titleOptions"
+              placeholder="Tipo de consulta"
+            />
           </div>
 
           <div class="field field--float">
@@ -29,14 +38,29 @@
             <SharedCfDateTimeInput id="agenda-starts" v-model="form.startsAt" required />
           </div>
 
+          <div v-if="!editing" class="agenda-modal__quick-hours">
+            <span>Horários rápidos</span>
+            <div class="agenda-modal__hour-grid">
+              <button
+                v-for="hour in quickHours"
+                :key="hour"
+                type="button"
+                class="agenda-modal__hour-btn"
+                @click="applyQuickHour(hour)"
+              >
+                {{ formatHourLabel(hour) }}
+              </button>
+            </div>
+          </div>
+
           <div class="field field--float">
-            <label for="agenda-duration">Duração (min)</label>
-            <select id="agenda-duration" v-model.number="form.durationMin">
-              <option :value="30">30 min</option>
-              <option :value="45">45 min</option>
-              <option :value="60">60 min</option>
-              <option :value="90">90 min</option>
-            </select>
+            <label id="agenda-duration-label" for="agenda-duration">Duração</label>
+            <SharedCfSelect
+              id="agenda-duration"
+              v-model="form.durationMin"
+              :options="durationOptions"
+              placeholder="Duração"
+            />
           </div>
 
           <div class="field field--float">
@@ -60,8 +84,8 @@
               <button type="button" class="btn-secondary" :disabled="saving" @click="$emit('close')">
                 Cancelar
               </button>
-              <button type="submit" class="btn-primary" :disabled="saving">
-                {{ saving ? 'Salvando…' : 'Salvar' }}
+              <button type="submit" class="btn-primary" :disabled="saving || !form.patientId">
+                {{ saving ? 'Salvando…' : 'Confirmar agendamento' }}
               </button>
             </div>
           </footer>
@@ -73,13 +97,23 @@
 
 <script setup>
 import { computed, reactive, watch } from 'vue'
-import { defaultAppointmentDateTime } from '~/utils/agenda-calendar.js'
+import {
+  AGENDA_DURATION_OPTIONS,
+  AGENDA_QUICK_HOURS,
+  AGENDA_TITLE_OPTIONS,
+  buildSlotDateTime,
+  defaultAppointmentDateTime,
+  toDateKey,
+} from '~/utils/agenda-calendar.js'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   patients: { type: Array, default: () => [] },
   appointment: { type: Object, default: null },
   defaultDate: { type: Date, default: null },
+  prefillPatientId: { type: String, default: '' },
+  prefillStartsAt: { type: String, default: '' },
+  prefillDurationMin: { type: Number, default: 60 },
   saving: { type: Boolean, default: false },
   error: { type: String, default: '' },
 })
@@ -96,10 +130,31 @@ const form = reactive({
   notes: '',
 })
 
+const patientOptions = computed(() => (
+  props.patients.map((patient) => ({
+    value: patient.id,
+    label: patient.name,
+  }))
+))
+
+const titleOptions = AGENDA_TITLE_OPTIONS
+const durationOptions = AGENDA_DURATION_OPTIONS
+const quickHours = AGENDA_QUICK_HOURS
+
+const selectedPatientName = computed(() => {
+  const patient = props.patients.find((item) => item.id === form.patientId)
+  return patient?.name || props.appointment?.patientName || ''
+})
+
+const modalTitle = computed(() => (
+  editing.value ? 'Editar agendamento' : 'Agendar paciente'
+))
+
 watch(
-  () => [props.open, props.appointment, props.defaultDate],
+  () => [props.open, props.appointment, props.defaultDate, props.prefillPatientId, props.prefillStartsAt, props.prefillDurationMin],
   () => {
     if (!props.open) return
+
     if (props.appointment) {
       form.patientId = props.appointment.patientId || ''
       form.title = props.appointment.title || 'Consulta'
@@ -108,21 +163,32 @@ watch(
       form.notes = props.appointment.notes || ''
       return
     }
-    form.patientId = ''
+
+    form.patientId = props.prefillPatientId || ''
     form.title = 'Consulta'
-    form.startsAt = defaultAppointmentDateTime(props.defaultDate || new Date())
-    form.durationMin = 60
+    form.startsAt = props.prefillStartsAt
+      || defaultAppointmentDateTime(props.defaultDate || new Date())
+    form.durationMin = Number(props.prefillDurationMin) || 60
     form.notes = ''
   },
   { immediate: true },
 )
+
+function formatHourLabel(hour) {
+  return `${String(hour).padStart(2, '0')}:00`
+}
+
+function applyQuickHour(hour) {
+  const dayKey = toDateKey(new Date(form.startsAt || Date.now()))
+  form.startsAt = buildSlotDateTime(dayKey, hour, 0)
+}
 
 function submit() {
   emit('save', {
     patientId: form.patientId,
     title: form.title,
     startsAt: form.startsAt,
-    durationMin: form.durationMin,
+    durationMin: Number(form.durationMin) || 60,
     notes: form.notes,
   })
 }
@@ -147,8 +213,8 @@ function submit() {
 
 .agenda-modal__panel {
   position: relative;
-  width: min(28rem, 100%);
-  max-height: min(92dvh, 720px);
+  width: min(30rem, 100%);
+  max-height: min(92dvh, 760px);
   overflow: auto;
   padding: 1rem 1.1rem;
   border: 1px solid var(--admin-border, #e8ece9);
@@ -157,7 +223,7 @@ function submit() {
 
 .agenda-modal__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.85rem;
@@ -168,6 +234,12 @@ function submit() {
   font-size: 1rem;
   font-weight: 600;
   color: var(--admin-ink, #141414);
+}
+
+.agenda-modal__subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--admin-muted, #66706e);
 }
 
 .agenda-modal__close {
@@ -182,6 +254,41 @@ function submit() {
 .agenda-modal__form {
   display: grid;
   gap: 0.75rem;
+}
+
+.agenda-modal__quick-hours {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.agenda-modal__quick-hours > span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--admin-muted, #66706e);
+}
+
+.agenda-modal__hour-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.agenda-modal__hour-btn {
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: var(--admin-ink, #141414);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agenda-modal__hour-btn:hover {
+  background: rgba(139, 150, 124, 0.1);
+  border-color: rgba(139, 150, 124, 0.35);
 }
 
 .agenda-modal__error {

@@ -4,6 +4,7 @@ import {
   normalizeStoredDocumentUrl,
   resolveDocumentDeliveryUrl,
 } from "../utils/media/bunny-document-delivery";
+import { scheduleRagDelete, scheduleRagReindex } from "./rag/rag-hooks";
 
 const ebookRepository = new EbookRepository();
 
@@ -33,6 +34,7 @@ export class EbookService {
         : {}),
     };
     const ebook = await ebookRepository.create(payload);
+    scheduleRagReindex({ type: "ebook", id: ebook.id });
     return mapEbookForClient(ebook, userId);
   }
 
@@ -44,10 +46,12 @@ export class EbookService {
         : {}),
     };
     const ebook = await ebookRepository.update(id, payload);
+    scheduleRagReindex({ type: "ebook", id: ebook.id });
     return mapEbookForClient(ebook, userId);
   }
 
   async deleteEbook(id: string): Promise<Ebook> {
+    scheduleRagDelete("ebook", id);
     return ebookRepository.delete(id);
   }
 }

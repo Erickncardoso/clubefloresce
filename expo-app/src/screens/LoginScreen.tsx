@@ -7,19 +7,19 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { AlertCircle, Eye, EyeOff, Lock, Mail } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CfButton from '@/components/ui/CfButton';
+import FloatField from '@/components/ui/FloatField';
 import FormField from '@/components/ui/FormField';
 import { useAuth } from '@/providers/AuthProvider';
 import {
-  PATIENT_ACCESS_EXPIRED_MESSAGE,
-  PATIENT_PAYMENT_REQUIRED_MESSAGE,
-} from '@/lib/patient-access';
+  getAccessExpiredMessage,
+  getPaymentRequiredMessage,
+} from '@/lib/platform-billing';
 import { BrandLogo } from '@/components/BrandLogo';
 import { getApiBase } from '@/config/env';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -108,37 +108,27 @@ export default function LoginScreen() {
           <BrandLogo size="xl" animated />
           <Text style={styles.title}>Entrar</Text>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>E-mail</Text>
-            <View style={styles.inputWrap}>
-              <Mail size={18} color={colors.inputIcon} />
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
-                placeholder="seu@email.com"
-                placeholderTextColor={colors.placeholder}
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
-          </View>
+          <FloatField
+            label="E-mail"
+            leftIcon={Mail}
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            placeholder="seu@email.com"
+            value={email}
+            onChangeText={setEmail}
+          />
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Senha</Text>
-            <View style={styles.inputWrap}>
-              <Lock size={18} color={colors.inputIcon} />
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="password"
-                placeholder="Sua senha de acesso"
-                placeholderTextColor={colors.placeholder}
-                secureTextEntry={!showPassword}
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-              />
+          <FloatField
+            label="Senha"
+            leftIcon={Lock}
+            autoCapitalize="none"
+            autoComplete="password"
+            placeholder="Sua senha de acesso"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+            rightAccessory={(
               <Pressable
                 accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 onPress={() => setShowPassword((value) => !value)}
@@ -149,11 +139,13 @@ export default function LoginScreen() {
                   <Eye size={18} color={colors.inputIcon} />
                 )}
               </Pressable>
-            </View>
-            <Link href="/esqueci-senha" style={styles.forgot}>
-              Esqueci a senha
-            </Link>
-          </View>
+            )}
+            footer={(
+              <Link href="/esqueci-senha" style={styles.forgot}>
+                Esqueci a senha
+              </Link>
+            )}
+          />
 
           <Pressable
             disabled={loading}
@@ -194,16 +186,19 @@ export default function LoginScreen() {
             </Text>
             <FormField
               label="Nova senha"
+              leftIcon={Lock}
               value={newPassword}
               onChangeText={setNewPassword}
               secureTextEntry
-              hint="Mínimo 8 caracteres"
+              placeholder="Mínimo 8 caracteres"
             />
             <FormField
               label="Confirmar nova senha"
+              leftIcon={Lock}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
+              placeholder="Repita a nova senha"
             />
             {firstAccessError ? (
               <View style={styles.errorBox}>
@@ -224,8 +219,8 @@ export default function LoginScreen() {
 }
 
 export function loginAccessMessage(access?: string | string[]): string | null {
-  if (access === 'expired') return PATIENT_ACCESS_EXPIRED_MESSAGE;
-  if (access === 'payment') return PATIENT_PAYMENT_REQUIRED_MESSAGE;
+  if (access === 'expired') return getAccessExpiredMessage();
+  if (access === 'payment') return getPaymentRequiredMessage();
   return null;
 }
 
@@ -251,6 +246,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing[5],
     gap: spacing[4],
+    overflow: 'visible',
   },
   title: {
     fontFamily: fonts.bold,
@@ -258,32 +254,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
   },
-  field: { gap: spacing[2] },
-  label: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.text,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.control,
-    paddingHorizontal: spacing[3],
-    minHeight: 48,
-    backgroundColor: colors.surface,
-  },
-  input: {
-    flex: 1,
-    fontFamily: fonts.regular,
-    fontSize: 16,
-    color: colors.text,
-    paddingVertical: spacing[2],
-  },
   forgot: {
     alignSelf: 'flex-end',
+    marginTop: spacing[2],
     fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.primary,
@@ -345,6 +318,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing[5],
     gap: spacing[3],
+    overflow: 'visible',
   },
   modalTitle: {
     fontFamily: fonts.bold,

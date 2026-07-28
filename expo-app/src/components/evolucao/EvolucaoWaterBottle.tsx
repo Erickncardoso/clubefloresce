@@ -1,29 +1,27 @@
-import { Minus, Plus } from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
-import { colors, fonts, radii } from '@/theme/tokens';
+import { Check, Minus, Plus } from 'lucide-react-native';
+import EvolucaoWaterVesselIcon from '@/components/evolucao/EvolucaoWaterVesselIcon';
+import { loadWaterVesselSettings } from '@/lib/water-vessel-settings';
+import { fonts } from '@/theme/tokens';
 
 type WaterBottleProps = {
   current: number;
   target: number;
-  onIncrement: () => void;
-  onDecrement: () => void;
+  onIncrement: (amountLiters: number) => void;
+  onDecrement: (amountLiters: number) => void;
+  readonly?: boolean;
 };
 
-const FILL_TOP = 34;
-const FILL_BOTTOM = 142;
-const FILL_RANGE = FILL_BOTTOM - FILL_TOP;
-
-const bottleOuterPath =
-  'M 38 14 L 38 32 C 31 36, 26 44, 26 54 L 26 138 L 26 144 Q 26 146 28 146 L 60 146 Q 62 146 62 144 L 62 138 L 62 54 C 62 44, 57 36, 50 32 L 50 14 Z';
-
-const bottleInnerPath =
-  'M 39 32 L 39 34 C 32 38, 28 46, 28 56 L 28 134 L 28 140 Q 28 142 30 142 L 58 142 Q 60 142 60 140 L 60 134 L 60 56 C 60 46, 56 38, 51 34 L 51 32 Z';
+type VesselKind = 'glass' | 'bottle';
 
 function formatLiters(value: number) {
-  const rounded = Math.round(value * 4) / 4;
-  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace('.', ',');
-  return `${text} L`;
+  const rounded = Math.round(value * 100) / 100;
+  return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(rounded)} L`;
+}
+
+function formatMilliliters(value: number) {
+  return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(Math.round(value * 1000))} ml`;
 }
 
 export default function EvolucaoWaterBottle({
@@ -31,72 +29,241 @@ export default function EvolucaoWaterBottle({
   target,
   onIncrement,
   onDecrement,
+  readonly = false,
 }: WaterBottleProps) {
+  const [glassMl, setGlassMl] = useState(250);
+  const [bottleMl, setBottleMl] = useState(500);
+  const [selectedVessel, setSelectedVessel] = useState<VesselKind>('glass');
+
+  useEffect(() => {
+    void loadWaterVesselSettings().then((settings) => {
+      setGlassMl(settings.glassMl);
+      setBottleMl(settings.bottleMl);
+    });
+  }, []);
+
+  const vesselOptions = useMemo(
+    () => [
+      { id: 'glass' as const, label: 'Copo', amount: glassMl / 1000 },
+      { id: 'bottle' as const, label: 'Garrafa', amount: bottleMl / 1000 },
+    ],
+    [bottleMl, glassMl],
+  );
+
+  const selectedOption = vesselOptions.find((option) => option.id === selectedVessel) || vesselOptions[0];
   const fillPercent = target ? Math.min(100, (current / target) * 100) : 0;
-  const waterHeightPx = Math.max(0, (fillPercent / 100) * FILL_RANGE);
-  const waterTop = FILL_BOTTOM - waterHeightPx;
+
+  function handleIncrement() {
+    onIncrement(selectedOption.amount);
+  }
+
+  function handleDecrement() {
+    onDecrement(selectedOption.amount);
+  }
 
   return (
     <View style={styles.root}>
-      <Svg width={88} height={176} viewBox="0 0 88 176">
-        <Defs>
-          <LinearGradient id="gradWater" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#6dbde8" />
-            <Stop offset="100%" stopColor="#6dbde8" />
-          </LinearGradient>
-        </Defs>
-        <Rect x={35} y={5} width={18} height={6} rx={3} fill="#6eb5e0" />
-        <Path d={bottleOuterPath} fill="#f4fbff" stroke="#a8d4ef" strokeWidth={2} />
-        <Rect x={28} y={waterTop} width={34} height={waterHeightPx} fill="url(#gradWater)" />
-        <Path d={bottleInnerPath} fill="none" stroke="#c5e4f5" strokeWidth={1} opacity={0.6} />
-        <SvgText
-          x={44}
-          y={98}
-          textAnchor="middle"
-          fill={fillPercent > 45 ? '#fff' : colors.text}
-          fontSize={14}
-          fontWeight="700"
-        >
-          {formatLiters(current)}
-        </SvgText>
-      </Svg>
+      {!readonly ? (
+        <View style={styles.picker}>
+          <Text style={styles.pickerLabel}>Escolha o recipiente</Text>
+          <View style={styles.options}>
+            {vesselOptions.map((option) => {
+              const active = selectedVessel === option.id;
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.option, active && styles.optionActive]}
+                  onPress={() => setSelectedVessel(option.id)}
+                >
+                  <View style={styles.optionIcon}>
+                    <EvolucaoWaterVesselIcon kind={option.id} fillPercent={72} width={24} height={34} />
+                  </View>
+                  <View style={styles.optionCopy}>
+                    <Text style={styles.optionTitle}>{option.label}</Text>
+                    <Text style={styles.optionSub}>{formatMilliliters(option.amount)}</Text>
+                  </View>
+                  <View style={[styles.optionCheck, active && styles.optionCheckActive]}>
+                    {active ? <Check color="#fff" size={10} strokeWidth={2.5} /> : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
 
-      <Text style={styles.count}>
-        <Text style={styles.countStrong}>{formatLiters(current)}</Text>
-        <Text style={styles.countMuted}> / {formatLiters(target)}</Text>
-      </Text>
-
-      <View style={styles.actions}>
-        <Pressable style={styles.btn} onPress={onDecrement}>
-          <Minus size={16} color={colors.textMuted} />
-        </Pressable>
-        <Pressable style={[styles.btn, styles.btnPrimary]} onPress={onIncrement}>
-          <Plus size={16} color="#fff" />
-        </Pressable>
+      <View style={styles.summary}>
+        <View style={styles.visual}>
+          <EvolucaoWaterVesselIcon
+            kind={selectedOption.id}
+            fillPercent={fillPercent}
+            width={56}
+            height={86}
+          />
+        </View>
+        <View style={styles.summaryCopy}>
+          <Text style={styles.summaryLabel}>
+            {readonly ? 'Consumo registrado' : 'Próximo registro'}
+          </Text>
+          <Text style={styles.summaryValue}>
+            {readonly ? formatLiters(current) : formatMilliliters(selectedOption.amount)}
+          </Text>
+          <Text style={styles.summaryMeta}>
+            {formatLiters(current)} de {formatLiters(target)}
+          </Text>
+        </View>
       </View>
-      <Text style={styles.hint}>+250 ml por toque</Text>
+
+      {!readonly ? (
+        <View style={styles.actions}>
+          <Pressable
+            style={[styles.undoBtn, current <= 0 && styles.undoBtnDisabled]}
+            disabled={current <= 0}
+            onPress={handleDecrement}
+          >
+            <Minus color="#5f5f65" size={14} strokeWidth={2} />
+            <Text style={styles.undoText}>Remover</Text>
+          </Pressable>
+          <Pressable style={styles.addBtn} onPress={handleIncrement}>
+            <Plus color="#fff" size={14} strokeWidth={2} />
+            <Text style={styles.addText}>Adicionar {formatMilliliters(selectedOption.amount)}</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { alignItems: 'center', gap: 8 },
-  count: { fontSize: 14 },
-  countStrong: { fontFamily: fonts.extrabold, color: colors.text },
-  countMuted: { fontFamily: fonts.regular, color: colors.textMuted },
-  actions: { flexDirection: 'row', gap: 12 },
-  btn: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.pill,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+  root: { gap: 14 },
+  picker: { gap: 7 },
+  pickerLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: '#737378',
+  },
+  options: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  option: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    minHeight: 52,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: '#e2e2e7',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  optionActive: {
+    borderColor: '#7bb7dc',
+    backgroundColor: '#f1f8fc',
+  },
+  optionIcon: { width: 24, height: 34, flexShrink: 0 },
+  optionCopy: { flex: 1, minWidth: 0 },
+  optionTitle: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: '#202124',
+  },
+  optionSub: {
+    marginTop: 2,
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    color: '#7f7f85',
+    fontVariant: ['tabular-nums'],
+  },
+  optionCheck: {
+    width: 16,
+    height: 16,
+    marginLeft: 'auto',
+    borderWidth: 1,
+    borderColor: '#d9d9de',
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  btnPrimary: { backgroundColor: colors.primaryDark },
-  hint: {
+  optionCheckActive: {
+    borderColor: '#5ba4d9',
+    backgroundColor: '#5ba4d9',
+  },
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    minHeight: 120,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 13,
+    backgroundColor: '#f8fafb',
+  },
+  visual: { width: 56, height: 86, flexShrink: 0 },
+  summaryCopy: { minWidth: 120 },
+  summaryLabel: {
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    color: '#7f7f85',
+  },
+  summaryValue: {
+    marginTop: 3,
+    fontFamily: fonts.medium,
+    fontSize: 21,
+    letterSpacing: -0.4,
+    fontVariant: ['tabular-nums'],
+    color: '#202124',
+  },
+  summaryMeta: {
+    marginTop: 4,
     fontFamily: fonts.regular,
     fontSize: 11,
-    color: colors.textMuted,
+    color: '#737378',
+    fontVariant: ['tabular-nums'],
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  undoBtn: {
+    flex: 0.72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#dedee3',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  undoBtnDisabled: { opacity: 0.45 },
+  undoText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: '#5f5f65',
+  },
+  addBtn: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#5ba4d9',
+    borderRadius: 12,
+    backgroundColor: '#5ba4d9',
+  },
+  addText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: '#fff',
   },
 });

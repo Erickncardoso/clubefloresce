@@ -17,14 +17,6 @@
         </span>
       </header>
 
-      <div v-if="providerInfo?.provider === 'wuzapi'" class="wa-migration-banner admin-shell-card" role="status">
-        <strong>Migração WuzAPI</strong>
-        <p>
-          A UAZAPI está desativada neste ambiente. Conexão e envio básico usam WuzAPI;
-          recursos avançados (chat completo, grupos, campanhas) serão habilitados aos poucos.
-        </p>
-      </div>
-
       <div class="wa-grid">
         <section class="admin-shell-card wa-main">
           <div v-if="loading" class="wa-state">
@@ -66,7 +58,7 @@
             </div>
 
             <div class="wa-actions">
-              <div v-if="initialSyncActive && providerInfo?.provider !== 'wuzapi'" class="wa-sync-alert" role="status">
+              <div v-if="initialSyncActive" class="wa-sync-alert" role="status">
                 <Loader class="wa-spin wa-icon-sm" aria-hidden="true" />
                 <div>
                   <strong>Mantenha o celular aberto com o WhatsApp ativo</strong>
@@ -276,8 +268,6 @@ const awaitingQrScanUntil = ref(0)
 const instanceData = ref(null)
 const pollInterval = ref(null)
 const qrRefreshCountdown = ref(0)
-const providerInfo = ref(null)
-
 const QR_REFRESH_INTERVAL_SEC = 30
 let qrCountdownInterval = null
 let qrAutoRefreshInterval = null
@@ -778,26 +768,12 @@ const prefetchWhatsappChatsCatalog = () => {
   void fetch(`${API_BASE}/chats?refresh=1`, whatsappFetchInit()).catch(() => {})
 }
 
-const fetchProviderInfo = async () => {
-  try {
-    const res = await fetch(`${API_BASE}/provider`, whatsappFetchInit())
-    if (res.ok) {
-      providerInfo.value = await res.json()
-      if (providerInfo.value?.provider) {
-        setWhatsappProviderKind(providerInfo.value.provider)
-      }
-    }
-  } catch {
-    /* opcional */
-  }
-}
-
 onMounted(async () => {
   if (!whatsappHasAuth()) {
     navigateTo('/')
     return
   }
-  await fetchProviderInfo()
+  setWhatsappProviderKind('wuzapi')
   resumeInitialSyncIfNeeded()
   fetchStatus().then(() => {
     if (initialSyncActive.value) startSyncProbe()
@@ -830,24 +806,6 @@ onUnmounted(() => {
 .wa-header-copy {
   flex: 1 1 220px;
   min-width: 0;
-}
-
-.wa-migration-banner {
-  margin-bottom: 1rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--cf-accent, #059669) 35%, transparent);
-  background: color-mix(in srgb, var(--cf-accent, #059669) 8%, var(--cf-surface, #fff));
-}
-
-.wa-migration-banner strong {
-  display: block;
-  margin-bottom: 0.35rem;
-}
-
-.wa-migration-banner p {
-  margin: 0;
-  font-size: 0.92rem;
-  color: var(--cf-text-muted, #64748b);
 }
 
 .wa-title-row {

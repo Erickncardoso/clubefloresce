@@ -13,7 +13,7 @@ export default function LegalDocumentScreen() {
   return (
     <PatientShell withTabClearance={false}>
       <PatientHeader title={document.title} showBack showBell={false} showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll}>
         <Text style={styles.updated}>Atualizado em {document.updatedAt}</Text>
         {document.sections.map((section) => (
           <View key={section.heading} style={styles.section}>
@@ -27,6 +27,7 @@ export default function LegalDocumentScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollView: { flex: 1 },
   scroll: { padding: spacing[4], paddingBottom: spacing[6], gap: spacing[4] },
   updated: {
     fontFamily: fonts.medium,

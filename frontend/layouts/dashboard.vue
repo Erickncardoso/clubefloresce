@@ -354,6 +354,8 @@
 </template>
 
 <script setup>
+import '~/assets/css/admin-pages.css'
+import '~/assets/css/admin-rounding.css'
 import { 
   BookOpen, 
   Users, 
@@ -1778,5 +1780,79 @@ const handleLogout = async () => {
   .content-body.patient-courses-content {
     padding-top: 58px;
   }
+}
+</style>
+
+<style lang="css">
+/* Fallback mínimo — evita painel “sem CSS” se o bundle global falhar no HMR dev */
+.dashboard-layout:not(.patient-app-layout) {
+  --admin-primary: #8B967C;
+  --admin-primary-soft: #eef0eb;
+  --admin-ink: #141414;
+  --admin-muted: #66706e;
+  --admin-border: #e8ece9;
+  --admin-surface: #ffffff;
+  --admin-font-nav: 0.8125rem;
+  --admin-font-nav-weight: 500;
+  --admin-font-nav-weight-active: 600;
+  --admin-font-body: 0.875rem;
+  --admin-font-body-weight: 400;
+  --admin-font-heading-1: 1.375rem;
+  --admin-font-heading-1-weight: 600;
+  --admin-font-heading-2: 0.9375rem;
+  --admin-font-heading-2-weight: 600;
+  --admin-font-heading-3: 0.875rem;
+  --admin-font-heading-3-weight: 600;
+  --admin-font-btn: 0.8125rem;
+  --admin-font-btn-weight: 600;
+}
+
+.dashboard-layout:not(.patient-app-layout) .admin-shell {
+  width: 100%;
+  max-width: min(100%, 1440px);
+  margin: 0 auto;
+  padding: 2rem 2.5rem 3rem;
+  box-sizing: border-box;
+}
+
+.dashboard-layout:not(.patient-app-layout) .admin-shell-card {
+  background: var(--admin-surface, #ffffff);
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control, 1.625rem);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.dashboard-layout:not(.patient-app-layout) .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  padding: 0.65rem 1.15rem;
+  border: none;
+  border-radius: var(--cf-radius-control, 1.625rem);
+  background: var(--admin-primary, #8B967C);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.dashboard-layout:not(.patient-app-layout) .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  padding: 0.65rem 1.15rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control, 1.625rem);
+  background: #fff;
+  color: #555;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
 }
 </style>

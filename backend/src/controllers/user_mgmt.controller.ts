@@ -21,7 +21,7 @@ import {
 } from "../utils/patient-profile-admin";
 import { patientTagsCatalogService } from "../services/patient-tags-catalog.service";
 import { lookupCep as fetchCepAddress } from "../services/cep-lookup.service";
-import { assignPatientSlugs, getPatientUrlSlug } from "../utils/patient-slug";
+import { getPatientUrlSlug } from "../utils/patient-slug";
 import { isUuid } from "../utils/slug";
 
 const userRepo = new UserRepository();
@@ -78,11 +78,10 @@ export class UserMgmtController {
     try {
       const users = await this.userMgmtRepo.getAllUsers();
       const patients = users.filter((user) => user.role === Role.PACIENTE);
-      const slugMap = assignPatientSlugs(patients);
       res.json(
         users.map((user) => ({
           ...user,
-          urlSlug: user.role === Role.PACIENTE ? slugMap.get(user.id) || null : null,
+          urlSlug: user.role === Role.PACIENTE ? user.id : null,
         })),
       );
     } catch (error: any) {

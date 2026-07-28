@@ -86,8 +86,8 @@ export const normalizeUazapiChatDetails = (payload: unknown): NormalizedChatDeta
   const waContactName = str(raw.wa_contactName);
   const waName = str(raw.wa_name);
   const displayName = str(raw.name || waName || waContactName);
-  const avatarUrl = str(raw.image || raw.imagePreview);
-  const avatarPreviewUrl = str(raw.imagePreview || raw.image);
+  const avatarUrl = str(raw.image || raw.imagePreview || raw.avatarUrl || raw.avatarPreviewUrl);
+  const avatarPreviewUrl = str(raw.imagePreview || raw.image || raw.avatarPreviewUrl || raw.avatarUrl);
   const labels = Array.isArray(raw.wa_label)
     ? raw.wa_label.map((item) => str(item)).filter(Boolean)
     : [];

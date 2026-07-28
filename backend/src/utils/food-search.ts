@@ -111,6 +111,32 @@ export function scoreFoodSearchResult(query: string, name: string, source: "TACO
   return score;
 }
 
+/** Penaliza quando tokens distintivos do plano (ex.: legumes) não aparecem no candidato (ex.: castanhas). */
+export function scoreQueryTokenMismatchPenalty(query: string, name: string): number {
+  const queryTokens = tokenizeFoodQuery(query);
+  if (!queryTokens.length) return 0;
+
+  const normalizedQuery = normalizeFoodSearchQuery(query);
+  const normalizedName = normalizeFoodSearchQuery(name);
+  let penalty = 0;
+
+  for (const token of queryTokens) {
+    if (token.length < 4) continue;
+    const variants = expandTokenSynonyms(token);
+    const matched = variants.some(
+      (variant) => normalizedName.includes(variant) || tokenizeFoodQuery(name).includes(variant),
+    );
+    if (!matched) penalty -= 130;
+  }
+
+  const mixMatch = normalizedQuery.match(/\bmix de ([a-z0-9]+)/);
+  if (mixMatch && !normalizedName.includes(mixMatch[1])) {
+    penalty -= 250;
+  }
+
+  return penalty;
+}
+
 export function countMatchingFoodTokens(query: string, name: string): number {
   const tokens = tokenizeFoodQuery(query);
   if (!tokens.length) return 0;

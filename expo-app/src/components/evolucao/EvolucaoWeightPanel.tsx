@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import WeightRulerPicker from '@/components/evolucao/WeightRulerPicker';
+import { useAppToast } from '@/hooks/useAppToast';
 import { usePatientApi } from '@/hooks/usePatientApi';
+import { toastSaveError, toastSuccess } from '@/lib/app-toast';
 import { formatPatientDateLabel } from '@/lib/local-date';
 import { colors, fonts, radii } from '@/theme/tokens';
 
@@ -20,11 +22,11 @@ function formatWeight(value: number) {
 
 export default function EvolucaoWeightPanel() {
   const { request } = usePatientApi();
+  const { showToast } = useAppToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [weightValue, setWeightValue] = useState<number | null>(70);
+  const [weightValue, setWeightValue] = useState<number | null>(null);
   const [entries, setEntries] = useState<WeightEntry[]>([]);
 
   const latestEntry = entries[0] || null;
@@ -67,10 +69,10 @@ export default function EvolucaoWeightPanel() {
 
       setEntries(withDelta);
       const latest = sorted[0]?.weightKg;
-      setWeightValue(latest != null ? latest : 70);
+      setWeightValue(latest ?? null);
     } catch {
       setEntries([]);
-      setWeightValue(70);
+      setWeightValue(null);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -82,10 +84,11 @@ export default function EvolucaoWeightPanel() {
 
   async function saveWeight() {
     setFormError('');
-    setSaveSuccess(false);
     const weight = Number(weightValue);
     if (!Number.isFinite(weight) || weight <= 0) {
-      setFormError('Informe um peso válido.');
+      const message = 'Informe um peso válido.';
+      setFormError(message);
+      showToast(toastSaveError(message));
       return;
     }
 
@@ -107,10 +110,11 @@ export default function EvolucaoWeightPanel() {
       });
 
       await loadHistory({ silent: true });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      showToast(toastSuccess('Peso salvo', `${formatWeight(weight)} kg`));
     } catch (err) {
-      setFormError((err as Error).message || 'Não foi possível salvar o peso.');
+      const message = (err as Error).message || 'Não foi possível salvar o peso.';
+      setFormError(message);
+      showToast(toastSaveError(message));
     } finally {
       setSaving(false);
     }
@@ -156,7 +160,6 @@ export default function EvolucaoWeightPanel() {
         >
           <Text style={styles.saveBtnText}>{saving ? 'Salvando…' : 'Salvar peso'}</Text>
         </Pressable>
-        {saveSuccess ? <Text style={styles.success}>Peso salvo com sucesso.</Text> : null}
         {formError ? <Text style={styles.error}>{formError}</Text> : null}
       </View>
 
@@ -290,11 +293,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 14,
     color: '#fff',
-  },
-  success: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.primaryDark,
   },
   error: {
     fontFamily: fonts.medium,

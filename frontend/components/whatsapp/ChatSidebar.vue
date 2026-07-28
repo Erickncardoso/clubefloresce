@@ -97,8 +97,8 @@
     <div v-if="!loading" class="chat-list-scroll">
       <div
         v-for="chat in chats"
-        :key="chat.id"
-        v-memo="[chat, isActive(chat), contextMenuChat?.id === chat.id, isAvatarBroken(chat), whatsappLabelsById]"
+        :key="chatSelectKey(chat)"
+        v-memo="[chatSelectKey(chat), chat.lastMessageTime, chat.lastMessage, chat.unreadCount, chatAvatarUrl(chat), isActive(chat), contextMenuChat?.id === chat.id, isAvatarBroken(chat), whatsappLabelsById]"
         class="chat-item"
         :class="{
           active: isActive(chat),
@@ -145,7 +145,7 @@
               </span>
             </div>
             <div class="chat-top-meta">
-              <span class="chat-time text-muted text-xs">{{ formatListTime(chat.lastMessageTime || chat.timestamp) }}</span>
+              <span class="chat-time text-muted text-xs">{{ formatListTime(getChatActivityTimestamp(chat)) }}</span>
               <button
                 type="button"
                 class="chat-item-chevron"
@@ -241,7 +241,9 @@ import {
   resolveChatListLastMessage,
   chatListDeliveryStatus,
   shouldShowChatListPreviewTicks,
-  resolveChatListPresencePreview
+  resolveChatListPresencePreview,
+  canonicalChatListKey,
+  getChatActivityTimestamp,
 } from '~/composables/whatsapp/useWhatsappChats.js'
 import { resolveChatListDisplayName, resolveChatListAvatarUrl } from '~/composables/whatsapp/useWhatsappContacts.js'
 import WhatsappDeliveryTicks from '~/components/whatsapp/WhatsappDeliveryTicks.vue'
@@ -271,17 +273,25 @@ const emit = defineEmits([
 /** Abre no pointerdown (~100ms antes do click) — sensação de instantâneo. */
 let lastPointerSelectKey = ''
 let lastPointerSelectAt = 0
-const chatSelectKey = (chat) => String(chat?.id || chat?.chatJid || chat?.wa_chatid || '').trim()
+const chatSelectKey = (chat) =>
+  canonicalChatListKey(chat) ||
+  String(chat?.id || chat?.chatJid || chat?.wa_chatid || chat?.wa_chatlid || '').trim()
+
+const emitChatSelect = (chat) => {
+  if (!chat) return
+  const key = chatSelectKey(chat)
+  if (key) {
+    lastPointerSelectKey = key
+    lastPointerSelectAt = Date.now()
+  }
+  emit('select', chat)
+}
 
 const onChatPointerDown = (chat, event) => {
   // Só mouse: em touch, pointerdown dispara ao iniciar scroll da lista.
   if (event?.pointerType && event.pointerType !== 'mouse') return
   if (event?.button != null && event.button !== 0) return
-  const key = chatSelectKey(chat)
-  if (!key) return
-  lastPointerSelectKey = key
-  lastPointerSelectAt = Date.now()
-  emit('select', chat)
+  emitChatSelect(chat)
 }
 
 /** Hover-intent: só prefaz o fetch se o mouse parar ~90ms na linha (varrer a lista não dispara rajada). */
@@ -311,10 +321,9 @@ const onChatClick = (chat, event) => {
     key === lastPointerSelectKey &&
     Date.now() - lastPointerSelectAt < 800
   ) {
-    event?.preventDefault?.()
     return
   }
-  emit('select', chat)
+  emitChatSelect(chat)
 }
 
 const markingAllRead = ref(false)

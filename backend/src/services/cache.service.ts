@@ -3,23 +3,46 @@ import Redis from "ioredis";
 class CacheService {
   private redis: Redis | null = null;
   private enabled = false;
+  private loggedRedisError = false;
 
   constructor() {
-    const redisUrl = process.env.REDIS_URL;
+    const redisUrl = process.env.REDIS_URL?.trim();
     if (!redisUrl) return;
 
-    this.redis = new Redis(redisUrl, {
+    const client = new Redis(redisUrl, {
       maxRetriesPerRequest: 1,
-      enableOfflineQueue: false
+      enableOfflineQueue: false,
+      lazyConnect: true,
+      retryStrategy: () => null,
+      reconnectOnError: () => false,
     });
 
-    this.redis.on("error", (err) => {
-      console.error("[Redis] erro de conexão:", err.message);
-      this.enabled = false;
-    });
+    this.redis = client;
 
-    this.redis.on("ready", () => {
+    client.on("ready", () => {
       this.enabled = true;
+    });
+
+    client.on("error", (err) => {
+      this.enabled = false;
+      if (this.loggedRedisError) return;
+      this.loggedRedisError = true;
+      console.warn(
+        "[Redis] indisponível — cache de vídeo desativado neste ambiente:",
+        err.message,
+      );
+    });
+
+    void client.connect().catch((err) => {
+      this.enabled = false;
+      if (this.loggedRedisError) return;
+      this.loggedRedisError = true;
+      console.warn(
+        "[Redis] indisponível — cache de vídeo desativado neste ambiente:",
+        err.message,
+      );
+      void client.quit().catch(() => {});
+      this.redis = null;
     });
   }
 

@@ -61,3 +61,20 @@ export function toAbsoluteDocumentUrl(src: string): string {
   if (src.startsWith('/')) return `${base}${src}`;
   return src;
 }
+
+type OpenDocumentOptions = {
+  title?: string;
+  from?: string;
+};
+
+/** Espelha `usePatientDocument().openDocument` do PWA. */
+export function buildDocumentRouteParams(rawUrl: string, options: OpenDocumentOptions = {}) {
+  const url = normalizeDocumentUrl(rawUrl);
+  if (!url) return null;
+
+  return {
+    src: encodeURIComponent(url),
+    title: options.title?.trim() || undefined,
+    from: options.from || '/conteudo',
+  };
+}

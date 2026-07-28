@@ -82,3 +82,11 @@ export function applyCloudinaryVideoQuality(
   if (quality === 'auto') return buildCloudinaryVideoUrl(ref);
   return buildCloudinaryVideoUrl(ref, QUALITY_TRANSFORMS[quality]);
 }
+
+/** URL HLS adaptativa do Cloudinary (mesmo fluxo do PWA). */
+export function getCloudinaryHlsUrl(videoUrl: string): string {
+  const ref = parseCloudinaryVideoUrl(videoUrl);
+  if (!ref) return '';
+  const versionSegment = ref.version ? `v${ref.version}/` : '';
+  return `https://${CLOUDINARY_HOST}/${ref.cloudName}/video/upload/sp_auto/${versionSegment}${ref.publicId}.m3u8`;
+}

@@ -7,11 +7,12 @@ alwaysApply: true
 
 ## Antes de codificar ou alterar UI
 
-1. Leia `.agents/rules/GEMINI.md` quando a tarefa for complexa ou ambígua.
-2. Siga `.agents/skills/intelligent-routing/SKILL.md` para escolher o agente.
-3. Abra `.agents/agent/{agente}.md` e carregue os `skills:` do frontmatter.
-4. Leia apenas o `SKILL.md` necessário (progressive disclosure — não leia pastas inteiras).
-5. Para este repo, aplique também `.cursor/rules/clubeflorescer-routing.mdc`.
+1. **Leia `regras.md` na raiz do repo** — arredondamento, botões, inputs, cards e padrão visual admin (obrigatório).
+2. Leia `.agents/rules/GEMINI.md` quando a tarefa for complexa ou ambígua.
+3. Siga `.agents/skills/intelligent-routing/SKILL.md` para escolher o agente.
+4. Abra `.agents/agent/{agente}.md` e carregue os `skills:` do frontmatter.
+5. Leia apenas o `SKILL.md` necessário (progressive disclosure — não leia pastas inteiras).
+6. Para este repo, aplique também `.cursor/rules/clubeflorescer-routing.mdc` e `.cursor/rules/admin-border-radius.mdc` (UI admin).
 
 ## Prioridade de regras
 

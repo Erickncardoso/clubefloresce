@@ -5,6 +5,12 @@ type FoodSearchItem = {
   id: string;
   name: string;
   category?: string;
+  per100g?: {
+    caloriesKcal?: number;
+    proteinG?: number;
+    carbsG?: number;
+    fatG?: number;
+  };
 };
 
 type SubstitutionPayload = {

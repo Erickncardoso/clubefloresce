@@ -481,6 +481,9 @@ watch(checkoutError, (value) => {
 })
 
 onMounted(async () => {
+  if (route.query.app === '1') {
+    sessionStorage.setItem('cf_from_app', '1')
+  }
   pageLoading.value = true
   await loadBillingData()
 })

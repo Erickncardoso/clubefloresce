@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -11,51 +11,154 @@ import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   ArrowLeftRight,
+  Calculator,
   Camera,
+  ChevronRight,
+  CircleCheck,
+  ImagePlus,
+  Layers,
   Plus,
+  Trash2,
   Upload,
 } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
+import DietaAddExtraFoodModal from '@/components/dieta/DietaAddExtraFoodModal';
 import DietaCheckIcon from '@/components/dieta/DietaCheckIcon';
+import DietaMealPlanOptionPickerModal from '@/components/dieta/DietaMealPlanOptionPickerModal';
+import DietaMealPlanOptionsIntroModal from '@/components/dieta/DietaMealPlanOptionsIntroModal';
+import DietaMealPlanRecipeDetailSheet from '@/components/dieta/DietaMealPlanRecipeDetailSheet';
 import DietaMealPlanUploadCard from '@/components/dieta/DietaMealPlanUploadCard';
+import DietaMealSubstitutionsModal from '@/components/dieta/DietaMealSubstitutionsModal';
 import { useDietaDiarySync, type DailySummary } from '@/hooks/useDietaDiarySync';
+import { useAppToast } from '@/hooks/useAppToast';
+import { toastSuccess } from '@/lib/app-toast';
+import { useMealExtraItems } from '@/hooks/useMealExtraItems';
+import { useMealItemOverrides } from '@/hooks/useMealItemOverrides';
+import { useMealPlan } from '@/hooks/useMealPlan';
+import { useMealPlanOptionSelections } from '@/hooks/useMealPlanOptionSelections';
+import { useMealSubstitutions } from '@/hooks/useMealSubstitutions';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { usePatientMealPlan } from '@/hooks/usePatientMealPlan';
 import { countDone, loadChecked, saveChecked } from '@/lib/dieta-progress';
-import { getMealById } from '@/lib/meal-plan-api';
-import { getMealIdForTimeFromMeals } from '@/lib/meal-plan-time';
+import type { MealPlanRecipe } from '@/lib/meal-plan-api';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type ViewMode = 'today' | 'week';
 
 export default function DietaScreen() {
   const router = useRouter();
+  const { showToast } = useAppToast();
   const { request } = usePatientApi();
-  const { queueSyncMealCheck } = useDietaDiarySync();
+  const { queueSyncMealCheck, resyncAllCheckedMeals } = useDietaDiarySync();
   const {
-    meals,
+    planRecord,
+    planChecked,
     planTitle,
     hasPlan,
-    loading: planLoading,
+    loading: planFetchLoading,
     uploading: planUploading,
     error: planError,
     fetchPlan,
     uploadPdf,
   } = usePatientMealPlan();
 
+  const {
+    mealList,
+    mealOrder,
+    getMealById,
+    getMealIdForTime,
+    optionGroupForMeal,
+  } = useMealPlan(planRecord);
+
+  const {
+    needsOptionSelection,
+    optionGroups,
+    mealHasOptionAlternatives,
+  } = useMealPlanOptionSelections();
+
+  const { getSubstitutionGroupsForMeal, mealHasSubstitutions } = useMealSubstitutions();
+  const { addExtraItem, removeExtraItem } = useMealExtraItems();
+  const { overridesRevision } = useMealItemOverrides();
+
   const [view, setView] = useState<ViewMode>('today');
   const [activeMealId, setActiveMealId] = useState('');
   const [checkedItems, setCheckedItems] = useState<boolean[]>([]);
   const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
-  const [booting, setBooting] = useState(true);
+  const [planLoading, setPlanLoading] = useState(!planChecked);
+
+  const [substitutionsOpen, setSubstitutionsOpen] = useState(false);
+  const [optionPickerOpen, setOptionPickerOpen] = useState(false);
+  const [optionPickerRequired, setOptionPickerRequired] = useState(false);
+  const [optionPickerFocusSlot, setOptionPickerFocusSlot] = useState('');
+  const [optionPickerTitle, setOptionPickerTitle] = useState('Escolha suas opções');
+  const [optionIntroOpen, setOptionIntroOpen] = useState(false);
+  const [extraFoodOpen, setExtraFoodOpen] = useState(false);
+  const [recipeDetailOpen, setRecipeDetailOpen] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<MealPlanRecipe | null>(null);
+
+  const checkedItemsRef = useRef(checkedItems);
+  checkedItemsRef.current = checkedItems;
+
+  const [mealProgressById, setMealProgressById] = useState<Record<string, { done: number; total: number }>>({});
 
   const currentMeal = useMemo(
-    () => getMealById(meals, activeMealId) || meals[0] || null,
-    [activeMealId, meals],
+    () => (activeMealId ? getMealById(activeMealId) : null),
+    [activeMealId, getMealById, overridesRevision],
   );
+
+  const activeMealDefinition = useMemo(
+    () => mealList.find((meal) => meal.id === activeMealId) || null,
+    [activeMealId, mealList],
+  );
+
+  const hasMealOptionGroups = optionGroups.length > 0;
+  const optionSlotsLabel = optionGroups.map((group) => group.label).filter(Boolean).join(', ');
+  const substitutionGroups = useMemo(
+    () => getSubstitutionGroupsForMeal(activeMealId),
+    [activeMealId, getSubstitutionGroupsForMeal, overridesRevision],
+  );
+  const hasSubstitutions = mealHasSubstitutions(activeMealId);
+  const activeMealHasOptionAlternatives = mealHasOptionAlternatives(activeMealId);
+
+  const currentMealPercent = useMemo(() => {
+    const progress = mealProgressById[activeMealId];
+    if (!progress?.total) return 0;
+    return Math.round((progress.done / progress.total) * 100);
+  }, [activeMealId, mealProgressById]);
+
+  const completedMealsCount = useMemo(
+    () => mealList.filter((meal) => {
+      const progress = mealProgressById[meal.id];
+      return Boolean(progress?.total && progress.done === progress.total);
+    }).length,
+    [mealList, mealProgressById],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAllProgress() {
+      const next: Record<string, { done: number; total: number }> = {};
+      for (const meal of mealList) {
+        const entry = getMealById(meal.id);
+        if (!entry) continue;
+        const total = entry.itemLabels.length;
+        const states = meal.id === activeMealId
+          ? checkedItems
+          : await loadChecked(meal.id, total);
+        next[meal.id] = { done: countDone(states), total };
+      }
+      if (!cancelled) setMealProgressById(next);
+    }
+
+    if (mealList.length) void loadAllProgress();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMealId, checkedItems, getMealById, mealList, overridesRevision]);
 
   const progressLabel = useMemo(() => {
     if (!currentMeal) return '';
@@ -76,65 +179,250 @@ export default function DietaScreen() {
   }, [request]);
 
   const syncChecked = useCallback(async (mealId: string, preserveChecked = false) => {
-    const meal = getMealById(meals, mealId);
+    const meal = getMealById(mealId);
     if (!meal) {
       setCheckedItems([]);
       return;
     }
 
     const count = meal.itemLabels.length;
-    const previous = preserveChecked ? checkedItems : await loadChecked(mealId, count);
+    const previous = preserveChecked ? checkedItemsRef.current : await loadChecked(mealId, count);
     const next = Array(count).fill(false);
     for (let i = 0; i < Math.min(previous.length, count); i += 1) {
       next[i] = Boolean(previous[i]);
     }
     setCheckedItems(next);
     await saveChecked(mealId, next);
-  }, [checkedItems, meals]);
+  }, [getMealById]);
 
-  const bootstrap = useCallback(async () => {
-    setBooting(true);
-    await fetchPlan();
-    await loadDailySummary();
-    setBooting(false);
-  }, [fetchPlan, loadDailySummary]);
+  function isMealComplete(mealId: string) {
+    const progress = mealProgressById[mealId];
+    return Boolean(progress?.total && progress.done === progress.total);
+  }
+
+  function weekProgressLabel(mealId: string) {
+    const progress = mealProgressById[mealId];
+    if (!progress?.total) {
+      const meal = getMealById(mealId);
+      return meal ? `${meal.itemLabels.length} itens` : '';
+    }
+    if (progress.done === progress.total) return 'Concluída hoje';
+    return `${progress.done}/${progress.total} itens marcados`;
+  }
+
+  function mealProgressPercent(mealId: string) {
+    const progress = mealProgressById[mealId];
+    if (!progress?.total) return 0;
+    return Math.round((progress.done / progress.total) * 100);
+  }
+
+  function resolveActiveMealFromRoute() {
+    return getMealIdForTime() || mealOrder[0] || '';
+  }
+
+  function openOptionIntroIfNeeded() {
+    if (!needsOptionSelection) return false;
+    setOptionIntroOpen(true);
+    return true;
+  }
+
+  function openOptionPicker(options: { required?: boolean; focusSlotKey?: string; title?: string } = {}) {
+    const { required = false, focusSlotKey = '', title = 'Escolha suas opções' } = options;
+    setOptionPickerRequired(required);
+    setOptionPickerFocusSlot(focusSlotKey);
+    setOptionPickerTitle(title);
+    setOptionPickerOpen(true);
+  }
+
+  function openOptionPickerForActiveMeal() {
+    const group = optionGroupForMeal(activeMealId);
+    if (!group) {
+      openAllMealOptions();
+      return;
+    }
+    openOptionPicker({
+      required: false,
+      focusSlotKey: group.slotKey,
+      title: `Trocar opção · ${group.label}`,
+    });
+  }
+
+  function openAllMealOptions() {
+    if (!hasMealOptionGroups) return;
+    openOptionPicker({
+      required: needsOptionSelection,
+      focusSlotKey: '',
+      title: 'Escolha suas opções',
+    });
+  }
+
+  function hydrateDietaFromPlan() {
+    if (!hasPlan) return false;
+    const mealId = resolveActiveMealFromRoute();
+    if (mealId) {
+      setActiveMealId(mealId);
+      void syncChecked(mealId);
+    }
+    openOptionIntroIfNeeded();
+    return true;
+  }
+
+  const syncAllCheckedMealsIfNeeded = useCallback(async () => {
+    try {
+      const summary = await resyncAllCheckedMeals(
+        getMealById,
+        mealOrder,
+        loadChecked,
+        countDone,
+      );
+      if (summary) setDailySummary(summary);
+      else await loadDailySummary();
+    } catch {
+      await loadDailySummary();
+    }
+  }, [getMealById, loadDailySummary, mealOrder, resyncAllCheckedMeals]);
 
   useEffect(() => {
-    void bootstrap();
-  }, [bootstrap]);
+    let cancelled = false;
+
+    async function init() {
+      if (planChecked) {
+        if (hydrateDietaFromPlan()) {
+          if (!cancelled) setPlanLoading(false);
+          void syncAllCheckedMealsIfNeeded();
+          return;
+        }
+        if (!cancelled) setPlanLoading(false);
+        void loadDailySummary();
+        return;
+      }
+
+      try {
+        await fetchPlan();
+        if (cancelled) return;
+        if (hydrateDietaFromPlan()) {
+          void syncAllCheckedMealsIfNeeded();
+        } else {
+          void loadDailySummary();
+        }
+      } finally {
+        if (!cancelled) setPlanLoading(false);
+      }
+    }
+
+    void init();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    if (!meals.length) return;
-    const mealId = getMealIdForTimeFromMeals(meals) || meals[0]?.id || '';
-    setActiveMealId(mealId);
-    void syncChecked(mealId);
-  }, [meals]);
+    if (!planChecked || planFetchLoading || planLoading) return;
+    if (hydrateDietaFromPlan()) {
+      setPlanLoading(false);
+      void syncAllCheckedMealsIfNeeded();
+    } else {
+      setPlanLoading(false);
+      void loadDailySummary();
+    }
+  }, [planChecked, planFetchLoading]);
+
+  useEffect(() => {
+    if (!needsOptionSelection || planLoading || optionPickerOpen || optionIntroOpen) return;
+    openOptionIntroIfNeeded();
+  }, [needsOptionSelection, planLoading, optionPickerOpen, optionIntroOpen]);
+
+  useEffect(() => {
+    void syncChecked(activeMealId, true);
+  }, [overridesRevision]);
 
   async function selectMeal(mealId: string) {
     setActiveMealId(mealId);
     await syncChecked(mealId);
+    setSubstitutionsOpen(false);
   }
 
   async function toggleItem(index: number) {
     if (!currentMeal) return;
+    const wasChecked = Boolean(checkedItems[index]);
     const next = [...checkedItems];
     next[index] = !next[index];
     setCheckedItems(next);
     await saveChecked(activeMealId, next);
+    if (!wasChecked && next[index]) {
+      const label = currentMeal.items[index]?.display || currentMeal.itemLabels[index] || 'Item';
+      showToast(toastSuccess('Registrado no diário', label));
+    }
     queueSyncMealCheck(activeMealId, currentMeal, next, (summary) => {
       if (summary) setDailySummary(summary);
     });
   }
 
-  function weekProgressLabel(mealId: string) {
-    const meal = getMealById(meals, mealId);
-    if (!meal) return '';
-    return `${meal.itemLabels.length} itens`;
+  async function onExtraFoodAdded(payload: { food: { id?: string; name: string }; amount: number; unit: string }) {
+    const added = addExtraItem(activeMealId, payload.food, payload.amount, payload.unit);
+    if (!added) return;
+
+    await syncChecked(activeMealId, true);
+    const next = [...checkedItemsRef.current];
+    next[next.length - 1] = true;
+    setCheckedItems(next);
+    await saveChecked(activeMealId, next);
+
+    const meal = getMealById(activeMealId);
+    showToast(toastSuccess('Registrado no diário', payload.food.name));
+    queueSyncMealCheck(activeMealId, meal, next, (summary) => {
+      if (summary) setDailySummary(summary);
+    });
+  }
+
+  async function removeExtraItemAt(index: number, itemId?: string) {
+    if (!itemId) return;
+    removeExtraItem(activeMealId, itemId);
+
+    const next = checkedItemsRef.current.filter((_, itemIndex) => itemIndex !== index);
+    setCheckedItems(next);
+    await saveChecked(activeMealId, next);
+
+    const meal = getMealById(activeMealId);
+    queueSyncMealCheck(activeMealId, meal, next, (summary) => {
+      if (summary) setDailySummary(summary);
+    });
+  }
+
+  function openRecipeDetail(recipe: MealPlanRecipe) {
+    setSelectedRecipe(recipe);
+    setRecipeDetailOpen(true);
+  }
+
+  function onOptionIntroChoose() {
+    setOptionIntroOpen(false);
+    openOptionPicker({ required: true });
+  }
+
+  function onOptionSelectionsSaved() {
+    setOptionIntroOpen(false);
+    setOptionPickerRequired(false);
+    setOptionPickerFocusSlot('');
+    setOptionPickerOpen(false);
+
+    const mealId = resolveActiveMealFromRoute();
+    if (mealId) {
+      setActiveMealId(mealId);
+      void syncChecked(mealId);
+    } else if (mealOrder.length) {
+      setActiveMealId(mealOrder[0]);
+      void syncChecked(mealOrder[0]);
+    }
   }
 
   async function handlePlanUploaded() {
-    await fetchPlan();
+    const mealId = resolveActiveMealFromRoute();
+    if (mealId) {
+      setActiveMealId(mealId);
+      await syncChecked(mealId);
+    }
     await loadDailySummary();
+    openOptionIntroIfNeeded();
   }
 
   async function handleReupload() {
@@ -186,7 +474,7 @@ export default function DietaScreen() {
     if (!entry?.id) return;
     Alert.alert(
       'Remover refeição?',
-      `Deseja remover ${entry.mealLabel || 'esta refeição'} do diário?`,
+      `Deseja remover ${entry.mealLabel || 'esta refeição'} do diário? As calorias do dia serão recalculadas.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -209,7 +497,7 @@ export default function DietaScreen() {
     );
   }
 
-  if (booting || planLoading) {
+  if (planLoading || (planFetchLoading && !planChecked)) {
     return (
       <PatientShell>
         <PatientHeader title="Minha dieta" showBack backTo="/inicio" showBell={false} showMenu={false} />
@@ -250,24 +538,50 @@ export default function DietaScreen() {
                 style={[styles.tab, view === 'week' && styles.tabActive]}
                 onPress={() => setView('week')}
               >
-                <Text style={[styles.tabText, view === 'week' && styles.tabTextActive]}>Plano semanal</Text>
+                <Text style={[styles.tabText, view === 'week' && styles.tabTextActive]}>Plano completo</Text>
               </Pressable>
             </View>
 
             {view === 'today' ? (
               <>
+                <View style={styles.sectionHeading}>
+                  <Text style={styles.sectionTitle}>Refeições de hoje</Text>
+                  <Text style={styles.sectionCount}>{completedMealsCount}/{mealList.length} concluídas</Text>
+                </View>
+
+                {hasMealOptionGroups ? (
+                  <Pressable style={styles.optionsBanner} onPress={openAllMealOptions}>
+                    <Layers size={18} color="#62785a" />
+                    <View style={styles.optionsBannerCopy}>
+                      <Text style={styles.optionsBannerTitle}>
+                        {needsOptionSelection ? 'Escolher opções do cardápio' : 'Alterar opções do cardápio'}
+                      </Text>
+                      <Text style={styles.optionsBannerSubtitle}>
+                        {needsOptionSelection
+                          ? 'Seu plano tem alternativas — escolha e salve'
+                          : 'Você pode trocar a opção salva quando quiser'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={16} color="#8a9086" />
+                  </Pressable>
+                ) : null}
+
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mealsRow}>
-                  {meals.map((meal) => {
+                  {mealList.map((meal) => {
                     const Icon = meal.icon;
                     const active = activeMealId === meal.id;
+                    const complete = isMealComplete(meal.id);
                     return (
                       <Pressable
                         key={meal.id}
                         style={[styles.mealBtn, active && styles.mealBtnActive]}
                         onPress={() => selectMeal(meal.id)}
                       >
-                        <Icon size={18} color={active ? colors.primaryDark : colors.textMuted} />
+                        <View style={[styles.mealIconWrap, active && styles.mealIconWrapActive]}>
+                          <Icon size={16} color={active ? '#687a5f' : '#7f8d76'} />
+                        </View>
                         <Text style={[styles.mealBtnText, active && styles.mealBtnTextActive]}>{meal.short}</Text>
+                        {complete ? <CircleCheck size={14} color="#6f8d65" /> : null}
                       </Pressable>
                     );
                   })}
@@ -275,10 +589,26 @@ export default function DietaScreen() {
 
                 {currentMeal ? (
                   <View style={styles.card}>
-                    <Text style={styles.mealLabel}>{currentMeal.label}</Text>
-                    <Text style={styles.mealMeta}>
-                      {currentMeal.time} · Refeição {currentMeal.index} de {currentMeal.total}
-                    </Text>
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardHeading}>
+                        {activeMealDefinition ? (
+                          <View style={styles.cardIcon}>
+                            <activeMealDefinition.icon size={19} color="#74836c" />
+                          </View>
+                        ) : null}
+                        <View style={styles.cardHeadingCopy}>
+                          <Text style={styles.mealLabel}>{currentMeal.label}</Text>
+                          <Text style={styles.mealMeta}>
+                            {currentMeal.time} · Refeição {currentMeal.index} de {currentMeal.total}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.cardPercent}>{currentMealPercent}%</Text>
+                    </View>
+
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${currentMealPercent}%` }]} />
+                    </View>
                     {progressLabel ? <Text style={styles.progress}>{progressLabel}</Text> : null}
 
                     {currentMeal.items.map((item, index) => (
@@ -286,67 +616,119 @@ export default function DietaScreen() {
                         <Pressable style={styles.checkBtn} onPress={() => toggleItem(index)}>
                           <DietaCheckIcon completed={Boolean(checkedItems[index])} />
                         </Pressable>
-                        <Text
-                          style={[
-                            styles.itemText,
-                            checkedItems[index] && styles.itemDone,
-                            item.isSubstituted && styles.itemSubstituted,
-                            item.isExtra && styles.itemExtra,
-                          ]}
-                        >
-                          {item.display || currentMeal.itemLabels[index]}
-                        </Text>
+                        <View style={styles.itemCopy}>
+                          {item.recipe ? (
+                            <Pressable onPress={() => openRecipeDetail(item.recipe!)}>
+                              <Text
+                                style={[
+                                  styles.itemText,
+                                  checkedItems[index] && styles.itemDone,
+                                  item.isSubstituted && styles.itemSubstituted,
+                                  item.isExtra && styles.itemExtra,
+                                  styles.recipeLink,
+                                ]}
+                              >
+                                {item.display || currentMeal.itemLabels[index]}
+                              </Text>
+                            </Pressable>
+                          ) : (
+                            <Text
+                              style={[
+                                styles.itemText,
+                                checkedItems[index] && styles.itemDone,
+                                item.isSubstituted && styles.itemSubstituted,
+                                item.isExtra && styles.itemExtra,
+                              ]}
+                            >
+                              {item.display || currentMeal.itemLabels[index]}
+                            </Text>
+                          )}
+                          {item.isSubstituted ? <Text style={styles.swapTag}>Substituído</Text> : null}
+                          {item.isExtra ? <Text style={styles.extraTag}>Fora do plano</Text> : null}
+                        </View>
+                        {item.isExtra ? (
+                          <Pressable style={styles.removeBtn} onPress={() => removeExtraItemAt(index, item.id)}>
+                            <Trash2 size={15} color="#9b8178" />
+                          </Pressable>
+                        ) : null}
                       </View>
                     ))}
 
-                    <Pressable style={styles.addExtraBtn}>
-                      <Plus size={16} color={colors.primaryDark} />
-                      <Text style={styles.addExtraText}>Adicionar outro alimento</Text>
-                    </Pressable>
-
-                    <Pressable
-                      style={styles.subsLink}
-                      onPress={() => router.push('/substituicao' as never)}
-                    >
-                      <ArrowLeftRight size={16} color={colors.text} />
-                      <Text style={styles.subsLinkText}>Calculadora de substituição</Text>
-                    </Pressable>
-
-                    <View style={styles.actions}>
-                      <Pressable style={styles.actionPrimary} onPress={takePhotoNow}>
-                        <Camera size={15} color="#fff" />
-                        <Text style={styles.actionPrimaryText}>Tirar foto agora</Text>
+                    <View style={styles.tools}>
+                      <Pressable style={styles.toolBtn} onPress={() => setExtraFoodOpen(true)}>
+                        <Plus size={14} color="#7e8b76" />
+                        <Text style={styles.toolText}>Adicionar alimento</Text>
                       </Pressable>
-                      <Pressable style={styles.actionOutline} onPress={openGallery}>
-                        <Text style={styles.actionOutlineText}>Escolher da galeria</Text>
+                      {hasSubstitutions ? (
+                        <Pressable style={styles.toolBtn} onPress={() => setSubstitutionsOpen(true)}>
+                          <ArrowLeftRight size={14} color="#7e8b76" />
+                          <Text style={styles.toolText}>Substituições</Text>
+                        </Pressable>
+                      ) : null}
+                      {activeMealHasOptionAlternatives ? (
+                        <Pressable style={styles.toolBtn} onPress={openOptionPickerForActiveMeal}>
+                          <Layers size={14} color="#7e8b76" />
+                          <Text style={styles.toolText}>Trocar opção</Text>
+                        </Pressable>
+                      ) : null}
+                      <Pressable style={styles.toolBtn} onPress={() => router.push('/substituicao' as never)}>
+                        <Calculator size={14} color="#7e8b76" />
+                        <Text style={styles.toolText}>Calcular troca</Text>
                       </Pressable>
                     </View>
 
-                    <Pressable onPress={() => setView('week')}>
-                      <Text style={styles.planLink}>Ver plano completo</Text>
+                    <View style={styles.register}>
+                      <Text style={styles.registerTitle}>Registrar refeição</Text>
+                      <Text style={styles.registerSubtitle}>Envie uma foto para a Bella analisar.</Text>
+                      <View style={styles.actions}>
+                        <Pressable style={styles.actionPrimary} onPress={takePhotoNow}>
+                          <Camera size={15} color="#fff" />
+                          <Text style={styles.actionPrimaryText}>Tirar foto</Text>
+                        </Pressable>
+                        <Pressable style={styles.actionOutline} onPress={openGallery}>
+                          <ImagePlus size={15} color="#555b53" />
+                          <Text style={styles.actionOutlineText}>Galeria</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    <Pressable style={styles.planLink} onPress={() => setView('week')}>
+                      <Text style={styles.planLinkText}>Ver todas as refeições</Text>
+                      <ChevronRight size={15} color="#687264" />
                     </Pressable>
                   </View>
                 ) : null}
               </>
             ) : (
               <>
-                <Text style={styles.weekIntro}>
-                  Seu plano alimentar de hoje, refeição por refeição.
-                </Text>
-                {meals.map((meal) => {
-                  const entry = getMealById(meals, meal.id);
+                <View style={styles.sectionHeading}>
+                  <Text style={styles.sectionTitle}>Plano do dia</Text>
+                  <Text style={styles.sectionCount}>{completedMealsCount}/{mealList.length} concluídas</Text>
+                </View>
+
+                {mealList.map((meal) => {
+                  const entry = getMealById(meal.id);
                   if (!entry) return null;
+                  const percent = mealProgressPercent(meal.id);
                   return (
-                    <Pressable key={meal.id} style={styles.weekCard} onPress={() => openMealFromWeek(meal.id)}>
-                      <Text style={styles.weekTitle}>{entry.label}</Text>
-                      <Text style={styles.weekMeta}>
-                        {entry.time} · {entry.index} de {entry.total}
-                      </Text>
-                      <Text style={styles.weekProgress}>{weekProgressLabel(meal.id)}</Text>
-                      {entry.itemLabels.map((label, index) => (
-                        <Text key={`${meal.id}-${index}`} style={styles.weekItem}>• {label}</Text>
-                      ))}
-                    </Pressable>
+                    <View key={meal.id} style={styles.weekCard}>
+                      <Pressable style={styles.weekHead} onPress={() => openMealFromWeek(meal.id)}>
+                        <View style={styles.weekIcon}>
+                          <meal.icon size={18} color="#75846d" />
+                        </View>
+                        <View style={styles.weekInfo}>
+                          <View style={styles.weekTitleRow}>
+                            <Text style={styles.weekTitle}>{entry.label}</Text>
+                            <Text style={styles.weekTime}>{entry.time}</Text>
+                          </View>
+                          <Text style={styles.weekProgress}>{weekProgressLabel(meal.id)}</Text>
+                        </View>
+                        <ChevronRight size={16} color="#a0a49e" />
+                      </Pressable>
+                      <View style={styles.weekTrack}>
+                        <View style={[styles.weekFill, { width: `${percent}%` }]} />
+                      </View>
+                    </View>
                   );
                 })}
               </>
@@ -362,6 +744,49 @@ export default function DietaScreen() {
           </>
         )}
       </ScrollView>
+
+      {currentMeal ? (
+        <>
+          <DietaMealSubstitutionsModal
+            open={substitutionsOpen}
+            mealId={activeMealId}
+            mealLabel={currentMeal.label}
+            groups={substitutionGroups}
+            onClose={() => setSubstitutionsOpen(false)}
+          />
+
+          <DietaAddExtraFoodModal
+            open={extraFoodOpen}
+            mealLabel={currentMeal.label}
+            onClose={() => setExtraFoodOpen(false)}
+            onAdded={onExtraFoodAdded}
+          />
+        </>
+      ) : null}
+
+      <DietaMealPlanOptionPickerModal
+        open={optionPickerOpen}
+        required={optionPickerRequired}
+        focusSlotKey={optionPickerFocusSlot}
+        title={optionPickerTitle}
+        confirmLabel={optionPickerRequired ? 'Continuar' : 'Salvar opção'}
+        onClose={() => {
+          if (!optionPickerRequired) setOptionPickerOpen(false);
+        }}
+        onSaved={onOptionSelectionsSaved}
+      />
+
+      <DietaMealPlanOptionsIntroModal
+        open={optionIntroOpen}
+        slotsLabel={optionSlotsLabel}
+        onChoose={onOptionIntroChoose}
+      />
+
+      <DietaMealPlanRecipeDetailSheet
+        open={recipeDetailOpen}
+        recipe={selectedRecipe}
+        onClose={() => setRecipeDetailOpen(false)}
+      />
     </PatientShell>
   );
 }
@@ -370,129 +795,245 @@ const styles = StyleSheet.create({
   scroll: { padding: spacing[4], paddingBottom: spacing[6], gap: spacing[3] },
   tabs: {
     flexDirection: 'row',
-    gap: spacing[2],
-    padding: 4,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    padding: 3,
+    backgroundColor: '#f5f6f4',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#e4e6e2',
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  tabActive: { backgroundColor: colors.primarySoft },
-  tabText: { fontFamily: fonts.medium, fontSize: 13, color: colors.textMuted },
-  tabTextActive: { fontFamily: fonts.semibold, color: colors.primaryDark },
-  mealsRow: { gap: 6, paddingBottom: 4 },
-  mealBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    minWidth: 56,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  mealBtnActive: { backgroundColor: colors.primarySoft, borderColor: colors.primarySoft },
-  mealBtnText: { fontFamily: fonts.medium, fontSize: 10, color: colors.textMuted },
-  mealBtnTextActive: { color: colors.primaryDark, fontFamily: fonts.semibold },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing[4],
-    gap: spacing[3],
-  },
-  mealLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
-  mealMeta: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
-  progress: { fontFamily: fonts.medium, fontSize: 12, color: colors.primaryDark },
-  checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2] },
-  checkBtn: { padding: 0 },
-  itemText: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.text, lineHeight: 20 },
-  itemDone: { color: colors.textMuted, textDecorationLine: 'line-through' },
-  itemSubstituted: { color: colors.primaryDark },
-  itemExtra: { color: colors.primaryDark },
-  addExtraBtn: {
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: 'center' },
+  tabActive: { backgroundColor: '#fff', shadowColor: '#161c14', shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
+  tabText: { fontFamily: fonts.medium, fontSize: 13, color: '#777c75' },
+  tabTextActive: { fontFamily: fonts.medium, color: '#272a26' },
+  sectionHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing[4] },
+  sectionTitle: { fontFamily: fonts.medium, fontSize: 17, color: '#20221f' },
+  sectionCount: { fontFamily: fonts.regular, fontSize: 11, color: '#7d837a', paddingBottom: 2 },
+  optionsBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-    paddingVertical: spacing[3],
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.primarySoft,
-    borderRadius: 10,
+    gap: spacing[3],
+    padding: spacing[3],
+    borderWidth: 1,
+    borderColor: '#d5ddd0',
+    borderRadius: 16,
+    backgroundColor: '#f3f7f1',
+  },
+  optionsBannerCopy: { flex: 1 },
+  optionsBannerTitle: { fontFamily: fonts.semibold, fontSize: 13, color: '#2d352b' },
+  optionsBannerSubtitle: { fontFamily: fonts.regular, fontSize: 11, color: '#6f756d', marginTop: 2, lineHeight: 16 },
+  mealsRow: { gap: 8, paddingBottom: 4 },
+  mealBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 6,
+    paddingRight: 11,
+    paddingLeft: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e4e6e2',
     backgroundColor: '#fff',
   },
-  addExtraText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primaryDark },
-  subsLink: {
+  mealBtnActive: { borderColor: '#9aa891', backgroundColor: '#f5f7f3' },
+  mealIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    backgroundColor: '#f1f3ef',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mealIconWrapActive: { backgroundColor: '#e7ece3' },
+  mealBtnText: { fontFamily: fonts.regular, fontSize: 12, color: '#72776f', maxWidth: 100 },
+  mealBtnTextActive: { color: '#3f493a' },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#dfe2dd',
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[3],
+  },
+  cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 11, flex: 1 },
+  cardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: '#f0f3ed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeadingCopy: { flex: 1 },
+  mealLabel: { fontFamily: fonts.medium, fontSize: 15, color: '#20221f' },
+  mealMeta: { fontFamily: fonts.regular, fontSize: 11, color: '#858a82', marginTop: 3 },
+  cardPercent: { fontFamily: fonts.medium, fontSize: 18, color: '#4f5c49' },
+  progressTrack: {
+    height: 4,
+    marginHorizontal: spacing[4],
+    borderRadius: 999,
+    backgroundColor: '#eceeeb',
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', backgroundColor: '#839678', borderRadius: 999 },
+  progress: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    color: '#778173',
+    marginTop: 7,
+    marginBottom: spacing[2],
+    paddingHorizontal: spacing[4],
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    minHeight: 56,
+    paddingHorizontal: spacing[4],
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eceeeb',
+  },
+  checkBtn: { padding: 6, margin: -6 },
+  itemCopy: { flex: 1, gap: 4 },
+  itemText: { fontFamily: fonts.regular, fontSize: 13, color: '#343733', lineHeight: 18 },
+  itemDone: { color: '#9a9e98', textDecorationLine: 'line-through' },
+  itemSubstituted: { color: '#5f7556' },
+  itemExtra: { color: '#806c64' },
+  recipeLink: { textDecorationLine: 'underline', textDecorationColor: '#bdc6b8' },
+  swapTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#eef3eb',
+    color: '#687b60',
+    fontFamily: fonts.medium,
+    fontSize: 10,
+  },
+  extraTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#f6f0ed',
+    color: '#8a7067',
+    fontFamily: fonts.medium,
+    fontSize: 10,
+  },
+  removeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  tools: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+  },
+  toolBtn: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[2],
-    paddingVertical: spacing[3],
+    gap: 5,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
+    borderColor: '#e2e5e0',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    paddingHorizontal: 6,
   },
-  subsLinkText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
-  actions: { gap: spacing[2], marginTop: spacing[1] },
+  toolText: { fontFamily: fonts.regular, fontSize: 11, color: '#60665e', textAlign: 'center' },
+  register: {
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: '#e8eae6',
+    backgroundColor: '#f8f9f7',
+  },
+  registerTitle: { fontFamily: fonts.medium, fontSize: 13, color: '#2b2e2a' },
+  registerSubtitle: { fontFamily: fonts.regular, fontSize: 11, color: '#888d85', marginTop: 2 },
+  actions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
   actionPrimary: {
+    flex: 1.35,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[2],
-    backgroundColor: colors.primary,
-    paddingVertical: spacing[3],
-    borderRadius: 10,
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: '#798a70',
   },
-  actionPrimaryText: { fontFamily: fonts.semibold, fontSize: 13, color: '#fff' },
+  actionPrimaryText: { fontFamily: fonts.medium, fontSize: 12, color: '#fff' },
   actionOutline: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing[3],
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.primarySoft,
-    backgroundColor: colors.surface,
-  },
-  actionOutlineText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primary },
-  planLink: {
-    textAlign: 'center',
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.primary,
-    marginTop: spacing[2],
-  },
-  weekIntro: { fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted, lineHeight: 20 },
-  weekCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.control,
+    gap: spacing[2],
+    minHeight: 44,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing[3],
-    gap: 4,
+    borderColor: '#dfe2dd',
+    backgroundColor: '#fff',
   },
-  weekTitle: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
-  weekMeta: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted },
-  weekProgress: { fontFamily: fonts.medium, fontSize: 12, color: colors.primaryDark },
-  weekItem: { fontFamily: fonts.regular, fontSize: 13, color: colors.text, marginTop: 2 },
+  actionOutlineText: { fontFamily: fonts.medium, fontSize: 12, color: '#555b53' },
+  planLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    paddingHorizontal: spacing[4],
+    borderTopWidth: 1,
+    borderTopColor: '#e8eae6',
+  },
+  planLinkText: { fontFamily: fonts.regular, fontSize: 12, color: '#687264' },
+  weekCard: {
+    borderWidth: 1,
+    borderColor: '#e0e3de',
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+    marginBottom: spacing[2],
+  },
+  weekHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    padding: spacing[3],
+  },
+  weekIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: '#f0f3ed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekInfo: { flex: 1 },
+  weekTitleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[2] },
+  weekTitle: { flex: 1, fontFamily: fonts.medium, fontSize: 14, color: '#282b27' },
+  weekTime: { fontFamily: fonts.regular, fontSize: 11, color: '#8b9089' },
+  weekProgress: { fontFamily: fonts.regular, fontSize: 11, color: '#8b9089', marginTop: 3 },
+  weekTrack: { height: 3, backgroundColor: '#eceeeb' },
+  weekFill: { height: '100%', backgroundColor: '#839678' },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing[2],
     marginTop: spacing[2],
+    paddingTop: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: '#eceeeb',
   },
-  planSource: { flex: 1, fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
-  reupload: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  reuploadText: { fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
+  planSource: { flex: 1, fontFamily: fonts.regular, fontSize: 11, color: '#949891' },
+  reupload: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingHorizontal: 8 },
+  reuploadText: { fontFamily: fonts.medium, fontSize: 11, color: '#6d7b66' },
 });

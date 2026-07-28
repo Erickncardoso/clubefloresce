@@ -1,12 +1,11 @@
 import { WhatsappService } from "./whatsapp.service";
-import { isUazapiProvider } from "../config/whatsapp-provider.config";
 import whatsappMessageService from "./whatsapp-message.service";
 import { whatsappMessageRepository } from "../repositories/whatsapp_message.repository";
 import {
   collectMessageFindChatIds,
   resolveMessageFindChatId,
 } from "../utils/uazapi-message-ingest.util";
-import { extractUazapiWebhookChatJid } from "../utils/uazapi-webhook-event.util";
+import { extractWuzapiWebhookChatJid } from "../utils/wuzapi-webhook.util";
 
 const whatsappService = new WhatsappService();
 
@@ -170,7 +169,7 @@ export class WhatsappMessageHistoryBackfillService {
   }
 
   scheduleOnConnect(userId: string, reason = "connection"): void {
-    if (!isUazapiProvider() || !BACKFILL_ENABLED || !AUTO_BACKFILL_ON_CONNECT || !userId) return;
+    if (!BACKFILL_ENABLED || !AUTO_BACKFILL_ON_CONNECT || !userId) return;
 
     const state = getState(userId);
     if (state.running || state.scheduledTimer) return;
@@ -186,9 +185,9 @@ export class WhatsappMessageHistoryBackfillService {
   }
 
   noteHistoryWebhook(userId: string, payload: unknown): void {
-    if (!isUazapiProvider() || !BACKFILL_ENABLED || !AUTO_HISTORY_WEBHOOK_PULL || !userId) return;
+    if (!BACKFILL_ENABLED || !AUTO_HISTORY_WEBHOOK_PULL || !userId) return;
 
-    const chatJid = extractUazapiWebhookChatJid(payload);
+    const chatJid = extractWuzapiWebhookChatJid(payload);
     if (!chatJid) return;
 
     void whatsappMessageService.pullFromUazapi(userId, chatJid, 200, 0).catch(() => {});
@@ -222,10 +221,6 @@ export class WhatsappMessageHistoryBackfillService {
     });
 
     // Desligado por padrão — só force (botão manual) ou WHATSAPP_HISTORY_BACKFILL_ENABLED=1.
-    if (!isUazapiProvider()) {
-      console.log(`[WhatsApp Backfill] Ignorado (WuzAPI ativa — use webhook HistorySync) reason=${options.reason || "manual"}`);
-      return emptyStats();
-    }
     if (!BACKFILL_ENABLED && !options.force) {
       console.log(`[WhatsApp Backfill] Ignorado (desligado) reason=${options.reason || "manual"}`);
       return emptyStats();

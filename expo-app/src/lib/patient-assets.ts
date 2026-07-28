@@ -15,6 +15,7 @@ export const patientAssets = {
   bellaAvatar: require('../../assets/imgs/falecomabella.webp'),
   courseCover: require('../../assets/imgs/curso-capa-personalizada.png'),
   courseCoverMobile: require('../../assets/imgs/curso-capa-personalizada-mobile.png'),
+  mockupIsa: require('../../assets/imgs/mockup-isa.png'),
 } as const;
 
 export const QUICK_ACTIONS = [

@@ -22,7 +22,7 @@ export class BellaController {
         "get_user_profile",
         "get_checkin_summary",
         "list_recommended_courses",
-        "search_educational_content",
+        "search_knowledge_base",
         "get_patient_meal_plan",
         "get_daily_diary_summary",
       ],

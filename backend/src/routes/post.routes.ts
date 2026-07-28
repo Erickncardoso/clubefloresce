@@ -20,6 +20,7 @@ const handlePostImageUpload = (req: any, res: any, next: any) => {
 router.get("/", authenticate, postController.getAll);
 router.post("/", authenticate, handlePostImageUpload, postController.create);
 router.post("/:postId/comments", authenticate, postController.addComment);
+router.post("/:id/report", authenticate, postController.report.bind(postController));
 router.post("/:id/toggle-like", authenticate, postController.toggleLike.bind(postController));
 router.delete("/:id", authenticate, postController.delete.bind(postController));
 

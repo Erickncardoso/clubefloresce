@@ -1,12 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Lock, Sparkles } from 'lucide-react-native';
+import { BellRing, Lock, Sparkles } from 'lucide-react-native';
+import HealthDisclaimerBanner from '@/components/ui/HealthDisclaimerBanner';
+import OnboardingHeightPicker from '@/components/onboarding/OnboardingHeightPicker';
+import OnboardingOptionCard from '@/components/onboarding/OnboardingOptionCard';
+import OnboardingShell from '@/components/onboarding/OnboardingShell';
+import WeightRulerPicker from '@/components/evolucao/WeightRulerPicker';
+import { BrandLogo } from '@/components/BrandLogo';
 import CfButton from '@/components/ui/CfButton';
 import FormField from '@/components/ui/FormField';
 import LoadingScreen from '@/components/ui/LoadingScreen';
-import PatientShell from '@/components/PatientShell';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { usePatientApi } from '@/hooks/usePatientApi';
 import { useAuth, type PatientProfileData } from '@/providers/AuthProvider';
+import { clearOnboardingLeft, markOnboardingLeft } from '@/notifications/registry';
+import {
+  activateOnboardingPushNotifications,
+  finalizeOnboardingNotifications,
+} from '@/notifications/onboarding-complete';
+import {
+  getPermissionState,
+  openSystemNotificationSettings,
+  permissionBlockedMessage,
+  type PermissionState,
+} from '@/notifications/permission';
+import { patientAssets } from '@/lib/patient-assets';
+import { maskBirthDateBr, parseBirthDateBrToIso } from '@/lib/masks';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type Step = 'welcome' | 'gender' | 'birth' | 'measurements' | 'goal' | 'workouts' | 'target-weight' | 'complete';
@@ -18,32 +38,56 @@ const GENDER_OPTIONS = [
 ];
 
 const GOAL_OPTIONS = [
-  { value: 'lose_weight', label: 'Perder peso' },
-  { value: 'maintain', label: 'Manter peso' },
-  { value: 'gain_weight', label: 'Ganhar peso' },
-  { value: 'muscle', label: 'Ganhar massa muscular' },
-  { value: 'health', label: 'Saúde e hábitos' },
+  { value: 'lose_weight', label: 'Perder peso', subtitle: 'Reduzir gordura com acompanhamento.' },
+  { value: 'maintain', label: 'Manter peso', subtitle: 'Estabilidade e consistência.' },
+  { value: 'gain_weight', label: 'Ganhar peso', subtitle: 'Aumento gradual e saudável.' },
+  { value: 'muscle', label: 'Ganhar massa muscular', subtitle: 'Foco em composição corporal.' },
+  { value: 'health', label: 'Saúde e hábitos', subtitle: 'Rotina, energia e bem-estar.' },
 ];
 
 const WORKOUT_OPTIONS = [
-  { value: '0-2', label: '0–2 treinos' },
-  { value: '3-5', label: '3–5 treinos' },
-  { value: '6+', label: '6+ treinos' },
+  {
+    value: '0-2',
+    label: '0–2',
+    subtitle: 'Treinos de vez em quando',
+    dots: [{ col: 2, row: 2 }],
+  },
+  {
+    value: '3-5',
+    label: '3–5',
+    subtitle: 'Alguns treinos por semana',
+    dots: [{ col: 1, row: 1 }, { col: 2, row: 2 }, { col: 3, row: 3 }],
+  },
+  {
+    value: '6+',
+    label: '6+',
+    subtitle: 'Rotina intensa de treinos',
+    dots: [
+      { col: 1, row: 1 }, { col: 2, row: 1 }, { col: 3, row: 1 },
+      { col: 1, row: 2 }, { col: 2, row: 2 }, { col: 3, row: 2 },
+    ],
+  },
 ];
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const { fetchOnboarding, saveProfile } = useAuth();
+  const { request } = usePatientApi();
+  const { preferences } = useNotificationPreferences();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [pushPermission, setPushPermission] = useState<PermissionState>('undetermined');
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushError, setPushError] = useState('');
   const [step, setStep] = useState<Step>('welcome');
+  const [birthDateInput, setBirthDateInput] = useState('');
   const [draft, setDraft] = useState<PatientProfileData>({
     gender: null,
     birthDate: '',
     heightCm: 165,
-    weightKg: 70,
-    targetWeightKg: 68,
+    weightKg: null,
+    targetWeightKg: null,
     primaryGoal: null,
     workoutsPerWeek: null,
   });
@@ -55,6 +99,32 @@ export default function OnboardingScreen() {
     steps.push('complete');
     return steps;
   }, [needsTargetWeight]);
+
+  const progressTotal = flowSteps.length - 1;
+  const progressIndex = (() => {
+    const index = flowSteps.indexOf(step);
+    return index >= 0 ? index + 1 : 0;
+  })();
+
+  const continueLabel = step === 'welcome'
+    ? 'Começar'
+    : step === 'complete'
+      ? 'Entrar no app'
+      : 'Continuar';
+
+  const continueDisabled =
+    (step === 'gender' && !draft.gender)
+    || (step === 'birth' && !parseBirthDateBrToIso(birthDateInput))
+    || (step === 'measurements' && (draft.heightCm == null || draft.weightKg == null))
+    || (step === 'goal' && !draft.primaryGoal)
+    || (step === 'workouts' && !draft.workoutsPerWeek)
+    || (step === 'target-weight' && draft.targetWeightKg == null);
+
+  const targetWeightHint = draft.primaryGoal === 'lose_weight' || draft.primaryGoal === 'gain_weight'
+    ? 'Defina o peso que você quer alcançar.'
+    : 'Selecione seu peso desejado.';
+
+  const checkinPreferenceEnabled = preferences.find((item) => item.key === 'checkin')?.enabled !== false;
 
   useEffect(() => {
     (async () => {
@@ -68,6 +138,33 @@ export default function OnboardingScreen() {
     })();
   }, [fetchOnboarding]);
 
+  useEffect(() => {
+    return () => {
+      if (step !== 'welcome' && step !== 'complete') {
+        void markOnboardingLeft();
+      }
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 'complete') return;
+    void getPermissionState().then(setPushPermission);
+  }, [step]);
+
+  function handleBirthDateChange(text: string) {
+    const masked = maskBirthDateBr(text);
+    setBirthDateInput(masked);
+    const iso = parseBirthDateBrToIso(masked);
+    setDraft((d) => ({ ...d, birthDate: iso || '' }));
+  }
+
+  function goBack() {
+    setError('');
+    if (step === 'welcome') return;
+    const index = flowSteps.indexOf(step);
+    setStep(index <= 0 ? 'welcome' : flowSteps[index - 1]);
+  }
+
   function goNext() {
     setError('');
     if (step === 'welcome') {
@@ -80,18 +177,41 @@ export default function OnboardingScreen() {
     }
   }
 
-  function goBack() {
-    if (step === 'welcome') return;
-    const index = flowSteps.indexOf(step);
-    setStep(index <= 0 ? 'welcome' : flowSteps[index - 1]);
+  async function handleActivatePush() {
+    setPushError('');
+    setPushLoading(true);
+    try {
+      const state = await activateOnboardingPushNotifications({
+        request,
+        checkinPreferenceEnabled,
+      });
+      setPushPermission(state);
+      if (state === 'denied') {
+        setPushError(permissionBlockedMessage(state));
+      }
+    } catch (err) {
+      setPushError((err as Error).message || 'Não foi possível ativar as notificações.');
+    } finally {
+      setPushLoading(false);
+    }
   }
 
   async function handleContinue() {
     setError('');
+
     if (step === 'complete') {
       setSaving(true);
       try {
         await saveProfile(draft, { complete: true });
+        await clearOnboardingLeft();
+        const sent = await finalizeOnboardingNotifications({
+          request,
+          checkinPreferenceEnabled,
+        });
+        if (!sent) {
+          const latest = await getPermissionState();
+          setPushPermission(latest);
+        }
         router.replace('/inicio' as never);
       } catch (err) {
         setError((err as Error).message);
@@ -127,182 +247,375 @@ export default function OnboardingScreen() {
     }
   }
 
-  const continueDisabled =
-    (step === 'gender' && !draft.gender)
-    || (step === 'birth' && !draft.birthDate)
-    || (step === 'measurements' && (draft.heightCm == null || draft.weightKg == null))
-    || (step === 'goal' && !draft.primaryGoal)
-    || (step === 'workouts' && !draft.workoutsPerWeek)
-    || (step === 'target-weight' && draft.targetWeightKg == null);
-
   if (loading) {
-    return <PatientShell withTabClearance={false}><LoadingScreen /></PatientShell>;
+    return (
+      <OnboardingShell showHeader={false} showFooter={false}>
+        <View style={styles.loadingWrap}>
+          <LoadingScreen />
+        </View>
+      </OnboardingShell>
+    );
   }
 
   return (
-    <PatientShell withTabClearance={false}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {step === 'welcome' ? (
-          <View style={styles.center}>
-            <Sparkles color={colors.primary} size={36} />
-            <Text style={styles.title}>Sua jornada no Clube Florescer começa aqui</Text>
-            <Text style={styles.sub}>
-              Algumas perguntas rápidas para montarmos seu perfil e a nutri acompanhar sua evolução.
-            </Text>
+    <OnboardingShell
+      showHeader={step !== 'welcome'}
+      showBack={step !== 'welcome'}
+      progressCurrent={step === 'welcome' ? 0 : progressIndex}
+      progressTotal={step === 'welcome' ? 0 : progressTotal}
+      continueLabel={continueLabel}
+      continueDisabled={continueDisabled}
+      saving={saving}
+      onBack={goBack}
+      onContinue={() => void handleContinue()}
+      footerNote={error ? <Text style={styles.error}>{error}</Text> : null}
+    >
+      {step === 'welcome' ? (
+        <View style={styles.welcome}>
+          <View style={styles.welcomeHero}>
+            <View style={styles.welcomeDevice}>
+              <View style={styles.welcomeScreen}>
+                <BrandLogo size="lg" animated />
+              </View>
+              <Image
+                source={patientAssets.mockupIsa}
+                style={styles.welcomeMockup}
+                resizeMode="contain"
+                accessibilityIgnoresInvertColors
+              />
+            </View>
           </View>
-        ) : null}
+          <Text style={styles.title}>Sua jornada no Clube Florescer começa aqui</Text>
+          <Text style={styles.sub}>
+            Algumas perguntas rápidas para montarmos seu perfil e a nutri acompanhar sua evolução.
+          </Text>
+          <HealthDisclaimerBanner compact />
+        </View>
+      ) : null}
 
-        {step === 'gender' ? (
-          <StepBlock title="Qual é o seu gênero?" sub="Usamos isso para calibrar seu plano.">
+      {step === 'gender' ? (
+        <View style={styles.step}>
+          <Text style={styles.title}>Qual é o seu gênero?</Text>
+          <Text style={styles.sub}>Usamos isso para calibrar seu plano e metas com mais precisão.</Text>
+          <View style={styles.options}>
             {GENDER_OPTIONS.map((option) => (
-              <Option
+              <OnboardingOptionCard
                 key={option.value}
-                label={option.label}
+                title={option.label}
                 selected={draft.gender === option.value}
                 onPress={() => setDraft((d) => ({ ...d, gender: option.value }))}
               />
             ))}
-          </StepBlock>
-        ) : null}
+          </View>
+        </View>
+      ) : null}
 
-        {step === 'birth' ? (
-          <StepBlock title="Quando você nasceu?" sub="A idade ajuda a interpretar metas e evolução.">
-            <FormField
-              label="Data de nascimento (AAAA-MM-DD)"
-              value={draft.birthDate || ''}
-              onChangeText={(birthDate) => setDraft((d) => ({ ...d, birthDate }))}
-              placeholder="1990-05-15"
-            />
-          </StepBlock>
-        ) : null}
+      {step === 'birth' ? (
+        <View style={styles.step}>
+          <Text style={styles.title}>Quando você nasceu?</Text>
+          <Text style={styles.sub}>A idade ajuda a nutricionista a interpretar metas e evolução.</Text>
+          <FormField
+            label="Data de nascimento"
+            value={birthDateInput}
+            onChangeText={handleBirthDateChange}
+            placeholder="15/05/1990"
+            keyboardType="number-pad"
+            maxLength={10}
+          />
+        </View>
+      ) : null}
 
-        {step === 'measurements' ? (
-          <StepBlock title="Altura e peso" sub="Esses dados alimentam seu perfil.">
-            <FormField
-              label="Altura (cm)"
-              value={String(draft.heightCm ?? '')}
-              onChangeText={(v) => setDraft((d) => ({ ...d, heightCm: Number(v) || null }))}
-              keyboardType="number-pad"
+      {step === 'measurements' ? (
+        <View style={styles.step}>
+          <Text style={styles.title}>Altura e peso</Text>
+          <Text style={styles.sub}>Esses dados alimentam seu perfil e o acompanhamento semanal.</Text>
+          <View style={styles.measureBlock}>
+            <Text style={styles.measureLabel}>Altura</Text>
+            <OnboardingHeightPicker
+              value={draft.heightCm ?? 165}
+              onChange={(heightCm) => setDraft((d) => ({ ...d, heightCm }))}
             />
-            <FormField
-              label="Peso atual (kg)"
-              value={String(draft.weightKg ?? '')}
-              onChangeText={(v) => setDraft((d) => ({ ...d, weightKg: Number(v) || null }))}
-              keyboardType="decimal-pad"
+          </View>
+          <View style={[styles.measureBlock, styles.measureBlockLast]}>
+            <Text style={styles.measureLabel}>Peso atual</Text>
+            <WeightRulerPicker
+              value={draft.weightKg ?? null}
+              onChange={(weightKg) => setDraft((d) => ({ ...d, weightKg }))}
+              min={40}
+              max={180}
             />
-          </StepBlock>
-        ) : null}
+          </View>
+        </View>
+      ) : null}
 
-        {step === 'goal' ? (
-          <StepBlock title="Qual é seu objetivo principal?" sub="Escolha o foco que mais combina com você.">
+      {step === 'goal' ? (
+        <View style={styles.step}>
+          <Text style={styles.title}>Qual é seu objetivo principal?</Text>
+          <Text style={styles.sub}>Escolha o foco que mais combina com você agora.</Text>
+          <View style={styles.options}>
             {GOAL_OPTIONS.map((option) => (
-              <Option
+              <OnboardingOptionCard
                 key={option.value}
-                label={option.label}
+                title={option.label}
+                subtitle={option.subtitle}
                 selected={draft.primaryGoal === option.value}
                 onPress={() => setDraft((d) => ({ ...d, primaryGoal: option.value }))}
               />
             ))}
-          </StepBlock>
-        ) : null}
+          </View>
+        </View>
+      ) : null}
 
-        {step === 'workouts' ? (
-          <StepBlock title="Quantos treinos por semana?" sub="Isso ajuda nas recomendações de energia.">
+      {step === 'workouts' ? (
+        <View style={styles.step}>
+          <Text style={styles.title}>Quantos treinos você faz por semana?</Text>
+          <Text style={styles.sub}>Isso ajuda a ajustar recomendações de movimento e energia.</Text>
+          <View style={styles.options}>
             {WORKOUT_OPTIONS.map((option) => (
-              <Option
+              <OnboardingOptionCard
                 key={option.value}
-                label={option.label}
+                title={option.label}
+                subtitle={option.subtitle}
+                iconDots={option.dots}
                 selected={draft.workoutsPerWeek === option.value}
                 onPress={() => setDraft((d) => ({ ...d, workoutsPerWeek: option.value }))}
               />
             ))}
-          </StepBlock>
-        ) : null}
-
-        {step === 'target-weight' ? (
-          <StepBlock title="Qual é seu peso desejado?" sub="Defina o peso que você quer alcançar.">
-            <FormField
-              label="Peso desejado (kg)"
-              value={String(draft.targetWeightKg ?? '')}
-              onChangeText={(v) => setDraft((d) => ({ ...d, targetWeightKg: Number(v) || null }))}
-              keyboardType="decimal-pad"
-            />
-          </StepBlock>
-        ) : null}
-
-        {step === 'complete' ? (
-          <View style={styles.center}>
-            <Sparkles color={colors.primaryDark} size={32} />
-            <Text style={styles.title}>Obrigada por confiar no Clube Florescer</Text>
-            <Text style={styles.sub}>Agora vamos personalizar sua experiência com base no seu perfil.</Text>
-            <View style={styles.privacy}>
-              <Lock color={colors.primaryDark} size={18} />
-              <Text style={styles.privacyTitle}>Sua privacidade importa</Text>
-              <Text style={styles.privacyText}>
-                Seus dados ficam seguros e são usados só para seu acompanhamento nutricional.
-              </Text>
-            </View>
           </View>
-        ) : null}
+        </View>
+      ) : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <View style={styles.footer}>
-          {step !== 'welcome' ? (
-            <CfButton variant="ghost" label="Voltar" onPress={goBack} />
-          ) : null}
-          <CfButton
-            label={step === 'complete' ? 'Entrar no app' : step === 'welcome' ? 'Começar' : 'Continuar'}
-            loading={saving}
-            disabled={continueDisabled}
-            onPress={handleContinue}
+      {step === 'target-weight' ? (
+        <View style={styles.step}>
+          <Text style={styles.title}>Qual é seu peso desejado?</Text>
+          <Text style={styles.sub}>{targetWeightHint}</Text>
+          <WeightRulerPicker
+            value={draft.targetWeightKg ?? null}
+            onChange={(targetWeightKg) => setDraft((d) => ({ ...d, targetWeightKg }))}
+            min={40}
+            max={180}
           />
         </View>
-      </ScrollView>
-    </PatientShell>
-  );
-}
+      ) : null}
 
-function StepBlock({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.block}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.sub}>{sub}</Text>
-      <View style={styles.options}>{children}</View>
-    </View>
-  );
-}
+      {step === 'complete' ? (
+        <View style={[styles.step, styles.stepComplete]}>
+          <View style={styles.completeBadge}>
+            <Sparkles color={colors.primaryDark} size={32} />
+          </View>
+          <Text style={[styles.title, styles.titleCenter]}>Obrigada por confiar no Clube Florescer</Text>
+          <Text style={[styles.sub, styles.subCenter]}>
+            Agora vamos personalizar sua experiência com base no seu perfil.
+          </Text>
 
-function Option({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return (
-    <CfButton
-      variant={selected ? 'primary' : 'ghost'}
-      label={label}
-      onPress={onPress}
-      style={styles.optionBtn}
-    />
+          <View style={styles.privacyCard}>
+            <Lock color={colors.primaryDark} size={18} />
+            <Text style={styles.privacyTitle}>Sua privacidade importa</Text>
+            <Text style={styles.privacyText}>
+              Seus dados ficam seguros e são usados só para seu acompanhamento nutricional.
+            </Text>
+          </View>
+
+          <View style={styles.pushCard}>
+            <View style={styles.pushIconWrap}>
+              <BellRing color={colors.primaryDark} size={18} />
+            </View>
+            <Text style={styles.pushTitle}>Ative as notificações</Text>
+            <Text style={styles.pushCopy}>
+              Receba lembretes de refeições, check-ins, mensagens da Bella e avisos da comunidade —
+              mesmo com o app fechado.
+            </Text>
+            {pushPermission === 'granted' ? (
+              <Text style={styles.pushOk}>Notificações ativas. Enviamos um aviso de teste em instantes.</Text>
+            ) : (
+              <>
+                <CfButton
+                  label={pushLoading ? 'Ativando…' : 'Ativar notificações'}
+                  loading={pushLoading}
+                  onPress={() => void handleActivatePush()}
+                />
+                {pushPermission === 'denied' ? (
+                  <CfButton
+                    variant="ghost"
+                    label="Abrir ajustes do celular"
+                    onPress={() => void openSystemNotificationSettings()}
+                  />
+                ) : null}
+              </>
+            )}
+            {pushError ? <Text style={styles.error}>{pushError}</Text> : null}
+          </View>
+        </View>
+      ) : null}
+    </OnboardingShell>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: spacing[5], gap: spacing[4], paddingBottom: spacing[6] },
-  center: { alignItems: 'center', gap: spacing[3] },
-  block: { gap: spacing[3] },
-  title: { fontFamily: fonts.bold, fontSize: 24, color: colors.text, textAlign: 'center' },
-  sub: { fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
-  options: { gap: spacing[3], marginTop: spacing[2] },
-  optionBtn: { width: '100%' },
-  privacy: {
+  loadingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 240,
+  },
+  welcome: {
     width: '100%',
-    backgroundColor: '#f3f4f6',
-    borderRadius: radii.surface,
+    alignItems: 'center',
+    gap: spacing[4],
+  },
+  welcomeHero: {
+    width: '100%',
+    maxWidth: 184,
+    marginBottom: spacing[2],
+  },
+  welcomeDevice: {
+    width: '100%',
+    aspectRatio: 486 / 978,
+    position: 'relative',
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  welcomeScreen: {
+    position: 'absolute',
+    top: '5.5%',
+    left: '5.5%',
+    right: '5.5%',
+    bottom: '6.7%',
+    zIndex: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  welcomeMockup: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 2,
+  },
+  step: {
+    width: '100%',
+    gap: spacing[3],
+  },
+  stepComplete: {
+    alignItems: 'center',
+  },
+  title: {
+    fontFamily: fonts.extrabold,
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: -0.5,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  titleCenter: {
+    textAlign: 'center',
+  },
+  sub: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing[2],
+  },
+  subCenter: {
+    textAlign: 'center',
+  },
+  options: {
+    gap: 10,
+    width: '100%',
+  },
+  measureBlock: {
+    width: '100%',
+    marginBottom: spacing[4],
+  },
+  measureBlockLast: {
+    marginBottom: 0,
+  },
+  measureLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+    marginBottom: 6,
+  },
+  completeBadge: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eef0eb',
+    marginBottom: spacing[3],
+  },
+  privacyCard: {
+    width: '100%',
+    marginTop: spacing[3],
     padding: spacing[4],
+    borderRadius: radii.surface,
+    backgroundColor: '#f3f4f6',
     alignItems: 'center',
     gap: spacing[2],
-    marginTop: spacing[3],
   },
-  privacyTitle: { fontFamily: fonts.bold, fontSize: 14 },
-  privacyText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, textAlign: 'center' },
-  error: { color: colors.error, fontFamily: fonts.medium },
-  footer: { gap: spacing[3], marginTop: spacing[4] },
+  privacyTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.text,
+  },
+  privacyText: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  pushCard: {
+    width: '100%',
+    marginTop: spacing[3],
+    padding: spacing[4],
+    borderRadius: radii.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    gap: spacing[3],
+  },
+  pushIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pushTitle: {
+    fontFamily: fonts.extrabold,
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  pushCopy: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  pushOk: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.primaryDark,
+    textAlign: 'center',
+  },
+  error: {
+    color: colors.error,
+    fontFamily: fonts.medium,
+    textAlign: 'center',
+    fontSize: 13,
+  },
 });

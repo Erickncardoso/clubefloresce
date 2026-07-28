@@ -6,12 +6,12 @@ import {
   getMercadoPagoAccessToken,
   getBillingWebhookUrl,
   getMercadoPagoSandboxPayerEmail,
-  getPatientAppUrl,
   isBillingSandboxSimulateCard,
   isMercadoPagoConfigured,
   isMercadoPagoTestMode,
   resolveMercadoPagoPayerEmail,
 } from "../utils/mercadopago-config";
+import { getPatientAppProductionUrl } from "../utils/email-config";
 import {
   addBillingPeriodDays,
   buildMercadoPagoWebhookEventKey,
@@ -326,7 +326,7 @@ function buildPixPreapprovalBody(params: {
     external_reference: truncateMercadoPagoText(params.externalReference, MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN),
     payer_email: params.payerEmail,
     status: "pending",
-    back_url: `${getPatientAppUrl()}/assinatura?status=success`,
+    back_url: `${getPatientAppProductionUrl()}/assinatura?status=success`,
     auto_recurring: autoRecurring,
   };
 }
@@ -672,7 +672,7 @@ export class MercadoPagoBillingService {
       payer_email: mpPayerEmail,
       card_token_id: input.cardToken,
       status: "authorized",
-      back_url: `${getPatientAppUrl()}/assinatura?status=success`,
+      back_url: `${getPatientAppProductionUrl()}/assinatura?status=success`,
       auto_recurring: product.isSubscription
         ? {
             frequency: product.frequency,

@@ -1,4 +1,5 @@
 import { UserRepository } from "../repositories/user.repository";
+import { scheduleRagReindex } from "./rag/rag-hooks";
 import type {
   PatientGender,
   PatientPrimaryGoal,
@@ -198,6 +199,8 @@ export class PatientProfileService {
       patientProfileData: next,
       onboardingCompletedAt,
     });
+
+    scheduleRagReindex({ type: "profile", userId });
 
     return buildResponse(asObject(updated.patientProfileData), updated.onboardingCompletedAt);
   }

@@ -15,6 +15,8 @@ type SleepChartProps = {
   schedule: SleepSchedule;
   onShiftBed: (delta: number) => void;
   onShiftWake: (delta: number) => void;
+  compact?: boolean;
+  onOpenEditor?: () => void;
 };
 
 const CX = 100;
@@ -54,11 +56,53 @@ export default function EvolucaoSleepChart({
   schedule,
   onShiftBed,
   onShiftWake,
+  compact = false,
+  onOpenEditor,
 }: SleepChartProps) {
   const durationParts = {
     h: String(Math.floor(schedule.durationMinutes / 60)).padStart(2, '0'),
     m: String(schedule.durationMinutes % 60).padStart(2, '0'),
   };
+  const durationLabel = `${durationParts.h}:${durationParts.m}`;
+
+  if (compact) {
+    return (
+      <View style={styles.compactRoot}>
+        <View style={styles.compactSummary}>
+          <View style={styles.compactDuration}>
+            <Text style={styles.compactDurationLabel}>Tempo de sono</Text>
+            <Text style={styles.compactDurationValue}>{durationLabel}</Text>
+            <Text style={styles.compactDurationMeta}>Meta de {target}h</Text>
+          </View>
+          <View style={styles.compactTimes}>
+            <View style={styles.compactTimeCell}>
+              <View style={styles.compactIconWrap}>
+                <Moon color="#6b74b8" size={14} strokeWidth={2} />
+              </View>
+              <View style={styles.compactTimeCopy}>
+                <Text style={styles.compactTimeLabel}>Dormir</Text>
+                <Text style={styles.compactTimeValue}>{formatClock(schedule.bedMinutes)}</Text>
+              </View>
+            </View>
+            <View style={[styles.compactTimeCell, styles.compactTimeCellBorder]}>
+              <View style={[styles.compactIconWrap, styles.compactIconSun]}>
+                <Sun color="#d49a2a" size={14} strokeWidth={2} />
+              </View>
+              <View style={styles.compactTimeCopy}>
+                <Text style={styles.compactTimeLabel}>Acordar</Text>
+                <Text style={styles.compactTimeValue}>{formatClock(schedule.wakeMinutes)}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        <Pressable style={styles.openBtn} onPress={onOpenEditor}>
+          <Moon color="#fff" size={14} strokeWidth={2} />
+          <Text style={styles.openBtnText}>Ajustar sono</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   const durationHoursLabel = Number.isInteger(schedule.durationHours)
     ? String(schedule.durationHours)
     : schedule.durationHours.toFixed(1);
@@ -197,6 +241,97 @@ export default function EvolucaoSleepChart({
 }
 
 const styles = StyleSheet.create({
+  compactRoot: { gap: 12 },
+  compactSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    minHeight: 80,
+  },
+  compactDuration: {
+    flex: 0.72,
+    alignItems: 'center',
+  },
+  compactDurationLabel: {
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    color: '#74778a',
+  },
+  compactDurationValue: {
+    marginTop: 3,
+    fontFamily: fonts.medium,
+    fontSize: 25,
+    lineHeight: 25,
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
+    color: '#555c98',
+  },
+  compactDurationMeta: {
+    marginTop: 4,
+    fontFamily: fonts.regular,
+    fontSize: 9,
+    color: '#858797',
+  },
+  compactTimes: {
+    flex: 1.35,
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#ececf1',
+  },
+  compactTimeCell: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+  },
+  compactTimeCellBorder: {
+    borderLeftWidth: 1,
+    borderLeftColor: '#ececf1',
+  },
+  compactIconWrap: {
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: '#eef0fb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  compactIconSun: {
+    backgroundColor: '#fff4dc',
+  },
+  compactTimeCopy: { flex: 1, minWidth: 0 },
+  compactTimeLabel: {
+    fontFamily: fonts.regular,
+    fontSize: 9,
+    color: '#7d7f8d',
+  },
+  compactTimeValue: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+    color: '#353641',
+  },
+  openBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 13,
+    borderRadius: 12,
+    backgroundColor: '#6b74b8',
+    borderWidth: 1,
+    borderColor: '#6b74b8',
+  },
+  openBtnText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: '#fff',
+  },
   root: { width: '100%' },
   panel: {
     borderRadius: 18,

@@ -1,5 +1,6 @@
 import { PostRepository } from "../repositories/post.repository";
 import { Post, Comment } from "@prisma/client";
+import { scheduleRagDelete, scheduleRagReindex } from "./rag/rag-hooks";
 
 const postRepository = new PostRepository();
 
@@ -26,7 +27,9 @@ export class PostService {
     if (!content && !imageUrl) {
       throw new Error("Adicione um texto ou uma imagem para publicar.");
     }
-    return postRepository.create({ content, imageUrl, authorId: data.authorId });
+    const post = await postRepository.create({ content, imageUrl, authorId: data.authorId });
+    scheduleRagReindex({ type: "post", id: post.id });
+    return post;
   }
 
   async addComment(
@@ -52,6 +55,7 @@ export class PostService {
       throw new Error("Sem permissão para excluir.");
     }
     await postRepository.delete(postId);
+    scheduleRagDelete("post", postId);
   }
 
   async toggleLike(postId: string, userId: string, userRole: string) {
@@ -59,5 +63,48 @@ export class PostService {
       throw new Error("Sem permissão para curtir publicações.");
     }
     return postRepository.togglePostLike(userId, postId);
+  }
+
+  async reportPost(
+    postId: string,
+    reporterId: string,
+    reporterRole: string,
+    reason: string,
+    details?: string,
+  ) {
+    if (!canParticipateInCommunity(reporterRole)) {
+      throw new Error("Sem permissão para denunciar publicações.");
+    }
+
+    const normalizedReason = String(reason || "").trim();
+    if (!normalizedReason) throw new Error("Informe o motivo da denúncia.");
+
+    const allowedReasons = new Set([
+      "offensive",
+      "spam",
+      "unsafe_health",
+      "privacy",
+      "other",
+    ]);
+    if (!allowedReasons.has(normalizedReason)) {
+      throw new Error("Motivo de denúncia inválido.");
+    }
+
+    const post = await postRepository.findById(postId);
+    if (!post) throw new Error("Publicação não encontrada.");
+
+    try {
+      return await postRepository.createReport({
+        postId,
+        reporterId,
+        reason: normalizedReason,
+        details: details?.trim() || undefined,
+      });
+    } catch (error: any) {
+      if (error?.code === "P2002") {
+        throw new Error("Você já denunciou esta publicação.");
+      }
+      throw error;
+    }
   }
 }

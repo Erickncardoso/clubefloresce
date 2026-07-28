@@ -209,4 +209,29 @@ export class WhatsappChatRepository {
 
     return null;
   }
+
+  /** Atualiza preview da sidebar só se a mensagem for mais recente que o cache. */
+  async upsertLastMessageIfNewer(
+    userId: string,
+    chat: UpsertWhatsappChatInput,
+  ): Promise<void> {
+    if (!chat.chatJid) return;
+    const existing = await this.findByChatJid(userId, chat.chatJid);
+    const nextTs = chat.lastMessageTime ? Number(chat.lastMessageTime) : 0;
+    const prevTs = existing?.lastMessageTime ? Number(existing.lastMessageTime) : 0;
+    if (existing && nextTs > 0 && prevTs > nextTs) return;
+
+    await this.upsertMany(userId, [{
+      chatJid: chat.chatJid,
+      sessionJid: chat.sessionJid ?? existing?.sessionJid ?? null,
+      name: chat.name ?? existing?.name ?? undefined,
+      pushName: chat.pushName ?? existing?.pushName ?? undefined,
+      avatarUrl: chat.avatarUrl ?? existing?.avatarUrl ?? undefined,
+      isGroup: chat.isGroup ?? existing?.isGroup ?? false,
+      lastMessage: chat.lastMessage ?? existing?.lastMessage ?? undefined,
+      lastMessageTime: chat.lastMessageTime ?? existing?.lastMessageTime ?? null,
+      unreadCount: chat.unreadCount ?? existing?.unreadCount ?? 0,
+      raw: chat.raw ?? existing?.raw ?? undefined,
+    }]);
+  }
 }

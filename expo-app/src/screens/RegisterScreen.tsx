@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CfButton from '@/components/ui/CfButton';
 import FormField from '@/components/ui/FormField';
 import { maskPhoneBr, onlyDigits } from '@/lib/masks';
-import { requiresWebSubscription } from '@/lib/platform-billing';
+import { getRegisterSubtitle } from '@/lib/platform-billing';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -59,11 +59,7 @@ export default function RegisterScreen() {
         passwordConfirm,
         phone: maskPhoneBr(phone),
       });
-      const next = data.redirectTo || (await resolvePostLoginRoute()) || '/assinatura';
-      if (requiresWebSubscription() && next.includes('assinatura')) {
-        router.replace('/assinatura' as never);
-        return;
-      }
+      const next = data.redirectTo || (await resolvePostLoginRoute()) || '/inicio';
       router.replace(next as never);
     } catch (err) {
       setError((err as { data?: { message?: string }; message?: string })?.data?.message
@@ -87,9 +83,7 @@ export default function RegisterScreen() {
 
           <View style={styles.card}>
             <Text style={styles.title}>Criar sua conta</Text>
-            <Text style={styles.sub}>
-              Cadastre-se e finalize o pagamento para liberar seu acesso ao Clube Florescer.
-            </Text>
+            <Text style={styles.sub}>{getRegisterSubtitle()}</Text>
 
             <FormField label="Nome completo" value={name} onChangeText={setName} autoCapitalize="words" />
             <FormField
@@ -117,7 +111,7 @@ export default function RegisterScreen() {
               value={phone}
               onChangeText={(value) => setPhone(maskPhoneBr(value))}
               keyboardType="phone-pad"
-              hint="Obrigatório — usaremos para avisos da sua assinatura"
+              hint="Obrigatório — usaremos para avisos importantes"
             />
 
             <Pressable
@@ -138,13 +132,7 @@ export default function RegisterScreen() {
             </Pressable>
 
             <CfButton
-              label={
-                loading
-                  ? 'Criando conta…'
-                  : requiresWebSubscription()
-                    ? 'Criar conta'
-                    : 'Criar conta e ir ao pagamento'
-              }
+              label={loading ? 'Criando conta…' : 'Criar conta'}
               loading={loading}
               onPress={handleSubmit}
             />

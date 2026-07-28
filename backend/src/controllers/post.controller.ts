@@ -74,4 +74,22 @@ export class PostController {
       return res.status(400).json({ message: error.message });
     }
   }
+
+  async report(req: Request, res: Response): Promise<any> {
+    try {
+      const { reason, details } = req.body || {};
+      const report = await postService.reportPost(
+        req.params.id,
+        req.user!.id,
+        req.user!.role,
+        reason,
+        typeof details === "string" ? details : undefined,
+      );
+      return res.status(201).json({ id: report.id, message: "Denúncia registrada." });
+    } catch (error: any) {
+      const message = error?.message || "Não foi possível registrar a denúncia.";
+      const status = message.includes("não encontrada") ? 404 : 400;
+      return res.status(status).json({ message });
+    }
+  }
 }

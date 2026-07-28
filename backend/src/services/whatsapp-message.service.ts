@@ -15,6 +15,9 @@ import {
   extractWuzapiMessagesFromPayload,
   extractWuzapiReadReceiptRefs,
 } from "../utils/wuzapi-message-ingest.util";
+import { extractPreviewFromMessageRaw, canonicalConversationSummaryKey } from "./wuzapi/wuzapi-mappers";
+import wuzapiLidResolverService from "./wuzapi/wuzapi-lid-resolver.service";
+import whatsappChatMergeService from "./whatsapp-chat-merge.service";
 import whatsappSessionService from "./whatsapp-session.service";
 
 const whatsappService = new WhatsappService();
@@ -41,6 +44,20 @@ export class WhatsappMessageService {
 
   private async resolveChatIdCandidates(userId: string, chatJid: string): Promise<string[]> {
     const set = new Set(collectMessageFindChatIds(chatJid));
+    if (isWuzapiProvider()) {
+      const canonical = wuzapiLidResolverService.resolveCanonicalChatJid(userId, chatJid);
+      if (canonical) {
+        for (const candidate of collectMessageFindChatIds(canonical)) set.add(candidate);
+        set.add(canonical);
+      }
+      if (chatJid.endsWith("@lid")) {
+        const pn = wuzapiLidResolverService.getPnJid(userId, chatJid);
+        if (pn) {
+          for (const candidate of collectMessageFindChatIds(pn)) set.add(candidate);
+          set.add(pn);
+        }
+      }
+    }
     const chatRow = await whatsappChatRepository.findByChatJid(userId, chatJid);
     if (chatRow) {
       for (const candidate of collectMessageFindChatIds({
@@ -64,8 +81,14 @@ export class WhatsappMessageService {
   ) {
     const mapped = [];
     for (const raw of rawMessages) {
+      if (isWuzapiProvider()) {
+        wuzapiLidResolverService.registerFromMessageRaw(userId, String(raw.chatid || raw.wa_chatid || fallbackChatJid || ""), raw);
+      }
       const messageId = normalizeUazapiMessageId(raw);
-      const chatJid = normalizeUazapiChatJid(raw, fallbackChatJid);
+      let chatJid = normalizeUazapiChatJid(raw, fallbackChatJid);
+      if (isWuzapiProvider() && chatJid) {
+        chatJid = wuzapiLidResolverService.resolveCanonicalChatJid(userId, chatJid, raw);
+      }
       if (!messageId || !chatJid) continue;
       mapped.push({
         chatJid,
@@ -73,10 +96,51 @@ export class WhatsappMessageService {
         messageTimestamp: normalizeUazapiMessageTimestamp(raw),
         fromMe: Boolean(raw.fromMe),
         sessionJid,
-        raw,
+        raw: {
+          ...raw,
+          chatid: chatJid,
+          wa_chatid: chatJid,
+        },
       });
     }
     return mapped;
+  }
+
+  private async upsertChatPreviewsFromIngestedMessages(
+    userId: string,
+    mapped: Array<{
+      chatJid: string;
+      messageTimestamp: bigint | number;
+      fromMe: boolean;
+      raw: Record<string, unknown>;
+    }>,
+    sessionJid: string | null,
+  ): Promise<void> {
+    const latestByChat = new Map<string, typeof mapped[number]>();
+    for (const row of mapped) {
+      const ts = Number(row.messageTimestamp || 0);
+      const prev = latestByChat.get(row.chatJid);
+      if (!prev || ts >= Number(prev.messageTimestamp || 0)) {
+        latestByChat.set(row.chatJid, row);
+      }
+    }
+
+    for (const row of latestByChat.values()) {
+      const preview = extractPreviewFromMessageRaw(row.raw) || "Mensagem";
+      const ts = Number(row.messageTimestamp || 0);
+      const aliases = new Set<string>([row.chatJid]);
+      const canonical = canonicalConversationSummaryKey({ chatJid: row.chatJid, raw: row.raw });
+      if (canonical) aliases.add(canonical);
+      for (const chatJid of aliases) {
+        await whatsappChatRepository.upsertLastMessageIfNewer(userId, {
+          chatJid,
+          sessionJid,
+          isGroup: chatJid.endsWith("@g.us"),
+          lastMessage: preview,
+          lastMessageTime: ts > 0 ? BigInt(ts) : null,
+        });
+      }
+    }
   }
 
   async fetchAndIngestMessageById(
@@ -106,6 +170,9 @@ export class WhatsappMessageService {
     fallbackChatJid = "",
     options: { skipUpdateRefs?: boolean; sessionJid?: string | null } = {},
   ): Promise<number> {
+    // WuzAPI: mensagens vêm de /chat/history + Pusher — não persistir no Postgres.
+    if (isWuzapiProvider()) return 0;
+
     const userId = this.datastoreUserId(authUserId);
     const sessionJid = options.sessionJid ?? await this.boundSessionJid(userId);
     let written = 0;
@@ -116,6 +183,15 @@ export class WhatsappMessageService {
     if (rows.length) {
       const mapped = this.mapRawMessages(userId, rows, fallbackChatJid, sessionJid);
       written += await whatsappMessageRepository.upsertMany(userId, mapped);
+      try {
+        await this.upsertChatPreviewsFromIngestedMessages(userId, mapped, sessionJid);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn("[WhatsApp] Falha ao atualizar preview de chat após ingest:", message);
+      }
+      if (isWuzapiProvider() && mapped.length) {
+        void whatsappChatMergeService.mergeLidDuplicates(userId);
+      }
     }
 
     if (options.skipUpdateRefs) return written;
@@ -205,6 +281,14 @@ export class WhatsappMessageService {
     if (!primaryChatId) return { pulled: 0, dbTotal: 0, historyRequests: 0 };
 
     const pullLimit = Math.min(200, Math.max(1, options.pullLimit || 200));
+
+    // WuzAPI: histórico vem de /chat/history + webhooks — nunca /session/history (sync no celular).
+    if (isWuzapiProvider()) {
+      const pulled = await this.pullFromUazapi(userId, primaryChatId, pullLimit, 0);
+      const dbTotal = await whatsappMessageRepository.countByChatAliases(userId, candidates);
+      return { pulled, dbTotal, historyRequests: 0 };
+    }
+
     const historyCount = Math.min(100, Math.max(1, options.historyCount || 100));
     // Menos rounds = menos history-sync no celular (GuzzApp).
     const anchorRounds = Math.min(3, Math.max(0, options.anchorRounds ?? 2));
@@ -254,7 +338,7 @@ export class WhatsappMessageService {
     const limit = Math.min(200, Math.max(1, Number(options.limit) || 50));
     const offset = Math.max(0, Number(options.offset) || 0);
 
-    // WuzAPI: histórico vem direto da API — sem esperar DB, history-sync no celular ou Pusher.
+    // WuzAPI: histórico SEMPRE ao vivo via GET /chat/history (sync=0/1 no query é ignorado).
     if (isWuzapiProvider()) {
       const page = await whatsappService.findMessages(authUserId, {
         chatid: requestChatId,
@@ -265,17 +349,24 @@ export class WhatsappMessageService {
         ? page.messages
         : (Array.isArray(page) ? page : []);
       const returnedMessages = messages.length;
+      const hasMore = typeof page?.hasMore === "boolean"
+        ? page.hasMore
+        : returnedMessages >= limit;
+      const nextOffset = Number.isFinite(Number(page?.nextOffset))
+        ? Number(page.nextOffset)
+        : offset + returnedMessages;
       return {
         messages,
         returnedMessages,
         limit,
         offset,
-        nextOffset: offset + returnedMessages,
-        hasMore: returnedMessages >= limit,
-        total: null,
+        nextOffset,
+        hasMore,
+        total: page?.total ?? null,
         chatJid: requestChatId,
         chatJids: candidates,
         historySyncAttempted: false,
+        source: "wuzapi",
       };
     }
 

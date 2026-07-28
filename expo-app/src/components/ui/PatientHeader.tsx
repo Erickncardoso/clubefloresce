@@ -14,6 +14,7 @@ type Props = {
   showMenu?: boolean;
   menuLeft?: boolean;
   light?: boolean;
+  hideBrand?: boolean;
   style?: ViewStyle;
   actions?: ReactNode;
   subtitle?: string;
@@ -28,6 +29,7 @@ export default function PatientHeader({
   showMenu = true,
   menuLeft = false,
   light = false,
+  hideBrand = false,
   style,
   actions,
   subtitle,
@@ -37,7 +39,8 @@ export default function PatientHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const fg = light ? '#fff' : colors.text;
   const muted = light ? 'rgba(255,255,255,0.7)' : colors.textMuted;
-  const showMenuButton = showMenu && (menuLeft || !showBack);
+  const showMenuLeft = showMenu && menuLeft;
+  const showMenuRight = showMenu && !menuLeft;
   const showBackButton = showBack && !menuLeft;
 
   function goBack() {
@@ -57,7 +60,7 @@ export default function PatientHeader({
   }
 
   function renderStart() {
-    if (showMenuButton && menuLeft) {
+    if (showMenuLeft) {
       return (
         <Pressable
           accessibilityRole="button"
@@ -99,7 +102,7 @@ export default function PatientHeader({
         <View style={styles.brand} pointerEvents="none">
           {title ? (
             <Text style={[styles.title, { color: fg }]} numberOfLines={1}>{title}</Text>
-          ) : (
+          ) : hideBrand ? null : (
             <Text style={[styles.brandMark, { color: muted }]}>Clube Florescer</Text>
           )}
         </View>
@@ -116,7 +119,7 @@ export default function PatientHeader({
             >
               <Bell color={fg} size={20} strokeWidth={1.75} />
             </Pressable>
-          ) : showMenuButton && !menuLeft ? (
+          ) : showMenuRight ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Menu"

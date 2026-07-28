@@ -366,6 +366,13 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
 }
 
 /* Campos flutuantes — modal, cadastro paciente e anamnese */
+.anw-fields,
+.admin-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
 .modal-card .modal-fields {
   display: flex;
   flex-direction: column;
@@ -375,6 +382,7 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
 
 .modal-card .field--float,
 .anw-fields .field--float,
+.admin-form-fields .field--float,
 .mped-main .field--float {
   position: relative;
   margin-top: 0.35rem;
@@ -394,6 +402,7 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
 
 .modal-card .field--float label,
 .anw-fields .field--float > label,
+.admin-form-fields .field--float > label,
 .mped-main .field--float > label {
   position: absolute;
   top: -0.58rem;
@@ -413,6 +422,8 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
 .modal-card .field select:not(.cf-select-trigger),
 .anw-fields .field input:not([type='range']),
 .anw-fields .field textarea,
+.admin-form-fields .field input:not([type='range']),
+.admin-form-fields .field textarea,
 .mped-main .field input:not([type='range']),
 .mped-main .field textarea,
 .mped-main .field select:not(.cf-select-trigger) {
@@ -432,6 +443,8 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
 .modal-card .field select:not(.cf-select-trigger):focus,
 .anw-fields .field input:not([type='range']):focus,
 .anw-fields .field textarea:focus,
+.admin-form-fields .field input:not([type='range']):focus,
+.admin-form-fields .field textarea:focus,
 .mped-main .field input:not([type='range']):focus,
 .mped-main .field textarea:focus {
   outline: none;
@@ -444,6 +457,8 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
 .modal-card .field--float select:not(.cf-select-trigger),
 .anw-fields .field--float input:not([type='range']),
 .anw-fields .field--float textarea,
+.admin-form-fields .field--float input:not([type='range']),
+.admin-form-fields .field--float textarea,
 .mped-main .field--float input:not([type='range']),
 .mped-main .field--float textarea {
   padding-top: 0.95rem;
@@ -459,32 +474,42 @@ html:has(.dashboard-layout:not(.patient-app-layout):not(.dashboard-layout--sideb
   line-height: 1.45;
 }
 
-.anw-fields .field textarea {
+.anw-fields .field textarea,
+.admin-form-fields .field textarea {
   min-height: 4.5rem;
   max-height: 9rem;
   resize: vertical;
   line-height: 1.45;
 }
 
-.anw-fields .field input {
+.anw-fields .field input,
+.admin-form-fields .field input {
   min-height: 2.35rem;
   resize: none;
 }
 
 .anw-fields .field input::placeholder,
-.anw-fields .field textarea::placeholder {
+.anw-fields .field textarea::placeholder,
+.admin-form-fields .field input::placeholder,
+.admin-form-fields .field textarea::placeholder {
   color: #9ca3af;
 }
 
-.anw-fields .anw-textarea-wrap textarea {
-  min-height: 6.5rem;
-  max-height: 10rem;
+.anw-fields .anw-textarea-wrap textarea,
+.anw-fields .anw-textarea-shell textarea,
+.admin-form-fields .anw-textarea-wrap textarea,
+.admin-form-fields .anw-textarea-shell textarea {
+  min-height: 7.25rem;
+  max-height: 12rem;
   padding-left: 2rem;
-  padding-bottom: 1.5rem;
+  padding-bottom: 1.65rem;
   background: #faf8f9;
 }
 
-.anw-fields .anw-textarea-wrap textarea:focus {
+.anw-fields .anw-textarea-wrap textarea:focus,
+.anw-fields .anw-textarea-shell textarea:focus,
+.admin-form-fields .anw-textarea-wrap textarea:focus,
+.admin-form-fields .anw-textarea-shell textarea:focus {
   background: #fff;
 }
 

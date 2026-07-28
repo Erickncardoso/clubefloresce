@@ -1,8 +1,7 @@
 import { Resend } from "resend";
 import {
   type EmailSender,
-  getAdminAppUrl,
-  getPatientAppUrl,
+  getAdminAppProductionUrl,
   getPatientAppOpenUrl,
   isResendConfigured,
   resolveEmailFrom,
@@ -86,7 +85,7 @@ export class EmailService {
     const nutriEmail = await resolveNutriNotificationEmail();
     const nutriTemplate = newPatientSignupNutriEmail({
       ...input,
-      adminUrl: getAdminAppUrl(),
+      adminUrl: getAdminAppProductionUrl(),
     });
 
     await this.send({
@@ -114,7 +113,7 @@ export class EmailService {
     const nutriEmail = await resolveNutriNotificationEmail();
     const nutriTemplate = registrationRequestNutriEmail({
       ...input,
-      adminUrl: getAdminAppUrl(),
+      adminUrl: getAdminAppProductionUrl(),
     });
 
     await this.send({

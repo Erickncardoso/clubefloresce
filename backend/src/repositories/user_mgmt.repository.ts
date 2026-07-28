@@ -82,8 +82,8 @@ export class UserMgmtRepository {
   async listPatientsForSlugLookup() {
     return prisma.user.findMany({
       where: { role: Role.PACIENTE },
-      select: { id: true, name: true },
-      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, email: true, createdAt: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   }
 

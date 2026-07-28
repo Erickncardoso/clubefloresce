@@ -41,7 +41,6 @@ import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "./utils/media
 import { startCheckInDispatchScheduler } from "./jobs/checkin-weekly-dispatch.job";
 import { startMealReminderDispatchScheduler } from "./jobs/meal-reminder-dispatch.job";
 import { startWhatsappMobilePresenceScheduler } from "./jobs/whatsapp-mobile-presence.job";
-import { startWhatsappDevMessageLog } from "./jobs/whatsapp-dev-message-log.job";
 import { startBillingNotificationScheduler } from "./jobs/billing-notifications.job";
 import { startInstagramQueueDrainScheduler } from "./jobs/instagram-queue-drain.job";
 import { startInstagramTokenRefreshScheduler } from "./jobs/instagram-token-refresh.job";
@@ -49,6 +48,9 @@ import { assertJwtSecretOnBoot } from "./utils/jwt";
 import { isVapidConfigured } from "./utils/vapid-config";
 import { isPusherConfigured } from "./utils/pusher-config";
 import { getDevTunnelWebhookUrl } from "./utils/dev-tunnel-url";
+import { logWhatsappWebhookTarget } from "./utils/whatsapp-webhook-url";
+import { isWuzapiProvider } from "./config/whatsapp-provider.config";
+import whatsappChatMergeService from "./services/whatsapp-chat-merge.service";
 import { isBackblazeB2Configured } from "./utils/media/backblaze-config";
 import {
   getEmailFromContact,
@@ -90,6 +92,7 @@ const corsOptions: cors.CorsOptions = {
     "Authorization",
     "X-Patient-Date",
     "X-Patient-Timezone",
+    "X-CF-Client",
   ],
   optionsSuccessStatus: 204,
 };
@@ -229,6 +232,7 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   if (tunnelWebhook) {
     console.log(`[Tunnel] Cloudflare ativo — webhook: ${tunnelWebhook}`);
   }
+  logWhatsappWebhookTarget();
   if (isBackblazeB2Configured()) {
     console.log("[WhatsApp Media] Backblaze B2 ativo — mídias do chat serão arquivadas.");
   }
@@ -294,12 +298,22 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   console.log("[MealReminder] Agendador ativo — lembretes nos horários do plano alimentar.");
   startWhatsappMobilePresenceScheduler();
   console.log("[WhatsApp] Presença unavailable ativa — celular continua recebendo notificações.");
-  startWhatsappDevMessageLog();
   startBillingNotificationScheduler();
   console.log("[BillingNotify] Agendador ativo — carrinho abandonado e renovação (3 dias).");
   startInstagramQueueDrainScheduler();
   startInstagramTokenRefreshScheduler();
   console.log("[Instagram] Fila (60s) e renovação de token (diária) ativas.");
+
+  if (isWuzapiProvider()) {
+    const wuzUserId = readEnv("WUZAPI_DEFAULT_USER_ID");
+    if (wuzUserId) {
+      void whatsappChatMergeService.mergeLidDuplicates(wuzUserId, true).then(({ merged, deleted }) => {
+        if (merged > 0 || deleted > 0) {
+          console.log(`[WhatsApp] Merge LID na subida — msgs=${merged}, chats removidos=${deleted}`);
+        }
+      });
+    }
+  }
 });
 
 server.requestTimeout = UPLOAD_SERVER_TIMEOUT_MS;

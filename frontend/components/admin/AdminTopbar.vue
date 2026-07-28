@@ -12,6 +12,8 @@
     </button>
 
     <div class="admin-topbar-actions">
+      <AdminAgendaTopbarWidget />
+
       <NuxtLink
         to="/whatsapp/chat"
         class="admin-topbar-icon-btn"
@@ -29,15 +31,6 @@
         aria-label="Mensagens"
       >
         <MessageCircle aria-hidden="true" />
-      </NuxtLink>
-
-      <NuxtLink
-        to="/agenda"
-        class="admin-topbar-icon-btn"
-        title="Agenda"
-        aria-label="Agenda"
-      >
-        <CalendarPlus aria-hidden="true" />
       </NuxtLink>
 
       <button
@@ -127,8 +120,8 @@
 </template>
 
 <script setup>
-import { Bell, CalendarPlus, ChevronDown, MessageCircle, Search } from 'lucide-vue-next'
-import { authFetchInit, authHeaders } from '~/composables/useAuthSession.js'
+import { Bell, ChevronDown, MessageCircle, Search } from 'lucide-vue-next'
+import { authHeaders } from '~/composables/useAuthSession.js'
 import { buildPatientPath } from '~/utils/patient-slug.js'
 
 const props = defineProps({

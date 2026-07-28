@@ -257,13 +257,21 @@ export function usePatientGoals() {
     const wakeKey = sleepMetaKey('wake', dk)
     const bedStored = store.value.progress[bedKey]
     const wakeStored = store.value.progress[wakeKey]
+    const sleepGoal = store.value.goals.find((item) => item.id === 'sleep')
+    const sleepKey = progressStorageKey('sleep', periodKeyForGoal(
+      sleepGoal || DEFAULT_GOALS[3],
+      date,
+    ))
+    const savedHours = typeof store.value.progress[sleepKey] === 'number'
+      ? store.value.progress[sleepKey]
+      : 0
 
-    let bed = bedStored ?? DEFAULT_SLEEP_BED
-    let wake = wakeStored ?? DEFAULT_SLEEP_WAKE
+    if (bedStored == null && wakeStored == null && savedHours <= 0) return
+
+    let bed = typeof bedStored === 'number' ? bedStored : DEFAULT_SLEEP_BED
+    let wake = typeof wakeStored === 'number' ? wakeStored : DEFAULT_SLEEP_WAKE
 
     if (bedStored == null || wakeStored == null) {
-      const sleepGoal = store.value.goals.find((item) => item.id === 'sleep')
-      const savedHours = sleepGoal ? getProgress(sleepGoal, date) : 0
       if (savedHours > 0) {
         wake = (DEFAULT_SLEEP_BED + Math.round(savedHours * 60)) % 1440
       }
@@ -271,10 +279,6 @@ export function usePatientGoals() {
 
     const normalized = normalizeSleepTimes(bed, wake)
     const hours = calcSleepDurationHours(normalized.bed, normalized.wake)
-    const sleepKey = progressStorageKey('sleep', periodKeyForGoal(
-      store.value.goals.find((item) => item.id === 'sleep') || DEFAULT_GOALS[3],
-      date,
-    ))
     const currentHours = store.value.progress[sleepKey] || 0
 
     const scheduleChanged = bedStored !== normalized.bed || wakeStored !== normalized.wake
@@ -391,10 +395,32 @@ export function usePatientGoals() {
     return result
   }
 
+  function hasSleepScheduleRecorded(date = new Date()) {
+    const dk = dateKey(date)
+    const bedKey = sleepMetaKey('bed', dk)
+    const wakeKey = sleepMetaKey('wake', dk)
+    if (bedKey in store.value.progress || wakeKey in store.value.progress) return true
+    const sleepGoal = store.value.goals.find((item) => item.id === 'sleep')
+    if (!sleepGoal) return false
+    const sleepKey = progressStorageKey('sleep', periodKeyForGoal(sleepGoal, date))
+    const hours = store.value.progress[sleepKey]
+    return typeof hours === 'number' && hours > 0
+  }
+
   function getSleepSchedule(date = new Date()) {
     const dk = dateKey(date)
     const bedStored = store.value.progress[sleepMetaKey('bed', dk)]
     const wakeStored = store.value.progress[sleepMetaKey('wake', dk)]
+
+    if (!hasSleepScheduleRecorded(date)) {
+      return {
+        dateKey: dk,
+        bedMinutes: DEFAULT_SLEEP_BED,
+        wakeMinutes: DEFAULT_SLEEP_WAKE,
+        durationHours: 0,
+        durationMinutes: 0,
+      }
+    }
 
     let bedMinutes = bedStored ?? DEFAULT_SLEEP_BED
     let wakeMinutes = wakeStored ?? DEFAULT_SLEEP_WAKE

@@ -48,6 +48,15 @@ export class PostRepository {
     });
   }
 
+  async createReport(data: {
+    postId: string;
+    reporterId: string;
+    reason: string;
+    details?: string;
+  }) {
+    return prisma.postReport.create({ data });
+  }
+
   async createComment(data: any): Promise<Comment> {
     return prisma.comment.create({
       data,

@@ -2,6 +2,7 @@ import { PrismaClient, FoodSource } from "@prisma/client";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getFoodSearchAliasText } from "../src/utils/food-catalog-aliases";
+import { ragIndexerService } from "../src/services/rag/indexer.service";
 
 interface FoodSeedItem {
   source: "TACO" | "TBCA";
@@ -101,6 +102,10 @@ async function main() {
     _count: { _all: true },
   });
   console.log("Concluído:", counts);
+
+  console.log("[RAG] Reindexando alimentos na base de conhecimento...");
+  const foodChunks = await ragIndexerService.backfillFoods();
+  console.log(`[RAG] ${foodChunks} chunks de alimentos indexados.`);
 }
 
 main()

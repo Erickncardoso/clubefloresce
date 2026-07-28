@@ -9,6 +9,7 @@ import { ref, readonly } from 'vue'
 import { getWhatsappApiBase, whatsappHasAuth } from './useWhatsappApi.js'
 import { authFetchInit } from '~/composables/useAuthSession.js'
 import { dispatchWhatsappRealtime } from './whatsapp-realtime-bus.js'
+import { ensureWhatsappProviderKind, isWhatsappWuzapiProvider } from './useWhatsappInitialSync.js'
 
 /** 3 heartbeats de 15s perdidos → stream considerado mudo. */
 const SSE_STALE_MS = 45_000
@@ -163,6 +164,17 @@ function startSseLoop() {
 
   const run = async () => {
     if (!sseRunning) return
+
+    // SSE é exclusivo da UAZAPI. No modo WuzAPI o tempo real vem por webhook +
+    // Pusher, e o endpoint /sse responde 501 — não faz sentido manter o loop de
+    // reconexão batendo no backend. Encerra o loop de vez.
+    await ensureWhatsappProviderKind()
+    if (isWhatsappWuzapiProvider()) {
+      sseRunning = false
+      sseConnected.value = false
+      stopSseWatchdog()
+      return
+    }
 
     const base = getApiBase()
     if (!base || !whatsappHasAuth()) {

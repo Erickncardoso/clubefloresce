@@ -83,6 +83,9 @@ model User {
   lessonProgress               LessonProgress[]
   likedComments                Comment[]                      @relation("CommentLikes")
   likedPosts                   Post[]                         @relation("PostLikes")
+  postReports                  PostReport[]
+  communityBlocksMade          CommunityUserBlock[]           @relation("CommunityBlocksMade")
+  communityBlocksReceived      CommunityUserBlock[]           @relation("CommunityBlocksReceived")
   whatsappChats                WhatsappChat[]
   whatsappContactStates        WhatsappContactState[]
   whatsappContactDirectory     WhatsappContactDirectory?
@@ -392,6 +395,33 @@ model Post {
   likesCount Int       @default(0)
   likedBy    User[]    @relation("PostLikes")
   comments   Comment[]
+  reports    PostReport[]
+}
+
+model PostReport {
+  id         String   @id @default(uuid())
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason     String
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@unique([postId, reporterId])
+  @@index([postId, createdAt])
+}
+
+model CommunityUserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("CommunityBlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("CommunityBlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId, createdAt])
 }
 
 model Comment {

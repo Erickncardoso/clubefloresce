@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { normalizeUazapiWebhookEventType } from "../utils/uazapi-webhook-event.util";
+import { normalizeWuzapiWebhookEventType } from "../utils/wuzapi-webhook.util";
 
 const WEBHOOK_DIR = path.resolve(__dirname, "../../webhook");
 
@@ -113,7 +113,7 @@ export class WebhookLogService {
     try {
       await ensureWebhookDir();
       const body = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
-      const eventType = normalizeUazapiWebhookEventType(payload);
+      const eventType = normalizeWuzapiWebhookEventType(payload);
       const at = new Date().toISOString();
 
       await appendLine(todayLogPath("events"), {

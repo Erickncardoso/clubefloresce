@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
-import { Stack } from 'expo-router';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Stack, usePathname } from 'expo-router';
 import { useFonts } from 'expo-font';
 import {
   PlusJakartaSans_400Regular,
@@ -9,31 +10,51 @@ import {
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePatientRouteGuard } from '@/hooks/usePatientRouteGuard';
+import { useSimulatorMockupTheme } from '@/hooks/useSimulatorMockupTheme';
+import PatientTabBar from '@/components/PatientTabBar';
+import { shouldShowPatientTabBar } from '@/lib/tab-bar';
 import { iosHiddenHeaderOptions } from '@/lib/ios-navigation';
+import { AppToastProvider } from '@/providers/AppToastProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { PatientGoalsProvider } from '@/providers/PatientGoalsProvider';
+import { PatientMealPlanProvider } from '@/providers/PatientMealPlanProvider';
+import NotificationBootstrap from '@/notifications/NotificationBootstrap';
 import { colors } from '@/theme/tokens';
 
 function AppNavigationShell() {
   usePatientRouteGuard();
+  useSimulatorMockupTheme();
+  const pathname = usePathname();
+  const showTabBar = shouldShowPatientTabBar(pathname);
 
   return (
-    <Stack screenOptions={iosHiddenHeaderOptions}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="cursos/[id]" />
-      <Stack.Screen name="modulos/[id]" />
-      <Stack.Screen name="ebooks" />
-      <Stack.Screen name="ebook-viewer" />
-      <Stack.Screen name="cursos/index" />
-      <Stack.Screen name="dieta/index" />
-      <Stack.Screen name="perfil/index" />
-      <Stack.Screen name="check-in/index" />
-      <Stack.Screen name="bella/chat/[topic]" />
-      <Stack.Screen name="chamada/index" />
-    </Stack>
+    <View style={styles.navShell}>
+      <Stack screenOptions={iosHiddenHeaderOptions}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="cursos/[id]" />
+        <Stack.Screen name="modulos/[id]" />
+        <Stack.Screen name="ebooks" />
+        <Stack.Screen name="ebook-viewer" />
+        <Stack.Screen name="cursos/index" />
+        <Stack.Screen name="dieta/index" />
+        <Stack.Screen name="perfil/index" />
+        <Stack.Screen name="check-in/index" />
+        <Stack.Screen name="bella/chat/[topic]" />
+        <Stack.Screen name="chamada/index" />
+        <Stack.Screen name="legal/privacidade" />
+        <Stack.Screen name="legal/termos" />
+        <Stack.Screen name="assinatura/index" />
+        <Stack.Screen name="perfil/configuracoes" />
+        <Stack.Screen name="perfil/notificacoes" />
+        <Stack.Screen name="perfil/lembretes" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="esqueci-senha" />
+      </Stack>
+      {showTabBar ? <PatientTabBar /> : null}
+    </View>
   );
 }
 
@@ -55,11 +76,18 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.flex}>
+    <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <AuthProvider>
-          <StatusBar style="auto" />
-          <AppNavigationShell />
+          <AppToastProvider>
+            <PatientGoalsProvider>
+                <PatientMealPlanProvider>
+                  <NotificationBootstrap />
+                  <StatusBar style="dark" backgroundColor={colors.bg} />
+                <AppNavigationShell />
+              </PatientMealPlanProvider>
+            </PatientGoalsProvider>
+          </AppToastProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -67,7 +95,8 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  root: { flex: 1, backgroundColor: colors.bg },
+  navShell: { flex: 1, backgroundColor: colors.bg },
   boot: {
     flex: 1,
     alignItems: 'center',

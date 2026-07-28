@@ -3,7 +3,8 @@
  * Usa o mesmo scroll container (`chatBodyRef`) para manter load-older / stick-to-bottom.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { chatBodyRef } from './useWhatsappState.js'
+import { chatBodyRef, chatOpeningPending } from './useWhatsappState.js'
+import { isChatBodyNearBottom, scrollToBottomOnChatOpen } from './useWhatsappScroll.js'
 
 /** Abaixo disso, renderiza tudo (custo de windowing não compensa). */
 export const MESSAGE_WINDOW_THRESHOLD = 80
@@ -25,8 +26,34 @@ export function useWhatsappMessageWindow(itemsRef, options = {}) {
   let rafPending = false
   let boundEl = null
   let resizeObserver = null
+  let pendingOpenScrollToBottom = false
+  let openMeasureAttempts = 0
+
+  const isOpenScrollSettling = () => pendingOpenScrollToBottom || chatOpeningPending.value
 
   const measure = () => {
+    if (isOpenScrollSettling()) {
+      nearBottomReal.value = true
+      scrollToBottomOnChatOpen()
+      const el = chatBodyRef.value
+      if (el && isChatBodyNearBottom()) {
+        pendingOpenScrollToBottom = false
+        openMeasureAttempts = 0
+        scrollTop.value = el.scrollTop
+        viewportHeight.value = el.clientHeight || 600
+        nearBottomReal.value = true
+        return
+      }
+      if (openMeasureAttempts++ < 60) {
+        requestAnimationFrame(measure)
+      } else {
+        pendingOpenScrollToBottom = false
+        openMeasureAttempts = 0
+      }
+      return
+    }
+
+    openMeasureAttempts = 0
     const el = chatBodyRef.value
     if (!el) return
     scrollTop.value = el.scrollTop
@@ -83,18 +110,28 @@ export function useWhatsappMessageWindow(itemsRef, options = {}) {
     const prevItems = Array.isArray(prev) ? prev : []
     const nextLen = nextItems.length
     const prevLen = prevItems.length
-    // Troca de conversa / open: assume fundo para a janela não renderizar o topo.
-    if (nextLen > threshold) {
+    // Troca de conversa / open: ancora janela no fundo até scroll DOM confirmar.
+    if (nextLen > 0 && (prevLen === 0 || chatOpeningPending.value)) {
       const nextFirst = String(nextItems[0]?.id || nextItems[0]?.messageid || '')
       const prevFirst = String(prevItems[0]?.id || prevItems[0]?.messageid || '')
-      const chatSwitched = prevLen === 0 || nextFirst !== prevFirst
+      const chatSwitched = prevLen === 0 || nextFirst !== prevFirst || chatOpeningPending.value
       if (chatSwitched) {
         const vh = Math.max(1, viewportHeight.value || chatBodyRef.value?.clientHeight || 600)
         scrollTop.value = Math.max(0, nextLen * estimatePx - vh)
+        nearBottomReal.value = true
+        pendingOpenScrollToBottom = true
       }
     }
     requestAnimationFrame(measure)
   }, { flush: 'post' })
+
+  watch(chatOpeningPending, (pending) => {
+    if (pending) {
+      nearBottomReal.value = true
+      pendingOpenScrollToBottom = true
+      requestAnimationFrame(measure)
+    }
+  })
 
   const windowState = computed(() => {
     const items = Array.isArray(itemsRef.value) ? itemsRef.value : []

@@ -31,3 +31,17 @@ export function firstNameFrom(fullName?: string | null): string {
   if (!name) return 'Paciente';
   return name.split(/\s+/)[0] || 'Paciente';
 }
+
+export function todayLabel(date = new Date()): string {
+  const value = new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Sao_Paulo',
+  }).format(date);
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function formatStatValue(value: number | string | null | undefined): string {
+  return Math.round(Number(value) || 0).toLocaleString('pt-BR');
+}

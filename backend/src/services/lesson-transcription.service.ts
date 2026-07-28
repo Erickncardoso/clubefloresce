@@ -14,6 +14,7 @@ import {
   isBunnyTranscriptionVideoUrl,
   isBunnyVideoReadyForCaptions,
 } from "../utils/media/bunny-transcription";
+import { scheduleRagReindex } from "./rag/rag-hooks";
 
 const courseRepository = new CourseRepository();
 const CLOUDINARY_TRANSCRIPTION_LANG = process.env.CLOUDINARY_TRANSCRIPTION_LANG || "pt-BR";
@@ -91,6 +92,8 @@ export class LessonTranscriptionService {
     await courseRepository.updateLesson(lessonId, {
       transcription: lines,
     });
+
+    scheduleRagReindex({ type: "lesson", id: lessonId });
 
     if (previousCount === 0) {
       void import("./lesson-summary.service")

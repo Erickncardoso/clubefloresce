@@ -62,3 +62,17 @@ export function buildBunnyStreamMp4FromParts(cdnHost: string, videoId: string, h
   if (!host || !id) return '';
   return `https://${host}/${id}/play_${height}p.mp4`;
 }
+
+export function buildBunnyStreamHlsFromParts(cdnHost: string, videoId: string): string {
+  const host = String(cdnHost || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const id = String(videoId || '').trim();
+  if (!host || !id) return '';
+  return `https://${host}/${id}/playlist.m3u8`;
+}
+
+export function buildBunnyStreamEmbedUrl(libraryId: string, videoId: string): string {
+  const lib = String(libraryId || '').trim();
+  const id = String(videoId || '').trim();
+  if (!lib || !id) return '';
+  return `https://iframe.mediadelivery.net/embed/${lib}/${id}?autoplay=false&preload=true&playerjs=true`;
+}

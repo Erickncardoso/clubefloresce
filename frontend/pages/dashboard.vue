@@ -537,6 +537,12 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .admin-home {
+  --admin-primary: #8B967C;
+  --admin-primary-soft: #eef0eb;
+  --admin-ink: #141414;
+  --admin-muted: #66706e;
+  --admin-border: #e8ece9;
+  --admin-surface: #ffffff;
   width: 100%;
   max-width: none;
   box-sizing: border-box;
@@ -579,6 +585,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0.85rem;
   border-radius: var(--cf-radius-control, 1.625rem);
+  background: var(--admin-surface, #ffffff);
+  border: 1px solid var(--admin-border, #e8ece9);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .bento-card--patients { grid-area: patients; }
@@ -759,7 +768,7 @@ onBeforeUnmount(() => {
   gap: 0.55rem;
   padding: 0.9rem 1rem;
   border-radius: var(--cf-radius-control, 1.625rem);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border, #e8ece9);
   background: #fafbfa;
   min-width: 0;
 }

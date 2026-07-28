@@ -77,7 +77,7 @@ function foodDaysStorageKey(weekKey: string) {
   return `food-days:${weekKey}`;
 }
 
-function parseFoodDays(raw: unknown): number[] {
+export function parseFoodDays(raw: unknown): number[] {
   if (typeof raw !== 'string' || !raw.trim()) return [];
   return raw
     .split(',')
@@ -265,10 +265,32 @@ export function setProgressInStore(
   };
 }
 
+export function hasSleepScheduleRecorded(store: GoalsStore, date = new Date()): boolean {
+  const dk = dateKey(date);
+  const bedKey = sleepMetaKey('bed', dk);
+  const wakeKey = sleepMetaKey('wake', dk);
+  if (bedKey in store.progress || wakeKey in store.progress) return true;
+  const sleepGoal = store.goals.find((item) => item.id === 'sleep');
+  if (!sleepGoal) return false;
+  const sleepKey = progressStorageKey('sleep', periodKeyForGoal(sleepGoal, date));
+  const hours = store.progress[sleepKey];
+  return typeof hours === 'number' && hours > 0;
+}
+
 export function getSleepSchedule(store: GoalsStore, date = new Date()) {
   const dk = dateKey(date);
   const bedStored = store.progress[sleepMetaKey('bed', dk)];
   const wakeStored = store.progress[sleepMetaKey('wake', dk)];
+
+  if (!hasSleepScheduleRecorded(store, date)) {
+    return {
+      dateKey: dk,
+      bedMinutes: DEFAULT_SLEEP_BED,
+      wakeMinutes: DEFAULT_SLEEP_WAKE,
+      durationHours: 0,
+      durationMinutes: 0,
+    };
+  }
 
   let bedMinutes = typeof bedStored === 'number' ? bedStored : DEFAULT_SLEEP_BED;
   let wakeMinutes = typeof wakeStored === 'number' ? wakeStored : DEFAULT_SLEEP_WAKE;
@@ -331,7 +353,38 @@ export function shiftSleepTimeInStore(
   return setSleepScheduleInStore(store, current.bedMinutes, current.wakeMinutes + deltaMinutes, date);
 }
 
+export function stripOrphanAutoSleepProgress(store: GoalsStore, date = new Date()): GoalsStore {
+  const dk = dateKey(date);
+  const bedKey = sleepMetaKey('bed', dk);
+  const wakeKey = sleepMetaKey('wake', dk);
+  const sleepGoal = store.goals.find((item) => item.id === 'sleep');
+  if (!sleepGoal) return store;
+  const sleepKey = progressStorageKey('sleep', periodKeyForGoal(sleepGoal, date));
+
+  const hasNonSleepProgress = Object.entries(store.progress).some(([key, value]) => {
+    if (key === bedKey || key === wakeKey || key === sleepKey) return false;
+    if (key.startsWith('sleep-bed:') || key.startsWith('sleep-wake:')) return false;
+    if (key.startsWith('sleep:')) return false;
+    if (key.startsWith('food-days:')) return parseFoodDays(value).length > 0;
+    if (typeof value === 'number') return value > 0;
+    return typeof value === 'string' && value.trim().length > 0;
+  });
+
+  if (hasNonSleepProgress) return store;
+  if (!(bedKey in store.progress) && !(wakeKey in store.progress) && !(sleepKey in store.progress)) {
+    return store;
+  }
+
+  const progress = { ...store.progress };
+  delete progress[bedKey];
+  delete progress[wakeKey];
+  delete progress[sleepKey];
+  return { ...store, progress };
+}
+
 export function repairSleepScheduleInStore(store: GoalsStore, date = new Date()) {
+  if (!hasSleepScheduleRecorded(store, date)) return store;
+
   const dk = dateKey(date);
   const bedKey = sleepMetaKey('bed', dk);
   const wakeKey = sleepMetaKey('wake', dk);

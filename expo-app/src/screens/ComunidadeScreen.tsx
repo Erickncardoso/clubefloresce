@@ -13,6 +13,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import {
   Camera,
+  Flag,
   Heart,
   HelpCircle,
   MessageCircle,
@@ -24,10 +25,18 @@ import {
   UtensilsCrossed,
   X,
 } from 'lucide-react-native';
+import CommunityGuidelinesBanner from '@/components/comunidade/CommunityGuidelinesBanner';
 import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
+import { LEGAL_CONTACT_EMAIL } from '@/config/legal';
 import { getApiBase, NATIVE_CLIENT_HEADER } from '@/config/env';
+import {
+  blockCommunityUser,
+  isCommunityUserBlocked,
+  loadCommunityBlockedUserIds,
+  saveCommunityBlockedUserIds,
+} from '@/lib/community-blocks';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { useAuth } from '@/providers/AuthProvider';
@@ -58,6 +67,14 @@ const COMPOSE_CHIPS = [
   { id: 'inspiration', label: 'Inspiração', Icon: Sparkles },
 ];
 
+const REPORT_REASONS = [
+  { id: 'offensive', label: 'Conteúdo ofensivo' },
+  { id: 'spam', label: 'Spam ou propaganda' },
+  { id: 'unsafe_health', label: 'Orientação de saúde insegura' },
+  { id: 'privacy', label: 'Viola privacidade' },
+  { id: 'other', label: 'Outro motivo' },
+] as const;
+
 function formatDistance(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -82,6 +99,22 @@ export default function ComunidadeScreen() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+
+  async function refreshBlockedUsers() {
+    const local = await loadCommunityBlockedUserIds();
+    try {
+      const data = await request<{ blockedUserIds?: string[] }>('/patients/me/community/blocks');
+      const remote = data?.blockedUserIds || [];
+      const merged = [...new Set([...local, ...remote])];
+      if (merged.length !== local.length || merged.some((id, i) => id !== local[i])) {
+        await saveCommunityBlockedUserIds(merged);
+      }
+      setBlockedUserIds(merged);
+    } catch {
+      setBlockedUserIds(local);
+    }
+  }
 
   async function loadPosts() {
     try {
@@ -99,6 +132,7 @@ export default function ComunidadeScreen() {
   }
 
   useEffect(() => {
+    void refreshBlockedUsers();
     loadPosts();
   }, []);
 
@@ -191,6 +225,76 @@ export default function ComunidadeScreen() {
     ]);
   }
 
+  function reportPost(post: Post) {
+    setOpenMenuId(null);
+    Alert.alert(
+      'Denunciar publicação',
+      'Por que você está denunciando este conteúdo? Nossa equipe analisará em breve.',
+      [
+        ...REPORT_REASONS.map((reason) => ({
+          text: reason.label,
+          onPress: () => {
+            void (async () => {
+              try {
+                await request(`/posts/${post.id}/report`, {
+                  method: 'POST',
+                  body: JSON.stringify({ reason: reason.id }),
+                });
+                Alert.alert(
+                  'Denúncia enviada',
+                  'Obrigado por ajudar a manter a comunidade segura.',
+                );
+              } catch (err) {
+                const message = (err as { message?: string })?.message
+                  || 'Não foi possível enviar a denúncia.';
+                Alert.alert('Erro', message);
+              }
+            })();
+          },
+        })),
+        {
+          text: 'Falar com suporte',
+          onPress: () => {
+            void Clipboard.setStringAsync(LEGAL_CONTACT_EMAIL);
+            Alert.alert('Suporte', `Envie um e-mail para ${LEGAL_CONTACT_EMAIL} se precisar de ajuda.`);
+          },
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+    );
+  }
+
+  function blockUser(post: Post) {
+    const authorId = post.authorId || post.author?.id;
+    const authorName = post.author?.name || post.authorName || 'este membro';
+    if (!authorId || authorId === user?.id) return;
+
+    setOpenMenuId(null);
+    Alert.alert(
+      'Bloquear membro',
+      `As publicações de ${authorName} deixarão de aparecer para você. Nossa equipe pode revisar denúncias relacionadas.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Bloquear',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              const next = await blockCommunityUser(authorId);
+              setBlockedUserIds(next);
+              try {
+                await request(`/patients/me/community/blocks/${authorId}`, { method: 'POST' });
+              } catch {
+                /* persistência local já aplicada */
+              }
+              Alert.alert('Membro bloqueado', 'Você não verá mais publicações desta pessoa.');
+            })();
+          },
+        },
+      ],
+    );
+  }
+
   async function copyPost(post: Post) {
     setOpenMenuId(null);
     await Clipboard.setStringAsync(post.content || '');
@@ -202,6 +306,9 @@ export default function ComunidadeScreen() {
   }
 
   const userInitial = (user?.name || '?').charAt(0).toUpperCase();
+  const visiblePosts = posts.filter(
+    (post) => !isCommunityUserBlocked(blockedUserIds, post.authorId || post.author?.id),
+  );
 
   return (
     <PatientShell>
@@ -210,6 +317,7 @@ export default function ComunidadeScreen() {
         <LoadingScreen />
       ) : (
         <ScrollView contentContainerStyle={styles.scroll}>
+          <CommunityGuidelinesBanner />
           <View style={styles.tabs}>
             {TABS.map((tab) => (
               <Pressable
@@ -276,7 +384,7 @@ export default function ComunidadeScreen() {
 
               <Text style={styles.sectionTitle}>Publicações</Text>
 
-              {posts.length ? posts.map((post) => {
+              {visiblePosts.length ? visiblePosts.map((post) => {
                 const authorName = post.author?.name || post.authorName || 'Membro';
                 const isMine = post.authorId === user?.id || post.author?.id === user?.id;
                 return (
@@ -296,12 +404,23 @@ export default function ComunidadeScreen() {
                     </View>
                     {openMenuId === post.id ? (
                       <View style={styles.menu}>
+                        {!isMine ? (
+                          <Pressable style={styles.menuRow} onPress={() => blockUser(post)}>
+                            <Text style={styles.menuDanger}>Bloquear membro</Text>
+                          </Pressable>
+                        ) : null}
+                        {!isMine ? (
+                          <Pressable style={styles.menuRow} onPress={() => reportPost(post)}>
+                            <Flag color={colors.error} size={16} />
+                            <Text style={styles.menuDanger}>Denunciar publicação</Text>
+                          </Pressable>
+                        ) : null}
                         {isMine ? (
-                          <Pressable onPress={() => deletePost(post.id)}>
+                          <Pressable style={styles.menuRow} onPress={() => deletePost(post.id)}>
                             <Text style={styles.menuDanger}>Excluir publicação</Text>
                           </Pressable>
                         ) : null}
-                        <Pressable onPress={() => copyPost(post)}>
+                        <Pressable style={styles.menuRow} onPress={() => copyPost(post)}>
                           <Text style={styles.menuItem}>Copiar texto</Text>
                         </Pressable>
                       </View>
@@ -484,7 +603,8 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   menuDanger: { fontFamily: fonts.semibold, color: colors.error },
-  menuItem: { fontFamily: fonts.semibold, color: colors.text, marginTop: spacing[2] },
+  menuItem: { fontFamily: fonts.semibold, color: colors.text },
+  menuRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[1] },
   postText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
   postImage: { width: '100%', height: 220, borderRadius: radii.control },
   postActions: { flexDirection: 'row', gap: spacing[4] },

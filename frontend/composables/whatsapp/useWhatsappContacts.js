@@ -13,7 +13,8 @@ import {
   extractAvatarFromDetailsPayload, extractAvatarFromContactRow, buildPhoneVariants,
   normalizeNumberForContactAdd, parseJsonBodySafe, parseLooseMessageContent, isGroupJid,
   filterSenderLookupCandidates,
-  formatJidAsPhoneLine
+  formatJidAsPhoneLine, looksLikeWhatsappGroupId, isPlausibleWhatsappPhoneDigits,
+  isBareNumericChatLabel,
 } from './useWhatsappUtils.js'
 import { fetchChatDetailsSafe, getProxyBase, getContactDirectoryApi, getWhatsappApiBase, CONTACTS_SYNC_MIN_INTERVAL_MS, whatsappJsonHeaders, whatsappAuthHeaders, whatsappHasAuth } from './useWhatsappApi.js'
 import { getGroupInfo } from './useWhatsappGroupsApi.js'
@@ -330,6 +331,9 @@ export const ingestLidPnHintsFromMessages = (msgList = []) => {
   if (changed) {
     lidToJidMap.value = next
     if (messages.value.length) messages.value = [...messages.value]
+    void import('./useWhatsappChats.js').then((mod) => {
+      mod.reconcileDuplicateChatRows?.()
+    }).catch(() => {})
   }
 }
 
@@ -461,9 +465,11 @@ export const resolvePrivateChatPhoneJid = (chat = {}) => {
     if (digits.length >= 8) jid = normalizeJid(`${digits}@s.whatsapp.net`)
   }
 
-  if (!jid.endsWith('@s.whatsapp.net')) {
+  if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@lid')) {
     const digits = extractDigitsFromJid(jid)
-    if (digits.length >= 8) jid = normalizeJid(`${digits}@s.whatsapp.net`)
+    if (isPlausibleWhatsappPhoneDigits(digits)) {
+      jid = normalizeJid(`${digits}@s.whatsapp.net`)
+    }
   }
 
   return jid
@@ -471,13 +477,22 @@ export const resolvePrivateChatPhoneJid = (chat = {}) => {
 
 /** Título da conversa na sidebar: nome da agenda se salvo; senão telefone formatado. */
 export const resolveChatListDisplayName = (chat = {}) => {
-  const chatJid = normalizeJid(chat.chatJid || chat.wa_chatid || chat.id || '')
+  let chatJid = normalizeJid(chat.chatJid || chat.wa_chatid || chat.id || '')
+  if (looksLikeWhatsappGroupId(chatJid) && !chatJid.endsWith('@g.us')) {
+    const groupDigits = extractDigitsFromJid(chatJid)
+    if (groupDigits) chatJid = normalizeJid(`${groupDigits}@g.us`)
+  }
+
   const isGroup = Boolean(
-    chat.isGroup ?? chat.wa_isGroup ?? chatJid.endsWith('@g.us')
+    chat.isGroup ?? chat.wa_isGroup ?? chatJid.endsWith('@g.us') ?? looksLikeWhatsappGroupId(chatJid)
   )
 
   if (isGroup) {
-    return strTrim(chat.pushName || chat.name || chat.wa_name) || chatJid || 'Grupo'
+    const groupName = strTrim(chat.pushName || chat.name || chat.wa_name)
+    if (groupName && !isBareNumericChatLabel(groupName, chatJid) && !looksLikeWhatsappGroupId(groupName)) {
+      return groupName
+    }
+    return 'Grupo'
   }
 
   const lookupKeys = buildLookupKeys(chatJid, chat.wa_chatlid, chat.phone)
@@ -486,8 +501,10 @@ export const resolveChatListDisplayName = (chat = {}) => {
   const hasSavedIndex = lookupKeys.some((key) => Boolean(savedContactsIndex.value?.[key]))
 
   const savedName = strTrim(waContactName || savedFromDirectory)
-  if (savedName && !isLikelyPhoneDisplayLabel(savedName)) return savedName
-  if (hasSavedIndex && savedFromDirectory && !isLikelyPhoneDisplayLabel(savedFromDirectory)) {
+  if (savedName && !isLikelyPhoneDisplayLabel(savedName) && !isBareNumericChatLabel(savedName, chatJid)) {
+    return savedName
+  }
+  if (hasSavedIndex && savedFromDirectory && !isLikelyPhoneDisplayLabel(savedFromDirectory) && !isBareNumericChatLabel(savedFromDirectory, chatJid)) {
     return savedFromDirectory
   }
 
@@ -496,11 +513,16 @@ export const resolveChatListDisplayName = (chat = {}) => {
   if (phoneLine) return phoneLine
 
   const fallbackDigits = extractDigitsFromJid(chatJid)
-  if (fallbackDigits.length >= 8) {
-    return formatJidAsPhoneLine(`${fallbackDigits}@s.whatsapp.net`) || `+${fallbackDigits}`
+  if (isPlausibleWhatsappPhoneDigits(fallbackDigits)) {
+    return formatJidAsPhoneLine(`${fallbackDigits}@s.whatsapp.net`) || 'Contato'
   }
 
-  return strTrim(chat.pushName || chat.name || chat.wa_name) || 'Contato'
+  const rawName = strTrim(chat.pushName || chat.name || chat.wa_name)
+  if (rawName && !isBareNumericChatLabel(rawName, chatJid) && !looksLikeWhatsappGroupId(rawName)) {
+    return rawName
+  }
+
+  return 'Contato'
 }
 
 /** true quando o chat exibe nome da agenda/contato salvo (não só telefone). */
@@ -655,7 +677,8 @@ const resolveParticipantPnJid = (jid, phone) => {
 const isLikelyPhoneDisplayLabel = (value) => {
   const raw = strTrim(value)
   if (!raw) return false
-  return looksLikePhoneNumber(raw.replace(/[+\s()-]/g, ''))
+  const digits = raw.replace(/[+\s()-]/g, '')
+  return isPlausibleWhatsappPhoneDigits(digits)
 }
 
 const pickAvatarFromDirectory = (directory, keys) => {

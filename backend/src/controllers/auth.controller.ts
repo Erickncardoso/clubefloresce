@@ -48,9 +48,8 @@ export class AuthController {
       const session = await authService.createPatientSession(user.id);
       setAuthCookie(res, session.token, session.user?.role);
       const registrationBody = {
-        message: "Conta criada com sucesso.",
+        message: "Conta criada com sucesso. Enviamos o link de pagamento no seu WhatsApp.",
         user: session.user,
-        redirectTo: "/assinatura",
         ...(isNativeAuthClient(req) ? { token: session.token } : {}),
       };
       return res.status(201).json(registrationBody);

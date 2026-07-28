@@ -8,6 +8,8 @@ export const PATIENT_WEB_BASE =
 
 export const LEGAL_CONTACT_EMAIL = 'contato@nutrisabellajardim.com.br';
 
+export const SUPPORT_URL = `${PATIENT_WEB_BASE}/perfil`;
+
 /** URLs para App Store Connect — espelham rotas in-app /legal/* */
 export const PRIVACY_POLICY_URL = `${PATIENT_WEB_BASE}/legal/privacidade`;
 export const TERMS_OF_USE_URL = `${PATIENT_WEB_BASE}/legal/termos`;

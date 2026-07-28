@@ -8,8 +8,8 @@ import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { usePatientGoals } from '@/hooks/usePatientGoals';
-import { useWeeklyCheckIn } from '@/hooks/useWeeklyCheckIn';
-import { colors, fonts, radii, spacing } from '@/theme/tokens';
+import { useWeeklyCheckInPrompt } from '@/hooks/useWeeklyCheckInPrompt';
+import { colors, fonts } from '@/theme/tokens';
 
 type TabId = 'metas' | 'peso';
 
@@ -17,13 +17,15 @@ export default function EvolucaoScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
   const { todaySummary, goalsAverage, ready, hydrate } = usePatientGoals();
-  const { pendingCheckIn, status, loadCheckInAccess } = useWeeklyCheckIn();
+  const { pendingCheckIn, checkInStatus, loadCheckInAccess } = useWeeklyCheckInPrompt();
   const [activeTab, setActiveTab] = useState<TabId>('metas');
 
   const goalsCompleted = useMemo(
     () => todaySummary.filter((item) => item.percent >= 100).length,
     [todaySummary],
   );
+
+  const inProgress = Math.max(0, todaySummary.length - goalsCompleted);
 
   useEffect(() => {
     loadCheckInAccess();
@@ -46,7 +48,7 @@ export default function EvolucaoScreen() {
   if (!ready) {
     return (
       <PatientShell>
-        <PatientHeader title="Evolução" showBack backTo="/inicio" showBell={false} light />
+        <PatientHeader title="Evolução" showBack backTo="/inicio" showBell={false} />
         <LoadingScreen />
       </PatientShell>
     );
@@ -54,48 +56,73 @@ export default function EvolucaoScreen() {
 
   return (
     <PatientShell>
-      <View style={styles.hero}>
-        <PatientHeader
-          title="Evolução"
-          showBack
-          backTo="/inicio"
-          showBell={false}
-          showMenu={false}
-          light
-        />
-        <Text style={styles.kicker}>Acompanhe seu progresso</Text>
-        <View style={styles.stats}>
-          <Stat value={`${goalsAverage}%`} label="Média das metas" />
-          <Stat value={String(goalsCompleted)} label="Concluídas" />
-          <Stat value={String(todaySummary.length)} label="Metas ativas" />
-        </View>
-      </View>
+      <PatientHeader
+        title="Evolução"
+        showBack
+        backTo="/inicio"
+        showBell={false}
+        style={styles.header}
+      />
 
-      <ScrollView contentContainerStyle={styles.sheet} showsVerticalScrollIndicator={false}>
-        <View style={styles.pill}>
-          <Text style={styles.pillLabel}>Média do dia</Text>
-          <Text style={styles.pillValue}>{goalsAverage}%</Text>
-          <Text style={styles.pillMeta}>
-            {goalsCompleted}/{todaySummary.length} concluídas
-          </Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.overview} accessibilityRole="summary">
+          <View style={styles.overviewHead}>
+            <View style={styles.overviewCopy}>
+              <Text style={styles.eyebrow}>Esta semana</Text>
+              <Text style={styles.overviewTitle}>Seu progresso</Text>
+            </View>
+            <View style={styles.overviewScore}>
+              <Text style={styles.scoreValue}>{goalsAverage}%</Text>
+              <Text style={styles.scoreLabel}>concluído</Text>
+            </View>
+          </View>
+
+          <View
+            style={styles.overviewProgressTrack}
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 0, max: 100, now: goalsAverage }}
+          >
+            <View style={[styles.overviewProgressFill, { width: `${Math.min(100, goalsAverage)}%` }]} />
+          </View>
+
+          <View style={styles.overviewStats}>
+            <View style={styles.overviewStat}>
+              <Text style={styles.statStrong}>{goalsCompleted}</Text>
+              <Text style={styles.statLabel}>concluídas</Text>
+            </View>
+            <View style={styles.overviewDivider} />
+            <View style={styles.overviewStat}>
+              <Text style={styles.statStrong}>{todaySummary.length}</Text>
+              <Text style={styles.statLabel}>metas ativas</Text>
+            </View>
+            <View style={styles.overviewDivider} />
+            <View style={styles.overviewStat}>
+              <Text style={styles.statStrong}>{inProgress}</Text>
+              <Text style={styles.statLabel}>em andamento</Text>
+            </View>
+          </View>
         </View>
 
         {pendingCheckIn ? (
-          <Pressable style={styles.checkinBanner} onPress={() => router.push('/check-in' as never)}>
+          <Pressable
+            style={styles.checkinBanner}
+            onPress={() => router.push('/check-in' as never)}
+          >
             <View style={styles.checkinIconWrap}>
-              <CalendarCheck color={colors.primaryDark} size={18} />
+              <CalendarCheck color={colors.primaryDark} size={16} strokeWidth={1.8} />
             </View>
             <View style={styles.checkinCopy}>
-              <Text style={styles.checkinTitle}>Check-in semanal disponível</Text>
-              <Text style={styles.checkinSub}>
-                Preencha até {status.deadlineLabel || 'segunda-feira'}
+              <Text style={styles.checkinTitle}>Check-in semanal</Text>
+              <Text style={styles.checkinSub} numberOfLines={1}>
+                Disponível até {checkInStatus.deadlineLabel || 'segunda-feira'}
               </Text>
             </View>
-            <ChevronRight color={colors.textMuted} size={16} />
+            <Text style={styles.checkinAction}>Responder</Text>
+            <ChevronRight color="#b0b0b4" size={14} strokeWidth={2} />
           </Pressable>
         ) : null}
 
-        <View style={styles.tabs}>
+        <View style={styles.tabs} accessibilityRole="tablist">
           {([
             { id: 'metas' as const, label: 'Metas', Icon: Target },
             { id: 'peso' as const, label: 'Peso', Icon: LineChart },
@@ -105,9 +132,11 @@ export default function EvolucaoScreen() {
               <Pressable
                 key={id}
                 style={[styles.tab, active && styles.tabActive]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
                 onPress={() => setTab(id)}
               >
-                <Icon size={15} color={active ? '#fff' : colors.textMuted} />
+                <Icon size={14} color={active ? colors.text : '#77777c'} strokeWidth={1.8} />
                 <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
               </Pressable>
             );
@@ -115,21 +144,29 @@ export default function EvolucaoScreen() {
         </View>
 
         {activeTab === 'metas' ? (
-          <View style={styles.section}>
+          <View accessibilityLabel="Metas">
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>Registrar metas</Text>
+              <View>
+                <Text style={styles.sectionKicker}>Acompanhamento diário</Text>
+                <Text style={styles.sectionTitle}>Metas de hoje</Text>
+              </View>
               <Link href="/evolucao/nutricao" asChild>
                 <Pressable style={styles.sectionLink}>
                   <Text style={styles.sectionLinkText}>Nutrição</Text>
-                  <ChevronRight size={14} color={colors.primaryDark} />
+                  <ChevronRight size={12} color={colors.primaryDark} strokeWidth={2} />
                 </Pressable>
               </Link>
             </View>
             <EvolucaoGoalsPanel />
           </View>
         ) : (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Peso e medidas</Text>
+          <View accessibilityLabel="Peso e medidas">
+            <View style={styles.sectionHead}>
+              <View>
+                <Text style={styles.sectionKicker}>Histórico corporal</Text>
+                <Text style={styles.sectionTitle}>Peso e medidas</Text>
+              </View>
+            </View>
             <EvolucaoWeightPanel />
           </View>
         )}
@@ -138,126 +175,140 @@ export default function EvolucaoScreen() {
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  hero: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing[5],
-    paddingBottom: 38,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+  header: {
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ededf0',
   },
-  kicker: {
-    color: 'rgba(255,255,255,0.62)',
-    fontFamily: fonts.medium,
-    fontSize: 12,
-    marginBottom: spacing[4],
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+    gap: 12,
   },
-  stats: {
+  overview: {
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+    borderRadius: 16,
+    backgroundColor: '#fff',
+  },
+  overviewHead: {
     flexDirection: 'row',
-    gap: spacing[2],
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
   },
-  stat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    color: '#fff',
-    fontFamily: fonts.extrabold,
-    fontSize: 19,
-  },
-  statLabel: {
-    marginTop: 4,
-    color: 'rgba(255,255,255,0.55)',
+  overviewCopy: { flex: 1, minWidth: 0 },
+  eyebrow: {
+    marginBottom: 3,
     fontFamily: fonts.medium,
-    fontSize: 10,
-    textAlign: 'center',
-    lineHeight: 14,
+    fontSize: 11,
+    color: '#8a8a8e',
   },
-  sheet: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: 120,
-    paddingTop: 6,
-    gap: spacing[4],
-    backgroundColor: colors.bg,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: -22,
-    marginBottom: 4,
-    paddingVertical: 14,
-    paddingHorizontal: 17,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
-  },
-  pillLabel: {
+  overviewTitle: {
     fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  pillValue: {
-    marginLeft: 'auto',
-    fontFamily: fonts.extrabold,
-    fontSize: 22,
+    fontSize: 17,
+    letterSpacing: -0.29,
     color: colors.text,
   },
-  pillMeta: {
-    fontFamily: fonts.semibold,
-    fontSize: 11,
-    color: colors.primaryDark,
+  overviewScore: { alignItems: 'flex-end', flexShrink: 0 },
+  scoreValue: {
+    fontFamily: fonts.medium,
+    fontSize: 25,
+    lineHeight: 25,
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+    color: colors.text,
+  },
+  scoreLabel: {
+    marginTop: 3,
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    color: '#8a8a8e',
+  },
+  overviewProgressTrack: {
+    height: 6,
+    marginTop: 14,
+    marginBottom: 13,
+    borderRadius: 999,
+    backgroundColor: '#ececee',
+    overflow: 'hidden',
+  },
+  overviewProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+  },
+  overviewStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  overviewStat: { flex: 1, minWidth: 0 },
+  statStrong: {
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    fontVariant: ['tabular-nums'],
+    color: colors.text,
+  },
+  statLabel: {
+    marginTop: 2,
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    color: '#8a8a8e',
+  },
+  overviewDivider: {
+    width: 1,
+    height: 24,
+    marginHorizontal: 10,
+    backgroundColor: '#ededf0',
   },
   checkinBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 15,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.06,
-    shadowRadius: 9,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    gap: 11,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+    borderRadius: 16,
+    backgroundColor: '#fff',
   },
   checkinIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.pill,
-    backgroundColor: '#fff5f8',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f3ef',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  checkinCopy: { flex: 1 },
+  checkinCopy: { flex: 1, minWidth: 0 },
   checkinTitle: {
-    fontFamily: fonts.bold,
-    fontSize: 14,
+    fontFamily: fonts.medium,
+    fontSize: 13,
     color: colors.text,
   },
   checkinSub: {
     marginTop: 2,
     fontFamily: fonts.regular,
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: 11,
+    color: '#8a8a8e',
+  },
+  checkinAction: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: colors.primaryDark,
   },
   tabs: {
     flexDirection: 'row',
-    gap: 9,
-    marginBottom: 4,
+    gap: 3,
+    marginTop: 4,
+    marginBottom: 6,
+    padding: 3,
+    borderRadius: 12,
+    backgroundColor: '#f2f2f4',
   },
   tab: {
     flex: 1,
@@ -265,47 +316,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    minHeight: 44,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.06,
+    minHeight: 38,
+    paddingHorizontal: 11,
+    borderRadius: 9,
+  },
+  tabActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.09,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
-  tabActive: {
-    backgroundColor: colors.primaryDark,
-    shadowColor: '#566137',
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 6 },
-  },
   tabText: {
-    fontFamily: fonts.bold,
-    fontSize: 13,
-    color: colors.textMuted,
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: '#77777c',
   },
-  tabTextActive: { color: '#fff' },
-  section: { gap: 12 },
+  tabTextActive: {
+    color: colors.text,
+  },
   sectionHead: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 12,
+    marginBottom: 11,
+  },
+  sectionKicker: {
+    marginBottom: 3,
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: '#8a8a8e',
   },
   sectionTitle: {
-    fontFamily: fonts.bold,
-    fontSize: 17,
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    letterSpacing: -0.24,
     color: colors.text,
   },
   sectionLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 1,
+    minHeight: 32,
   },
   sectionLinkText: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontSize: 12,
     color: colors.primaryDark,
   },
 });

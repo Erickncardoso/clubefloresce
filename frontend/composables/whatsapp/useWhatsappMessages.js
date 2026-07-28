@@ -14,7 +14,8 @@ import {
   strTrim, normalizeTimestampToMs, normalizeJid, looksLikeEmojiSummaryField,
   normalizeProviderMessageId, buildLookupKeys, pickNameFromDirectory,
   formatJidAsPhoneLine, bytesToJpegDataUrl, parseLooseMessageContent, isPinSystemMessageText,
-  extractUazapiSharedContact, isUazapiContactShareMessage
+  extractUazapiSharedContact, isUazapiContactShareMessage,
+  getStoredSessionJid, extractDigitsFromJid, isGroupJid,
 } from './useWhatsappUtils.js'
 import {
   extractListMessagePayload,
@@ -588,6 +589,154 @@ const extractLinkPreviewFromMessage = (msg, content, contentText) => {
 
 // ─── normalizeMessage ─────────────────────────────────────────────────────────
 
+/** Detecta mensagem enviada por mim (UAZAPI, WuzAPI/whatsmeow, flat ou nested). */
+const jidsSamePhone = (left = '', right = '') => {
+  const da = extractDigitsFromJid(left)
+  const db = extractDigitsFromJid(right)
+  if (!da || !db || da.length < 10 || db.length < 10) return false
+  if (da === db) return true
+  const minLen = Math.min(da.length, db.length)
+  return da.slice(-minLen) === db.slice(-minLen)
+}
+
+const readMessageFlag = (value) => {
+  if (value === true || value === 1 || value === '1' || value === 'true') return true
+  if (value === false || value === 0 || value === '0' || value === 'false') return false
+  return null
+}
+
+const extractLeadingNamePrefix = (text = '') => {
+  const next = strTrim(text)
+  if (!next) return null
+  const match = next.match(/^(?:\*([^*]+)\*|([^:\n]{1,48})):\s+/i)
+  if (!match) return null
+  return strTrim(match[1] || match[2])
+}
+
+/** Remove "Jully: Jully:" e prefixos repetidos. */
+const stripRepeatedNamePrefixes = (text = '') => {
+  let next = strTrim(text)
+  if (!next) return next
+  const prefixRe = /^(?:\*[^*]+\*|[^:\n]{1,48}):\s+/
+  let prev = ''
+  while (next !== prev) {
+    prev = next
+    const match = next.match(prefixRe)
+    if (!match) break
+    const rest = strTrim(next.slice(match[0].length))
+    if (rest.toLowerCase().startsWith(match[0].toLowerCase())) {
+      next = rest
+      continue
+    }
+    break
+  }
+  return next
+}
+
+const stripOutboundAgentPrefix = (text = '') => {
+  let next = stripRepeatedNamePrefixes(text)
+  const prefixRe = /^(?:\*[^*]+\*|[^:\n]{1,48}):\s+/i
+  if (prefixRe.test(next)) next = strTrim(next.replace(prefixRe, ''))
+  return next
+}
+
+export const resolveMessageFromMe = (msg = {}) => {
+  if (!msg || typeof msg !== 'object') return false
+
+  for (const field of [
+    msg.fromMe, msg.isFromMe, msg.from_me, msg.is_from_me,
+    msg.wasSentByMe, msg.WasSentByMe,
+  ]) {
+    const hit = readMessageFlag(field)
+    if (hit != null) return hit
+  }
+
+  const info = msg.Info || msg.info
+  if (info && typeof info === 'object') {
+    for (const field of [info.IsFromMe, info.isFromMe, info.FromMe, info.fromMe]) {
+      const hit = readMessageFlag(field)
+      if (hit != null) return hit
+    }
+  }
+
+  const key = msg.key || msg.Key
+  if (key && typeof key === 'object') {
+    for (const field of [key.fromMe, key.FromMe]) {
+      const hit = readMessageFlag(field)
+      if (hit != null) return hit
+    }
+  }
+
+  for (const field of [msg.direction, msg.Direction, msg.messageDirection]) {
+    const direction = String(field || '').trim().toLowerCase()
+    if (direction === 'outgoing' || direction === 'out' || direction === 'sent') return true
+    if (direction === 'incoming' || direction === 'in' || direction === 'received') return false
+  }
+
+  const sessionJid = getStoredSessionJid()
+  const senderJid = normalizeJid(
+    getMessageSenderJid(msg) ||
+    msg.sender ||
+    msg.sender_jid ||
+    msg.senderJid ||
+    msg.sender_pn ||
+    msg.participant ||
+    '',
+  )
+  const chatJid = normalizeJid(
+    msg.chatid ||
+    msg.wa_chatid ||
+    msg.chatJid ||
+    selectedChat.value?.chatJid ||
+    selectedChat.value?.wa_chatid ||
+    '',
+  )
+
+  if (sessionJid && senderJid && jidsSamePhone(sessionJid, senderJid)) return true
+  if (chatJid && senderJid && !isGroupJid(chatJid) && jidsSamePhone(chatJid, senderJid)) return false
+
+  const text = strTrim(msg.text || msg.body || msg.message || '')
+  const contactName = strTrim(
+    selectedChat.value?.name ||
+    selectedChat.value?.pushName ||
+    selectedChat.value?.wa_contactName ||
+    '',
+  )
+  const prefixName = extractLeadingNamePrefix(text)
+  if (prefixName) {
+    if (contactName && prefixName.toLowerCase() !== contactName.toLowerCase()) return true
+    if (stripRepeatedNamePrefixes(text) !== text) return true
+  }
+
+  const raw = msg.raw
+  if (raw && typeof raw === 'object' && raw !== msg) {
+    return resolveMessageFromMe(raw)
+  }
+
+  return false
+}
+
+const resolveDisplayMessageText = (msg, fromMe, senderDisplayName) => {
+  const base = strTrim(msg.text || msg.body || msg.message || '')
+  if (!base) return base
+  if (fromMe) return stripOutboundAgentPrefix(base)
+  let next = stripRepeatedNamePrefixes(base)
+  const name = strTrim(senderDisplayName)
+  if (name) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    next = strTrim(next.replace(new RegExp(`^(?:\\*${escaped}\\*|${escaped}):\\s*`, 'i'), ''))
+  }
+  return next
+}
+
+const patchMessageDirection = (item) => {
+  if (!item || typeof item !== 'object') return item
+  const fromMe = resolveMessageFromMe(item)
+  const senderDisplayName = strTrim(item.senderDisplayName || resolveSenderName(item, selectedChat.value) || '')
+  const text = resolveDisplayMessageText(item, fromMe, senderDisplayName)
+  if (item.fromMe === fromMe && strTrim(item.text || '') === text) return item
+  return { ...item, fromMe, text, senderDisplayName }
+}
 export const normalizeMessage = (msg, resolveMentionFn = null) => {
   const type = String(msg.type || msg.messageType || msg.MessageType || '').toLowerCase()
   const content = parseLooseMessageContent(msg)
@@ -1013,14 +1162,15 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
     : (resolvedContentText || mediaLabel)
 
   const senderDisplayName = resolveSenderName(msg, selectedChat)
+  const fromMe = resolveMessageFromMe(msg)
   const status = String(msg.status || msg.messageStatus || '').trim().toLowerCase()
   let deliveryStatus = ''
   if (status === 'read' || status === 'readreceipt') deliveryStatus = 'read'
   else if (status === 'delivered') deliveryStatus = 'delivered'
   else if (status === 'sent' || status === 'serverack') deliveryStatus = 'sent'
   else if (status === 'queued' || status === 'pending') deliveryStatus = 'pending'
-  else if (Boolean(msg.fromMe)) deliveryStatus = 'delivered'
-  const audioPlayed = !Boolean(msg.fromMe) && isAudio && (
+  else if (Boolean(fromMe)) deliveryStatus = 'delivered'
+  const audioPlayed = !Boolean(fromMe) && isAudio && (
     status === 'played' || status === 'play' || status === 'audio_played'
   )
   const deliveryIndicator = deliveryStatus === 'read' || deliveryStatus === 'delivered' ? '✓✓'
@@ -1041,13 +1191,21 @@ export const normalizeMessage = (msg, resolveMentionFn = null) => {
     )
   }
 
+  const displayText = resolveDisplayMessageText(
+    { text: (isReaction || interactive?.kind === 'poll' || interactive?.kind === 'menu' || isPollVoteEvent || isPollAuxEvent || isPinEvent)
+      ? ''
+      : (isContactShare ? '' : resolvedDisplayText) },
+    fromMe,
+    senderDisplayName,
+  )
+
   return {
     ...msg, content,
     id: msg.id || msg.messageid || `${msg.chatid || 'chat'}-${msg.messageTimestamp || Date.now()}`,
     messageid: msg.messageid || '',
     type: type || 'text',
-    fromMe: Boolean(msg.fromMe),
-    text: (isReaction || interactive?.kind === 'poll' || interactive?.kind === 'menu' || isPollVoteEvent || isPollAuxEvent || isPinEvent) ? '' : (isContactShare ? '' : resolvedDisplayText),
+    fromMe,
+    text: displayText,
     isForwarded,
     linkPreview,
     timestamp: normalizeTimestampToMs(msg.timestamp || msg.messageTimestamp || msg.time),
@@ -1116,12 +1274,13 @@ export const normalizeMessageForDisplay = (item) => {
       isPinSystemMessageText(item.text) ||
       isPinSystemMessageText(item.body)
     )
-    if (item.isPinEvent && item.pinEvent?.targetMessageId) return item
-    if (!hasPinMeta) return item
+    if (item.isPinEvent && item.pinEvent?.targetMessageId) return patchMessageDirection(item)
+    if (!hasPinMeta) return patchMessageDirection(item)
     const refreshed = normalizeIncomingMessage(item)
-    return refreshed || item
+    return patchMessageDirection(refreshed || item)
   }
-  return normalizeIncomingMessage(item)
+  const normalized = normalizeIncomingMessage(item)
+  return normalized ? patchMessageDirection(normalized) : null
 }
 
 // ─── Quoted preview ───────────────────────────────────────────────────────────
@@ -1923,7 +2082,11 @@ export const renderedMessages = computed(() => {
   }
 
   const list = Array.isArray(messages.value) ? messages.value : []
-  const chatKey = String(selectedChat.value?.chatJid || '')
+  const chatKey = [
+    String(selectedChat.value?.chatJid || ''),
+    String(selectedChat.value?.name || selectedChat.value?.pushName || ''),
+    String(getStoredSessionJid() || ''),
+  ].join('\u0002')
   if (chatKey !== renderedMessagesCacheChatKey) {
     renderedMessageCacheById.clear()
     renderedMessagesCacheChatKey = chatKey

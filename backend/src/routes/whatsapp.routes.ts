@@ -13,6 +13,7 @@ router.get("/chats/:chatJid/messages", authenticate, authorize(["NUTRICIONISTA"]
 router.post("/messages/backfill", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.backfillMessages.bind(whatsappController));
 router.get("/messages/backfill/status", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.backfillStatus.bind(whatsappController));
 router.post("/chat/details", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getChatDetails.bind(whatsappController));
+router.post("/chat/avatars/batch", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.batchFetchChatAvatars.bind(whatsappController));
 router.post("/create", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.create);
 router.post("/connect", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.connect);
 router.post("/connect/regenerate-qr", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.regenerateQrCode);
@@ -25,7 +26,6 @@ router.get("/contact-directory", authenticate, authorize(["NUTRICIONISTA"]), wha
 router.post("/contact-directory", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.upsertContactDirectory);
 router.get("/group-observed-senders", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getGroupObservedSenders);
 router.post("/group-observed-senders", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.mergeGroupObservedSenders);
-router.get("/sse", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.sse);
 router.post("/message/markplayed", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.markMessagePlayed.bind(whatsappController));
 router.post("/group/create", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.createGroup);
 router.post("/group/info", authenticate, authorize(["NUTRICIONISTA"]), whatsappController.getGroupInfo);

@@ -131,6 +131,17 @@ export class WhatsappMessageRepository {
     return prisma.whatsappMessage.count({ where: { userId } });
   }
 
+  async reassignChatJid(userId: string, fromJid: string, toJid: string): Promise<number> {
+    const from = String(fromJid || "").trim().toLowerCase();
+    const to = String(toJid || "").trim().toLowerCase();
+    if (!from || !to || from === to) return 0;
+    const result = await prisma.whatsappMessage.updateMany({
+      where: { userId, chatJid: from },
+      data: { chatJid: to },
+    });
+    return result.count;
+  }
+
   async deleteAllByUser(userId: string): Promise<void> {
     await prisma.whatsappMessage.deleteMany({ where: { userId } });
   }

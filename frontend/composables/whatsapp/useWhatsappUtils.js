@@ -428,7 +428,7 @@ export const isUazapiContactShareMessage = (msg, contentOverride = null) => {
 
 export const formatJidAsPhoneLine = (jid) => {
   const d = extractWhatsappNumber(jid).replace(/\D/g, '')
-  if (!d) return ''
+  if (!d || !isPlausibleWhatsappPhoneDigits(d)) return ''
   if (d.length >= 12 && d.startsWith('55')) {
     const rest = d.slice(2)
     if (rest.length === 11) return `+55 ${rest.slice(0, 2)} ${rest.slice(2, 7)}-${rest.slice(7)}`
@@ -511,6 +511,32 @@ export const waEscapeHtml = (s) =>
 export const looksLikePhoneNumber = (value) => {
   const digits = String(value || '').replace(/[^\d]/g, '')
   return digits.length >= 8
+}
+
+export const looksLikeWhatsappGroupId = (value) => {
+  const digits = String(value || '').replace(/\D/g, '')
+  return /^120\d{12,}$/.test(digits)
+}
+
+/** Rejeita IDs de grupo/LID numéricos longos disfarçados de telefone. */
+export const isPlausibleWhatsappPhoneDigits = (value) => {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (!digits || digits.length < 10) return false
+  if (looksLikeWhatsappGroupId(digits)) return false
+  if (digits.length >= 14 && !digits.startsWith('55')) return false
+  if (digits.length > 13) return false
+  return true
+}
+
+export const isBareNumericChatLabel = (label, chatJid = '') => {
+  const name = strTrim(label)
+  const jid = normalizeJid(chatJid)
+  if (!name || !jid) return false
+  const bare = (jid.split('@')[0] || '').replace(/\D/g, '')
+  const nameDigits = name.replace(/\D/g, '')
+  if (bare && nameDigits === bare) return true
+  if (looksLikeWhatsappGroupId(nameDigits)) return true
+  return false
 }
 
 export const extractPhoneDigits = (value) => String(value || '').replace(/[^\d]/g, '')
@@ -834,13 +860,14 @@ export const deepFindAvatarCandidate = (input) => {
 }
 
 export const extractAvatarFromDetailsPayload = (payload) => {
-  const root = payload?.response?.chat || payload?.response || payload?.data || payload || {}
+  const root = payload?.response?.chat || payload?.response || payload?.data || payload?.details || payload || {}
   const candidates = [
-    root?.image, root?.imagePreview, root?.avatarUrl, root?.avatar, root?.photo, root?.photoUrl,
+    root?.image, root?.imagePreview, root?.avatarUrl, root?.avatarPreviewUrl, root?.avatar, root?.photo, root?.photoUrl,
     root?.profilePicUrl, root?.profilePictureUrl, root?.profilePicture,
     root?.profile?.photo, root?.profile?.photoUrl, root?.profile?.avatarUrl,
     root?.chat?.image, root?.chat?.avatarUrl,
-    payload?.response?.profilePicUrl, payload?.response?.profilePictureUrl
+    payload?.response?.profilePicUrl, payload?.response?.profilePictureUrl,
+    payload?.details?.avatarUrl, payload?.details?.avatarPreviewUrl, payload?.details?.image, payload?.details?.imagePreview,
   ]
   for (const candidate of candidates) {
     const normalized = normalizeAvatarFromUnknownShape(candidate)
@@ -919,7 +946,8 @@ export function useWhatsappUtils() {
     normalizeJid, extractDigitsFromJid, isGroupJid, extractWhatsappNumber,
     toUazapiChatNumber, allNormalizedPrivateJidVariants, collectMessageFindChatIds, collectChatIdentityIds, formatJidAsPhoneLine,
     buildLookupKeys, filterSenderLookupCandidates, pickNameFromDirectory, strTrim, waEscapeHtml,
-    looksLikePhoneNumber, extractPhoneDigits, normalizeTimestampToMs, formatTime, formatChatListTime, formatConversationDateLabel, isPinSystemMessageText, isChatMutedByEndTime, resolveChatIsMuted,
+    looksLikePhoneNumber, looksLikeWhatsappGroupId, isPlausibleWhatsappPhoneDigits, isBareNumericChatLabel,
+    extractPhoneDigits, normalizeTimestampToMs, formatTime, formatChatListTime, formatConversationDateLabel, isPinSystemMessageText, isChatMutedByEndTime, resolveChatIsMuted,
     formatWhatsappTextForDisplay, normalizeContactPhone, buildPhoneVariants,
     toLocalBrPhoneMask, buildFullPhone, normalizeNumberForContactAdd, toPersonalJid,
     normalizeAvatarCandidate, deepFindAvatarCandidate, extractAvatarFromDetailsPayload,

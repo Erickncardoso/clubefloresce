@@ -3,7 +3,7 @@ import { dirname, join } from "path";
 import { randomBytes } from "crypto";
 import { prisma } from "../lib/prisma";
 import { assertPatientUser } from "../utils/patient-access";
-import { getPatientAppOpenUrl, getPatientAppUrl } from "../utils/email-config";
+import { getPatientAppOpenUrl, getPatientAppProductionUrl } from "../utils/email-config";
 import { normalizePhoneForWhatsapp } from "../utils/phone";
 import { NotificationRepository } from "../repositories/notification.repository";
 import { WhatsappService } from "./whatsapp.service";
@@ -119,7 +119,7 @@ function toPublic(
     jitsiDomain,
     embedUrl: call.roomUrl,
     joinPath,
-    joinUrl: `${getPatientAppUrl()}${joinPath}`,
+    joinUrl: `${getPatientAppProductionUrl()}${joinPath}`,
     openAppUrl: getPatientAppOpenUrl("video-call", joinPath),
     createdAt: new Date(call.createdAt).toISOString(),
     expiresAt: new Date(call.expiresAt).toISOString(),

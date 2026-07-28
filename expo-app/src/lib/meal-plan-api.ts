@@ -1,20 +1,47 @@
 import { pickMealIcon } from '@/lib/meal-slot-icons';
 import type { LucideIcon } from 'lucide-react-native';
 
+export type MealPlanRecipe = {
+  id: string;
+  title: string;
+  imageUrl?: string | null;
+  imagePosition?: string;
+  servingsLabel?: string;
+  prepMinutes?: number;
+  macros?: {
+    caloriesKcal?: number;
+    carbsG?: number;
+    proteinG?: number;
+    fatG?: number;
+  };
+  ingredients?: Array<{ id: string; amount: number; unit: string; name: string }>;
+  steps?: string;
+};
+
 /** Espelha `PatientMealPlanResponse` + `ParsedMealPlan` do backend. */
 export type MealPlanFoodItem = {
   key?: string;
   name?: string;
   food?: string;
   display?: string;
+  label?: string;
   amount?: number | null;
   unit?: string;
   grams?: number | null;
   ml?: number | null;
-  recipe?: { id: string; title: string; imageUrl?: string | null } | null;
+  recipe?: MealPlanRecipe | null;
+  substitutions?: MealPlanFoodItem[];
+  substitutionType?: string;
+  note?: string;
   isSubstituted?: boolean;
   isExtra?: boolean;
   id?: string;
+  foodId?: string | null;
+  caloriesKcal?: number;
+  carbsG?: number;
+  proteinG?: number;
+  fatG?: number;
+  source?: string;
 };
 
 export type MealPlanMeal = {
@@ -45,6 +72,7 @@ export type PatientMealPlanRecord = {
     title?: string;
     patientName?: string | null;
     prescribedAt?: string | null;
+    selectedMealBySlot?: Record<string, string>;
     meals?: MealPlanMeal[];
   } | null;
 };

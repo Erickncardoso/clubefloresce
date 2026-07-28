@@ -37,6 +37,14 @@ export function resolveEmailFrom(sender: EmailSender = "contact"): string {
 }
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+const DEFAULT_PATIENT_APP_PRODUCTION_URL = "https://app.nutrisabellajardim.com.br";
+const DEFAULT_ADMIN_APP_PRODUCTION_URL = "https://clube.nutrisabellajardim.com.br";
+
+function isLocalOrLanHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (LOCAL_HOSTNAMES.has(host)) return true;
+  return host.startsWith("192.168.") || host.startsWith("10.");
+}
 
 /**
  * Normaliza a base URL usada em links de e-mail.
@@ -61,6 +69,28 @@ export function normalizeAppUrl(raw: string): string {
   }
 }
 
+function resolveConfiguredProductionUrl(
+  explicitEnvKey: string,
+  fallbackEnvKey: string,
+  defaultUrl: string,
+): string {
+  const explicit = readEnv(explicitEnvKey);
+  if (explicit) return normalizeAppUrl(explicit);
+
+  const configured = readEnv(fallbackEnvKey);
+  if (configured) {
+    const normalized = normalizeAppUrl(configured);
+    try {
+      const host = new URL(normalized).hostname;
+      if (!isLocalOrLanHost(host)) return normalized;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return defaultUrl;
+}
+
 function getDevLanPatientAppUrl(): string | null {
   const lanOverride = readEnv("PATIENT_APP_LAN_URL");
   if (lanOverride) return normalizeAppUrl(lanOverride);
@@ -83,15 +113,32 @@ function getDevLanPatientAppUrl(): string | null {
   return null;
 }
 
+/** URL pública de produção — links em WhatsApp, e-mail, recuperação de senha, etc. */
+export function getPatientAppProductionUrl(): string {
+  return resolveConfiguredProductionUrl(
+    "PATIENT_APP_PRODUCTION_URL",
+    "PATIENT_APP_URL",
+    DEFAULT_PATIENT_APP_PRODUCTION_URL,
+  );
+}
+
+/** URL pública do painel admin — links em e-mails operacionais. */
+export function getAdminAppProductionUrl(): string {
+  return resolveConfiguredProductionUrl(
+    "ADMIN_APP_PRODUCTION_URL",
+    "ADMIN_APP_URL",
+    DEFAULT_ADMIN_APP_PRODUCTION_URL,
+  );
+}
+
+/** Base do app paciente em dev local (nunca use em mensagens externas). */
 export function getPatientAppUrl(): string {
   const configured = readEnv("PATIENT_APP_URL");
   if (configured) {
     const normalized = normalizeAppUrl(configured);
-    // Em dev, se PATIENT_APP_URL aponta para produção, preferir LAN para testes no celular
     if (
       process.env.NODE_ENV !== "production"
-      && !LOCAL_HOSTNAMES.has(new URL(normalized).hostname.toLowerCase())
-      && !normalized.includes("192.168.")
+      && !isLocalOrLanHost(new URL(normalized).hostname)
     ) {
       const lan = getDevLanPatientAppUrl();
       if (lan) return lan;
@@ -100,20 +147,29 @@ export function getPatientAppUrl(): string {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "https://app.nutrisabellajardim.com.br";
+    return DEFAULT_PATIENT_APP_PRODUCTION_URL;
   }
 
   return getDevLanPatientAppUrl() || "http://127.0.0.1:3002";
 }
 
-/** Link que passa por /abrir — melhor chance de abrir o PWA instalado (Android/iOS). */
-export function getPatientAppOpenUrl(source = "email", toPath = ""): string {
+function buildPublicOpenUrl(base: string, source: string, toPath = ""): string {
   const params = new URLSearchParams({ source });
   const path = String(toPath || "").trim();
   if (path) {
     params.set("to", path.startsWith("/") ? path : `/${path}`);
   }
-  return `${getPatientAppUrl()}/abrir?${params.toString()}`;
+  return `${base}/abrir?${params.toString()}`;
+}
+
+/** Link de checkout/assinatura — sempre produção (cadastro, WhatsApp, e-mail). */
+export function getPatientCheckoutOpenUrl(source = "checkout"): string {
+  return getPatientAppOpenUrl(source, "/assinatura");
+}
+
+/** Link /abrir em produção — WhatsApp, e-mail, billing, aprovação. */
+export function getPatientAppOpenUrl(source = "email", toPath = ""): string {
+  return buildPublicOpenUrl(getPatientAppProductionUrl(), source, toPath);
 }
 
 export function getAdminAppUrl(): string {
@@ -121,7 +177,7 @@ export function getAdminAppUrl(): string {
   if (configured) return normalizeAppUrl(configured);
 
   if (process.env.NODE_ENV === "production") {
-    return "https://clube.nutrisabellajardim.com.br";
+    return DEFAULT_ADMIN_APP_PRODUCTION_URL;
   }
 
   return "http://127.0.0.1:3000";
@@ -146,7 +202,7 @@ export async function resolveNutriNotificationEmail(): Promise<string> {
 export type PasswordResetApp = "admin" | "patient";
 
 export function buildPasswordResetUrl(app: PasswordResetApp, token: string): string {
-  const base = app === "admin" ? getAdminAppUrl() : getPatientAppUrl();
+  const base = app === "admin" ? getAdminAppProductionUrl() : getPatientAppProductionUrl();
   return `${base}/redefinir-senha?token=${encodeURIComponent(token)}`;
 }
 
@@ -154,19 +210,19 @@ export function buildPasswordResetUrl(app: PasswordResetApp, token: string): str
 export function getEmailLogoUrl(): string {
   const configured = readEnv("EMAIL_LOGO_URL");
   if (configured) return configured;
-  return `${getPatientAppUrl()}/icons/logovetorcarregamento.svg`;
+  return `${getPatientAppProductionUrl()}/icons/logovetorcarregamento.svg`;
 }
 
 /** Miniatura PNG para preview de link no WhatsApp (UAZAPI exige JPG/PNG). */
 export function getWhatsappLinkPreviewImageUrl(): string {
   const configured = readEnv("WHATSAPP_LINK_PREVIEW_IMAGE_URL");
   if (configured) return configured;
-  return `${getPatientAppUrl()}/pwa/apple-touch-icon.png`;
+  return `${getPatientAppProductionUrl()}/pwa/apple-touch-icon.png`;
 }
 
 /** Logo quadrada para BIMI/DMARC (separada do inline nos e-mails). */
 export function getBimiLogoUrl(): string {
   const configured = readEnv("BIMI_LOGO_URL");
   if (configured) return configured;
-  return `${getPatientAppUrl()}/bimi/clube-florescer.svg`;
+  return `${getPatientAppProductionUrl()}/bimi/clube-florescer.svg`;
 }

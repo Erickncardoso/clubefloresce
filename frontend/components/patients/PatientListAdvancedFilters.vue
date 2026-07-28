@@ -30,7 +30,7 @@
 
     <div v-if="expanded" class="plaf-body">
       <div
-        v-for="group in filterGroups"
+        v-for="group in visibleFilterGroups"
         :key="group.key"
         class="plaf-group"
       >
@@ -43,11 +43,11 @@
             class="plaf-pill"
             :class="{
               'plaf-pill--active': option.active,
+              'plaf-pill--empty': option.count === 0 && !option.active,
               [`plaf-pill--zone-${option.value}`]: group.key === 'engagementZone',
             }"
             :aria-pressed="option.active ? 'true' : 'false'"
-            :disabled="option.count === 0 && !option.active"
-            @click="$emit('toggle', group.key, option.value)"
+            @click="onPillClick(group.key, option)"
           >
             <span
               v-if="option.color"
@@ -70,10 +70,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ChevronDown, SlidersHorizontal } from 'lucide-vue-next'
 
-defineProps({
+const props = defineProps({
   filterGroups: { type: Array, default: () => [] },
   activeFilterCount: { type: Number, default: 0 },
   filteredCount: { type: Number, default: 0 },
@@ -81,9 +81,20 @@ defineProps({
   engagementLoading: { type: Boolean, default: false },
 })
 
-defineEmits(['toggle', 'clear'])
+const emit = defineEmits(['toggle', 'clear'])
 
-const expanded = ref(true)
+const expanded = ref(false)
+
+const visibleFilterGroups = computed(() =>
+  (props.filterGroups || []).filter((group) =>
+    (group.options || []).some((option) => option.count > 0 || option.active),
+  ),
+)
+
+function onPillClick(groupKey, option) {
+  if (option.count === 0 && !option.active) return
+  emit('toggle', groupKey, option.value)
+}
 </script>
 
 <style scoped>
@@ -149,6 +160,7 @@ const expanded = ref(true)
   align-items: center;
   gap: 0.65rem;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .plaf-result-count {
@@ -173,21 +185,24 @@ const expanded = ref(true)
   margin-top: 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.75rem;
+  max-height: min(20rem, 46vh);
+  overflow-y: auto;
+  padding-right: 0.15rem;
 }
 
 .plaf-group {
   display: grid;
-  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr);
-  gap: 0.55rem 0.85rem;
-  align-items: start;
+  grid-template-columns: 10.25rem minmax(0, 1fr);
+  gap: 0.65rem 1rem;
+  align-items: center;
 }
 
 .plaf-group-label {
   font-size: 0.74rem;
   font-weight: 600;
   color: #6b7368;
-  padding-top: 0.35rem;
+  line-height: 1.25;
 }
 
 .plaf-options {
@@ -213,14 +228,21 @@ const expanded = ref(true)
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.plaf-pill:hover:not(:disabled) {
+.plaf-pill:hover:not(.plaf-pill--empty) {
   border-color: #c8dcc4;
   background: #f8faf8;
 }
 
-.plaf-pill:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.plaf-pill--empty {
+  color: #9ca3af;
+  background: #f9fafb;
+  border-color: #eef1ee;
+  cursor: default;
+}
+
+.plaf-pill--empty .plaf-pill-count {
+  background: rgba(15, 23, 42, 0.05);
+  color: #94a3b8;
 }
 
 .plaf-pill--active {

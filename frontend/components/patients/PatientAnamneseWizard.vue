@@ -58,15 +58,17 @@
           <div v-if="currentStep.id === 'queixa'" class="anw-fields">
             <div class="field field--float anw-textarea-wrap">
               <label for="anw-chief">Queixa principal</label>
-              <Quote class="anw-quote" aria-hidden="true" />
-              <textarea
-                id="anw-chief"
-                v-model="form.chiefComplaint"
-                rows="4"
-                maxlength="1000"
-                placeholder="Conte com suas palavras o que te trouxe até aqui."
-              />
-              <span class="anw-counter">{{ form.chiefComplaint.length }}/1000</span>
+              <div class="anw-textarea-shell">
+                <Quote class="anw-quote" aria-hidden="true" />
+                <textarea
+                  id="anw-chief"
+                  v-model="form.chiefComplaint"
+                  rows="5"
+                  maxlength="1000"
+                  placeholder="Descreva sintomas, quando começou e o que mais incomoda."
+                />
+                <span class="anw-counter">{{ form.chiefComplaint.length }}/1000</span>
+              </div>
             </div>
 
             <div class="anw-block">
@@ -665,11 +667,43 @@ function saveDraft(complete) {
 .anw-textarea-wrap {
   position: relative;
   display: block;
+  width: 100%;
+  margin-top: 0.15rem;
+}
+
+.anw-textarea-shell {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 7.25rem;
+}
+
+.anw-textarea-shell textarea {
+  display: block;
+  width: 100%;
+  min-height: 7.25rem;
+  box-sizing: border-box;
+  padding: 1.15rem 0.9rem 1.75rem 2.05rem;
+  border: 1.5px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  background: #faf8f9;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.anw-textarea-shell textarea:focus {
+  outline: none;
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+  background: #fff;
 }
 
 .anw-quote {
   position: absolute;
-  top: 1.15rem;
+  top: 1.1rem;
   left: 0.85rem;
   width: 1rem;
   height: 1rem;
@@ -680,11 +714,12 @@ function saveDraft(complete) {
 
 .anw-counter {
   position: absolute;
-  right: 0.75rem;
-  bottom: 0.55rem;
+  right: 0.85rem;
+  bottom: 0.65rem;
   font-size: 0.6875rem;
   color: #9ca3af;
   pointer-events: none;
+  z-index: 1;
 }
 
 .anw-block h4 {
@@ -740,6 +775,7 @@ function saveDraft(complete) {
 
 .anw-slider-field {
   position: relative;
+  margin-top: 0.15rem;
 }
 
 .anw-slider-box {
@@ -856,7 +892,12 @@ function saveDraft(complete) {
 .anw-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 1rem;
+  align-items: start;
+}
+
+.anw-grid .field--float {
+  margin-top: 0.15rem;
 }
 
 .anw-summary {

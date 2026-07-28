@@ -1,7 +1,9 @@
 import { Modal, Pressable, StyleSheet, Text, View, Image } from 'react-native';
+import { useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { BELLA_ACTIONS } from '@/lib/bella-actions';
+import { usePatientPlanAccess } from '@/hooks/usePatientPlanAccess';
 import { patientAssets } from '@/lib/patient-assets';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -12,6 +14,14 @@ type Props = {
 
 export default function BellaActionSheet({ open, onClose }: Props) {
   const router = useRouter();
+  const { hasPaidAccess } = usePatientPlanAccess();
+
+  const actions = useMemo(
+    () => (hasPaidAccess
+      ? BELLA_ACTIONS
+      : BELLA_ACTIONS.filter((action) => action.route !== '/dieta')),
+    [hasPaidAccess],
+  );
 
   function selectAction(action: (typeof BELLA_ACTIONS)[number]) {
     onClose();
@@ -46,7 +56,7 @@ export default function BellaActionSheet({ open, onClose }: Props) {
         </View>
 
         <View style={styles.grid}>
-          {BELLA_ACTIONS.map((action) => {
+          {actions.map((action) => {
             const Icon = action.icon;
             return (
               <Pressable key={action.id} style={styles.action} onPress={() => selectAction(action)}>

@@ -160,10 +160,10 @@ function openQuickGoal(goalId) {
 }
 
 const metrics = ref([
-  { id: 'water', label: 'Água', value: 80 },
-  { id: 'food', label: 'Refeição livre', value: 90 },
-  { id: 'exercise', label: 'Exercício', value: 70 },
-  { id: 'sleep', label: 'Sono', value: 85 },
+  { id: 'water', label: 'Água', value: 0 },
+  { id: 'food', label: 'Refeição livre', value: 0 },
+  { id: 'exercise', label: 'Exercício', value: 0 },
+  { id: 'sleep', label: 'Sono', value: 0 },
 ])
 
 function formatGoalMeta(progress, goal) {
@@ -196,8 +196,14 @@ const homeGoalMetrics = computed(() => {
     return metrics.value.map((item) => ({
       ...item,
       showPercent: item.id !== 'food',
-      meta: `${item.value}% concluído`,
-      barPct: Math.min(100, item.value),
+      meta: item.id === 'food'
+        ? '0 dias esta semana'
+        : item.id === 'sleep'
+          ? '0h de 8h'
+          : item.id === 'water'
+            ? '0 / 2 litros hoje'
+            : '0 / 3 vezes na semana',
+      barPct: 0,
     }))
   }
   return todaySummary.value.map((item) => ({

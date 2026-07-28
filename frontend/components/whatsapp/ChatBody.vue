@@ -150,12 +150,13 @@ import { Loader } from 'lucide-vue-next'
 import GroupMessageList from './GroupMessageList.vue'
 import PrivateMessageList from './PrivateMessageList.vue'
 import ChatMessageActionsPanel from './ChatMessageActionsPanel.vue'
-import { chatBodyRef } from '~/composables/whatsapp/useWhatsappState.js'
+import { chatBodyRef, chatOpeningPending } from '~/composables/whatsapp/useWhatsappState.js'
 import {
   stickChatScrollToBottomIfNeeded,
   bindChatBodyScrollListeners,
   unbindChatBodyScrollListeners,
   scrollToBottomOnChatOpen,
+  settleChatOpenScroll,
 } from '~/composables/whatsapp/useWhatsappScroll.js'
 
 const props = defineProps({
@@ -275,15 +276,20 @@ watch(
     if (!nextSig || nextSig === '0::') return
     const nextLen = Number(String(nextSig).split(':')[0] || 0)
     const prevLen = prevSig ? Number(String(prevSig).split(':')[0] || 0) : 0
+    const isOpening = chatOpeningPending.value || !prevSig || prevLen === 0
     // Troca de conversa (ids mudam) ou primeiro paint → sempre última mensagem.
-    if (!prevSig || prevLen === 0 || props.loadingMessages || nextSig !== prevSig) {
+    if (isOpening || props.loadingMessages || nextSig !== prevSig) {
       const sameThreadGrew = prevSig && prevLen > 0 && nextLen > prevLen &&
         String(nextSig).split(':')[1] === String(prevSig).split(':')[1]
-      if (sameThreadGrew && !props.loadingMessages) {
+      if (sameThreadGrew && !props.loadingMessages && !chatOpeningPending.value) {
         stickChatScrollToBottomIfNeeded()
         return
       }
-      scrollToBottomOnChatOpen()
+      if (chatOpeningPending.value || !prevSig || prevLen === 0) {
+        settleChatOpenScroll()
+      } else {
+        scrollToBottomOnChatOpen()
+      }
     }
   },
   { flush: 'post' },
@@ -293,7 +299,11 @@ watch(
   () => props.loadingMessages,
   (loading, wasLoading) => {
     if (wasLoading && !loading && displayMessages.value.length > 0) {
-      scrollToBottomOnChatOpen()
+      if (chatOpeningPending.value) {
+        settleChatOpenScroll()
+      } else {
+        scrollToBottomOnChatOpen()
+      }
     }
   },
 )

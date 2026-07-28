@@ -36,6 +36,7 @@ const realScreens = {
   'app/perfil/index.tsx': '@/screens/PerfilScreen',
   'app/perfil/configuracoes.tsx': '@/screens/PerfilConfiguracoesScreen',
   'app/perfil/notificacoes.tsx': '@/screens/PerfilNotificacoesScreen',
+  'app/perfil/lembretes.tsx': '@/screens/PerfilLembretesScreen',
 };
 
 const screens = [

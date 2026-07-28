@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { Role, UserStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { getPatientAppOpenUrl, getPatientAppUrl } from "../utils/email-config";
+import { getPatientAppOpenUrl } from "../utils/email-config";
 import { normalizePhoneForWhatsapp } from "../utils/phone";
 import { isPatientPaidAccessActive } from "../utils/patient-paid-access";
 import {

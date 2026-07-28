@@ -19,7 +19,7 @@ import LoadingScreen from '@/components/ui/LoadingScreen';
 import { useBilling } from '@/hooks/useBilling';
 import {
   isPatientAccessExpired,
-  isPatientPaidAccessActive,
+  isPatientFullAccessActive,
 } from '@/lib/patient-access';
 import {
   formatCurrency,
@@ -34,8 +34,17 @@ import {
   onlyDigits,
 } from '@/lib/masks';
 import { useAuth } from '@/providers/AuthProvider';
-import { SUBSCRIPTION_WEB_URL } from '@/config/legal';
-import { requiresWebSubscription } from '@/lib/platform-billing';
+import { LEGAL_CONTACT_EMAIL } from '@/config/legal';
+import {
+  requiresWebSubscription,
+  openSubscriptionWebsite,
+  usesNeutralSubscriptionScreen,
+  getSubscriptionScreenTitle,
+  getSubscriptionPendingHeroSub,
+  getSubscriptionActiveHeroSub,
+  getSubscriptionPendingCardText,
+  getExternalWebsiteButtonLabel,
+} from '@/lib/platform-billing';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type BillingPlan = {
@@ -94,16 +103,22 @@ export default function SubscriptionScreen() {
   const [securityCode, setSecurityCode] = useState('');
   const [identificationNumber, setIdentificationNumber] = useState('');
 
+  const webBilling = requiresWebSubscription();
+  const storeNeutral = usesNeutralSubscriptionScreen();
+  const screenTitle = getSubscriptionScreenTitle();
+  const [refreshing, setRefreshing] = useState(false);
+
   const plans = billingConfig?.plans || [];
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) || plans[0];
   const currentPlan = subscription?.userPlan || user?.plan || 'FREE';
   const accessExpiresAt = subscription?.accessExpiresAt || user?.accessExpiresAt || null;
   const accessExpired = isPatientAccessExpired(accessExpiresAt);
-  const needsFirstPayment = !isPatientPaidAccessActive(
+  const hasFullAccess = isPatientFullAccessActive(
     currentPlan,
     accessExpiresAt,
     user?.approvalEmailSentAt,
   );
+  const needsSubscription = !hasFullAccess;
 
   const pixCopyCode = String(pixData.qrCode || pixData.qr_code || '').trim();
 
@@ -136,7 +151,7 @@ export default function SubscriptionScreen() {
     setPollingPix(true);
     const sub = await fetchSubscription();
     setSubscription(sub as typeof subscription);
-    const paid = isPatientPaidAccessActive(
+    const paid = isPatientFullAccessActive(
       (sub as { userPlan?: string })?.userPlan || currentPlan,
       (sub as { accessExpiresAt?: string | null })?.accessExpiresAt,
       user?.approvalEmailSentAt,
@@ -207,20 +222,48 @@ export default function SubscriptionScreen() {
     setTimeout(() => setPixCopied(false), 2000);
   }
 
-  const heroTitle = useMemo(
-    () => (needsFirstPayment ? 'Finalize sua assinatura' : 'Renovar assinatura'),
-    [needsFirstPayment],
-  );
-  const iosWebBilling = requiresWebSubscription();
+  const heroTitle = useMemo(() => {
+    if (storeNeutral) {
+      return needsSubscription ? 'Acesso pendente' : 'Status da assinatura';
+    }
+    return needsSubscription ? 'Finalize sua assinatura' : 'Renovar assinatura';
+  }, [needsSubscription, storeNeutral]);
+
+  const heroSub = useMemo(() => {
+    if (storeNeutral) {
+      if (needsSubscription) {
+        return getSubscriptionPendingHeroSub();
+      }
+      return accessExpired
+        ? 'Seu período de acesso terminou. Entre em contato se precisar de ajuda.'
+        : getSubscriptionActiveHeroSub();
+    }
+    return needsSubscription
+      ? getSubscriptionPendingHeroSub()
+      : getSubscriptionActiveHeroSub();
+  }, [accessExpired, needsSubscription, storeNeutral]);
 
   async function openWebSubscription() {
-    await Linking.openURL(SUBSCRIPTION_WEB_URL);
+    await openSubscriptionWebsite();
+  }
+
+  async function handleRefreshAccess() {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function openSupportEmail() {
+    await Linking.openURL(`mailto:${LEGAL_CONTACT_EMAIL}?subject=${encodeURIComponent('Clube Florescer — status da assinatura')}`);
   }
 
   if (pageLoading) {
     return (
       <PatientShell withTabClearance={false}>
-        <PatientHeader title="Assinatura" showBack={!needsFirstPayment} backTo="/perfil" showBell={false} showMenu={false} />
+        <PatientHeader title={screenTitle} showBack backTo="/perfil" showBell={false} showMenu={false} />
         <LoadingScreen />
       </PatientShell>
     );
@@ -229,8 +272,8 @@ export default function SubscriptionScreen() {
   return (
     <PatientShell withTabClearance={false}>
       <PatientHeader
-        title="Assinatura"
-        showBack={!needsFirstPayment}
+        title={screenTitle}
+        showBack
         backTo="/perfil"
         showBell={false}
         showMenu={false}
@@ -240,11 +283,7 @@ export default function SubscriptionScreen() {
           <Sparkles color={colors.primary} size={28} />
           <Text style={styles.eyebrow}>Clube Florescer</Text>
           <Text style={styles.heroTitle}>{heroTitle}</Text>
-          <Text style={styles.heroSub}>
-            {needsFirstPayment
-              ? 'Último passo para liberar dieta, Bella IA e check-ins no app.'
-              : 'Mantenha seu acesso sem interrupção.'}
-          </Text>
+          <Text style={styles.heroSub}>{heroSub}</Text>
         </View>
 
         {accessExpired ? (
@@ -252,7 +291,11 @@ export default function SubscriptionScreen() {
             <AlertCircle color={colors.error} size={20} />
             <View style={styles.bannerCopy}>
               <Text style={styles.bannerTitle}>Seu acesso expirou</Text>
-              <Text style={styles.bannerText}>Renove sua assinatura para continuar usando o Clube Florescer.</Text>
+              <Text style={styles.bannerText}>
+                {storeNeutral
+                  ? 'Entre em contato se precisar reativar seu acesso ao Clube Florescer.'
+                  : 'Renove sua assinatura para continuar usando o Clube Florescer.'}
+              </Text>
             </View>
           </View>
         ) : currentPlan !== 'FREE' ? (
@@ -269,14 +312,34 @@ export default function SubscriptionScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {iosWebBilling ? (
+        {storeNeutral ? (
+          <View style={styles.webBillingCard}>
+            <CreditCard color={colors.primary} size={32} />
+            <Text style={styles.webBillingTitle}>
+              {needsSubscription || accessExpired ? 'Aguardando ativação' : 'Acesso vinculado à conta'}
+            </Text>
+              <Text style={styles.webBillingText}>
+                {needsSubscription || accessExpired
+                  ? getSubscriptionPendingCardText()
+                  : 'Use o botão abaixo para sincronizar o status do seu acesso com o servidor.'}
+              </Text>
+              {(needsSubscription || accessExpired) ? (
+                <CfButton label={getExternalWebsiteButtonLabel()} onPress={openWebSubscription} />
+              ) : null}
+            <CfButton
+              label={refreshing ? 'Atualizando…' : 'Atualizar acesso'}
+              loading={refreshing}
+              onPress={handleRefreshAccess}
+            />
+            <CfButton variant="ghost" label="Fale conosco" onPress={openSupportEmail} />
+          </View>
+        ) : webBilling ? (
           <View style={styles.webBillingCard}>
             <CreditCard color={colors.primary} size={32} />
             <Text style={styles.webBillingTitle}>Assine pelo site oficial</Text>
             <Text style={styles.webBillingText}>
-              No iPhone, a contratação e renovação da assinatura do Clube Florescer são feitas
-              pelo site, conforme as diretrizes da App Store. Depois de pagar, volte ao app e
-              toque em atualizar acesso.
+              A contratação e renovação da assinatura do Clube Florescer são feitas pelo site.
+              Depois de pagar, volte ao app e toque em atualizar acesso.
             </Text>
             <CfButton label="Abrir site para assinar" onPress={openWebSubscription} />
             <CfButton
@@ -455,6 +518,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   planCardActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  planCardReadonly: {
+    padding: spacing[4],
+    borderRadius: radii.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  planExternalHint: {
+    marginTop: spacing[2],
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.primaryDark,
+  },
   planName: { fontFamily: fonts.bold, fontSize: 16 },
   planPrice: { fontFamily: fonts.extrabold, fontSize: 22, marginTop: 4 },
   planSuffix: { fontFamily: fonts.medium, fontSize: 14 },

@@ -27,7 +27,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandLogo } from '@/components/BrandLogo';
 import { usePatientNotifications } from '@/hooks/usePatientNotifications';
+import { usePatientPlanAccess } from '@/hooks/usePatientPlanAccess';
 import { isPatientAppAccessBlocked } from '@/lib/patient-access';
+import { getSubscriptionMenuLabel, openSubscriptionWebsite, shouldOfferWebSubscription } from '@/lib/platform-billing';
 import { getAppVersion } from '@/config/env';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -37,6 +39,7 @@ type NavItem = {
   label: string;
   Icon: LucideIcon;
   badge?: string | null;
+  openWeb?: boolean;
 };
 
 type PatientMenuDrawerProps = {
@@ -49,6 +52,7 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
+  const { hasPaidAccess } = usePatientPlanAccess();
   const { hasUnread, fetchNotifications } = usePatientNotifications();
   const slide = useRef(new Animated.Value(-320)).current;
 
@@ -58,15 +62,41 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
   }, [user]);
 
   const navItems: NavItem[] = useMemo(() => {
+    const subscriptionLabel = getSubscriptionMenuLabel();
+    const openWebSubscription = shouldOfferWebSubscription(hasPaidAccess);
+
     if (!canUseApp) {
-      return [{ href: '/assinatura', label: 'Assinar', Icon: CreditCard }];
+      return [
+        {
+          href: '/assinatura',
+          label: subscriptionLabel,
+          Icon: CreditCard,
+          openWeb: openWebSubscription,
+        },
+        { href: '/perfil/configuracoes', label: 'Configurações', Icon: Settings },
+      ];
     }
-    return [
+
+    const items: NavItem[] = [
       { href: '/inicio', label: 'Início', Icon: Home },
-      { href: '/bella', label: 'Bella IA', Icon: Sparkles },
-      { href: '/dieta', label: 'Minha dieta', Icon: UtensilsCrossed },
-      { href: '/evolucao', label: 'Evolução', Icon: TrendingUp },
-      { href: '/conteudo', label: 'Conteúdo', Icon: BookOpen },
+    ];
+
+    if (hasPaidAccess) {
+      items.push(
+        { href: '/bella', label: 'Bella IA', Icon: Sparkles },
+        { href: '/dieta', label: 'Minha dieta', Icon: UtensilsCrossed },
+        { href: '/evolucao', label: 'Evolução', Icon: TrendingUp },
+        { href: '/conteudo', label: 'Conteúdo', Icon: BookOpen },
+      );
+    }
+
+    items.push(
+      {
+        href: '/assinatura',
+        label: subscriptionLabel,
+        Icon: CreditCard,
+        openWeb: openWebSubscription,
+      },
       {
         href: '/perfil/notificacoes',
         label: 'Notificações',
@@ -74,8 +104,10 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
         badge: hasUnread ? 'Novo' : null,
       },
       { href: '/perfil/configuracoes', label: 'Configurações', Icon: Settings },
-    ];
-  }, [canUseApp, hasUnread]);
+    );
+
+    return items;
+  }, [canUseApp, hasPaidAccess, hasUnread]);
 
   const fullName = user?.name?.trim() || 'Paciente';
   const initials = fullName
@@ -109,9 +141,13 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
     return pathname === path || pathname.startsWith(`${path}/`);
   }
 
-  function navigate(href: string) {
+  function navigate(item: NavItem) {
     onClose();
-    router.push(href as never);
+    if (item.openWeb) {
+      void openSubscriptionWebsite();
+      return;
+    }
+    router.push(item.href as never);
   }
 
   async function handleLogout() {
@@ -145,7 +181,7 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
             </View>
 
             {canUseApp ? (
-              <Pressable style={styles.userCard} onPress={() => navigate('/perfil')}>
+              <Pressable style={styles.userCard} onPress={() => navigate({ href: '/perfil', label: 'Perfil', Icon: Settings })}>
                 {user?.avatar ? (
                   <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
                 ) : (
@@ -168,7 +204,7 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
                   <Pressable
                     key={item.href}
                     style={[styles.link, active && styles.linkActive]}
-                    onPress={() => navigate(item.href)}
+                    onPress={() => navigate(item)}
                   >
                     <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
                       <item.Icon size={17} color={active ? '#fff' : colors.primaryDark} />

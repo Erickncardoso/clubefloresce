@@ -12,7 +12,7 @@
       </header>
 
       <!-- Formulário criar/editar -->
-      <section v-if="showForm" class="admin-shell-card iga-form-card anw-fields">
+      <section v-if="showForm" class="admin-shell-card iga-form-card admin-form-fields">
         <h2>{{ editingId ? 'Editar automação' : 'Nova automação' }}</h2>
 
         <div class="iga-form-grid">

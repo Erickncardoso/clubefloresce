@@ -34,20 +34,24 @@ export function isPatientFullAccessActive(
   return !isPatientAccessExpired(accessExpiresAt);
 }
 
+/** Plano FREE ativo — vista básica (dieta, metas, perfil…) sem assinatura paga. */
+export function isPatientFreeBasicAccessActive(plan?: UserPlan | string | null): boolean {
+  return normalizedPlan(plan) === UserPlan.FREE;
+}
+
 /**
- * FREE liberado pela nutri: só dieta/metas (e rotas básicas).
+ * FREE (cadastro ou liberação manual): só rotas/APIs básicas.
  * Sem Bella, cursos, comunidade, etc.
  */
 export function isPatientLimitedAccessActive(
   plan?: UserPlan | string | null,
-  accessExpiresAt?: Date | string | null,
-  approvalEmailSentAt?: Date | string | null,
+  _accessExpiresAt?: Date | string | null,
+  _approvalEmailSentAt?: Date | string | null,
 ): boolean {
-  if (normalizedPlan(plan) !== UserPlan.FREE) return false;
-  return isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt });
+  return isPatientFreeBasicAccessActive(plan);
 }
 
-/** Paciente com plano pago ou liberação manual ainda válida (entra no app). */
+/** Paciente que pode entrar no app (FREE básico ou plano pago ativo). */
 export function isPatientPaidAccessActive(
   plan?: UserPlan | string | null,
   accessExpiresAt?: Date | string | null,
@@ -55,17 +59,18 @@ export function isPatientPaidAccessActive(
 ): boolean {
   return (
     isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
-    || isPatientLimitedAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+    || isPatientFreeBasicAccessActive(plan)
   );
 }
 
-/** Bloqueia o app até concluir ou renovar o pagamento (só cadastros novos sem liberação manual). */
+/** Bloqueia o app só quando tinha plano pago e perdeu o acesso. FREE sempre entra. */
 export function isPatientAppAccessBlocked(
   plan?: UserPlan | string | null,
   accessExpiresAt?: Date | string | null,
   approvalEmailSentAt?: Date | string | null,
 ): boolean {
-  return !isPatientPaidAccessActive(plan, accessExpiresAt, approvalEmailSentAt);
+  if (isPatientFreeBasicAccessActive(plan)) return false;
+  return !isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt);
 }
 
 /** Recursos premium (Bella, cursos, comunidade…) — exige plano pago ativo. */

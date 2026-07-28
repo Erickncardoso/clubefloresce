@@ -2,12 +2,17 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildWeekDays,
+  buildSlotDateTimeFromMinutes,
   endOfWeek,
   filterAppointmentsByQuery,
+  formatTimeRangeLabel,
   groupAppointmentsByDay,
   isSameDay,
+  minutesToPx,
+  normalizeDraggedRange,
   startOfWeek,
   toDateKey,
+  yPxToMinutes,
 } from '../utils/agenda-calendar.js'
 
 describe('agenda calendar utils', () => {
@@ -44,5 +49,29 @@ describe('agenda calendar utils', () => {
     assert.ok(end.getTime() > anchor.getTime())
     assert.equal(isSameDay(end, new Date('2026-07-19T23:59:00')), true)
     assert.equal(toDateKey(end), '2026-07-19')
+  })
+
+  it('normaliza intervalo arrastado com snap de 15 min', () => {
+    const range = normalizeDraggedRange(7 * 60 + 7, 7 * 60 + 38)
+    assert.equal(range.startMinutes, 7 * 60)
+    assert.equal(range.endMinutes, 7 * 60 + 45)
+    assert.equal(range.durationMin, 45)
+  })
+
+  it('converte posição Y em minutos e de volta para px', () => {
+    const minutes = yPxToMinutes(0)
+    assert.equal(minutes, 6 * 60)
+    assert.equal(minutesToPx(minutes), 0)
+  })
+
+  it('monta datetime a partir de minutos no dia', () => {
+    const iso = buildSlotDateTimeFromMinutes('2030-01-15', 9 * 60 + 30)
+    const date = new Date(iso)
+    assert.equal(date.getHours(), 9)
+    assert.equal(date.getMinutes(), 30)
+  })
+
+  it('formata intervalo de horário', () => {
+    assert.equal(formatTimeRangeLabel(540, 600), '09:00 – 10:00')
   })
 })

@@ -1327,6 +1327,9 @@ onMounted(async () => {
   min-width: 0;
   max-width: 100%;
   white-space: nowrap;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8125rem;
 }
 
 .search-bar {
@@ -1351,7 +1354,7 @@ onMounted(async () => {
   width: 100%;
   padding: 0.7rem 1rem 0.7rem 2.65rem;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: var(--cf-radius-control);
   background: #fff;
   font-family: inherit;
   font-size: 0.9rem;
@@ -1373,7 +1376,7 @@ onMounted(async () => {
 .users-table-card {
   background: #fff;
   border: 1px solid var(--admin-border, #e8ece9);
-  border-radius: 14px;
+  border-radius: var(--cf-radius-control);
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
@@ -1418,6 +1421,7 @@ onMounted(async () => {
 .users-panel {
   min-width: 0;
   max-width: 100%;
+  margin-top: 0.35rem;
 }
 
 .users-mobile-list {
@@ -1640,7 +1644,7 @@ onMounted(async () => {
   text-decoration: none;
   background: #fff;
   border: 1px solid var(--admin-border, #e8ece9);
-  border-radius: 14px;
+  border-radius: var(--cf-radius-control);
   padding: 1rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   cursor: pointer;
@@ -2191,7 +2195,7 @@ onMounted(async () => {
   color: #c2410c;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 960px) {
   .users-toolbar {
     grid-template-columns: 1fr;
   }
@@ -2235,6 +2239,12 @@ onMounted(async () => {
     flex: 1 1 calc(50% - 0.25rem);
     min-width: 0;
     justify-content: center;
+  }
+}
+
+@media (max-width: 1280px) and (min-width: 961px) {
+  .users-table {
+    min-width: 920px;
   }
 }
 

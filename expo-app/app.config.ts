@@ -4,7 +4,14 @@ const PROD_API_BASE = 'https://apiclube.nutrisabellajardim.com.br/api';
 const PATIENT_WEB_URL = 'https://app.nutrisabellajardim.com.br';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const apiBase = process.env.EXPO_PUBLIC_API_BASE?.trim().replace(/\/$/, '') || PROD_API_BASE;
+  const rawApiBase = process.env.EXPO_PUBLIC_API_BASE?.trim();
+  const isProdBuild = process.env.NODE_ENV === 'production';
+  const apiBase =
+    rawApiBase && rawApiBase !== 'auto'
+      ? rawApiBase.replace(/\/$/, '')
+      : isProdBuild
+        ? PROD_API_BASE
+        : 'auto';
 
   return {
     ...(config as ExpoConfig),
@@ -35,6 +42,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           'O microfone é usado nas consultas por vídeo com sua nutricionista.',
         NSPhotoLibraryUsageDescription:
           'Permite escolher fotos da galeria para publicar na comunidade do Clube Florescer.',
+        NSUserNotificationsUsageDescription:
+          'Enviamos lembretes de check-in, metas diárias e avisos do seu acompanhamento nutricional.',
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,
       },
@@ -47,6 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         'android.permission.RECORD_AUDIO',
         'android.permission.MODIFY_AUDIO_SETTINGS',
         'android.permission.READ_MEDIA_IMAGES',
+        'android.permission.POST_NOTIFICATIONS',
       ],
       adaptiveIcon: {
         backgroundColor: '#F7F6F2',
@@ -64,6 +74,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-secure-store',
       'expo-font',
       'expo-video',
+      [
+        'expo-notifications',
+        {
+          color: '#8B967C',
+        },
+      ],
       [
         'expo-image-picker',
         {
@@ -90,6 +106,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...(typeof config.extra === 'object' && config.extra ? config.extra : {}),
       apiBase,
       patientWebUrl: PATIENT_WEB_URL,
+      bunnyStreamLibraryId: process.env.EXPO_PUBLIC_BUNNY_STREAM_LIBRARY_ID?.trim() || '683348',
     },
   };
 };

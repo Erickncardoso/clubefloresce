@@ -24,6 +24,22 @@
         {{ loading ? 'Carregando…' : 'Começar agora' }}
       </button>
     </section>
+
+    <div v-if="showAppModal" class="app-modal-overlay">
+      <div class="app-modal-card cf-squircle cf-squircle--surface">
+        <div class="obrigado-icon-wrap" aria-hidden="true">
+          <CheckCircle2 class="obrigado-icon" />
+        </div>
+        <h2>Pagamento confirmado!</h2>
+        <p>Toque abaixo para voltar ao app Clube Florescer.</p>
+        <button type="button" class="obrigado-primary cf-squircle--control" @click="openApp">
+          Abrir app Clube Florescer
+        </button>
+        <button type="button" class="app-modal-dismiss" @click="showAppModal = false">
+          Continuar aqui pelo navegador
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -38,9 +54,14 @@ const { resolvePostLoginRoute } = usePatientOnboarding()
 const { fetchMySubscription, subscription } = useBillingCheckout()
 
 const loading = ref(false)
+const showAppModal = ref(false)
 const accessExpiresAt = computed(() => subscription.value?.accessExpiresAt || null)
 
 onMounted(async () => {
+  if (sessionStorage.getItem('cf_from_app') === '1') {
+    sessionStorage.removeItem('cf_from_app')
+    showAppModal.value = true
+  }
   await verifyAuthSession({ requiredRole: 'PACIENTE', force: true })
   await fetchMySubscription()
   const plan = subscription.value?.userPlan
@@ -48,6 +69,10 @@ onMounted(async () => {
     await navigateTo('/assinatura', { replace: true })
   }
 })
+
+function openApp() {
+  window.location.href = 'clubeflorescer://inicio'
+}
 
 function formatDate(value) {
   return new Date(value).toLocaleDateString('pt-BR')
@@ -155,6 +180,56 @@ async function goNext() {
   font-size: 0.95rem;
   font-weight: 700;
   padding: 0.95rem 1rem;
+  cursor: pointer;
+}
+
+.app-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(20, 20, 20, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.app-modal-card {
+  width: 100%;
+  max-width: 22rem;
+  padding: 1.75rem 1.35rem;
+  text-align: center;
+  background: #fff;
+}
+
+.app-modal-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--cf-text, #141414);
+}
+
+.app-modal-card p {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--cf-text-muted, #525252);
+}
+
+.app-modal-card .obrigado-primary {
+  border-radius: inherit;
+}
+
+.app-modal-dismiss {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--cf-text-muted, #525252);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.85rem 1rem;
   cursor: pointer;
 }
 </style>

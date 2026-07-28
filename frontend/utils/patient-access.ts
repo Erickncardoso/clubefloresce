@@ -38,14 +38,18 @@ export function isPatientFullAccessActive(
   return !isPatientAccessExpired(accessExpiresAt)
 }
 
-/** FREE liberado pela nutri: só dieta/metas. */
+/** Plano FREE ativo — vista básica sem assinatura paga. */
+export function isPatientFreeBasicAccessActive(plan?: string | null): boolean {
+  return normalizedPlan(plan) === 'FREE'
+}
+
+/** FREE: vista básica — só início e conta. */
 export function isPatientLimitedAccessActive(
   plan?: string | null,
-  accessExpiresAt?: Date | string | null,
-  approvalEmailSentAt?: Date | string | null,
+  _accessExpiresAt?: Date | string | null,
+  _approvalEmailSentAt?: Date | string | null,
 ): boolean {
-  if (normalizedPlan(plan) !== 'FREE') return false
-  return isPatientManuallyGrantedAccess({ plan, accessExpiresAt, approvalEmailSentAt })
+  return isPatientFreeBasicAccessActive(plan)
 }
 
 export function isPatientPaidAccessActive(
@@ -55,16 +59,18 @@ export function isPatientPaidAccessActive(
 ): boolean {
   return (
     isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
-    || isPatientLimitedAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+    || isPatientFreeBasicAccessActive(plan)
   )
 }
 
+/** Bloqueia só plano pago expirado. FREE sempre entra no app. */
 export function isPatientAppAccessBlocked(
   plan?: string | null,
   accessExpiresAt?: Date | string | null,
   approvalEmailSentAt?: Date | string | null,
 ): boolean {
-  return !isPatientPaidAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
+  if (isPatientFreeBasicAccessActive(plan)) return false
+  return !isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
 }
 
 export function isPatientPremiumFeatureBlocked(
@@ -75,15 +81,30 @@ export function isPatientPremiumFeatureBlocked(
   return !isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
 }
 
-/** Rotas liberadas no plano Gratuito (dieta + metas + básicos). */
+/** Conta, legal e recuperação — nunca redirecionar para planos/início. */
+export const PATIENT_SELF_SERVICE_PATHS = [
+  '/legal',
+  '/perfil',
+  '/esqueci-senha',
+  '/redefinir-senha',
+  '/documento',
+]
+
+export function isPatientSelfServicePath(path?: string | null): boolean {
+  const normalized = String(path || '').split('?')[0]
+  return PATIENT_SELF_SERVICE_PATHS.some(
+    (allowed) => normalized === allowed || normalized.startsWith(`${allowed}/`),
+  )
+}
+
+/** Rotas liberadas no plano Gratuito (só início + conta/checkout + legal). */
 export const PATIENT_LIMITED_APP_PATHS = [
   '/inicio',
-  '/dieta',
-  '/evolucao',
   '/perfil',
   '/onboarding',
   '/assinatura',
-  '/substituicao',
+  '/legal',
+  '/esqueci-senha',
 ]
 
 export function isPatientLimitedAppPath(path?: string | null): boolean {

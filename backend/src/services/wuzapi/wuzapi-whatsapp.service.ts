@@ -3,12 +3,13 @@
  * https://webhook.erickcardoso.com.br/api
  */
 import dotenv from "dotenv";
-import { getDevTunnelWebhookUrl } from "../../utils/dev-tunnel-url";
+import { resolveWhatsappWebhookUrl } from "../../utils/whatsapp-webhook-url";
 import {
   normalizeUazapiChatJid,
   normalizeUazapiMessageId,
   normalizeUazapiMessageTimestamp,
 } from "../../utils/uazapi-message-ingest.util";
+import { wuzapiWhatsappEventToUazRow } from "../../utils/wuzapi-message-ingest.util";
 import {
   assertWuzapiConfigured,
   getWuzapiUserToken,
@@ -24,22 +25,42 @@ import { WhatsappGroupObservedSendersRepository } from "../../repositories/whats
 import { WhatsappMediaArchiveRepository } from "../../repositories/whatsapp_media_archive.repository";
 import whatsappSessionService, { extractSessionJidFromStatusPayload } from "../whatsapp-session.service";
 import whatsappPusherService from "../whatsapp-pusher.service";
+import whatsappChatMergeService from "../whatsapp-chat-merge.service";
+import wuzapiLidResolverService from "./wuzapi-lid-resolver.service";
+import { fetchWuzapiUserAvatar } from "./wuzapi-avatar.service";
 import { wuzapiHttp } from "./wuzapi-http.client";
 import { wuzapiAdmin, wuzapiForUser, WUZAPI_WEBHOOK_EVENTS, type WuzapiAdminApi, type WuzapiApi } from "./wuzapi-api";
 import {
+  applyMapsMetadataToChat,
+  chatNameLooksLikeBareJid,
   dataUriFromBase64,
   isGroupJid,
+  isPlausibleWhatsappPhoneDigits,
+  isValidChatJid,
+  lookupInJidMap,
   mapChatDetailsToUaz,
   mapContactsRecordToUazChats,
   mapConversationSummaryToUazChat,
+  mergeConversationSummaries,
+  canonicalConversationSummaryKey,
+  extractPreviewFromMessageRaw,
   mapMarkReadBody,
   mapSendMediaBody,
   mapSendTextBody,
   mapUserCheckToUaz,
   mapWuzHistoryRowToUazMessage,
+  normalizeContactsRecord,
   normalizePhone,
+  pickAvatarUrl,
+  pickContactDisplayName,
+  pickGroupAvatarUrl,
+  pickGroupDisplayName,
+  resolveAvatarPhoneForChat,
+  pickUserInfoDisplayName,
+  resolveHistoryChatJid,
   toChatJid,
   toGroupJid,
+  looksLikeWhatsappGroupId,
   unsupportedUazFeature,
 } from "./wuzapi-mappers";
 
@@ -54,6 +75,12 @@ const mediaArchiveRepository = new WhatsappMediaArchiveRepository();
 
 const WEBHOOK_EVENTS = WUZAPI_WEBHOOK_EVENTS.filter((e) => e !== "All");
 
+/** Evita repetir bootstrap/history que disparam sync no celular (GuzzApp / multi-device). */
+const SESSION_HISTORY_SYNC_ENABLED = String(process.env.WHATSAPP_SESSION_HISTORY_SYNC || "0") === "1";
+const BOOTSTRAP_COOLDOWN_MS = Number(process.env.WHATSAPP_BOOTSTRAP_COOLDOWN_MS || 6 * 60 * 60 * 1000);
+const bootstrapRequestedAt = new Map<string, number>();
+const sessionHistoryRequestedAt = new Map<string, number>();
+
 export class WuzapiWhatsappService {
   /** Cliente com todos os endpoints Swagger WuzAPI. */
   api(userId: string) {
@@ -61,14 +88,7 @@ export class WuzapiWhatsappService {
   }
 
   private webhookUrl(): string {
-    const explicit = String(process.env.WHATSAPP_WEBHOOK_URL || "").trim();
-    if (explicit) return explicit.replace(/\/+$/, "");
-    const backendPublic = String(process.env.BACKEND_PUBLIC_URL || "").trim();
-    if (!backendPublic) {
-      const tunnel = getDevTunnelWebhookUrl();
-      if (tunnel) return tunnel;
-    }
-    return `${backendPublic.replace(/\/+$/, "")}/api/whatsapp/webhook`;
+    return resolveWhatsappWebhookUrl();
   }
 
   private mapSessionStatus(data: any) {
@@ -145,9 +165,7 @@ export class WuzapiWhatsappService {
     const phone = normalizePhone(sessionJid);
     if (!phone) return "";
     try {
-      const avatarBody = await wuzapiHttp.postUser(userId, "/user/avatar", { Phone: phone, Preview: true });
-      const avatar = this.unwrap(avatarBody);
-      return String(avatar?.URL || avatar?.url || avatar?.Url || "").trim();
+      return await fetchWuzapiUserAvatar(userId, phone, true);
     } catch {
       return "";
     }
@@ -192,8 +210,9 @@ export class WuzapiWhatsappService {
 
     if (loggedIn && jid) {
       await this.ensureRealtimeWebhook(userId);
-      void this.requestInitialHistorySync(userId);
-      void this.bootstrapConversationsFromWuzapi(userId);
+      // Nunca disparar history/bootstrap a cada poll de /status — o celular mostra
+      // "Sincronizando" e depois "Sincronização falhou" (multi-device).
+      void this.maybeBootstrapOnce(userId);
       const binding = await this.syncSessionBinding(userId, jid, "status-login");
       sessionPurged = binding.purged;
       previousSessionJid = binding.previousJid;
@@ -312,12 +331,25 @@ export class WuzapiWhatsappService {
 
     try {
       const current = this.unwrap(await this.api(userId).getWebhook());
-      const currentUrl = String(current?.webhook || "").trim();
-      if (currentUrl === url) return true;
+      const currentUrl = String(
+        current?.webhook
+        || current?.WebhookURL
+        || current?.webhookurl
+        || "",
+      ).trim();
+      if (currentUrl === url) {
+        void this.postConnectMaintenance(userId);
+        return true;
+      }
 
       await this.api(userId).setWebhook({ webhook: url, events: [...WEBHOOK_EVENTS] });
       const after = this.unwrap(await this.api(userId).getWebhook());
-      const afterUrl = String(after?.webhook || "").trim();
+      const afterUrl = String(
+        after?.webhook
+        || after?.WebhookURL
+        || after?.webhookurl
+        || "",
+      ).trim();
       if (!afterUrl) {
         console.error("[WuzAPI] Webhook permanece vazio após setWebhook. URL tentada:", url);
         return false;
@@ -327,6 +359,7 @@ export class WuzapiWhatsappService {
       } else {
         console.log("[WuzAPI] Webhook configurado:", afterUrl);
       }
+      void this.postConnectMaintenance(userId);
       return true;
     } catch (err: any) {
       console.warn("[WuzAPI] Falha ao configurar webhook:", err?.message || err);
@@ -334,9 +367,28 @@ export class WuzapiWhatsappService {
     }
   }
 
+  private async maybeBootstrapOnce(userId: string): Promise<void> {
+    const dataUserId = this.dataUserId(userId);
+    const now = Date.now();
+    const lastAt = bootstrapRequestedAt.get(dataUserId) || 0;
+    if (now - lastAt < BOOTSTRAP_COOLDOWN_MS) return;
+
+    bootstrapRequestedAt.set(dataUserId, now);
+
+    if (SESSION_HISTORY_SYNC_ENABLED) {
+      await this.requestInitialHistorySync(userId);
+    }
+  }
+
   private async requestInitialHistorySync(userId: string): Promise<void> {
+    const dataUserId = this.dataUserId(userId);
+    const now = Date.now();
+    const lastAt = sessionHistoryRequestedAt.get(dataUserId) || 0;
+    if (now - lastAt < BOOTSTRAP_COOLDOWN_MS) return;
+    sessionHistoryRequestedAt.set(dataUserId, now);
+
     try {
-      await wuzapiHttp.getUser(userId, "/session/history", { count: 100 });
+      await wuzapiHttp.getUser(userId, "/session/history", { count: 50 });
     } catch (err: any) {
       console.warn("[WuzAPI] Falha ao solicitar history sync inicial:", err?.message || err);
     }
@@ -454,13 +506,75 @@ export class WuzapiWhatsappService {
 
   // ─── Mensagens ─────────────────────────────────────────────────────────────
 
+  private async postConnectMaintenance(userId: string): Promise<void> {
+    const dataUserId = this.dataUserId(userId);
+    try {
+      await wuzapiLidResolverService.warmFromContacts(userId, 50);
+    } catch { /* ignore */ }
+    try {
+      await whatsappChatMergeService.mergeLidDuplicates(dataUserId, true);
+      await whatsappChatMergeService.backfillEmptyPreviews(dataUserId);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn("[WuzAPI] Manutenção pós-conexão falhou:", message);
+    }
+  }
+
   async sendText(userId: string, data: any): Promise<any> {
-    const payload = mapSendTextBody(data || {});
-    return wuzapiHttp.postUser(userId, "/chat/send/text", payload, 20000);
+    const phone = await wuzapiLidResolverService.resolvePhoneForSend(
+      userId,
+      String(data?.number || data?.chatid || data?.phone || ""),
+    );
+    const payload = mapSendTextBody({ ...data, number: phone });
+    const result = await wuzapiHttp.postUser(userId, "/chat/send/text", payload, 20000);
+    void this.persistChatPreviewAfterOutbound(userId, data, String(data?.text || data?.body || data?.message || "").trim());
+    return result;
+  }
+
+  private resolveOutboundChatJid(data: Record<string, unknown>): string {
+    const raw = String(data?.number || data?.chatid || data?.phone || "").trim().toLowerCase();
+    if (!raw) return "";
+    if (raw.includes("@")) return raw;
+    const phone = normalizePhone(raw);
+    if (!phone) return "";
+    if (looksLikeWhatsappGroupId(phone)) return toGroupJid(phone);
+    return toChatJid(phone);
+  }
+
+  private async persistChatPreviewAfterOutbound(
+    userId: string,
+    data: Record<string, unknown>,
+    previewText: string,
+  ): Promise<void> {
+    const chatJid = this.resolveOutboundChatJid(data);
+    if (!chatJid || !previewText) return;
+    const dataUserId = this.dataUserId(userId);
+    const sessionJid = await whatsappSessionService.getBoundSessionJid(dataUserId);
+    const jids = new Set<string>([chatJid]);
+    const canonical = canonicalConversationSummaryKey({ chatJid, raw: data });
+    if (canonical) jids.add(canonical);
+    try {
+      for (const jid of jids) {
+        await chatRepository.upsertLastMessageIfNewer(dataUserId, {
+          chatJid: jid,
+          sessionJid,
+          isGroup: jid.endsWith("@g.us"),
+          lastMessage: previewText,
+          lastMessageTime: BigInt(Date.now()),
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn("[WuzAPI] Falha ao atualizar preview após envio:", message);
+    }
   }
 
   async sendMedia(userId: string, data: any): Promise<any> {
-    const mapped = mapSendMediaBody(data || {});
+    const phone = await wuzapiLidResolverService.resolvePhoneForSend(
+      userId,
+      String(data?.number || data?.chatid || data?.phone || ""),
+    );
+    const mapped = mapSendMediaBody({ ...data, number: phone });
     const api = this.api(userId);
     switch (mapped.api) {
       case "chatSendSticker": return api.chatSendSticker(mapped.payload);
@@ -506,10 +620,25 @@ export class WuzapiWhatsappService {
   }
 
   async sendMenu(userId: string, data: any): Promise<any> {
+    const phone = await wuzapiLidResolverService.resolvePhoneForSend(
+      userId,
+      String(data?.number || data?.chatid || data?.phone || ""),
+    );
+    const type = String(data?.type || "").trim().toLowerCase();
+    if (type === "poll") {
+      const choices = Array.isArray(data?.choices) ? data.choices : [];
+      return wuzapiHttp.postUser(userId, "/chat/send/poll", {
+        Phone: phone,
+        Name: String(data?.text || data?.body || "Enquete"),
+        Options: choices.map((c: unknown) => String(c || "").split("|")[0].trim()).filter(Boolean),
+        SelectableCount: Math.max(1, Number(data?.selectableCount || 1)),
+        Id: data?.id,
+      });
+    }
     const buttons = Array.isArray(data?.buttons) ? data.buttons : [];
     if (buttons.length) {
       return wuzapiHttp.postUser(userId, "/chat/send/buttons", {
-        Phone: normalizePhone(String(data?.number || "")),
+        Phone: phone,
         Body: String(data?.text || data?.body || ""),
         Title: String(data?.title || ""),
         Footer: String(data?.footer || ""),
@@ -518,13 +647,13 @@ export class WuzapiWhatsappService {
       });
     }
     return wuzapiHttp.postUser(userId, "/chat/send/list", {
-      Phone: normalizePhone(String(data?.number || "")),
-      ButtonText: String(data?.buttonText || "Escolher"),
+      Phone: phone,
+      ButtonText: String(data?.buttonText || data?.listButton || "Escolher"),
       Desc: String(data?.text || data?.body || ""),
       TopText: String(data?.title || ""),
-      FooterText: String(data?.footer || ""),
+      FooterText: String(data?.footer || data?.footerText || ""),
       Sections: data?.sections || [],
-      List: data?.list || [],
+      List: data?.list || data?.choices || [],
       Id: data?.id,
     });
   }
@@ -546,8 +675,9 @@ export class WuzapiWhatsappService {
   }
 
   async reactMessage(userId: string, data: { number: string; text: string; id: string }): Promise<any> {
+    const phone = await wuzapiLidResolverService.resolvePhoneForSend(userId, String(data.number || ""));
     return wuzapiHttp.postUser(userId, "/chat/react", {
-      Phone: normalizePhone(data.number),
+      Phone: phone,
       Body: data.text,
       Id: data.id,
     });
@@ -582,25 +712,53 @@ export class WuzapiWhatsappService {
   }
 
   async findMessages(userId: string, data: any): Promise<any> {
-    const chatJid = toChatJid(String(data?.chatid || data?.chatId || data?.number || ""));
+    const rawTarget = String(data?.chatid || data?.chatId || data?.number || "").trim();
+    const canonical = wuzapiLidResolverService.resolveCanonicalChatJid(userId, rawTarget, data);
+    const chatJid = resolveHistoryChatJid(
+      canonical || rawTarget,
+      data?.wa_isGroup || data?.isGroup ? new Set([toGroupJid(rawTarget)]) : undefined,
+    );
     const limit = Math.min(200, Math.max(1, Number(data?.limit || 50)));
     const offset = Math.max(0, Number(data?.offset || 0));
     const messageId = String(data?.id || data?.messageid || "").trim();
 
     if (!chatJid && messageId) {
-      return { messages: [] };
+      return { messages: [], hasMore: false, nextOffset: offset };
     }
 
+    const fetchLimit = Math.min(500, limit + offset);
     const body = await wuzapiHttp.getUser(userId, "/chat/history", {
       chat_jid: chatJid,
-      limit: limit + offset,
+      limit: fetchLimit,
     });
     const rows = Array.isArray(this.unwrap(body)) ? this.unwrap(body) : [];
-    let messages = rows.map((row: any) => mapWuzHistoryRowToUazMessage(row, chatJid));
-    if (messageId) messages = messages.filter((m: Record<string, unknown>) => String(m.messageid) === messageId);
-    if (offset > 0) messages = messages.slice(offset);
-    messages = messages.slice(0, limit);
-    return { messages };
+    let messages = rows
+      .map((row: any) => {
+        const fromEvent = wuzapiWhatsappEventToUazRow(row, chatJid);
+        if (fromEvent) return fromEvent;
+        return mapWuzHistoryRowToUazMessage(row, chatJid);
+      })
+      .sort(
+        (a: Record<string, unknown>, b: Record<string, unknown>) =>
+          Number(a.messageTimestamp || 0) - Number(b.messageTimestamp || 0),
+      );
+
+    if (messageId) {
+      messages = messages.filter((m: Record<string, unknown>) => String(m.messageid) === messageId);
+    }
+
+    // WuzAPI devolve histórico cronológico — página 0 = mensagens MAIS RECENTES (como a sidebar).
+    const total = messages.length;
+    const start = Math.max(0, total - offset - limit);
+    const end = Math.max(0, total - offset);
+    const page = messages.slice(start, end);
+
+    return {
+      messages: page,
+      hasMore: start > 0,
+      nextOffset: offset + page.length,
+      total,
+    };
   }
 
   async historySync(userId: string, data: { number: string; messageid?: string; count?: number }): Promise<any> {
@@ -636,11 +794,17 @@ export class WuzapiWhatsappService {
     const map = new Map<string, Record<string, unknown>>();
     try {
       const contactsBody = await wuzapiHttp.getUser(userId, "/user/contacts");
-      const contacts = this.unwrap(contactsBody) || {};
-      for (const [jid, info] of Object.entries(contacts as Record<string, unknown>)) {
-        if (info && typeof info === "object") {
-          map.set(String(jid).trim().toLowerCase(), info as Record<string, unknown>);
-        }
+      const contacts = normalizeContactsRecord(this.unwrap(contactsBody) ?? contactsBody);
+      for (const [jid, info] of Object.entries(contacts)) {
+        if (!info || typeof info !== "object") continue;
+        const row = info as Record<string, unknown>;
+        const normalized = String(jid).trim().toLowerCase();
+        map.set(normalized, row);
+        map.set(toChatJid(normalized), row);
+        const phone = normalizePhone(normalized);
+        if (phone) map.set(phone, row);
+        const rowLid = String(row.LID || row.lid || "").trim().toLowerCase();
+        if (rowLid.endsWith("@lid")) map.set(rowLid, row);
       }
     } catch { /* ignore */ }
     return map;
@@ -654,7 +818,10 @@ export class WuzapiWhatsappService {
       for (const group of Array.isArray(groups) ? groups : []) {
         const row = (group && typeof group === "object" ? group : {}) as Record<string, unknown>;
         const jid = String(row.JID || row.jid || row.GroupJID || "").trim().toLowerCase();
-        if (jid) map.set(jid, row);
+        if (!jid) continue;
+        map.set(jid, row);
+        map.set(toGroupJid(jid), row);
+        map.set(normalizePhone(jid), row);
       }
     } catch { /* ignore */ }
     return map;
@@ -677,14 +844,20 @@ export class WuzapiWhatsappService {
     const cachedByJid = new Map(cachedRows.map((row) => [row.chatJid.toLowerCase(), row]));
 
     const inputs = summaries.map((summary) => {
-      const jid = summary.chatJid.toLowerCase();
+      const jid = resolveHistoryChatJid(summary.chatJid, new Set(groupsMap.keys()));
       const uaz = mapConversationSummaryToUazChat(
-        summary,
-        contactsMap.get(jid),
-        groupsMap.get(jid),
-        cachedByJid.get(jid),
+        { ...summary, chatJid: jid },
+        lookupInJidMap(contactsMap, jid),
+        lookupInJidMap(groupsMap, jid),
+        cachedByJid.get(jid) || lookupInJidMap(cachedByJid, jid),
       );
-      const ts = Number(uaz.wa_lastMsgTimestamp || 0);
+      const tsMs = Number(uaz.lastMessageTime || 0) > 0
+        ? Number(uaz.lastMessageTime)
+        : (() => {
+          const raw = Number(uaz.wa_lastMsgTimestamp || 0);
+          if (raw <= 0) return 0;
+          return raw < 1_000_000_000_000 ? Math.floor(raw * 1000) : Math.floor(raw);
+        })();
       return {
         chatJid: jid,
         sessionJid: boundSessionJid,
@@ -693,7 +866,7 @@ export class WuzapiWhatsappService {
         avatarUrl: String(uaz.avatarUrl || uaz.image || uaz.imagePreview || ""),
         isGroup: Boolean(uaz.wa_isGroup),
         lastMessage: String(uaz.wa_lastMsgText || ""),
-        lastMessageTime: ts > 0 ? BigInt(ts) : null,
+        lastMessageTime: tsMs > 0 ? BigInt(tsMs) : null,
         unreadCount: Number(uaz.wa_unreadCount || 0),
         raw: uaz,
       };
@@ -753,108 +926,208 @@ export class WuzapiWhatsappService {
     return summaries;
   }
 
-  /** Primeira carga: puxa histórico recente dos grupos para popular conversas reais. */
-  private async bootstrapConversationsFromWuzapi(userId: string): Promise<void> {
-    const dataUserId = this.dataUserId(userId);
-    const boundSessionJid = await whatsappSessionService.getBoundSessionJid(dataUserId);
+  /** Enriquece nomes/avatares em lote — usado pelo sync, não bloqueia findChats. */
+  async batchEnrichChatsMetadata(
+    userId: string,
+    chats: Record<string, unknown>[],
+    options: { nameLimit?: number; avatarLimit?: number } = {},
+  ): Promise<void> {
+    const nameLimit = Math.max(1, Number(options.nameLimit || 30));
+    const avatarLimit = Math.max(1, Number(options.avatarLimit || 20));
+
+    const [contactsMap, groupsMap] = await Promise.all([
+      this.fetchContactsMap(userId),
+      this.fetchGroupsMap(userId),
+    ]);
+
+    for (const chat of chats) {
+      applyMapsMetadataToChat(chat, contactsMap, groupsMap);
+    }
+
+    const needNames = chats.filter((chat) => {
+      const jid = String(chat.wa_chatid || chat.chatid || "").trim().toLowerCase();
+      if (!jid || isGroupJid(jid)) return false;
+      return chatNameLooksLikeBareJid(String(chat.name || chat.wa_name || ""), jid);
+    });
+
+    const phonesToResolve = Array.from(new Set(
+      needNames
+        .map((chat) => {
+          const jid = String(chat.wa_chatid || chat.chatid || "").trim().toLowerCase();
+          if (jid.endsWith("@lid")) {
+            return resolveAvatarPhoneForChat(chat, contactsMap);
+          }
+          const digits = normalizePhone(jid);
+          return isPlausibleWhatsappPhoneDigits(digits) ? digits : "";
+        })
+        .filter((phone) => isPlausibleWhatsappPhoneDigits(String(phone || ""))),
+    )).slice(0, nameLimit);
+
+    for (let i = 0; i < phonesToResolve.length; i += 20) {
+      const batch = phonesToResolve.slice(i, i + 20);
+      try {
+        const infoBody = await wuzapiHttp.postUser(userId, "/user/info", { Phone: batch });
+        const info = this.unwrap(infoBody) || {};
+        const users = (info.Users && typeof info.Users === "object" ? info.Users : {}) as Record<string, Record<string, unknown>>;
+        for (const chat of needNames) {
+          const jid = String(chat.wa_chatid || chat.chatid || "").trim().toLowerCase();
+          const phone = normalizePhone(jid);
+          const userInfo = lookupInJidMap(
+            new Map(Object.entries(users).map(([key, value]) => [key.toLowerCase(), value])),
+            jid,
+          ) || users[`${phone}@s.whatsapp.net`] || users[toChatJid(phone)];
+          const display = pickUserInfoDisplayName(userInfo);
+          if (display) {
+            chat.name = display;
+            chat.wa_name = display;
+            chat.wa_contactName = display;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    const needAvatars = chats.filter((chat) => {
+      const jid = String(chat.wa_chatid || chat.chatid || "").trim().toLowerCase();
+      const avatar = String(chat.image || chat.imagePreview || chat.avatarUrl || "").trim();
+      return jid && !avatar;
+    }).slice(0, avatarLimit);
+
+    const lidTargets = needAvatars
+      .map((chat) => String(chat.wa_chatid || chat.chatid || "").trim())
+      .filter((jid) => jid.endsWith("@lid"));
+    if (lidTargets.length) {
+      await wuzapiLidResolverService.warmFromLidTargets(userId, lidTargets, avatarLimit);
+    }
+
+    const avatarBatchSize = 6;
+    for (let i = 0; i < needAvatars.length; i += avatarBatchSize) {
+      const batch = needAvatars.slice(i, i + avatarBatchSize);
+      await Promise.allSettled(
+        batch.map(async (chat) => {
+          const jid = String(chat.wa_chatid || chat.chatid || "").trim().toLowerCase();
+          if (!jid) return;
+          try {
+            if (isGroupJid(jid)) {
+              const image = await fetchWuzapiUserAvatar(userId, toGroupJid(jid), true);
+              if (image) {
+                chat.image = image;
+                chat.imagePreview = image;
+                chat.avatarUrl = image;
+              }
+              return;
+            }
+            const phone = resolveAvatarPhoneForChat(chat, contactsMap);
+            if (!phone || isGroupJid(phone)) return;
+            const image = await fetchWuzapiUserAvatar(userId, phone, true);
+            if (image) {
+              chat.image = image;
+              chat.imagePreview = image;
+              chat.avatarUrl = image;
+            }
+          } catch { /* ignore */ }
+        }),
+      );
+    }
+  }
+
+  /** Primeira carga sem DB: sonda grupos/contatos ao vivo. */
+  private async fetchBootstrapLiveSummaries(
+    userId: string,
+    groupsMap: Map<string, Record<string, unknown>>,
+  ): Promise<Array<{
+    chatJid: string;
+    messageTimestamp: bigint;
+    fromMe: boolean;
+    raw: unknown;
+  }>> {
+    const groupJids = Array.from(groupsMap.keys()).slice(0, 20);
+    if (groupJids.length) {
+      const fromGroups = await this.fetchLiveConversationSummaries(userId, groupJids, 20, 6);
+      if (fromGroups.length) return fromGroups;
+    }
+
     try {
       const groupsBody = await wuzapiHttp.getUser(userId, "/group/list");
       const groups = this.unwrap(groupsBody)?.Groups || this.unwrap(groupsBody)?.groups || [];
-      const list = Array.isArray(groups) ? groups.slice(0, 40) : [];
-      if (!list.length) return;
-
-      for (const group of list) {
-        const row = (group && typeof group === "object" ? group : {}) as Record<string, unknown>;
-        const jid = String(row.JID || row.jid || row.GroupJID || "").trim();
-        if (!jid) continue;
-        try {
-          const page = await this.findMessages(userId, { chatid: jid, limit: 20 });
-          const messages = Array.isArray(page?.messages) ? page.messages : [];
-          const mapped = messages
-            .map((raw: Record<string, unknown>) => ({
-              chatJid: normalizeUazapiChatJid(raw, jid),
-              messageId: normalizeUazapiMessageId(raw),
-              messageTimestamp: normalizeUazapiMessageTimestamp(raw),
-              fromMe: Boolean(raw.fromMe),
-              sessionJid: boundSessionJid,
-              raw,
-            }))
-            .filter((item: { messageId: string; chatJid: string }) => item.messageId && item.chatJid);
-          if (mapped.length) {
-            await messageRepository.upsertMany(dataUserId, mapped);
-          }
-        } catch { /* ignore */ }
+      const list = Array.isArray(groups) ? groups.slice(0, 15) : [];
+      const jids = list
+        .map((group: Record<string, unknown>) => String(group.JID || group.jid || group.GroupJID || "").trim())
+        .filter(Boolean);
+      if (jids.length) {
+        return this.fetchLiveConversationSummaries(userId, jids, 15, 5);
       }
     } catch { /* ignore */ }
+
+    return [];
+  }
+
+  /** @deprecated WuzAPI não persiste histórico no Postgres — no-op. */
+  private async bootstrapConversationsFromWuzapi(_userId: string): Promise<void> {
+    return;
   }
 
   async findChats(userId: string, data: any = {}): Promise<any> {
-    const dataUserId = this.dataUserId(userId);
     const limit = Math.min(1000, Math.max(1, Number(data?.limit || 300)));
     const offset = Math.max(0, Number(data?.offset || 0));
     const wantGroups = data?.wa_isGroup === true;
     const wantPrivate = data?.wa_isGroup === false;
 
-    const [contactsMap, groupsMap, cachedRows] = await Promise.all([
+    const [contactsMap, groupsMap] = await Promise.all([
       this.fetchContactsMap(userId),
       this.fetchGroupsMap(userId),
-      chatRepository.listByUser(dataUserId),
     ]);
-    const cachedByJid = new Map(cachedRows.map((row) => [row.chatJid.toLowerCase(), row]));
+    const groupJidSet = new Set(Array.from(groupsMap.keys()));
 
-    // WuzAPI ao vivo + cache local (webhooks/history). Só conversas com mensagem real (ts > 0).
     const filterRealSummaries = (
       rows: Array<{ chatJid: string; messageTimestamp: bigint; fromMe: boolean; raw: unknown }>,
     ) => rows.filter((summary) => Number(summary.messageTimestamp || 0) > 0);
 
-    let dbSummaries = await messageRepository.listConversationSummaries(dataUserId, 500, null);
-    const probeJids = new Set<string>([
-      ...Array.from(groupsMap.keys()),
-      ...dbSummaries.map((row) => row.chatJid.toLowerCase()),
-    ]);
-    let liveSummaries: typeof dbSummaries = [];
-    try {
-      liveSummaries = await this.fetchLiveConversationSummaries(userId, Array.from(probeJids));
-    } catch (error) {
-      console.warn("[WuzAPI] findChats live preview falhou:", (error as Error)?.message || error);
+    const candidateJids = new Set<string>();
+    for (const jid of contactsMap.keys()) {
+      const resolved = resolveHistoryChatJid(String(jid), groupJidSet);
+      if (resolved && isValidChatJid(resolved)) candidateJids.add(resolved.toLowerCase());
+    }
+    for (const jid of groupsMap.keys()) {
+      const resolved = resolveHistoryChatJid(String(jid), groupJidSet);
+      if (resolved && isValidChatJid(resolved)) candidateJids.add(resolved.toLowerCase());
     }
 
-    if (
-      filterRealSummaries(liveSummaries).length === 0
-      && filterRealSummaries(dbSummaries).length === 0
-    ) {
-      await this.bootstrapConversationsFromWuzapi(userId);
-      dbSummaries = await messageRepository.listConversationSummaries(dataUserId, 500, null);
-      try {
-        const retryJids = new Set<string>([
-          ...Array.from(groupsMap.keys()),
-          ...dbSummaries.map((row) => row.chatJid.toLowerCase()),
-        ]);
-        liveSummaries = await this.fetchLiveConversationSummaries(userId, Array.from(retryJids));
-      } catch { /* ignore */ }
+    const forceLive = Boolean(data?.forceLive || data?.forceRefresh);
+    const maxProbe = forceLive ? 120 : 80;
+
+    let liveSummaries = await this.fetchLiveConversationSummaries(
+      userId,
+      Array.from(candidateJids),
+      maxProbe,
+      8,
+    );
+
+    if (filterRealSummaries(liveSummaries).length === 0) {
+      liveSummaries = await this.fetchBootstrapLiveSummaries(userId, groupsMap);
     }
 
-    const mergedSummaries = new Map<string, typeof dbSummaries[number]>();
-    for (const summary of filterRealSummaries(dbSummaries)) {
-      mergedSummaries.set(summary.chatJid.toLowerCase(), summary);
-    }
+    const mergedSummaries = new Map<string, typeof liveSummaries[number]>();
     for (const summary of filterRealSummaries(liveSummaries)) {
-      const key = summary.chatJid.toLowerCase();
-      const existing = mergedSummaries.get(key);
-      if (!existing || Number(summary.messageTimestamp) > Number(existing.messageTimestamp)) {
-        mergedSummaries.set(key, summary);
-      }
+      const canonicalJid = resolveHistoryChatJid(summary.chatJid, groupJidSet);
+      mergedSummaries.set(canonicalConversationSummaryKey({ ...summary, chatJid: canonicalJid }), {
+        ...summary,
+        chatJid: canonicalJid,
+      });
     }
 
-    let chats = Array.from(mergedSummaries.values()).map((summary) => {
-      const jid = summary.chatJid.toLowerCase();
-      return mapConversationSummaryToUazChat(
-        summary,
-        contactsMap.get(jid),
-        groupsMap.get(jid),
-        cachedByJid.get(jid),
-      );
-    });
+    let chats = Array.from(mergedSummaries.values())
+      .filter((summary) => isValidChatJid(summary.chatJid))
+      .map((summary) => {
+        const jid = summary.chatJid.toLowerCase();
+        const chat = mapConversationSummaryToUazChat(
+          summary,
+          lookupInJidMap(contactsMap, jid),
+          lookupInJidMap(groupsMap, jid),
+          undefined,
+        );
+        applyMapsMetadataToChat(chat, contactsMap, groupsMap);
+        return chat;
+      });
 
     if (wantGroups) {
       chats = chats.filter((chat) => isGroupJid(String(chat.wa_chatid || chat.chatid || "")));
@@ -868,6 +1141,12 @@ export class WuzapiWhatsappService {
     );
 
     const page = chats.slice(offset, offset + limit);
+    if (page.length > 0) {
+      await this.batchEnrichChatsMetadata(userId, page, {
+        nameLimit: 25,
+        avatarLimit: Math.min(40, page.length),
+      });
+    }
     return {
       chats: page,
       pagination: {
@@ -880,17 +1159,90 @@ export class WuzapiWhatsappService {
 
   async getChatDetails(userId: string, data: { number: string; preview?: boolean }): Promise<any> {
     const target = String(data?.number || "").trim();
-    const phone = normalizePhone(target);
     const preview = data?.preview !== false;
 
-    const [avatarBody, infoBody] = await Promise.allSettled([
-      wuzapiHttp.postUser(userId, "/user/avatar", { Phone: phone, Preview: preview }),
-      wuzapiHttp.postUser(userId, "/user/info", { Phone: [phone] }),
-    ]);
+    if (isGroupJid(target) || looksLikeWhatsappGroupId(target)) {
+      const groupJid = toGroupJid(target);
+      try {
+        const infoBody = await wuzapiHttp.getUser(userId, "/group/info", { groupJID: groupJid });
+        const row = (this.unwrap(infoBody) && typeof this.unwrap(infoBody) === "object"
+          ? this.unwrap(infoBody)
+          : {}) as Record<string, unknown>;
+        const name = pickGroupDisplayName(row);
+        const image = await fetchWuzapiUserAvatar(userId, groupJid, preview);
+        return mapChatDetailsToUaz(groupJid, { URL: image }, { ...row, Name: name });
+      } catch {
+        return mapChatDetailsToUaz(groupJid, {}, {});
+      }
+    }
 
-    const avatar = avatarBody.status === "fulfilled" ? wuzapiHttp.unwrap(avatarBody.value) : {};
-    const info = infoBody.status === "fulfilled" ? wuzapiHttp.unwrap(infoBody.value) : {};
-    return mapChatDetailsToUaz(target, avatar, info);
+    const phone = await wuzapiLidResolverService.resolvePhoneForSend(userId, target);
+    const infoPhone = isPlausibleWhatsappPhoneDigits(phone) ? phone : normalizePhone(target);
+    const infoBody = infoPhone
+      ? await wuzapiHttp.postUser(userId, "/user/info", { Phone: [infoPhone] }).catch(() => null)
+      : null;
+    const info = infoBody ? wuzapiHttp.unwrap(infoBody) : {};
+    const image = await fetchWuzapiUserAvatar(userId, target, preview);
+    return mapChatDetailsToUaz(target, { URL: image }, info);
+  }
+
+  /** Swagger: POST /user/avatar — lote para sidebar sem N× round-trips no browser. */
+  async batchFetchAvatars(
+    userId: string,
+    targets: string[],
+    preview = true,
+  ): Promise<Record<string, string>> {
+    const unique = Array.from(new Set(
+      (Array.isArray(targets) ? targets : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean),
+    )).slice(0, 40);
+    const out: Record<string, string> = {};
+    const contactsMap = await this.fetchContactsMap(userId);
+    await wuzapiLidResolverService.warmFromLidTargets(userId, unique, 30);
+
+    const aliasKeys = (original: string, phoneDigits: string): string[] => {
+      const keys = new Set<string>();
+      const normalized = String(original || "").trim().toLowerCase();
+      if (normalized) keys.add(normalized);
+      if (phoneDigits) {
+        keys.add(phoneDigits);
+        keys.add(`${phoneDigits}@s.whatsapp.net`);
+      }
+      return Array.from(keys);
+    };
+
+    const resolveTargetPhone = async (target: string): Promise<string> => {
+      if (isGroupJid(target)) return "";
+      let phone = await wuzapiLidResolverService.resolvePhoneForSend(userId, target);
+      if (!isPlausibleWhatsappPhoneDigits(phone)) {
+        phone = resolveAvatarPhoneForChat(
+          { wa_chatid: target, chatid: target, phone: "" },
+          contactsMap,
+        );
+      }
+      return isPlausibleWhatsappPhoneDigits(phone) ? phone : "";
+    };
+
+    const batchSize = 6;
+    for (let i = 0; i < unique.length; i += batchSize) {
+      const batch = unique.slice(i, i + batchSize);
+      await Promise.allSettled(batch.map(async (target) => {
+        if (isGroupJid(target)) {
+          const image = await fetchWuzapiUserAvatar(userId, target, preview);
+          if (!image) return;
+          for (const key of aliasKeys(target, "")) out[key] = image;
+          return;
+        }
+
+        const phone = await resolveTargetPhone(target);
+        if (!phone) return;
+        const image = await fetchWuzapiUserAvatar(userId, phone, preview);
+        if (!image) return;
+        for (const key of aliasKeys(target, phone)) out[key] = image;
+      }));
+    }
+    return out;
   }
 
   async deleteChat(_userId: string, _data: any): Promise<any> {

@@ -2,6 +2,7 @@ import {
   normalizeFoodSearchQuery,
   pickBestFoodMatch,
   scoreFoodSearchResult,
+  scoreQueryTokenMismatchPenalty,
   tokenizeFoodQuery,
   expandTokenSynonyms,
   FOOD_SOURCE_SCORE_BOOST,
@@ -95,6 +96,7 @@ export function scoreFoodForSwapMatch(
   score += matchedCore * 18;
 
   score += FOOD_SOURCE_SCORE_BOOST[source] ?? 0;
+  score += scoreQueryTokenMismatchPenalty(query, name);
 
   if (source === "TBCA" && /\bin\s+natura\b/i.test(name)) score += 55;
 

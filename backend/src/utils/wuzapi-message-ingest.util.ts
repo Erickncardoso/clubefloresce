@@ -1,3 +1,5 @@
+import { extractPreviewFromMessageRaw } from "../services/wuzapi/wuzapi-mappers";
+
 type JsonObject = Record<string, unknown>;
 
 const pickText = (value: unknown): string => {
@@ -80,7 +82,9 @@ export function wuzapiWhatsappEventToUazRow(
   let chatJid = resolveChatJidFromInfo(info, fallbackChatJid);
   let messageId = resolveMessageIdFromInfo(info);
   let fromMe = Boolean(info.IsFromMe ?? info.isFromMe ?? info.FromMe ?? info.fromMe);
-  let timestamp = resolveTimestampFromInfo(info);
+  // No HistorySync o timestamp fica no nível do WebMessageInfo (event.messageTimestamp),
+  // não em Info nem em Message — sem esse fallback toda mensagem antiga vinha com Date.now().
+  let timestamp = resolveTimestampFromInfo(info, event.messageTimestamp ?? event.MessageTimestamp);
 
   // HistorySync usa Key aninhado em Message.
   const key = (event.Key ?? event.key ?? messageBody.Key ?? messageBody.key) as JsonObject | undefined;
@@ -92,10 +96,22 @@ export function wuzapiWhatsappEventToUazRow(
     if (info.IsFromMe === undefined && info.isFromMe === undefined) {
       fromMe = Boolean(key.FromMe ?? key.fromMe);
     }
-    if (!timestamp) timestamp = messageBody.MessageTimestamp ?? messageBody.messageTimestamp;
+    if (!timestamp) {
+      timestamp = event.messageTimestamp ?? event.MessageTimestamp
+        ?? messageBody.MessageTimestamp ?? messageBody.messageTimestamp;
+    }
   }
 
   if (!messageId || !chatJid) return null;
+
+  const previewText = extractPreviewFromMessageRaw({
+    Message: messageBody,
+    message: messageBody,
+    text: messageBody.conversation,
+    body: messageBody.conversation,
+    Info: info,
+    ...event,
+  });
 
   return {
     id: messageId,
@@ -104,6 +120,9 @@ export function wuzapiWhatsappEventToUazRow(
     wa_chatid: chatJid,
     fromMe,
     messageTimestamp: timestamp ?? Date.now(),
+    text: previewText,
+    body: previewText,
+    message: previewText,
     key: {
       remoteJid: chatJid,
       id: messageId,
@@ -112,7 +131,16 @@ export function wuzapiWhatsappEventToUazRow(
     },
     Message: messageBody,
     Info: info,
-    sender_pn: pickText(info.Sender ?? info.sender ?? info.Participant ?? info.participant),
+    sender_pn: pickText(
+      info.SenderAlt
+      ?? info.senderAlt
+      ?? info.Sender
+      ?? info.sender
+      ?? info.Participant
+      ?? info.participant
+      ?? key?.Participant
+      ?? key?.participant,
+    ),
     raw: event,
   };
 }

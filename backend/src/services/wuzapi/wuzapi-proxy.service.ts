@@ -63,6 +63,10 @@ const POST_ROUTES: Record<string, ProxyHandler> = {
 
   "/send/menu": async (userId, body) => whatsappService.sendMenu(userId, body),
 
+  "/send/contact": async (userId, body) => whatsappService.sendContact(userId, body),
+
+  "/send/location": async (userId, body) => whatsappService.sendLocation(userId, body),
+
   "/message/react": async (userId, body) => whatsappService.reactMessage(userId, {
     number: String(body.number || body.chatid || ""),
     text: String(body.text || body.emoji || ""),
