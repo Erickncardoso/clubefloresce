@@ -1,5 +1,30 @@
 import { authFetchInit } from '~/composables/useAuthSession.js'
 import { apiConnectionErrorMessage, isApiConnectionError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
+import { clearDietaLocalStorage, syncDietaPlanIdentity } from '~/utils/dieta-local-state.js'
+
+function resetDietaClientState({ forceClear = false, planId = null } = {}) {
+  if (!import.meta.client) return
+
+  if (planId) syncDietaPlanIdentity(planId, { forceClear })
+  else if (forceClear) clearDietaLocalStorage()
+
+  useMealItemOverrides().clearAllOverrides()
+  useMealExtraItems().clearAllExtras()
+}
+
+function applyFetchedPlanIdentity(plan) {
+  if (!import.meta.client) return
+  const planId = plan?.id
+  if (!planId) return
+
+  const cleared = syncDietaPlanIdentity(planId)
+  if (cleared) {
+    useMealItemOverrides().clearAllOverrides()
+    useMealExtraItems().clearAllExtras()
+  }
+
+  useMealItemOverrides().pruneOverridesForPlan(plan)
+}
 
 function showUploadResultToast({ successTitle, errorMessage }) {
   if (!import.meta.client) return
@@ -53,6 +78,8 @@ export function usePatientMealPlan() {
           timeout: 12_000,
         }))
         planRecord.value = res.plan ?? null
+
+        applyFetchedPlanIdentity(planRecord.value)
 
         const planName = planRecord.value?.patientName || planRecord.value?.plan?.patientName
         if (planName) {
@@ -133,6 +160,7 @@ export function usePatientMealPlan() {
       }))
       planRecord.value = res.plan ?? null
       planChecked.value = true
+      resetDietaClientState({ forceClear: true, planId: planRecord.value?.id })
 
       if (res.user?.name) {
         const { persistSession } = usePatientApp()

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BellRing, Lock, Sparkles } from 'lucide-react-native';
 import HealthDisclaimerBanner from '@/components/ui/HealthDisclaimerBanner';
@@ -25,7 +25,6 @@ import {
   permissionBlockedMessage,
   type PermissionState,
 } from '@/notifications/permission';
-import { patientAssets } from '@/lib/patient-assets';
 import { maskBirthDateBr, parseBirthDateBrToIso } from '@/lib/masks';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -273,17 +272,7 @@ export default function OnboardingScreen() {
       {step === 'welcome' ? (
         <View style={styles.welcome}>
           <View style={styles.welcomeHero}>
-            <View style={styles.welcomeDevice}>
-              <View style={styles.welcomeScreen}>
-                <BrandLogo size="lg" animated />
-              </View>
-              <Image
-                source={patientAssets.mockupIsa}
-                style={styles.welcomeMockup}
-                resizeMode="contain"
-                accessibilityIgnoresInvertColors
-              />
-            </View>
+            <BrandLogo size="lg" animated />
           </View>
           <Text style={styles.title}>Sua jornada no Clube Florescer começa aqui</Text>
           <Text style={styles.sub}>
@@ -463,37 +452,10 @@ const styles = StyleSheet.create({
     gap: spacing[4],
   },
   welcomeHero: {
-    width: '100%',
-    maxWidth: 184,
-    marginBottom: spacing[2],
-  },
-  welcomeDevice: {
-    width: '100%',
-    aspectRatio: 486 / 978,
-    position: 'relative',
-    backgroundColor: '#fff',
-    borderRadius: 28,
-    overflow: 'hidden',
-  },
-  welcomeScreen: {
-    position: 'absolute',
-    top: '5.5%',
-    left: '5.5%',
-    right: '5.5%',
-    bottom: '6.7%',
-    zIndex: 3,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  welcomeMockup: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-    zIndex: 2,
+    minHeight: 120,
+    marginBottom: spacing[2],
   },
   step: {
     width: '100%',

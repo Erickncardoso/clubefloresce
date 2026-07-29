@@ -15,20 +15,7 @@
 
     <section v-else-if="currentStep === 'welcome'" class="onb-welcome">
       <div class="onb-welcome__hero" aria-hidden="true">
-        <div class="onb-welcome__device">
-          <div class="onb-welcome__screen">
-            <PatientLoadingLogo size="xl" class="onb-welcome__logo" />
-          </div>
-          <img
-            src="/imgs/mockup-isa.png"
-            alt=""
-            class="onb-welcome__mockup"
-            width="486"
-            height="978"
-            loading="eager"
-            draggable="false"
-          >
-        </div>
+        <PatientLoadingLogo size="xl" class="onb-welcome__logo" />
       </div>
       <h1 class="onb-title onb-title--center">Sua jornada no Clube Florescer começa aqui</h1>
       <p class="onb-sub onb-sub--center">
@@ -433,52 +420,17 @@ onBeforeUnmount(() => {
 }
 
 .onb-welcome__hero {
-  width: min(100%, 11.5rem);
-  margin-bottom: 1.5rem;
-}
-
-/* mockup-isa.png — 486×978; tela transparente deixa a logo aparecer por baixo da moldura */
-.onb-welcome__device {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 486 / 978;
-  margin-inline: auto;
-  background: #fff;
-  border-radius: 14%;
-  overflow: hidden;
-}
-
-.onb-welcome__screen {
-  position: absolute;
-  top: 5.5%;
-  left: 5.5%;
-  right: 5.5%;
-  bottom: 6.7%;
-  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border-radius: 11%;
-  overflow: visible;
-  pointer-events: none;
+  width: min(100%, 12rem);
+  min-height: 7.5rem;
+  margin-bottom: 1.5rem;
 }
 
-.onb-welcome__screen :deep(.cf-loading-logo) {
-  height: clamp(4.25rem, 58%, 7rem);
+.onb-welcome__logo :deep(.cf-loading-logo) {
+  height: clamp(4.5rem, 18vw, 6.5rem);
   width: auto;
-}
-
-.onb-welcome__mockup {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  z-index: 2;
-  pointer-events: none;
-  user-select: none;
 }
 
 .onb-date-field {

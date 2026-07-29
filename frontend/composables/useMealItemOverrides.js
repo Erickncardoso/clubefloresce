@@ -124,31 +124,77 @@ export function useMealItemOverrides() {
     return aDisplay === bDisplay
   }
 
+  function clearAllOverrides() {
+    overridesCache.value = {}
+    overridesRevision.value += 1
+    if (import.meta.server || typeof localStorage === 'undefined') return
+
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index)
+      if (key?.startsWith('dieta_overrides_')) localStorage.removeItem(key)
+    }
+  }
+
+  function pruneOverridesForPlan(planRecord) {
+    const meals = planRecord?.plan?.meals
+    if (!meals?.length) return
+
+    for (const meal of meals) {
+      const validKeys = new Set((meal.items || []).map((item) => item.key))
+      const current = { ...getOverrides(meal.id) }
+      let changed = false
+
+      for (const [key, override] of Object.entries(current)) {
+        if (!validKeys.has(key)) {
+          delete current[key]
+          changed = true
+          continue
+        }
+
+        const prescribed = (meal.items || []).find((item) => item.key === key)
+        if (prescribed && isSameOverride(prescribed, override)) {
+          delete current[key]
+          changed = true
+        }
+      }
+
+      if (changed) persistOverrides(meal.id, current)
+    }
+  }
+
   function applyOverridesToMeal(meal, mealId) {
     if (!meal) return null
 
     const overrides = getOverrides(mealId)
     const items = (meal.items || []).map((item) => {
+      const normalizedItem = normalizeMealPlanItem(item)
       const override = overrides[item.key]
+
       if (!override) {
-        const normalized = normalizeMealPlanItem(item)
         return {
-          ...normalized,
+          ...normalizedItem,
           isSubstituted: false,
         }
       }
 
-      const normalized = normalizeOverrideItem(override)
+      const normalizedOverride = normalizeOverrideItem(override)
+      if (isSameOverride(normalizedItem, normalizedOverride)) {
+        return {
+          ...normalizedItem,
+          isSubstituted: false,
+        }
+      }
+
       const merged = normalizeMealPlanItem({
         ...item,
-        ...normalized,
-        display: normalized.display || item.display || formatMealItemLabel(normalized),
+        ...normalizedOverride,
+        display: normalizedOverride.display || item.display || formatMealItemLabel(normalizedOverride),
         originalDisplay: item.display || formatMealItemLabel(item),
       })
       return {
         ...merged,
         isSubstituted: true,
-        activeSubstitute: normalized,
+        activeSubstitute: normalizedOverride,
       }
     })
 
@@ -164,6 +210,8 @@ export function useMealItemOverrides() {
     getOverrides,
     setOverride,
     clearOverride,
+    clearAllOverrides,
+    pruneOverridesForPlan,
     getOverrideForItem,
     isSameOverride,
     applyOverridesToMeal,

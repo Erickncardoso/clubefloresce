@@ -15,7 +15,7 @@ function roundMacro(value: number) {
   return Math.round(Number(value) * 10) / 10;
 }
 
-function createMealItemId() {
+export function createMealItemId() {
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 

@@ -183,6 +183,9 @@ html.cf-safari-inline.cf-pwa-standalone.cf-ios {
 /* Teclado virtual — esconde tab bar e libera espaço no conteúdo */
 html.vk-open .patient-nav,
 html.meal-sheet-keyboard .patient-nav,
+html.meal-flow-open .patient-nav,
+html.meal-flow-open .patient-quick-fab,
+html.meal-flow-open .patient-quick-dial,
 body.keyboard-open .patient-nav {
   display: none;
 }

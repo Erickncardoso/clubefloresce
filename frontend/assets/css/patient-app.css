@@ -265,7 +265,7 @@ html.bella-chat-active .bella-chat-shell {
   left: 0;
   right: 0;
   bottom: var(--bella-dock-bottom, 0px);
-  z-index: 95;
+  z-index: 1005;
   width: 100%;
   max-width: 430px;
   margin: 0 auto;

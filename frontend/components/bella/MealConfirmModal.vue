@@ -472,6 +472,8 @@ watch(
   () => props.open,
   (open) => {
     if (typeof document === 'undefined') return
+    document.documentElement.classList.toggle('meal-flow-open', open)
+
     if (open) {
       lockPatientScroll()
       sheetEntered.value = false
@@ -754,6 +756,9 @@ onUnmounted(() => {
   removeDragListeners()
   unbindViewportSync()
   resetPatientScrollLock()
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.remove('meal-flow-open')
+  }
 })
 </script>
 
@@ -761,7 +766,7 @@ onUnmounted(() => {
 .meal-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 10010;
   border: none;
   padding: 0;
   margin: 0;
@@ -774,7 +779,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 130;
+  z-index: 10020;
   display: flex;
   flex-direction: column;
   width: 100%;

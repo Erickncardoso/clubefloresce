@@ -106,6 +106,17 @@ export function useMealExtraItems() {
     persistExtras(mealId, next)
   }
 
+  function clearAllExtras() {
+    extrasCache.value = {}
+    extrasRevision.value += 1
+    if (import.meta.server || typeof localStorage === 'undefined') return
+
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index)
+      if (key?.startsWith('dieta_extras_')) localStorage.removeItem(key)
+    }
+  }
+
   function applyExtraItemsToMeal(meal, mealId) {
     if (!meal) return null
 
@@ -126,6 +137,7 @@ export function useMealExtraItems() {
     getExtraItems,
     addExtraItem,
     removeExtraItem,
+    clearAllExtras,
     applyExtraItemsToMeal,
   }
 }

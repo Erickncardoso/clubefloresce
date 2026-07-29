@@ -126,6 +126,10 @@ const isLastStep = computed(() => step.value >= totalSteps)
 watch(
   () => props.open,
   (open) => {
+    if (typeof document === 'undefined') return
+
+    document.documentElement.classList.toggle('meal-flow-open', open)
+
     if (open) {
       step.value = 1
       lockPatientScroll()
@@ -136,6 +140,9 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.remove('meal-flow-open')
+  }
   if (props.open) unlockPatientScroll()
 })
 
@@ -152,7 +159,7 @@ function onPrimaryClick() {
 .photo-guide {
   position: fixed;
   inset: 0;
-  z-index: 140;
+  z-index: 10020;
   display: flex;
   flex-direction: column;
   background: #fff;

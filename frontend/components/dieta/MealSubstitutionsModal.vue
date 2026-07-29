@@ -133,7 +133,7 @@ const emit = defineEmits(['update:open', 'substituted'])
 
 const { pdfSource: pdfSourceRef } = useMealSubstitutions()
 const pdfSource = pdfSourceRef
-const { getOverrideForItem, setOverride, isSameOverride } = useMealItemOverrides()
+const { getOverrideForItem, setOverride, clearOverride, isSameOverride } = useMealItemOverrides()
 
 const initialOverrides = ref({})
 const draftOverrides = ref({})
@@ -168,8 +168,20 @@ function syncDraft() {
       continue
     }
 
-    const matched = group.options.find((option) => isSameOverride(stored, option)) || stored
-    current[group.key] = matched
+    if (isSameOverride(stored, group.prescribed)) {
+      clearOverride(props.mealId, group.key)
+      current[group.key] = null
+      continue
+    }
+
+    const matchedOption = group.options.find((option) => isSameOverride(stored, option))
+    if (matchedOption) {
+      current[group.key] = matchedOption
+      continue
+    }
+
+    clearOverride(props.mealId, group.key)
+    current[group.key] = null
   }
 
   initialOverrides.value = { ...current }

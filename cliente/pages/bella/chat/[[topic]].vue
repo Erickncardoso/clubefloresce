@@ -370,6 +370,7 @@ const taskHint = ref('')
 const selectedFile = ref(null)
 const attachmentPreview = ref(null)
 const pendingCameraOpen = ref(false)
+const autoSendAfterCamera = ref(false)
 const showPhotoGuide = ref(false)
 
 const MEAL_PHOTO_GUIDE_KEY = 'bella-meal-photo-guide-v2'
@@ -921,6 +922,7 @@ function applyRouteContext() {
   }
   if (route.query.camera === '1') {
     pendingCameraOpen.value = true
+    autoSendAfterCamera.value = true
   }
   initMealSelection()
 }
@@ -1283,6 +1285,7 @@ const openCamera = () => {
 
 function onPhotoGuideClose() {
   showPhotoGuide.value = false
+  autoSendAfterCamera.value = false
 }
 
 function onPhotoGuideComplete() {
@@ -1343,6 +1346,13 @@ const onFileSelected = (event) => {
     kind: isPdf ? 'pdf' : 'image',
     name: file.name,
     url: isPdf ? null : URL.createObjectURL(file),
+  }
+
+  if (autoSendAfterCamera.value && isImage && chatTopic.value === 'meal') {
+    autoSendAfterCamera.value = false
+    nextTick(() => {
+      void sendMessage()
+    })
   }
 }
 
@@ -1646,13 +1656,13 @@ async function bootstrapChat() {
     bindScrollRoot()
     await scrollToBottomAfterLayout()
     if (pendingCameraOpen.value && topicConfig.value.acceptImages) {
-      pendingCameraOpen.value = false
       await nextTick()
       if (shouldShowMealPhotoGuide()) {
         openPhotoGuide()
       } else {
         openCamera()
       }
+      pendingCameraOpen.value = false
     }
     await applyPendingHandoff()
   } catch (err) {
