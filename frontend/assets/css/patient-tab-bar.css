@@ -75,12 +75,11 @@ html.cf-mobile-app #cf-tab-bar-root .patient-nav {
   bottom: auto;
 }
 
+/* Sem inset:0 — overlay fullscreen aqui bloqueava toques no conteúdo em alguns Android/iOS */
 #cf-tab-bar-root {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
+  position: static;
+  z-index: auto;
   pointer-events: none;
-  overflow: visible;
 }
 
 #cf-tab-bar-root .patient-nav {

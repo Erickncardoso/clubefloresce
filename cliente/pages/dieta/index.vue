@@ -691,12 +691,18 @@ async function syncAllCheckedMealsIfNeeded() {
   }
 }
 
+function shouldDeferOptionIntro() {
+  return typeof route.query.meal === 'string' && route.query.meal.length > 0
+}
+
 function hydrateDietaFromPlan() {
   if (!hasPlan.value) return false
 
   activeMeal.value = resolveActiveMealFromRoute()
   syncChecked(activeMeal.value)
-  openOptionIntroIfNeeded()
+  if (!shouldDeferOptionIntro()) {
+    openOptionIntroIfNeeded()
+  }
   return true
 }
 
@@ -760,11 +766,11 @@ watch(extrasRevision, () => {
 
 watch(
   () => route.query.meal,
-  (queryMeal) => {
-    if (typeof queryMeal === 'string' && mealOrder.value.includes(queryMeal)) {
-      activeMeal.value = queryMeal
-      syncChecked(queryMeal)
-    }
+  () => {
+    const mealId = resolveActiveMealFromRoute()
+    if (!mealId) return
+    activeMeal.value = mealId
+    syncChecked(mealId)
   },
 )
 
@@ -779,6 +785,7 @@ watch(
   [needsOptionSelection, planLoading],
   ([needs, loading]) => {
     if (loading || optionPickerOpen.value || optionIntroOpen.value) return
+    if (shouldDeferOptionIntro()) return
     if (needs) openOptionIntroIfNeeded()
   },
 )

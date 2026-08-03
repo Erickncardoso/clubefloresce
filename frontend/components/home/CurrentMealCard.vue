@@ -1,5 +1,14 @@
 <template>
-  <NuxtLink v-if="meal" :to="dietaLink" class="home-meal-card">
+  <article
+    v-if="meal"
+    class="home-meal-card"
+    role="link"
+    tabindex="0"
+    :aria-label="`Abrir ${meal.label} no plano alimentar`"
+    @click="openDieta"
+    @keydown.enter="openDieta"
+    @keydown.space.prevent="openDieta"
+  >
     <header class="home-meal-card-head">
       <div class="home-meal-card-icon-wrap" aria-hidden="true">
         <component :is="meal.icon" class="home-meal-card-icon" />
@@ -50,7 +59,7 @@
         <ChevronRight class="home-meal-card-cta-icon" aria-hidden="true" />
       </span>
     </footer>
-  </NuxtLink>
+  </article>
 </template>
 
 <script setup>
@@ -64,6 +73,7 @@ const props = defineProps({
   maxItems: { type: Number, default: 4 },
 })
 
+const router = useRouter()
 const now = ref(new Date())
 const { currentMeal, getMealById } = useMealPlan(now)
 const { loadChecked, countDone } = useDietaProgress()
@@ -152,11 +162,18 @@ const dietaLink = computed(() => ({
   path: '/dieta',
   query: { meal: meal.value?.id },
 }))
+
+function openDieta() {
+  if (!meal.value?.id) return
+  void router.push(dietaLink.value)
+}
 </script>
 
 <style scoped>
 .home-meal-card {
   display: block;
+  position: relative;
+  z-index: 2;
   padding: 1rem 1rem 0;
   border: 1px solid #e5e5ea;
   border-radius: 1.25rem;
@@ -164,6 +181,7 @@ const dietaLink = computed(() => ({
   box-shadow: none;
   text-decoration: none;
   color: inherit;
+  cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.18s ease, border-color 0.18s ease;

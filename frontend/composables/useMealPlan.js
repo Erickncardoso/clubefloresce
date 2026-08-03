@@ -96,8 +96,9 @@ export function useMealPlan(nowRef) {
   const currentMeal = computed(() => {
     overridesRevision.value
     extrasRevision.value
-    if (!currentMealId.value) return null
-    return getMealById(currentMealId.value)
+    const id = currentMealId.value || mealOrder.value[0] || null
+    if (!id) return null
+    return getMealById(id)
   })
 
   function getItemLabels(mealId) {
