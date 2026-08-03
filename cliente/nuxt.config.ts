@@ -80,6 +80,7 @@ export default defineNuxtConfig({
     join(rootDir, 'plugins/instagram-external-browser.client.ts'),
     join(rootDir, 'plugins/incoming-video-call.client.ts'),
     join(frontendRoot, 'plugins/patient-app-splash.client.ts'),
+    join(frontendRoot, 'plugins/patient-tab-bar-root.client.ts'),
     join(frontendRoot, 'plugins/pwa-dev-unregister.client.ts'),
     join(frontendRoot, 'plugins/auth-session-bootstrap.client.ts'),
     join(frontendRoot, 'plugins/api-base.client.js'),

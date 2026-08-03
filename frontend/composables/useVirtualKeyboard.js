@@ -1,3 +1,5 @@
+import { resyncPwaViewportMetrics } from '~/utils/ios-pwa-chrome'
+
 export function useVirtualKeyboard() {
   const keyboardOpen = ref(false)
 
@@ -26,6 +28,10 @@ export function useVirtualKeyboard() {
         keyboardOpen.value = isOpen
         document.documentElement.classList.toggle('vk-open', isOpen)
         document.body.classList.toggle('keyboard-open', isOpen)
+
+        if (!isOpen) {
+          resyncPwaViewportMetrics()
+        }
       }
 
       if (!isOpen) {

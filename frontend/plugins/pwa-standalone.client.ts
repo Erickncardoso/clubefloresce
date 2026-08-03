@@ -1,4 +1,3 @@
-import { isIOSDevice } from '~/utils/ios-pwa-chrome'
 import {
   clearPwaUpdating,
   hasInstalledPwa,
@@ -14,10 +13,6 @@ export default defineNuxtPlugin(() => {
   if (isStandalonePwa()) {
     markPwaInstalled()
     document.documentElement.classList.add('cf-pwa-standalone')
-    // iOS usa --cf-vvh sincronizado pelo ios-pwa-chrome (altura física real).
-    if (!isIOSDevice()) {
-      document.documentElement.style.removeProperty('--cf-vvh')
-    }
     return
   }
 

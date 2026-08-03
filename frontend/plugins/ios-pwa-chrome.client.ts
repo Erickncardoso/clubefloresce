@@ -21,16 +21,14 @@ export default defineNuxtPlugin(() => {
   }
 
   if (standalone) {
+    installIOSPwaViewportSync()
     if (ios) {
       document.documentElement.classList.add('cf-ios-pwa')
-      installIOSPwaViewportSync()
     }
-    return
-  }
-
-  document.documentElement.classList.add('cf-safari-inline')
-
-  if (ios) {
+  } else if (ios) {
+    document.documentElement.classList.add('cf-safari-inline')
     installIOSPwaChromeGuard()
+  } else {
+    installIOSPwaViewportSync()
   }
 })

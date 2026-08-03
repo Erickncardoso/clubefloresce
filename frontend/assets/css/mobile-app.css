@@ -42,12 +42,12 @@ html.cf-mobile-app #__nuxt {
  * PWA instalado — Android: 100dvh. iOS: --cf-vvh (altura física via ios-pwa-chrome).
  */
 @media (display-mode: standalone) {
-  html.cf-mobile-app:not(.cf-ios-pwa),
-  html.cf-mobile-app:not(.cf-ios-pwa) body,
-  html.cf-mobile-app:not(.cf-ios-pwa) #__nuxt,
-  html.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell),
-  html.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell) body,
-  html.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell) #__nuxt {
+  html.cf-mobile-app:not(.cf-ios-pwa):not(.cf-pwa-standalone),
+  html.cf-mobile-app:not(.cf-ios-pwa):not(.cf-pwa-standalone) body,
+  html.cf-mobile-app:not(.cf-ios-pwa):not(.cf-pwa-standalone) #__nuxt,
+  html.cf-mobile-app:not(.cf-ios-pwa):not(.cf-pwa-standalone):has(.patient-shell),
+  html.cf-mobile-app:not(.cf-ios-pwa):not(.cf-pwa-standalone):has(.patient-shell) body,
+  html.cf-mobile-app:not(.cf-ios-pwa):not(.cf-pwa-standalone):has(.patient-shell) #__nuxt {
     height: 100dvh !important;
     min-height: 100dvh !important;
     max-height: none !important;
@@ -58,7 +58,13 @@ html.cf-mobile-app #__nuxt {
   html.cf-ios-pwa.cf-mobile-app #__nuxt,
   html.cf-ios-pwa.cf-mobile-app:has(.patient-shell),
   html.cf-ios-pwa.cf-mobile-app:has(.patient-shell) body,
-  html.cf-ios-pwa.cf-mobile-app:has(.patient-shell) #__nuxt {
+  html.cf-ios-pwa.cf-mobile-app:has(.patient-shell) #__nuxt,
+  html.cf-pwa-standalone.cf-mobile-app:not(.cf-ios-pwa),
+  html.cf-pwa-standalone.cf-mobile-app:not(.cf-ios-pwa) body,
+  html.cf-pwa-standalone.cf-mobile-app:not(.cf-ios-pwa) #__nuxt,
+  html.cf-pwa-standalone.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell),
+  html.cf-pwa-standalone.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell) body,
+  html.cf-pwa-standalone.cf-mobile-app:not(.cf-ios-pwa):has(.patient-shell) #__nuxt {
     height: var(--cf-vvh, 100dvh) !important;
     min-height: var(--cf-vvh, 100dvh) !important;
     max-height: var(--cf-vvh, 100dvh) !important;

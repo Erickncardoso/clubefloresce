@@ -24,8 +24,9 @@
   --pa-tab-h: var(--cf-tab-h);
 }
 
-/* PWA instalado no iPhone — home indicator (só modo standalone real) */
-html.cf-ios-pwa {
+/* PWA instalado — home indicator / gesture bar (iOS + Android standalone) */
+html.cf-ios-pwa,
+html.cf-pwa-standalone:not(.cf-safari-inline) {
   --patient-nav-safe: env(safe-area-inset-bottom, 0px);
 }
 
@@ -66,6 +67,24 @@ html.cf-safari-inline.cf-pwa-standalone.cf-ios {
 
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* PWA/mobile — posição via visualViewport (--patient-nav-top setado em JS) */
+html.cf-mobile-app #cf-tab-bar-root .patient-nav {
+  top: var(--patient-nav-top, auto);
+  bottom: auto;
+}
+
+#cf-tab-bar-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  overflow: visible;
+}
+
+#cf-tab-bar-root .patient-nav {
+  pointer-events: auto;
 }
 
 @supports not (
@@ -198,6 +217,11 @@ body.keyboard-open:has(.patient-nav) .patient-page:not(.patient-page--no-tab) {
 }
 
 @media (min-width: 768px) {
+  html.cf-mobile-app .patient-nav {
+    top: auto;
+    bottom: 0;
+  }
+
   .patient-nav {
     left: 50%;
     right: auto;

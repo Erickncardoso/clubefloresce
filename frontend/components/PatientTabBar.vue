@@ -1,33 +1,37 @@
 <template>
-  <nav
-    class="patient-nav"
-    role="navigation"
-    aria-label="Navegação principal"
-    :style="{ '--patient-nav-columns': navItems.length }"
-  >
-    <button
-      v-for="item in navItems"
-      :key="item.key"
-      type="button"
-      class="patient-nav__item"
-      :class="{
-        'is-active': isItemActive(item),
-        'patient-nav__item--bella': item.key === 'bella',
-        'is-open': item.key === 'bella' && isItemActive(item),
-      }"
-      :aria-label="item.label"
-      :aria-current="isItemActive(item) ? 'page' : undefined"
-      @click="onItemClick(item)"
+  <!-- Fora do shell (body/#__nuxt com overflow + altura --cf-vvh) — filho direto do html -->
+  <Teleport to="#cf-tab-bar-root">
+    <nav
+      class="patient-nav"
+      role="navigation"
+      aria-label="Navegação principal"
+      :style="{ '--patient-nav-columns': navItems.length }"
     >
-      <span v-if="item.key === 'bella'" class="patient-nav__bella-icon" aria-hidden="true">
-        <component :is="item.icon" />
-      </span>
-      <component v-else :is="item.icon" />
-    </button>
-  </nav>
+      <button
+        v-for="item in navItems"
+        :key="item.key"
+        type="button"
+        class="patient-nav__item"
+        :class="{
+          'is-active': isItemActive(item),
+          'patient-nav__item--bella': item.key === 'bella',
+          'is-open': item.key === 'bella' && isItemActive(item),
+        }"
+        :aria-label="item.label"
+        :aria-current="isItemActive(item) ? 'page' : undefined"
+        @click="onItemClick(item)"
+      >
+        <span v-if="item.key === 'bella'" class="patient-nav__bella-icon" aria-hidden="true">
+          <component :is="item.icon" />
+        </span>
+        <component v-else :is="item.icon" />
+      </button>
+    </nav>
+  </Teleport>
 </template>
 
 <script setup>
+import { syncPatientTabBarDock } from '~/utils/patient-tab-bar-dock.mjs'
 import NavBellaIcon from '~/components/icons/nav/NavBellaIcon.vue'
 import NavCommunityIcon from '~/components/icons/nav/NavCommunityIcon.vue'
 import NavDietIcon from '~/components/icons/nav/NavDietIcon.vue'
@@ -138,4 +142,16 @@ async function goRoute(item) {
 function onItemClick(item) {
   goRoute(item)
 }
+
+onMounted(() => {
+  nextTick(() => syncPatientTabBarDock())
+})
+
+watch(navItems, () => {
+  nextTick(() => syncPatientTabBarDock())
+})
+
+onUnmounted(() => {
+  nextTick(() => syncPatientTabBarDock())
+})
 </script>

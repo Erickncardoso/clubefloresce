@@ -44,6 +44,8 @@ function clampWindowScroll() {
   if (document.body.scrollTop !== 0) document.body.scrollTop = 0
 }
 
+import { syncPatientTabBarDock } from './patient-tab-bar-dock.mjs'
+
 function syncViewportMetrics() {
   const vv = window.visualViewport
   const vvHeight = vv?.height ?? window.innerHeight
@@ -51,12 +53,27 @@ function syncViewportMetrics() {
   const keyboardOpen =
     isTextInputFocused() || document.documentElement.classList.contains('vk-open')
 
+  const layoutHeight = window.innerHeight || 0
   const height = keyboardOpen
     ? vvHeight
-    : Math.max(vvHeight, window.innerHeight || 0)
+    : Math.max(vvHeight, layoutHeight)
 
   document.documentElement.style.setProperty('--cf-vvh', `${Math.round(height)}px`)
   document.documentElement.style.setProperty('--cf-vv-offset-top', `${Math.round(offsetTop)}px`)
+  syncPatientTabBarDock()
+}
+
+function scheduleViewportResync() {
+  syncViewportMetrics()
+  requestAnimationFrame(syncViewportMetrics)
+  window.setTimeout(syncViewportMetrics, 120)
+  window.setTimeout(syncViewportMetrics, 320)
+}
+
+/** Re-sincroniza após teclado/fechamento de sheet — evita tab bar presa “pra cima”. */
+export function resyncPwaViewportMetrics() {
+  if (typeof window === 'undefined') return
+  scheduleViewportResync()
 }
 
 /**
@@ -64,7 +81,7 @@ function syncViewportMetrics() {
  * Sem bloquear scroll — o shell (.patient-shell-body) continua rolando normalmente.
  */
 export function installIOSPwaViewportSync() {
-  if (typeof window === 'undefined' || !isIOSDevice()) return () => {}
+  if (typeof window === 'undefined') return () => {}
 
   syncViewportMetrics()
 
@@ -73,7 +90,7 @@ export function installIOSPwaViewportSync() {
   }
 
   const onFocusChange = () => {
-    requestAnimationFrame(syncViewportMetrics)
+    scheduleViewportResync()
   }
 
   window.addEventListener('orientationchange', onViewportChange, { passive: true })
@@ -155,17 +172,13 @@ export function installIOSPwaChromeGuard() {
     if (!(target instanceof HTMLElement)) return
     if (!isTextInputFocused()) return
 
-    requestAnimationFrame(() => {
-      syncViewportMetrics()
-      clampWindowScroll()
-    })
+    scheduleViewportResync()
+    requestAnimationFrame(clampWindowScroll)
   }
 
   const onFocusOut = () => {
-    requestAnimationFrame(() => {
-      syncViewportMetrics()
-      clampWindowScroll()
-    })
+    scheduleViewportResync()
+    requestAnimationFrame(clampWindowScroll)
   }
 
   const onGestureStart = (event) => {
@@ -173,10 +186,8 @@ export function installIOSPwaChromeGuard() {
   }
 
   const onTouchEnd = () => {
-    requestAnimationFrame(() => {
-      syncViewportMetrics()
-      clampWindowScroll()
-    })
+    scheduleViewportResync()
+    requestAnimationFrame(clampWindowScroll)
   }
 
   document.addEventListener('touchstart', onTouchStart, { passive: true, capture: true })
