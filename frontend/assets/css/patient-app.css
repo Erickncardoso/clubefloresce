@@ -205,7 +205,7 @@ html.meal-sheet-keyboard .bella-composer-dock {
 }
 
 html:has(.patient-nav) .patient-shell-body {
-  scroll-padding-bottom: var(--cf-tab-clearance);
+  scroll-padding-bottom: var(--cf-page-pad-bottom-tab, var(--cf-tab-clearance));
   scroll-padding-top: calc(3.25rem + env(safe-area-inset-top, 0px));
 }
 

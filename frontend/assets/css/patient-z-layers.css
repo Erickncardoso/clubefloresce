@@ -1,0 +1,74 @@
+/**
+ * Camadas z-index — app paciente (PWA).
+ * Tab bar = 1000; bottom sheets e modais devem ficar acima.
+ */
+
+:root {
+  --cf-z-tab-bar: 1000;
+
+  --cf-z-sheet-backdrop: 1200;
+  --cf-z-sheet: 1210;
+
+  --cf-z-drawer-backdrop: 1300;
+  --cf-z-drawer: 1310;
+
+  --cf-z-modal-backdrop: 6000;
+  --cf-z-modal: 6010;
+
+  --cf-z-gate: 7000;
+  --cf-z-nav-loader: 7500;
+
+  --cf-z-screen-dim: 23900;
+  --cf-z-fab-dial: 24001;
+  --cf-z-fab: 24002;
+}
+
+/*
+ * Bottom sheets com z-index legado baixo (120–600) — ficavam atrás da tab bar.
+ * Não incluir modais que já usam 25000+ ou gates (6000+).
+ */
+.bella-sheet-backdrop,
+.mprs-overlay,
+.notif-panel-backdrop,
+.activity-panel-wrap,
+.checkin-prompt-overlay {
+  z-index: var(--cf-z-sheet-backdrop) !important;
+}
+
+.bella-sheet,
+.notif-panel {
+  z-index: var(--cf-z-sheet) !important;
+}
+
+.cf-drawer-backdrop {
+  z-index: var(--cf-z-drawer-backdrop) !important;
+}
+
+.cf-drawer {
+  z-index: var(--cf-z-drawer) !important;
+}
+
+/* Esconde tab bar enquanto um bottom sheet cobre a área inferior */
+html:has(
+    .bella-sheet,
+    .meal-sheet,
+    .dieta-subs-overlay,
+    .dieta-extra-backdrop,
+    .dieta-opts-overlay,
+    .dieta-opts-intro-overlay,
+    .mprs-overlay,
+    .evo-modal-overlay,
+    .quick-goal-overlay,
+    .notif-panel,
+    .activity-panel-wrap,
+    .checkin-prompt-overlay
+  )
+  #cf-tab-bar-root
+  .patient-nav,
+html.meal-flow-open #cf-tab-bar-root .patient-nav,
+html.meal-sheet-keyboard #cf-tab-bar-root .patient-nav,
+html.patient-quick-dial-open #cf-tab-bar-root .patient-nav,
+html.evo-goal-modal-open #cf-tab-bar-root .patient-nav {
+  visibility: hidden;
+  pointer-events: none;
+}

@@ -1,16 +1,149 @@
 <template>
   <div class="pawork">
-    <p v-if="listError" class="pawork-error">{{ listError }}</p>
-    <p v-if="listNotice" class="pawork-notice">{{ listNotice }}</p>
+    <header class="mpwork-head">
+      <div class="mpwork-head-meta">
+        <span class="mpwork-count">
+          <strong>{{ prescriptions.length }}</strong> de {{ MAX_PLANS }} planos
+        </span>
+        <span class="mpwork-published" :class="{ 'mpwork-published--on': hasPublishedPlan }">
+          <i class="mpwork-published-dot" aria-hidden="true" />
+          {{ importedPlanLabel }}
+        </span>
+      </div>
 
-    <section v-if="(pendingDraft || activeId) && !editorOpen" class="pawork-banner">
-      <span>{{ resumeBannerLabel }}</span>
-      <button type="button" class="btn-secondary pawork-btn" @click="editorOpen = true">
+      <div class="mpwork-head-actions">
+        <button
+          type="button"
+          class="btn-secondary mpwork-head-btn"
+          :aria-expanded="importOpen"
+          aria-controls="mpwork-import-panel"
+          @click="importOpen = !importOpen"
+        >
+          <Upload aria-hidden="true" />
+          Importar PDF
+        </button>
+        <button
+          type="button"
+          class="btn-primary mpwork-head-btn"
+          :disabled="planLimitReached"
+          :title="planLimitReached ? `Limite de ${MAX_PLANS} planos atingido` : ''"
+          @click="openNewModal"
+        >
+          <Plus aria-hidden="true" />
+          Novo plano alimentar
+        </button>
+      </div>
+    </header>
+
+    <p v-if="listError" class="mpwork-alert mpwork-alert--error" role="alert">
+      <AlertCircle aria-hidden="true" />
+      {{ listError }}
+    </p>
+    <p v-if="listNotice" class="mpwork-alert mpwork-alert--ok" role="status">
+      <CheckCircle2 aria-hidden="true" />
+      {{ listNotice }}
+    </p>
+
+    <section v-if="(pendingDraft || activeId) && !editorOpen" class="mpwork-resume">
+      <FileClock class="mpwork-resume-icon" aria-hidden="true" />
+      <span class="mpwork-resume-copy">{{ resumeBannerLabel }}</span>
+      <button type="button" class="btn-secondary mpwork-resume-btn" @click="editorOpen = true">
         Continuar edição
       </button>
     </section>
 
-    <section class="mpwork-table-card">
+    <Transition name="mpwork-collapse">
+      <section
+        v-if="importOpen"
+        id="mpwork-import-panel"
+        class="mpwork-import"
+      >
+        <div class="mpwork-import-head">
+          <div>
+            <strong>Importar plano em PDF</strong>
+            <p v-if="mealPlan?.plan?.meals?.length">
+              Atual: {{ mealPlan?.title || 'Plano alimentar' }}
+              · {{ mealPlan.plan.meals.length }} refeições
+              <span v-if="mealPlan?.updatedAt"> · {{ formatDate(mealPlan.updatedAt) }}</span>
+            </p>
+            <p v-else>
+              O PDF vira uma prescrição editável e é publicado no app do paciente.
+            </p>
+          </div>
+          <button type="button" class="mpwork-import-close" aria-label="Fechar importação" @click="importOpen = false">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+
+        <label
+          class="mpwork-drop"
+          :class="{
+            'mpwork-drop--over': dragOver,
+            'mpwork-drop--filled': !!planFile,
+            'mpwork-drop--disabled': uploading,
+          }"
+          @dragover.prevent="dragOver = true"
+          @dragenter.prevent="dragOver = true"
+          @dragleave="dragOver = false"
+          @drop.prevent="onPlanFileDrop"
+        >
+          <component :is="planFile ? FileText : Upload" class="mpwork-drop-icon" aria-hidden="true" />
+          <span class="mpwork-drop-copy">
+            <strong>{{ planFile ? planFile.name : 'Arraste o PDF aqui ou clique para escolher' }}</strong>
+            <small>{{ planFile ? formatFileSize(planFile.size) : 'Apenas arquivos .pdf' }}</small>
+          </span>
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            class="mpwork-drop-input"
+            :disabled="uploading"
+            @change="onPlanFileChange"
+          >
+        </label>
+
+        <div class="mpwork-import-actions">
+          <button
+            v-if="planFile"
+            type="button"
+            class="btn-secondary mpwork-import-btn"
+            :disabled="uploading"
+            @click="clearPlanFile"
+          >
+            Remover arquivo
+          </button>
+          <button
+            type="button"
+            class="btn-primary mpwork-import-btn"
+            :disabled="!planFile || uploading"
+            @click="submitUpload"
+          >
+            {{ uploading ? 'Importando…' : 'Importar PDF' }}
+          </button>
+        </div>
+
+        <p v-if="uploadMessage" class="mpwork-alert" :class="uploadError ? 'mpwork-alert--error' : 'mpwork-alert--ok'">
+          <component :is="uploadError ? AlertCircle : CheckCircle2" aria-hidden="true" />
+          {{ uploadMessage }}
+        </p>
+      </section>
+    </Transition>
+
+    <PatientChartEmptyState
+      v-if="!prescriptions.length"
+      :icon="Salad"
+      title="Nenhum plano alimentar ainda"
+      description="Monte a primeira prescrição escolhendo o método (Inteligente, Tradicional ou Qualitativo) — ou importe um PDF pronto e ele vira um plano editável."
+      action-label="Criar primeiro plano"
+      @action="openNewModal"
+    >
+      <template #actions>
+        <button type="button" class="btn-secondary mpwork-empty-btn" @click="importOpen = true">
+          Importar PDF
+        </button>
+      </template>
+    </PatientChartEmptyState>
+
+    <section v-else class="mpwork-table-card">
       <div class="mpwork-table-scroll">
         <table class="mpwork-table">
           <thead>
@@ -25,18 +158,6 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!prescriptions.length">
-              <td colspan="7" class="mpwork-table-empty">
-                <PatientChartEmptyState
-                  :icon="Salad"
-                  title="Nenhum plano alimentar"
-                  description="Crie uma prescrição ou importe um PDF para começar."
-                  action-label="Novo plano alimentar"
-                  counter="0/10"
-                  @action="openNewModal"
-                />
-              </td>
-            </tr>
             <tr
               v-for="item in paginatedPrescriptions"
               :key="item.id"
@@ -44,16 +165,20 @@
               @click="openInEditor(item)"
             >
               <td class="mpwork-table-title">
-                <span
-                  :class="{ 'mpwork-table-title--draft': item.status === 'draft' }"
+                <button
+                  type="button"
+                  class="mpwork-table-link"
+                  :class="{ 'mpwork-table-link--draft': item.status === 'draft' }"
+                  @click.stop="openInEditor(item)"
                 >
                   {{ displayPlanTitle(item) }}
-                </span>
+                </button>
+                <span v-if="isImportedPlanRow(item)" class="mpwork-table-tag">PDF</span>
               </td>
               <td>{{ formatCreationDate(item.createdAt) }}</td>
               <td>{{ dietTypeLabel(item) }}</td>
-              <td class="mpwork-table-objective">{{ objectiveLabel(item) }}</td>
-              <td>{{ averageCalories(item) }}</td>
+              <td class="mpwork-table-objective" :title="objectiveLabel(item)">{{ objectiveLabel(item) }}</td>
+              <td class="mpwork-table-kcal">{{ averageCalories(item) }}</td>
               <td>
                 <span class="mpwork-table-status" :class="`mpwork-table-status--${statusTone(item)}`">
                   <i v-if="statusTone(item) === 'active'" class="mpwork-table-status-dot" aria-hidden="true" />
@@ -80,7 +205,7 @@
                   <button type="button" class="cf-tile-actions-item" role="menuitem" @click="openDuplicateModal(item)">
                     Duplicar
                   </button>
-                  <button type="button" class="cf-tile-actions-item cf-tile-actions-item--danger" role="menuitem" @click="removeItem(item.id)">
+                  <button type="button" class="cf-tile-actions-item cf-tile-actions-item--danger" role="menuitem" @click="askRemoveItem(item)">
                     Excluir
                   </button>
                 </SharedCfTileActionsMenu>
@@ -90,59 +215,43 @@
         </table>
       </div>
 
-      <footer v-if="prescriptions.length" class="mpwork-table-foot">
-        <div class="mpwork-table-foot-left">
+      <footer v-if="totalPages > 1" class="mpwork-table-foot">
+        <span class="mpwork-table-meta">
+          Página {{ currentPage }} de {{ totalPages }}
+        </span>
+        <div class="mpwork-table-pagination">
           <button
             type="button"
-            class="btn-primary mpwork-table-new"
-            :disabled="prescriptions.length >= 10"
-            @click="openNewModal"
+            class="pawork-page-btn"
+            aria-label="Página anterior"
+            :disabled="currentPage <= 1"
+            @click="currentPage -= 1"
           >
-            Novo plano alimentar +
+            <ChevronLeft aria-hidden="true" />
           </button>
-          <span class="mpwork-table-meta">{{ prescriptions.length }}/10 · {{ importedPlanLabel }}</span>
-        </div>
-        <div v-if="totalPages > 1" class="mpwork-table-pagination">
-          <button type="button" class="pawork-page-btn" :disabled="currentPage <= 1" @click="currentPage -= 1">
-            ‹
-          </button>
-          <span>{{ currentPage }}</span>
-          <button type="button" class="pawork-page-btn" :disabled="currentPage >= totalPages" @click="currentPage += 1">
-            ›
+          <button
+            type="button"
+            class="pawork-page-btn"
+            aria-label="Próxima página"
+            :disabled="currentPage >= totalPages"
+            @click="currentPage += 1"
+          >
+            <ChevronRight aria-hidden="true" />
           </button>
         </div>
       </footer>
     </section>
 
-    <section class="pawork-panel mpwork-import">
-      <strong>Importar plano (PDF)</strong>
-      <p v-if="mealPlan?.plan?.meals?.length">
-        {{ mealPlan?.title || 'Plano alimentar' }}
-        · {{ mealPlan.plan.meals.length }} refeições
-        <span v-if="mealPlan?.updatedAt"> · {{ formatDate(mealPlan.updatedAt) }}</span>
-      </p>
-      <p v-else>Nenhum PDF importado para este paciente.</p>
-      <div class="pawork-panel-actions">
-        <label class="pawork-upload-pick" :class="{ 'pawork-upload-pick--disabled': uploading }">
-          <Upload aria-hidden="true" />
-          <span>{{ planFile ? 'Trocar PDF' : 'Escolher PDF' }}</span>
-          <input
-            type="file"
-            accept="application/pdf,.pdf"
-            class="pawork-upload-input"
-            :disabled="uploading"
-            @change="onPlanFileChange"
-          >
-        </label>
-        <span class="pawork-upload-name">{{ planFile?.name || 'Nenhum arquivo' }}</span>
-        <button type="button" class="btn-secondary pawork-btn" :disabled="!planFile || uploading" @click="submitUpload">
-          {{ uploading ? 'Importando…' : 'Importar' }}
-        </button>
-      </div>
-      <p v-if="uploadMessage" class="pawork-msg" :class="{ 'pawork-msg--error': uploadError }">
-        {{ uploadMessage }}
-      </p>
-    </section>
+    <SharedCfConfirmDialog
+      v-model:open="deleteModalOpen"
+      title="Excluir esta prescrição?"
+      :description="deleteDescription"
+      confirm-label="Excluir plano"
+      busy-label="Excluindo…"
+      :busy="deleting"
+      tone="danger"
+      @confirm="confirmRemoveItem"
+    />
 
     <PatientMealPlanNewModal v-model:open="newModalOpen" @submit="startFromModal" />
 
@@ -172,7 +281,18 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { Salad, Upload } from 'lucide-vue-next'
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  FileClock,
+  FileText,
+  Plus,
+  Salad,
+  Upload,
+  X,
+} from 'lucide-vue-next'
 import { authFetchInit, useAuthSession } from '~/composables/useAuthSession.js'
 import PatientChartEmptyState from '~/components/patients/PatientChartEmptyState.vue'
 import PatientMealPlanEditorModal from '~/components/patients/PatientMealPlanEditorModal.vue'
@@ -225,6 +345,13 @@ const uploadMessage = ref('')
 const uploadError = ref(false)
 const currentPage = ref(1)
 const pageSize = 10
+const MAX_PLANS = 10
+
+const importOpen = ref(false)
+const dragOver = ref(false)
+const deleteModalOpen = ref(false)
+const deleting = ref(false)
+const pendingDeleteItem = ref(null)
 
 const prescriptions = computed(() => {
   const fromUser = props.user?.patientProfileData?.mealPlans
@@ -234,6 +361,15 @@ const prescriptions = computed(() => {
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(prescriptions.value.length / pageSize)))
+
+const planLimitReached = computed(() => prescriptions.value.length >= MAX_PLANS)
+
+const hasPublishedPlan = computed(() => Boolean(props.mealPlan?.plan?.meals?.length))
+
+const deleteDescription = computed(() => {
+  const title = String(pendingDeleteItem.value?.title || '').trim() || 'Este plano'
+  return `“${title}” será removido da ficha do paciente. Esta ação não pode ser desfeita.`
+})
 
 const paginatedPrescriptions = computed(() => {
   const start = (currentPage.value - 1) * pageSize
@@ -278,10 +414,8 @@ function clearLocalDraftForActivePlan(planId = '') {
 }
 
 const importedPlanLabel = computed(() => {
-  if (props.mealPlan?.plan?.meals?.length) {
-    return 'Plano ativo no app do paciente'
-  }
-  return 'Nenhum plano publicado ainda'
+  if (hasPublishedPlan.value) return 'Publicado no app do paciente'
+  return 'Nada publicado no app'
 })
 
 async function ensureImportedPrescription() {
@@ -341,9 +475,8 @@ function formatCreationDate(value) {
 }
 
 function displayPlanTitle(item) {
-  const title = String(item?.title || '').trim() || 'Plano alimentar'
-  if (item?.status === 'draft') return `Rascunho - ${title}`
-  return title
+  // O estado do plano já aparece na coluna Status — não repetir no título.
+  return String(item?.title || '').trim() || 'Plano alimentar'
 }
 
 function dietTypeLabel(item) {
@@ -374,7 +507,7 @@ function statusTone(item) {
 function statusDisplayLabel(item) {
   if (item?.status === 'active') return 'Ativo'
   if (item?.status === 'archived') return 'Arquivado'
-  return 'Atualização'
+  return 'Rascunho'
 }
 
 function isImportedPlanRow(item) {
@@ -383,8 +516,8 @@ function isImportedPlanRow(item) {
 }
 
 function openNewModal() {
-  if (prescriptions.value.length >= 10) {
-    listError.value = 'Limite de 10 prescrições por paciente.'
+  if (planLimitReached.value) {
+    listError.value = `Limite de ${MAX_PLANS} prescrições por paciente. Exclua um plano antigo para criar outro.`
     return
   }
   listError.value = ''
@@ -467,8 +600,8 @@ async function onDuplicateSubmit({ title, targetPatientId, onComplete, onError }
       targetPatientName = targetUser?.name || targetPatientName
     }
 
-    if (targetPlans.length >= 10) {
-      onError?.('A paciente destino já atingiu o limite de 10 planos.')
+    if (targetPlans.length >= MAX_PLANS) {
+      onError?.(`A paciente destino já atingiu o limite de ${MAX_PLANS} planos.`)
       return
     }
 
@@ -477,7 +610,7 @@ async function onDuplicateSubmit({ title, targetPatientId, onComplete, onError }
       authorName: verifiedUser.value?.name || 'Nutricionista',
     })
 
-    const nextList = [duplicate, ...targetPlans].slice(0, 10)
+    const nextList = [duplicate, ...targetPlans].slice(0, MAX_PLANS)
     const updated = await patchMealPlansForPatient(targetPatientId, nextList)
 
     duplicateModalOpen.value = false
@@ -514,7 +647,7 @@ function nextPrescriptionList(nextItem, removeId = '') {
     current[idx] = nextItem
     return current
   }
-  return [nextItem, ...current].slice(0, 10)
+  return [nextItem, ...current].slice(0, MAX_PLANS)
 }
 
 async function patchMealPlans(nextList) {
@@ -639,8 +772,18 @@ async function onPublish(formPayload) {
   }
 }
 
-async function removeItem(id) {
-  if (!confirm('Excluir esta prescrição?')) return
+function askRemoveItem(item) {
+  if (!item?.id) return
+  listError.value = ''
+  listNotice.value = ''
+  pendingDeleteItem.value = item
+  deleteModalOpen.value = true
+}
+
+async function confirmRemoveItem() {
+  const id = pendingDeleteItem.value?.id
+  if (!id) return
+  deleting.value = true
   try {
     await patchMealPlans(nextPrescriptionList(null, id))
     clearLocalDraftForActivePlan(id)
@@ -650,15 +793,62 @@ async function removeItem(id) {
       pendingDraft.value = null
       editorOpen.value = false
     }
+    deleteModalOpen.value = false
+    pendingDeleteItem.value = null
+    listNotice.value = 'Plano excluído.'
   } catch (err) {
     listError.value = err?.data?.error || err?.data?.message || 'Erro ao excluir.'
+    deleteModalOpen.value = false
+  } finally {
+    deleting.value = false
   }
 }
 
-function onPlanFileChange(event) {
-  planFile.value = event.target.files?.[0] || null
+function isPdfFile(file) {
+  if (!file) return false
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '')
+}
+
+function setPlanFile(file) {
+  if (!file) return
+  if (!isPdfFile(file)) {
+    planFile.value = null
+    uploadMessage.value = 'Selecione um arquivo PDF.'
+    uploadError.value = true
+    return
+  }
+  planFile.value = file
   uploadMessage.value = ''
   uploadError.value = false
+}
+
+function onPlanFileChange(event) {
+  const file = event.target.files?.[0] || null
+  if (!file) {
+    planFile.value = null
+    return
+  }
+  setPlanFile(file)
+  event.target.value = ''
+}
+
+function onPlanFileDrop(event) {
+  dragOver.value = false
+  if (props.uploading) return
+  setPlanFile(event.dataTransfer?.files?.[0] || null)
+}
+
+function clearPlanFile() {
+  planFile.value = null
+  uploadMessage.value = ''
+  uploadError.value = false
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes)
+  if (!Number.isFinite(size) || size <= 0) return 'PDF selecionado'
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function submitUpload() {

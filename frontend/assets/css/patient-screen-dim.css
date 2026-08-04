@@ -4,7 +4,7 @@
  */
 .patient-screen-dim {
   position: fixed;
-  z-index: 23900;
+  z-index: var(--cf-z-screen-dim, 23900);
   top: calc(-1 * env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
@@ -27,8 +27,7 @@
   cursor: pointer;
 }
 
-html.patient-quick-dial-open .patient-app-shell__main,
-html.cf-ios-pwa-overlay-active .patient-app-shell__main {
+html.patient-quick-dial-open .patient-app-shell__main {
   pointer-events: none;
   user-select: none;
 }

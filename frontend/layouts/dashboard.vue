@@ -5,13 +5,13 @@
       'patient-app-layout': isPatientApp,
       'dashboard-layout--sidebar': useAdminSidebar,
       'dashboard-layout--sidebar-collapsed': useAdminSidebar && sidebarCollapsed,
+      'dashboard-layout--patient-chart': showPatientChartSidebar,
     }"
   >
     <aside
       v-if="useAdminSidebar"
       class="admin-sidebar"
-      :class="{ 'admin-sidebar--patient-chart': isPatientChartPage }"
-      :aria-label="isPatientChartPage ? 'Seções do paciente' : 'Menu principal'"
+      aria-label="Menu principal"
     >
       <div class="admin-sidebar-inner">
         <div class="admin-sidebar-brand">
@@ -32,11 +32,7 @@
         </div>
 
         <nav class="admin-sidebar-nav">
-          <PatientsPatientChartSidebarNav
-            v-if="isPatientChartPage"
-            :collapsed="sidebarCollapsed"
-          />
-          <template v-else v-for="item in menuItems" :key="'sidebar-' + (item.path || item.label)">
+          <template v-for="item in menuItems" :key="'sidebar-' + (item.path || item.label)">
             <div v-if="item.children?.length" class="admin-sidebar-group">
               <button
                 type="button"
@@ -121,6 +117,14 @@
           </button>
         </div>
       </div>
+    </aside>
+
+    <aside
+      v-if="showPatientChartSidebar"
+      class="patient-chart-sidebar"
+      aria-label="Perfil e seções do paciente"
+    >
+      <PatientsPatientChartSidebarNav class="patient-chart-sidebar-nav" />
     </aside>
 
     <main
@@ -389,6 +393,9 @@ const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const isPacienteCoursesPage = computed(() => isPatientApp.value && route.path.startsWith('/cursos'))
 const isPatientChartPage = computed(() => /^\/pacientes\//.test(String(route.path || '')))
 const isPatientDocumentEditorPage = computed(() => /\/pacientes\/[^/]+\/documentos\//.test(String(route.path || '')))
+const showPatientChartSidebar = computed(
+  () => isPatientChartPage.value && !isPatientDocumentEditorPage.value && useAdminSidebar.value,
+)
 const showVideoUploadPanel = computed(() => /^\/(modulos|cursos)(\/|$)/.test(route.path || ''))
 const { hydrateProfile, persistSession, profile: sessionProfile } = usePatientApp()
 const useCoursesOverlayNav = computed(() => isPatientApp.value && isPacienteCoursesPage.value)
@@ -405,6 +412,8 @@ function isGroupActive(item) {
   return prefix ? String(route.path || '').startsWith(prefix) : false
 }
 const sidebarCollapsed = ref(false)
+/** Preferência antes de abrir ficha com sidebar dupla — restaurada ao sair. */
+const sidebarCollapsedBeforePatientChart = ref(null)
 const profileMenuOpen = ref(false)
 const profileMenuRef = ref(null)
 const profileTriggerRef = ref(null)
@@ -412,9 +421,8 @@ const adminTopbarRef = ref(null)
 const profileDropdownStyle = ref({ top: '0px', right: '0px' })
 const mobileNavOpen = ref(false)
 
-function toggleSidebarCollapsed() {
-  sidebarCollapsed.value = !sidebarCollapsed.value
-  if (sidebarCollapsed.value) openSidebarGroups.value = {}
+function persistSidebarCollapsedPreference() {
+  if (showPatientChartSidebar.value) return
   try {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.value ? '1' : '0')
   } catch {
@@ -422,15 +430,29 @@ function toggleSidebarCollapsed() {
   }
 }
 
+function applyPatientChartSidebarCollapse() {
+  const patientKey = showPatientChartSidebar.value
+    ? String(route.params.id || route.path || '')
+    : ''
+  if (!patientKey) return
+  if (sidebarCollapsedBeforePatientChart.value === null) {
+    sidebarCollapsedBeforePatientChart.value = sidebarCollapsed.value
+  }
+  sidebarCollapsed.value = true
+  openSidebarGroups.value = {}
+}
+
+function toggleSidebarCollapsed() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  if (sidebarCollapsed.value) openSidebarGroups.value = {}
+  persistSidebarCollapsedPreference()
+}
+
 function onSidebarGroupClick(item) {
   if (sidebarCollapsed.value) {
     sidebarCollapsed.value = false
     openSidebarGroups.value = { ...openSidebarGroups.value, [item.label]: true }
-    try {
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '0')
-    } catch {
-      /* ignore */
-    }
+    persistSidebarCollapsedPreference()
     return
   }
   openSidebarGroups.value = {
@@ -571,6 +593,7 @@ onMounted(async () => {
   } catch {
     sidebarCollapsed.value = false
   }
+  applyPatientChartSidebarCollapse()
   await loadSessionUser()
   role.value = getVerifiedRole() || role.value || 'PACIENTE'
 
@@ -645,6 +668,28 @@ watch(profileMenuOpen, (open) => {
     window.removeEventListener('scroll', updateProfileDropdownPosition, true)
   }
 })
+
+watch(
+  () => (showPatientChartSidebar.value ? String(route.params.id || route.path || '') : ''),
+  (patientKey, prevPatientKey) => {
+    if (!patientKey) {
+      if (sidebarCollapsedBeforePatientChart.value !== null) {
+        sidebarCollapsed.value = sidebarCollapsedBeforePatientChart.value
+        sidebarCollapsedBeforePatientChart.value = null
+      }
+      return
+    }
+    const enteringChart = !prevPatientKey
+    const switchedPatient = Boolean(prevPatientKey && prevPatientKey !== patientKey)
+    if (enteringChart) {
+      sidebarCollapsedBeforePatientChart.value = sidebarCollapsed.value
+    }
+    if (enteringChart || switchedPatient) {
+      sidebarCollapsed.value = true
+      openSidebarGroups.value = {}
+    }
+  },
+)
 
 watch(() => route.path, () => {
   ensureAdminPageScroll()
@@ -835,14 +880,37 @@ const handleLogout = async () => {
   padding-left: 0.65rem;
 }
 
-.admin-sidebar--patient-chart .admin-sidebar-nav {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
+.patient-chart-sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: var(--admin-sidebar-width);
+  z-index: 68;
+  display: flex;
+  flex-direction: column;
+  width: var(--patient-chart-sidebar-width, 260px);
+  background: var(--nav-bg);
+  border-right: 1px solid var(--nav-border);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  transition: left 0.22s ease;
 }
 
-.admin-sidebar--patient-chart .pc-sidebar-nav {
-  height: 100%;
+.patient-chart-sidebar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.patient-chart-sidebar-nav {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.dashboard-layout--patient-chart {
+  --patient-chart-sidebar-width: 260px;
 }
 
 .admin-sidebar-nav {
@@ -1102,6 +1170,13 @@ const handleLogout = async () => {
   min-width: 0;
   overflow: hidden;
   transition: margin-left 0.22s ease, width 0.22s ease, max-width 0.22s ease;
+}
+
+.dashboard-layout--sidebar.dashboard-layout--patient-chart .main-content {
+  margin-left: calc(var(--admin-sidebar-width) + var(--patient-chart-sidebar-width));
+  width: calc(100% - var(--admin-sidebar-width) - var(--patient-chart-sidebar-width));
+  max-width: calc(100% - var(--admin-sidebar-width) - var(--patient-chart-sidebar-width));
+  background: #fff;
 }
 
 .dashboard-layout--sidebar .content-body {
@@ -1457,7 +1532,8 @@ const handleLogout = async () => {
 }
 
 .content-body.patient-chart-content {
-  padding-top: 0.35rem;
+  padding: 0.85rem 1.35rem 1.5rem;
+  background: #fff;
 }
 
 .content-body.patient-document-editor-content {
@@ -1762,8 +1838,18 @@ const handleLogout = async () => {
     padding: 1rem;
   }
 
+  .patient-chart-sidebar {
+    display: none;
+  }
+
+  .dashboard-layout--sidebar.dashboard-layout--patient-chart .main-content {
+    margin-left: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .content-body.patient-chart-content {
-    padding-top: 0.25rem;
+    padding: 0.75rem 1rem 1.25rem;
   }
 
   .content-body.patient-document-editor-content {

@@ -1,7 +1,7 @@
 <template>
-  <div ref="rootRef" class="ptp">
+  <div ref="rootRef" class="ptp" :class="{ 'ptp--open': menuOpen }">
     <div
-      class="ptp-field"
+      class="ptp-field cf-squircle cf-squircle--control"
       :class="{ 'ptp-field--open': menuOpen }"
       @click="toggleMenu"
     >
@@ -18,17 +18,17 @@
             <X :size="12" />
           </button>
         </span>
-        <span v-if="!modelValue.length" class="ptp-placeholder">Selecionar tags</span>
+        <span v-if="!modelValue.length" class="ptp-placeholder">{{ placeholder }}</span>
       </div>
 
       <button
         type="button"
         class="ptp-trigger"
         :aria-expanded="menuOpen"
-        :aria-label="modelValue.length ? 'Adicionar tag' : 'Selecionar tags'"
+        :aria-label="modelValue.length ? 'Adicionar tag' : placeholder"
         @click.stop="toggleMenu"
       >
-        <Plus :size="18" />
+        <ChevronDown :size="16" />
       </button>
     </div>
 
@@ -140,7 +140,7 @@
 </template>
 
 <script setup>
-import { Check, ChevronLeft, Plus, Search, Trash2, X } from 'lucide-vue-next'
+import { Check, ChevronDown, ChevronLeft, Plus, Search, Trash2, X } from 'lucide-vue-next'
 import { authFetchInit } from '~/composables/useAuthSession.js'
 
 const TAG_COLORS = [
@@ -159,6 +159,7 @@ const TAG_COLORS = [
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
+  placeholder: { type: String, default: 'Pesquise/Selecione' },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -331,6 +332,12 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
 })
+
+async function openMenu() {
+  if (!menuOpen.value) await toggleMenu()
+}
+
+defineExpose({ openMenu })
 </script>
 
 <style scoped>
@@ -338,28 +345,41 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0;
+  width: 100%;
 }
 
 .ptp-field {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  min-height: 3.1rem;
+  gap: 0.35rem;
+  min-height: 2.75rem;
   width: 100%;
-  padding: 0.45rem 0.55rem 0.45rem 0.75rem;
+  padding: 0 0.75rem 0 0.9rem;
   border: 1.5px solid #e8ece9;
-  /* Mesmo token dos inputs, mas limitado: em faixa baixa o control vira pílula */
-  border-radius: min(var(--cf-radius-control), 1rem);
+  border-radius: var(--cf-radius-control);
   background: #fff;
   box-sizing: border-box;
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
 
-.ptp-field:hover,
 .ptp-field--open {
   border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(139, 150, 124, 0.08);
+}
+
+.ptp-field:hover {
+  border-color: #b8d4b4;
+}
+
+.ptp-field--open .ptp-trigger {
+  color: #6b8f64;
+}
+
+.ptp-field--open .ptp-trigger :deep(svg) {
+  transform: rotate(180deg);
+  transition: transform 0.15s ease;
 }
 
 .ptp-selected {
@@ -367,13 +387,16 @@ onBeforeUnmount(() => {
   flex: 1;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   min-width: 0;
+  min-height: 1.25rem;
 }
 
 .ptp-placeholder {
   color: #9ca3af;
   font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .ptp-chip {
@@ -402,52 +425,61 @@ onBeforeUnmount(() => {
 .ptp-trigger {
   display: grid;
   place-items: center;
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-right: -0.05rem;
   padding: 0;
-  border: 1.5px solid #e8ece9;
-  border-radius: min(var(--cf-radius-control), 0.75rem);
-  background: #fff;
-  color: #8a9288;
+  border: none;
+  border-radius: var(--cf-radius-xs);
+  background: transparent;
+  color: #9ca3af;
   cursor: pointer;
   flex-shrink: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.ptp-trigger :deep(svg) {
+  transition: transform 0.15s ease;
 }
 
 .ptp-trigger:hover {
-  border-color: #d4e5d1;
   color: #6b8f64;
   background: rgba(139, 150, 124, 0.08);
 }
 
 .ptp-menu {
   position: absolute;
-  top: calc(100% + 0.4rem);
+  top: calc(100% + 0.35rem);
   left: 0;
-  z-index: 40;
-  width: min(22rem, calc(100vw - 2rem));
+  right: 0;
+  z-index: 120;
+  width: 100%;
   background: #fff;
   border: 1.5px solid #e8ece9;
-  border-radius: 0.85rem;
+  border-radius: var(--cf-radius-control);
   box-shadow: 0 12px 28px rgba(28, 32, 28, 0.12);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .ptp-menu-head {
-  padding: 0.85rem 1rem 0.4rem;
-  font-size: 0.9rem;
+  padding: 0.75rem 0.75rem 0.4rem;
+  font-size: 0.875rem;
   font-weight: 700;
-  color: #2c322c;
+  color: #111827;
 }
 
 .ptp-search {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  margin: 0 0.85rem 0.65rem;
-  padding: 0.55rem 0.7rem;
+  margin: 0 0.75rem 0.65rem;
+  padding: 0 0.75rem;
+  min-height: 2.5rem;
   border: 1.5px solid #e8ece9;
-  border-radius: 0.75rem;
+  border-radius: var(--cf-radius-control);
   background: #fff;
+  box-sizing: border-box;
 }
 
 .ptp-search-icon {
@@ -462,7 +494,9 @@ onBeforeUnmount(() => {
   outline: none;
   background: transparent;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 0.875rem;
+  color: #111827;
+  padding: 0.65rem 0;
 }
 
 .ptp-search input::-webkit-search-cancel-button {
@@ -479,10 +513,10 @@ onBeforeUnmount(() => {
 
 .ptp-empty {
   margin: 0;
-  padding: 1.1rem 0.9rem;
+  padding: 0.85rem 0.75rem 1rem;
   text-align: center;
   color: #9ca3af;
-  font-size: 0.86rem;
+  font-size: 0.875rem;
 }
 
 .ptp-option {
@@ -573,11 +607,11 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   border: none;
   background: transparent;
-  padding: 0.85rem 1rem;
+  padding: 0.75rem;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #2c322c;
+  color: #374151;
   cursor: pointer;
 }
 
@@ -706,5 +740,13 @@ onBeforeUnmount(() => {
 .ptp-create-submit {
   width: 100%;
   justify-content: center;
+}
+
+@supports (corner-shape: squircle) {
+  .ptp-field.cf-squircle--control,
+  .ptp-menu,
+  .ptp-search {
+    corner-shape: squircle;
+  }
 }
 </style>

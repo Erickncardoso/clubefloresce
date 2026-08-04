@@ -21,6 +21,7 @@ import { CirclePlus, X } from 'lucide-vue-next'
 import PatientQuickAccessDial from '~/components/PatientQuickAccessDial.vue'
 import { PATIENT_QUICK_DIAL_ITEMS } from '~/utils/patient-quick-dial'
 import { patientHapticQuickDialOpen, patientHapticTap } from '~/utils/patient-haptics.mjs'
+import { releasePatientInteractionLock } from '~/utils/patient-interaction-lock.mjs'
 
 const { open, toggle, close } = usePatientQuickAccess()
 const route = useRoute()
@@ -36,5 +37,8 @@ function onFabClick() {
   }
 }
 
-watch(() => route.fullPath, close)
+watch(() => route.fullPath, () => {
+  close()
+  releasePatientInteractionLock()
+})
 </script>

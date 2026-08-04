@@ -2,9 +2,10 @@
   <div class="patient-photos">
     <div v-if="loading" class="patient-photos-loading">Carregando fotos…</div>
     <p v-else-if="error" class="patient-photos-error">{{ error }}</p>
-    <p v-else-if="!photos.length" class="patient-photos-empty">
-      Nenhuma foto de refeição registrada ainda.
-    </p>
+    <div v-else-if="!photos.length" class="patient-photos-empty">
+      <Camera class="patient-photos-empty-icon" aria-hidden="true" />
+      <p>Nenhuma foto de refeição registrada ainda.</p>
+    </div>
 
     <!-- Feed estilo TikTok -->
     <div v-else-if="compact" class="patient-photos-tiktok">
@@ -65,6 +66,8 @@
 </template>
 
 <script setup>
+import { Camera } from 'lucide-vue-next'
+
 const props = defineProps({
   patientId: { type: String, required: true },
   compact: { type: Boolean, default: false },
@@ -116,10 +119,34 @@ watch(() => props.patientId, loadPhotos, { immediate: true })
 
 <style scoped>
 .patient-photos-loading,
-.patient-photos-empty,
 .patient-photos-error {
   font-size: 0.88rem;
   color: #666;
+}
+
+.patient-photos-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 1.5rem 1rem;
+  border: 1px dashed #e5e7eb;
+  border-radius: var(--cf-radius-control);
+  background: #fafbfa;
+  text-align: center;
+}
+
+.patient-photos-empty p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #9ca3af;
+}
+
+.patient-photos-empty-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  color: #c4cbc6;
 }
 
 .patient-photos-error {

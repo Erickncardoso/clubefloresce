@@ -2,8 +2,6 @@
   <header class="pch">
     <div class="pch-head-row">
       <nav class="pch-breadcrumb" aria-label="Navegação">
-        <NuxtLink to="/dashboard" class="pch-crumb">Página inicial</NuxtLink>
-        <span class="pch-crumb-sep" aria-hidden="true">›</span>
         <NuxtLink to="/usuarios" class="pch-crumb">Pacientes</NuxtLink>
         <span class="pch-crumb-sep" aria-hidden="true">›</span>
         <span class="pch-crumb pch-crumb--name">{{ user?.name || 'Paciente' }}</span>
@@ -47,12 +45,15 @@
       </div>
     </div>
 
-    <div class="pch-top">
+    <h1 v-if="compact && sectionLabel" class="pch-section-title">{{ sectionLabel }}</h1>
+
+    <div v-if="!compact" class="pch-top">
       <div class="pch-main">
         <div class="pch-identity">
           <PatientAvatar
             :src="user?.avatar"
             :name="user?.name"
+            :user="user"
             size="lg"
             :ring="false"
             class="pch-avatar"
@@ -165,6 +166,7 @@ const props = defineProps({
   profile: { type: Object, default: () => ({}) },
   overview: { type: Object, default: null },
   sectionLabel: { type: String, default: '' },
+  compact: { type: Boolean, default: false },
 })
 
 defineEmits(['edit-patient', 'start-call'])
@@ -366,8 +368,8 @@ function formatAccessDate(date) {
 .pch {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0 0 0.35rem;
+  gap: 0.65rem;
+  padding: 0;
   font-size: var(--admin-font-body, 0.875rem);
 }
 
@@ -420,7 +422,17 @@ a.pch-crumb:hover {
 
 .pch-crumb--current {
   color: #8b967c;
-  font-weight: 500;
+  font-weight: 600;
+}
+
+.pch-section-title {
+  margin: 0.35rem 0 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--admin-border, #e8ece9);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: -0.02em;
 }
 
 .pch-crumb-sep {

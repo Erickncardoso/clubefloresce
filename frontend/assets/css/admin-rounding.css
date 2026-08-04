@@ -39,7 +39,7 @@
 .mpnew-overlay :is(
   .btn-primary,
   .btn-secondary,
-  .mpnew-tab
+  .mpnew-method
 ),
 .broadcast-modal-overlay :is(
   .btn-primary,

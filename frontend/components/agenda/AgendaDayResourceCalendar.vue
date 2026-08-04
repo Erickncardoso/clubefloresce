@@ -47,6 +47,7 @@
                     v-if="showAvatars"
                     :src="patient.avatar"
                     :name="patient.name"
+                    :user="patient"
                     size="sm"
                     :ring="false"
                   />
@@ -174,6 +175,7 @@
                     v-if="showAvatars"
                     :src="resource.avatar"
                     :name="resource.name"
+                    :user="resource"
                     size="sm"
                     :ring="false"
                   />

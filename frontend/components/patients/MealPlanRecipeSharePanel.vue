@@ -21,7 +21,7 @@
           class="mpr-share-chip"
           @click="togglePatient(patient.id)"
         >
-          <PatientAvatar :src="patient.avatar" :name="patient.name" size="xs" :ring="false" />
+          <PatientAvatar :src="patient.avatar" :name="patient.name" :user="patient" size="xs" :ring="false" />
           <span>{{ patient.name }}</span>
           <X :size="12" />
         </button>
@@ -30,7 +30,7 @@
       <ul class="mpr-share-list">
         <li v-for="patient in filteredPatients" :key="patient.id">
           <button type="button" class="mpr-share-item" @click="togglePatient(patient.id)">
-            <PatientAvatar :src="patient.avatar" :name="patient.name" size="sm" :ring="false" />
+            <PatientAvatar :src="patient.avatar" :name="patient.name" :user="patient" size="sm" :ring="false" />
             <span>{{ patient.name }}</span>
             <span v-if="isSelected(patient.id)" class="mpr-share-mark">Selecionada</span>
           </button>

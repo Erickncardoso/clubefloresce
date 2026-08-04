@@ -90,6 +90,9 @@ const menuOpen = ref(false)
 const notifOpen = ref(false)
 const notifAnchorRef = ref(null)
 const { unreadCount, fetchNotifications } = usePatientNotifications()
+import { releasePatientInteractionLock } from '~/utils/patient-interaction-lock.mjs'
+
+const { close: closeQuickDial } = usePatientQuickAccess()
 
 const badgeText = computed(() => {
   if (!props.hasNotifications && unreadCount.value <= 0) return ''
@@ -100,10 +103,13 @@ const badgeText = computed(() => {
 
 function openMenu() {
   notifOpen.value = false
+  closeQuickDial()
+  releasePatientInteractionLock()
   menuOpen.value = true
 }
 
 function toggleNotifications() {
+  closeQuickDial()
   menuOpen.value = false
   notifOpen.value = !notifOpen.value
 }

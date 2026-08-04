@@ -107,8 +107,10 @@ export function isVisibleOverlay(el) {
   if (!(el instanceof HTMLElement)) return false
   const style = window.getComputedStyle(el)
   if (style.display === 'none' || style.visibility === 'hidden') return false
-  if (Number.parseFloat(style.opacity) === 0) return false
+  if (Number.parseFloat(style.opacity) < 0.05) return false
   if (style.position !== 'fixed' && style.position !== 'absolute') return false
+  const rect = el.getBoundingClientRect()
+  if (rect.width < 2 || rect.height < 2) return false
   return true
 }
 

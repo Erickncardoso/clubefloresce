@@ -1,6 +1,17 @@
 import { h } from 'vue'
 import { authFetchInit } from '~/composables/useAuthSession.js'
 import { resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'
+import { normalizePhoneInternational } from '~/utils/phone-countries.js'
+import {
+  mapAdditionalContactsFromProfile,
+  mapAttachmentsFromProfile,
+  mapIdentityDocumentsFromProfile,
+  mapLinkedContactsFromProfile,
+  serializeAdditionalContacts,
+  serializeIdentityDocuments,
+  serializeLinkedContacts,
+  serializeProfileAttachments,
+} from '~/utils/patient-profile-extra.js'
 import ModalityIcon from '~/components/patients/ModalityIcon.vue'
 
 function modalityIcon(name) {
@@ -27,6 +38,8 @@ export function emptyQuickAddForm() {
     gender: '',
     birthDate: '',
     cpf: '',
+    rg: '',
+    referralSource: '',
     tags: [],
     tagItems: [],
     city: '',
@@ -43,6 +56,17 @@ export function emptyQuickAddForm() {
     neighborhood: '',
     street: '',
     streetNumber: '',
+    country: 'BR',
+    addressComplement: '',
+    additionalContacts: [],
+    emergencyContacts: [],
+    guardianEnabled: false,
+    guardians: [],
+    identityDocuments: [],
+    notifyEmail: true,
+    notifySms: true,
+    notifyWhatsapp: true,
+    profileAttachments: [],
     plan: 'PREMIUM',
     status: 'ATIVO',
     accessExpiresAt: '',
@@ -88,12 +112,12 @@ export function userToQuickAddSeed(user) {
     name: user.name || '',
     nickname: profile.nickname || '',
     email: user.email || '',
-    phone: phoneRaw
-      ? (phoneRaw.startsWith('+') ? phoneRaw : `+${phoneRaw.replace(/\D/g, '')}`)
-      : '',
+    phone: phoneRaw ? normalizePhoneInternational(phoneRaw) : '',
     gender: profile.gender || '',
     birthDate: profile.birthDate || '',
     cpf: formatCpfMask(profile.cpf || ''),
+    rg: formatRgMask(profile.rg || ''),
+    referralSource: profile.referralSource || '',
     tagItems,
     city: profile.city || '',
     state: profile.state || '',
@@ -109,6 +133,17 @@ export function userToQuickAddSeed(user) {
     neighborhood: profile.neighborhood || '',
     street: profile.street || '',
     streetNumber: profile.streetNumber || '',
+    country: profile.country || 'BR',
+    addressComplement: profile.addressComplement || '',
+    additionalContacts: mapAdditionalContactsFromProfile(profile.additionalContacts),
+    emergencyContacts: mapLinkedContactsFromProfile(profile.emergencyContacts),
+    guardianEnabled: Boolean(profile.guardianEnabled),
+    guardians: mapLinkedContactsFromProfile(profile.guardians),
+    identityDocuments: mapIdentityDocumentsFromProfile(profile.identityDocuments),
+    notifyEmail: profile.notifyEmail !== false,
+    notifySms: profile.notifySms !== false,
+    notifyWhatsapp: profile.notifyWhatsapp !== false,
+    profileAttachments: mapAttachmentsFromProfile(profile.profileAttachments),
     plan: user.plan || 'PREMIUM',
     status: user.status || 'ATIVO',
     accessExpiresAt: toDateInputValue(user.accessExpiresAt),
@@ -127,6 +162,14 @@ export function formatCpfMask(value) {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
 }
 
+export function formatRgMask(value) {
+  const raw = String(value || '').replace(/[^\dA-Za-z]/g, '').toUpperCase().slice(0, 12)
+  if (raw.length <= 2) return raw
+  if (raw.length <= 5) return `${raw.slice(0, 2)}.${raw.slice(2)}`
+  if (raw.length <= 8) return `${raw.slice(0, 2)}.${raw.slice(2, 5)}.${raw.slice(5)}`
+  return `${raw.slice(0, 2)}.${raw.slice(2, 5)}.${raw.slice(5, 8)}-${raw.slice(8)}`
+}
+
 export function useQuickAddPatient() {
   const apiBase = useApiBase()
   const form = reactive(emptyQuickAddForm())
@@ -134,6 +177,7 @@ export function useQuickAddPatient() {
   const avatarPreview = ref('')
   const submitting = ref(false)
   const uploadingAvatar = ref(false)
+  const uploadingAttachments = ref(false)
   const lookingUpCep = ref(false)
   const cepLookupError = ref('')
   const error = ref('')
@@ -242,7 +286,9 @@ export function useQuickAddPatient() {
       form.email = seed.email || ''
       form.gender = seed.gender || ''
       form.birthDate = seed.birthDate || ''
-      form.cpf = seed.cpf || ''
+      form.cpf = seed.cpf ? formatCpfMask(seed.cpf) : ''
+      form.rg = seed.rg ? formatRgMask(seed.rg) : ''
+      form.referralSource = seed.referralSource || ''
       form.city = seed.city || ''
       form.state = seed.state || ''
       form.occupation = seed.occupation || ''
@@ -253,10 +299,31 @@ export function useQuickAddPatient() {
       form.lactating = Boolean(seed.lactating)
       form.objective = seed.objective || ''
       form.notes = seed.notes || ''
-      form.zipCode = seed.zipCode || ''
+      form.zipCode = seed.zipCode ? formatCepMask(seed.zipCode) : ''
       form.neighborhood = seed.neighborhood || ''
       form.street = seed.street || ''
       form.streetNumber = seed.streetNumber || ''
+      form.country = seed.country || 'BR'
+      form.addressComplement = seed.addressComplement || ''
+      form.additionalContacts = Array.isArray(seed.additionalContacts)
+        ? seed.additionalContacts.map((item) => ({ ...item }))
+        : []
+      form.emergencyContacts = Array.isArray(seed.emergencyContacts)
+        ? seed.emergencyContacts.map((item) => ({ ...item }))
+        : []
+      form.guardianEnabled = Boolean(seed.guardianEnabled)
+      form.guardians = Array.isArray(seed.guardians)
+        ? seed.guardians.map((item) => ({ ...item }))
+        : []
+      form.identityDocuments = Array.isArray(seed.identityDocuments)
+        ? seed.identityDocuments.map((item) => ({ ...item }))
+        : []
+      form.notifyEmail = seed.notifyEmail !== false
+      form.notifySms = seed.notifySms !== false
+      form.notifyWhatsapp = seed.notifyWhatsapp !== false
+      form.profileAttachments = Array.isArray(seed.profileAttachments)
+        ? seed.profileAttachments.map((item) => ({ ...item }))
+        : []
       form.plan = seed.plan || 'PREMIUM'
       form.status = seed.status || 'ATIVO'
       form.accessExpiresAt = seed.accessExpiresAt || ''
@@ -264,14 +331,17 @@ export function useQuickAddPatient() {
       form.avatarUrl = seed.avatarUrl || ''
       form.tagItems = Array.isArray(seed.tagItems) ? seed.tagItems.map((item) => ({ ...item })) : []
       if (seed.phone) {
-        const raw = String(seed.phone).trim()
-        form.phone = raw.startsWith('+') ? raw : `+${raw.replace(/\D/g, '')}`
+        form.phone = normalizePhoneInternational(seed.phone)
       }
     }
   }
 
   function onCpfInput(event) {
     form.cpf = formatCpfMask(event?.target?.value ?? form.cpf)
+  }
+
+  function onRgInput(event) {
+    form.rg = formatRgMask(event?.target?.value ?? form.rg)
   }
 
   function formatCepMask(value) {
@@ -384,12 +454,44 @@ export function useQuickAddPatient() {
     }
   }
 
+  async function uploadAttachmentsIfNeeded() {
+    const pending = (form.profileAttachments || []).filter((item) => item.file && !item.url)
+    if (!pending.length) return
+
+    uploadingAttachments.value = true
+    try {
+      for (const item of pending) {
+        const formData = new FormData()
+        formData.append('file', item.file)
+        const res = await $fetch(resolveUploadApiUrl('/upload/file', apiBase.value), authFetchInit({
+          method: 'POST',
+          body: formData,
+        }))
+        const url = res?.url || res?.secure_url || null
+        if (!url) throw new Error(`Upload de "${item.name}" não retornou URL.`)
+        item.url = url
+        item.uploadedAt = new Date().toISOString()
+        item.file = null
+      }
+    } finally {
+      uploadingAttachments.value = false
+    }
+  }
+
   function buildPatientProfilePayload() {
+    const additionalContacts = serializeAdditionalContacts(form.additionalContacts)
+    const emergencyContacts = serializeLinkedContacts(form.emergencyContacts)
+    const guardians = form.guardianEnabled ? serializeLinkedContacts(form.guardians) : []
+    const identityDocuments = serializeIdentityDocuments(form.identityDocuments)
+    const profileAttachments = serializeProfileAttachments(form.profileAttachments)
+
     return {
       nickname: form.nickname || null,
       gender: form.gender || null,
       birthDate: form.birthDate || null,
       cpf: form.cpf || null,
+      rg: form.rg || null,
+      referralSource: form.referralSource || null,
       tags: form.tagItems.length
         ? form.tagItems.map((item) => item.name)
         : (form.tags.length ? [...form.tags] : null),
@@ -412,6 +514,17 @@ export function useQuickAddPatient() {
       neighborhood: form.neighborhood || null,
       street: form.street || null,
       streetNumber: form.streetNumber || null,
+      country: form.country || 'BR',
+      addressComplement: form.addressComplement || null,
+      additionalContacts: additionalContacts.length ? additionalContacts : null,
+      emergencyContacts: emergencyContacts.length ? emergencyContacts : null,
+      guardianEnabled: form.guardianEnabled || null,
+      guardians: guardians.length ? guardians : null,
+      identityDocuments: identityDocuments.length ? identityDocuments : null,
+      notifyEmail: form.notifyEmail,
+      notifySms: form.notifySms,
+      notifyWhatsapp: form.notifyWhatsapp,
+      profileAttachments: profileAttachments.length ? profileAttachments : null,
     }
   }
 
@@ -433,6 +546,7 @@ export function useQuickAddPatient() {
       }
 
       const avatar = await uploadAvatarIfNeeded()
+      await uploadAttachmentsIfNeeded()
       const phoneDigits = String(form.phone || '').replace(/\D/g, '')
 
       const body = {
@@ -482,6 +596,7 @@ export function useQuickAddPatient() {
       }
 
       const avatar = await uploadAvatarIfNeeded()
+      await uploadAttachmentsIfNeeded()
       const phoneDigits = String(form.phone || '').replace(/\D/g, '')
 
       const body = {
@@ -510,12 +625,22 @@ export function useQuickAddPatient() {
     }
   }
 
+  const referralSourceOptions = [
+    { value: '', label: 'Selecione a origem' },
+    { value: 'instagram', label: 'Instagram' },
+    { value: 'indicacao', label: 'Indicação' },
+    { value: 'google', label: 'Google' },
+    { value: 'clinica', label: 'Clínica / parceiro' },
+    { value: 'outro', label: 'Outro' },
+  ]
+
   return {
     form,
     avatarFile,
     avatarPreview,
     submitting,
     uploadingAvatar,
+    uploadingAttachments,
     lookingUpCep,
     cepLookupError,
     error,
@@ -530,9 +655,11 @@ export function useQuickAddPatient() {
     maritalOptions,
     modalityOptions,
     stateOptions,
+    referralSourceOptions,
     minAccessDate,
     resetForm,
     onCpfInput,
+    onRgInput,
     onCepInput,
     onAvatarPick,
     clearAvatar,

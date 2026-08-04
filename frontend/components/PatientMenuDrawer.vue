@@ -142,17 +142,19 @@ function logout() {
   background: rgba(20, 20, 20, 0.45);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  z-index: 300;
+  z-index: var(--cf-z-drawer-backdrop, 1300);
 }
 
 .cf-drawer {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 310;
+  z-index: var(--cf-z-drawer, 1310);
   width: min(300px, 84vw);
   height: 100vh;
   height: 100dvh;
+  height: var(--cf-vvh, 100dvh);
+  max-height: var(--cf-vvh, 100dvh);
   background: var(--cf-surface, #fff);
   box-shadow: 12px 0 48px rgba(0, 0, 0, 0.12), 2px 0 8px rgba(0, 0, 0, 0.04);
   display: flex;

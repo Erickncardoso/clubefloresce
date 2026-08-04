@@ -22,13 +22,40 @@
           </button>
 
           <header class="mped-sheet-head">
+            <button
+              type="button"
+              class="mped-sheet-back"
+              aria-label="Voltar para a lista de planos"
+              @click="tryClose"
+            >
+              <ArrowLeft aria-hidden="true" />
+              <span>Planos</span>
+            </button>
+
             <div class="mped-sheet-head-copy">
-              <h2 id="mped-sheet-title">{{ sheetTitle }}</h2>
+              <div class="mped-sheet-title-row">
+                <h2 id="mped-sheet-title">{{ sheetTitle }}</h2>
+                <span
+                  v-if="statusBadge"
+                  class="mped-sheet-badge"
+                  :class="`mped-sheet-badge--${statusBadge.tone}`"
+                >
+                  <i v-if="statusBadge.tone === 'active'" class="mped-sheet-badge-dot" aria-hidden="true" />
+                  {{ statusBadge.label }}
+                </span>
+              </div>
               <p>{{ sheetSubtitle }}</p>
             </div>
+
             <div class="mped-sheet-head-actions">
-              <button type="button" class="btn-secondary mped-sheet-btn" @click="emit('new-plan')">
-                Nova prescrição
+              <button
+                type="button"
+                class="btn-secondary mped-sheet-btn"
+                aria-label="Nova prescrição"
+                @click="tryNewPlan"
+              >
+                <Plus aria-hidden="true" />
+                <span>Nova prescrição</span>
               </button>
               <button type="button" class="mped-sheet-close" aria-label="Fechar" @click="emitClose">
                 <X aria-hidden="true" />
@@ -63,7 +90,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { X } from 'lucide-vue-next'
+import { ArrowLeft, Plus, X } from 'lucide-vue-next'
 import PatientMealPlanEditor from '~/components/patients/PatientMealPlanEditor.vue'
 import { methodologyLabel, statusLabel } from '~/utils/meal-plan-prescription.js'
 
@@ -102,9 +129,22 @@ const sheetSubtitle = computed(() => {
   if (name) parts.push(name)
   const method = props.prescription?.methodology
   if (method) parts.push(methodologyLabel(method))
-  const status = props.prescription?.status
-  if (status) parts.push(statusLabel(status))
   return parts.join(' · ') || 'Prescrição alimentar'
+})
+
+const STATUS_TONES = {
+  active: 'active',
+  archived: 'archived',
+  draft: 'draft',
+}
+
+const statusBadge = computed(() => {
+  const status = props.prescription?.status
+  if (!status) return null
+  return {
+    tone: STATUS_TONES[status] || 'draft',
+    label: statusLabel(status),
+  }
 })
 
 const sheetStyle = computed(() => {
@@ -294,16 +334,52 @@ function onDragEnd() {
 
 .mped-sheet-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.65rem clamp(1rem, 3vw, 2rem) 0.75rem;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem clamp(1rem, 3vw, 2rem) 0.8rem;
   background: #fff;
   border-bottom: 1px solid #e8ece9;
   flex-shrink: 0;
 }
 
+.mped-sheet-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.6rem 0.35rem 0.45rem;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: #6b7368;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.mped-sheet-back svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.mped-sheet-back:hover {
+  background: #f8faf8;
+  border-color: #c8dcc4;
+  color: #2c322c;
+}
+
 .mped-sheet-head-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.mped-sheet-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   min-width: 0;
 }
 
@@ -312,12 +388,54 @@ function onDragEnd() {
   font-size: 1.05rem;
   font-weight: 600;
   color: #2c322c;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mped-sheet-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mped-sheet-badge--draft {
+  background: #f1f3f0;
+  color: #6b7368;
+}
+
+.mped-sheet-badge--active {
+  background: #e7f6ec;
+  color: #15803d;
+}
+
+.mped-sheet-badge--archived {
+  background: #f1f3f0;
+  color: #8a9288;
+}
+
+.mped-sheet-badge-dot {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: #22c55e;
 }
 
 .mped-sheet-head p {
-  margin: 0.25rem 0 0;
+  margin: 0.2rem 0 0;
   font-size: 0.78rem;
   color: #6b7368;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mped-sheet-head-actions {
@@ -328,9 +446,16 @@ function onDragEnd() {
 }
 
 .mped-sheet-btn {
-  min-height: 2rem !important;
-  padding: 0.3rem 0.65rem !important;
+  min-height: 2.1rem !important;
+  padding: 0.3rem 0.7rem !important;
   font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  width: auto !important;
+}
+
+.mped-sheet-btn svg {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .mped-sheet-close {
@@ -388,6 +513,11 @@ function onDragEnd() {
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
+  width: auto;
+}
+
+/* Só as ações de salvar/publicar do rodapé lateral ocupam a linha inteira. */
+.modal-card.mped-sheet :deep(.mped-sidebar-btn) {
   width: 100%;
 }
 
@@ -445,12 +575,22 @@ function onDragEnd() {
   }
 
   .mped-sheet-head {
-    flex-direction: column;
-    align-items: stretch;
+    gap: 0.55rem;
   }
 
-  .mped-sheet-head-actions {
-    justify-content: space-between;
+  /* Ícones sozinhos: o header continua em uma linha, sem quebrar o título. */
+  .mped-sheet-back span,
+  .mped-sheet-btn span {
+    display: none;
+  }
+
+  .mped-sheet-back,
+  .mped-sheet-btn {
+    padding: 0.35rem 0.5rem !important;
+  }
+
+  .mped-sheet-head p {
+    font-size: 0.72rem;
   }
 }
 </style>

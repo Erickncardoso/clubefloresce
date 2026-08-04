@@ -183,6 +183,7 @@ export default defineNuxtConfig({
     join(frontendRoot, 'assets/css/fonts.css'),
     join(frontendRoot, 'assets/css/patient-app.css'),
     join(frontendRoot, 'assets/css/patient-tab-bar.css'),
+    join(frontendRoot, 'assets/css/patient-z-layers.css'),
     join(frontendRoot, 'assets/css/patient-quick-fab.css'),
     join(frontendRoot, 'assets/css/patient-screen-dim.css'),
     join(frontendRoot, 'assets/css/mobile-app.css'),

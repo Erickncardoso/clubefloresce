@@ -3,7 +3,7 @@
     <header class="anw-head">
       <div class="anw-head-copy">
         <div class="anw-patient-meta">
-          <PatientAvatar :src="user?.avatar" :name="user?.name" size="sm" :ring="false" />
+          <PatientAvatar :src="user?.avatar" :name="user?.name" :user="user" size="sm" :ring="false" />
           <div>
             <strong>{{ user?.name || 'Paciente' }}</strong>
             <p>

@@ -80,13 +80,41 @@ export function toInternationalPhone(digits, country = defaultPhoneCountry) {
   return `${country.dial}${national}`
 }
 
+export function normalizePhoneInternational(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  if (raw.startsWith('+')) return raw
+
+  const digits = digitsOnly(raw)
+  if (!digits) return ''
+
+  // Número nacional BR (10–11 dígitos) sem código de país
+  if (digits.length >= 10 && digits.length <= 11 && !digits.startsWith('55')) {
+    return `+55${digits}`
+  }
+
+  return `+${digits}`
+}
+
 export function parseInternationalPhone(value, countries = phoneCountries) {
   const raw = String(value || '').trim()
   if (!raw) {
     return { country: defaultPhoneCountry, nationalDigits: '', display: '' }
   }
 
-  const normalized = raw.startsWith('+') ? raw : `+${digitsOnly(raw)}`
+  if (!raw.startsWith('+')) {
+    const digits = digitsOnly(raw)
+    if (digits.length >= 10 && digits.length <= 11) {
+      const nationalDigits = digits.slice(0, defaultPhoneCountry.maxDigits)
+      return {
+        country: defaultPhoneCountry,
+        nationalDigits,
+        display: formatNationalPhone(nationalDigits, defaultPhoneCountry),
+      }
+    }
+  }
+
+  const normalized = raw.startsWith('+') ? raw : normalizePhoneInternational(raw)
   const sorted = [...countries].sort((a, b) => b.dial.length - a.dial.length)
 
   // Prefer BR when dial is +55; for +1 prefer US over CA unless already known.

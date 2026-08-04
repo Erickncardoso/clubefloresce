@@ -3,7 +3,7 @@
     <header v-if="!inSheet" class="mped-head">
       <div class="mped-head-copy">
         <div class="mped-patient">
-          <PatientAvatar :src="user?.avatar" :name="user?.name" size="sm" :ring="false" />
+          <PatientAvatar :src="user?.avatar" :name="user?.name" :user="user" size="sm" :ring="false" />
           <div>
             <strong>{{ form.title || 'Nova prescrição' }}</strong>
             <p>
@@ -23,12 +23,6 @@
       </div>
     </header>
 
-    <div v-if="inSheet" class="mped-sheet-nav">
-      <button type="button" class="btn-secondary mped-btn mped-sheet-nav-btn" @click="$emit('open-history')">
-        Histórico de planos
-      </button>
-    </div>
-
     <div class="mped-layout">
       <section class="mped-main">
         <div class="mped-config">
@@ -43,20 +37,22 @@
           </div>
           <div class="field field--float">
             <label for="mped-objective">Objetivo</label>
-            <input id="mped-objective" v-model="form.objective" type="text" maxlength="200" placeholder="Ex.: Emagrecimento saudável">
+            <input id="mped-objective" v-model="form.objective" type="text" maxlength="200" placeholder="Ex.: Emagrecimento">
           </div>
           <div class="field field--float">
             <label for="mped-start">Início</label>
             <SharedCfDateInput id="mped-start" v-model="form.startDate" />
           </div>
-          <div class="field field--float" :class="{ 'mped-field--disabled': form.indefinite }">
-            <label for="mped-end">Término</label>
-            <SharedCfDateInput id="mped-end" v-model="form.endDate" :disabled="form.indefinite" />
+          <div class="mped-config-end">
+            <div class="field field--float" :class="{ 'mped-field--disabled': form.indefinite }">
+              <label for="mped-end">Término</label>
+              <SharedCfDateInput id="mped-end" v-model="form.endDate" :disabled="form.indefinite" />
+            </div>
+            <label class="mped-check">
+              <input v-model="form.indefinite" type="checkbox">
+              <span>Sem data de término</span>
+            </label>
           </div>
-          <label class="mped-check">
-            <input v-model="form.indefinite" type="checkbox">
-            <span>Tempo indeterminado</span>
-          </label>
         </div>
 
         <div v-if="form.methodology === 'qualitative'" class="mped-qualitative">
@@ -117,7 +113,8 @@
           </div>
 
           <p v-if="form.methodology === 'equivalents'" class="mped-meals-hint">
-            Prescreva porções de grupos alimentares e liste as opções de substituição para o paciente escolher.
+            <Info class="mped-meals-hint__icon" aria-hidden="true" />
+            <span>Prescreva porções de grupos alimentares e liste as opções de substituição para o paciente escolher.</span>
           </p>
 
           <PatientMealPlanLiveMacroBar
@@ -363,21 +360,45 @@
                   </div>
                 </template>
                 <div class="mped-meal-body__actions">
-                  <button type="button" class="btn-primary mped-add-food mped-add-food--primary" @click="addFood(mealIndex)">
-                    {{ form.methodology === 'equivalents' ? '+ Adicionar equivalente' : '+ Adicionar alimento' }}
-                  </button>
+                  <p v-if="!meal.items.length" class="mped-meal-empty">
+                    <UtensilsCrossed aria-hidden="true" />
+                    <span>
+                      {{ form.methodology === 'equivalents'
+                        ? 'Nenhum equivalente nesta refeição ainda.'
+                        : 'Nenhum alimento nesta refeição ainda.' }}
+                    </span>
+                  </p>
+
+                  <div class="mped-meal-add">
+                    <button type="button" class="mped-add-food" @click="addFood(mealIndex)">
+                      <Plus aria-hidden="true" />
+                      {{ form.methodology === 'equivalents' ? 'Adicionar equivalente' : 'Adicionar alimento' }}
+                    </button>
+                    <button
+                      v-if="form.methodology === 'foods'"
+                      type="button"
+                      class="mped-add-food mped-add-food--recipe"
+                      @click="addRecipe(mealIndex)"
+                    >
+                      <ChefHat aria-hidden="true" />
+                      Inserir receita
+                    </button>
+                  </div>
+
                   <button
-                    v-if="form.methodology === 'foods'"
+                    v-if="!isNotesOpen(meal)"
                     type="button"
-                    class="btn-secondary mped-add-food"
-                    @click="addRecipe(mealIndex)"
+                    class="mped-notes-toggle"
+                    @click="openMealNotes(meal.id)"
                   >
-                    + Inserir receita ($)
+                    <MessageSquarePlus aria-hidden="true" />
+                    Adicionar observações da refeição
                   </button>
-                  <div class="field field--float mped-meal-notes">
+                  <div v-else class="field field--float mped-meal-notes">
                     <label :for="`mped-meal-notes-${meal.id}`">Observações da refeição</label>
                     <textarea
                       :id="`mped-meal-notes-${meal.id}`"
+                      :ref="(el) => registerNotesRef(meal.id, el)"
                       v-model="meal.notes"
                       rows="2"
                       placeholder="Orientações específicas desta refeição"
@@ -388,8 +409,9 @@
             </article>
           </div>
 
-          <button type="button" class="btn-primary mped-new-meal" @click="addMeal">
-            + Adicionar refeição
+          <button type="button" class="mped-new-meal" @click="addMeal">
+            <Plus aria-hidden="true" />
+            Adicionar refeição
           </button>
         </div>
       </section>
@@ -524,8 +546,18 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { ArrowLeftRight, ChefHat, ChevronDown, Copy, Trash2 } from 'lucide-vue-next'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import {
+  ArrowLeftRight,
+  ChefHat,
+  ChevronDown,
+  Copy,
+  Info,
+  MessageSquarePlus,
+  Plus,
+  Trash2,
+  UtensilsCrossed,
+} from 'lucide-vue-next'
 import MealPlanFoodSearchPicker from '~/components/patients/MealPlanFoodSearchPicker.vue'
 import MealPlanPortionMeasurePicker from '~/components/patients/MealPlanPortionMeasurePicker.vue'
 import MealPlanItemSubstitutionsPanel from '~/components/patients/MealPlanItemSubstitutionsPanel.vue'
@@ -749,6 +781,8 @@ const hydrationProfileDefaults = computed(() => ({
 const expandAll = ref(true)
 const expandedMeals = ref(new Set())
 const expandedSubs = ref(new Set())
+const openNotesMeals = ref(new Set())
+const notesRefs = new Map()
 const editingItemId = ref('')
 const recipeEditorOpen = ref(false)
 const recipeEditorSeed = ref(null)
@@ -1031,6 +1065,28 @@ function toggleSubstitutions(itemId) {
 function onSubstitutionsChange(item) {
   syncItemSubstitutionOptions(item)
 }
+
+/* Observações da refeição: escondidas até serem pedidas, para o card não
+   carregar um textarea vazio em toda refeição. */
+function isNotesOpen(meal) {
+  if (!meal) return false
+  return openNotesMeals.value.has(meal.id) || Boolean(String(meal.notes || '').trim())
+}
+
+function openMealNotes(mealId) {
+  const next = new Set(openNotesMeals.value)
+  next.add(mealId)
+  openNotesMeals.value = next
+  nextTick(() => {
+    notesRefs.get(mealId)?.focus?.()
+  })
+}
+
+function registerNotesRef(mealId, el) {
+  if (el) notesRefs.set(mealId, el)
+  else notesRefs.delete(mealId)
+}
+
 
 function hydrateFormFromPrescription() {
   const next = hydratePrescriptionFromRecord(props.prescription)
@@ -1399,10 +1455,6 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   gap: 0.75rem;
 }
 
-.mped--sheet .mped-sheet-nav {
-  flex-shrink: 0;
-}
-
 .mped--sheet .mped-layout {
   flex: 1;
   min-height: 0;
@@ -1439,17 +1491,6 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   margin-top: 0;
   border-top: 1px solid #eef1ee;
   box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.05);
-}
-
-.mped-sheet-nav {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.mped-sheet-nav-btn {
-  min-height: 2rem !important;
-  padding: 0.3rem 0.65rem !important;
-  font-size: 0.78rem !important;
 }
 
 .mped-head {
@@ -1538,18 +1579,26 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 
 .mped-toolbar {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem 1rem;
   flex-wrap: wrap;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eef1ee;
+}
+
+.mped-toolbar__block {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .mped-toolbar__label {
-  display: block;
-  margin-bottom: 0.35rem;
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 600;
   color: #8a9288;
+  white-space: nowrap;
 }
 
 .mped-day-pills {
@@ -1570,10 +1619,22 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   cursor: pointer;
 }
 
+.mped-day-pill:hover:not(.mped-day-pill--active) {
+  border-color: #c8dcc4;
+  background: #f8faf8;
+  color: #2c322c;
+}
+
+.mped-day-pill:focus-visible {
+  outline: 2px solid var(--primary, #8b967c);
+  outline-offset: 2px;
+}
+
 .mped-day-pill--active {
   border-color: #8b967c;
   background: #8b967c;
   color: #fff;
+  font-weight: 600;
 }
 
 .mped-meal-list {
@@ -1636,23 +1697,38 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   flex-shrink: 0;
 }
 
+/* Nome da refeição é um título editável, não um formulário:
+   a caixa só aparece quando o campo é alvo de interação. */
 .mped-meal-name--header {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  max-width: 22rem;
   min-height: 2rem;
   padding: 0.35rem 0.5rem;
-  border: 1px solid #e2e8e4;
+  border: 1px solid transparent;
   border-radius: var(--cf-radius-xs);
-  background: #fff;
+  background: transparent;
   font-size: 0.8125rem;
-  font-weight: 400;
+  font-weight: 600;
   color: #2c322c;
   box-sizing: border-box;
   line-height: 1.25;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.mped-meal-name--header::placeholder {
+  font-weight: 400;
+  color: #9aa39a;
+}
+
+.mped-meal-name--header:hover {
+  border-color: #e2e8e4;
+  background: #fff;
 }
 
 .mped-meal-name--header:focus {
   outline: none;
+  background: #fff;
   border-color: #b8d4b4;
   box-shadow: 0 0 0 2px rgba(45, 90, 39, 0.08);
 }
@@ -1726,6 +1802,7 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 .mped-meal-notes {
   margin: 0;
   padding-top: 0;
+  width: 100%;
 }
 
 .mped-meal-notes textarea {
@@ -1916,20 +1993,32 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 
 .mped-config {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.65rem 0.7rem;
   margin-bottom: 0.85rem;
-  align-items: end;
+  align-items: start;
+}
+
+/* O "sem data de término" fica colado ao campo que ele desabilita,
+   em vez de sobrar como um 5º item numa grade de 4 colunas. */
+.mped-config-end {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
 }
 
 .mped-check {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.78rem;
-  color: #4b5563;
-  min-height: 2.5rem;
-  padding-bottom: 0.15rem;
+  font-size: 0.75rem;
+  color: #5f675f;
+  cursor: pointer;
+}
+
+.mped-check input {
+  cursor: pointer;
 }
 
 .mped-field--disabled {
@@ -1994,15 +2083,31 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 }
 
 .mped-meals-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
   margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--cf-radius-xs);
+  background: #f5f7f3;
   font-size: 0.78rem;
-  color: #6b7368;
-  line-height: 1.4;
+  color: #5f675f;
+  line-height: 1.45;
+}
+
+.mped-meals-hint__icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #8b967c;
 }
 
 .mped-meals-tools {
   display: flex;
   gap: 0.35rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .mped-btn-sm {
@@ -2127,9 +2232,63 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 
 .mped-meal-body__actions {
   min-width: 0;
-  padding: 0.75rem 0.75rem 0;
-  display: grid;
-  gap: 0.75rem;
+  padding: 0.7rem 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.mped-meal-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.78rem;
+  color: #8a9288;
+}
+
+.mped-meal-empty svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+  stroke-width: 1.6;
+}
+
+.mped-meal-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.mped-notes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #8a9288;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.mped-notes-toggle svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.mped-notes-toggle:hover {
+  color: var(--primary, #8b967c);
+}
+
+.mped-notes-toggle:focus-visible {
+  outline: 2px solid var(--primary, #8b967c);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 .mped-food-grid {
@@ -2216,8 +2375,9 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   color: #5f675f;
 }
 
+/* Linha de receita: tinta de fundo + o ícone da célula bastam para diferenciar. */
 .mped-food-grid__row-wrap--recipe {
-  border-left: 3px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.06);
 }
 
 .mped-food-grid__text--recipe {
@@ -2287,13 +2447,51 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   color: #2c322c;
 }
 
-.mped-add-food--primary {
-  margin: 0;
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 2.35rem !important;
-  font-size: 0.8125rem !important;
-  font-weight: 500 !important;
+/* Adicionar item: affordance leve. O peso visual do editor pertence a
+   "Salvar e publicar", não a um botão repetido em cada refeição. */
+.mped-add-food {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px dashed #c5cdc7;
+  border-radius: var(--cf-radius-xs);
+  background: #fff;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #5f675f;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.mped-add-food svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+}
+
+.mped-add-food:hover {
+  border-color: var(--primary, #8b967c);
+  border-style: solid;
+  background: #f7f9f5;
+  color: #2c322c;
+}
+
+.mped-add-food:focus-visible {
+  outline: 2px solid var(--primary, #8b967c);
+  outline-offset: 2px;
+}
+
+.mped-add-food--recipe:hover {
+  border-color: #e0a53a;
+  background: #fdf8ef;
+}
+
+.mped-add-food--recipe svg {
+  color: #d97706;
 }
 
 .mped-line-done {
@@ -2391,9 +2589,6 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   }
 }
 
-.mped-add-food:not(.mped-add-food--primary) {
-  justify-self: start;
-}
 
 .mped-equiv-row {
   display: grid;
@@ -2419,11 +2614,39 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 }
 
 .mped-new-meal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   width: 100%;
   margin-top: 0.65rem;
-  min-height: 2.35rem !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem;
+  border: 1.5px dashed #cfd6d0;
+  border-radius: var(--cf-radius-control);
+  background: #fbfcfb;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #5f675f;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.mped-new-meal svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.mped-new-meal:hover {
+  border-color: var(--primary, #8b967c);
+  background: #f5f8f2;
+  color: #2c322c;
+}
+
+.mped-new-meal:focus-visible {
+  outline: 2px solid var(--primary, #8b967c);
+  outline-offset: 2px;
 }
 
 .mped-sidebar-footer {

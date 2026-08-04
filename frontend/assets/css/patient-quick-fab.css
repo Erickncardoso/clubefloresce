@@ -6,10 +6,10 @@
 .patient-quick-fab {
   position: fixed;
   right: calc(1rem + env(safe-area-inset-right, 0px));
-  bottom: calc(var(--cf-tab-h, 64px) + 12px);
-  z-index: 24002;
-  width: 3.5rem;
-  height: 3.5rem;
+  bottom: calc(var(--cf-tab-h, 64px) + var(--cf-quick-fab-gap, 12px));
+  z-index: var(--cf-z-fab, 24002);
+  width: var(--cf-quick-fab-size, 3.5rem);
+  height: var(--cf-quick-fab-size, 3.5rem);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -34,7 +34,7 @@
 }
 
 .patient-quick-dial {
-  z-index: 24001;
+  z-index: var(--cf-z-fab-dial, 24001);
 }
 
 .patient-quick-fab--open {
@@ -54,6 +54,34 @@
 
 html:not(:has(.patient-nav)) .patient-quick-fab {
   display: none !important;
+}
+
+/* PWA — ancora no visualViewport (mesma lógica da tab bar) */
+html.cf-mobile-app .patient-quick-fab {
+  bottom: auto;
+  top: var(
+    --patient-fab-top,
+    calc(
+      100dvh
+      - var(--cf-tab-h, 64px)
+      - var(--cf-quick-fab-gap, 12px)
+      - var(--cf-quick-fab-size, 3.5rem)
+    )
+  );
+}
+
+html.cf-mobile-app .patient-quick-dial {
+  top: calc(var(--patient-fab-top, calc(100dvh - var(--cf-tab-h, 64px) - var(--cf-quick-fab-stack, 4.375rem))) - var(--cf-quick-fab-gap, 12px));
+  bottom: auto !important;
+  transform: translateY(-100%) translateZ(0);
+}
+
+/* Menu lateral aberto — esconde (+) para não conflitar com drawer/backdrop */
+html:has(.cf-drawer) .patient-quick-fab,
+html:has(.cf-drawer) .patient-quick-dial {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 html.vk-open .patient-quick-fab,

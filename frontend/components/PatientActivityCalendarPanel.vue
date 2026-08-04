@@ -195,7 +195,7 @@ onUnmounted(() => {
 .activity-panel-wrap {
   position: fixed;
   inset: 0;
-  z-index: 480;
+  z-index: var(--cf-z-sheet-backdrop, 1200);
   display: flex;
   flex-direction: column;
   pointer-events: none;

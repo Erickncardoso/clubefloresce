@@ -71,7 +71,7 @@ async function activateReminder() {
 .checkin-prompt-overlay {
   position: fixed;
   inset: 0;
-  z-index: 600;
+  z-index: var(--cf-z-sheet-backdrop, 1200);
   display: flex;
   align-items: center;
   justify-content: center;

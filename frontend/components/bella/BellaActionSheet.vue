@@ -229,7 +229,7 @@ onUnmounted(() => {
 .bella-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: var(--cf-z-sheet-backdrop, 1200);
   border: none;
   padding: 0;
   margin: 0;
@@ -242,7 +242,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 130;
+  z-index: var(--cf-z-sheet, 1210);
   width: 100%;
   max-width: 100%;
   max-height: min(82vh, 680px);

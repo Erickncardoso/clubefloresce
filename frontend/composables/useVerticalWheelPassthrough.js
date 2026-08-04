@@ -29,7 +29,6 @@ export function lockPatientScroll() {
   patientScrollLockTop = root.scrollTop
   root.dataset.patientScrollLocked = 'true'
   root.style.overflow = 'hidden'
-  root.style.touchAction = 'none'
   root.style.overscrollBehavior = 'none'
 }
 
@@ -42,7 +41,6 @@ export function unlockPatientScroll() {
   if (patientScrollLockCount > 0) return
 
   root.style.overflow = ''
-  root.style.touchAction = ''
   root.style.overscrollBehavior = ''
   delete root.dataset.patientScrollLocked
   root.scrollTop = patientScrollLockTop

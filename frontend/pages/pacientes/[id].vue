@@ -16,11 +16,17 @@
           :profile="profile"
           :overview="overview"
           :section-label="activeTabLabel"
+          compact
           @edit-patient="openEditPatientModal"
           @start-call="openVideoCall"
         />
 
         <section v-if="activeTab === 'visao'" class="pc-panel">
+          <PatientsPatientChartInfoList
+            :user="user"
+            :profile="profile"
+            @edit="openEditPatientModal"
+          />
           <PatientsPatientChartOverview
             :patient-id="patientId"
             :profile="profile"
@@ -596,8 +602,10 @@ watch(
 .patient-chart-page {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding-bottom: 2rem;
+  gap: 0.65rem;
+  max-width: 100%;
+  min-width: 0;
+  padding-bottom: 1.5rem;
 }
 
 .pc-state {
@@ -632,7 +640,8 @@ watch(
 .pc-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 1rem;
+  min-width: 0;
 }
 
 .pc-subtabs {

@@ -1,5 +1,6 @@
 import { nextTick } from 'vue'
 import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
+import { releasePatientInteractionLock } from '~/utils/patient-interaction-lock.mjs'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const { startNavigation, finishNavigation } = usePatientNavigationLoading()
@@ -7,11 +8,15 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   router.beforeEach((to, from) => {
     if (to.fullPath === from.fullPath) return
+    releasePatientInteractionLock()
     startNavigation(to.path)
   })
 
   router.afterEach(() => {
-    nextTick(() => finishNavigation())
+    nextTick(() => {
+      releasePatientInteractionLock()
+      finishNavigation()
+    })
   })
 
   router.onError((error) => {
@@ -37,6 +42,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   })
 
   nuxtApp.hook('page:finish', () => {
-    nextTick(() => finishNavigation())
+    nextTick(() => {
+      releasePatientInteractionLock()
+      finishNavigation()
+    })
   })
 })

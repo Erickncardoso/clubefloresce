@@ -18,10 +18,19 @@
   --cf-tab-safe-bottom: var(--patient-nav-safe);
   --cf-tab-float-margin-x: 0;
   --cf-tab-float-margin-bottom: 0;
+  --cf-quick-fab-size: 3.5rem;
+  --cf-quick-fab-gap: 12px;
+  --cf-quick-fab-stack: calc(var(--cf-quick-fab-size) + var(--cf-quick-fab-gap));
   --cf-tab-fab-rise: 0;
   --cf-tab-nav-pad-y: 0;
   --cf-page-pad-bottom-tab: var(--cf-tab-clearance);
   --pa-tab-h: var(--cf-tab-h);
+}
+
+/* PWA com botão (+) — reserva espaço extra no scroll para não cortar cards */
+html.cf-mobile-app:has(.patient-quick-fab) {
+  --cf-tab-fab-rise: var(--cf-quick-fab-stack);
+  --cf-page-pad-bottom-tab: calc(var(--cf-tab-clearance) + var(--cf-tab-fab-rise));
 }
 
 /* PWA instalado — home indicator / gesture bar (iOS + Android standalone) */
@@ -40,7 +49,7 @@ html.cf-safari-inline.cf-pwa-standalone.cf-ios {
 
 .patient-nav {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--cf-z-tab-bar, 1000);
   left: 0;
   right: 0;
   bottom: 0;

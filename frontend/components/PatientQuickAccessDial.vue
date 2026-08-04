@@ -72,6 +72,10 @@ function finishClose() {
   closePhase.value = false
   openPhase.value = false
   shown.value = false
+  releaseInteractionLock()
+}
+
+function releaseInteractionLock() {
   setDialChrome(false)
   unlockPatientScroll()
 }
@@ -93,6 +97,8 @@ function requestClose() {
   openPhase.value = false
   closePhase.value = true
   closeQuickDial()
+  // Libera toques na hora — não esperar animação de saída (~500ms+)
+  releaseInteractionLock()
 
   const totalMs = (PATIENT_QUICK_DIAL_ITEMS.length - 1) * STAGGER_MS + ANIM_MS
   clearCloseTimer()
@@ -138,8 +144,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   clearCloseTimer()
-  setDialChrome(false)
-  unlockPatientScroll()
+  releaseInteractionLock()
 })
 </script>
 
@@ -147,7 +152,12 @@ onUnmounted(() => {
 .patient-quick-dial {
   position: fixed;
   right: calc(1rem + env(safe-area-inset-right, 0px));
-  bottom: calc(var(--cf-tab-h, 64px) + 12px + 3.5rem + 10px);
+  bottom: calc(
+    var(--cf-tab-h, 64px)
+    + var(--cf-quick-fab-gap, 12px)
+    + var(--cf-quick-fab-size, 3.5rem)
+    + 10px
+  );
   left: auto;
   transform: translateZ(0);
   display: flex;
@@ -157,6 +167,10 @@ onUnmounted(() => {
   width: min(calc(100vw - 2rem), 19rem);
   padding: 0 0.1rem 0.1rem;
   box-sizing: border-box;
+  pointer-events: none;
+}
+
+.patient-quick-dial--closing {
   pointer-events: none;
 }
 

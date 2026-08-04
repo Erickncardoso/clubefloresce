@@ -257,6 +257,7 @@
                       <PatientAvatar
                         :src="item.user?.avatar"
                         :name="item.user?.name || 'Paciente'"
+                        :user="item.user"
                         size="sm"
                         :ring="false"
                       />
@@ -622,6 +623,7 @@
               <PatientAvatar
                 :src="selectedResponse.user?.avatar"
                 :name="selectedResponse.user?.name || 'Paciente'"
+                :user="selectedResponse.user"
                 size="md"
                 :ring="false"
               />

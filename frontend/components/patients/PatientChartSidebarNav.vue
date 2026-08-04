@@ -1,42 +1,51 @@
 <template>
   <div
     class="pc-sidebar-nav"
-    :class="{
-      'pc-sidebar-nav--mobile': mobile,
-      'pc-sidebar-nav--collapsed': collapsed && !mobile,
-    }"
+    :class="{ 'pc-sidebar-nav--mobile': mobile }"
   >
+    <div v-if="showProfileBlock" class="pc-sidebar-profile">
+      <div class="pc-sidebar-avatar-wrap">
+        <PatientAvatar
+          :src="patientUser?.avatar"
+          :name="patientUser?.name || 'Paciente'"
+          :user="patientUser"
+          size="xl"
+          :ring="false"
+        />
+      </div>
+
+      <h2 class="pc-sidebar-name">{{ patientUser?.name || 'Carregando…' }}</h2>
+
+      <div v-if="whatsappUrl" class="pc-sidebar-actions">
+        <a
+          :href="whatsappUrl"
+          class="pc-sidebar-message"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <WhatsAppIcon class="pc-sidebar-message-icon" aria-hidden="true" />
+          Enviar mensagem
+        </a>
+      </div>
+    </div>
+
     <NuxtLink
+      v-if="mobile"
       to="/usuarios"
       class="pc-sidebar-link pc-sidebar-link--back"
-      :title="collapsed && !mobile ? 'Voltar aos pacientes' : undefined"
       @click="emitNavigate"
     >
       <ArrowLeft class="pc-sidebar-link-icon" />
       <span class="pc-sidebar-link-label">Voltar aos pacientes</span>
     </NuxtLink>
 
-    <div v-if="showPatientHeader" class="pc-sidebar-patient">
-      <PatientAvatar
-        :src="patientUser?.avatar"
-        :name="patientUser?.name || 'Paciente'"
-        size="sm"
-        :ring="false"
-      />
-      <div class="pc-sidebar-patient-copy">
-        <strong>{{ patientUser?.name || 'Carregando…' }}</strong>
-        <small>Ficha do paciente</small>
-      </div>
-    </div>
-
-    <div class="pc-sidebar-sections">
+    <nav class="pc-sidebar-menu" aria-label="Seções da ficha">
       <NuxtLink
         v-for="tab in tabs"
         :key="tab.id"
         :to="tabLink(tab.id)"
         class="pc-sidebar-link"
         :class="{ 'pc-sidebar-link--active': isTabActive(tab.id) }"
-        :title="collapsed && !mobile ? tab.label : undefined"
         @click="emitNavigate"
       >
         <component :is="chartTabIcon(tab.id)" class="pc-sidebar-link-icon" />
@@ -44,7 +53,7 @@
       </NuxtLink>
 
       <div
-        v-if="activeTab === 'evolucao' && (!collapsed || mobile)"
+        v-if="activeTab === 'evolucao'"
         class="pc-sidebar-evolucao"
       >
         <NuxtLink
@@ -58,7 +67,7 @@
           <span class="pc-sidebar-link-label">{{ sub.label }}</span>
         </NuxtLink>
       </div>
-    </div>
+    </nav>
   </div>
 </template>
 
@@ -67,10 +76,10 @@ import { ArrowLeft } from 'lucide-vue-next'
 import { authFetchInit } from '~/composables/useAuthSession.js'
 import { usePatientChartNav } from '~/composables/usePatientChartNav.js'
 import { usePatientRoute } from '~/composables/usePatientRoute.js'
+import WhatsAppIcon from '~/components/WhatsAppIcon.vue'
 
 const props = defineProps({
   mobile: { type: Boolean, default: false },
-  collapsed: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['navigate'])
@@ -90,7 +99,14 @@ const {
 
 const patientUser = ref(null)
 
-const showPatientHeader = computed(() => !props.collapsed || props.mobile)
+const showProfileBlock = computed(() => !props.mobile)
+
+const whatsappUrl = computed(() => {
+  const digits = String(patientUser.value?.phone || '').replace(/\D/g, '')
+  if (!digits) return ''
+  const withCountry = digits.startsWith('55') ? digits : `55${digits}`
+  return `https://wa.me/${withCountry}`
+})
 
 watch(
   patientId,
@@ -118,28 +134,103 @@ function emitNavigate() {
 
 <style scoped>
 .pc-sidebar-nav {
-  --pc-sidebar-text: #66706e;
-  --pc-sidebar-text-active: #141414;
-  --pc-sidebar-hover-bg: #f4f7f6;
-  --pc-sidebar-active-bg: #eef8f0;
-  --pc-sidebar-border: #e8ece9;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
   min-height: 0;
-  height: 100%;
+  padding: 1rem 0.75rem 1.1rem;
+  box-sizing: border-box;
+}
+
+.pc-sidebar-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0.5rem 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--nav-border, #e8ece9);
+  margin-bottom: 0.35rem;
+}
+
+.pc-sidebar-avatar-wrap {
+  margin-bottom: 0.55rem;
+}
+
+.pc-sidebar-avatar-wrap :deep(.patient-avatar--xl) {
+  width: 5.5rem;
+  height: 5.5rem;
+}
+
+.pc-sidebar-name {
+  margin: 0;
+  max-width: 100%;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--nav-text, #141414);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.pc-sidebar-actions {
+  width: 100%;
+  margin-top: 0.85rem;
+}
+
+.pc-sidebar-message {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--nav-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: var(--nav-text, #141414);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.pc-sidebar-message:hover {
+  background: var(--nav-surface-hover, #f4f7f6);
+  border-color: #d8deda;
+}
+
+.pc-sidebar-message-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.pc-sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-height: 0;
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .pc-sidebar-link {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.65rem;
   width: 100%;
   min-width: 0;
-  padding: 0.52rem 0.72rem;
-  border-radius: var(--cf-radius-control, 10px);
+  padding: 0.58rem 0.85rem;
+  border-radius: var(--cf-radius-control);
   text-decoration: none;
-  color: var(--pc-sidebar-text);
+  color: var(--nav-text-muted, #66706e);
   font-weight: 500;
   font-size: 0.8125rem;
   line-height: 1.35;
@@ -149,21 +240,27 @@ function emitNavigate() {
   text-align: left;
   transition: color 0.15s ease, background 0.15s ease;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .pc-sidebar-link:hover {
   color: var(--primary, #8b967c);
-  background: var(--pc-sidebar-hover-bg);
+  background: var(--nav-surface-hover, #f4f7f6);
 }
 
 .pc-sidebar-link--active {
-  color: var(--pc-sidebar-text-active);
+  color: #fff;
   font-weight: 600;
-  background: var(--pc-sidebar-active-bg);
+  background: var(--primary, #8b967c);
+}
+
+.pc-sidebar-link--active:hover {
+  color: #fff;
+  background: #7a856e;
 }
 
 .pc-sidebar-link--back {
-  margin-bottom: 0.1rem;
+  margin-bottom: 0.15rem;
   color: #5f675f;
 }
 
@@ -171,8 +268,12 @@ function emitNavigate() {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  margin-top: 0.08rem;
   opacity: 0.88;
+}
+
+.pc-sidebar-link--active .pc-sidebar-link-icon {
+  color: #fff;
+  opacity: 1;
 }
 
 .pc-sidebar-link-label {
@@ -180,111 +281,47 @@ function emitNavigate() {
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  white-space: normal;
-}
-
-.pc-sidebar-patient {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.6rem 0.72rem;
-  margin: 0.05rem 0 0.4rem;
-  border-radius: var(--cf-radius-control, 10px);
-  background: rgba(139, 150, 124, 0.08);
-  border: 1px solid rgba(139, 150, 124, 0.12);
-}
-
-.pc-sidebar-patient-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.12rem;
-}
-
-.pc-sidebar-patient-copy strong {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #2c322c;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pc-sidebar-patient-copy small {
-  font-size: 0.68rem;
-  color: #7a847c;
-}
-
-.pc-sidebar-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 0.14rem;
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding-right: 0.1rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(139, 150, 124, 0.35) transparent;
 }
 
 .pc-sidebar-evolucao {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.12rem;
   margin: 0.05rem 0 0.25rem 0.35rem;
   padding: 0.15rem 0 0.15rem 0.75rem;
-  border-left: 1px solid rgba(139, 150, 124, 0.2);
+  border-left: 1px solid rgba(139, 150, 124, 0.22);
 }
 
 .pc-sidebar-link--child {
-  padding: 0.42rem 0.65rem;
+  padding: 0.45rem 0.75rem;
   font-size: 0.78rem;
 }
 
-.pc-sidebar-nav--collapsed .pc-sidebar-link-label,
-.pc-sidebar-nav--collapsed .pc-sidebar-patient {
-  display: none;
-}
-
-.pc-sidebar-nav--collapsed .pc-sidebar-link {
-  justify-content: center;
-  padding-left: 0.55rem;
-  padding-right: 0.55rem;
-}
-
-.pc-sidebar-nav--collapsed .pc-sidebar-evolucao {
-  display: none;
+.pc-sidebar-link--child.pc-sidebar-link--active {
+  background: rgba(139, 150, 124, 0.18);
+  color: var(--primary, #8b967c);
 }
 
 /* Mobile drawer */
 .pc-sidebar-nav--mobile {
   gap: 0.5rem;
+  padding: 0.5rem 0.75rem 1rem;
 }
 
 .pc-sidebar-nav--mobile .pc-sidebar-link {
-  align-items: center;
   padding: 0.72rem 0.85rem;
   font-size: 0.9rem;
-  border-radius: var(--cf-radius-control, 10px);
-}
-
-.pc-sidebar-nav--mobile .pc-sidebar-link-icon {
-  margin-top: 0;
-}
-
-.pc-sidebar-nav--mobile .pc-sidebar-link-label {
-  -webkit-line-clamp: 1;
-}
-
-.pc-sidebar-nav--mobile .pc-sidebar-patient {
-  margin: 0.25rem 0 0.35rem;
 }
 
 .pc-sidebar-nav--mobile .pc-sidebar-evolucao {
   margin-left: 0.85rem;
+}
+
+@supports (corner-shape: squircle) {
+  .pc-sidebar-message,
+  .pc-sidebar-link {
+    corner-shape: squircle;
+  }
 }
 </style>

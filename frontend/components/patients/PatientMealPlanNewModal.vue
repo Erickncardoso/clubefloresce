@@ -11,61 +11,89 @@
         >
           <header class="mpnew-head">
             <div class="mpnew-head-copy">
-              <h2 id="mpnew-title">Escolha um nome e o método de escrita</h2>
-              <p>Inteligente, Tradicional ou Qualitativo — escolha o que combina com a conduta de cada paciente.</p>
+              <h2 id="mpnew-title">Nova prescrição alimentar</h2>
+              <p>Dê um nome ao plano e escolha como quer prescrever.</p>
             </div>
             <button type="button" class="mpnew-close" aria-label="Fechar" @click="close">
               <X aria-hidden="true" />
             </button>
           </header>
 
-          <div class="field field--float mpnew-field">
-            <label for="mpnew-name">Nome da prescrição</label>
-            <input
-              id="mpnew-name"
-              ref="nameInputRef"
-              v-model="name"
-              type="text"
-              maxlength="120"
-              placeholder="Ex.: Cardápio semanal"
-              @keydown.enter.prevent="submit"
-            >
-          </div>
-
-          <div class="mpnew-tabs" role="tablist" aria-label="Metodologia">
-            <button
-              v-for="method in MEAL_PLAN_METHODOLOGIES"
-              :key="method.id"
-              type="button"
-              role="tab"
-              class="mpnew-tab"
-              :class="{
-                'mpnew-tab--active': methodId === method.id,
-                'mpnew-tab--disabled': !method.available,
-              }"
-              :aria-selected="methodId === method.id"
-              :disabled="!method.available"
-              @click="methodId = method.id"
-            >
-              {{ method.label }}
-              <small v-if="!method.available">Em breve</small>
-            </button>
-          </div>
-
-          <div class="mpnew-desc">
-            <Transition name="mpnew-desc" mode="out-in">
-              <div :key="methodId">
-                <p>{{ activeMethod.description }}</p>
-                <p class="mpnew-advantages">{{ activeMethod.advantages }}</p>
+          <div class="mpnew-body">
+            <div class="mpnew-step">
+              <div class="field field--float mpnew-field" :class="{ 'mpnew-field--invalid': nameInvalid }">
+                <label for="mpnew-name">Nome da prescrição</label>
+                <input
+                  id="mpnew-name"
+                  ref="nameInputRef"
+                  v-model="name"
+                  type="text"
+                  maxlength="120"
+                  autocomplete="off"
+                  placeholder="Ex.: Cardápio semanal"
+                  :aria-invalid="nameInvalid"
+                  aria-describedby="mpnew-name-hint"
+                  @keydown.enter.prevent="submit"
+                  @input="onNameInput"
+                >
               </div>
-            </Transition>
+              <p id="mpnew-name-hint" class="mpnew-hint" :class="{ 'mpnew-hint--error': nameInvalid }">
+                <AlertCircle v-if="nameInvalid" class="mpnew-hint-icon" aria-hidden="true" />
+                {{ nameInvalid ? 'Informe um nome para a prescrição.' : 'Fica visível para o paciente no app.' }}
+              </p>
+            </div>
+
+            <div class="mpnew-step">
+              <span id="mpnew-method-label" class="mpnew-step-label">Método de prescrição</span>
+              <div class="mpnew-methods" role="radiogroup" aria-labelledby="mpnew-method-label">
+                <button
+                  v-for="method in MEAL_PLAN_METHODOLOGIES"
+                  :key="method.id"
+                  type="button"
+                  role="radio"
+                  class="mpnew-method"
+                  :class="{
+                    'mpnew-method--active': methodId === method.id,
+                    'mpnew-method--disabled': !method.available,
+                  }"
+                  :aria-checked="methodId === method.id"
+                  :disabled="!method.available"
+                  @click="methodId = method.id"
+                >
+                  <span class="mpnew-method-icon" aria-hidden="true">
+                    <component :is="methodIcon(method.id)" />
+                  </span>
+                  <span class="mpnew-method-copy">
+                    <span class="mpnew-method-title">
+                      {{ method.label }}
+                      <small v-if="!method.available" class="mpnew-method-soon">Em breve</small>
+                    </span>
+                    <span class="mpnew-method-desc">{{ method.description }}</span>
+                    <span v-if="methodId === method.id" class="mpnew-method-adv">{{ method.advantages }}</span>
+                  </span>
+                  <span class="mpnew-method-mark" aria-hidden="true">
+                    <Check v-if="methodId === method.id" />
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <p v-if="error" class="mpnew-error">{{ error }}</p>
-
-          <button type="button" class="btn-primary mpnew-submit" @click="submit">
-            Avançar
-          </button>
+          <footer class="mpnew-foot">
+            <p v-if="error" class="mpnew-error" role="alert">
+              <AlertCircle class="mpnew-hint-icon" aria-hidden="true" />
+              {{ error }}
+            </p>
+            <div class="mpnew-foot-actions">
+              <button type="button" class="btn-secondary mpnew-btn" @click="close">
+                Cancelar
+              </button>
+              <button type="button" class="btn-primary mpnew-btn" @click="submit">
+                Criar prescrição
+                <ArrowRight class="mpnew-btn-icon" aria-hidden="true" />
+              </button>
+            </div>
+          </footer>
         </div>
       </div>
     </Transition>
@@ -74,7 +102,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { X } from 'lucide-vue-next'
+import { AlertCircle, ArrowRight, Check, LayoutGrid, PenLine, Sparkles, X } from 'lucide-vue-next'
 import { MEAL_PLAN_METHODOLOGIES } from '~/utils/meal-plan-prescription.js'
 
 const props = defineProps({
@@ -83,15 +111,23 @@ const props = defineProps({
 
 const emit = defineEmits(['update:open', 'submit'])
 
+const METHOD_ICONS = {
+  foods: Sparkles,
+  equivalents: LayoutGrid,
+  qualitative: PenLine,
+}
+
 const nameInputRef = ref(null)
 const name = ref('')
 const methodId = ref('foods')
 const error = ref('')
+const submitted = ref(false)
 
-const activeMethod = computed(() => {
-  return MEAL_PLAN_METHODOLOGIES.find((item) => item.id === methodId.value)
-    || MEAL_PLAN_METHODOLOGIES[0]
-})
+const nameInvalid = computed(() => submitted.value && !name.value.trim())
+
+function methodIcon(id) {
+  return METHOD_ICONS[id] || Sparkles
+}
 
 watch(() => props.open, async (isOpen) => {
   if (!isOpen) {
@@ -101,10 +137,15 @@ watch(() => props.open, async (isOpen) => {
   name.value = ''
   methodId.value = 'foods'
   error.value = ''
+  submitted.value = false
   attachEscListener()
   await nextTick()
   nameInputRef.value?.focus?.()
 })
+
+function onNameInput() {
+  if (error.value && name.value.trim()) error.value = ''
+}
 
 function onEscKey(event) {
   if (event.key === 'Escape') close()
@@ -127,9 +168,11 @@ function close() {
 }
 
 function submit() {
+  submitted.value = true
   const trimmed = name.value.trim()
   if (!trimmed) {
-    error.value = 'Informe um nome para a prescrição.'
+    error.value = ''
+    nameInputRef.value?.focus?.()
     return
   }
   const method = MEAL_PLAN_METHODOLOGIES.find((item) => item.id === methodId.value)
@@ -158,8 +201,12 @@ function submit() {
 }
 
 .mpnew-modal {
-  width: min(100%, 32rem);
-  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 33rem);
+  max-height: min(92dvh, 46rem);
+  padding: 0;
+  overflow: hidden;
   background: #fff;
   border: 1px solid #e8ece9;
   box-shadow:
@@ -192,10 +239,7 @@ function submit() {
   transform: translateY(14px) scale(0.96);
 }
 
-.mpnew-pop-leave-active {
-  transition-duration: 0.18s;
-}
-
+.mpnew-pop-leave-active,
 .mpnew-pop-leave-active .mpnew-modal {
   transition-duration: 0.18s;
 }
@@ -205,7 +249,7 @@ function submit() {
   .mpnew-pop-leave-active,
   .mpnew-pop-enter-active .mpnew-modal,
   .mpnew-pop-leave-active .mpnew-modal {
-    transition: none;
+    transition: opacity 0.12s ease;
   }
 
   .mpnew-pop-enter-from .mpnew-modal,
@@ -214,17 +258,36 @@ function submit() {
   }
 }
 
+/* Head */
 .mpnew-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.15rem;
+  padding: 1.25rem 1.35rem 0.9rem;
+  border-bottom: 1px solid #eef1ee;
+  flex-shrink: 0;
 }
 
 .mpnew-head-copy {
   flex: 1;
   min-width: 0;
+}
+
+.mpnew-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #2c322c;
+  letter-spacing: -0.01em;
+  text-align: left;
+}
+
+.mpnew-head p {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  color: #6b7368;
+  text-align: left;
 }
 
 .mpnew-close {
@@ -234,6 +297,7 @@ function submit() {
   width: 2rem;
   height: 2rem;
   border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
   background: #fff;
   color: #6b7368;
   cursor: pointer;
@@ -252,111 +316,249 @@ function submit() {
   background: #f8faf8;
 }
 
-.mpnew-head h2 {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #2c322c;
-  text-align: left;
+/* Body */
+.mpnew-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  padding: 1.15rem 1.35rem 1.25rem;
 }
 
-.mpnew-head p {
-  margin: 0.35rem 0 0;
-  font-size: 0.84rem;
-  color: #6b7368;
-  text-align: left;
+.mpnew-step {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mpnew-step-label {
+  margin-bottom: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #2c322c;
 }
 
 .mpnew-field {
-  margin: 0.85rem 0 1rem;
+  margin: 0;
 }
 
-.mpnew-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.35rem;
-  margin-bottom: 0.85rem;
+.mpnew-field--invalid :deep(input) {
+  border-color: #dd8b83 !important;
 }
 
-.mpnew-tab {
-  min-height: 2.5rem;
-  padding: 0.45rem 0.35rem;
-  border: 1px solid #e2e8e4;
-  background: #f4f6f4;
-  color: #374151;
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.2;
-  cursor: pointer;
+.mpnew-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #8a9288;
+}
+
+.mpnew-hint--error {
+  color: #b42318;
+}
+
+.mpnew-hint-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Methods */
+.mpnew-methods {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.1rem;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  gap: 0.45rem;
 }
 
-.mpnew-tab:not(.mpnew-tab--active):not(.mpnew-tab--disabled):hover {
+.mpnew-method {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid #e2e8e4;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mpnew-method:hover:not(.mpnew-method--active):not(.mpnew-method--disabled) {
   border-color: #cfe3cb;
-  background: #f8faf8;
+  background: #fbfcfb;
 }
 
-.mpnew-tab--active {
-  background: #8b967c;
-  border-color: #8b967c;
-  color: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 150, 124, 0.22);
+.mpnew-method:focus-visible {
+  outline: 2px solid var(--primary, #8b967c);
+  outline-offset: 2px;
 }
 
-.mpnew-tab--disabled {
+.mpnew-method--active {
+  border-color: var(--primary, #8b967c);
+  background: #f7f9f5;
+  box-shadow: inset 0 0 0 1px var(--primary, #8b967c);
+}
+
+.mpnew-method--disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.mpnew-desc {
-  min-height: 5.5rem;
-  margin-bottom: 1rem;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  color: #4b5563;
-}
-
-.mpnew-desc-enter-active,
-.mpnew-desc-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.mpnew-desc-enter-from,
-.mpnew-desc-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
-}
-
-.mpnew-tab small {
-  font-size: 0.58rem;
-  font-weight: 500;
-  opacity: 0.75;
-}
-
-.mpnew-advantages {
-  margin-top: 0.5rem;
+.mpnew-method-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--cf-radius-control);
+  background: #eef1ec;
   color: #6b7368;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.mpnew-method-icon svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 1.8;
+}
+
+.mpnew-method--active .mpnew-method-icon {
+  background: var(--primary, #8b967c);
+  color: #fff;
+}
+
+.mpnew-method-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.mpnew-method-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #2c322c;
+}
+
+.mpnew-method-soon {
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: #eef1ee;
+  color: #6b7368;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mpnew-method-desc {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #5f675f;
+}
+
+.mpnew-method-adv {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #6f7a62;
+}
+
+.mpnew-method-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.4rem;
+  border: 1px solid #d7ded8;
+  border-radius: 50%;
+  color: #fff;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.mpnew-method-mark svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  stroke-width: 3;
+}
+
+.mpnew-method--active .mpnew-method-mark {
+  background: var(--primary, #8b967c);
+  border-color: var(--primary, #8b967c);
+}
+
+/* Foot */
+.mpnew-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem 1.35rem 1.1rem;
+  border-top: 1px solid #eef1ee;
+  background: #fbfcfb;
+  flex-shrink: 0;
 }
 
 .mpnew-error {
-  margin: 0 0 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
   color: #b42318;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
-.mpnew-submit {
-  width: 100%;
-  min-height: 2.75rem !important;
+.mpnew-foot-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.mpnew-btn {
+  min-height: 2.7rem !important;
+  padding: 0.55rem 1.1rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+}
+
+.mpnew-btn-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+@supports (corner-shape: squircle) {
+  .mpnew-method,
+  .mpnew-method-icon,
+  .mpnew-close {
+    corner-shape: squircle;
+  }
 }
 
 @media (max-width: 520px) {
-  .mpnew-tabs {
+  .mpnew-modal {
+    max-height: 94dvh;
+  }
+
+  .mpnew-head,
+  .mpnew-body,
+  .mpnew-foot {
+    padding-inline: 1.05rem;
+  }
+
+  .mpnew-foot-actions {
     grid-template-columns: 1fr;
   }
 }

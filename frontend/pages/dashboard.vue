@@ -23,7 +23,7 @@
           <ul v-else-if="recentPatients.length" class="patient-list">
             <li v-for="patient in recentPatients" :key="patient.id">
               <NuxtLink :to="patientChartUrl(patient)" class="patient-row">
-                <PatientAvatar :src="patient.avatar" :name="patient.name" size="sm" :ring="false" />
+                <PatientAvatar :src="patient.avatar" :name="patient.name" :user="patient" size="sm" :ring="false" />
                 <div class="patient-copy">
                   <strong>{{ patient.name }}</strong>
                   <span>{{ patient.email || 'Sem e-mail' }}</span>
@@ -104,6 +104,7 @@
                     <PatientAvatar
                       :src="patient.avatar"
                       :name="patient.name"
+                      :user="patient"
                       size="sm"
                       :ring="false"
                     />
@@ -186,6 +187,7 @@
                 <PatientAvatar
                   :src="item.patient.avatar"
                   :name="item.patient.name"
+                  :user="item.patient"
                   size="sm"
                   :ring="false"
                 />

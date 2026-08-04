@@ -35,6 +35,8 @@ export interface PatientProfileData {
   /** Cadastro rápido / ficha admin */
   nickname?: string | null;
   cpf?: string | null;
+  rg?: string | null;
+  referralSource?: string | null;
   /** Nomes das tags selecionadas (compatível com catálogo colorido). */
   tags?: string[] | null;
   /** Tags com cor (preferencial no cadastro admin). */
@@ -55,6 +57,36 @@ export interface PatientProfileData {
   neighborhood?: string | null;
   street?: string | null;
   streetNumber?: string | null;
+  country?: string | null;
+  addressComplement?: string | null;
+
+  /** Contatos extras (cadastro admin). */
+  additionalContacts?: Array<{ id: string; type: string; number: string }> | null;
+  emergencyContacts?: Array<{
+    id: string;
+    relationship: string;
+    contactUserId?: string | null;
+    contactName?: string | null;
+  }> | null;
+  guardianEnabled?: boolean | null;
+  guardians?: Array<{
+    id: string;
+    relationship: string;
+    contactUserId?: string | null;
+    contactName?: string | null;
+  }> | null;
+  identityDocuments?: Array<{ id: string; type: string; number: string }> | null;
+  notifyEmail?: boolean | null;
+  notifySms?: boolean | null;
+  notifyWhatsapp?: boolean | null;
+  profileAttachments?: Array<{
+    id: string;
+    name: string;
+    url: string;
+    size?: number | null;
+    mimeType?: string | null;
+    uploadedAt: string;
+  }> | null;
 
   /** Consultas registradas pela nutricionista (ficha admin). */
   consultations?: Array<{

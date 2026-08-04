@@ -105,7 +105,7 @@
                 @click="closeSearch"
                 @mouseenter="highlightedIndex = index"
               >
-                <PatientAvatar :src="patient.avatar" :name="patient.name" size="sm" :ring="false" />
+                <PatientAvatar :src="patient.avatar" :name="patient.name" :user="patient" size="sm" :ring="false" />
                 <span class="admin-topbar-search-item-copy">
                   <strong>{{ patient.name }}</strong>
                   <small>{{ patient.email || 'Sem e-mail' }}</small>

@@ -640,6 +640,96 @@ function parseExames(value: unknown): PatientProfileData["exames"] {
   return items;
 }
 
+const CONTACT_TYPES = new Set(["mobile", "home", "work", "whatsapp", "other"]);
+const IDENTITY_DOC_TYPES = new Set(["rg", "cpf", "cnh", "passport", "other"]);
+const RELATIONSHIPS = new Set([
+  "father", "mother", "spouse", "child", "sibling", "friend", "other",
+]);
+
+function parseContactRows(value: unknown): PatientProfileData["additionalContacts"] {
+  if (value == null) return null;
+  if (!Array.isArray(value)) throw new Error("Contatos inválidos.");
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+      const typeRaw = String((item as { type?: unknown }).type || "").trim().toLowerCase();
+      const type = CONTACT_TYPES.has(typeRaw) ? typeRaw : "other";
+      const number = parseOptionalString((item as { number?: unknown }).number, 32);
+      if (!number) return null;
+      const id = String((item as { id?: unknown }).id || "").trim() || randomUUID();
+      return { id, type, number };
+    })
+    .filter(Boolean)
+    .slice(0, 20) as NonNullable<PatientProfileData["additionalContacts"]>;
+  return items;
+}
+
+function parseLinkedContactRows(
+  value: unknown,
+): PatientProfileData["emergencyContacts"] {
+  if (value == null) return null;
+  if (!Array.isArray(value)) throw new Error("Contatos vinculados inválidos.");
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+      const relationshipRaw = String((item as { relationship?: unknown }).relationship || "").trim().toLowerCase();
+      const relationship = RELATIONSHIPS.has(relationshipRaw) ? relationshipRaw : "other";
+      const contactUserId = parseOptionalString((item as { contactUserId?: unknown }).contactUserId, 80);
+      const contactName = parseOptionalString((item as { contactName?: unknown }).contactName, 120);
+      if (!contactUserId && !contactName) return null;
+      const id = String((item as { id?: unknown }).id || "").trim() || randomUUID();
+      return { id, relationship, contactUserId, contactName };
+    })
+    .filter(Boolean)
+    .slice(0, 20) as NonNullable<PatientProfileData["emergencyContacts"]>;
+  return items;
+}
+
+function parseIdentityDocuments(value: unknown): PatientProfileData["identityDocuments"] {
+  if (value == null) return null;
+  if (!Array.isArray(value)) throw new Error("Documentos inválidos.");
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+      const typeRaw = String((item as { type?: unknown }).type || "").trim().toLowerCase();
+      const type = IDENTITY_DOC_TYPES.has(typeRaw) ? typeRaw : "other";
+      const number = parseOptionalString((item as { number?: unknown }).number, 40);
+      if (!number) return null;
+      const id = String((item as { id?: unknown }).id || "").trim() || randomUUID();
+      return { id, type, number };
+    })
+    .filter(Boolean)
+    .slice(0, 20) as NonNullable<PatientProfileData["identityDocuments"]>;
+  return items;
+}
+
+function parseProfileAttachments(value: unknown): PatientProfileData["profileAttachments"] {
+  if (value == null) return null;
+  if (!Array.isArray(value)) throw new Error("Anexos inválidos.");
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+      const name = parseOptionalString((item as { name?: unknown }).name, 200);
+      const url = parseOptionalString((item as { url?: unknown }).url, 500);
+      if (!name || !url) return null;
+      const id = String((item as { id?: unknown }).id || "").trim() || randomUUID();
+      const size = parseOptionalNumber((item as { size?: unknown }).size);
+      const mimeType = parseOptionalString((item as { mimeType?: unknown }).mimeType, 120);
+      const uploadedAtRaw = String((item as { uploadedAt?: unknown }).uploadedAt || "").trim();
+      return {
+        id,
+        name,
+        url,
+        size,
+        mimeType,
+        uploadedAt: uploadedAtRaw || new Date().toISOString(),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 30) as NonNullable<PatientProfileData["profileAttachments"]>;
+  return items;
+}
+
 /** Mescla payload admin no perfil existente (campos do cadastro rápido). */
 export function mergeAdminPatientProfile(
   current: unknown,
@@ -666,6 +756,8 @@ export function mergeAdminPatientProfile(
 
   if ("nickname" in payload) next.nickname = parseOptionalString(payload.nickname, 60);
   if ("cpf" in payload) next.cpf = parseCpf(payload.cpf);
+  if ("rg" in payload) next.rg = parseOptionalString(payload.rg, 20);
+  if ("referralSource" in payload) next.referralSource = parseOptionalString(payload.referralSource, 80);
   if ("tags" in payload) next.tags = parseTags(payload.tags);
   if ("tagItems" in payload) {
     next.tagItems = parseTagItems(payload.tagItems);
@@ -711,6 +803,27 @@ export function mergeAdminPatientProfile(
   if ("neighborhood" in payload) next.neighborhood = parseOptionalString(payload.neighborhood, 80);
   if ("street" in payload) next.street = parseOptionalString(payload.street, 120);
   if ("streetNumber" in payload) next.streetNumber = parseOptionalString(payload.streetNumber, 20);
+  if ("country" in payload) next.country = parseOptionalString(payload.country, 4) || "BR";
+  if ("addressComplement" in payload) {
+    next.addressComplement = parseOptionalString(payload.addressComplement, 80);
+  }
+  if ("additionalContacts" in payload) {
+    next.additionalContacts = parseContactRows(payload.additionalContacts);
+  }
+  if ("emergencyContacts" in payload) {
+    next.emergencyContacts = parseLinkedContactRows(payload.emergencyContacts);
+  }
+  if ("guardianEnabled" in payload) next.guardianEnabled = parseBool(payload.guardianEnabled);
+  if ("guardians" in payload) next.guardians = parseLinkedContactRows(payload.guardians);
+  if ("identityDocuments" in payload) {
+    next.identityDocuments = parseIdentityDocuments(payload.identityDocuments);
+  }
+  if ("notifyEmail" in payload) next.notifyEmail = parseBool(payload.notifyEmail);
+  if ("notifySms" in payload) next.notifySms = parseBool(payload.notifySms);
+  if ("notifyWhatsapp" in payload) next.notifyWhatsapp = parseBool(payload.notifyWhatsapp);
+  if ("profileAttachments" in payload) {
+    next.profileAttachments = parseProfileAttachments(payload.profileAttachments);
+  }
   if ("consultations" in payload) next.consultations = parseConsultations(payload.consultations);
   if ("anamneses" in payload) next.anamneses = parseAnamneses(payload.anamneses);
   if ("orientacoes" in payload) next.orientacoes = parseOrientacoes(payload.orientacoes);

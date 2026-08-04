@@ -20,47 +20,48 @@
     <p v-if="loading" class="mpns-empty">{{ loading }}</p>
 
     <div v-else class="mpns-body">
-      <div class="mpns-chart">
+      <div class="mpns-chart" :class="{ 'mpns-chart--empty': isEmpty }">
         <div class="mpns-donut" :style="report.ringStyle" aria-hidden="true">
           <div class="mpns-donut__hole">
             <span>{{ report.kcalLabel }}</span>
             <small>Kcal</small>
           </div>
         </div>
-        <ul class="mpns-legend">
-          <li v-for="item in report.legend" :key="item.id">
-            <span class="mpns-legend__dot" :class="`mpns-legend__dot--${item.tone}`" />
-            <span class="mpns-legend__label">{{ item.label }}</span>
-            <strong>{{ item.percent }}%</strong>
-          </li>
-        </ul>
+        <p v-if="isEmpty" class="mpns-hint">
+          Adicione alimentos às refeições para ver a distribuição de macros.
+        </p>
       </div>
 
-      <ul class="mpns-macros">
+      <!-- Uma linha por macro: cor, nome, gramas·kcal e participação.
+           Antes a legenda e os blocos repetiam os mesmos três valores. -->
+      <ul v-if="!isEmpty" class="mpns-macros">
         <li
-          v-for="block in report.sidebarBlocks"
-          :key="block.id"
+          v-for="row in macroRows"
+          :key="row.id"
           class="mpns-macro"
-          :class="`mpns-macro--${block.tone}`"
         >
-          <span class="mpns-macro__label">{{ block.label }}</span>
-          <span class="mpns-macro__value">{{ formatMacroGrams(block.grams) }} · {{ block.kcal }} Kcal</span>
+          <span class="mpns-macro__dot" :class="`mpns-macro__dot--${row.tone}`" aria-hidden="true" />
+          <span class="mpns-macro__label">{{ row.label }}</span>
+          <span class="mpns-macro__value">{{ row.value }}</span>
+          <span class="mpns-macro__percent">{{ row.percent }}%</span>
         </li>
       </ul>
 
-      <button
-        type="button"
-        class="btn-secondary mpns-pdf-btn"
-        :disabled="exportDisabled || pdfLoading"
-        @click="$emit('export-pdf')"
-      >
-        <FileDown aria-hidden="true" />
-        {{ pdfLoading ? 'Gerando PDF…' : 'PDF do resumo' }}
-      </button>
-      <button type="button" class="btn-primary mpns-full-btn" @click="$emit('open-full')">
-        <ClipboardList aria-hidden="true" />
-        Resumo completo
-      </button>
+      <div class="mpns-actions">
+        <button
+          type="button"
+          class="btn-secondary mpns-btn"
+          :disabled="exportDisabled || pdfLoading"
+          @click="$emit('export-pdf')"
+        >
+          <FileDown aria-hidden="true" />
+          {{ pdfLoading ? 'Gerando…' : 'PDF' }}
+        </button>
+        <button type="button" class="btn-secondary mpns-btn" @click="$emit('open-full')">
+          <ClipboardList aria-hidden="true" />
+          Resumo completo
+        </button>
+      </div>
     </div>
   </article>
 </template>
@@ -80,9 +81,27 @@ const props = defineProps({
 
 defineEmits(['open-full', 'open-goals', 'open-hydration', 'export-pdf'])
 
+const isEmpty = computed(() => !hasLiveMealMacros(props.report?.macros || {}))
+
+const macroRows = computed(() => {
+  const blocks = props.report?.sidebarBlocks || []
+  return (props.report?.legend || []).map((item) => {
+    const block = blocks.find((entry) => entry.id === item.id)
+    return {
+      id: item.id,
+      tone: item.tone,
+      label: item.label,
+      percent: item.percent,
+      value: block
+        ? `${formatMacroGrams(block.grams)} · ${block.kcal} kcal`
+        : '—',
+    }
+  })
+})
+
 const exportDisabled = computed(() => {
   if (!props.canExportPdf) return true
-  return !hasLiveMealMacros(props.report?.macros || {})
+  return isEmpty.value
 })
 </script>
 
@@ -167,6 +186,14 @@ const exportDisabled = computed(() => {
   justify-items: center;
 }
 
+.mpns-chart--empty {
+  padding: 0.35rem 0 0.15rem;
+}
+
+.mpns-chart--empty .mpns-donut {
+  opacity: 0.55;
+}
+
 .mpns-donut {
   width: 6.5rem;
   height: 6.5rem;
@@ -200,46 +227,13 @@ const exportDisabled = computed(() => {
   color: #8a9288;
 }
 
-.mpns-legend {
-  list-style: none;
+.mpns-hint {
   margin: 0;
-  padding: 0;
-  width: 100%;
-  display: grid;
-  gap: 0.3rem;
-}
-
-.mpns-legend li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.7rem;
-  color: #5f675f;
-}
-
-.mpns-legend__dot {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.mpns-legend__dot--c { background: #3b82f6; }
-.mpns-legend__dot--p { background: #ef4444; }
-.mpns-legend__dot--f { background: #eab308; }
-
-.mpns-legend__label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mpns-legend strong {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #2c322c;
+  max-width: 15rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #8a9288;
+  text-align: center;
 }
 
 .mpns-macros {
@@ -247,51 +241,78 @@ const exportDisabled = computed(() => {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.1rem;
 }
 
 .mpns-macro {
   display: grid;
-  gap: 0.15rem;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid #eef1ee;
-  border-radius: var(--cf-radius-control);
-  background: #fafbfa;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.15rem 0.45rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #f1f3f2;
 }
 
-.mpns-macros .mpns-macro:last-child {
-  padding-bottom: 0.45rem;
+.mpns-macro:last-child {
+  border-bottom: none;
 }
+
+.mpns-macro__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.mpns-macro__dot--c { background: #3b82f6; }
+.mpns-macro__dot--p { background: #ef4444; }
+.mpns-macro__dot--f { background: #eab308; }
 
 .mpns-macro__label {
-  font-size: 0.68rem;
-  font-weight: 500;
-}
-
-.mpns-macro--c .mpns-macro__label { color: #2563eb; }
-.mpns-macro--p .mpns-macro__label { color: #dc2626; }
-.mpns-macro--f .mpns-macro__label { color: #b45309; }
-
-.mpns-macro__value {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #2c322c;
-  line-height: 1.3;
-  word-break: break-word;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.mpns-full-btn,
-.mpns-pdf-btn {
+.mpns-macro__percent {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2c322c;
+  font-variant-numeric: tabular-nums;
+}
+
+.mpns-macro__value {
+  grid-column: 2 / -1;
+  font-size: 0.7rem;
+  color: #6b7368;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.mpns-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.4rem;
+}
+
+.mpns-btn {
   width: 100%;
   justify-content: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   min-height: 2.35rem !important;
+  padding-inline: 0.7rem !important;
   font-size: 0.8125rem !important;
+  font-weight: 600 !important;
 }
 
-.mpns-full-btn svg,
-.mpns-pdf-btn svg {
+.mpns-btn svg {
   width: 0.95rem;
   height: 0.95rem;
+  flex-shrink: 0;
 }
 </style>

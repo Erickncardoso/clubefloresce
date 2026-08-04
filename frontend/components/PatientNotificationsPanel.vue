@@ -214,12 +214,12 @@ async function handleOpen(notification) {
   position: fixed;
   inset: 0;
   background: transparent;
-  z-index: 320;
+  z-index: var(--cf-z-sheet-backdrop, 1200);
 }
 
 .notif-panel {
   position: fixed;
-  z-index: 330;
+  z-index: var(--cf-z-sheet, 1210);
   display: flex;
   flex-direction: column;
   border-radius: 16px;

@@ -67,7 +67,7 @@ const imageStyle = computed(() => ({
 .mprs-overlay {
   position: fixed;
   inset: 0;
-  z-index: 130;
+  z-index: var(--cf-z-sheet-backdrop, 1200);
   display: grid;
   place-items: end center;
 }

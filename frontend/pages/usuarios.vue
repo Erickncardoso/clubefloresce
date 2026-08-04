@@ -134,7 +134,7 @@
                         class="user-cell-link"
                       >
                         <div class="user-cell">
-                          <PatientAvatar :src="user.avatar" :name="user.name" size="sm" :ring="false" />
+                          <PatientAvatar :src="user.avatar" :name="user.name" :user="user" size="sm" :ring="false" />
                           <div class="user-copy">
                             <span class="user-name">{{ user.name }}</span>
                             <span class="user-email">{{ user.email }}</span>
@@ -150,7 +150,7 @@
                         </div>
                       </NuxtLink>
                       <div v-else class="user-cell">
-                        <PatientAvatar :src="user.avatar" :name="user.name" size="sm" :ring="false" />
+                        <PatientAvatar :src="user.avatar" :name="user.name" :user="user" size="sm" :ring="false" />
                         <div class="user-copy">
                           <span class="user-name">{{ user.name }}</span>
                           <span class="user-email">{{ user.email }}</span>
@@ -272,7 +272,7 @@
               @click="user.role !== 'PACIENTE' ? $event.preventDefault() : undefined"
             >
               <div class="user-mobile-head">
-                <PatientAvatar :src="user.avatar" :name="user.name" size="sm" :ring="false" />
+                <PatientAvatar :src="user.avatar" :name="user.name" :user="user" size="sm" :ring="false" />
                 <div class="user-copy">
                   <span class="user-name">{{ user.name }}</span>
                   <span class="user-email">{{ user.email }}</span>
