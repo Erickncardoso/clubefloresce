@@ -1,6 +1,6 @@
 <template>
-  <div class="mped" :class="{ 'mped--sheet': inSheet }">
-    <header v-if="!inSheet" class="mped-head">
+  <div class="mped">
+    <header class="mped-head">
       <div class="mped-head-copy">
         <div class="mped-patient">
           <PatientAvatar :src="user?.avatar" :name="user?.name" :user="user" size="sm" :ring="false" />
@@ -14,10 +14,9 @@
         </div>
       </div>
       <div class="mped-head-actions">
-        <button type="button" class="btn-secondary mped-btn" @click="$emit('open-history')">
-          Histórico de planos
-        </button>
-        <button type="button" class="btn-primary mped-btn" @click="$emit('new-plan')">
+        <!-- Voltar para a lista já está no breadcrumb da página. -->
+        <button type="button" class="btn-secondary mped-btn" @click="$emit('new-plan')">
+          <Plus aria-hidden="true" />
           Nova prescrição
         </button>
       </div>
@@ -117,10 +116,11 @@
             <span>Prescreva porções de grupos alimentares e liste as opções de substituição para o paciente escolher.</span>
           </p>
 
-          <PatientMealPlanLiveMacroBar
-            v-if="form.methodology === 'foods'"
-            :totals="liveNutritionTotals"
-          />
+          <!-- No desktop o "Resumo nutricional" fica fixo à direita com os
+               mesmos totais; esta barra só aparece quando ele desce. -->
+          <div v-if="form.methodology === 'foods'" class="mped-live-macros-wrap">
+            <PatientMealPlanLiveMacroBar :totals="liveNutritionTotals" />
+          </div>
 
           <div class="mped-meal-list">
             <article v-for="(meal, mealIndex) in form.meals" :key="meal.id" class="mped-meal">
@@ -149,7 +149,7 @@
                     maxlength="120"
                   >
                 </div>
-                <div v-if="form.methodology === 'foods'" class="mped-meal-header__chips">
+                <div v-if="form.methodology === 'foods' && hasMealMacros(meal)" class="mped-meal-header__chips">
                   <span
                     v-for="chip in mealMacroSummary(meal).chips"
                     :key="chip.id"
@@ -232,6 +232,7 @@
                           <MealPlanFoodSearchPicker
                             v-if="editingItemId === item.id && !isRecipeMealItem(item)"
                             v-model="item.name"
+                            autofocus
                             @select="onFoodPickerSelect(item, $event)"
                             @recipe-trigger="onRecipePickerTrigger(mealIndex, item)"
                           />
@@ -265,6 +266,7 @@
                         <div class="mped-food-grid__measure">
                           <MealPlanPortionMeasurePicker
                             v-if="editingItemId === item.id && !isRecipeMealItem(item)"
+                            :ref="(el) => registerMeasureRef(item.id, el)"
                             :food-name="item.name"
                             :food-source="item.foodSource"
                             :per100g="item.per100g"
@@ -272,6 +274,8 @@
                             :amount="Number(item.portionAmount) || 1"
                             :measure-id="item.portionMeasure || 'unidade'"
                             @change="onPortionChange(item, $event)"
+                            @submit="commitAndAddNext(item, mealIndex, itemIndex)"
+                            @cancel="cancelEditItem(item, mealIndex, itemIndex)"
                           />
                           <button
                             v-else-if="isRecipeMealItem(item)"
@@ -291,19 +295,32 @@
                           </button>
                         </div>
 
-                        <span class="mped-food-grid__macro mped-food-grid__macro--c">{{ formatItemMacro(item, 'carbsG') }}</span>
-                        <span class="mped-food-grid__macro mped-food-grid__macro--p">{{ formatItemMacro(item, 'proteinG') }}</span>
-                        <span class="mped-food-grid__macro mped-food-grid__macro--f">{{ formatItemMacro(item, 'fatG') }}</span>
-                        <span class="mped-food-grid__kcal">{{ formatItemMacro(item, 'caloriesKcal', true) }}</span>
+                        <span
+                          class="mped-food-grid__macro mped-food-grid__macro--c"
+                          :class="{ 'mped-food-grid__macro--empty': !itemHasMacros(item) }"
+                        >{{ formatItemMacro(item, 'carbsG') }}</span>
+                        <span
+                          class="mped-food-grid__macro mped-food-grid__macro--p"
+                          :class="{ 'mped-food-grid__macro--empty': !itemHasMacros(item) }"
+                        >{{ formatItemMacro(item, 'proteinG') }}</span>
+                        <span
+                          class="mped-food-grid__macro mped-food-grid__macro--f"
+                          :class="{ 'mped-food-grid__macro--empty': !itemHasMacros(item) }"
+                        >{{ formatItemMacro(item, 'fatG') }}</span>
+                        <span
+                          class="mped-food-grid__kcal"
+                          :class="{ 'mped-food-grid__macro--empty': !itemHasMacros(item) }"
+                        >{{ formatItemMacro(item, 'caloriesKcal', true) }}</span>
 
                         <div class="mped-food-grid__actions">
                           <button
                             v-if="editingItemId === item.id"
                             type="button"
                             class="mped-line-done"
-                            @click="finishEditItem(item, mealIndex, itemIndex)"
+                            title="Confirmar (Enter)"
+                            @click="commitAndAddNext(item, mealIndex, itemIndex)"
                           >
-                            OK
+                            <Check aria-hidden="true" />
                           </button>
                           <template v-else>
                             <button
@@ -334,6 +351,12 @@
                         <span class="mped-chip mped-chip--kcal">{{ formatItemMacro(item, 'caloriesKcal', true) }}</span>
                       </div>
 
+                      <p v-if="editingItemId === item.id" class="mped-row-hints">
+                        <kbd>Enter</kbd> confirma e abre a próxima linha
+                        <span aria-hidden="true">·</span>
+                        <kbd>Esc</kbd> cancela
+                      </p>
+
                       <div v-if="expandedSubs.has(item.id)" class="mped-subs-panel">
                         <MealPlanItemSubstitutionsPanel
                           :item="item"
@@ -343,21 +366,6 @@
                     </div>
                   </div>
 
-                  <div v-if="meal.items.length" class="mped-meal-macros-bar">
-                    <span class="mped-meal-macros-bar__title">Total da refeição</span>
-                    <div class="mped-meal-macros-bar__chips">
-                      <span
-                        v-for="chip in mealMacroSummary(meal).chips"
-                        :key="chip.id"
-                        class="mped-chip"
-                        :class="`mped-chip--${chip.tone}`"
-                      >
-                        {{ chip.label }} {{ formatMacroGrams(mealMacros(meal)[chip.key]) }}
-                        <small v-if="chip.percent">({{ chip.percent }}%)</small>
-                      </span>
-                      <span class="mped-chip mped-chip--kcal">{{ formatMacroKcal(mealMacros(meal).caloriesKcal) }}</span>
-                    </div>
-                  </div>
                 </template>
                 <div class="mped-meal-body__actions">
                   <p v-if="!meal.items.length" class="mped-meal-empty">
@@ -424,7 +432,6 @@
             :pdf-loading="nutritionSummaryPdfLoading"
             @open-full="openNutritionFull"
             @open-goals="nutritionGoalsOpen = true"
-            @open-hydration="hydrationFullOpen = true"
             @export-pdf="exportNutritionSummaryPdf"
           />
 
@@ -549,6 +556,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import {
   ArrowLeftRight,
+  Check,
   ChefHat,
   ChevronDown,
   Copy,
@@ -577,7 +585,7 @@ import PatientMealPlanQualitativeTemplatesModal from '~/components/patients/Pati
 import PatientMealPlanSaveQualitativeTemplateModal from '~/components/patients/PatientMealPlanSaveQualitativeTemplateModal.vue'
 import { extractNutrientsPer100gFromFood } from '~/utils/food-bank.js'
 import { buildMealPlanNutritionReport } from '~/utils/meal-plan-nutrition-report.js'
-import { buildMealMacroSummary } from '~/utils/meal-plan-live-macros.js'
+import { buildMealMacroSummary, hasLiveMealMacros } from '~/utils/meal-plan-live-macros.js'
 import {
   buildShoppingListItems,
   normalizeShoppingList,
@@ -638,10 +646,9 @@ const props = defineProps({
   publishing: { type: Boolean, default: false },
   saveMessage: { type: String, default: '' },
   saveError: { type: Boolean, default: false },
-  inSheet: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['save', 'publish', 'open-history', 'new-plan'])
+const emit = defineEmits(['save', 'publish', 'new-plan'])
 
 const { matchFoodForMealPlan, matchFoodBatchForMealPlan } = useFoodBank()
 const { verifiedUser } = useAuthSession()
@@ -783,6 +790,7 @@ const expandedMeals = ref(new Set())
 const expandedSubs = ref(new Set())
 const openNotesMeals = ref(new Set())
 const notesRefs = new Map()
+const measureRefs = new Map()
 const editingItemId = ref('')
 const recipeEditorOpen = ref(false)
 const recipeEditorSeed = ref(null)
@@ -947,6 +955,12 @@ function mealMacros(meal) {
 
 function mealMacroSummary(meal) {
   return buildMealMacroSummary(mealMacros(meal))
+}
+
+/* Refeição sem nenhum macro calculado: "CHO 0g PTN 0g LIP 0g 0 Kcal" não
+   informa nada e polui a lista inteira. Só mostra os chips quando há número. */
+function hasMealMacros(meal) {
+  return hasLiveMealMacros(mealMacros(meal))
 }
 
 const liveNutritionTotals = computed(() => {
@@ -1135,6 +1149,28 @@ function onFoodPickerSelect(item, food) {
   if (!item.grams) {
     applyFoodItemMeasure(item, { measureId: 'porcao_media', amount: 1, grams: 100 })
   }
+  // Escolheu o alimento: o próximo passo é sempre a quantidade.
+  nextTick(() => measureRefs.get(item.id)?.focus?.())
+}
+
+function registerMeasureRef(itemId, el) {
+  if (el) measureRefs.set(itemId, el)
+  else measureRefs.delete(itemId)
+}
+
+/* Confirma a linha e já abre a próxima na mesma refeição, para montar a
+   refeição inteira sem voltar ao botão "Adicionar alimento" a cada item. */
+function commitAndAddNext(item, mealIndex, itemIndex) {
+  const hadName = Boolean(String(item.name || '').trim())
+  finishEditItem(item, mealIndex, itemIndex)
+  if (hadName) addFood(mealIndex)
+}
+
+function cancelEditItem(item, mealIndex, itemIndex) {
+  if (!String(item.name || '').trim()) {
+    form.meals[mealIndex]?.items?.splice(itemIndex, 1)
+  }
+  editingItemId.value = ''
 }
 
 function onPortionChange(item, payload) {
@@ -1146,6 +1182,12 @@ function formatItemMacro(item, key, asKcal = false) {
   if (!macros) return '—'
   if (asKcal) return formatMacroKcal(macros.caloriesKcal)
   return formatMacroGrams(macros[key])
+}
+
+// Item ainda sem vínculo TBCA: as células viram traços neutros em vez de
+// traços coloridos, que competem com os números reais das linhas ao lado.
+function itemHasMacros(item) {
+  return Boolean(computeFoodItemMacros(item))
 }
 
 async function enrichUnlinkedFoodItems() {
@@ -1287,9 +1329,23 @@ function removeMeal(index) {
 }
 
 function addFood(mealIndex) {
+  // Fecha uma linha em edição antes de abrir outra, senão sobra linha vazia.
+  if (editingItemId.value) {
+    const open = findFoodItemLocation(editingItemId.value)
+    if (open) finishEditItem(open.item, open.mealIndex, open.itemIndex)
+  }
   const item = createEmptyMealItem(form.methodology)
   form.meals[mealIndex].items.push(item)
   startEditItem(item)
+}
+
+function findFoodItemLocation(itemId) {
+  for (let mealIndex = 0; mealIndex < form.meals.length; mealIndex += 1) {
+    const items = form.meals[mealIndex]?.items || []
+    const itemIndex = items.findIndex((entry) => entry.id === itemId)
+    if (itemIndex >= 0) return { item: items[itemIndex], mealIndex, itemIndex }
+  }
+  return null
 }
 
 async function loadPatientOptions() {
@@ -1451,48 +1507,6 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   gap: 1rem;
 }
 
-.mped--sheet {
-  gap: 0.75rem;
-}
-
-.mped--sheet .mped-layout {
-  flex: 1;
-  min-height: 0;
-  align-items: stretch;
-  overflow: hidden;
-}
-
-.mped--sheet .mped-main {
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.mped--sheet .mped-sidebar {
-  position: static;
-  align-self: stretch;
-  min-height: 0;
-  max-height: none;
-  overflow: hidden;
-  gap: 0.65rem;
-}
-
-.mped--sheet .mped-sidebar-nutrition {
-  flex-shrink: 0;
-}
-
-.mped--sheet .mped-sidebar-body {
-  padding-bottom: 0.15rem;
-}
-
-.mped--sheet .mped-sidebar-footer {
-  position: static;
-  flex-shrink: 0;
-  margin-top: 0;
-  border-top: 1px solid #eef1ee;
-  box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.05);
-}
-
 .mped-head {
   display: flex;
   align-items: flex-start;
@@ -1525,9 +1539,15 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 }
 
 .mped-btn {
-  min-height: 2.1rem !important;
-  padding: 0.35rem 0.75rem !important;
+  min-height: 2.35rem !important;
+  padding: 0.4rem 0.85rem !important;
   font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+}
+
+.mped-head-actions .mped-btn svg {
+  width: 0.9rem;
+  height: 0.9rem;
 }
 
 .mped-layout {
@@ -1771,32 +1791,6 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   font-size: 0.62rem;
   font-weight: 500;
   opacity: 0.85;
-}
-
-.mped-meal-macros-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-  padding: 0.65rem 0.75rem;
-  border-top: 1px solid #eef1ee;
-  background: #fafbfa;
-}
-
-.mped-meal-macros-bar__title {
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.mped-meal-macros-bar__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  justify-content: flex-end;
 }
 
 .mped-meal-notes {
@@ -2082,6 +2076,10 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
   line-height: 1.5;
 }
 
+.mped-live-macros-wrap {
+  display: none;
+}
+
 .mped-meals-hint {
   display: flex;
   align-items: flex-start;
@@ -2304,8 +2302,10 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 .mped-food-grid__row,
 .mped-food-grid__foot {
   display: grid;
-  grid-template-columns: minmax(7rem, 1.15fr) minmax(8rem, 0.9fr) minmax(2.85rem, 3.25rem) minmax(2.85rem, 3.25rem) minmax(2.85rem, 3.25rem) minmax(3.35rem, 4rem) minmax(2.5rem, auto);
-  gap: 0.5rem;
+  /* Alimento e medida são onde a nutricionista digita — ficam com a folga.
+     As colunas de macro são leitura, então recebem só o necessário. */
+  grid-template-columns: minmax(9rem, 1.8fr) minmax(8rem, 1.05fr) minmax(2.5rem, 2.9rem) minmax(2.5rem, 2.9rem) minmax(2.5rem, 2.9rem) minmax(3.2rem, 3.75rem) minmax(2.5rem, auto);
+  gap: 0.4rem;
   align-items: center;
   padding: 0.45rem 0.75rem;
   min-width: 32rem;
@@ -2325,13 +2325,14 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 }
 
 .mped-food-grid__head {
-  background: #f8faf9;
+  padding-block: 0.3rem;
+  background: transparent;
   border-bottom: 1px solid #eef1ee;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 500;
-  color: #8a9288;
+  color: #a3aca2;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
 
 .mped-food-grid__head > :nth-child(1),
@@ -2417,6 +2418,11 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 .mped-food-grid__macro--p { color: #dc2626; }
 .mped-food-grid__macro--f { color: #b45309; }
 
+.mped-food-grid__macro--empty,
+.mped-food-grid__kcal.mped-food-grid__macro--empty {
+  color: #c3cac2;
+}
+
 .mped-food-inline-macros {
   display: none;
   flex-wrap: wrap;
@@ -2495,17 +2501,60 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 }
 
 .mped-line-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
   border: none;
-  background: transparent;
-  color: #6d8b62;
-  font-size: 0.72rem;
-  font-weight: 500;
+  border-radius: var(--cf-radius-xs);
+  background: var(--primary, #8b967c);
+  color: #fff;
   cursor: pointer;
-  padding: 0.15rem 0.25rem;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.mped-line-done svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  stroke-width: 3;
 }
 
 .mped-line-done:hover {
-  text-decoration: underline;
+  background: var(--primary-light, #a3ad98);
+}
+
+.mped-line-done:focus-visible {
+  outline: 2px solid var(--primary, #8b967c);
+  outline-offset: 2px;
+}
+
+@supports (corner-shape: squircle) {
+  .mped-line-done {
+    corner-shape: squircle;
+  }
+}
+
+.mped-row-hints {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.2rem 0.75rem 0.5rem;
+  font-size: 0.68rem;
+  color: #8a9288;
+}
+
+.mped-row-hints kbd {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid #dfe4e0;
+  border-radius: 3px;
+  background: #fafbfa;
+  font-family: inherit;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: #5f675f;
 }
 
 .mped-food-table {
@@ -2794,8 +2843,10 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
     grid-template-columns: 1fr;
   }
 
-  .mped--sheet .mped-layout {
-    grid-template-columns: minmax(0, 1fr) min(22rem, 34vw);
+  /* Coluna única: o resumo lateral desceu para o fim da página, então a
+     barra de macros volta a ser o único total sempre à vista. */
+  .mped-live-macros-wrap {
+    display: block;
   }
 
   .mped-config {
@@ -2836,15 +2887,6 @@ defineExpose({ form, hasUnsavedChanges, confirmLeave })
 
   .mped-food-inline-macros {
     display: flex;
-  }
-
-  .mped-meal-macros-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .mped-meal-macros-bar__chips {
-    justify-content: flex-start;
   }
 
   .mped-equiv-row {

@@ -99,6 +99,9 @@ import { formatFoodSourceLabel, formatPer100gKcal } from '~/utils/food-bank.js'
 const props = defineProps({
   modelValue: { type: String, default: '' },
   placeholder: { type: String, default: 'Digite para buscar na TBCA / TACO' },
+  // A linha só monta quando entra em edição, então focar no mount é
+  // exatamente "entrei na linha, já posso digitar".
+  autofocus: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'select', 'recipe-trigger'])
@@ -281,10 +284,18 @@ watch(
   },
 )
 
+function focusInput() {
+  inputEl.value?.focus?.()
+  inputEl.value?.select?.()
+}
+
+defineExpose({ focus: focusInput })
+
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointer)
   window.addEventListener('resize', onViewportChange)
   window.addEventListener('scroll', onViewportChange, true)
+  if (props.autofocus) nextTick(focusInput)
 })
 
 onBeforeUnmount(() => {

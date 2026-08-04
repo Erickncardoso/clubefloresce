@@ -12,6 +12,7 @@
         aria-label="Quantidade"
         @input="onAmountInput"
         @focus="openPanel"
+        @keydown="onQtyKeydown"
       >
       <button
         type="button"
@@ -95,7 +96,7 @@ const props = defineProps({
   measureId: { type: String, default: 'unidade' },
 })
 
-const emit = defineEmits(['update:amount', 'update:measureId', 'change'])
+const emit = defineEmits(['update:amount', 'update:measureId', 'change', 'submit', 'cancel'])
 
 const rootEl = ref(null)
 const qtyInputEl = ref(null)
@@ -207,6 +208,32 @@ function onAmountInput(event) {
   if (!open.value) openPanel()
   nextTick(updatePanelPosition)
 }
+
+/* Enter confirma a linha inteira (o pai fecha a edição e abre a próxima);
+   Esc desiste. Antes só existia o "OK" clicável no fim da linha. */
+function onQtyKeydown(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    closePanel()
+    emit('submit')
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    if (open.value) {
+      closePanel()
+      return
+    }
+    emit('cancel')
+  }
+}
+
+function focusAmount() {
+  qtyInputEl.value?.focus?.()
+  qtyInputEl.value?.select?.()
+}
+
+defineExpose({ focus: focusAmount })
 
 function selectOption(option) {
   emitChange(option.id, props.amount)

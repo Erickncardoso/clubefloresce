@@ -5,16 +5,12 @@
         <ClipboardList aria-hidden="true" />
         Resumo nutricional
       </h4>
-      <div class="mpns-card__actions">
-        <button type="button" class="btn-secondary mpns-head-btn" @click="$emit('open-hydration')">
-          <SharedCfHydrationBottleIcon :size="14" />
-          Hidratação
-        </button>
-        <button type="button" class="btn-secondary mpns-head-btn" @click="$emit('open-goals')">
-          <Target aria-hidden="true" />
-          Metas
-        </button>
-      </div>
+      <!-- "Hidratação" saiu daqui: abria o mesmo modal do card de Hidratação
+           logo abaixo, com o botão dele já visível na mesma coluna. -->
+      <button type="button" class="btn-secondary mpns-head-btn" @click="$emit('open-goals')">
+        <Target aria-hidden="true" />
+        Metas
+      </button>
     </header>
 
     <p v-if="loading" class="mpns-empty">{{ loading }}</p>
@@ -42,8 +38,11 @@
         >
           <span class="mpns-macro__dot" :class="`mpns-macro__dot--${row.tone}`" aria-hidden="true" />
           <span class="mpns-macro__label">{{ row.label }}</span>
-          <span class="mpns-macro__value">{{ row.value }}</span>
           <span class="mpns-macro__percent">{{ row.percent }}%</span>
+          <span class="mpns-macro__value">
+            <strong>{{ row.grams }}</strong>
+            <small>{{ row.kcal }} kcal</small>
+          </span>
         </li>
       </ul>
 
@@ -79,7 +78,7 @@ const props = defineProps({
   canExportPdf: { type: Boolean, default: true },
 })
 
-defineEmits(['open-full', 'open-goals', 'open-hydration', 'export-pdf'])
+defineEmits(['open-full', 'open-goals', 'export-pdf'])
 
 const isEmpty = computed(() => !hasLiveMealMacros(props.report?.macros || {}))
 
@@ -92,9 +91,8 @@ const macroRows = computed(() => {
       tone: item.tone,
       label: item.label,
       percent: item.percent,
-      value: block
-        ? `${formatMacroGrams(block.grams)} · ${block.kcal} kcal`
-        : '—',
+      grams: block ? formatMacroGrams(block.grams) : '—',
+      kcal: block ? block.kcal : '—',
     }
   })
 })
@@ -119,34 +117,26 @@ const exportDisabled = computed(() => {
 
 .mpns-card__head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-}
-
-.mpns-card__actions {
-  display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-left: auto;
+  gap: 0.45rem;
 }
 
 .mpns-head-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  min-height: 1.85rem !important;
-  padding: 0.25rem 0.55rem !important;
-  font-size: 0.68rem !important;
+  margin-left: auto;
+  min-height: 1.9rem !important;
+  padding: 0.25rem 0.6rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.mpns-head-btn svg,
-.mpns-head-btn .cf-hydration-bottle {
+.mpns-head-btn svg {
   width: 0.8rem;
-  height: auto;
+  height: 0.8rem;
   flex-shrink: 0;
 }
 
@@ -244,13 +234,18 @@ const exportDisabled = computed(() => {
   gap: 0.1rem;
 }
 
+/* Áreas nomeadas: com auto-placement o "%" caía numa terceira linha,
+   fora do alinhamento do próprio macro. */
 .mpns-macro {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 0.15rem 0.45rem;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid #f1f3f2;
+  grid-template-areas:
+    'dot label percent'
+    '.   value value';
+  align-items: center;
+  gap: 0.1rem 0.45rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #f4f6f4;
 }
 
 .mpns-macro:last-child {
@@ -258,10 +253,10 @@ const exportDisabled = computed(() => {
 }
 
 .mpns-macro__dot {
-  width: 0.45rem;
-  height: 0.45rem;
+  grid-area: dot;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
-  align-self: center;
   flex-shrink: 0;
 }
 
@@ -270,7 +265,8 @@ const exportDisabled = computed(() => {
 .mpns-macro__dot--f { background: #eab308; }
 
 .mpns-macro__label {
-  font-size: 0.75rem;
+  grid-area: label;
+  font-size: 0.78rem;
   font-weight: 500;
   color: #2c322c;
   min-width: 0;
@@ -280,18 +276,30 @@ const exportDisabled = computed(() => {
 }
 
 .mpns-macro__percent {
-  font-size: 0.75rem;
-  font-weight: 600;
+  grid-area: percent;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: #2c322c;
   font-variant-numeric: tabular-nums;
 }
 
 .mpns-macro__value {
-  grid-column: 2 / -1;
-  font-size: 0.7rem;
-  color: #6b7368;
-  line-height: 1.3;
+  grid-area: value;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
   font-variant-numeric: tabular-nums;
+}
+
+.mpns-macro__value strong {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5f675f;
+}
+
+.mpns-macro__value small {
+  font-size: 0.68rem;
+  color: #99a29a;
 }
 
 .mpns-actions {

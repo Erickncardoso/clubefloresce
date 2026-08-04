@@ -1,38 +1,55 @@
 <template>
-  <article class="mph-card mped-side-card admin-shell-card" @click="$emit('open-full')">
+  <article class="mph-card mped-side-card admin-shell-card">
     <header class="mph-card__head">
       <h4 class="mph-card__title">
         <SharedCfHydrationBottleIcon :size="14" />
         Hidratação
       </h4>
-      <button type="button" class="btn-secondary mph-card__edit" @click.stop="$emit('edit-prescription')">
-        Prescrever
+      <button
+        v-if="hasPrescription"
+        type="button"
+        class="btn-secondary mph-card__edit"
+        @click="$emit('edit-prescription')"
+      >
+        Editar
       </button>
     </header>
 
-    <p v-if="!hasPrescription" class="mph-card__empty">
-      Meta calculada a partir do peso, altura, atividade e clima.
-    </p>
+    <template v-if="!hasPrescription">
+      <p class="mph-card__empty">
+        Sem meta de hidratação. Calculamos a partir do peso, altura, atividade e clima da paciente.
+      </p>
+      <button type="button" class="btn-secondary mph-card__btn" @click="$emit('edit-prescription')">
+        <Droplets aria-hidden="true" />
+        Prescrever hidratação
+      </button>
+    </template>
 
     <template v-else>
       <p class="mph-card__goal">
-        {{ formattedGoal }}<span>/dia</span>
+        {{ formattedGoal }}<span>por dia</span>
       </p>
-      <p v-if="scheduleLabel" class="mph-card__meta">{{ scheduleLabel }}</p>
-      <p v-if="intervalLine" class="mph-card__meta">{{ intervalLine }}</p>
-      <p v-if="unreadFeedback" class="mph-card__feedback">
-        {{ unreadFeedback }} feedback(s) da paciente
-      </p>
-    </template>
 
-    <button type="button" class="btn-primary mph-card__btn" @click.stop="$emit('open-full')">
-      Ver acompanhamento
-    </button>
+      <ul class="mph-card__meta-list">
+        <li v-if="scheduleLabel">{{ scheduleLabel }}</li>
+        <li v-if="intervalLine">{{ intervalLine }}</li>
+      </ul>
+
+      <p v-if="unreadFeedback" class="mph-card__feedback">
+        <MessageCircle aria-hidden="true" />
+        {{ unreadFeedback }} {{ unreadFeedback === 1 ? 'feedback novo' : 'feedbacks novos' }} da paciente
+      </p>
+
+      <button type="button" class="btn-secondary mph-card__btn" @click="$emit('open-full')">
+        Ver acompanhamento
+      </button>
+    </template>
   </article>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { Droplets, MessageCircle } from 'lucide-vue-next'
 import {
   computeHydrationGoal,
   formatHydrationAmount,
@@ -88,19 +105,11 @@ const unreadFeedback = computed(() => unreadHydrationFeedbackCount(props.feedbac
   border: 1px solid #e8ece9;
   border-radius: var(--cf-radius-control);
   background: #fff;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.mph-card:hover {
-  border-color: #cfe3cb;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
 }
 
 .mph-card__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem;
 }
 
@@ -109,46 +118,90 @@ const unreadFeedback = computed(() => unreadHydrationFeedbackCount(props.feedbac
   align-items: center;
   gap: 0.35rem;
   margin: 0;
-  font-size: 0.84rem;
-  color: #0099ad;
-}
-
-.mph-card__edit {
-  min-height: 1.85rem !important;
-  padding: 0.2rem 0.55rem !important;
-  font-size: 0.72rem !important;
-}
-
-.mph-card__empty,
-.mph-card__meta {
-  margin: 0;
-  font-size: 0.76rem;
-  color: #6b7368;
-  line-height: 1.4;
-}
-
-.mph-card__goal {
-  margin: 0;
-  font-size: 1.15rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #0099ad;
 }
 
+.mph-card__edit {
+  margin-left: auto;
+  min-height: 1.9rem !important;
+  padding: 0.25rem 0.6rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  flex-shrink: 0;
+}
+
+.mph-card__empty {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #6b7368;
+  line-height: 1.45;
+}
+
+.mph-card__goal {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0099ad;
+  letter-spacing: -0.01em;
+}
+
 .mph-card__goal span {
-  font-size: 0.78rem;
-  font-weight: 400;
-  color: #9ca3af;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: #9aa39a;
+}
+
+.mph-card__meta-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.mph-card__meta-list li {
+  font-size: 0.74rem;
+  color: #6b7368;
+  line-height: 1.4;
 }
 
 .mph-card__feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   margin: 0;
-  font-size: 0.74rem;
-  color: #b45309;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--cf-radius-xs);
+  background: #fef4e6;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #96450a;
 }
 
+.mph-card__feedback svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Secundário de propósito: o verde cheio da coluna pertence a
+   "Salvar e publicar", não a um atalho de leitura. */
 .mph-card__btn {
   width: 100%;
+  justify-content: center;
+  gap: 0.4rem;
   min-height: 2.35rem !important;
   font-size: 0.78rem !important;
+  font-weight: 600 !important;
+}
+
+.mph-card__btn svg {
+  width: 0.9rem;
+  height: 0.9rem;
 }
 </style>

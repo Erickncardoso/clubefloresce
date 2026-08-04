@@ -1,5 +1,5 @@
 <template>
-  <NuxtPage v-if="isDocumentoChildRoute" />
+  <NuxtPage v-if="isPatientChildRoute" />
 
   <NuxtLayout v-else name="dashboard">
     <div class="patient-chart-page admin-shell">
@@ -314,8 +314,9 @@ const {
   syncCanonicalPatientUrl,
   buildPatientPath: buildPatientUrl,
 } = usePatientRoute()
-const isDocumentoChildRoute = computed(() =>
-  /\/documentos\/[^/]+$/.test(String(route.path || '').replace(/\/$/, '')),
+// Rotas-filhas que substituem a ficha inteira (editor em página cheia).
+const isPatientChildRoute = computed(() =>
+  /\/(documentos|planos)\/[^/]+$/.test(String(route.path || '').replace(/\/$/, '')),
 )
 const apiBase = useApiBase()
 const { openDocument, resolveDocumentUrl } = usePatientDocument()
@@ -347,7 +348,7 @@ watch(patientId, (nextId, prevId) => {
   if (floatingAnamnese.patientId.value && floatingAnamnese.patientId.value !== nextId) {
     floatingAnamnese.closeEditor()
   }
-  if (!isDocumentoChildRoute.value && !resolvingRoute.value) loadAll()
+  if (!isPatientChildRoute.value && !resolvingRoute.value) loadAll()
 })
 
 const activeTabLabel = computed(() => {
@@ -426,7 +427,7 @@ function onEditPatientUpdated(updated) {
 }
 
 watch(
-  [patientId, resolvingRoute, isDocumentoChildRoute],
+  [patientId, resolvingRoute, isPatientChildRoute],
   ([id, resolving, isDocRoute]) => {
     if (!id || resolving || isDocRoute) return
     loadAll()

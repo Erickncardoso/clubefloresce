@@ -343,7 +343,7 @@
         class="content-body"
         :class="{
           'patient-courses-content': isPacienteCoursesPage,
-          'patient-chart-content': isPatientChartPage && !isPatientDocumentEditorPage,
+          'patient-chart-content': isPatientChartPage && !isPatientFullPageEditor,
           'patient-document-editor-content': isPatientDocumentEditorPage,
         }"
       >
@@ -393,8 +393,14 @@ const isPatientApp = computed(() => Boolean(config.public.mobileApp))
 const isPacienteCoursesPage = computed(() => isPatientApp.value && route.path.startsWith('/cursos'))
 const isPatientChartPage = computed(() => /^\/pacientes\//.test(String(route.path || '')))
 const isPatientDocumentEditorPage = computed(() => /\/pacientes\/[^/]+\/documentos\//.test(String(route.path || '')))
+const isPatientPlanEditorPage = computed(() => /\/pacientes\/[^/]+\/planos\//.test(String(route.path || '')))
+// Editores em página cheia: a navegação da ficha sai do caminho para o
+// trabalho ocupar a largura toda.
+const isPatientFullPageEditor = computed(
+  () => isPatientDocumentEditorPage.value || isPatientPlanEditorPage.value,
+)
 const showPatientChartSidebar = computed(
-  () => isPatientChartPage.value && !isPatientDocumentEditorPage.value && useAdminSidebar.value,
+  () => isPatientChartPage.value && !isPatientFullPageEditor.value && useAdminSidebar.value,
 )
 const showVideoUploadPanel = computed(() => /^\/(modulos|cursos)(\/|$)/.test(route.path || ''))
 const { hydrateProfile, persistSession, profile: sessionProfile } = usePatientApp()

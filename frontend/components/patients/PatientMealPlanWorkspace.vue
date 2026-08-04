@@ -44,13 +44,6 @@
       {{ listNotice }}
     </p>
 
-    <section v-if="(pendingDraft || activeId) && !editorOpen" class="mpwork-resume">
-      <FileClock class="mpwork-resume-icon" aria-hidden="true" />
-      <span class="mpwork-resume-copy">{{ resumeBannerLabel }}</span>
-      <button type="button" class="btn-secondary mpwork-resume-btn" @click="editorOpen = true">
-        Continuar edição
-      </button>
-    </section>
 
     <Transition name="mpwork-collapse">
       <section
@@ -261,21 +254,6 @@
       :current-patient="user"
       @submit="onDuplicateSubmit"
     />
-
-    <PatientMealPlanEditorModal
-      v-model:open="editorOpen"
-      :user="user"
-      :profile="profile"
-      :prescription="activePrescription"
-      :saving="saving"
-      :publishing="publishing"
-      :save-message="saveMessage"
-      :save-error="saveError"
-      @save="onSave"
-      @publish="onPublish"
-      @new-plan="openNewFromEditor"
-      @close="onEditorClose"
-    />
   </div>
 </template>
 
@@ -286,7 +264,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  FileClock,
   FileText,
   Plus,
   Salad,
@@ -295,25 +272,19 @@ import {
 } from 'lucide-vue-next'
 import { authFetchInit, useAuthSession } from '~/composables/useAuthSession.js'
 import PatientChartEmptyState from '~/components/patients/PatientChartEmptyState.vue'
-import PatientMealPlanEditorModal from '~/components/patients/PatientMealPlanEditorModal.vue'
 import PatientMealPlanNewModal from '~/components/patients/PatientMealPlanNewModal.vue'
 import PatientMealPlanDuplicateModal from '~/components/patients/PatientMealPlanDuplicateModal.vue'
 import { duplicateMealPlanRecord } from '~/utils/meal-plan-duplicate.js'
 import { useFoodBank } from '~/composables/useFoodBank.js'
+import { buildPatientPath } from '~/utils/patient-slug.js'
 import {
   buildPrescriptionFromParsedPlan,
-  buildParsedMealPlanFromPrescription,
-  createEmptyPrescription,
   enrichPrescriptionFoodItems,
   findImportedPrescription,
   importPrescriptionIdForMealPlan,
   shouldSyncImportedPrescription,
 } from '~/utils/meal-plan-prescription.js'
-import {
-  clearMealPlanLocalDraftsForPlan,
-  formatMealPlanDraftSavedAt,
-  hasRecoverableMealPlanDraft,
-} from '~/utils/meal-plan-local-draft.js'
+import { clearMealPlanLocalDraftsForPlan } from '~/utils/meal-plan-local-draft.js'
 
 const props = defineProps({
   user: { type: Object, default: null },
@@ -328,17 +299,11 @@ const apiBase = useApiBase()
 const { verifiedUser } = useAuthSession()
 const { matchFoodForMealPlan, matchFoodBatchForMealPlan } = useFoodBank()
 
-const editorOpen = ref(false)
-const activeId = ref('')
 const newModalOpen = ref(false)
 const duplicateModalOpen = ref(false)
 const duplicateSource = ref(null)
 const listError = ref('')
 const listNotice = ref('')
-const saving = ref(false)
-const publishing = ref(false)
-const saveMessage = ref('')
-const saveError = ref(false)
 
 const planFile = ref(null)
 const uploadMessage = ref('')
@@ -383,34 +348,20 @@ watch(
   },
 )
 
-const activePrescription = computed(() => {
-  if (!activeId.value) {
-    return pendingDraft.value || null
-  }
-  return prescriptions.value.find((item) => item.id === activeId.value) || null
-})
-
-const pendingDraft = ref(null)
 const syncingImport = ref(false)
-
-const resumeBannerLabel = computed(() => {
-  if (!props.user?.id) return 'Edição em andamento'
-  const planId = activeId.value || 'new'
-  const prescription = activePrescription.value
-  const draft = hasRecoverableMealPlanDraft(props.user.id, planId, prescription)
-  if (draft?.savedAt) {
-    const when = formatMealPlanDraftSavedAt(draft.savedAt)
-    return when
-      ? `Rascunho local de ${when} — toque para continuar`
-      : 'Rascunho local salvo — toque para continuar'
-  }
-  return 'Edição em andamento'
-})
 
 function clearLocalDraftForActivePlan(planId = '') {
   if (!props.user?.id) return
-  const resolvedId = planId || activeId.value || 'new'
-  clearMealPlanLocalDraftsForPlan(props.user.id, resolvedId)
+  clearMealPlanLocalDraftsForPlan(props.user.id, planId || 'new')
+}
+
+/* A edição vive numa rota própria (/pacientes/:id/planos/:planoId), então a
+   lista só navega — não guarda mais estado de editor aberto. */
+function planEditorPath(planoId, query = null) {
+  return buildPatientPath(props.user || {}, {
+    suffix: `/planos/${planoId}`,
+    ...(query ? { query } : {}),
+  })
 }
 
 const importedPlanLabel = computed(() => {
@@ -524,30 +475,29 @@ function openNewModal() {
   newModalOpen.value = true
 }
 
-function openNewFromEditor() {
-  editorOpen.value = false
-  openNewModal()
-}
+/* "Nova prescrição" dentro do editor volta para a lista com ?novo=1, porque a
+   escolha de nome e método acontece aqui, antes de entrar na rota do editor. */
+const route = useRoute()
+const router = useRouter()
 
-function onEditorClose() {
-  editorOpen.value = false
-}
+watch(
+  () => route.query.novo,
+  (novo) => {
+    if (!novo) return
+    const { novo: _drop, ...rest } = route.query
+    void router.replace({ path: route.path, query: rest })
+    openNewModal()
+  },
+  { immediate: true },
+)
 
 function startFromModal({ title, methodology }) {
-  pendingDraft.value = createEmptyPrescription({ title, methodology })
-  activeId.value = ''
-  saveMessage.value = ''
-  saveError.value = false
-  editorOpen.value = true
+  void navigateTo(planEditorPath('novo', { title, methodology }))
 }
 
 function openInEditor(item) {
   if (!item?.id) return
-  pendingDraft.value = null
-  activeId.value = item.id
-  saveMessage.value = ''
-  saveError.value = false
-  editorOpen.value = true
+  void navigateTo(planEditorPath(item.id))
 }
 
 function editItem(item) {
@@ -618,15 +568,11 @@ async function onDuplicateSubmit({ title, targetPatientId, onComplete, onError }
 
     if (targetPatientId === props.user?.id) {
       emit('saved', updated)
-      activeId.value = duplicate.id
-      pendingDraft.value = null
-      saveMessage.value = 'Plano duplicado. Ajuste o que precisar e salve.'
-      saveError.value = false
-      editorOpen.value = true
-      listNotice.value = 'Plano duplicado e aberto para edição.'
-    } else {
-      listNotice.value = `Plano duplicado para ${targetPatientName}.`
+      onComplete?.()
+      await navigateTo(planEditorPath(duplicate.id))
+      return
     }
+    listNotice.value = `Plano duplicado para ${targetPatientName}.`
 
     onComplete?.()
   } catch (err) {
@@ -663,115 +609,6 @@ async function patchMealPlans(nextList) {
   return updated
 }
 
-function buildRecord(formPayload, status) {
-  const now = new Date().toISOString()
-  const existing = prescriptions.value.find((item) => item.id === activeId.value)
-  const id = activeId.value || crypto.randomUUID()
-  return {
-    id,
-    title: formPayload.title?.trim() || existing?.title || 'Plano alimentar',
-    methodology: formPayload.methodology || existing?.methodology || 'qualitative',
-    status,
-    objective: formPayload.objective || null,
-    dietType: formPayload.dietType || null,
-    startDate: formPayload.startDate || null,
-    endDate: formPayload.indefinite ? null : (formPayload.endDate || null),
-    indefinite: formPayload.indefinite !== false,
-    editorText: formPayload.editorText || '',
-    editorHtml: formPayload.editorHtml || '',
-    finalNotes: formPayload.finalNotes || '',
-    meals: formPayload.meals || [],
-    nutritionTotals: formPayload.nutritionTotals || existing?.nutritionTotals || null,
-    pdfNutritionTotals: formPayload.pdfNutritionTotals || existing?.pdfNutritionTotals || null,
-    hydrationPrescription: formPayload.hydrationPrescription ?? existing?.hydrationPrescription ?? null,
-    shoppingList: formPayload.shoppingList ?? existing?.shoppingList ?? null,
-    authorName: verifiedUser.value?.name || existing?.authorName || 'Nutricionista',
-    createdAt: existing?.createdAt || now,
-    updatedAt: now,
-  }
-}
-
-async function onSave(formPayload) {
-  if (!props.user?.id) {
-    listError.value = 'Paciente não carregado.'
-    saveError.value = true
-    saveMessage.value = listError.value
-    return
-  }
-  saving.value = true
-  saveError.value = false
-  listError.value = ''
-  try {
-    const item = buildRecord(formPayload, 'draft')
-    const updated = await patchMealPlans(nextPrescriptionList(item))
-    activeId.value = item.id
-    pendingDraft.value = null
-    clearLocalDraftForActivePlan('new')
-    clearLocalDraftForActivePlan(item.id)
-    saveMessage.value = 'Rascunho salvo.'
-    return updated
-  } catch (err) {
-    const message = err?.data?.error || err?.data?.message || err?.message || 'Erro ao salvar.'
-    listError.value = message
-    saveMessage.value = message
-    saveError.value = true
-  } finally {
-    saving.value = false
-  }
-}
-
-async function onPublish(formPayload) {
-  if (!props.user?.id) {
-    listError.value = 'Paciente não carregado.'
-    saveError.value = true
-    saveMessage.value = listError.value
-    return
-  }
-  publishing.value = true
-  saving.value = true
-  saveError.value = false
-  listError.value = ''
-  try {
-    const item = buildRecord(formPayload, 'active')
-    let updated = await patchMealPlans(nextPrescriptionList(item))
-    activeId.value = item.id
-    pendingDraft.value = null
-    clearLocalDraftForActivePlan('new')
-    clearLocalDraftForActivePlan(item.id)
-
-    const parsed = buildParsedMealPlanFromPrescription(item, props.user?.name || null)
-    if (!parsed.meals.length) {
-      const emptyMsg = item.methodology === 'qualitative'
-        ? 'Escreva o plano qualitativo antes de publicar.'
-        : 'Adicione ao menos uma refeição ou linha de alimento antes de publicar.'
-      throw new Error(emptyMsg)
-    }
-
-    const publishResult = await $fetch(`${apiBase.value}/patients/${props.user.id}/meal-plan/save`, authFetchInit({
-      method: 'POST',
-      body: {
-        title: item.title,
-        plan: parsed,
-      },
-    }))
-
-    if (publishResult?.user) {
-      updated = publishResult.user
-      emit('saved', updated)
-    }
-
-    saveMessage.value = 'Plano publicado para o paciente.'
-  } catch (err) {
-    const message = err?.data?.error || err?.data?.message || err?.message || 'Erro ao publicar.'
-    listError.value = message
-    saveMessage.value = message
-    saveError.value = true
-  } finally {
-    publishing.value = false
-    saving.value = false
-  }
-}
-
 function askRemoveItem(item) {
   if (!item?.id) return
   listError.value = ''
@@ -788,11 +625,6 @@ async function confirmRemoveItem() {
     await patchMealPlans(nextPrescriptionList(null, id))
     clearLocalDraftForActivePlan(id)
     clearLocalDraftForActivePlan('new')
-    if (activeId.value === id) {
-      activeId.value = ''
-      pendingDraft.value = null
-      editorOpen.value = false
-    }
     deleteModalOpen.value = false
     pendingDeleteItem.value = null
     listNotice.value = 'Plano excluído.'
