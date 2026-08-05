@@ -157,7 +157,7 @@ export class AuthController {
       const { password, ...userWithoutPassword } = user;
       return res.json(userWithoutPassword);
     } catch (error: any) {
-      return res.status(401).json({ message: "Acesso expirado" });
+      return res.status(401).json({ message: "Sessão expirada ou token inválido. Faça login novamente." });
     }
   }
 

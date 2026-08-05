@@ -1,5 +1,8 @@
 /** Mantém a sessão do app paciente ativa entre aberturas do PWA. */
-import { isPatientCheckoutPath } from '~/utils/patient-access'
+import {
+  isPatientCheckoutPath,
+  shouldKeepPatientSessionOnError,
+} from '~/utils/patient-access'
 
 const PUBLIC_PATHS = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha', '/abrir']
 
@@ -27,26 +30,43 @@ export default defineNuxtPlugin({
     const initialPath = router.currentRoute.value.path
     const isPasswordRecoveryPath = initialPath === '/redefinir-senha' || initialPath === '/esqueci-senha'
 
-    const redirectToLogin = (err?: unknown) => {
+    const redirectForAccessChange = () => {
       const path = router.currentRoute.value.path
       if (PUBLIC_PATHS.includes(path)) return
       if (isPatientCheckoutPath(path)) return
+      // Continua logada — só leva à renovação/assinatura.
+      void navigateTo('/assinatura')
+    }
 
-      if (err && isPatientAccessRevokedError(err)) {
-        void navigateTo('/assinatura')
-        return
-      }
-
+    const redirectToLogin = () => {
+      const path = router.currentRoute.value.path
+      if (PUBLIC_PATHS.includes(path)) return
+      if (isPatientCheckoutPath(path)) return
       void navigateTo('/')
     }
 
     const handleAuthFailure = (err: unknown) => {
       if (readFreshLogin()) return
       if (isTransientAuthError(err)) return
-      if (!isSessionExpiredError(err) && !isPatientAccessRevokedError(err)) return
+
+      // Upgrade / downgrade / expiração / premium: NUNCA desloga.
+      if (shouldKeepPatientSessionOnError(err)) {
+        if (isPatientAccessRevokedError(err)) {
+          redirectForAccessChange()
+        }
+        return
+      }
+
+      const status = (err as { statusCode?: number; status?: number })?.statusCode
+        ?? (err as { status?: number })?.status
+
+      // 403 residual = autorização (plano/role), não autenticação.
+      if (status === 403) return
+
+      if (!isSessionExpiredError(err)) return
 
       clearSession()
-      redirectToLogin(err)
+      redirectToLogin()
     }
 
     /** Renova cookie em background — nunca desloga só porque o refresh falhou. */

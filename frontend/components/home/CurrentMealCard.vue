@@ -5,8 +5,8 @@
     role="link"
     tabindex="0"
     :aria-label="`Abrir ${meal.label} no plano alimentar`"
-    @click="openDieta"
-    @keydown.enter="openDieta"
+    @click.stop="openDieta"
+    @keydown.enter.prevent="openDieta"
     @keydown.space.prevent="openDieta"
   >
     <header class="home-meal-card-head">
@@ -73,7 +73,6 @@ const props = defineProps({
   maxItems: { type: Number, default: 4 },
 })
 
-const router = useRouter()
 const now = ref(new Date())
 const { currentMeal, getMealById } = useMealPlan(now)
 const { loadChecked, countDone } = useDietaProgress()
@@ -163,9 +162,11 @@ const dietaLink = computed(() => ({
   query: { meal: meal.value?.id },
 }))
 
+const { navigateOrGate } = usePatientPremiumGate()
+
 function openDieta() {
   if (!meal.value?.id) return
-  void router.push(dietaLink.value)
+  void navigateOrGate(dietaLink.value)
 }
 </script>
 

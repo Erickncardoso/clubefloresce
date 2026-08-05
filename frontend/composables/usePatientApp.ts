@@ -142,9 +142,8 @@ export function usePatientApp() {
         createdAt?: string
       }>(`${config.public.apiBase}/auth/me`, patientAuth.authFetchInit())
       persistSession(user)
-      await patientAuth.refreshSession()
     } catch (err) {
-      if (patientAuth.isSessionExpiredError(err) || patientAuth.isPatientAccessRevokedError(err)) {
+      if (patientAuth.isSessionExpiredError(err)) {
         clearPatientSession()
       } else {
         hydrateProfile()

@@ -72,6 +72,12 @@ const loading = ref(false)
 const error = ref('')
 const submitted = ref(false)
 
+const route = useRoute()
+onMounted(() => {
+  const fromQuery = String(route.query.email || '').trim()
+  if (fromQuery) email.value = fromQuery
+})
+
 const handleSubmit = async () => {
   loading.value = true
   error.value = ''

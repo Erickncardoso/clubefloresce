@@ -28,10 +28,10 @@
       <section v-if="hasMealPlan" class="home-section" aria-labelledby="meal-title">
         <div class="home-section-head">
           <h2 id="meal-title">Próxima refeição</h2>
-          <NuxtLink to="/dieta" class="home-section-link">
+          <button type="button" class="home-section-link" @click="openDietaFromHome">
             Ver dieta
             <ChevronRight class="home-section-link-icon" aria-hidden="true" />
-          </NuxtLink>
+          </button>
         </div>
         <HomeCurrentMealCard />
       </section>
@@ -135,6 +135,7 @@ const { hasPlan: hasMealPlan, mealOrder, getMealById } = useMealPlan()
 const { loadChecked, countDone } = useDietaProgress()
 const { resyncAllCheckedMeals } = useDietaDiarySync()
 const { todaySummary, hydrate: hydrateGoals } = usePatientGoals()
+const { navigateOrGate } = usePatientPremiumGate()
 const {
   dailySummary,
   targets,
@@ -157,6 +158,10 @@ const featuredCourse = ref(null)
 
 function openQuickGoal(goalId) {
   quickGoalId.value = String(goalId || '')
+}
+
+function openDietaFromHome() {
+  void navigateOrGate('/dieta')
 }
 
 const metrics = ref([
@@ -402,12 +407,17 @@ onMounted(async () => {
   align-items: center;
   gap: 0.15rem;
   min-height: 2rem;
-  padding-left: 0.45rem;
+  margin: 0;
+  padding: 0 0 0 0.45rem;
+  border: none;
+  background: transparent;
+  font: inherit;
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.35;
   color: var(--cf-pink-dark);
   text-decoration: none;
+  cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }

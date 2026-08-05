@@ -79,7 +79,7 @@
       <section class="perfil-section" aria-labelledby="perfil-follow-title">
         <h2 id="perfil-follow-title">Acompanhamento</h2>
         <nav class="perfil-list" aria-label="Acompanhamento">
-          <NuxtLink to="/evolucao?tab=metas" class="perfil-row">
+          <button type="button" class="perfil-row" @click="openPremiumPath('/evolucao?tab=metas')">
             <span class="perfil-row-icon perfil-row-icon--goals" aria-hidden="true">
               <Target />
             </span>
@@ -88,9 +88,9 @@
               <small>Água, sono, exercícios e rotina</small>
             </span>
             <ChevronRight class="perfil-row-arrow" aria-hidden="true" />
-          </NuxtLink>
+          </button>
 
-          <NuxtLink to="/dieta" class="perfil-row">
+          <button type="button" class="perfil-row" @click="openPremiumPath('/dieta')">
             <span class="perfil-row-icon perfil-row-icon--plan" aria-hidden="true">
               <UtensilsCrossed />
             </span>
@@ -99,9 +99,9 @@
               <small>Refeições e orientações da nutricionista</small>
             </span>
             <ChevronRight class="perfil-row-arrow" aria-hidden="true" />
-          </NuxtLink>
+          </button>
 
-          <NuxtLink to="/check-in/historico" class="perfil-row">
+          <button type="button" class="perfil-row" @click="openPremiumPath('/check-in/historico')">
             <span class="perfil-row-icon perfil-row-icon--reports" aria-hidden="true">
               <BarChart3 />
             </span>
@@ -110,7 +110,7 @@
               <small>Acompanhe sua evolução semanal</small>
             </span>
             <ChevronRight class="perfil-row-arrow" aria-hidden="true" />
-          </NuxtLink>
+          </button>
         </nav>
       </section>
 
@@ -286,6 +286,7 @@ definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 const config = useRuntimeConfig()
 const { authFetchInit } = usePatientAuth()
 const { verifiedUser } = useAuthSession()
+const { navigateOrGate } = usePatientPremiumGate()
 const {
   clearPatientSession,
   userFullName,
@@ -347,6 +348,10 @@ watch(showLogoutConfirm, (isOpen) => {
     nextTick(() => logoutButton.value?.focus())
   }
 })
+
+function openPremiumPath(path) {
+  void navigateOrGate(path)
+}
 
 onMounted(async () => {
   pageLoading.value = true
@@ -660,10 +665,17 @@ async function onAvatarSelected(event) {
   display: flex;
   align-items: center;
   gap: 0.72rem;
+  width: 100%;
   min-height: 4rem;
+  margin: 0;
   padding: 0.65rem 0.8rem;
+  border: none;
+  background: transparent;
   color: #242426;
+  text-align: left;
+  font: inherit;
   text-decoration: none;
+  cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.16s ease;

@@ -8,13 +8,14 @@
       aria-label="Resumo nutricional do dia"
       @scroll="onScroll"
     >
-      <NuxtLink
+      <button
         v-for="card in cards"
         :key="card.label"
-        to="/dieta"
+        type="button"
         class="home-stat-card cf-squircle cf-squircle--tile"
         :class="`home-stat-card--${card.tone}`"
         role="listitem"
+        @click="openDieta"
       >
         <span class="home-stat-card-icon-wrap cf-squircle cf-squircle--icon" aria-hidden="true">
           <component :is="card.icon" class="home-stat-card-icon" />
@@ -22,7 +23,7 @@
         <span class="home-stat-card-label">{{ card.label }}</span>
         <strong class="home-stat-card-value">{{ card.value }}</strong>
         <span class="home-stat-card-meta">{{ card.meta }}</span>
-      </NuxtLink>
+      </button>
     </div>
 
     <div v-if="cards.length > 1" class="home-stat-carousel-dots" aria-hidden="true">
@@ -48,6 +49,11 @@ const props = defineProps({
 
 const trackRef = ref(null)
 const activeIndex = ref(0)
+const { navigateOrGate } = usePatientPremiumGate()
+
+function openDieta() {
+  void navigateOrGate('/dieta')
+}
 
 const cards = computed(() => [
   {
@@ -137,7 +143,12 @@ function onScroll() {
   background: var(--cf-surface);
   box-shadow: var(--cf-shadow-lg);
   text-decoration: none;
+  text-align: left;
+  font: inherit;
   color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   transition: transform 0.16s ease;
 }
 

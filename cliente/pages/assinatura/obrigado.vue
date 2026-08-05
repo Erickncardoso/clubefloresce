@@ -13,16 +13,39 @@
 
     <section class="obrigado-card cf-squircle cf-squircle--surface">
       <Sparkles class="obrigado-card-icon" aria-hidden="true" />
-      <h2>Tudo pronto para começar</h2>
+      <h2>{{ isGuest ? 'Entre para começar' : 'Tudo pronto para começar' }}</h2>
       <ul class="obrigado-list">
         <li>Dieta personalizada</li>
         <li>Bella IA no seu dia a dia</li>
         <li>Check-ins e acompanhamento</li>
       </ul>
-      <p class="obrigado-note">Enviamos a confirmação no seu e-mail e WhatsApp.</p>
-      <button type="button" class="obrigado-primary cf-squircle--control" @click="goNext">
-        {{ loading ? 'Carregando…' : 'Começar agora' }}
-      </button>
+
+      <template v-if="isGuest">
+        <p class="obrigado-note">
+          Use o e-mail
+          <strong v-if="guestEmail">{{ guestEmail }}</strong>
+          <span v-else>do pagamento</span>
+          para entrar. Se for a primeira vez, use
+          <NuxtLink to="/esqueci-senha" class="obrigado-link">esqueci a senha</NuxtLink>
+          para criar uma senha.
+        </p>
+        <button type="button" class="obrigado-primary cf-squircle--control" @click="goLogin">
+          Ir para o login
+        </button>
+        <NuxtLink
+          :to="forgotPasswordTo"
+          class="obrigado-secondary"
+        >
+          Esqueci a senha
+        </NuxtLink>
+      </template>
+
+      <template v-else>
+        <p class="obrigado-note">Enviamos a confirmação no seu e-mail e WhatsApp.</p>
+        <button type="button" class="obrigado-primary cf-squircle--control" @click="goNext">
+          {{ loading ? 'Carregando…' : 'Começar agora' }}
+        </button>
+      </template>
     </section>
 
     <div v-if="showAppModal" class="app-modal-overlay">
@@ -47,23 +70,38 @@
 import { CheckCircle2, Sparkles } from 'lucide-vue-next'
 import { isPatientPaidAccessActive } from '~/utils/patient-access'
 
-definePageMeta({ layout: 'patient', middleware: 'patient-only' })
+definePageMeta({ layout: 'patient' })
 
+const route = useRoute()
 const { verifyAuthSession } = useAuthSession()
 const { resolvePostLoginRoute } = usePatientOnboarding()
 const { fetchMySubscription, subscription } = useBillingCheckout()
 
 const loading = ref(false)
 const showAppModal = ref(false)
+const sessionUser = ref(null)
+
+const guestEmail = computed(() => String(route.query.email || '').trim().toLowerCase())
+const isGuest = computed(() => !sessionUser.value?.id)
 const accessExpiresAt = computed(() => subscription.value?.accessExpiresAt || null)
+const forgotPasswordTo = computed(() => (
+  guestEmail.value
+    ? { path: '/esqueci-senha', query: { email: guestEmail.value } }
+    : '/esqueci-senha'
+))
 
 onMounted(async () => {
   if (sessionStorage.getItem('cf_from_app') === '1') {
     sessionStorage.removeItem('cf_from_app')
     showAppModal.value = true
   }
-  await verifyAuthSession({ requiredRole: 'PACIENTE', force: true })
-  await fetchMySubscription()
+
+  const user = await verifyAuthSession({ requiredRole: 'PACIENTE', force: false })
+  sessionUser.value = user
+
+  if (!user?.id) return
+
+  await fetchMySubscription().catch(() => {})
   const plan = subscription.value?.userPlan
   if (!isPatientPaidAccessActive(plan, subscription.value?.accessExpiresAt)) {
     await navigateTo('/assinatura', { replace: true })
@@ -78,11 +116,16 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString('pt-BR')
 }
 
+async function goLogin() {
+  const query = guestEmail.value ? { email: guestEmail.value } : undefined
+  await navigateTo({ path: '/', query }, { replace: true })
+}
+
 async function goNext() {
   loading.value = true
   try {
-    const route = await resolvePostLoginRoute('/inicio')
-    await navigateTo(route, { replace: true })
+    const next = await resolvePostLoginRoute('/inicio')
+    await navigateTo(next, { replace: true })
   } finally {
     loading.value = false
   }
@@ -98,138 +141,137 @@ async function goNext() {
 
 .obrigado-hero {
   text-align: center;
-  padding: 1.5rem 0.5rem 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 .obrigado-icon-wrap {
-  width: 4.5rem;
-  height: 4.5rem;
-  margin: 0 auto 1rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0 auto 0.85rem;
   border-radius: 50%;
-  background: rgba(139, 150, 124, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
+  background: rgba(139, 150, 124, 0.16);
 }
 
 .obrigado-icon {
-  width: 2.25rem;
-  height: 2.25rem;
-  color: var(--cf-green-dark, #6f7863);
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--cf-pink, #8b967c);
 }
 
 .obrigado-hero h1 {
-  margin: 0 0 0.5rem;
-  font-size: 1.45rem;
+  margin: 0 0 0.4rem;
+  font-size: 1.35rem;
   font-weight: 800;
-  color: var(--cf-text, #141414);
+  color: var(--cf-text, #1f211c);
 }
 
 .obrigado-hero p {
   margin: 0;
-  font-size: 0.92rem;
-  line-height: 1.5;
-  color: var(--cf-text-muted, #525252);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--cf-text-muted, #6f7863);
 }
 
 .obrigado-access {
-  margin-top: 0.65rem !important;
+  margin-top: 0.5rem !important;
 }
 
 .obrigado-card {
-  padding: 1.35rem 1.15rem;
+  padding: 1.15rem 1rem 1.2rem;
+  background: #fff;
+  border: 1px solid var(--cf-border, #e5e5ea);
   text-align: center;
 }
 
 .obrigado-card-icon {
   width: 1.35rem;
   height: 1.35rem;
-  color: var(--cf-green, #8b967c);
-  margin-bottom: 0.5rem;
+  margin: 0 auto 0.55rem;
+  color: var(--cf-pink, #8b967c);
 }
 
 .obrigado-card h2 {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.65rem;
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--cf-text, #1f211c);
 }
 
 .obrigado-list {
-  margin: 0 0 1rem;
+  margin: 0 0 0.85rem;
   padding: 0;
   list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.88rem;
-  color: var(--cf-text, #141414);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--cf-text-muted, #6f7863);
+}
+
+.obrigado-list li::before {
+  content: '✓ ';
+  color: var(--cf-pink, #8b967c);
+  font-weight: 700;
 }
 
 .obrigado-note {
-  margin: 0 0 1.1rem;
-  font-size: 0.78rem;
-  color: var(--cf-text-muted, #525252);
+  margin: 0 0 0.95rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--cf-text-muted, #6f7863);
+}
+
+.obrigado-link {
+  color: var(--cf-pink, #8b967c);
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 .obrigado-primary {
   width: 100%;
+  min-height: 2.75rem;
   border: none;
-  background: var(--cf-green-dark, #6f7863);
+  border-radius: var(--cf-radius-control, 12px);
+  background: var(--cf-pink, #8b967c);
   color: #fff;
-  font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  padding: 0.95rem 1rem;
   cursor: pointer;
+}
+
+.obrigado-secondary {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cf-pink, #8b967c);
+  text-decoration: none;
 }
 
 .app-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  z-index: 7000;
+  display: grid;
+  place-items: center;
   padding: 1.25rem;
-  background: rgba(20, 20, 20, 0.55);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .app-modal-card {
   width: 100%;
-  max-width: 22rem;
-  padding: 1.75rem 1.35rem;
-  text-align: center;
+  max-width: 20rem;
+  padding: 1.25rem 1.1rem;
   background: #fff;
-}
-
-.app-modal-card h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: var(--cf-text, #141414);
-}
-
-.app-modal-card p {
-  margin: 0 0 1.25rem;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  color: var(--cf-text-muted, #525252);
-}
-
-.app-modal-card .obrigado-primary {
-  border-radius: inherit;
+  text-align: center;
 }
 
 .app-modal-dismiss {
-  width: 100%;
+  margin-top: 0.65rem;
   border: none;
   background: transparent;
-  color: var(--cf-text-muted, #525252);
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.85rem 1rem;
+  color: var(--cf-text-muted, #6f7863);
+  font-size: 0.8rem;
   cursor: pointer;
 }
 </style>

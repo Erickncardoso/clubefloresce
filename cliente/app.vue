@@ -15,12 +15,14 @@
     <PatientMealPlanUploadOverlay />
     <PatientPushPrompt :open="showPushPrompt" @dismiss="onPushPromptDismiss" />
     <PatientMealPlanGate :open="showMealPlanGate" />
+    <PatientPremiumGateModal />
     <InstagramSafariEscape />
   </div>
 </template>
 
 <script setup>
 import PatientNavigationLoader from '~/components/PatientNavigationLoader.vue'
+import PatientPremiumGateModal from '~/components/PatientPremiumGateModal.vue'
 import PatientQuickAccessFab from '~/components/PatientQuickAccessFab.vue'
 import PatientScreenDim from '~/components/PatientScreenDim.vue'
 import { usePatientTabBar } from '~/composables/usePatientTabBar'

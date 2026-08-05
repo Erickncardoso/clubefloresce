@@ -1,10 +1,22 @@
 import { nextTick } from 'vue'
 import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
-import { releasePatientInteractionLock } from '~/utils/patient-interaction-lock.mjs'
+import {
+  releasePatientInteractionLock,
+  repairStuckPatientInteractionLock,
+} from '~/utils/patient-interaction-lock.mjs'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const { startNavigation, finishNavigation } = usePatientNavigationLoading()
   const router = useRouter()
+
+  function clearStuckLock() {
+    try {
+      const dialOpen = useState('patient-quick-access-open', () => false)
+      repairStuckPatientInteractionLock(Boolean(dialOpen.value))
+    } catch {
+      releasePatientInteractionLock()
+    }
+  }
 
   router.beforeEach((to, from) => {
     if (to.fullPath === from.fullPath) return
@@ -14,13 +26,14 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   router.afterEach(() => {
     nextTick(() => {
-      releasePatientInteractionLock()
+      clearStuckLock()
       finishNavigation()
     })
   })
 
   router.onError((error) => {
     finishNavigation()
+    clearStuckLock()
 
     const message = String(error?.message || error || '')
     if (
@@ -43,8 +56,24 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   nuxtApp.hook('page:finish', () => {
     nextTick(() => {
-      releasePatientInteractionLock()
+      clearStuckLock()
       finishNavigation()
     })
   })
+
+  if (import.meta.client) {
+    clearStuckLock()
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') clearStuckLock()
+    })
+    window.addEventListener('pageshow', clearStuckLock)
+    // Toque no FAB ou página: se a classe ficou órfã, libera no próximo gesto.
+    window.addEventListener(
+      'pointerdown',
+      () => {
+        clearStuckLock()
+      },
+      { capture: true, passive: true },
+    )
+  }
 })

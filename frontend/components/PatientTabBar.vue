@@ -47,6 +47,7 @@ const router = useRouter()
 const { startNavigation, finishNavigation } = usePatientNavigationLoading()
 const { planChecked } = usePatientMealPlan()
 const { verifiedUser } = useAuthSession()
+const { navigateOrGate } = usePatientPremiumGate()
 const navigating = ref(false)
 const evolucaoLastTab = useState('evolucao-last-tab', () => 'metas')
 
@@ -132,7 +133,7 @@ async function goRoute(item) {
   if (!skipNavLoader) startNavigation()
 
   try {
-    await navigateTo(target)
+    await navigateOrGate(target)
   } finally {
     navigating.value = false
     if (!skipNavLoader) finishNavigation()

@@ -33,20 +33,20 @@
           </NuxtLink>
 
           <nav class="cf-drawer-nav">
-            <NuxtLink
+            <button
               v-for="item in navItems"
               :key="item.to"
-              :to="item.to"
+              type="button"
               class="cf-drawer-link"
               :class="{ 'cf-drawer-link--active': isActive(item.to) }"
-              @click="$emit('close')"
+              @click="onNavClick(item)"
             >
               <span class="cf-drawer-link-icon-wrap" :class="{ 'cf-drawer-link-icon-wrap--active': isActive(item.to) }">
                 <component :is="item.icon" class="cf-drawer-link-icon" />
               </span>
               <span class="cf-drawer-link-label">{{ item.label }}</span>
               <span v-if="item.badge" class="cf-drawer-link-badge">{{ item.badge }}</span>
-            </NuxtLink>
+            </button>
           </nav>
 
           <div class="cf-drawer-footer">
@@ -85,11 +85,12 @@ defineProps({
   open: { type: Boolean, default: false },
 })
 
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 
 const route = useRoute()
 const { clearPatientSession, userFullName, userInitials, userAvatar } = usePatientApp()
 const { hasUnread } = usePatientNotifications()
+const { navigateOrGate } = usePatientPremiumGate()
 
 const verifiedUser = useState('auth-verified-user', () => null)
 
@@ -127,6 +128,11 @@ const navItems = computed(() => {
 
 function isActive(path) {
   return route.path === path || route.path.startsWith(path + '/')
+}
+
+async function onNavClick(item) {
+  emit('close')
+  await navigateOrGate(item.to)
 }
 
 function logout() {
@@ -287,12 +293,19 @@ function logout() {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  width: 100%;
+  margin: 0;
   padding: 0.7rem 0.75rem;
+  border: none;
   border-radius: 14px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
   text-decoration: none;
   color: var(--cf-text);
   font-size: 0.88rem;
   font-weight: 500;
+  cursor: pointer;
   transition: background 0.15s ease;
 }
 

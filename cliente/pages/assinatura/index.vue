@@ -170,7 +170,43 @@
               <p v-if="billingConfig?.sandboxSimulateCard">Simulação local ativa — sem cobrança real.</p>
             </details>
 
-            <div v-if="payerEmail" class="checkout-account cf-squircle cf-squircle--control">
+            <div v-if="isGuestCheckout" class="checkout-guest-fields patient-auth-form">
+              <div class="form-group field--float" :class="{ focused: focusedField === 'guestEmail' }">
+                <label for="cf-guest-email">E-mail para liberar o acesso</label>
+                <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-guest-email"
+                    v-model="guestForm.email"
+                    type="email"
+                    autocomplete="email"
+                    required
+                    placeholder="seu@email.com"
+                    @focus="focusedField = 'guestEmail'"
+                    @blur="focusedField = ''"
+                  >
+                </div>
+              </div>
+              <div class="form-group field--float" :class="{ focused: focusedField === 'guestName' }">
+                <label for="cf-guest-name">Nome completo</label>
+                <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-guest-name"
+                    v-model="guestForm.name"
+                    type="text"
+                    autocomplete="name"
+                    required
+                    placeholder="Como deseja ser chamada"
+                    @focus="focusedField = 'guestName'"
+                    @blur="focusedField = ''"
+                  >
+                </div>
+              </div>
+              <p class="checkout-guest-hint">
+                Não precisa fazer login. Usamos este e-mail para liberar sua assinatura depois do pagamento.
+              </p>
+            </div>
+
+            <div v-else-if="payerEmail" class="checkout-account cf-squircle cf-squircle--control">
               <span class="checkout-account-label">Conta</span>
               <strong>{{ payerName }}</strong>
               <span>{{ payerEmail }}</span>
@@ -300,6 +336,39 @@
             <p class="checkout-pix-start-note">
               Informe seu CPF para gerar o QR Code ou o Pix copia e cola. Renove todo mês pelo app quando o acesso expirar.
             </p>
+            <div v-if="isGuestCheckout" class="checkout-guest-fields patient-auth-form">
+              <div class="form-group field--float" :class="{ focused: focusedField === 'guestEmailPix' }">
+                <label for="cf-guest-email-pix">E-mail para liberar o acesso</label>
+                <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-guest-email-pix"
+                    v-model="guestForm.email"
+                    type="email"
+                    autocomplete="email"
+                    required
+                    @focus="focusedField = 'guestEmailPix'"
+                    @blur="focusedField = ''"
+                  >
+                </div>
+              </div>
+              <div class="form-group field--float" :class="{ focused: focusedField === 'guestNamePix' }">
+                <label for="cf-guest-name-pix">Nome completo</label>
+                <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-guest-name-pix"
+                    v-model="guestForm.name"
+                    type="text"
+                    autocomplete="name"
+                    required
+                    @focus="focusedField = 'guestNamePix'"
+                    @blur="focusedField = ''"
+                  >
+                </div>
+              </div>
+              <p class="checkout-guest-hint">
+                Não precisa fazer login. Usamos este e-mail para liberar sua assinatura depois do pagamento.
+              </p>
+            </div>
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixCheckout">
               <div
                 class="form-group field--float"
@@ -354,7 +423,7 @@ import {
   onlyDigits,
 } from '~/utils/card-input-masks'
 
-definePageMeta({ layout: 'patient', middleware: 'patient-only' })
+definePageMeta({ layout: 'patient' })
 
 const { userFullName, syncPatientProfile } = usePatientApp()
 const { verifiedUser, verifyAuthSession } = useAuthSession()
@@ -387,6 +456,11 @@ const cardForm = ref({
   expirationDate: '',
   securityCode: '',
   identificationNumber: '',
+})
+
+const guestForm = ref({
+  email: '',
+  name: '',
 })
 
 const SANDBOX_CARD_DEFAULTS = {
@@ -432,8 +506,13 @@ function onCardCvvInput(event) {
 }
 
 const plans = computed(() => billingConfig.value?.plans || [])
-const payerEmail = computed(() => String(billingConfig.value?.payer?.email || '').trim())
+const isGuestCheckout = computed(() => Boolean(billingConfig.value?.guestCheckout) || !billingConfig.value?.payer?.email)
+const payerEmail = computed(() => {
+  if (isGuestCheckout.value) return String(guestForm.value.email || '').trim()
+  return String(billingConfig.value?.payer?.email || '').trim()
+})
 const payerName = computed(() => {
+  if (isGuestCheckout.value) return String(guestForm.value.name || '').trim()
   const fromBilling = String(billingConfig.value?.payer?.name || '').trim()
   if (fromBilling) return fromBilling
   return String(userFullName() || '').trim()
@@ -506,20 +585,25 @@ function syncCardFormFromSession() {
 async function loadBillingData() {
   configLoadFailed.value = false
   checkoutError.value = ''
-  await Promise.all([
-    verifyAuthSession({ requiredRole: 'PACIENTE', force: true }),
-    syncPatientProfile(),
-  ])
-  await Promise.all([fetchConfig(), fetchMySubscription()])
 
-  if (sessionMismatch.value) {
+  const session = await verifyAuthSession({ requiredRole: 'PACIENTE', force: false })
+  if (session?.id) {
+    await syncPatientProfile().catch(() => {})
+  }
+
+  await fetchConfig()
+  if (session?.id) {
+    await fetchMySubscription().catch(() => {})
+  }
+
+  if (session?.id && sessionMismatch.value) {
     await verifyAuthSession({ requiredRole: 'PACIENTE', force: true })
     await fetchConfig()
   }
 
-  if (sessionMismatch.value) {
+  if (session?.id && sessionMismatch.value) {
     configLoadFailed.value = true
-    checkoutError.value = 'Sessão de outro usuário detectada. Saia e entre novamente com paciente@florescer.com.'
+    checkoutError.value = 'Sessão de outro usuário detectada. Saia e entre novamente.'
   }
 
   configLoadFailed.value = configLoadFailed.value || !billingConfig.value
@@ -536,9 +620,13 @@ async function loadBillingData() {
 }
 
 async function completeCheckoutSuccess() {
-  await fetchMySubscription()
-  await verifyAuthSession({ requiredRole: 'PACIENTE', force: true })
-  await navigateTo('/assinatura/obrigado', { replace: true })
+  const guestEmail = isGuestCheckout.value ? payerEmail.value : ''
+  if (!isGuestCheckout.value) {
+    await fetchMySubscription().catch(() => {})
+    await verifyAuthSession({ requiredRole: 'PACIENTE', force: true })
+  }
+  const query = guestEmail ? { email: guestEmail } : undefined
+  await navigateTo({ path: '/assinatura/obrigado', query }, { replace: true })
 }
 
 async function reloadBilling() {
@@ -606,9 +694,28 @@ async function setPaymentMethod(method) {
   stopPixPolling()
 }
 
+async function assertGuestPayerReady() {
+  if (!isGuestCheckout.value) return true
+  const email = String(guestForm.value.email || '').trim()
+  const name = String(guestForm.value.name || '').trim()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    checkoutError.value = 'Informe um e-mail válido para liberar o acesso.'
+    return false
+  }
+  if (!name) {
+    checkoutError.value = 'Informe seu nome completo.'
+    return false
+  }
+  return true
+}
+
 async function submitCardCheckout() {
   processing.value = true
   checkoutError.value = ''
+  if (!(await assertGuestPayerReady())) {
+    processing.value = false
+    return
+  }
   try {
     const result = await subscribeWithCardForm({
       publicKey: billingConfig.value?.publicKey,
@@ -640,6 +747,10 @@ async function submitCardCheckout() {
 async function startPixCheckout() {
   processing.value = true
   checkoutError.value = ''
+  if (!(await assertGuestPayerReady())) {
+    processing.value = false
+    return
+  }
   const cpf = onlyDigits(cardForm.value.identificationNumber, 11)
   if (!billingConfig.value?.testMode && cpf.length !== 11) {
     checkoutError.value = 'Informe um CPF válido para continuar.'
@@ -1098,6 +1209,20 @@ async function refreshSubscription() {
 
 .checkout-sandbox p {
   margin: 0.35rem 0 0;
+}
+
+.checkout-guest-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.checkout-guest-hint {
+  margin: -0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--cf-text-muted, #6f7863);
 }
 
 .checkout-account {

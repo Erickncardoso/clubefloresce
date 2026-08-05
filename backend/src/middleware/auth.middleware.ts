@@ -207,6 +207,39 @@ export const authenticate = async (
   }
 };
 
+/**
+ * Preenche req.user se houver cookie/token válido.
+ * Sem token ou com token inválido: segue como visitante (não 401).
+ */
+export const optionalAuthenticate = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<any> => {
+  const token = extractAuthToken(req);
+  if (!token) return next();
+
+  try {
+    const decoded = jwt.verify(token, getJwtSecret()) as { id: string };
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, email: true, role: true, status: true },
+    });
+    if (user && user.status !== UserStatus.INATIVO) {
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+      };
+    }
+  } catch {
+    delete req.user;
+  }
+
+  return next();
+};
+
 export const authorize = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): any => {
     if (!req.user || !roles.includes(req.user.role)) {

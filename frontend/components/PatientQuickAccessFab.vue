@@ -37,6 +37,11 @@ function onFabClick() {
   }
 }
 
+onMounted(() => {
+  // Garante app utilizável após reload / HMR com lock residual do menu +.
+  if (!open.value) releasePatientInteractionLock()
+})
+
 watch(() => route.fullPath, () => {
   close()
   releasePatientInteractionLock()

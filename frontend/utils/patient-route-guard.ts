@@ -1,4 +1,4 @@
-import { authFetchInit } from '~/composables/useAuthSession.js'
+import { authFetchInit, isDefinitiveAuthFailure, isTransientAuthFailure, verifyAuthSession } from '~/composables/useAuthSession.js'
 import {
   isPatientAppAccessBlocked,
   isPatientCheckoutPath,
@@ -52,18 +52,32 @@ export async function fetchFreshPatientUser() {
   return user
 }
 
+function openPremiumGateForPath(path: string) {
+  if (!import.meta.client) return
+  const gate = useState<{ open: boolean; path: string }>('patient-premium-gate', () => ({
+    open: false,
+    path: '',
+  }))
+  gate.value = { open: true, path: String(path || '') }
+}
+
 /**
- * Valida sessão no backend e bloqueia rotas sem acesso pago/liberado.
- * FREE liberado: só início e conta (demais rotas → /inicio).
- * Retorna destino de redirect ou null se a rota pode seguir.
+ * Valida sessão e bloqueia rotas sem acesso pago/liberado.
+ * FREE: só início e conta (demais rotas → /inicio + modal).
+ * Erros de rede/5xx NÃO deslogam — só 401/403 definitivos.
  */
 export async function resolvePatientRouteAccess(path: string): Promise<string | null> {
   if (!requiresPatientPaidAccess(path)) return null
   if (isPatientSelfServicePath(path)) return null
+  if (isPatientCheckoutPath(path)) return null
 
   try {
-    const user = await fetchFreshPatientUser()
-    if (!user?.id || user.role !== 'PACIENTE') return '/'
+    // Usa cache TTL de verifyAuthSession — evita martelar /auth/me a cada navegação.
+    const user = await verifyAuthSession({ requiredRole: 'PACIENTE', force: false })
+    if (!user?.id) {
+      // Sem sessão válida — login. (verifyAuthSession já limpou meta em falha definitiva)
+      return '/'
+    }
 
     const plan = user.plan as string | null | undefined
     const accessExpiresAt = user.accessExpiresAt as string | Date | null | undefined
@@ -80,6 +94,7 @@ export async function resolvePatientRouteAccess(path: string): Promise<string | 
       isPatientLimitedAccessActive(plan, accessExpiresAt, approvalEmailSentAt)
       && !isPatientLimitedAppPath(path)
     ) {
+      openPremiumGateForPath(path)
       return '/inicio'
     }
 
@@ -87,8 +102,21 @@ export async function resolvePatientRouteAccess(path: string): Promise<string | 
   } catch (err) {
     const status = (err as { statusCode?: number; status?: number })?.statusCode
       ?? (err as { status?: number })?.status
-    if (status === 401) return '/'
-    if (isPatientAccessBlockedError(err) && !isPatientSelfServicePath(path)) return '/assinatura'
-    return '/'
+
+    if (isTransientAuthFailure(err) || (status && status >= 500)) {
+      // Blip de rede/backend — mantém o usuário na rota atual.
+      return null
+    }
+
+    if (isPatientAccessBlockedError(err) && !isPatientSelfServicePath(path)) {
+      return '/assinatura'
+    }
+
+    if (isDefinitiveAuthFailure(err) || status === 401) {
+      return '/'
+    }
+
+    // Desconhecido sem status definitivo: não desloga.
+    return null
   }
 }

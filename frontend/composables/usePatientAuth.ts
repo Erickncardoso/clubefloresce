@@ -4,6 +4,7 @@ import {
   getFetchErrorMessage,
   isPatientAccessBlockedError,
   isPatientAccessBlockedMessage,
+  shouldKeepPatientSessionOnError,
 } from '~/utils/patient-access'
 import {
   applyVerifiedSessionUser,
@@ -14,7 +15,6 @@ import {
   getLegacyAuthToken,
   getVerifiedRole,
   hasAuthSession,
-  isDefinitiveAuthFailure,
   isTransientAuthFailure,
   persistDisplayMeta,
   readFreshLogin,
@@ -100,7 +100,8 @@ export function usePatientAuth() {
   }
 
   function isSessionExpiredError(err: unknown): boolean {
-    if (isPatientAccessBlockedError(err)) return true
+    // Mudança de plano / assinatura / premium: NUNCA conta como sessão expirada.
+    if (shouldKeepPatientSessionOnError(err)) return false
 
     if (!isUnauthorizedError(err)) return false
     const message = getFetchErrorMessage(err).toLowerCase()
@@ -108,11 +109,14 @@ export function usePatientAuth() {
       || message.includes('sessao expirada')
       || message.includes('token inválido')
       || message.includes('token invalido')
-      || message.includes('acesso expirado')
-      || message.includes('faça login novamente')
-      || message.includes('faca login novamente')
       || message.includes('usuário inválido')
       || message.includes('usuario invalido')
+      || message.includes('não autenticado')
+      || message.includes('nao autenticado')
+      || message.includes('não autorizado')
+      || message.includes('nao autorizado')
+      || message.includes('faça login novamente')
+      || message.includes('faca login novamente')
   }
 
   function isTransientAuthError(err: unknown): boolean {
@@ -155,7 +159,13 @@ export function usePatientAuth() {
       return false
     } catch (err) {
       if (isTransientAuthFailure(err)) return false
-      if (isDefinitiveAuthFailure(err) || isSessionExpiredError(err) || isPatientAccessRevokedError(err)) {
+      // Plano mudou / expirou / premium: mantém logada.
+      if (shouldKeepPatientSessionOnError(err)) return false
+      const status = (err as { statusCode?: number; status?: number })?.statusCode
+        ?? (err as { status?: number })?.status
+      // 403 residual nunca desloga paciente (autorização ≠ autenticação).
+      if (status === 403) return false
+      if (isSessionExpiredError(err) || status === 401) {
         clearSession()
       }
       return false

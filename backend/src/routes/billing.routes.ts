@@ -1,24 +1,23 @@
 import { Router } from "express";
 import { BillingController } from "../controllers/billing.controller";
-import { authenticate, authorize } from "../middleware/auth.middleware";
+import { authenticate, authorize, optionalAuthenticate } from "../middleware/auth.middleware";
 import { billingRateLimiter } from "../middleware/rate-limit.middleware";
 
 const router = Router();
 const controller = new BillingController();
 
-router.get("/config", authenticate, authorize(["PACIENTE"]), controller.getConfig);
+// Público + opcionalmente logado (preenche payer se houver sessão)
+router.get("/config", optionalAuthenticate, controller.getConfig);
 router.get("/subscription/me", authenticate, authorize(["PACIENTE"]), controller.getMySubscription);
 router.post(
   "/subscribe/card",
-  authenticate,
-  authorize(["PACIENTE"]),
+  optionalAuthenticate,
   billingRateLimiter,
   controller.subscribeCard,
 );
 router.post(
   "/subscribe/pix",
-  authenticate,
-  authorize(["PACIENTE"]),
+  optionalAuthenticate,
   billingRateLimiter,
   controller.subscribePix,
 );

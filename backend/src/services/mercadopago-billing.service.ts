@@ -20,6 +20,7 @@ import {
 } from "../utils/mercadopago-webhook";
 import { billingPlanConfigService } from "./billing-plan-config.service";
 import { billingNotificationService } from "./billing-notification.service";
+import { invalidateAuthUserCache } from "../middleware/auth.middleware";
 import type { BillingProduct } from "../types/billing-product.types";
 
 type PayerIdentification = {
@@ -895,6 +896,7 @@ export class MercadoPagoBillingService {
         ...(billingPaymentMethod ? { billingPaymentMethod } : {}),
       },
     });
+    invalidateAuthUserCache(userId);
     void billingNotificationService.notifyPaymentSuccess(userId).catch((err) => {
       console.warn("[Billing] notifyPaymentSuccess:", err?.message || err);
     });
@@ -924,6 +926,7 @@ export class MercadoPagoBillingService {
         ...(billingPaymentMethod ? { billingPaymentMethod } : {}),
       },
     });
+    invalidateAuthUserCache(userId);
     void billingNotificationService.notifyPaymentSuccess(userId).catch((err) => {
       console.warn("[Billing] notifyPaymentSuccess:", err?.message || err);
     });

@@ -187,7 +187,7 @@ export function useQuickAddPatient() {
   let cepLookupTimer = null
 
   const planOptions = [
-    { value: 'FREE', label: 'Sem plano (só dieta e metas)' },
+    { value: 'FREE', label: 'Sem plano (só início e conta)' },
     { value: 'PREMIUM', label: 'Essencial' },
     { value: 'PLATINUM', label: 'Completo' },
   ]
@@ -215,7 +215,7 @@ export function useQuickAddPatient() {
   const isFreePlan = computed(() => form.plan === 'FREE')
   const accessHint = computed(() => {
     if (isFreePlan.value) {
-      return 'Sem plano: a paciente acessa só dieta e metas. Sem Bella, cursos, comunidade e demais recursos.'
+      return 'Sem plano: a paciente acessa só início e conta. Ao tentar dieta, Bella e outros recursos, vê aviso para fazer upgrade.'
     }
     if (!form.accessExpiresAt) {
       return 'Validade em branco = acesso sem data limite ao plano escolhido.'

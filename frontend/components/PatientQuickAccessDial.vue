@@ -32,15 +32,17 @@
 </template>
 
 <script setup>
-import { PATIENT_QUICK_DIAL_ITEMS, navigateQuickDialItem } from '~/utils/patient-quick-dial'
+import { PATIENT_QUICK_DIAL_ITEMS } from '~/utils/patient-quick-dial'
 import { isPatientFullAccessActive } from '~/utils/patient-access'
 import { lockPatientScroll, unlockPatientScroll } from '~/composables/useVerticalWheelPassthrough'
 import { patientHapticTap } from '~/utils/patient-haptics.mjs'
+import { usePatientPremiumGate } from '~/composables/usePatientPremiumGate'
 
 const STAGGER_MS = 58
 const ANIM_MS = 340
 
 const { open, close: closeQuickDial } = usePatientQuickAccess()
+const { navigateOrGate, openGate } = usePatientPremiumGate()
 
 const { verifiedUser } = useAuthSession()
 
@@ -48,6 +50,8 @@ const shown = ref(false)
 const openPhase = ref(false)
 const closePhase = ref(false)
 let closeTimer = null
+/** Invalida openDial async (nextTick/rAF) se o menu fechar no meio da abertura. */
+let openGeneration = 0
 
 const hasFullAccess = computed(() => {
   const user = verifiedUser.value
@@ -67,7 +71,9 @@ function clearCloseTimer() {
   }
 }
 
-function finishClose() {
+function finishClose(generationAtClose) {
+  // Se o usuário reabriu o menu antes da animação acabar, não mata a sessão nova.
+  if (generationAtClose !== openGeneration) return
   clearCloseTimer()
   closePhase.value = false
   openPhase.value = false
@@ -81,28 +87,55 @@ function releaseInteractionLock() {
 }
 
 async function openDial() {
+  const generation = ++openGeneration
   clearCloseTimer()
   closePhase.value = false
   shown.value = true
   setDialChrome(true)
   lockPatientScroll()
+
   await nextTick()
+  if (generation !== openGeneration || !open.value) {
+    // Fechou durante a abertura — não deixar chrome/scroll travados.
+    if (generation === openGeneration) {
+      shown.value = false
+      openPhase.value = false
+      closePhase.value = false
+      releaseInteractionLock()
+    }
+    return
+  }
+
   requestAnimationFrame(() => {
+    if (generation !== openGeneration || !open.value) return
     openPhase.value = true
   })
 }
 
 function requestClose() {
-  if (!shown.value || closePhase.value) return
+  const generationAtClose = ++openGeneration
+  closeQuickDial()
+
+  if (!shown.value) {
+    openPhase.value = false
+    closePhase.value = false
+    releaseInteractionLock()
+    return
+  }
+
+  if (closePhase.value) {
+    releaseInteractionLock()
+    return
+  }
+
   openPhase.value = false
   closePhase.value = true
-  closeQuickDial()
   // Libera toques na hora — não esperar animação de saída (~500ms+)
   releaseInteractionLock()
 
   const totalMs = (PATIENT_QUICK_DIAL_ITEMS.length - 1) * STAGGER_MS + ANIM_MS
   clearCloseTimer()
-  closeTimer = window.setTimeout(finishClose, totalMs)
+  closeTimer = window.setTimeout(() => finishClose(generationAtClose), totalMs)
 }
 
 function selectItem(item) {
@@ -111,10 +144,10 @@ function selectItem(item) {
 
   window.setTimeout(() => {
     if (item.premium && !hasFullAccess.value) {
-      navigateTo('/assinatura')
+      openGate(item.to || '/assinatura')
       return
     }
-    navigateQuickDialItem(item)
+    void navigateOrGate(item.to || '/inicio')
   }, Math.min(180, STAGGER_MS * 2))
 }
 
@@ -131,18 +164,20 @@ watch(
       void openDial()
       return
     }
-    if (shown.value && !closePhase.value) {
-      requestClose()
-    }
+    // Sempre aborta chrome ao fechar — evita race com openDial async.
+    requestClose()
   },
 )
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  // Segurança: se a classe ficou presa de uma sessão anterior, libera.
+  if (!open.value) releaseInteractionLock()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
+  openGeneration += 1
   clearCloseTimer()
   releaseInteractionLock()
 })

@@ -167,6 +167,11 @@ const route = useRoute()
 const guestResolving = useState('patient-guest-resolving', () => false)
 
 onMounted(async () => {
+  const emailFromQuery = String(route.query.email || '').trim()
+  if (emailFromQuery) {
+    form.email = emailFromQuery
+  }
+
   const access = route.query.access
   if (access !== 'expired' && access !== 'payment') return
 

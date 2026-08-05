@@ -1,10 +1,24 @@
 import { Request, Response } from "express";
+import { Role } from "@prisma/client";
 import { mercadoPagoBillingService } from "../services/mercadopago-billing.service";
 import { billingPlanConfigService } from "../services/billing-plan-config.service";
 import { billingNotificationService } from "../services/billing-notification.service";
+import { ensurePatientForGuestCheckout } from "../services/billing-guest.service";
 import { verifyMercadoPagoWebhookSignature } from "../utils/mercadopago-webhook";
 import { mapBillingErrorMessage } from "../utils/billing-user-messages";
 import { prisma } from "../lib/prisma";
+
+async function resolveCheckoutUserId(req: Request, body: Record<string, unknown>) {
+  if (req.user?.id && req.user.role === Role.PACIENTE) {
+    return req.user.id;
+  }
+
+  const patient = await ensurePatientForGuestCheckout({
+    email: body.payerEmail as string | undefined,
+    name: body.payerName as string | undefined,
+  });
+  return patient.id;
+}
 
 export class BillingController {
   getConfig = async (req: Request, res: Response) => {
@@ -26,6 +40,7 @@ export class BillingController {
       res.json({
         ...config,
         payer,
+        guestCheckout: !payer,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Não foi possível carregar a configuração de pagamento." });
@@ -44,7 +59,6 @@ export class BillingController {
 
   subscribeCard = async (req: Request, res: Response) => {
     try {
-      const userId = req.user!.id;
       const {
         planId,
         cardToken,
@@ -56,11 +70,13 @@ export class BillingController {
         issuerId,
       } = req.body || {};
 
+      const userId = await resolveCheckoutUserId(req, req.body || {});
+
       const account = await prisma.user.findUnique({
         where: { id: userId },
         select: { email: true, name: true },
       });
-      const resolvedEmail = String(account?.email || payerEmail || req.user!.email || "").trim();
+      const resolvedEmail = String(account?.email || payerEmail || req.user?.email || "").trim();
       const resolvedToken = String(cardToken || "").trim();
 
       if (!resolvedToken || !resolvedEmail) {
@@ -91,14 +107,14 @@ export class BillingController {
 
   subscribePix = async (req: Request, res: Response) => {
     try {
-      const userId = req.user!.id;
       const { planId, payerEmail, payerName, identification } = req.body || {};
+      const userId = await resolveCheckoutUserId(req, req.body || {});
 
       const account = await prisma.user.findUnique({
         where: { id: userId },
         select: { email: true, name: true },
       });
-      const resolvedEmail = String(account?.email || payerEmail || req.user!.email || "").trim();
+      const resolvedEmail = String(account?.email || payerEmail || req.user?.email || "").trim();
       if (!resolvedEmail) {
         return res.status(400).json({ message: "E-mail do pagador é obrigatório." });
       }

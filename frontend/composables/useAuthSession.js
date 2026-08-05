@@ -258,6 +258,11 @@ export async function verifyAuthSession(options = {}) {
       if (genAtStart !== getVerifyGeneration()) {
         return verifiedUserState().value
       }
+      // 403 de plano/assinatura: mantém sessão (não é falha de login).
+      const status = err?.statusCode ?? err?.status ?? err?.response?.status
+      if (status === 403) {
+        return verifiedUserState().value
+      }
       if (!isDefinitiveAuthFailure(err)) {
         return verifiedUserState().value
       }
