@@ -6,6 +6,10 @@ import type { ParsedMeal, ParsedMealPlan } from "../types/meal-plan.types";
 import type { PatientProfileData } from "../types/patient-profile.types";
 import { getMealsForReminder, parseTimeToMinutes } from "../utils/meal-time";
 import {
+  buildMealReminderBody,
+  buildMealReminderTitle,
+} from "../utils/meal-reminder-copy";
+import {
   activeMeals,
   groupMealOptions,
   mealSlotDisplayLabel,
@@ -129,6 +133,8 @@ export class MealReminderDispatchService {
 
     // Só a opção ativa de cada slot (ex.: 1 Lanche da tarde, não as 3)
     const activePlanMeals = activeMeals(rawMeals, patient.plan?.selectedMealBySlot);
+    const mealsById = new Map(activePlanMeals.map((meal) => [meal.id, meal]));
+
     const meals = getMealsForReminder(activePlanMeals)
       .map((meal) => ({
         ...meal,
@@ -160,9 +166,10 @@ export class MealReminderDispatchService {
         continue;
       }
 
+      const fullMeal = mealsById.get(meal.id) || null;
       const sourceKey = mealReminderSourceKey(dateKey, meal.slotKey, patient.id);
-      const title = `Hora do ${meal.label}!`;
-      const body = "Registre sua refeição no diário alimentar.";
+      const title = buildMealReminderTitle({ label: meal.label });
+      const body = buildMealReminderBody({ items: fullMeal?.items || [] });
 
       await notificationRepository.upsertBySourceKey({
         userId: patient.id,

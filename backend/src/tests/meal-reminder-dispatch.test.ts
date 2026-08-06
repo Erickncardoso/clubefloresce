@@ -8,6 +8,11 @@ import {
 } from "../utils/meal-time";
 import { mealReminderSourceKey } from "../services/meal-reminder-dispatch.service";
 import { isMealRemindersEnabled, resolvePatientTimezone } from "../services/patient-preferences.service";
+import {
+  buildMealReminderBody,
+  buildMealReminderTitle,
+  formatMealReminderItemLine,
+} from "../utils/meal-reminder-copy";
 
 test("meal-time: normaliza horários com um dígito", () => {
   assert.equal(normalizeMealTime("7:00"), "07:00");
@@ -40,5 +45,62 @@ test("mealReminderSourceKey: chave única por dia, slot e usuária", () => {
   assert.equal(
     mealReminderSourceKey("2026-06-24", "lanche-da-tarde", "user-1"),
     "meal-reminder:2026-06-24:lanche-da-tarde:user-1",
+  );
+});
+
+test("meal-reminder-copy: título é o nome da refeição", () => {
+  assert.equal(buildMealReminderTitle({ label: "Ceia" }), "Ceia");
+  assert.equal(buildMealReminderTitle({ label: "  Almoço  " }), "Almoço");
+  assert.equal(buildMealReminderTitle({ label: "" }), "Refeição");
+});
+
+test("meal-reminder-copy: corpo lista itens com porção", () => {
+  const line = formatMealReminderItemLine({
+    key: "1",
+    name: "Gelatina zero açúcar preparada (Royal)",
+    amount: 10,
+    unit: "colheres de sopa",
+    grams: 250,
+    ml: null,
+    display: "Gelatina zero açúcar preparada (Royal) 10 colheres de sopa (250 g)",
+    substitutions: [],
+  });
+  assert.equal(
+    line,
+    "Gelatina zero açúcar preparada (Royal) · 10 colheres de sopa · 250 g",
+  );
+
+  const body = buildMealReminderBody({
+    items: [
+      {
+        key: "1",
+        name: "Gelatina zero açúcar preparada (Royal)",
+        amount: 10,
+        unit: "colheres de sopa",
+        grams: 250,
+        ml: null,
+        display: "",
+        substitutions: [],
+      },
+      {
+        key: "2",
+        name: "Chá de camomila",
+        amount: 1,
+        unit: "xícara",
+        grams: null,
+        ml: 200,
+        display: "Chá de camomila",
+        substitutions: [],
+      },
+    ],
+  });
+  assert.match(body, /Gelatina zero açúcar/);
+  assert.match(body, /Chá de camomila/);
+});
+
+test("meal-reminder-copy: sem itens usa CTA genérico", () => {
+  assert.equal(
+    buildMealReminderBody({ items: [] }),
+    "Registre sua refeição no diário alimentar.",
   );
 });
