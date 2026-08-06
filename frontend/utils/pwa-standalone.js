@@ -63,3 +63,46 @@ export function reloadPwaInPlace() {
   const { pathname, search, hash } = window.location
   window.location.replace(`${pathname}${search}${hash}`)
 }
+
+function stripProtocol(href) {
+  return String(href || '').replace(/^https?:\/\//, '')
+}
+
+function isIosUa(ua = '') {
+  const value = String(ua || '').toLowerCase()
+  return value.includes('iphone') || value.includes('ipad') || value.includes('ipod')
+}
+
+function isAndroidUa(ua = '') {
+  return String(ua || '').toLowerCase().includes('android')
+}
+
+/**
+ * Abre URL no navegador do sistema (Safari/Chrome), saindo do PWA standalone.
+ * Deve ser chamado de forma síncrona no handler do toque (gesto do usuário).
+ */
+export function openUrlInSystemBrowser(href) {
+  if (typeof window === 'undefined') return false
+  const url = String(href || '').trim()
+  if (!url) return false
+
+  const ua = window.navigator.userAgent || ''
+  const standalone = isStandalonePwa()
+
+  if (isIosUa(ua) && standalone) {
+    // Esquema privado do iOS — abre Safari a partir do PWA (home screen).
+    window.location.href = `x-safari-https://${stripProtocol(url)}`
+    return true
+  }
+
+  if (isAndroidUa(ua) && standalone) {
+    const path = stripProtocol(url)
+    const fallback = encodeURIComponent(url)
+    window.location.href = `intent://${path}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallback};end`
+    return true
+  }
+
+  const opened = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!opened) window.location.href = url
+  return true
+}

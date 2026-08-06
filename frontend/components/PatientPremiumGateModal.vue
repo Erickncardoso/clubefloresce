@@ -40,18 +40,20 @@
 <script setup>
 import { Lock } from 'lucide-vue-next'
 import { usePatientPremiumGate } from '~/composables/usePatientPremiumGate'
+import { getPatientCheckoutUrl } from '~/utils/patient-checkout-url.mjs'
+import { openUrlInSystemBrowser } from '~/utils/pwa-standalone'
 
 const { open, featureLabel, closeGate } = usePatientPremiumGate()
 
-async function goCheckout() {
+function goCheckout() {
+  // Síncrono no toque — iOS PWA exige gesto do usuário para abrir o Safari.
+  const url = getPatientCheckoutUrl('premium-gate')
   closeGate()
-  const { getPatientCheckoutUrl } = await import('~/utils/patient-checkout-url.mjs')
-  // Sempre produção — checkout guest com e-mail, sem forçar login local.
   if (import.meta.client) {
-    window.location.href = getPatientCheckoutUrl('premium-gate')
+    openUrlInSystemBrowser(url)
     return
   }
-  await navigateTo('/assinatura')
+  void navigateTo('/assinatura')
 }
 
 watch(
