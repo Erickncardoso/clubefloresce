@@ -80,15 +80,6 @@ export function usePatientMealPlan() {
         planRecord.value = res.plan ?? null
 
         applyFetchedPlanIdentity(planRecord.value)
-
-        const planName = planRecord.value?.patientName || planRecord.value?.plan?.patientName
-        if (planName) {
-          const { profile, persistSession } = usePatientApp()
-          const currentName = profile.value.name?.trim() || ''
-          if (!currentName || currentName.toLowerCase() === 'paciente') {
-            persistSession({ name: planName })
-          }
-        }
       } catch {
         planRecord.value = null
       } finally {
@@ -162,10 +153,9 @@ export function usePatientMealPlan() {
       planChecked.value = true
       resetDietaClientState({ forceClear: true, planId: planRecord.value?.id })
 
-      if (res.user?.name) {
+      if (res.user?.avatar) {
         const { persistSession } = usePatientApp()
         persistSession({
-          name: res.user.name,
           avatar: res.user.avatar,
           createdAt: res.user.createdAt,
         })

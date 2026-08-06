@@ -34,10 +34,61 @@
         />
       </label>
       <div class="config-profile-copy">
-        <h1 id="config-profile-title">{{ fullName }}</h1>
+        <div v-if="!editingName" class="config-name-row">
+          <h1 id="config-profile-title">{{ fullName }}</h1>
+          <button
+            type="button"
+            class="config-name-edit-btn"
+            aria-label="Editar nome"
+            @click="startEditName"
+          >
+            <Pencil />
+            <span>Editar</span>
+          </button>
+        </div>
+        <form
+          v-else
+          class="config-name-edit"
+          @submit.prevent="saveName"
+        >
+          <label class="sr-only" for="config-profile-name">Nome completo</label>
+          <input
+            id="config-profile-name"
+            ref="nameInputRef"
+            v-model="nameDraft"
+            type="text"
+            maxlength="120"
+            autocomplete="name"
+            required
+            :disabled="nameSaving"
+            @keydown.escape.prevent="cancelEditName"
+          >
+          <div class="config-name-actions">
+            <button
+              type="button"
+              class="config-name-btn config-name-btn--ghost"
+              :disabled="nameSaving"
+              @click="cancelEditName"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="config-name-btn config-name-btn--primary"
+              :disabled="nameSaving || !nameDraftTrimmed"
+            >
+              <Loader2 v-if="nameSaving" class="config-spinner" />
+              <span>{{ nameSaving ? 'Salvando…' : 'Salvar' }}</span>
+            </button>
+          </div>
+        </form>
         <p>{{ accountEmail || 'Conta do Clube Florescer' }}</p>
-        <span v-if="avatarMessage" :class="{ 'config-error': avatarError }" aria-live="polite">
-          {{ avatarMessage }}
+        <span
+          v-if="profileMessage"
+          :class="{ 'config-error': profileError }"
+          aria-live="polite"
+        >
+          {{ profileMessage }}
         </span>
       </div>
     </section>
@@ -137,6 +188,7 @@ import {
   Camera,
   ChevronRight,
   Loader2,
+  Pencil,
   ShieldCheck,
   SlidersHorizontal,
   Smartphone,
@@ -158,6 +210,7 @@ const {
   userAvatar,
   syncPatientProfile,
   uploadProfileAvatar,
+  updateProfileName,
 } = usePatientApp()
 
 const fullName = computed(() => userFullName())
@@ -165,13 +218,60 @@ const avatarUrl = computed(() => userAvatar())
 const accountEmail = computed(() => verifiedUser.value?.email || '')
 const preferences = ref(DEFAULT_PREFERENCES.map((item) => ({ ...item })))
 const avatarUploading = ref(false)
-const avatarMessage = ref('')
-const avatarError = ref(false)
+const profileMessage = ref('')
+const profileError = ref(false)
+
+const editingName = ref(false)
+const nameDraft = ref('')
+const nameSaving = ref(false)
+const nameInputRef = ref(null)
+const nameDraftTrimmed = computed(() => String(nameDraft.value || '').replace(/\s+/g, ' ').trim())
 
 onMounted(async () => {
   loadPreferences()
   await syncPatientProfile()
 })
+
+function startEditName() {
+  nameDraft.value = fullName.value === 'Paciente' ? '' : fullName.value
+  editingName.value = true
+  profileMessage.value = ''
+  profileError.value = false
+  nextTick(() => {
+    nameInputRef.value?.focus?.()
+    nameInputRef.value?.select?.()
+  })
+}
+
+function cancelEditName() {
+  if (nameSaving.value) return
+  editingName.value = false
+  nameDraft.value = ''
+}
+
+async function saveName() {
+  const nextName = nameDraftTrimmed.value
+  if (nextName.length < 2) {
+    profileError.value = true
+    profileMessage.value = 'Informe um nome com pelo menos 2 caracteres.'
+    return
+  }
+
+  nameSaving.value = true
+  profileError.value = false
+  profileMessage.value = ''
+  try {
+    await updateProfileName(nextName)
+    editingName.value = false
+    nameDraft.value = ''
+    profileMessage.value = 'Nome atualizado.'
+  } catch (error) {
+    profileError.value = true
+    profileMessage.value = error?.data?.message || 'Não foi possível atualizar o nome.'
+  } finally {
+    nameSaving.value = false
+  }
+}
 
 function loadPreferences() {
   if (!import.meta.client) return
@@ -206,26 +306,26 @@ async function onAvatarSelected(event) {
   if (!file) return
 
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    avatarError.value = true
-    avatarMessage.value = 'Escolha uma imagem JPG, PNG ou WEBP.'
+    profileError.value = true
+    profileMessage.value = 'Escolha uma imagem JPG, PNG ou WEBP.'
     return
   }
 
   if (file.size > 8 * 1024 * 1024) {
-    avatarError.value = true
-    avatarMessage.value = 'A imagem deve ter no máximo 8 MB.'
+    profileError.value = true
+    profileMessage.value = 'A imagem deve ter no máximo 8 MB.'
     return
   }
 
-  avatarError.value = false
-  avatarMessage.value = ''
+  profileError.value = false
+  profileMessage.value = ''
   avatarUploading.value = true
   try {
     await uploadProfileAvatar(file)
-    avatarMessage.value = 'Foto atualizada.'
+    profileMessage.value = 'Foto atualizada.'
   } catch (error) {
-    avatarError.value = true
-    avatarMessage.value = error?.data?.message || 'Não foi possível atualizar a foto.'
+    profileError.value = true
+    profileMessage.value = error?.data?.message || 'Não foi possível atualizar a foto.'
   } finally {
     avatarUploading.value = false
   }
@@ -311,17 +411,139 @@ async function onAvatarSelected(event) {
 
 .config-profile-copy {
   min-width: 0;
+  flex: 1;
+}
+
+.config-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
 .config-profile-copy h1 {
   overflow: hidden;
   margin: 0;
+  min-width: 0;
+  flex: 1;
   color: #242426;
   font-size: 0.95rem;
   font-weight: 500;
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.config-name-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid #e5e5ea;
+  border-radius: var(--cf-radius-control, 0.65rem);
+  background: #f7f7f8;
+  color: #5d6556;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.config-name-edit-btn svg {
+  width: 0.72rem;
+  height: 0.72rem;
+  stroke-width: 2.2;
+}
+
+.config-name-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.config-name-edit input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1.5px solid #e5e5ea;
+  border-radius: var(--cf-radius-control, 0.65rem);
+  background: #fff;
+  color: #242426;
+  font-family: inherit;
+  font-size: max(16px, 0.88rem);
+  line-height: 1.3;
+  outline: none;
+}
+
+.config-name-edit input:focus {
+  border-color: #a8b39a;
+  box-shadow: 0 0 0 3px rgba(126, 140, 114, 0.14);
+}
+
+.config-name-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.config-name-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 2rem;
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  border: none;
+  border-radius: var(--cf-radius-control, 0.65rem);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.config-name-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.config-name-btn--ghost {
+  background: transparent;
+  color: #6e6e73;
+}
+
+.config-name-btn--primary {
+  background: #7e8c72;
+  color: #fff;
+}
+
+.config-name-btn--primary .config-spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .config-profile-copy p {

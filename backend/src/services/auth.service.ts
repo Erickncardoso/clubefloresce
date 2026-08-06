@@ -258,6 +258,24 @@ export class AuthService {
     return userWithoutPassword;
   }
 
+  async updateMyProfile(userId: string, input: { name?: string }): Promise<any> {
+    const name = String(input?.name ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (name.length < 2) {
+      throw new Error("Informe um nome com pelo menos 2 caracteres.");
+    }
+
+    if (name.length > 120) {
+      throw new Error("Nome muito longo (máximo 120 caracteres).");
+    }
+
+    const updatedUser = await userRepository.update(userId, { name });
+    const { password, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
+  }
+
   async requestPasswordReset(email: string, app: PasswordResetApp): Promise<void> {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     if (!normalizedEmail) {

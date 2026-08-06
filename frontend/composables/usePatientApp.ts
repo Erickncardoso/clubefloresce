@@ -30,32 +30,13 @@ function readStorageProfile(): PatientProfile {
   }
 }
 
-function isPlaceholderPatientName(name: string) {
-  const normalized = String(name || '').trim().toLowerCase()
-  return !normalized || normalized === 'paciente'
-}
-
 export function usePatientApp() {
   const config = useRuntimeConfig()
   const isPatientApp = computed(() => Boolean(config.public.mobileApp))
   const profile = useState<PatientProfile>('patient-profile', () => readStorageProfile())
 
-  function readPlanPatientName() {
-    const mealPlan = useState('patient-meal-plan', () => null)
-    const fromRecord = mealPlan.value?.patientName || mealPlan.value?.plan?.patientName
-    const normalized = String(fromRecord || '').replace(/\s+/g, ' ').trim()
-    return normalized || ''
-  }
-
   function resolvedProfileName() {
     const profileName = profile.value.name?.trim() || ''
-    if (!isPlaceholderPatientName(profileName)) {
-      return profileName
-    }
-
-    const fromPlan = readPlanPatientName()
-    if (fromPlan) return fromPlan
-
     return profileName || DEFAULT_PROFILE.name
   }
 
@@ -109,6 +90,29 @@ export function usePatientApp() {
     }>(`${config.public.apiBase}/auth/me/avatar`, patientAuth.authFetchInit({
       method: 'POST',
       body: formData,
+    }))
+
+    persistSession(user)
+    return user
+  }
+
+  async function updateProfileName(name: string) {
+    if (import.meta.server) throw new Error('Indisponível no servidor.')
+
+    const normalized = String(name || '').replace(/\s+/g, ' ').trim()
+    if (normalized.length < 2) {
+      throw Object.assign(new Error('Informe um nome com pelo menos 2 caracteres.'), {
+        data: { message: 'Informe um nome com pelo menos 2 caracteres.' },
+      })
+    }
+
+    const user = await $fetch<{
+      name: string
+      avatar?: string | null
+      createdAt?: string
+    }>(`${config.public.apiBase}/auth/me`, patientAuth.authFetchInit({
+      method: 'PATCH',
+      body: { name: normalized },
     }))
 
     persistSession(user)
@@ -189,6 +193,7 @@ export function usePatientApp() {
     clearPatientSession,
     syncPatientProfile,
     uploadProfileAvatar,
+    updateProfileName,
     userName,
     userFullName,
     userInitials,

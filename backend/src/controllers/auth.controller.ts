@@ -190,6 +190,27 @@ export class AuthController {
     }
   }
 
+  async updateMe(req: Request, res: Response): Promise<any> {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Usuário não autenticado." });
+      }
+
+      const user = await authService.updateMyProfile(req.user.id, {
+        name: req.body?.name,
+      });
+
+      const { invalidateAuthUserCache } = await import("../middleware/auth.middleware");
+      invalidateAuthUserCache(req.user.id);
+
+      return res.json(user);
+    } catch (error: any) {
+      return res.status(400).json({
+        message: error?.message || "Não foi possível atualizar o perfil.",
+      });
+    }
+  }
+
   async forgotPassword(req: Request, res: Response): Promise<any> {
     try {
       const email = req.body?.email;

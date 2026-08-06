@@ -25,6 +25,7 @@ router.get("/password-reset/validate", authController.validatePasswordReset.bind
 router.post("/reset-password", credentialRateLimiter, authController.resetPassword.bind(authController));
 router.post("/refresh", authController.refresh.bind(authController));
 router.get("/me", authController.me.bind(authController));
+router.patch("/me", authenticate, authController.updateMe.bind(authController));
 router.post(
   "/me/avatar",
   authenticate,

@@ -16,22 +16,16 @@ export function normalizePersonName(value: string | null | undefined): string | 
   return normalized;
 }
 
+/**
+ * Nome da conta NÃO é sobrescrito pelo plano alimentar.
+ * O patientName do PDF fica só no registro do plano; o paciente edita o nome em Configurações.
+ */
 export async function syncUserNameFromMealPlan(
   userId: string,
-  patientName: string | null | undefined,
+  _patientName?: string | null,
 ): Promise<Omit<User, "password"> | null> {
-  const nameFromPlan = normalizePersonName(patientName);
-  if (!nameFromPlan) return null;
-
   const user = await userRepository.findById(userId);
   if (!user) return null;
-
-  if (user.name.trim() === nameFromPlan) {
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
-  }
-
-  const updated = await userRepository.update(userId, { name: nameFromPlan });
-  const { password, ...userWithoutPassword } = updated;
+  const { password, ...userWithoutPassword } = user;
   return userWithoutPassword;
 }
