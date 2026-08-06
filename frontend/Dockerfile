@@ -9,7 +9,7 @@ ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
 ENV NODE_OPTIONS=--max-old-space-size=3072
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=optional
 
 COPY . .
 RUN npm run build \

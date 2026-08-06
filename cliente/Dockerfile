@@ -25,7 +25,7 @@ COPY cliente ./cliente
 
 WORKDIR /app/cliente
 
-RUN npm ci
+RUN npm ci --include=optional
 
 ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN npm run generate
