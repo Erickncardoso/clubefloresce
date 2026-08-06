@@ -3,7 +3,7 @@ import { Role } from "@prisma/client";
 import { mercadoPagoBillingService } from "../services/mercadopago-billing.service";
 import { billingPlanConfigService } from "../services/billing-plan-config.service";
 import { billingNotificationService } from "../services/billing-notification.service";
-import { ensurePatientForGuestCheckout } from "../services/billing-guest.service";
+import { ensurePatientForGuestCheckout, lookupGuestCheckoutEmail } from "../services/billing-guest.service";
 import { verifyMercadoPagoWebhookSignature } from "../utils/mercadopago-webhook";
 import { mapBillingErrorMessage } from "../utils/billing-user-messages";
 import { prisma } from "../lib/prisma";
@@ -16,6 +16,8 @@ async function resolveCheckoutUserId(req: Request, body: Record<string, unknown>
   const patient = await ensurePatientForGuestCheckout({
     email: body.payerEmail as string | undefined,
     name: body.payerName as string | undefined,
+    password: body.password as string | undefined,
+    phone: body.phone as string | undefined,
   });
   return patient.id;
 }
@@ -44,6 +46,21 @@ export class BillingController {
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Não foi possível carregar a configuração de pagamento." });
+    }
+  };
+
+  lookupGuestEmail = async (req: Request, res: Response) => {
+    try {
+      const email = typeof req.query.email === "string"
+        ? req.query.email
+        : String((req.body as { email?: string } | undefined)?.email || "");
+      const result = await lookupGuestCheckoutEmail(email);
+      if ((result as { blocked?: boolean }).blocked) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || "Não foi possível verificar o e-mail." });
     }
   };
 

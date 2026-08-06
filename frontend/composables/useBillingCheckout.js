@@ -43,8 +43,17 @@ export function useBillingCheckout() {
     }))
   }
 
+  async function lookupGuestEmail(email) {
+    const q = String(email || '').trim()
+    if (!q) return null
+    return $fetch(`${apiBase}/billing/guest-email`, {
+      credentials: 'include',
+      query: { email: q },
+    })
+  }
+
   /** Gera card_token no browser (public_key) e envia só o token ao backend. */
-  async function subscribeWithCardForm({ publicKey, planId, card, payerEmail, payerName, amount }) {
+  async function subscribeWithCardForm({ publicKey, planId, card, payerEmail, payerName, password, phone, amount }) {
     if (!publicKey) {
       throw Object.assign(new Error('Chave pública do Mercado Pago ausente.'), { data: { message: 'Checkout indisponível.' } })
     }
@@ -55,6 +64,8 @@ export function useBillingCheckout() {
       cardToken,
       payerEmail,
       payerName: payerName || card.cardholderName,
+      password: password || undefined,
+      phone: phone || undefined,
       identification: card.identification || {
         type: 'CPF',
         number: card.identificationNumber,
@@ -76,6 +87,7 @@ export function useBillingCheckout() {
     error,
     fetchConfig,
     fetchMySubscription,
+    lookupGuestEmail,
     subscribeWithCard,
     subscribeWithCardForm,
     subscribeWithPix,

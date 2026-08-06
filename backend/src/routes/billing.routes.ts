@@ -8,6 +8,7 @@ const controller = new BillingController();
 
 // Público + opcionalmente logado (preenche payer se houver sessão)
 router.get("/config", optionalAuthenticate, controller.getConfig);
+router.get("/guest-email", billingRateLimiter, controller.lookupGuestEmail);
 router.get("/subscription/me", authenticate, authorize(["PACIENTE"]), controller.getMySubscription);
 router.post(
   "/subscribe/card",

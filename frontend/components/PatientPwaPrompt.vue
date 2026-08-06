@@ -40,6 +40,15 @@ function dismiss() {
   }
 }
 
+/** Permanência: não insiste se a pessoa já fechou (inclui iOS Safari). */
+function wasDismissed() {
+  try {
+    return Boolean(sessionStorage.getItem(dismissedKey))
+  } catch {
+    return false
+  }
+}
+
 async function install() {
   if (deferredPrompt.value) {
     await deferredPrompt.value.prompt()
@@ -56,7 +65,7 @@ function onBeforeInstallPrompt(event) {
   event.preventDefault()
   deferredPrompt.value = event
   canInstall.value = true
-  if (!sessionStorage.getItem(dismissedKey)) {
+  if (!wasDismissed()) {
     visible.value = true
   }
 }
@@ -72,7 +81,7 @@ function syncFromModule() {
   const available = Boolean(pwa?.showInstallPrompt?.value ?? pwa?.showInstallPrompt)
   if (available && !deferredPrompt.value) {
     canInstall.value = true
-    if (!sessionStorage.getItem(dismissedKey)) visible.value = true
+    if (!wasDismissed()) visible.value = true
   }
 }
 
@@ -82,7 +91,7 @@ onMounted(() => {
   const ua = window.navigator.userAgent || ''
   isIos.value = /iPad|iPhone|iPod/.test(ua) && !window.MSStream
 
-  if (sessionStorage.getItem(dismissedKey) && (isIos.value ? isStandalonePwa() : true)) return
+  if (wasDismissed()) return
 
   watch(
     () => isPwaUpdating(),
@@ -132,7 +141,6 @@ onMounted(() => {
           Instalar
         </button>
         <button
-          v-if="!isIos || isStandalonePwa()"
           type="button"
           class="pwa-prompt-dismiss"
           aria-label="Fechar aviso"

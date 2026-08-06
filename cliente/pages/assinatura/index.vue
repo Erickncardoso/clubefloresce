@@ -116,6 +116,119 @@
             </button>
           </div>
 
+          <div
+            v-if="isGuestCheckout && checkoutStep !== 'pix-waiting'"
+            class="checkout-guest-fields patient-auth-form"
+          >
+            <div class="form-group field--float" :class="{ focused: focusedField === 'guestEmail' }">
+              <label for="cf-guest-email">E-mail de cadastro</label>
+              <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-guest-email"
+                    v-model="guestForm.email"
+                    type="email"
+                    name="cf-checkout-guest-email"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    readonly
+                    required
+                    placeholder="seu@email.com"
+                    @focus="onGuestEmailFocus"
+                    @blur="onGuestEmailBlur"
+                    @input="onGuestEmailInput"
+                  >
+              </div>
+            </div>
+
+            <div class="form-group field--float" :class="{ focused: focusedField === 'guestName' }">
+              <label for="cf-guest-name">Nome completo</label>
+              <div class="input-wrapper cf-squircle--control">
+                <input
+                  id="cf-guest-name"
+                  v-model="guestForm.name"
+                  type="text"
+                  name="cf-checkout-guest-name"
+                  autocomplete="off"
+                  required
+                  placeholder="Como deseja ser chamada"
+                  @focus="focusedField = 'guestName'"
+                  @blur="focusedField = ''"
+                >
+              </div>
+            </div>
+
+            <template v-if="guestNeedsPassword">
+              <SharedCfPhoneInput
+                v-model="guestForm.phone"
+                input-id="cf-guest-phone"
+                label="WhatsApp"
+                hint="Obrigatório — usaremos para avisos importantes"
+                required
+                :focused="focusedField === 'guestPhone'"
+                @focus="focusedField = 'guestPhone'"
+                @blur="focusedField = ''"
+              />
+              <div class="form-group field--float" :class="{ focused: focusedField === 'guestPassword' }">
+                <label for="cf-guest-password">Crie sua senha</label>
+                <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-guest-password"
+                    v-model="guestForm.password"
+                    type="password"
+                    name="cf-checkout-guest-password"
+                    autocomplete="new-password"
+                    required
+                    minlength="8"
+                    placeholder="Mínimo 8 caracteres"
+                    @focus="focusedField = 'guestPassword'"
+                    @blur="focusedField = ''"
+                  >
+                </div>
+              </div>
+              <div class="form-group field--float" :class="{ focused: focusedField === 'guestPasswordConfirm' }">
+                <label for="cf-guest-password-confirm">Confirmar senha</label>
+                <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-guest-password-confirm"
+                    v-model="guestForm.passwordConfirm"
+                    type="password"
+                    name="cf-checkout-guest-password-confirm"
+                    autocomplete="new-password"
+                    required
+                    minlength="8"
+                    @focus="focusedField = 'guestPasswordConfirm'"
+                    @blur="focusedField = ''"
+                  >
+                </div>
+              </div>
+              <p class="checkout-guest-hint">
+                Este e-mail ainda não tem cadastro. Informe WhatsApp e senha para entrar no app depois do pagamento.
+              </p>
+            </template>
+
+            <p v-else-if="guestEmailExists" class="checkout-guest-hint">
+              Conta encontrada. Use este e-mail no pagamento e entre depois com a senha (ou
+              <NuxtLink to="/esqueci-senha" class="checkout-guest-link">esqueci a senha</NuxtLink>).
+            </p>
+            <p v-else class="checkout-guest-hint">
+              Sem login: informe o e-mail que deseja usar no Clube Florescer.
+            </p>
+            <p v-if="guestLookupError" class="checkout-error cf-squircle cf-squircle--control" role="alert">
+              {{ guestLookupError }}
+            </p>
+          </div>
+
+          <div
+            v-else-if="!isGuestCheckout && payerEmail && checkoutStep !== 'pix-waiting'"
+            class="checkout-account cf-squircle cf-squircle--control"
+          >
+            <span class="checkout-account-label">Conta</span>
+            <strong>{{ payerName }}</strong>
+            <span>{{ payerEmail }}</span>
+          </div>
+
           <div v-if="checkoutStep === 'pix-waiting'" class="checkout-pix">
             <h3>Pague com Pix</h3>
             <p class="checkout-pix-recurring">
@@ -169,48 +282,6 @@
               <p>Titular: <strong>APRO</strong> · CPF: 12345678909</p>
               <p v-if="billingConfig?.sandboxSimulateCard">Simulação local ativa — sem cobrança real.</p>
             </details>
-
-            <div v-if="isGuestCheckout" class="checkout-guest-fields patient-auth-form">
-              <div class="form-group field--float" :class="{ focused: focusedField === 'guestEmail' }">
-                <label for="cf-guest-email">E-mail para liberar o acesso</label>
-                <div class="input-wrapper cf-squircle--control">
-                  <input
-                    id="cf-guest-email"
-                    v-model="guestForm.email"
-                    type="email"
-                    autocomplete="email"
-                    required
-                    placeholder="seu@email.com"
-                    @focus="focusedField = 'guestEmail'"
-                    @blur="focusedField = ''"
-                  >
-                </div>
-              </div>
-              <div class="form-group field--float" :class="{ focused: focusedField === 'guestName' }">
-                <label for="cf-guest-name">Nome completo</label>
-                <div class="input-wrapper cf-squircle--control">
-                  <input
-                    id="cf-guest-name"
-                    v-model="guestForm.name"
-                    type="text"
-                    autocomplete="name"
-                    required
-                    placeholder="Como deseja ser chamada"
-                    @focus="focusedField = 'guestName'"
-                    @blur="focusedField = ''"
-                  >
-                </div>
-              </div>
-              <p class="checkout-guest-hint">
-                Não precisa fazer login. Usamos este e-mail para liberar sua assinatura depois do pagamento.
-              </p>
-            </div>
-
-            <div v-else-if="payerEmail" class="checkout-account cf-squircle cf-squircle--control">
-              <span class="checkout-account-label">Conta</span>
-              <strong>{{ payerName }}</strong>
-              <span>{{ payerEmail }}</span>
-            </div>
 
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="submitCardCheckout">
               <div
@@ -336,39 +407,6 @@
             <p class="checkout-pix-start-note">
               Informe seu CPF para gerar o QR Code ou o Pix copia e cola. Renove todo mês pelo app quando o acesso expirar.
             </p>
-            <div v-if="isGuestCheckout" class="checkout-guest-fields patient-auth-form">
-              <div class="form-group field--float" :class="{ focused: focusedField === 'guestEmailPix' }">
-                <label for="cf-guest-email-pix">E-mail para liberar o acesso</label>
-                <div class="input-wrapper cf-squircle--control">
-                  <input
-                    id="cf-guest-email-pix"
-                    v-model="guestForm.email"
-                    type="email"
-                    autocomplete="email"
-                    required
-                    @focus="focusedField = 'guestEmailPix'"
-                    @blur="focusedField = ''"
-                  >
-                </div>
-              </div>
-              <div class="form-group field--float" :class="{ focused: focusedField === 'guestNamePix' }">
-                <label for="cf-guest-name-pix">Nome completo</label>
-                <div class="input-wrapper cf-squircle--control">
-                  <input
-                    id="cf-guest-name-pix"
-                    v-model="guestForm.name"
-                    type="text"
-                    autocomplete="name"
-                    required
-                    @focus="focusedField = 'guestNamePix'"
-                    @blur="focusedField = ''"
-                  >
-                </div>
-              </div>
-              <p class="checkout-guest-hint">
-                Não precisa fazer login. Usamos este e-mail para liberar sua assinatura depois do pagamento.
-              </p>
-            </div>
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixCheckout">
               <div
                 class="form-group field--float"
@@ -415,6 +453,7 @@ import {
   Sparkles,
 } from 'lucide-vue-next'
 import { isPatientAccessExpired, isPatientPaidAccessActive } from '~/utils/patient-access'
+import { parseInternationalPhone } from '~/utils/phone-countries.js'
 import {
   maskCardExpiry,
   maskCardNumber,
@@ -433,6 +472,7 @@ const {
   error: checkoutError,
   fetchConfig,
   fetchMySubscription,
+  lookupGuestEmail,
   subscribeWithCardForm,
   subscribeWithPix,
 } = useBillingCheckout()
@@ -461,7 +501,14 @@ const cardForm = ref({
 const guestForm = ref({
   email: '',
   name: '',
+  phone: '',
+  password: '',
+  passwordConfirm: '',
 })
+const guestEmailExists = ref(false)
+const guestNeedsPassword = ref(false)
+const guestLookupError = ref('')
+let guestLookupTimer = null
 
 const SANDBOX_CARD_DEFAULTS = {
   cardholderName: 'APRO',
@@ -563,6 +610,11 @@ onMounted(async () => {
   if (route.query.app === '1') {
     sessionStorage.setItem('cf_from_app', '1')
   }
+  // E-mail guest começa vazio — não herda autocomplete/query de outra conta.
+  guestForm.value = { email: '', name: '', phone: '', password: '', passwordConfirm: '' }
+  guestEmailExists.value = false
+  guestNeedsPassword.value = false
+  guestLookupError.value = ''
   pageLoading.value = true
   await loadBillingData()
 })
@@ -706,7 +758,93 @@ async function assertGuestPayerReady() {
     checkoutError.value = 'Informe seu nome completo.'
     return false
   }
+
+  await runGuestEmailLookup(email)
+  if (guestLookupError.value) {
+    checkoutError.value = guestLookupError.value
+    return false
+  }
+
+  if (guestNeedsPassword.value) {
+    const phone = String(guestForm.value.phone || '').trim()
+    if (!phone) {
+      checkoutError.value = 'Informe seu WhatsApp.'
+      return false
+    }
+    const parsedPhone = parseInternationalPhone(phone)
+    if (!parsedPhone.nationalDigits || parsedPhone.nationalDigits.length < 10) {
+      checkoutError.value = 'Informe um WhatsApp válido com DDD.'
+      return false
+    }
+
+    const password = String(guestForm.value.password || '')
+    const confirm = String(guestForm.value.passwordConfirm || '')
+    if (password.length < 8) {
+      checkoutError.value = 'Crie uma senha com pelo menos 8 caracteres.'
+      return false
+    }
+    if (password !== confirm) {
+      checkoutError.value = 'As senhas não conferem.'
+      return false
+    }
+  }
   return true
+}
+
+function onGuestEmailFocus(event) {
+  focusedField.value = 'guestEmail'
+  // Evita autofill do Chrome no load; libera no primeiro toque.
+  if (event?.target?.hasAttribute?.('readonly')) {
+    event.target.removeAttribute('readonly')
+  }
+}
+
+function onGuestEmailInput() {
+  guestLookupError.value = ''
+  guestEmailExists.value = false
+  guestNeedsPassword.value = false
+  if (guestLookupTimer) clearTimeout(guestLookupTimer)
+  guestLookupTimer = setTimeout(() => {
+    void runGuestEmailLookup(guestForm.value.email)
+  }, 450)
+}
+
+async function onGuestEmailBlur() {
+  focusedField.value = ''
+  await runGuestEmailLookup(guestForm.value.email)
+}
+
+async function runGuestEmailLookup(rawEmail) {
+  const email = String(rawEmail || '').trim()
+  guestLookupError.value = ''
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    guestEmailExists.value = false
+    guestNeedsPassword.value = false
+    return
+  }
+  try {
+    const result = await lookupGuestEmail(email)
+    if (!result?.valid) {
+      guestEmailExists.value = false
+      guestNeedsPassword.value = false
+      guestLookupError.value = result?.message || 'Este e-mail não pode ser usado.'
+      return
+    }
+    guestEmailExists.value = Boolean(result.exists)
+    guestNeedsPassword.value = Boolean(result.needsPassword)
+    if (!guestForm.value.name && result.suggestedName) {
+      guestForm.value.name = String(result.suggestedName)
+    }
+    if (guestEmailExists.value) {
+      guestForm.value.password = ''
+      guestForm.value.passwordConfirm = ''
+      guestForm.value.phone = ''
+    }
+  } catch (err) {
+    guestEmailExists.value = false
+    guestNeedsPassword.value = false
+    guestLookupError.value = err?.data?.message || 'Não foi possível verificar o e-mail.'
+  }
 }
 
 async function submitCardCheckout() {
@@ -723,6 +861,8 @@ async function submitCardCheckout() {
       amount: selectedPlanAmount.value,
       payerEmail: payerEmail.value,
       payerName: payerName.value || cardForm.value.cardholderName,
+      password: guestNeedsPassword.value ? guestForm.value.password : undefined,
+      phone: guestNeedsPassword.value ? String(guestForm.value.phone || '').trim() : undefined,
       card: {
         cardNumber: onlyDigits(cardForm.value.cardNumber, 16),
         expirationDate: cardExpiryDisplay.value,
@@ -762,6 +902,8 @@ async function startPixCheckout() {
       planId: selectedPlanId.value,
       payerEmail: payerEmail.value,
       payerName: payerName.value || userFullName(),
+      password: guestNeedsPassword.value ? guestForm.value.password : undefined,
+      phone: guestNeedsPassword.value ? String(guestForm.value.phone || '').trim() : undefined,
       identification: {
         type: 'CPF',
         number: cpf,
@@ -1223,6 +1365,12 @@ async function refreshSubscription() {
   font-size: 0.75rem;
   line-height: 1.4;
   color: var(--cf-text-muted, #6f7863);
+}
+
+.checkout-guest-link {
+  color: var(--cf-pink, #8b967c);
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 .checkout-account {
