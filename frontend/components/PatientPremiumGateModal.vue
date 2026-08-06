@@ -46,7 +46,7 @@ import { openUrlInSystemBrowser } from '~/utils/pwa-standalone'
 const { open, featureLabel, closeGate } = usePatientPremiumGate()
 
 function goCheckout() {
-  // Síncrono no toque — iOS PWA exige gesto do usuário para abrir o Safari.
+  // Produção → /assinatura (página de planos). Síncrono no toque p/ abrir Safari no iOS PWA.
   const url = getPatientCheckoutUrl('premium-gate')
   closeGate()
   if (import.meta.client) {
