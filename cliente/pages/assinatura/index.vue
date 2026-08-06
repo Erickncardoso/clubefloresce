@@ -553,7 +553,15 @@ function onCardCvvInput(event) {
 }
 
 const plans = computed(() => billingConfig.value?.plans || [])
-const isGuestCheckout = computed(() => Boolean(billingConfig.value?.guestCheckout) || !billingConfig.value?.payer?.email)
+const forceGuestCheckout = computed(() => {
+  const guest = String(route.query.guest || '')
+  const source = String(route.query.source || '')
+  return guest === '1' || source === 'premium-gate'
+})
+const isGuestCheckout = computed(() => {
+  if (forceGuestCheckout.value) return true
+  return Boolean(billingConfig.value?.guestCheckout) || !billingConfig.value?.payer?.email
+})
 const payerEmail = computed(() => {
   if (isGuestCheckout.value) return String(guestForm.value.email || '').trim()
   return String(billingConfig.value?.payer?.email || '').trim()
@@ -637,6 +645,38 @@ function syncCardFormFromSession() {
 async function loadBillingData() {
   configLoadFailed.value = false
   checkoutError.value = ''
+
+  // Ver planos (guest=1): não usa cookie do navegador — evita e-mail de outra conta.
+  if (forceGuestCheckout.value) {
+    guestForm.value = { email: '', name: '', phone: '', password: '', passwordConfirm: '' }
+    guestEmailExists.value = false
+    guestNeedsPassword.value = false
+    guestLookupError.value = ''
+    await fetchConfig({ asGuest: true })
+    configLoadFailed.value = !billingConfig.value
+    if (plans.value.length) {
+      selectedPlanId.value = plans.value[0].id
+    }
+    pageLoading.value = false
+    if (route.query.status === 'success') {
+      await completeCheckoutSuccess()
+    } else {
+      syncCardFormFromSession()
+    }
+    // Chrome às vezes injeta autofill depois do mount — limpa de novo.
+    if (import.meta.client) {
+      requestAnimationFrame(() => {
+        guestForm.value.email = ''
+        guestForm.value.name = guestForm.value.name || ''
+      })
+      setTimeout(() => {
+        if (!document.activeElement || document.activeElement.id !== 'cf-guest-email') {
+          guestForm.value.email = ''
+        }
+      }, 300)
+    }
+    return
+  }
 
   const session = await verifyAuthSession({ requiredRole: 'PACIENTE', force: false })
   if (session?.id) {
@@ -863,6 +903,7 @@ async function submitCardCheckout() {
       payerName: payerName.value || cardForm.value.cardholderName,
       password: guestNeedsPassword.value ? guestForm.value.password : undefined,
       phone: guestNeedsPassword.value ? String(guestForm.value.phone || '').trim() : undefined,
+      asGuest: forceGuestCheckout.value || isGuestCheckout.value,
       card: {
         cardNumber: onlyDigits(cardForm.value.cardNumber, 16),
         expirationDate: cardExpiryDisplay.value,
@@ -908,7 +949,7 @@ async function startPixCheckout() {
         type: 'CPF',
         number: cpf,
       },
-    })
+    }, { asGuest: forceGuestCheckout.value || isGuestCheckout.value })
 
     const pix = normalizePixPayload(result?.pix)
     if (!pix.qrCode && !pix.qrCodeBase64) {

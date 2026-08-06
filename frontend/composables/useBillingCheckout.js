@@ -11,11 +11,22 @@ export function useBillingCheckout() {
   const loading = ref(false)
   const error = ref('')
 
-  async function fetchConfig() {
+  async function fetchConfig({ asGuest = false } = {}) {
     loading.value = true
     error.value = ''
     try {
-      billingConfig.value = await $fetch(`${apiBase}/billing/config`, authFetchInit())
+      const init = asGuest
+        ? { credentials: 'omit' }
+        : authFetchInit()
+      billingConfig.value = await $fetch(`${apiBase}/billing/config`, init)
+      // Em modo guest forçado, nunca herdar payer de cookie/sessão.
+      if (asGuest && billingConfig.value) {
+        billingConfig.value = {
+          ...billingConfig.value,
+          payer: undefined,
+          guestCheckout: true,
+        }
+      }
       return billingConfig.value
     } catch (err) {
       error.value = err?.data?.message || 'Não foi possível carregar os planos.'
@@ -36,24 +47,33 @@ export function useBillingCheckout() {
     }
   }
 
-  async function subscribeWithCard(payload) {
-    return $fetch(`${apiBase}/billing/subscribe/card`, authFetchInit({
-      method: 'POST',
-      body: payload,
-    }))
+  function guestFetchInit(init = {}) {
+    return {
+      ...init,
+      credentials: 'omit',
+    }
+  }
+
+  async function subscribeWithCard(payload, { asGuest = false } = {}) {
+    return $fetch(
+      `${apiBase}/billing/subscribe/card`,
+      asGuest
+        ? guestFetchInit({ method: 'POST', body: payload })
+        : authFetchInit({ method: 'POST', body: payload }),
+    )
   }
 
   async function lookupGuestEmail(email) {
     const q = String(email || '').trim()
     if (!q) return null
     return $fetch(`${apiBase}/billing/guest-email`, {
-      credentials: 'include',
+      credentials: 'omit',
       query: { email: q },
     })
   }
 
   /** Gera card_token no browser (public_key) e envia só o token ao backend. */
-  async function subscribeWithCardForm({ publicKey, planId, card, payerEmail, payerName, password, phone, amount }) {
+  async function subscribeWithCardForm({ publicKey, planId, card, payerEmail, payerName, password, phone, amount, asGuest = false }) {
     if (!publicKey) {
       throw Object.assign(new Error('Chave pública do Mercado Pago ausente.'), { data: { message: 'Checkout indisponível.' } })
     }
@@ -70,14 +90,16 @@ export function useBillingCheckout() {
         type: 'CPF',
         number: card.identificationNumber,
       },
-    })
+    }, { asGuest })
   }
 
-  async function subscribeWithPix(payload) {
-    return $fetch(`${apiBase}/billing/subscribe/pix`, authFetchInit({
-      method: 'POST',
-      body: payload,
-    }))
+  async function subscribeWithPix(payload, { asGuest = false } = {}) {
+    return $fetch(
+      `${apiBase}/billing/subscribe/pix`,
+      asGuest
+        ? guestFetchInit({ method: 'POST', body: payload })
+        : authFetchInit({ method: 'POST', body: payload }),
+    )
   }
 
   return {

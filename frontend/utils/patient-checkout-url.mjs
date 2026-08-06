@@ -3,11 +3,13 @@ export const PATIENT_APP_PRODUCTION_URL = 'https://app.nutrisabellajardim.com.br
 
 /**
  * Página de planos/assinatura em produção.
- * Link direto (sem /abrir) — no PWA o usuário cai na tela de planos.
+ * `guest=1` evita herdar cookie de outra conta no Safari/Chrome
+ * (ex.: PWA logado com A, navegador ainda com sessão B).
  */
 export function getPatientCheckoutUrl(source = 'premium-gate') {
   const params = new URLSearchParams({
     source: String(source || 'premium-gate'),
+    guest: '1',
   })
   return `${PATIENT_APP_PRODUCTION_URL}/assinatura?${params.toString()}`
 }
