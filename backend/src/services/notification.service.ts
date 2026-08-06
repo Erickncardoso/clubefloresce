@@ -144,10 +144,28 @@ export class NotificationService {
       await repo.upsertBySourceKey({
         userId,
         type: "content",
-        title: "Novo conteúdo",
-        body: `Novo conteúdo em ${recentLesson.module.course.title}.`,
+        title: "Novo vídeo",
+        body: `${recentLesson.title || "Nova aula"} em ${recentLesson.module.course.title}.`,
         actionPath: `/modulos/${recentLesson.module.course.id}`,
         sourceKey: `lesson:${recentLesson.id}`,
+      });
+    }
+
+    const recentEbook = await prisma.ebook.findFirst({
+      where: {
+        createdAt: { gte: daysAgo(14) },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (recentEbook) {
+      await repo.upsertBySourceKey({
+        userId,
+        type: "content",
+        title: "Novo ebook",
+        body: `${recentEbook.title || "Novo ebook"} disponível na biblioteca.`,
+        actionPath: "/ebooks",
+        sourceKey: `ebook:${recentEbook.id}`,
       });
     }
   }

@@ -5,6 +5,10 @@ import {
   resolveDocumentDeliveryUrl,
 } from "../utils/media/bunny-document-delivery";
 import { scheduleRagDelete, scheduleRagReindex } from "./rag/rag-hooks";
+import {
+  contentBroadcastService,
+  scheduleContentBroadcast,
+} from "./content-broadcast.service";
 
 const ebookRepository = new EbookRepository();
 
@@ -35,6 +39,12 @@ export class EbookService {
     };
     const ebook = await ebookRepository.create(payload);
     scheduleRagReindex({ type: "ebook", id: ebook.id });
+    scheduleContentBroadcast(() =>
+      contentBroadcastService.notifyNewEbook({
+        ebookId: ebook.id,
+        title: ebook.title,
+      }),
+    );
     return mapEbookForClient(ebook, userId);
   }
 

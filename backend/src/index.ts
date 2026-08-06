@@ -40,6 +40,7 @@ import {
 import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "./utils/media/bunny-config";
 import { startCheckInDispatchScheduler } from "./jobs/checkin-weekly-dispatch.job";
 import { startMealReminderDispatchScheduler } from "./jobs/meal-reminder-dispatch.job";
+import { startEvolutionReminderDispatchScheduler } from "./jobs/evolution-reminder-dispatch.job";
 import { startWhatsappMobilePresenceScheduler } from "./jobs/whatsapp-mobile-presence.job";
 import { startBillingNotificationScheduler } from "./jobs/billing-notifications.job";
 import { startInstagramQueueDrainScheduler } from "./jobs/instagram-queue-drain.job";
@@ -296,6 +297,8 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
   console.log("[CheckIn] Agendador ativo — disparo automático às sextas 11h (Brasília).");
   startMealReminderDispatchScheduler();
   console.log("[MealReminder] Agendador ativo — lembretes nos horários do plano alimentar.");
+  startEvolutionReminderDispatchScheduler();
+  console.log("[EvolutionReminder] Agendador ativo — peso (mensal) e metas (12h/20h).");
   startWhatsappMobilePresenceScheduler();
   console.log("[WhatsApp] Presença unavailable ativa — celular continua recebendo notificações.");
   startBillingNotificationScheduler();

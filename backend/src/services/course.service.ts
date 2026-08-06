@@ -1,8 +1,13 @@
 import { CourseRepository } from "../repositories/course.repository";
 import { Course, Module, Lesson } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { lessonSummaryService, shouldScheduleLessonTranscriptionSync } from "./lesson-summary.service";
 import { lessonTranscriptionService } from "./lesson-transcription.service";
 import { scheduleRagDelete, scheduleRagReindex } from "./rag/rag-hooks";
+import {
+  contentBroadcastService,
+  scheduleContentBroadcast,
+} from "./content-broadcast.service";
 import { fetchBunnyVideoPlayMetadata, invalidateBunnyVideoPlayMetadataCache } from "../utils/media/bunny-play-data";
 import { parseBunnyStreamVideoId } from "../utils/media/bunny-config";
 
@@ -113,6 +118,23 @@ export class CourseService {
       lessonTranscriptionService.scheduleLessonTranscriptionSync(lesson.id, lesson.videoUrl);
     }
     scheduleRagReindex({ type: "lesson", id: lesson.id });
+
+    scheduleContentBroadcast(async () => {
+      const module = await prisma.module.findUnique({
+        where: { id: lesson.moduleId },
+        select: {
+          course: { select: { id: true, title: true } },
+        },
+      });
+      if (!module?.course) return;
+      await contentBroadcastService.notifyNewLesson({
+        lessonId: lesson.id,
+        lessonTitle: lesson.title,
+        courseId: module.course.id,
+        courseTitle: module.course.title,
+      });
+    });
+
     return lesson;
   }
 
