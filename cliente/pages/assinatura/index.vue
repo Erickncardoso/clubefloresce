@@ -118,27 +118,27 @@
 
           <div
             v-if="isGuestCheckout && checkoutStep !== 'pix-waiting'"
-            class="checkout-guest-fields patient-auth-form"
+            class="checkout-guest-fields checkout-float-fields patient-auth-form"
           >
             <div class="form-group field--float" :class="{ focused: focusedField === 'guestEmail' }">
               <label for="cf-guest-email">E-mail de cadastro</label>
               <div class="input-wrapper cf-squircle--control">
-                  <input
-                    id="cf-guest-email"
-                    v-model="guestForm.email"
-                    type="email"
-                    name="cf-checkout-guest-email"
-                    autocomplete="off"
-                    autocapitalize="off"
-                    autocorrect="off"
-                    spellcheck="false"
-                    readonly
-                    required
-                    placeholder="seu@email.com"
-                    @focus="onGuestEmailFocus"
-                    @blur="onGuestEmailBlur"
-                    @input="onGuestEmailInput"
-                  >
+                <input
+                  id="cf-guest-email"
+                  v-model="guestForm.email"
+                  type="email"
+                  name="cf-checkout-guest-email"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  spellcheck="false"
+                  readonly
+                  required
+                  placeholder="seu@email.com"
+                  @focus="onGuestEmailFocus"
+                  @blur="onGuestEmailBlur"
+                  @input="onGuestEmailInput"
+                >
               </div>
             </div>
 
@@ -198,6 +198,7 @@
                     autocomplete="new-password"
                     required
                     minlength="8"
+                    placeholder="Repita a senha"
                     @focus="focusedField = 'guestPasswordConfirm'"
                     @blur="focusedField = ''"
                   >
@@ -1397,8 +1398,21 @@ async function refreshSubscription() {
 .checkout-guest-fields {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  gap: 1.15rem;
   margin-bottom: 0.85rem;
+}
+
+.checkout-guest-fields.checkout-float-fields .form-group.field--float,
+.checkout-guest-fields.checkout-float-fields .input-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+
+.checkout-guest-fields :deep(.cf-phone-field) {
+  width: 100%;
+  min-width: 0;
 }
 
 .checkout-guest-hint {
