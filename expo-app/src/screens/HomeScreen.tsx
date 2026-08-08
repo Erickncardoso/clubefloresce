@@ -252,6 +252,21 @@ export default function HomeScreen() {
 
       {pageLoading ? (
         <LoadingScreen />
+      ) : readOnlyHome ? (
+        <View style={styles.lockedWrap}>
+          <View style={styles.lockedIcon}>
+            <Sparkles color={colors.primaryDark} size={26} strokeWidth={2} />
+          </View>
+          <Text style={styles.lockedTitle}>Seu acesso ainda não está ativo</Text>
+          <Text style={styles.lockedSub}>
+            Assim que sua assinatura for ativada pelo site, seu painel aparece aqui automaticamente.
+          </Text>
+          <Link href="/assinatura" asChild>
+            <Pressable style={styles.lockedBtn}>
+              <Text style={styles.lockedBtnText}>Ver status da assinatura</Text>
+            </Pressable>
+          </Link>
+        </View>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -405,6 +420,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4],
     paddingBottom: spacing[6],
     backgroundColor: '#fff',
+  },
+  lockedWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[6],
+    gap: spacing[3],
+    backgroundColor: '#fff',
+  },
+  lockedIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+    marginBottom: spacing[2],
+  },
+  lockedTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 18,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  lockedSub: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  lockedBtn: {
+    marginTop: spacing[3],
+    paddingHorizontal: spacing[5],
+    paddingVertical: 12,
+    borderRadius: radii.control,
+    backgroundColor: colors.primaryDark,
+  },
+  lockedBtnText: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: '#fff',
   },
   welcome: { marginTop: 6, marginBottom: 20 },
   greetingProfile: {

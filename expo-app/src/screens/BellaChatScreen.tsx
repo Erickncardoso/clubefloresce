@@ -51,6 +51,7 @@ import {
 import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
 
+import HealthDisclaimerBanner from '@/components/ui/HealthDisclaimerBanner';
 import PatientHeader from '@/components/ui/PatientHeader';
 
 import PatientShell from '@/components/PatientShell';
@@ -1278,6 +1279,10 @@ export default function BellaChatScreen() {
 
 
 
+      <View style={styles.disclaimerWrap}>
+        <HealthDisclaimerBanner compact />
+      </View>
+
       {chatTopic === 'meal' && dailySummary ? (
 
         <View style={styles.diaryBarWrap}>
@@ -1674,6 +1679,8 @@ export default function BellaChatScreen() {
 const styles = StyleSheet.create({
 
   flex: { flex: 1 },
+
+  disclaimerWrap: { paddingHorizontal: spacing[4], paddingTop: spacing[2] },
 
   diaryBarWrap: { paddingHorizontal: spacing[4], paddingTop: spacing[2] },
 

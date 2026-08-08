@@ -1,0 +1,7 @@
+{
+  "name": "live-activity",
+  "version": "1.0.0",
+  "description": "Local module bridging ActivityKit Live Activities to JS",
+  "main": "index.ts",
+  "license": "MIT"
+}

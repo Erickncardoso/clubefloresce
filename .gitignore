@@ -32,3 +32,6 @@ Thumbs.db
 .codex/
 .cursor/skills/impeccable/
 .claude/skills/impeccable/
+
+# Cópia acidental local (não versionar)
+frontend 2/

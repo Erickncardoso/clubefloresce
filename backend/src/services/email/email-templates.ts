@@ -112,7 +112,7 @@ export function registrationRequestNutriEmail(input: {
         <p>Ela será direcionada ao checkout para concluir o pagamento.</p>
       `,
       ctaLabel: "Abrir painel",
-      ctaUrl: `${input.adminUrl}/usuarios`,
+      ctaUrl: `${input.adminUrl}/dashboard`,
     }),
   };
 }

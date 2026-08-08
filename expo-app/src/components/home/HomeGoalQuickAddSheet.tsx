@@ -19,6 +19,7 @@ import {
 import EvolucaoWaterVesselIcon from '@/components/evolucao/EvolucaoWaterVesselIcon';
 import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
 import { usePatientGoals } from '@/hooks/usePatientGoals';
+import { syncWaterActivity } from '../../../modules/live-activity';
 import { loadWaterVesselSettings, type WaterVesselSettings } from '@/lib/water-vessel-settings';
 import { colors, fonts } from '@/theme/tokens';
 
@@ -134,6 +135,9 @@ function HomeGoalQuickAddContent({ goalId }: { goalId: string }) {
   async function addWater(ml: number) {
     if (goalComplete) return;
     await incrementGoal('water', ml / 1000);
+    const currentLiters = Number(activeSummary?.progress || 0) + ml / 1000;
+    const goalLiters = Number(activeGoal.target || 0);
+    void syncWaterActivity(currentLiters, goalLiters);
     dismiss();
   }
 

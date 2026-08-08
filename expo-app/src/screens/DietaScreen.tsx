@@ -25,6 +25,7 @@ import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
+import HealthDisclaimerBanner from '@/components/ui/HealthDisclaimerBanner';
 import DietaAddExtraFoodModal from '@/components/dieta/DietaAddExtraFoodModal';
 import DietaCheckIcon from '@/components/dieta/DietaCheckIcon';
 import DietaMealPlanOptionPickerModal from '@/components/dieta/DietaMealPlanOptionPickerModal';
@@ -510,6 +511,8 @@ export default function DietaScreen() {
     <PatientShell>
       <PatientHeader title="Minha dieta" showBack backTo="/inicio" showBell={false} showMenu={false} />
       <ScrollView contentContainerStyle={styles.scroll}>
+        <HealthDisclaimerBanner compact />
+
         <BellaDailyDiaryBar
           summary={dailySummary}
           manageable

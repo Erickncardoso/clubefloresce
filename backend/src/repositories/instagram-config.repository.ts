@@ -43,6 +43,23 @@ export class InstagramConfigRepository {
     });
   }
 
+  async updateProfile(
+    userId: string,
+    data: { profilePictureUrl?: string | null; instagramUsername?: string },
+  ): Promise<InstagramConfig> {
+    return prisma.instagramConfig.update({
+      where: { userId },
+      data: {
+        ...(data.profilePictureUrl !== undefined
+          ? { profilePictureUrl: data.profilePictureUrl }
+          : {}),
+        ...(data.instagramUsername !== undefined
+          ? { instagramUsername: data.instagramUsername }
+          : {}),
+      },
+    });
+  }
+
   async deleteByUserId(userId: string): Promise<void> {
     await prisma.instagramConfig.deleteMany({ where: { userId } });
   }

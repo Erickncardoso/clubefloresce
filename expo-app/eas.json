@@ -36,7 +36,10 @@
   "submit": {
     "production": {
       "ios": {
-        "ascApiKeyPath": "./credentials/asc-api-key.p8"
+        "ascApiKeyPath": "./credentials/asc-api-key.p8",
+        "ascApiKeyIssuerId": "f800fd31-89d4-4b7d-af7d-20f800cbd63e",
+        "ascApiKeyId": "FML385PGPZ",
+        "ascAppId": "6795381418"
       }
     }
   }

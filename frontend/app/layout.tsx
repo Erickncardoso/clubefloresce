@@ -10,8 +10,15 @@ const plusJakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Florescer · Admin (Next)',
+  title: 'Florescer · Admin',
   description: 'Painel nutricionista — Clube Florescer (Next.js)',
+  icons: {
+    icon: [
+      { url: '/icons/logovetorcarregamento.svg', type: 'image/svg+xml' },
+      { url: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/pwa/apple-touch-icon.png', sizes: '180x180' }],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

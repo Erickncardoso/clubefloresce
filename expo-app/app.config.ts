@@ -31,6 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       supportsTablet: true,
       bundleIdentifier: 'com.clubeflorescer.app',
       buildNumber: '1',
+      appleTeamId: '3UUG4F577B',
       config: {
         usesNonExemptEncryption: false,
       },
@@ -46,6 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           'Enviamos lembretes de check-in, metas diárias e avisos do seu acompanhamento nutricional.',
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,
+        NSSupportsLiveActivities: true,
       },
     },
     android: {
@@ -98,6 +100,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           backgroundColor: '#F7F6F2',
         },
       ],
+      '@bacons/apple-targets',
     ],
     experiments: {
       typedRoutes: true,

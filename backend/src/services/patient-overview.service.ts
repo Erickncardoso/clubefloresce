@@ -3,16 +3,29 @@ import { assertPatientUser } from "../utils/patient-access";
 import { getWeekStart } from "../utils/week-start";
 import { MealPlanService } from "./meal-plan/meal-plan.service";
 import { FoodDiaryService } from "./food-diary.service";
-import { getDateKeyInTimeZone } from "../utils/patient-timezone";
+import {
+  DEFAULT_PATIENT_TIMEZONE,
+  getDateKeyInTimeZone,
+} from "../utils/patient-timezone";
 import { resolveDocumentDeliveryUrl } from "../utils/media/bunny-document-delivery";
+import type { PatientProfileData } from "../types/patient-profile.types";
+import { resolvePatientTimezone } from "./patient-preferences.service";
 
 const mealPlanService = new MealPlanService();
 const foodDiaryService = new FoodDiaryService();
+
+function asProfile(value: unknown): PatientProfileData {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as PatientProfileData;
+}
 
 export class PatientOverviewService {
   async getOverview(userId: string) {
     const patient = await assertPatientUser(userId);
     const weekStart = getWeekStart();
+    const profile = asProfile(patient.patientProfileData);
+    const timeZone = resolvePatientTimezone(profile) || DEFAULT_PATIENT_TIMEZONE;
+    const todayKey = getDateKeyInTimeZone(timeZone);
 
     const [checkInRows, checkInCount, currentCheckIn, mealPlan, nutritionTarget] = await Promise.all([
       prisma.weeklyCheckIn.findMany({
@@ -29,9 +42,10 @@ export class PatientOverviewService {
     ]);
 
     const latestCheckIn = checkInRows[0] ?? null;
+    const mealCount = mealPlan?.plan?.meals?.length ?? 0;
 
     const [todayDiary, foodDiaryDays, courseProgress] = await Promise.all([
-      foodDiaryService.getDailySummary(userId, getDateKeyInTimeZone("UTC")).catch(() => null),
+      foodDiaryService.getDailySummary(userId, todayKey).catch(() => null),
       prisma.foodDiaryEntry.groupBy({
         by: ["entryDate"],
         where: { userId },
@@ -63,6 +77,8 @@ export class PatientOverviewService {
         billingSubscriptionStatus: latestSubscription?.status || null,
       },
       weekStart,
+      timezone: timeZone,
+      todayKey,
       checkIn: {
         current: currentCheckIn,
         total: checkInCount,
@@ -78,7 +94,9 @@ export class PatientOverviewService {
             pdfUrl: mealPlan.pdfUrl
               ? resolveDocumentDeliveryUrl(mealPlan.pdfUrl, userId)
               : null,
-            mealCount: mealPlan.plan?.meals?.length ?? 0,
+            mealCount,
+            hasMeals: mealCount > 0,
+            status: mealCount > 0 ? "active" : "incomplete",
             updatedAt: mealPlan.updatedAt,
           }
         : null,

@@ -17,6 +17,7 @@ import {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { fetchWhatsappSessionConnected, whatsappHasAuth } from './api'
+import { verifyAuthSession } from '@/lib/auth'
 import {
   fetchChats,
   mergeChatUpdate,
@@ -132,13 +133,26 @@ export function WhatsappProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false
     ;(async () => {
       setCheckingConnection(true)
+      // Reload direto em /whatsapp/chat — garante sessão antes do gate
       if (!whatsappHasAuth()) {
+        await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' }).catch(() => null)
+      }
+      if (cancelled) return
+      if (!whatsappHasAuth()) {
+        setCheckingConnection(false)
         router.push('/whatsapp/conexao')
         return
       }
-      const ok = await fetchWhatsappSessionConnected()
+      let ok = await fetchWhatsappSessionConnected()
+      if (!ok) {
+        // retry curto — status pode oscilar logo após o deploy/reconnect
+        await new Promise((r) => setTimeout(r, 600))
+        if (cancelled) return
+        ok = await fetchWhatsappSessionConnected()
+      }
       if (cancelled) return
       if (!ok) {
+        setCheckingConnection(false)
         router.push('/whatsapp/conexao')
         return
       }

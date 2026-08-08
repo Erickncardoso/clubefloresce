@@ -1,4 +1,7 @@
 # Painel admin Next.js — Coolify: Base Directory = frontend | Dockerfile = Dockerfile
+#
+# Importante: NEXT_PUBLIC_* é embutido no BUILD. Configure como Build Arguments
+# no Coolify (não basta só Runtime Environment Variables).
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
@@ -10,9 +13,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS=--max-old-space-size=3072
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Em produção o Coolify/proxy serve /api no mesmo domínio — sem rewrites locais.
+
 ARG NEXT_PUBLIC_API_BASE=/api
+ARG NEXT_PUBLIC_WHATSAPP_API_BASE=/api/whatsapp
+ARG NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID=
 ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
+ENV NEXT_PUBLIC_WHATSAPP_API_BASE=$NEXT_PUBLIC_WHATSAPP_API_BASE
+ENV NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID=$NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID
+
 RUN npm run build
 
 FROM node:22-alpine AS runner

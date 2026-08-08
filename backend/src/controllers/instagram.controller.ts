@@ -8,7 +8,7 @@ import { InstagramWebhookIngestService } from "../services/instagram-webhook-ing
 import { drainInstagramQueue } from "../services/instagram-queue.service";
 import { verifyInstagramWebhookSignature, verifyOauthState } from "../utils/instagram-webhook";
 import { getInstagramWebhookVerifyToken, getFrontendBaseUrl, isInstagramConfigured } from "../utils/instagram-env";
-import { buildAuthorizeUrl, listMedia } from "../utils/instagram-graph.client";
+import { buildAuthorizeUrl, getMe, listMedia } from "../utils/instagram-graph.client";
 
 const configRepository = new InstagramConfigRepository();
 const eventRepository = new InstagramEventRepository();
@@ -161,7 +161,28 @@ export class InstagramController {
   // ---------- Painel (autenticadas) ----------
 
   status = async (req: Request, res: Response) => {
-    const config = await configRepository.findByUserId(req.user!.id);
+    let config = await configRepository.findByUserId(req.user!.id);
+
+    // URLs do CDN do Instagram expiram — refresca avatar/username no Graph ao abrir o painel.
+    if (config?.accessToken) {
+      try {
+        const me = await getMe(config.accessToken);
+        const nextPic = me.profile_picture_url ?? null;
+        const nextUser = me.username || config.instagramUsername;
+        if (
+          nextPic !== config.profilePictureUrl ||
+          nextUser !== config.instagramUsername
+        ) {
+          config = await configRepository.updateProfile(config.userId, {
+            profilePictureUrl: nextPic,
+            instagramUsername: nextUser,
+          });
+        }
+      } catch {
+        /* token inválido ou Graph fora — mantém o que está no banco */
+      }
+    }
+
     return res.json({
       appConfigured: isInstagramConfigured(),
       connected: Boolean(config),

@@ -29,7 +29,7 @@ import { BrandLogo } from '@/components/BrandLogo';
 import { usePatientNotifications } from '@/hooks/usePatientNotifications';
 import { usePatientPlanAccess } from '@/hooks/usePatientPlanAccess';
 import { isPatientAppAccessBlocked } from '@/lib/patient-access';
-import { getSubscriptionMenuLabel, openSubscriptionWebsite, shouldOfferWebSubscription } from '@/lib/platform-billing';
+import { getSubscriptionMenuLabel } from '@/lib/platform-billing';
 import { getAppVersion } from '@/config/env';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -39,7 +39,6 @@ type NavItem = {
   label: string;
   Icon: LucideIcon;
   badge?: string | null;
-  openWeb?: boolean;
 };
 
 type PatientMenuDrawerProps = {
@@ -63,16 +62,10 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
 
   const navItems: NavItem[] = useMemo(() => {
     const subscriptionLabel = getSubscriptionMenuLabel();
-    const openWebSubscription = shouldOfferWebSubscription(hasPaidAccess);
 
     if (!canUseApp) {
       return [
-        {
-          href: '/assinatura',
-          label: subscriptionLabel,
-          Icon: CreditCard,
-          openWeb: openWebSubscription,
-        },
+        { href: '/assinatura', label: subscriptionLabel, Icon: CreditCard },
         { href: '/perfil/configuracoes', label: 'Configurações', Icon: Settings },
       ];
     }
@@ -91,12 +84,7 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
     }
 
     items.push(
-      {
-        href: '/assinatura',
-        label: subscriptionLabel,
-        Icon: CreditCard,
-        openWeb: openWebSubscription,
-      },
+      { href: '/assinatura', label: subscriptionLabel, Icon: CreditCard },
       {
         href: '/perfil/notificacoes',
         label: 'Notificações',
@@ -143,10 +131,6 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
 
   function navigate(item: NavItem) {
     onClose();
-    if (item.openWeb) {
-      void openSubscriptionWebsite();
-      return;
-    }
     router.push(item.href as never);
   }
 

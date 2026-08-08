@@ -1,4 +1,4 @@
-import { getCachedUser } from '@/lib/auth'
+import { getCachedUser, verifyAuthSession } from '@/lib/auth'
 
 const DEV_WHATSAPP_API_FALLBACK = '/api/whatsapp'
 
@@ -7,7 +7,6 @@ export function getWhatsappApiBase(): string {
     .trim()
     .replace(/\/+$/, '')
   if (configured) return configured
-  if (typeof window !== 'undefined') return DEV_WHATSAPP_API_FALLBACK
   return DEV_WHATSAPP_API_FALLBACK
 }
 
@@ -169,7 +168,12 @@ export function isWhatsappExplicitlyDisconnected(data: unknown): boolean {
 
 export async function fetchWhatsappStatusPayload(): Promise<{ ok: boolean; data: Record<string, unknown> }> {
   const base = getWhatsappApiBase()
-  if (!base || !whatsappHasAuth()) return { ok: false, data: {} }
+  if (!base) return { ok: false, data: {} }
+  // Garante cache de sessão antes do hint rápido
+  if (!whatsappHasAuth()) {
+    await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' }).catch(() => null)
+  }
+  if (!whatsappHasAuth()) return { ok: false, data: {} }
   try {
     const res = await fetch(`${base}/status`, whatsappFetchInit())
     const data = await parseJsonBodySafe(res)

@@ -1472,7 +1472,7 @@ async function refreshSubscription() {
 
 .checkout-float-fields .form-group.field--float > label {
   position: absolute;
-  top: -0.58rem;
+  top: -0.42rem;
   left: 0.78rem;
   margin: 0;
   padding: 0 0.4rem;

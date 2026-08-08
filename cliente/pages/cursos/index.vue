@@ -2711,7 +2711,7 @@ watch(
 
 .form-group.floating-field label {
   position: absolute;
-  top: -0.62rem;
+  top: -0.42rem;
   left: 0.78rem;
   margin-bottom: 0;
   padding: 0 0.42rem;
