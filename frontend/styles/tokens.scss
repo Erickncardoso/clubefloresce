@@ -1,0 +1,43 @@
+:root {
+  --cf-font: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* squircle — cantos contínuos (mesmo kit do Nuxt admin) */
+  --cf-radius-sheet: 2.75rem;
+  --cf-radius-squircle-tile: min(3rem, 42%);
+  --cf-radius-xl: 1.875rem;
+  --cf-radius: 1.625rem;
+  --cf-radius-md: 1.25rem;
+  --cf-radius-sm: 1rem;
+  --cf-radius-xs: 0.875rem;
+  --cf-radius-icon: 0.875rem;
+  --cf-radius-composer: 1.875rem;
+  --cf-radius-attach: 1.125rem;
+  --cf-radius-msg-bubble: 1.625rem;
+  --cf-radius-msg-media: 1.25rem;
+  --cf-radius-pill: 999px;
+  --cf-radius-full: 50%;
+  /* controles admin — inputs, botões e cards compartilham o mesmo raio */
+  --cf-radius-control: var(--cf-radius);
+  --cf-radius-surface: var(--cf-radius-xl);
+  --cf-avatar-mask: url('/icons/userAvatar.svg');
+
+  --admin-primary: #8b967c;
+  --admin-primary-soft: #eef0eb;
+  --admin-ink: #141414;
+  --admin-muted: #66706e;
+  --admin-border: #e8ece9;
+  --admin-surface: #ffffff;
+  --admin-bg: #f4f6f4;
+
+  --admin-font-heading-1: 1.375rem;
+  --admin-font-heading-1-weight: 600;
+  --admin-font-heading-2: 0.9375rem;
+  --admin-font-heading-2-weight: 600;
+  --admin-font-nav: 0.8125rem;
+  --admin-font-nav-weight: 500;
+  --admin-font-nav-weight-active: 600;
+  --admin-font-label: 0.6875rem;
+  --admin-font-label-weight: 500;
+  --admin-font-btn: 0.8125rem;
+  --admin-font-btn-weight: 600;
+}

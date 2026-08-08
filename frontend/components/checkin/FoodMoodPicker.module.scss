@@ -1,0 +1,44 @@
+.picker {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.1rem 0;
+}
+
+.btn {
+  flex: 1;
+  min-width: 0;
+  max-width: 4rem;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1.5px solid var(--cf-border, #e8ece9);
+  border-radius: 16px;
+  background: #f6f6f4;
+  cursor: pointer;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  transition: border-color 0.2s ease, transform 0.15s ease, background 0.15s ease;
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.lottie {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.selected {
+  border-color: var(--cf-pink, #8b967c);
+  background: var(--cf-pink-soft, #eef0eb);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active,
+  .selected {
+    transform: none;
+  }
+}

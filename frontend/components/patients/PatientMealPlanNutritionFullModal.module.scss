@@ -1,0 +1,330 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 6100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.panel {
+  position: relative;
+  z-index: 1;
+  width: min(920px, 100%);
+  max-height: min(92vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--cf-radius-control);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.09);
+}
+
+/* Header */
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  flex-shrink: 0;
+}
+
+.kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.45);
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1f18;
+}
+
+.headActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+}
+
+/* Body */
+.body {
+  overflow: auto;
+  padding: 1rem 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Section */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.82);
+}
+
+/* Overview */
+.overviewPanel {
+  padding: 0.9rem;
+  background: linear-gradient(180deg, #fcfdfc 0%, #f8faf8 100%);
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.overview {
+  display: grid;
+  grid-template-columns: 8.75rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+/* SVG Donut */
+.donut {
+  position: relative;
+  width: 8.75rem;
+  height: 8.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e8ece9;
+}
+
+.donutSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.donutTrack,
+.donutSeg {
+  fill: none;
+  stroke-width: 14;
+}
+
+.donutTrack {
+  stroke: rgba(15, 23, 42, 0.08);
+}
+
+.donutSegCarb { stroke: #3b82f6; }
+.donutSegProt { stroke: #ef4444; }
+.donutSegFat  { stroke: #f59e0b; }
+
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(15, 23, 42, 0.55);
+  gap: 0.1rem;
+
+  strong {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.88);
+  }
+}
+
+/* Macro cards */
+.macroCards {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.macroCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 3.1rem;
+  padding: 0.65rem 0.85rem;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.macroCardDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.macroCardDotCarb { background: #3b82f6; }
+.macroCardDotProt { background: #ef4444; }
+.macroCardDotFat  { background: #f59e0b; }
+
+.macroCardMain {
+  min-width: 0;
+
+  strong {
+    display: block;
+    font-size: 0.88rem;
+    line-height: 1.2;
+    color: rgba(15, 23, 42, 0.9);
+  }
+
+  span {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(15, 23, 42, 0.55);
+  }
+}
+
+.macroCardPct {
+  flex-shrink: 0;
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--cf-radius-pill);
+  background: rgba(15, 23, 42, 0.05);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(15, 23, 42, 0.52);
+}
+
+.macroCardCarb .macroCardPct { color: #2563eb; background: rgba(59, 130, 246, 0.1); }
+.macroCardProt .macroCardPct { color: #dc2626; background: rgba(239, 68, 68, 0.1); }
+.macroCardFat  .macroCardPct { color: #b45309; background: rgba(245, 158, 11, 0.12); }
+
+/* Tables */
+.tableWrap {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+
+  thead th {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(139, 150, 124, 0.1);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    white-space: nowrap;
+    color: #5f675f;
+  }
+
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    font-variant-numeric: tabular-nums;
+    color: #374151;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover td {
+    background: #fafbfa;
+  }
+}
+
+.totalRow td {
+  background: rgba(139, 150, 124, 0.06) !important;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.rowTime {
+  display: inline-block;
+  margin-right: 0.35rem;
+  font-size: 0.7rem;
+  color: #8a9288;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  padding: 1.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #8a9288;
+  line-height: 1.5;
+}
+
+/* Print styles */
+@media print {
+  .overlay {
+    position: static !important;
+    inset: auto !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .backdrop { display: none !important; }
+
+  .panel {
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .headActions button:not(:has(svg.printer)) {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .overview {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .head {
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .headActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

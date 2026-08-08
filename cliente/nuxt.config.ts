@@ -1,15 +1,15 @@
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
-import { fixWindowsVitePaths } from '../frontend/utils/fix-windows-vite-paths'
-import { mirrorPwaDevSwDist, ensurePwaDevSwPlaceholder } from '../frontend/utils/mirror-pwa-dev-sw'
-import { resolveApiBaseAtBuild } from '../frontend/utils/resolve-api-base.mjs'
-import { buildInstagramExternalBrowserInlineScript } from '../frontend/utils/instagram-external-browser.js'
+import { fixWindowsVitePaths } from '../frontend2/utils/fix-windows-vite-paths'
+import { mirrorPwaDevSwDist, ensurePwaDevSwPlaceholder } from '../frontend2/utils/mirror-pwa-dev-sw'
+import { resolveApiBaseAtBuild } from '../frontend2/utils/resolve-api-base.mjs'
+import { buildInstagramExternalBrowserInlineScript } from '../frontend2/utils/instagram-external-browser.js'
 import {
   PATIENT_APP_SPLASH_BG,
   PATIENT_APP_SPLASH_HTML,
   PATIENT_APP_SPLASH_INLINE_CSS,
   PATIENT_APP_THEME_COLOR,
-} from '../frontend/utils/patient-app-splash.mjs'
+} from '../frontend2/utils/patient-app-splash.mjs'
 
 const pwaDevEnabled = process.env.NUXT_PWA_DEV === 'true'
 
@@ -24,7 +24,7 @@ const devApiOrigin = process.env.NUXT_DEV_API_ORIGIN || 'http://127.0.0.1:3001'
 const lanMode = process.env.NUXT_LAN === 'true' || devHost === '0.0.0.0'
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url))
-const frontendRoot = fileURLToPath(new URL('../frontend', import.meta.url))
+const frontendRoot = fileURLToPath(new URL('../frontend2', import.meta.url))
 
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',

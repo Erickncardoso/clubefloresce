@@ -1,5 +1,5 @@
 ---
-description: Roteamento de agentes/skills para o stack Clube Florescer (Nuxt, Express, PWA)
+description: Roteamento de agentes/skills para o stack Clube Florescer (Next admin, Nuxt legado, Express, PWA)
 alwaysApply: true
 ---
 
@@ -9,13 +9,14 @@ alwaysApply: true
 
 | App | Pasta | Conteúdo |
 |-----|-------|----------|
-| **Admin** | `frontend/pages/` | Só painel nutri — nunca copiar páginas daqui para cliente |
-| **Paciente PWA** | `cliente/pages/` | **Fonte de verdade** do design/UI do paciente — não sobrescrever com frontend |
-| **Compartilhado** | `frontend/components`, `composables`, `assets` | Layer Nuxt usado pelo cliente |
+| **Admin (produção)** | `frontend/` | **Next.js** — painel nutri (Coolify Base Directory = `frontend`) |
+| **Admin legado** | `frontend2/` | Nuxt 3 — referência / legado; não deployar como app principal |
+| **Paciente PWA** | `cliente/pages/` | **Fonte de verdade** do design/UI do paciente |
+| **Compartilhado Nuxt** | `frontend2/components`, `composables`, `assets` | Layer Nuxt ainda usado pelo `cliente/` |
 
 ## Regras críticas
 
-- **NUNCA** copiar `frontend/pages` → `cliente/pages` para “sincronizar”
+- **NUNCA** copiar páginas admin → `cliente/pages` para “sincronizar”
 - Editar paciente = **só** `cliente/pages/`
-- Editar admin = **só** `frontend/pages/`
-- `cliente/nuxt.config.ts` usa `srcDir: '.'` (páginas do cliente, não do frontend)
+- Editar admin em produção = **só** `frontend/` (Next App Router)
+- `cliente/nuxt.config.ts` importa utilitários de `../frontend2/` (legado Nuxt compartilhado)

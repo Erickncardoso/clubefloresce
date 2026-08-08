@@ -1,0 +1,251 @@
+// Full-height bottom sheet modal for orientation editor.
+// Mirrors the Nuxt PatientOrientacaoEditorModal.vue styles.
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: stretch;
+  width: 100vw;
+  height: 100dvh;
+  background: rgba(28, 32, 28, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: min(96dvh, 100%);
+  background: #f7f8f6;
+  border-radius: var(--cf-radius-md, 1.25rem) var(--cf-radius-md, 1.25rem) 0 0;
+  box-shadow: 0 -16px 48px rgba(28, 32, 28, 0.2);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.5rem 0.9rem;
+  background: #fff;
+  border-bottom: 1px solid #e8ece9;
+  flex-shrink: 0;
+}
+
+.headMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.titleInput {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2c322c;
+  outline: none;
+
+  &::placeholder {
+    color: #9aa39a;
+    font-weight: 500;
+  }
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+
+.templateField {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.templateLabel {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #8a9288;
+}
+
+.templateSelect {
+  min-height: 2.35rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #e2e8e4;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  color: #2c322c;
+}
+
+.toolBtn,
+.footBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.35rem !important;
+  padding: 0.4rem 0.9rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex-shrink: 0;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: #6b7368;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f4f2;
+  }
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  overflow: hidden;
+}
+
+.editorCol {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  // Make the rich editor fill the column
+  > * {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.previewCol {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow: auto;
+}
+
+.previewModel {
+  display: grid;
+  gap: 0.2rem;
+
+  span {
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #8a9288;
+  }
+
+  select {
+    min-height: 2.35rem;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid #e2e8e4;
+    border-radius: var(--cf-radius-control);
+    background: #fff;
+    font: inherit;
+    font-size: 0.82rem;
+    color: #2c322c;
+  }
+}
+
+.rewriteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--cf-radius-control);
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(90deg, #fbbf24, #a78bfa, #60a5fa) border-box;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.5rem 1.1rem;
+  background: #fff;
+  border-top: 1px solid #e8ece9;
+  flex-shrink: 0;
+}
+
+.footLeft,
+.footRight {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.blankToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #5f675f;
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    width: 0.95rem;
+    height: 0.95rem;
+    accent-color: #8b967c;
+  }
+}
+
+.msgError {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #b42318;
+}
+
+.msgOk {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #15803d;
+}
+
+@media (max-width: 980px) {
+  .body {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .previewCol {
+    order: -1;
+  }
+}

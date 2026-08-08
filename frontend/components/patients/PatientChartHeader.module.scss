@@ -1,0 +1,119 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.headRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.crumb {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--admin-muted);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--admin-ink);
+  }
+}
+
+.crumbName {
+  color: var(--admin-ink);
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crumbCurrent {
+  color: var(--admin-primary, #8b967c);
+}
+
+.sep {
+  color: #c4cbc6;
+  font-size: 0.78rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.since {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--admin-muted);
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: var(--admin-ink);
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--admin-primary-soft);
+  }
+}
+
+.callBtn {
+  color: var(--admin-primary);
+}
+
+.waBtn {
+  color: #25d366;
+}
+
+.editBtn {
+  min-height: 2.15rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--admin-ink);
+}
+
+.expiredNote {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #b42318;
+}

@@ -1,0 +1,72 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.editorHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.editorKicker {
+  margin: 0 0 0.3rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #6b7368;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.editorMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.84rem;
+  color: #6b7368;
+
+  span strong {
+    color: #374151;
+  }
+}
+
+.editorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.bmiCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(139, 150, 124, 0.08);
+  border: 1px solid #d9e0d9;
+  border-radius: var(--cf-radius-control);
+}
+
+.bmiLabel {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #8a9288;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bmiValue {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #2c322c;
+  line-height: 1.2;
+}
+
+.bmiClass {
+  font-size: 0.75rem;
+  color: #5f675f;
+}

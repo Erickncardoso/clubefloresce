@@ -1,0 +1,284 @@
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 6101;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 22rem);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  max-height: min(92vh, 920px);
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--cf-radius-control);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.09);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.75rem;
+}
+
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: #f97316;
+  flex-shrink: 0;
+}
+
+.head h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  &:hover {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+}
+
+.body {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0 1rem 1rem;
+  overflow: auto;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.fieldHint {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: #9ca3af;
+}
+
+.segment {
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border-radius: var(--cf-radius-control);
+  background: #f3f4f6;
+}
+
+.segmentBtn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.35rem;
+  border-radius: calc(var(--cf-radius-control) - 2px);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+
+  &.segmentBtnActive {
+    background: #fff;
+    color: #374151;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  }
+}
+
+.macros {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.macroField {
+  margin: 0;
+}
+
+.macroFieldKcal {
+  grid-column: 1 / -1;
+}
+
+.macroHint {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.65rem;
+  color: #9ca3af;
+}
+
+.kcalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.kcalCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: #6b7280;
+  cursor: pointer;
+
+  input {
+    width: 0.85rem;
+    height: 0.85rem;
+    accent-color: #f97316;
+  }
+}
+
+.pctTotal {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b7280;
+
+  span {
+    font-weight: 400;
+  }
+}
+
+.pctTotalWarn {
+  color: #b45309;
+}
+
+.weightWarn {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #b45309;
+}
+
+.energy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--cf-radius-control);
+  background: #f9fafb;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.energyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #f97316;
+  cursor: pointer;
+  white-space: nowrap;
+
+  svg {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid #f0f1f3;
+}
+
+.microLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.6875rem;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+
+  svg:first-child {
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+
+  svg:last-child {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+}
+
+.footActions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+
+.footBtn {
+  min-height: 2.25rem !important;
+  padding: 0.35rem 0.85rem !important;
+  font-size: 0.8125rem !important;
+  font-weight: 400 !important;
+}

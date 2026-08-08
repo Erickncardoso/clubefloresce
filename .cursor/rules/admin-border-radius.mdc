@@ -7,7 +7,9 @@ alwaysApply: true
 
 ## Tokens (fonte de verdade)
 
-Definidos em `frontend/assets/css/fonts.css`:
+No **Next** (`frontend/`): `frontend/styles/tokens.scss` (+ rounding em `admin-rounding.scss`).
+
+Referência legada Nuxt (`frontend2/`): `frontend2/assets/css/fonts.css` e `admin-rounding.css`.
 
 | Token | Uso |
 |-------|-----|
@@ -16,7 +18,7 @@ Definidos em `frontend/assets/css/fonts.css`:
 | `--cf-radius-xs` | Ícones internos compactos (raro) |
 | `--cf-radius-surface` | **Não usar no admin** — reservado ao app paciente; no nutri tudo = `--cf-radius-control` |
 
-Aplicação global: `frontend/assets/css/admin-rounding.css` (já com `!important`).
+Aplicação global Next: `frontend/styles/admin-rounding.scss`.
 
 ## Regras para agentes
 

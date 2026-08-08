@@ -1,0 +1,72 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10090;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(11, 20, 26, 0.45);
+}
+
+.modal {
+  width: min(100%, 420px);
+  padding: 22px 24px 20px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(11, 20, 26, 0.18);
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: #111b21;
+}
+
+.text {
+  margin: 0 0 20px;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: #54656f;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn {
+  min-width: 96px;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: none;
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btnGhost {
+  background: transparent;
+  color: #00a884;
+}
+
+.btnDanger {
+  background: #ea0038;
+  color: #fff;
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

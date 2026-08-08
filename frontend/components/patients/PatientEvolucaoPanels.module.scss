@@ -1,0 +1,191 @@
+.nutrition {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 0.85rem;
+}
+
+.compact {
+  margin-top: 0.25rem;
+}
+
+.nutritionCol {
+  padding: 0.85rem;
+  background: #fff;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-control);
+}
+
+.nutritionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+
+  h4 {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+}
+
+.linkBtn {
+  border: none;
+  background: transparent;
+  color: var(--admin-primary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.photo {
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--cf-radius-control);
+  background: #f3f5f3;
+
+  img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+  }
+
+  figcaption {
+    padding: 0.3rem 0.4rem;
+    font-size: 0.65rem;
+    color: var(--admin-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.goalList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: var(--cf-radius-control);
+    background: #f8faf8;
+    font-size: 0.8rem;
+
+    strong {
+      font-weight: 700;
+    }
+
+    span {
+      color: var(--admin-muted);
+      white-space: nowrap;
+    }
+  }
+}
+
+.goalListFull {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--cf-radius-control);
+    background: #fff;
+
+    p {
+      margin: 0.2rem 0 0;
+      font-size: 0.75rem;
+      color: var(--admin-muted);
+    }
+
+    span {
+      font-weight: 700;
+      color: var(--admin-primary);
+      white-space: nowrap;
+    }
+  }
+}
+
+.photoGridLarge {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+
+.photoCard {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+
+  img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+  }
+
+  figcaption {
+    padding: 0.55rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+
+    strong {
+      font-size: 0.8rem;
+    }
+
+    span {
+      font-size: 0.72rem;
+      color: var(--admin-muted);
+    }
+  }
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+}
+
+.err {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #b42318;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .nutrition {
+    grid-template-columns: 1fr;
+  }
+
+  .photoGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

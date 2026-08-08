@@ -1,0 +1,694 @@
+.page {
+  padding-bottom: 2rem;
+}
+
+.top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 1.1rem;
+
+  h1 {
+    margin: 0.15rem 0 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--admin-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  width: fit-content;
+
+  &:hover {
+    color: var(--admin-ink);
+  }
+}
+
+.courseTitle {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--admin-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1rem;
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.playerFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0f172a;
+  /* Mesmo raio dos cards/abas — sem squircle (no vídeo grande o corner-shape exagera) */
+  border-radius: var(--cf-radius-control);
+  overflow: hidden;
+
+  > * {
+    width: 100%;
+    height: 100%;
+  }
+
+  iframe,
+  video {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+    background: #000;
+  }
+}
+
+.playerEmpty {
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--cf-radius-control);
+  background: #f3f5f3;
+  color: var(--admin-muted);
+  text-align: center;
+}
+
+.lessonHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+
+  h2 {
+    margin: 0.2rem 0;
+    font-size: 1.1rem;
+  }
+}
+
+.lessonLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--admin-muted);
+  text-transform: uppercase;
+}
+
+.duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--admin-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.actionBtn {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  white-space: nowrap;
+}
+
+.actionDone {
+  background: #eef0eb !important;
+  border-color: #c5cdb8 !important;
+  color: #3f4a37 !important;
+}
+
+.iconBtn {
+  /* retângulo (não quadrado) — evita círculo com --cf-radius-control */
+  width: auto;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  height: 2.5rem;
+  padding: 0 0.7rem;
+  flex-shrink: 0;
+  color: var(--admin-muted);
+}
+
+.iconActive {
+  color: #be185d !important;
+  background: #fdf2f8 !important;
+  border-color: #f5c2d8 !important;
+}
+
+.tabsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tab {
+  /* btn-secondary base; override só o estado visual */
+  border-color: transparent;
+  background: transparent;
+  color: var(--admin-muted);
+  box-shadow: none;
+
+  &:hover {
+    background: #f6f8f6;
+    color: var(--admin-ink);
+  }
+}
+
+.tabActive {
+  background: #eef0eb !important;
+  color: var(--admin-ink) !important;
+  border-color: #d5dbd0 !important;
+}
+
+.tabMobileOnly {
+  display: none;
+}
+
+.tabContent {
+  min-height: 8rem;
+}
+
+.emptyTab {
+  display: grid;
+  place-items: center;
+  gap: 0.45rem;
+  padding: 1.75rem 1rem;
+  color: var(--admin-muted);
+  text-align: center;
+  font-size: 0.88rem;
+}
+
+.linksList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.linkItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-control);
+  text-decoration: none;
+  color: inherit;
+
+  strong {
+    display: block;
+    font-size: 0.85rem;
+  }
+
+  small {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    color: var(--admin-muted);
+  }
+
+  &:hover {
+    background: #f8faf9;
+  }
+}
+
+.linkIcon {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: var(--cf-radius-control);
+  background: #eef0eb;
+  color: #5f6b55;
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.noteComposer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+
+  textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--cf-radius-control);
+    font: inherit;
+    font-size: 0.88rem;
+    resize: vertical;
+    outline: none;
+
+    &:focus {
+      border-color: var(--admin-primary);
+    }
+  }
+}
+
+.noteList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+
+  li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.55rem;
+    align-items: start;
+    padding: 0.7rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--cf-radius-control);
+
+    p {
+      margin: 0;
+      font-size: 0.85rem;
+      line-height: 1.45;
+      color: #334155;
+    }
+  }
+}
+
+.noteTime {
+  border: none;
+  background: #eef0eb;
+  color: #3f4a37;
+  border-radius: var(--cf-radius-control);
+  padding: 0.2rem 0.55rem;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.noteDelete {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.2rem;
+
+  &:hover {
+    color: #b42318;
+  }
+}
+
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  min-height: 24rem;
+  overflow: hidden;
+}
+
+.asideTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  padding: 0.65rem;
+  background: #f8faf8;
+  border-bottom: 1px solid var(--admin-border);
+  /* sem “pilula” envolvendo as abas — faixa reta como no Nuxt */
+  border-radius: 0;
+
+  button {
+    min-height: 2.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--cf-radius-control);
+    background: transparent;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--admin-muted);
+    cursor: pointer;
+  }
+}
+
+.asideTabActive {
+  background: #fff !important;
+  color: var(--admin-ink) !important;
+  border-color: var(--admin-border) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.sidebarCourse {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f3f5f3;
+
+  img {
+    width: 3.5rem;
+    height: 3.5rem;
+    object-fit: cover;
+    border-radius: var(--cf-radius-control);
+  }
+}
+
+.sidebarCourseFallback {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--cf-radius-control);
+  background: #eef0eb;
+  color: #5f6b55;
+}
+
+.sidebarCourseName {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sidebarCourseMeta {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  color: var(--admin-muted);
+}
+
+.sidebarLista,
+.lessonListMobile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 28rem;
+  overflow: auto;
+  padding: 0.45rem;
+}
+
+.lessonRow {
+  display: grid;
+  grid-template-columns: 4.75rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 3.6rem;
+  padding: 0.4rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: var(--cf-radius-control);
+  cursor: pointer;
+
+  &:hover {
+    background: #f8faf8;
+  }
+}
+
+.lessonRowActive {
+  background: #eef0eb;
+  border-color: transparent;
+}
+
+.lessonThumb {
+  /* retângulo paisagem maior que 2× o raio no lado curto → não vira bolinha */
+  width: 4.75rem;
+  height: 3.5rem;
+  border-radius: var(--cf-radius-control);
+  overflow: hidden;
+  background: #eef0eb;
+  display: grid;
+  place-items: center;
+  color: #8b967c;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.lessonInfo {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+
+  strong {
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  small {
+    font-size: 0.7rem;
+    color: var(--admin-muted);
+  }
+}
+
+.lessonDelete {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+
+  &:hover {
+    color: #b42318;
+    background: #fef2f2;
+  }
+}
+
+.nextModule {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.55rem;
+  margin-top: auto;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-control);
+  background: #f8faf9;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  color: var(--admin-ink);
+
+  span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.addLesson {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: calc(100% - 1.1rem);
+  min-height: 2.45rem;
+  margin: 0.55rem;
+  border: 1.5px dashed var(--admin-border);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: #5f6f57;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f5f3;
+    border-color: #c5d0be;
+  }
+}
+
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  padding: 0.85rem;
+}
+
+.commentComposer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+
+  input {
+    min-height: 2.2rem;
+    padding: 0 0.7rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--cf-radius-control);
+    font: inherit;
+    font-size: 0.82rem;
+    outline: none;
+  }
+
+  button {
+    width: 2.2rem;
+    border: none;
+    border-radius: var(--cf-radius-control);
+    background: var(--admin-primary);
+    color: #fff;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.commentList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 24rem;
+  overflow: auto;
+}
+
+.commentItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+
+  p {
+    margin: 0.25rem 0;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: #334155;
+  }
+}
+
+.commentAvatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--cf-radius-control);
+  overflow: hidden;
+  background: #e8ece9;
+  display: grid;
+  place-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #5f6b55;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.commentMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+
+  strong {
+    font-size: 0.78rem;
+  }
+}
+
+.badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--cf-radius-control);
+  background: #eef0eb;
+  color: #3f4a37;
+}
+
+.commentFoot {
+  display: flex;
+  gap: 0.45rem;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: none;
+    background: transparent;
+    color: var(--admin-muted);
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+}
+
+.commentDelete:hover {
+  color: #b42318;
+}
+
+.mobileAulas {
+  display: none;
+}
+
+.state {
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  color: #b42318;
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .aside {
+    display: none;
+  }
+
+  .tabMobileOnly {
+    display: inline-flex;
+  }
+
+  .mobileAulas {
+    display: block;
+  }
+
+  .lessonHead {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,58 @@
+/**
+ * Utilitário cf-squircle — espelho de frontend/assets/css/patient-app.css
+ * (mesmo padrão do login e dos controles admin Nuxt)
+ */
+
+.cf-squircle {
+  --cf-squircle-r: var(--cf-radius-sheet, 2.75rem);
+  border-radius: var(--cf-squircle-r);
+}
+
+.cf-squircle--composer {
+  --cf-squircle-r: var(--cf-radius-composer, 1.875rem);
+  overflow: hidden;
+}
+
+.cf-squircle--msg-media {
+  --cf-squircle-r: var(--cf-radius-msg-media, 1.25rem);
+  overflow: hidden;
+}
+
+.cf-squircle--attach {
+  --cf-squircle-r: var(--cf-radius-attach, 1.125rem);
+  overflow: hidden;
+}
+
+.cf-squircle--tile {
+  --cf-squircle-r: var(--cf-radius-squircle-tile, min(3rem, 42%));
+  overflow: hidden;
+}
+
+.cf-squircle--icon {
+  --cf-squircle-r: var(--cf-radius-icon, 0.875rem);
+  border-radius: var(--cf-squircle-r);
+}
+
+.cf-squircle--control {
+  --cf-squircle-r: var(--cf-radius-control, var(--cf-radius));
+  border-radius: var(--cf-squircle-r);
+  overflow: hidden;
+}
+
+.cf-squircle--surface {
+  --cf-squircle-r: var(--cf-radius-surface, var(--cf-radius-xl));
+  border-radius: var(--cf-squircle-r);
+  overflow: hidden;
+}
+
+@supports (corner-shape: squircle) {
+  .cf-squircle,
+  .cf-squircle--icon,
+  .cf-squircle--attach,
+  .cf-squircle--msg-media,
+  .cf-squircle--tile,
+  .cf-squircle--control,
+  .cf-squircle--surface {
+    corner-shape: squircle;
+  }
+}

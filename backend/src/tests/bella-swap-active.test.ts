@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findActiveSwapMessage } from "../../../frontend/utils/bella-swap.js";
+import { findActiveSwapMessage } from "../../../frontend2/utils/bella-swap.js";
 
 test("findActiveSwapMessage ignora pendências antigas após substituição concluída", () => {
   const messages = [

@@ -1,0 +1,92 @@
+.card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0099ad;
+
+  svg {
+    color: #0099ad;
+    flex-shrink: 0;
+  }
+}
+
+.editBtn {
+  margin-left: auto;
+  min-height: 1.9rem !important;
+  padding: 0.25rem 0.6rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  flex-shrink: 0;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #6b7368;
+  line-height: 1.45;
+}
+
+.goal {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0099ad;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+
+  span {
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: #9aa39a;
+  }
+}
+
+.metaList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+
+  li {
+    font-size: 0.74rem;
+    color: #6b7368;
+    line-height: 1.4;
+  }
+}
+
+.btn {
+  width: 100% !important;
+  justify-content: center !important;
+  gap: 0.4rem !important;
+  min-height: 2.35rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+
+  svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+}

@@ -1,0 +1,15 @@
+/* Aggregator legado — o Turbopack resolve @import relativo ao styles/globals.scss,
+   então os CSS WhatsApp são importados diretamente em globals.scss.
+   Mantido para referência / import manual se necessário. */
+@import './whatsapp-layout.css';
+@import './whatsapp-sidebar.css';
+@import './whatsapp-chat-header.css';
+@import './whatsapp-footer.css';
+@import './whatsapp-bubbles.css';
+@import './whatsapp-pinned.css';
+@import './whatsapp-reply-bar.css';
+@import './whatsapp-chat-context-menu.css';
+@import './whatsapp-modals.css';
+@import './whatsapp-helpers.css';
+@import './whatsapp-notifications.css';
+@import './whatsapp-media-composer.css';

@@ -1,0 +1,177 @@
+// Documentos workspace — extends PatientWorkspace pattern
+
+.pawork {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #2c322c;
+  }
+
+  p {
+    margin: 0.25rem 0 0;
+    font-size: 0.84rem;
+    color: #6b7368;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn {
+  min-height: 2.1rem !important;
+  padding: 0.35rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btnLink {
+  text-decoration: none !important;
+}
+
+.list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+}
+
+.cardDraft {
+  strong {
+    color: #6b7368;
+    font-style: italic;
+    font-weight: 500;
+  }
+}
+
+.cardMain {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+
+  &:hover p {
+    color: #374151;
+  }
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.1rem;
+
+  strong {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #2c322c;
+    line-height: 1.3;
+  }
+}
+
+.cardPreview {
+  margin: 0.15rem 0 0.2rem;
+  font-size: 0.8125rem;
+  color: #5f675f;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: var(--cf-radius-pill);
+}
+
+.draft {
+  background: rgba(202, 138, 4, 0.14);
+  color: #8a6a00;
+}
+
+.published {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.emptyWrap {
+  /* PatientChartEmptyState handles its own styling */
+}
+
+.error {
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--cf-radius-control);
+  color: #b42318;
+  font-size: 0.8125rem;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.85rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #2c322c;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.1s;
+
+  &:hover {
+    background: #f3f4f2;
+  }
+}
+
+.menuItemDanger {
+  color: #b42318;
+
+  &:hover {
+    background: #fef2f2;
+  }
+}

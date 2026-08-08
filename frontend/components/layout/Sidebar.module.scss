@@ -1,0 +1,296 @@
+.sidebar {
+  --admin-sidebar-width: 15.5rem;
+  --admin-sidebar-collapsed-width: 4.75rem;
+
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--admin-sidebar-width);
+  flex-shrink: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: 0.85rem 0.85rem 1rem;
+  box-sizing: border-box;
+  background: #fff;
+  border-right: 1px solid var(--admin-border);
+  overflow: hidden;
+  z-index: 70;
+  transition: width 0.22s ease;
+}
+
+.sidebarCollapsed {
+  --admin-sidebar-width: var(--admin-sidebar-collapsed-width);
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  margin-bottom: 0.85rem;
+  padding: 0 0.15rem;
+}
+
+.logoLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  color: var(--admin-ink);
+  text-decoration: none;
+
+  img {
+    width: 24px;
+    height: 34px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+}
+
+.brandText {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--cf-radius-control);
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--admin-primary-soft);
+    border-color: var(--admin-border);
+    color: var(--admin-primary, #8b967c);
+  }
+}
+
+.sidebar:hover .toggle,
+.sidebar:focus-within .toggle,
+.toggle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sidebarCollapsed .brandRow {
+  justify-content: center;
+}
+
+.sidebarCollapsed .logoLink {
+  display: none;
+}
+
+.sidebarCollapsed .toggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .toggle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.groupToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: transparent;
+  color: #3f4a3a;
+  font-size: var(--admin-font-nav);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--admin-primary-soft);
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.groupToggleActive {
+  background: var(--admin-primary-soft);
+  color: #2f382c;
+  font-weight: var(--admin-font-nav-weight-active);
+}
+
+.groupToggleOpen .chevron {
+  transform: rotate(180deg);
+}
+
+.chevron {
+  margin-left: auto;
+  color: var(--admin-muted);
+  transition: transform 0.18s ease;
+}
+
+.subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-left: 0.35rem;
+}
+
+.brandWhatsapp {
+  color: #25d366;
+  flex-shrink: 0;
+}
+
+.brandInstagram {
+  color: #e4405f;
+  flex-shrink: 0;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--cf-radius-control);
+  color: #3f4a3a;
+  font-size: var(--admin-font-nav);
+  font-weight: 500;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--admin-primary-soft);
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.linkChild {
+  padding-left: 0.85rem;
+}
+
+.linkActive {
+  background: var(--admin-primary-soft);
+  color: #2f382c;
+  font-weight: var(--admin-font-nav-weight-active);
+}
+
+.sidebarCollapsed .link,
+.sidebarCollapsed .groupToggle {
+  justify-content: center;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+}
+
+.sidebarCollapsed .link span,
+.sidebarCollapsed .groupToggle span,
+.sidebarCollapsed .chevron,
+.sidebarCollapsed .brandText {
+  display: none;
+}
+
+.sidebarCollapsed .linkChild {
+  padding-left: 0.65rem;
+}
+
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    border: none;
+    margin: 0;
+    padding: 0;
+    background: rgba(20, 24, 22, 0.42);
+    cursor: pointer;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 90;
+    width: min(18rem, 88vw);
+    max-width: 18rem;
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
+    box-shadow: 4px 0 24px rgba(20, 24, 22, 0.12);
+  }
+
+  .sidebarCollapsed {
+    --admin-sidebar-width: min(18rem, 88vw);
+  }
+
+  .sidebarMobileOpen {
+    transform: translateX(0);
+  }
+
+  .sidebarCollapsed .logoLink {
+    display: inline-flex;
+  }
+
+  .sidebarCollapsed .link span,
+  .sidebarCollapsed .groupToggle span,
+  .sidebarCollapsed .chevron,
+  .sidebarCollapsed .brandText {
+    display: initial;
+  }
+
+  .sidebarCollapsed .chevron {
+    display: block;
+  }
+
+  .sidebarCollapsed .link,
+  .sidebarCollapsed .groupToggle {
+    justify-content: flex-start;
+  }
+
+  .toggle {
+    display: none;
+  }
+}

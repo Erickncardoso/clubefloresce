@@ -1,32 +1,33 @@
-# Painel admin — Coolify: Base Directory = frontend | Dockerfile = Dockerfile
-FROM node:22-alpine AS builder
-
+# Painel admin Next.js — Coolify: Base Directory = frontend | Dockerfile = Dockerfile
+FROM node:22-alpine AS deps
 WORKDIR /app
-
-ENV NUXT_TELEMETRY_DISABLED=1
-ARG NUXT_PUBLIC_API_BASE=/api
-ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
-ENV NODE_OPTIONS=--max-old-space-size=3072
-
 COPY package*.json ./
-RUN npm ci --include=optional
+RUN npm ci
 
+FROM node:22-alpine AS builder
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS=--max-old-space-size=3072
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build \
-  && rm -rf node_modules .nuxt \
-  && npm cache clean --force
+# Em produção o Coolify/proxy serve /api no mesmo domínio — sem rewrites locais.
+ARG NEXT_PUBLIC_API_BASE=/api
+ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
+RUN npm run build
 
 FROM node:22-alpine AS runner
-
 WORKDIR /app
-
 ENV NODE_ENV=production
-ENV NUXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
-ENV HOST=0.0.0.0
+ENV HOSTNAME=0.0.0.0
 
-COPY --from=builder /app/.output ./.output
+RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
 EXPOSE 3000
-
-CMD ["node", ".output/server/index.mjs"]
+CMD ["node", "server.js"]

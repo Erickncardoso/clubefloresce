@@ -1,0 +1,520 @@
+.financeContainer {
+  min-height: 100%;
+  background-color: #fcfcfc;
+}
+
+/* ── KPI grid ─────────────────────────────────────────────────────── */
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+
+.statCard {
+  background: white;
+  padding: 2rem;
+  border-radius: var(--cf-radius-control);
+  border: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  transition: transform 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.statCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.03);
+}
+
+.statIconBox {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--cf-radius-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statIconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.statIconGreen {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.statIconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.statData {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statValue {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #111;
+  margin: 4px 0;
+}
+
+.statChange {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #aaa;
+}
+
+.statChangePositive {
+  color: #16a34a;
+}
+
+/* ── Plans section ────────────────────────────────────────────────── */
+
+.plansSection {
+  background: white;
+  border-radius: var(--cf-radius-control);
+  padding: 2rem;
+  border: 1px solid #f0f0f0;
+  margin-bottom: 2.5rem;
+}
+
+.plansIntro {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: #888;
+}
+
+.plansHeaderActions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.plansError {
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+.plansSuccess {
+  color: #16a34a;
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+/* ── Products grid ────────────────────────────────────────────────── */
+
+.productsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.productCard {
+  border: 1px solid #ececec;
+  border-radius: var(--cf-radius-control);
+  padding: 1.1rem;
+  background: #fcfcfc;
+}
+
+.productCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.productActiveToggle,
+.productSubscriptionToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+}
+
+.productDeleteBtn {
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.productDeleteBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.productFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+/* float-field overrides inside product card */
+.productFields :global(.field--float) {
+  position: relative;
+  margin-top: 0.35rem;
+}
+
+.productFields :global(.field--float label) {
+  position: absolute;
+  top: -0.42rem;
+  left: 0.78rem;
+  margin: 0;
+  padding: 0 0.4rem;
+  background: #fcfcfc;
+  z-index: 2;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #444;
+  line-height: 1;
+}
+
+.productFields :global(.field--float input),
+.productFields :global(.field--float textarea),
+.productFields :global(.field--float select) {
+  width: 100%;
+  padding: 0.95rem 0.9rem 0.75rem;
+  border: 1.5px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  appearance: auto;
+}
+
+.productFields :global(.field--float input:focus),
+.productFields :global(.field--float textarea:focus),
+.productFields :global(.field--float select:focus) {
+  outline: none;
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+}
+
+.productFieldFull {
+  grid-column: 1 / -1;
+}
+
+.productHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #888;
+  line-height: 1.4;
+}
+
+/* ── Section header ───────────────────────────────────────────────── */
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.75rem;
+}
+
+.sectionHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #111;
+}
+
+/* ── Finance content (chart + transactions) ───────────────────────── */
+
+.financeContent {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 2.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.chartSection,
+.transactionsSection {
+  background: white;
+  border-radius: var(--cf-radius-control);
+  padding: 2.2rem;
+  border: 1px solid #f0f0f0;
+}
+
+/* Period selector */
+.periodSelector {
+  background: #f8f8f8;
+  padding: 4px;
+  border-radius: var(--cf-radius-control);
+  display: flex;
+  gap: 4px;
+}
+
+.periodBtn {
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--cf-radius-control);
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #777;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.periodBtnActive {
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Mock chart */
+.chartContainer {
+  height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.mockChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  height: 200px;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f8f8f8;
+}
+
+.chartLine {
+  flex: 1;
+  background: linear-gradient(to top, var(--primary), var(--primary-light, #6ab47b));
+  border-radius: var(--cf-radius-control) var(--cf-radius-control) 4px 4px;
+  position: relative;
+  transition: all 0.3s;
+  opacity: 0.8;
+}
+
+.chartLine:hover {
+  opacity: 1;
+  transform: scaleY(1.05);
+}
+
+.chartTooltip {
+  position: absolute;
+  top: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111;
+  color: white;
+  padding: 4px 8px;
+  border-radius: var(--cf-radius-control);
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+
+.chartLine:hover .chartTooltip {
+  opacity: 1;
+  top: -45px;
+}
+
+.chartLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #bbb;
+  padding: 0 0.5rem;
+}
+
+/* ── Transactions ─────────────────────────────────────────────────── */
+
+.transactionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.txItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid #f8f8f8;
+}
+
+.txItem:last-child {
+  border-bottom: none;
+}
+
+.txUser {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.txAvatar {
+  width: 40px;
+  height: 40px;
+  background: #f8fbf8;
+  color: var(--primary);
+  border-radius: var(--cf-radius-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  border: 1px solid #eff6ef;
+  flex-shrink: 0;
+}
+
+.txName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 2px;
+}
+
+.txDate {
+  font-size: 0.8rem;
+  color: #bbb;
+  font-weight: 600;
+}
+
+.txAmount {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.txValue {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #111;
+  margin-bottom: 4px;
+}
+
+.txStatus {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--cf-radius-pill);
+}
+
+.txStatusPaid {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.txStatusPending {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.txStatusCancelled {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.seeAll {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.emptyTx {
+  text-align: center;
+  color: #ccc;
+  padding: 2rem 0;
+  font-size: 0.9rem;
+}
+
+/* ── Notification logs ────────────────────────────────────────────── */
+
+.notificationLogsSection {
+  margin-top: 0;
+}
+
+.notificationLogsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.notificationLogItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #ececec;
+  border-radius: var(--cf-radius-control);
+  background: #fcfcfc;
+}
+
+.notificationLogMeta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  color: #888;
+  font-weight: 500;
+}
+
+.notificationLogStatus {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--cf-radius-pill);
+  white-space: nowrap;
+}
+
+.notificationLogStatusSent {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.notificationLogStatusFailed {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.notificationLogStatusSkipped {
+  background: #f4f4f5;
+  color: #71717a;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .financeContent {
+    grid-template-columns: 1fr;
+  }
+}

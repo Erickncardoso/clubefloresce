@@ -1,0 +1,358 @@
+.pcap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin: 0.85rem 0 0.35rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+}
+
+.pcapStandalone {
+  margin-top: 0;
+}
+
+.pcapHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
+}
+
+.pcapHeadMain {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+
+  h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  p {
+    margin: 0.15rem 0 0;
+    font-size: 0.75rem;
+    color: #8a9288;
+  }
+}
+
+.pcapIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(139, 150, 124, 0.14);
+  color: var(--primary, #8b967c);
+}
+
+.pcapEdit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  background: #f8faf9;
+  color: #374151;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+}
+
+.pcapGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pcapTile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #eef1ee;
+  border-radius: var(--cf-radius-control);
+  background: #fbfcfb;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+
+  small {
+    font-size: 0.7rem;
+    color: #8a9288;
+  }
+}
+
+.pcapTileLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.pcapTileValue {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.25;
+}
+
+.pcapTileValueOk {
+  color: #2f6b3a;
+}
+
+.pcapBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--cf-radius-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #eef1ee;
+  color: #4b5563;
+}
+
+.pcapBadgeOk {
+  background: rgba(47, 107, 58, 0.12);
+  color: #2f6b3a;
+}
+
+.pcapBadgeWarn {
+  background: rgba(202, 138, 4, 0.16);
+  color: #92400e;
+}
+
+.pcapBadgeDanger {
+  background: rgba(197, 48, 48, 0.12);
+  color: #b42318;
+}
+
+.pcapBadgeMuted {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.pcapApprovals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pcapApproval {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid #eef1ee;
+  border-radius: var(--cf-radius-control);
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+
+  header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+
+    > svg {
+      width: 1rem;
+      height: 1rem;
+      margin-top: 0.15rem;
+      color: #6b7280;
+      flex-shrink: 0;
+    }
+
+    h4 {
+      margin: 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    p {
+      margin: 0.25rem 0 0;
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+  }
+}
+
+.pcapMuted {
+  color: #9ca3af;
+}
+
+.pcapApprovalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pcapBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 2rem;
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: var(--primary, #8b967c);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.pcapBtnGhost {
+  background: #f3f5f4;
+  color: #374151;
+}
+
+.pcapOk {
+  margin: 0;
+  color: #2f6b3a;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pcapError {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pcapModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.pcapModal {
+  width: min(34rem, 100%);
+  max-height: min(90vh, 40rem);
+  overflow: auto;
+  padding: 1.1rem 1.15rem;
+  background: #fff;
+  border-radius: var(--cf-radius-control);
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+
+  header {
+    h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0.25rem 0 0.85rem;
+      color: #8a9288;
+      font-size: 0.8rem;
+    }
+  }
+
+  footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+  }
+}
+
+.pcapModalLoading {
+  padding: 1.5rem 0;
+  text-align: center;
+  color: #8a9288;
+}
+
+.pcapPreview {
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--cf-radius-control);
+  background: #f8faf9;
+  font-size: 0.8rem;
+
+  > span {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+  }
+
+  :global(.wa-pre) {
+    margin: 0.35rem 0 0;
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--cf-radius-control);
+    background: #eef1ee;
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+}

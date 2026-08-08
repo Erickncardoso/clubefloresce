@@ -6,12 +6,12 @@ import { parseDietboxMealPlan } from "../dietbox-parser";
 
 const samplePath = path.resolve(
   process.cwd(),
-  "../frontend/tests/fixtures/planejamento-sample.txt",
+  "../frontend2/tests/fixtures/planejamento-sample.txt",
 );
 
 const isabellaPath = path.resolve(
   process.cwd(),
-  "../frontend/tests/fixtures/planejamento-isabella-jardim.txt",
+  "../frontend2/tests/fixtures/planejamento-isabella-jardim.txt",
 );
 
 describe("parseDietboxMealPlan", () => {

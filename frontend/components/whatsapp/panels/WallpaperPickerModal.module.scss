@@ -1,0 +1,169 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10085;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(11, 20, 26, 0.45);
+}
+
+.modal {
+  width: min(100%, 520px);
+  max-height: min(92vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(11, 20, 26, 0.18);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9edef;
+  flex-shrink: 0;
+}
+
+.closeBtn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #54656f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover { background: rgba(11, 20, 26, 0.06); }
+}
+
+.title {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #111b21;
+}
+
+.body {
+  padding: 16px 20px 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.hint {
+  margin: 0 0 16px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #667781;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tilePreview {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px rgba(11, 20, 26, 0.08);
+  overflow: hidden;
+  display: block;
+}
+
+.tile.selected .tilePreview {
+  border-color: #00a884;
+  box-shadow: 0 0 0 1px #00a884;
+}
+
+.tilePreviewUpload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+}
+
+.uploadIcon {
+  color: #54656f;
+}
+
+.uploadImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tileLabel {
+  font-size: 0.8125rem;
+  color: #54656f;
+  text-align: center;
+}
+
+.fileInput {
+  display: none;
+}
+
+.errorMsg {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  color: #ea0038;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid #e9edef;
+  flex-shrink: 0;
+}
+
+.btn {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btnGhost {
+  background: transparent;
+  color: #00a884;
+
+  &:hover { background: rgba(0, 168, 132, 0.08); }
+}
+
+.btnPrimary {
+  background: #00a884;
+  color: #fff;
+
+  &:hover { background: #008f72; }
+}

@@ -1,0 +1,152 @@
+/**
+ * Arredondamento admin — espelho de frontend/assets/css/admin-rounding.css
+ * Inputs, botões e cards do painel: --cf-radius-control + squircle.
+ * Cards e controles usam o MESMO raio (nunca tile/surface/calc fracionado).
+ */
+
+/* ── Botões ── */
+.admin-shell :is(
+  .btn-primary,
+  .btn-secondary,
+  .btn-cancel,
+  .btn-auth-submit,
+  button.cf-squircle--control
+),
+.auth-page :is(
+  .btn-primary,
+  .btn-secondary,
+  .btn-auth-submit
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+/* ── Inputs / float fields ── */
+.admin-shell :is(
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select,
+  .field-control,
+  .field.field--float .field-control,
+  .field.field--float > input,
+  .field.field--float > textarea,
+  .field.field--float > select
+),
+.auth-page :is(
+  .field-control,
+  .field.field--float .field-control,
+  .field.field--float > input,
+  .field.field--float > textarea,
+  .field.field--float > select,
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+/* ── Cards / painéis do admin (mesmo raio dos controles) ── */
+.admin-shell :is(
+  .admin-shell-card,
+  .modal-card,
+  .bento-card,
+  .engagement-pill,
+  .engagement-patient-btn,
+  .danger-wa-btn,
+  .bento-cta,
+  .patient-row,
+  .feed-row,
+  .consumption-row,
+  .feed-thumb,
+  .consumption-stats > div,
+  .danger-wa-dialog,
+  .danger-wa-textarea,
+  .cf-admin-radius,
+  .cf-tile-card,
+  .cf-squircle--control
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+/* Topbar / busca / sidebar */
+.admin-shell :is(
+  .admin-topbar-search,
+  .admin-topbar-icon-btn,
+  .admin-topbar-profile,
+  .admin-topbar-search-item,
+  .admin-topbar-search-kbd,
+  .admin-topbar-search-panel,
+  .admin-topbar-search-create,
+  .admin-topbar-profile-menu,
+  .admin-sidebar-link
+) {
+  border-radius: var(--cf-radius-control) !important;
+}
+
+/* Badge circular só em indicadores tipicamente round (ex.: contador da topbar) */
+.admin-shell :is(.admin-topbar-badge) {
+  border-radius: var(--cf-radius-pill) !important;
+}
+
+/* Login: card = surface (como Nuxt); controles = control */
+.auth-page .auth-card.cf-squircle--surface,
+.auth-page .auth-card {
+  border-radius: var(--cf-radius-surface) !important;
+}
+
+/* Tiles do admin: NUNCA usar raio de tile paciente — força control */
+.admin-shell .cf-squircle--tile {
+  --cf-squircle-r: var(--cf-radius-control);
+  border-radius: var(--cf-radius-control) !important;
+}
+
+@supports (corner-shape: squircle) {
+  .admin-shell :is(
+    .btn-primary,
+    .btn-secondary,
+    .btn-cancel,
+    .btn-auth-submit,
+    button.cf-squircle--control,
+    .admin-shell-card,
+    .modal-card,
+    .bento-card,
+    .engagement-pill,
+    .engagement-patient-btn,
+    .danger-wa-btn,
+    .bento-cta,
+    .patient-row,
+    .feed-row,
+    .consumption-row,
+    .feed-thumb,
+    .consumption-stats > div,
+    .danger-wa-dialog,
+    .danger-wa-textarea,
+    .cf-admin-radius,
+    .cf-tile-card,
+    .cf-squircle--control,
+    .cf-squircle--tile,
+    input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    textarea,
+    select,
+    .field-control,
+    .admin-topbar-search,
+    .admin-topbar-icon-btn,
+    .admin-topbar-profile,
+    .admin-topbar-search-item,
+    .admin-topbar-search-panel,
+    .admin-topbar-search-create,
+    .admin-topbar-profile-menu,
+    .admin-sidebar-link
+  ),
+  .auth-page :is(
+    .btn-primary,
+    .btn-secondary,
+    .btn-auth-submit,
+    .auth-card,
+    .field-control,
+    input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    textarea,
+    select
+  ) {
+    corner-shape: squircle;
+  }
+}

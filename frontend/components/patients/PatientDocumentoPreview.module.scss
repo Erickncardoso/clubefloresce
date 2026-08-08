@@ -1,0 +1,303 @@
+.wrap {
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  padding: 0.35rem 0 0.75rem;
+}
+
+.wrapLarge {
+  flex: 1;
+  min-height: 0;
+  padding: 0.35rem 0 0.5rem;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.page {
+  position: relative;
+  width: min(100%, 18.5rem);
+  min-height: 26rem;
+  aspect-ratio: 210 / 297;
+  display: flex;
+  flex-direction: column;
+  padding: 1.15rem 1rem 0.9rem;
+  background: #fff;
+  border: 1px solid #e8ece9;
+  border-radius: 0;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.pageLarge {
+  width: min(100%, 30rem);
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 210 / 297;
+  padding: 1.35rem 1.2rem 0.95rem;
+  border: 1px solid #dfe3df;
+  box-shadow: 0 10px 32px rgba(15, 23, 42, 0.12);
+  flex-shrink: 0;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bgLogo {
+  position: absolute;
+  width: min(68%, 9rem);
+  height: auto;
+  right: -18%;
+  top: 36%;
+  transform: translateY(-50%) rotate(-8deg);
+  opacity: 0.07;
+  filter: saturate(0.85);
+  object-fit: contain;
+}
+
+.pageLarge .bgLogo {
+  width: min(72%, 11rem);
+  right: -22%;
+  top: 38%;
+  opacity: 0.06;
+  transform: translateY(-50%) rotate(-6deg);
+}
+
+.head,
+.body,
+.foot {
+  position: relative;
+  z-index: 1;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pageLarge .head {
+  margin-bottom: 0.65rem;
+}
+
+.headCopy {
+  min-width: 0;
+}
+
+.kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #8a9288;
+}
+
+.pageLarge .kicker {
+  font-size: 0.72rem;
+}
+
+.head h3 {
+  margin: 0 0 0.65rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #2c322c;
+}
+
+.pageLarge .head h3 {
+  font-size: 1rem;
+  margin-bottom: 0.45rem;
+}
+
+.meta {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+
+  div {
+    display: flex;
+    gap: 0.35rem;
+    font-size: 0.64rem;
+    line-height: 1.35;
+  }
+
+  dt {
+    margin: 0;
+    color: #8a9288;
+    font-weight: 500;
+  }
+
+  dd {
+    margin: 0;
+    color: #374151;
+    font-weight: 500;
+  }
+}
+
+.pageLarge .meta {
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem 0.75rem;
+
+  div {
+    flex-direction: column;
+    gap: 0.05rem;
+    font-size: 0.68rem;
+  }
+}
+
+.brand {
+  display: grid;
+  justify-items: end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.logo {
+  width: 1.35rem;
+  height: 1.9rem;
+  object-fit: contain;
+}
+
+.logoFoot {
+  width: 1.2rem;
+  height: 1.7rem;
+}
+
+.pageLarge .logo {
+  width: 1.45rem;
+  height: 2rem;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.content {
+  font-size: 0.68rem;
+  line-height: 1.65;
+  color: #374151;
+
+  p {
+    margin: 0 0 0.55rem;
+  }
+
+  ul,
+  ol {
+    margin: 0 0 0.55rem;
+    padding-left: 1rem;
+  }
+
+  li {
+    margin-bottom: 0.2rem;
+  }
+
+  strong {
+    color: #2c322c;
+    font-weight: 600;
+  }
+
+  table {
+    width: 100%;
+    margin: 0 0 0.55rem;
+    border-collapse: collapse;
+    table-layout: fixed;
+
+    tr:first-child th,
+    tr:first-child td {
+      background: #f3f5f3;
+    }
+
+    th,
+    td {
+      border: 1px solid #dfe4df;
+      padding: 0.25rem 0.35rem;
+      vertical-align: top;
+      word-break: break-word;
+    }
+  }
+}
+
+.pageLarge .content {
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.empty {
+  margin: 2.5rem 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: #9aa39a;
+}
+
+.pageLarge .empty {
+  font-size: 0.78rem;
+  margin-top: 3.5rem;
+}
+
+.foot {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #eef1ee;
+}
+
+.pageLarge .foot {
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+}
+
+.footBrand {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.footSign {
+  text-align: center;
+  max-width: 12rem;
+  margin: 0 auto;
+
+  p {
+    margin: 0 0 0.2rem;
+    font-size: 0.58rem;
+    color: #6b7368;
+  }
+}
+
+.pageLarge .footSign p {
+  font-size: 0.62rem;
+}
+
+.signLine {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: #2c322c;
+  border-top: 1px solid #d1d5db;
+  padding-top: 0.2rem;
+}
+
+.pageLarge .signLine {
+  font-size: 0.72rem;
+}
+
+.pageNo {
+  font-size: 0.58rem;
+  color: #9aa39a;
+  white-space: nowrap;
+}
+
+.pageLarge .pageNo {
+  font-size: 0.62rem;
+}

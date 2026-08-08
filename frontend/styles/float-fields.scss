@@ -1,0 +1,130 @@
+/* Inputs admin — label flutuante na borda (padrão do Nuxt) */
+
+.field.field--float {
+  position: relative;
+  margin-top: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.field.field--float > label {
+  position: absolute;
+  top: -0.42rem;
+  left: 0.78rem;
+  z-index: 2;
+  margin: 0;
+  padding: 0 0.4rem;
+  background: #fff;
+  font-size: var(--admin-font-label);
+  font-weight: var(--admin-font-label-weight);
+  line-height: 1;
+  color: #444;
+  pointer-events: none;
+}
+
+.field.field--float.is-focused > label,
+.field.field--float:focus-within > label {
+  color: var(--admin-primary);
+}
+
+.field.field--float .field-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.9rem;
+  border: 1.5px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  transition: border-color 0.15s ease;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.field.field--float .field-control:focus-within {
+  border-color: #b8d4b4;
+  box-shadow: none;
+}
+
+.field.field--float .field-icon {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #b0bab5;
+}
+
+.field.field--float .field-control:focus-within .field-icon {
+  color: var(--admin-primary);
+}
+
+.field.field--float input:not([type='range']),
+.field.field--float textarea,
+.field.field--float select {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.95rem 0 0.85rem;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--admin-ink);
+  border-radius: var(--cf-radius-control);
+}
+
+.field.field--float:not(:has(.field-control)) > input:not([type='range']),
+.field.field--float:not(:has(.field-control)) > textarea,
+.field.field--float:not(:has(.field-control)) > select {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.95rem 0.9rem 0.85rem;
+  border: 1.5px solid #e8ece9;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--admin-ink);
+  outline: none;
+  box-shadow: none;
+  transition: border-color 0.15s ease;
+}
+
+.field.field--float:not(:has(.field-control)) > input:focus,
+.field.field--float:not(:has(.field-control)) > textarea:focus,
+.field.field--float:not(:has(.field-control)) > select:focus {
+  border-color: #b8d4b4;
+  box-shadow: none;
+}
+
+.field.field--float textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+  line-height: 1.45;
+  padding-top: 0.95rem;
+}
+
+.field.field--float input::placeholder,
+.field.field--float textarea::placeholder {
+  color: #b0bab5;
+}
+
+.field.field--float select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  padding-right: 2.25rem;
+}
+
+.admin-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}

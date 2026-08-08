@@ -1,0 +1,455 @@
+.pco {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--admin-border, #e8ece9);
+}
+
+// ─── Metric tiles ─────────────────────────────────────────────────────────────
+
+.pcoMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+
+  @media (max-width: 1080px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 820px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pcoMetric {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem 0.9rem;
+  background: #fff;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  min-width: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+}
+
+.pcoMetricAction {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: rgba(139, 150, 124, 0.55);
+    box-shadow: 0 0 0 3px rgba(139, 150, 124, 0.12);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #76836b;
+    outline-offset: 2px;
+  }
+}
+
+.pcoMetric:disabled {
+  cursor: default;
+}
+
+.pcoMetricIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--cf-radius-full, 9999px);
+  background: #f3f5f4;
+  color: #6b7280;
+}
+
+.pcoMetricIconSuccess { background: rgba(47, 107, 58, 0.12); color: #2f6b3a; }
+.pcoMetricIconWarn    { background: rgba(202, 138, 4, 0.14);  color: #92400e; }
+.pcoMetricIconDanger  { background: rgba(197, 48, 48, 0.12);  color: #b42318; }
+
+.pcoMetricCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.pcoMetricLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.pcoMetricValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.pcoMetricCopy small {
+  font-size: 0.75rem;
+  color: #8a9288;
+  line-height: 1.3;
+}
+
+.pcoMetricHintWarn {
+  color: #c53030 !important;
+  font-weight: 600;
+}
+
+.pcoMetricCta {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--primary, #8b967c);
+}
+
+// ─── Cards ────────────────────────────────────────────────────────────────────
+
+.pcoDetails,
+.pcoBottom {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  @media (max-width: 820px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pcoCard {
+  background: #fff;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  padding: 1rem 1.05rem;
+  min-width: 0;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+}
+
+.pcoCardWide {
+  padding: 1rem 1.05rem 1.1rem;
+}
+
+.pcoCardHead {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.pcoCardHeadSpaced {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #eef1ee;
+}
+
+.pcoCardHeadSplit {
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.pcoCardHeadMain {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.pcoCardHead h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+  letter-spacing: -0.01em;
+}
+
+.pcoCardIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border-radius: var(--cf-radius-full, 9999px);
+  background: rgba(139, 150, 124, 0.12);
+  color: var(--primary, #8b967c);
+}
+
+.pcoCardIconGreen  { background: rgba(47, 107, 58, 0.12);    color: #2f6b3a; }
+.pcoCardIconBlue   { background: rgba(59, 130, 246, 0.12);   color: #1d4ed8; }
+.pcoCardIconPurple { background: rgba(124, 58, 237, 0.12);   color: #6d28d9; }
+.pcoCardIconRose   { background: rgba(244, 63, 94, 0.12);    color: #be123c; }
+
+.pcoCardLead {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1f2937;
+  line-height: 1.45;
+}
+
+.pcoCardSub {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: #8a9288;
+}
+
+// ─── Description list ─────────────────────────────────────────────────────────
+
+.pcoDl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pcoDlRow {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 38%) 1fr;
+  gap: 0.65rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #f1f3f2;
+  font-size: 0.8125rem;
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  @media (max-width: 820px) {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  dt {
+    margin: 0;
+    color: #9ca3af;
+    font-weight: 500;
+  }
+
+  dd {
+    margin: 0;
+    color: #1f2937;
+    font-weight: 600;
+    text-align: right;
+    word-break: break-word;
+
+    @media (max-width: 820px) {
+      text-align: left;
+    }
+  }
+}
+
+// ─── Flags ────────────────────────────────────────────────────────────────────
+
+.pcoFlags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pcoFlag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--cf-radius-pill);
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+}
+
+.pcoFlagOn {
+  background: rgba(139, 150, 124, 0.16);
+  color: #4b554c;
+}
+
+.pcoNotes {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--cf-radius-control);
+  background: #f8faf9;
+  color: #4b5563;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+}
+
+.pcoEmptyInline {
+  margin: 0.5rem 0 0;
+  color: #9ca3af;
+  font-size: 0.8125rem;
+}
+
+// ─── Empty states ─────────────────────────────────────────────────────────────
+
+.pcoEmptyBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 1.25rem 0.75rem;
+  text-align: center;
+  color: #9ca3af;
+
+  p {
+    margin: 0;
+    font-size: 0.8125rem;
+  }
+}
+
+.pcoEmptyIcon {
+  opacity: 0.55;
+}
+
+.pcoEmptyCta {
+  margin-top: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+}
+
+// ─── Link button ──────────────────────────────────────────────────────────────
+
+.pcoLinkBtn {
+  margin: 0;
+  padding: 0.2rem 0.45rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: transparent;
+  color: var(--primary, #8b967c);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+
+  &:hover {
+    background: rgba(139, 150, 124, 0.1);
+  }
+}
+
+// ─── Timeline ─────────────────────────────────────────────────────────────────
+
+.pcoTimeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pcoTimelineItem {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #f1f3f2;
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.pcoTimelineDate {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 0.3rem;
+}
+
+.pcoTimelineTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18rem 0.5rem;
+    border-radius: var(--cf-radius-pill);
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+}
+
+// ─── Bella messages ───────────────────────────────────────────────────────────
+
+.pcoMessages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pcoMessage {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #f1f3f2;
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  p {
+    margin: 0.4rem 0 0.25rem;
+    font-size: 0.8125rem;
+    color: #374151;
+    line-height: 1.45;
+  }
+
+  time {
+    font-size: 0.72rem;
+    color: #9ca3af;
+  }
+}
+
+.pcoMessageTopic {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--cf-radius-pill);
+  background: rgba(139, 150, 124, 0.14);
+  color: var(--primary, #8b967c);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

@@ -1,0 +1,98 @@
+.preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 0;
+  padding: 1rem 0.75rem 1.1rem;
+  overflow: auto;
+}
+
+.head {
+  width: 100%;
+  text-align: center;
+
+  strong {
+    display: block;
+    font-size: 0.88rem;
+    color: var(--admin-ink, #141414);
+  }
+
+  span {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.74rem;
+    color: var(--admin-muted, #66706e);
+  }
+}
+
+/* mockup-isa.png — 486×978; fundo branco preenche a área transparente da tela */
+.phoneShell {
+  position: relative;
+  width: min(100%, 280px);
+  aspect-ratio: 486 / 978;
+  margin-inline: auto;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 14%;
+  overflow: hidden;
+}
+
+.phoneMockup {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.phoneScreen {
+  position: absolute;
+  top: 5.5%;
+  left: 5.5%;
+  right: 5.5%;
+  bottom: 6.7%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 11%;
+  background: #fff;
+  --cf-pink: #8b967c;
+  --cf-pink-dark: #6f7863;
+  --cf-pink-soft: #eef0eb;
+  --cf-border: #e8ece9;
+  --cf-text: #1a2e24;
+  --cf-text-muted: #7a8a82;
+  --cf-bg: #ffffff;
+  --cf-track: #eef0eb;
+}
+
+.phoneEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 1rem;
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: var(--cf-text-muted, #66706e);
+  }
+}
+
+.hint {
+  margin: 0;
+  max-width: 16rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--admin-muted, #66706e);
+}

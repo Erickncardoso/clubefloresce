@@ -1,0 +1,297 @@
+/* ─── Root ───────────────────────────────────────────────── */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.state {
+  font-size: 0.88rem;
+  color: #666;
+  margin: 0;
+}
+
+.stateError {
+  color: #c53030;
+}
+
+/* ─── Goal list ──────────────────────────────────────────── */
+.goals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ─── Card ───────────────────────────────────────────────── */
+.card {
+  padding: 1rem 1.05rem 0.95rem;
+  border-radius: var(--cf-radius-control);
+  border: none;
+  background: #f3f4f6;
+}
+
+.cardWater   { background: #e8f0fb; }
+.cardFood    { background: #f8f0ed; }
+.cardExercise { background: #eef0eb; }
+.cardSleep   { background: #f3f4f6; }
+
+/* ─── Card header ────────────────────────────────────────── */
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.headCopy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+
+  h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--cf-text, #1c1816);
+  }
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: var(--cf-radius-pill);
+  background: rgba(255, 255, 255, 0.72);
+  flex-shrink: 0;
+  color: var(--cf-text, #1c1816);
+
+  .cardWater   & { color: #4a8fc4; }
+  .cardFood    & { color: #9d7268; }
+  .cardExercise & { color: #5f8f58; }
+  .cardSleep   & { color: #6b74b8; }
+}
+
+.meta {
+  margin: 0.18rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgba(28, 24, 22, 0.52);
+}
+
+.pct {
+  font-size: 1.55rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--cf-text, #1c1816);
+  flex-shrink: 0;
+}
+
+.pctCount {
+  font-size: 1.55rem;
+}
+
+/* ─── Surface / widget wrapper ───────────────────────────── */
+.surface {
+  padding: 0.75rem 0.65rem 0.7rem;
+  border-radius: calc(var(--cf-radius-control) - 2px);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+
+.widget {
+  padding: 0;
+}
+
+/* ─── Water widget ───────────────────────────────────────── */
+.waterWidget {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.waterTrack {
+  position: relative;
+  width: 1.5rem;
+  height: 4rem;
+  border: 1.5px solid #b8d0f0;
+  border-radius: var(--cf-radius-pill);
+  background: #dce8fc;
+  overflow: hidden;
+}
+
+.waterFill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: var(--cf-radius-pill);
+  background: #4a8fc4;
+  transition: height 0.35s ease;
+}
+
+/* ─── Food widget ────────────────────────────────────────── */
+.foodWidget {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.foodDay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 1.8rem;
+}
+
+.foodDayDot {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: var(--cf-radius-pill);
+  border: 1.5px solid rgba(157, 114, 104, 0.35);
+  background: transparent;
+  transition: background 0.15s;
+
+  .foodDayDone & {
+    background: #9d7268;
+    border-color: #9d7268;
+  }
+
+  .foodDayToday & {
+    border-color: #9d7268;
+  }
+}
+
+.foodDayLabel {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: rgba(28, 24, 22, 0.45);
+
+  .foodDayDone & {
+    color: #9d7268;
+  }
+
+  .foodDayToday & {
+    font-weight: 800;
+    color: rgba(28, 24, 22, 0.7);
+  }
+}
+
+/* ─── Exercise widget ────────────────────────────────────── */
+.exerciseWidget {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.exerciseTrack {
+  height: 0.55rem;
+  border-radius: var(--cf-radius-pill);
+  background: #cee0cc;
+  overflow: hidden;
+}
+
+.exerciseFill {
+  height: 100%;
+  border-radius: var(--cf-radius-pill);
+  background: #5f8f58;
+  transition: width 0.35s ease;
+}
+
+/* ─── Sleep widget ───────────────────────────────────────── */
+.sleepWidget {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sleepRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--cf-text, #1c1816);
+}
+
+.sleepIcon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.sleepTime {
+  font-variant-numeric: tabular-nums;
+}
+
+.sleepArrow {
+  opacity: 0.5;
+}
+
+/* ─── Generic widget ─────────────────────────────────────── */
+.genericWidget {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0;
+}
+
+.genericValue {
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-width: 4.5rem;
+  text-align: center;
+}
+
+/* ─── Shared widget label ────────────────────────────────── */
+.widgetLabel {
+  font-size: 0.72rem;
+  color: rgba(28, 24, 22, 0.52);
+}
+
+/* ─── Nutrition targets card ─────────────────────────────── */
+.targetsCard {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-control);
+  background: #fafcfb;
+
+  h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.88rem;
+  }
+}
+
+.targetsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  font-size: 0.82rem;
+  color: #555;
+
+  strong {
+    color: #141414;
+  }
+}
+
+/* ─── Compact ────────────────────────────────────────────── */
+.compact {
+  .goals {
+    gap: 0.65rem;
+  }
+
+  .card {
+    padding: 0.85rem 0.9rem 0.8rem;
+  }
+
+  .pct {
+    font-size: 1.25rem;
+  }
+}

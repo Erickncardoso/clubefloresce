@@ -1,0 +1,48 @@
+.page {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.error {
+  margin: -0.5rem 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--cf-radius-control);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.lightboxClose {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: var(--cf-radius-pill);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.lightboxImg {
+  max-width: min(100%, 960px);
+  max-height: calc(100vh - 2.5rem);
+  object-fit: contain;
+  border-radius: var(--cf-radius-control);
+}

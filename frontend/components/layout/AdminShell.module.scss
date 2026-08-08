@@ -1,0 +1,108 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  background: var(--admin-bg);
+}
+
+.shellCollapsed {
+  /* reserved for layout hooks tied to collapse */
+}
+
+.shellPatientChart {
+  --patient-chart-sidebar-width: 260px;
+}
+
+.shellFullEditor {
+  /* full-bleed editors (planos/documentos) */
+}
+
+.shellWhatsappChat {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mainWhatsappChat {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.contentWhatsappChat {
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.patientChartSidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  width: var(--patient-chart-sidebar-width, 260px);
+  height: 100vh;
+  flex-shrink: 0;
+  overflow: auto;
+  background: #fff;
+  border-right: 1px solid var(--admin-border);
+  z-index: 5;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  padding: 1.15rem 1.25rem 2rem;
+  overflow: auto;
+}
+
+.contentPatientChart {
+  padding-top: 0.85rem;
+}
+
+.contentFullEditor {
+  padding: 0;
+  overflow: hidden;
+}
+
+.loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 960px) {
+  .shellPatientChart {
+    flex-wrap: wrap;
+  }
+
+  .patientChartSidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--admin-border);
+  }
+}

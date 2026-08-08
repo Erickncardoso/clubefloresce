@@ -1,0 +1,294 @@
+.panel {
+  padding: 1rem;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+
+  h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #2c322c;
+  }
+
+  p {
+    margin: 0.25rem 0 0;
+    font-size: 0.78rem;
+    color: #6b7368;
+  }
+}
+
+.refField {
+  min-width: 14rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.refLabel {
+  font-size: 0.72rem;
+  color: #6b7368;
+}
+
+.refSelect {
+  width: 100%;
+  min-height: 2.25rem;
+  border: 1px solid #d4d9d4;
+  border-radius: var(--cf-radius-control);
+  padding: 0 0.65rem;
+  font-size: 0.82rem;
+  color: #2c322c;
+  background: #fff;
+}
+
+.tabs {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.tab {
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #e2e8e4;
+  border-radius: var(--cf-radius-control);
+  background: #f4f6f4;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5f6d52;
+  cursor: pointer;
+
+  &:hover {
+    background: #eaede8;
+  }
+}
+
+.tabActive {
+  background: #8b967c;
+  border-color: #8b967c;
+  color: #fff;
+
+  &:hover {
+    background: #7a8570;
+  }
+}
+
+// ── Table view ─────────────────────────────────────────────────────────────────
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+
+  th,
+  td {
+    padding: 0.55rem 0.65rem;
+    border-bottom: 1px solid #eef1ee;
+    vertical-align: top;
+    text-align: left;
+  }
+
+  th {
+    font-size: 0.72rem;
+    color: #6b7368;
+    background: #f8faf8;
+    white-space: nowrap;
+
+    small {
+      display: block;
+      font-weight: 500;
+      color: #8a9288;
+    }
+  }
+}
+
+.categoryRow td {
+  background: #f4f6f4;
+  font-weight: 600;
+  color: #5f6d52;
+  font-size: 0.72rem;
+}
+
+.markerCell {
+  font-weight: 600;
+  color: #2c322c;
+  white-space: nowrap;
+}
+
+.refCell {
+  color: #6b7368;
+  white-space: nowrap;
+}
+
+.valueCell {
+  white-space: nowrap;
+}
+
+.valueNum {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  font-weight: 600;
+
+  small {
+    font-weight: 500;
+    color: #6b7368;
+  }
+}
+
+.valueNumLow { color: #1d4ed8; }
+.valueNumHigh { color: #b42318; }
+.valueNumNormal { color: #166534; }
+
+.valueEmpty {
+  color: #9ca3af;
+}
+
+.delta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  color: #6b7368;
+}
+
+.deltaUp { color: #b45309; }
+.deltaDown { color: #1d4ed8; }
+
+// ── Biomarker insight tooltip ──────────────────────────────────────────────────
+
+.insight {
+  position: relative;
+  display: inline-flex;
+}
+
+.insightPopover {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: calc(100% + 0.45rem);
+  transform: translateX(-50%);
+  width: min(18rem, 70vw);
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e2e8e4;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: #374151;
+  pointer-events: none;
+
+  strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.76rem;
+    color: #2c322c;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.insightExtended {
+  margin-top: 0.35rem !important;
+  color: #4b5563;
+}
+
+.insightRefs {
+  margin-top: 0.4rem !important;
+  font-size: 0.68rem;
+  color: #8b967c;
+}
+
+// ── Chart view ─────────────────────────────────────────────────────────────────
+
+.charts {
+  display: grid;
+  gap: 1rem;
+}
+
+.chartGroupTitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  color: #5f6d52;
+}
+
+.chartGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.65rem;
+}
+
+// ── Trend chart ────────────────────────────────────────────────────────────────
+
+.trendChart {
+  margin: 0;
+  padding: 0.65rem;
+  border: 1px solid #eef1ee;
+  border-radius: var(--cf-radius-control);
+  background: #fafbfa;
+}
+
+.trendHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+
+  strong {
+    font-size: 0.78rem;
+    color: #2c322c;
+  }
+
+  span {
+    font-size: 0.68rem;
+    color: #6b7368;
+  }
+}
+
+.trendSvg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.trendRefBand {
+  fill: rgba(139, 150, 124, 0.12);
+}
+
+.trendLine {
+  stroke: #8b967c;
+  stroke-width: 2;
+}
+
+.trendDot {
+  fill: #5f6d52;
+}
+
+.trendLabels {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.64rem;
+  color: #6b7368;
+}
+
+// ── Empty ──────────────────────────────────────────────────────────────────────
+
+.empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7368;
+}
