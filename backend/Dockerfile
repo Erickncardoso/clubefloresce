@@ -1,6 +1,9 @@
 FROM node:20-bullseye-slim AS builder
 WORKDIR /app
 
+# Coolify builders pequenos matam o `tsc` com exit 255 (OOM) sem mensagem de erro TS.
+ENV NODE_OPTIONS=--max-old-space-size=3072
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates ghostscript \
   && rm -rf /var/lib/apt/lists/*
