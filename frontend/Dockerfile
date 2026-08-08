@@ -2,10 +2,11 @@
 #
 # Importante:
 # - NEXT_PUBLIC_* precisa ser Build Argument (embutido no build)
-# - Não deixe NODE_ENV=production no stage de deps (Coolify costuma injetar e o npm ci
-#   fica sem typescript/devDeps; instalamos com NODE_ENV=development aqui)
+# - Coolify costuma injetar NODE_ENV=production (corta deps no npm ci).
+# - next build NÃO pode rodar com NODE_ENV=development (quebra prerender).
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
+# Força install completo mesmo se o Coolify exportar NODE_ENV=production
 ENV NODE_ENV=development
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev \
@@ -16,8 +17,6 @@ FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS=--max-old-space-size=4096
-# Mantém dependency install completo; o next build define production sozinho
-ENV NODE_ENV=development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -34,7 +33,8 @@ ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 ENV NEXT_PUBLIC_WHATSAPP_API_BASE=$NEXT_PUBLIC_WHATSAPP_API_BASE
 ENV NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID=$NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID
 
-# Webpack no Coolify: Turbopack no build costuma estourar memória e matar o container
+# Obrigatório production no build — development quebra static generation
+ENV NODE_ENV=production
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runner
