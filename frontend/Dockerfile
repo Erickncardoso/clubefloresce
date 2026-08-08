@@ -1,21 +1,31 @@
 # Painel admin Next.js — Coolify: Base Directory = frontend | Dockerfile = Dockerfile
 #
-# Importante: NEXT_PUBLIC_* é embutido no BUILD. Configure como Build Arguments
-# no Coolify (não basta só Runtime Environment Variables).
-#
-# Se o deploy morrer em "Creating an optimized production build" (exit 255),
-# aumente memória do build no Coolify (recomendado ≥ 4 GB) — OOM costuma truncar o log.
+# Importante:
+# - NEXT_PUBLIC_* precisa ser Build Argument (embutido no build)
+# - Não deixe NODE_ENV=production no stage de deps (Coolify costuma injetar e o npm ci
+#   fica sem typescript/devDeps; instalamos com NODE_ENV=development aqui)
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+ENV NODE_ENV=development
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev \
+  && test -d node_modules/next \
+  && node -e "const n=Object.keys(require('./package-lock.json').packages||{}).length; if(n<200){console.error('package-lock incompleto:',n); process.exit(1)}"
 
 FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS=--max-old-space-size=4096
+# Mantém dependency install completo; o next build define production sozinho
+ENV NODE_ENV=development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Sanity check: contexto precisa incluir lib/ e tsconfig (alias @/*)
+RUN test -f ./lib/api.ts \
+  && test -f ./tsconfig.json \
+  && test -d ./components \
+  && test -d ./app
 
 ARG NEXT_PUBLIC_API_BASE=/api
 ARG NEXT_PUBLIC_WHATSAPP_API_BASE=/api/whatsapp
