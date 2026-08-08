@@ -20,6 +20,7 @@ import { fetchWhatsappSessionConnected, whatsappHasAuth } from './api'
 import { verifyAuthSession } from '@/lib/auth'
 import {
   fetchChats,
+  enrichMissingChatAvatars,
   mergeChatUpdate,
   clearUnread,
   markChatAsRead,
@@ -169,7 +170,30 @@ export function WhatsappProvider({ children }: { children: React.ReactNode }) {
     setLoadingChats(true)
     try {
       const list = await fetchChats({ limit: 60 })
-      setChats(list.sort((a, b) => b.lastMessageAt - a.lastMessageAt))
+      const sorted = list.sort((a, b) => b.lastMessageAt - a.lastMessageAt)
+      setChats(sorted)
+      // Avatares em background — não bloqueia a lista; sincroniza o chat aberto
+      void enrichMissingChatAvatars(sorted).then((enriched) => {
+        if (enriched === sorted) return
+        setChats(enriched)
+        setSelectedChat((prev) => {
+          if (!prev) return prev
+          const hit = enriched.find((c) =>
+            c.chatJid === prev.chatJid
+            || (prev.waChatLid && c.waChatLid === prev.waChatLid)
+            || (prev.waChatId && c.waChatId === prev.waChatId)
+            || (prev.phone && c.phone === prev.phone),
+          )
+          if (!hit) return prev
+          return {
+            ...prev,
+            avatarUrl: hit.avatarUrl || prev.avatarUrl,
+            phone: hit.phone || prev.phone,
+            waChatId: hit.waChatId || prev.waChatId,
+            waChatLid: hit.waChatLid || prev.waChatLid,
+          }
+        })
+      })
     } catch (err) {
       console.warn('[WA] fetchChats error', err)
     } finally {
@@ -183,7 +207,9 @@ export function WhatsappProvider({ children }: { children: React.ReactNode }) {
     setLoadingMessages(true)
     setMessages([])
     try {
-      const msgs = await fetchMessages({ chatJid: chat.chatJid, limit: 40 })
+      // Preferência: LID (histórico WuzAPI) → chatJid → PN
+      const fetchJid = chat.waChatLid || chat.chatJid || chat.waChatId
+      const msgs = await fetchMessages({ chatJid: fetchJid, limit: 40 })
       setMessages(msgs)
       // Mark read no provider depois de carregar IDs inbound
       void markChatAsRead(chat, msgs)

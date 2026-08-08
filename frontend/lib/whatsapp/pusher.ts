@@ -97,10 +97,39 @@ export async function connectWhatsappPusher(): Promise<boolean> {
       pusherEnabledState = true
       teardownPusher()
 
+      // Authorizer com credentials: cookie httpOnly (cross-origin clube → apiclube).
+      // Não enviar x-requested-with — o CORS do backend não liberou esse header.
       pusherClient = new Pusher(String(config.key), {
         cluster: String(config.cluster),
-        authEndpoint: `${apiBase}/pusher/auth`,
-        auth: { headers: { 'x-requested-with': 'XMLHttpRequest' } },
+        authorizer: (channel) => ({
+          authorize: (socketId, callback) => {
+            const body = new URLSearchParams({
+              socket_id: socketId,
+              channel_name: channel.name,
+            })
+            fetch(`${apiBase}/pusher/auth`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body,
+            })
+              .then(async (res) => {
+                if (!res.ok) {
+                  const text = await res.text().catch(() => '')
+                  callback(
+                    new Error(text || `pusher/auth ${res.status}`),
+                    null as never,
+                  )
+                  return
+                }
+                const data = await res.json()
+                callback(null, data)
+              })
+              .catch((err) => {
+                callback(err instanceof Error ? err : new Error(String(err)), null as never)
+              })
+          },
+        }),
       })
 
       pusherClient.connection.bind('connected',     () => setConnected(true))

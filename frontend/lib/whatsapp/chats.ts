@@ -22,6 +22,8 @@ export interface WaChat {
   waChatId: string
   /** Alias LID (@lid) quando conhecido — crítico p/ match realtime */
   waChatLid: string
+  /** Dígitos do telefone (quando PN conhecido) */
+  phone: string
   /** Nome para exibição */
   name: string
   /** Prévia da última mensagem */
@@ -193,30 +195,181 @@ export function findChatIndexByIdentity(list: WaChat[], incoming: WaChat | strin
   )
 }
 
+/** Preview a partir de `raw` WuzAPI (text_content / data_json) — o sync às vezes grava só "Mensagem". */
+function parseEmbeddedDataJson(raw: Record<string, unknown>): Record<string, unknown> | null {
+  const nested = (raw.raw && typeof raw.raw === 'object' ? raw.raw : raw) as Record<string, unknown>
+  const dataJsonRaw = nested.data_json ?? nested.dataJson ?? nested.DataJson
+  if (typeof dataJsonRaw === 'string' && dataJsonRaw.trim()) {
+    try {
+      return JSON.parse(dataJsonRaw) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+  if (dataJsonRaw && typeof dataJsonRaw === 'object') {
+    return dataJsonRaw as Record<string, unknown>
+  }
+  // Já veio expandido (Info + Message) como no findMessages
+  if (nested.Info || nested.info || nested.Message || nested.message) {
+    return nested
+  }
+  return null
+}
+
+function isPlausiblePhoneDigits(digits: string): boolean {
+  const d = String(digits || '').replace(/\D/g, '')
+  return d.length >= 10 && d.length <= 15
+}
+
+/** Extrai PN (@s.whatsapp.net) embutido no data_json (SenderAlt / RecipientAlt). */
+function extractPhoneJidFromEmbeddedRaw(raw: Record<string, unknown>): string {
+  const nested = (raw.raw && typeof raw.raw === 'object' ? raw.raw : raw) as Record<string, unknown>
+  const parsed = parseEmbeddedDataJson(raw)
+  const info = (parsed?.Info || parsed?.info || nested.Info || nested.info) as Record<string, unknown> | undefined
+  const fromMe = Boolean(info?.IsFromMe ?? info?.isFromMe ?? nested.fromMe ?? parsed?.fromMe)
+
+  // fromMe: RecipientAlt = contato (SenderAlt = sessão). Inbound: SenderAlt = contato.
+  const candidates: unknown[] = []
+  if (info) {
+    if (!fromMe) {
+      candidates.push(
+        info.SenderAlt, info.senderAlt,
+        info.Sender, info.sender,
+        info.Participant, info.participant,
+        info.RecipientAlt, info.recipientAlt,
+      )
+    } else {
+      candidates.push(
+        info.RecipientAlt, info.recipientAlt,
+        info.Recipient, info.recipient,
+      )
+      const deviceMeta = info.DeviceSentMeta as Record<string, unknown> | undefined
+      candidates.push(deviceMeta?.DestinationJID, deviceMeta?.destinationJID)
+    }
+  }
+
+  // Top-level: em fromMe, sender_pn costuma ser a sessão — só recipient_*
+  if (!fromMe) {
+    candidates.push(
+      nested.sender_pn, nested.SenderPn, nested.senderPn,
+      nested.participant_pn, nested.ParticipantPn, nested.participantPn,
+    )
+  }
+  candidates.push(
+    nested.recipient_pn, nested.RecipientPn, nested.recipientPn,
+  )
+
+  for (const c of candidates) {
+    const jid = normalizeJid(c)
+    if (jid.endsWith('@s.whatsapp.net') && isPlausiblePhoneDigits(extractDigitsFromJid(jid))) {
+      return jid
+    }
+  }
+
+  if (!parsed) {
+    const phoneDigits = String(nested.phone || '').replace(/\D/g, '')
+    if (isPlausiblePhoneDigits(phoneDigits)) {
+      return normalizeJid(`${phoneDigits}@s.whatsapp.net`)
+    }
+  }
+
+  return ''
+}
+
+function extractPushNameFromEmbeddedRaw(raw: Record<string, unknown>): string {
+  const parsed = parseEmbeddedDataJson(raw)
+  if (!parsed) return ''
+  const info = (parsed.Info || parsed.info) as Record<string, unknown> | undefined
+  return pickString(info?.PushName, info?.pushName, info?.VerifiedName)
+}
+
+function extractPreviewFromEmbeddedRaw(raw: Record<string, unknown>): string {
+  const nested = (raw.raw && typeof raw.raw === 'object' ? raw.raw : raw) as Record<string, unknown>
+  const direct = pickString(
+    nested.text_content,
+    nested.textContent,
+    nested.text,
+    nested.body,
+    nested.caption,
+  )
+  if (direct && direct.toLowerCase() !== 'mensagem') return direct
+
+  const parsed = parseEmbeddedDataJson(raw)
+  if (!parsed) return ''
+
+  const msg =
+    (parsed.Message as Record<string, unknown> | undefined) ||
+    (parsed.message as Record<string, unknown> | undefined) ||
+    parsed
+  const extended = (msg.extendedTextMessage || msg.ExtendedTextMessage) as Record<string, unknown> | undefined
+  const deviceSent = (msg.deviceSentMessage || msg.DeviceSentMessage) as Record<string, unknown> | undefined
+  const deviceMsg = (deviceSent?.message || deviceSent?.Message) as Record<string, unknown> | undefined
+  const deviceExt = (deviceMsg?.extendedTextMessage || deviceMsg?.ExtendedTextMessage) as
+    | Record<string, unknown>
+    | undefined
+
+  return pickString(
+    extended?.text,
+    deviceExt?.text,
+    msg.conversation,
+    msg.Conversation,
+    (msg.imageMessage as Record<string, unknown> | undefined)?.caption,
+    (msg.videoMessage as Record<string, unknown> | undefined)?.caption,
+  )
+}
+
+function isGenericPreviewPlaceholder(text: string): boolean {
+  const t = text.trim().toLowerCase()
+  return !t || t === 'mensagem' || t === 'message'
+}
+
 export function normalizeChatRow(raw: Record<string, unknown>): WaChat {
   const chatidRaw = pickString(raw.chatid, raw.chatId, raw.wa_chatid, raw.id, raw.jid, raw.chatJid)
   const lidRaw = pickString(raw.wa_chatlid, raw.chatlid, raw.chatLid, raw.lid)
-  const preferred = preferWhatsappNetPrivateJid(chatidRaw, lidRaw)
-  const chatJid = normalizeJid(preferred) || normalizeJid(chatidRaw) || chatidRaw
+  const phoneFromRaw = pickString(raw.phone)
+  const phoneJidFromJson = extractPhoneJidFromEmbeddedRaw(raw)
+  const phoneDigitsFromField = phoneFromRaw.replace(/\D/g, '')
+  const phoneJid =
+    phoneJidFromJson ||
+    (isPlausiblePhoneDigits(phoneDigitsFromField)
+      ? normalizeJid(`${phoneDigitsFromField}@s.whatsapp.net`)
+      : '') ||
+    (chatidRaw.endsWith('@s.whatsapp.net') ? normalizeJid(chatidRaw) : '')
+
+  const lid =
+    normalizeJid(
+      pickString(
+        lidRaw,
+        chatidRaw.endsWith('@lid') ? chatidRaw : '',
+      ),
+    ) || ''
+
+  const preferred = preferWhatsappNetPrivateJid(phoneJid || chatidRaw, lid)
+  const chatJid = normalizeJid(preferred) || normalizeJid(chatidRaw) || chatidRaw || lid
   const waChatId = normalizeJid(
     pickString(
+      phoneJid,
       chatJid.endsWith('@s.whatsapp.net') ? chatJid : '',
-      raw.wa_chatid,
       chatidRaw.endsWith('@s.whatsapp.net') ? chatidRaw : '',
     ),
   )
-  const waChatLid = normalizeJid(
-    pickString(
-      lidRaw,
-      chatidRaw.endsWith('@lid') ? chatidRaw : '',
-      chatJid.endsWith('@lid') ? chatJid : '',
-    ),
+  const waChatLid = lid || (chatJid.endsWith('@lid') ? chatJid : '')
+  const phone = extractDigitsFromJid(waChatId || phoneJid) || (
+    isPlausiblePhoneDigits(phoneDigitsFromField) ? phoneDigitsFromField : ''
   )
 
   const name = pickString(
-    raw.name, raw.pushname, raw.wa_name, raw.subject, raw.groupName,
-    raw.notifyName, raw.verifiedName, raw.title,
-    chatJid.split('@')[0],
+    raw.name,
+    raw.pushname,
+    raw.wa_name,
+    raw.wa_contactName,
+    raw.subject,
+    raw.groupName,
+    raw.notifyName,
+    raw.verifiedName,
+    raw.title,
+    extractPushNameFromEmbeddedRaw(raw),
+    chatJid.endsWith('@lid') ? '' : chatJid.split('@')[0],
   )
 
   const lastMsgTs = normalizeTimestampToMs(
@@ -228,7 +381,7 @@ export function normalizeChatRow(raw: Record<string, unknown>): WaChat {
     raw.updatedAt,
   )
 
-  const lastMsg = pickString(
+  let lastMsg = pickString(
     raw.lastMessage as string,
     raw.wa_lastMessageTextVote as string,
     raw.wa_lastMsgText as string,
@@ -239,14 +392,26 @@ export function normalizeChatRow(raw: Record<string, unknown>): WaChat {
     raw.wa_lastMsg as string,
     raw.preview as string,
   )
+  if (isGenericPreviewPlaceholder(lastMsg)) {
+    lastMsg = extractPreviewFromEmbeddedRaw(raw) || lastMsg
+  }
 
   const unread = Math.max(0, pickNumber(raw.unreadCount, raw.wa_unreadCount, raw.unread))
-  const avatarUrl = pickString(raw.profilePicUrl, raw.avatarUrl, raw.imgUrl, raw.profilePic)
+  const avatarUrl = pickString(
+    raw.profilePicUrl,
+    raw.profilePictureUrl,
+    raw.avatarUrl,
+    raw.image,
+    raw.imagePreview,
+    raw.imgUrl,
+    raw.profilePic,
+  )
 
   return {
     chatJid: chatJid || waChatId || waChatLid || chatidRaw || '',
     waChatId: waChatId || '',
     waChatLid: waChatLid || '',
+    phone,
     name,
     lastMessagePreview: lastMsg,
     lastMessageAt: lastMsgTs,
@@ -309,6 +474,85 @@ export async function fetchChats(opts: FetchChatsOptions = {}): Promise<WaChat[]
   return []
 }
 
+/** Enriquece avatares ausentes via POST /chat/avatars/batch (igual Nuxt). */
+export async function enrichMissingChatAvatars(list: WaChat[]): Promise<WaChat[]> {
+  const missing = list.filter((c) => !String(c.avatarUrl || '').trim()).slice(0, 40)
+  if (!missing.length) return list
+
+  const targets: string[] = []
+  const namesByTarget: Record<string, string> = {}
+  const seen = new Set<string>()
+
+  for (const chat of missing) {
+    const candidates = [
+      chat.waChatId,
+      chat.phone ? `${chat.phone}@s.whatsapp.net` : '',
+      chat.phone,
+      chat.chatJid.endsWith('@s.whatsapp.net') ? chat.chatJid : '',
+      chat.waChatLid,
+      chat.chatJid,
+    ]
+      .map((v) => String(v || '').trim())
+      .filter(Boolean)
+
+    // Envia PN + LID (backend resolve LID↔PN via agenda/nome + /user/lid)
+    for (const target of candidates) {
+      const key = target.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      targets.push(target)
+      if (chat.name) {
+        namesByTarget[key] = chat.name
+        namesByTarget[target] = chat.name
+      }
+    }
+  }
+  if (!targets.length) return list
+
+  try {
+    const base = getWhatsappApiBase()
+    const res = await fetch(`${base}/chat/avatars/batch`, whatsappFetchInit({
+      method: 'POST',
+      body: JSON.stringify({ targets, namesByTarget, preview: true }),
+    }))
+    if (!res.ok) return list
+    const body = await res.json() as { avatars?: Record<string, string> }
+    const avatars = body?.avatars && typeof body.avatars === 'object' ? body.avatars : {}
+    if (!Object.keys(avatars).length) return list
+
+    return list.map((chat) => {
+      if (chat.avatarUrl) return chat
+      const keys = [
+        chat.waChatId,
+        chat.phone,
+        chat.phone ? `${chat.phone}@s.whatsapp.net` : '',
+        chat.chatJid,
+        chat.waChatLid,
+        extractDigitsFromJid(chat.waChatId || chat.chatJid),
+      ]
+        .map((v) => String(v || '').trim().toLowerCase())
+        .filter(Boolean)
+      for (const key of keys) {
+        const url = String(avatars[key] || '').trim()
+        if (!url) continue
+        const phoneFromKey = key.includes('@s.whatsapp.net')
+          ? extractDigitsFromJid(key)
+          : (/^\d{10,15}$/.test(key) ? key : '')
+        return {
+          ...chat,
+          avatarUrl: url,
+          phone: chat.phone || phoneFromKey,
+          waChatId: chat.waChatId
+            || (phoneFromKey ? `${phoneFromKey}@s.whatsapp.net` : ''),
+        }
+      }
+      return chat
+    })
+  } catch {
+    return list
+  }
+}
+
 /** Marca conversa como lida na UAZAPI (/chat/read + /message/markread). */
 export async function markChatAsRead(
   chat: WaChat,
@@ -365,6 +609,7 @@ export function mergeChatUpdate(
       chatJid: preferWhatsappNetPrivateJid(incoming.chatJid, prev.chatJid) || prev.chatJid,
       waChatId: incoming.waChatId || prev.waChatId,
       waChatLid: incoming.waChatLid || prev.waChatLid,
+      phone: incoming.phone || prev.phone,
       lastMessageAt: Math.max(incoming.lastMessageAt || 0, prev.lastMessageAt || 0),
       name: incoming.name || prev.name,
       avatarUrl: incoming.avatarUrl || prev.avatarUrl,
@@ -441,6 +686,7 @@ export function applyMessageToChatList(
     chatJid: preferWhatsappNetPrivateJid(incoming.chatJid, prev.chatJid) || prev.chatJid,
     waChatId: incoming.waChatId || prev.waChatId,
     waChatLid: incoming.waChatLid || prev.waChatLid,
+    phone: incoming.phone || prev.phone,
     lastMessagePreview: msgText || prev.lastMessagePreview,
     lastMessageAt: Math.max(ts, prev.lastMessageAt || 0),
     unreadCount: options.isActiveChat || isOutgoing

@@ -40,9 +40,13 @@ export function isPlausibleWhatsappPhoneDigits(value: string): boolean {
   const digits = normalizePhone(value);
   if (!digits || digits.length < 10) return false;
   if (looksLikeWhatsappGroupId(digits)) return false;
-  if (digits.length >= 14 && !digits.startsWith("55")) return false;
-  if (digits.length > 13) return false;
-  return true;
+  // BR ligado: 12–13 dígitos com 55; local 10–11. Evita LID (ex.: 8788207738998) passar como PN.
+  if (digits.startsWith("55")) {
+    if (digits.length < 12 || digits.length > 13) return false;
+    return true;
+  }
+  if (digits.length === 10 || digits.length === 11) return true;
+  return false;
 }
 
 /** Formata dígitos para exibição na sidebar (+55 …). */
@@ -255,20 +259,32 @@ export function pickContactAvatarUrl(contact?: Record<string, unknown> | null): 
 export function resolveAvatarPhoneForChat(
   chat: Record<string, unknown>,
   contactsMap: Map<string, Record<string, unknown>>,
+  excludePhones: string[] = [],
 ): string {
   const jid = normalizeLookupJid(String(chat.wa_chatid || chat.chatid || ""));
   if (!jid) return "";
   if (isGroupJid(jid)) return toGroupJid(jid);
 
+  const excluded = new Set(
+    (Array.isArray(excludePhones) ? excludePhones : [])
+      .map((p) => normalizePhone(p))
+      .filter((p) => isPlausibleWhatsappPhoneDigits(p)),
+  );
+
+  const acceptDigits = (digits: string): string => {
+    if (!isPlausibleWhatsappPhoneDigits(digits) || excluded.has(digits)) return "";
+    return digits;
+  };
+
   const explicitPhone = String(chat.phone || "").trim();
   if (explicitPhone) {
-    const digits = normalizePhone(explicitPhone);
-    if (isPlausibleWhatsappPhoneDigits(digits)) return digits;
+    const digits = acceptDigits(normalizePhone(explicitPhone));
+    if (digits) return digits;
   }
 
   if (jid.endsWith("@s.whatsapp.net")) {
-    const digits = normalizePhone(jid);
-    if (isPlausibleWhatsappPhoneDigits(digits)) return digits;
+    const digits = acceptDigits(normalizePhone(jid));
+    if (digits) return digits;
   }
 
   const contact = lookupInJidMap(contactsMap, jid);
@@ -282,8 +298,8 @@ export function resolveAvatarPhoneForChat(
     for (const field of ["JID", "jid", "Phone", "phone", "LID", "lid"]) {
       const candidate = normalizeLookupJid(String(contact[field] || ""));
       if (!candidate.endsWith("@s.whatsapp.net")) continue;
-      const digits = normalizePhone(candidate);
-      if (isPlausibleWhatsappPhoneDigits(digits)) return digits;
+      const digits = acceptDigits(normalizePhone(candidate));
+      if (digits) return digits;
     }
   }
 
@@ -292,14 +308,36 @@ export function resolveAvatarPhoneForChat(
       if (!key.endsWith("@s.whatsapp.net")) continue;
       const rowLid = normalizeLookupJid(String(row.LID || row.lid || ""));
       if (rowLid && rowLid === jid) {
-        const digits = normalizePhone(key);
-        if (isPlausibleWhatsappPhoneDigits(digits)) return digits;
+        const digits = acceptDigits(normalizePhone(key));
+        if (digits) return digits;
       }
+    }
+
+    // Fallback por nome (agenda tem entradas lid e pn separadas com mesmo PushName/FullName)
+    const hint = String(chat.name || chat.wa_name || chat.wa_contactName || "")
+      .trim()
+      .toLowerCase();
+    if (hint.length >= 2) {
+      const matches: string[] = [];
+      for (const [key, row] of contactsMap.entries()) {
+        if (!key.endsWith("@s.whatsapp.net")) continue;
+        const names = [
+          String(row.PushName || "").trim().toLowerCase(),
+          String(row.FullName || "").trim().toLowerCase(),
+          String(row.FirstName || "").trim().toLowerCase(),
+          String(row.BusinessName || "").trim().toLowerCase(),
+        ].filter(Boolean);
+        if (!names.includes(hint)) continue;
+        const digits = acceptDigits(normalizePhone(key));
+        if (digits) matches.push(digits);
+      }
+      const unique = [...new Set(matches)];
+      // Só aceita se o nome for único na agenda (evita Isabella×N)
+      if (unique.length === 1) return unique[0];
     }
   }
 
-  const digits = normalizePhone(jid);
-  return isPlausibleWhatsappPhoneDigits(digits) ? digits : "";
+  return acceptDigits(normalizePhone(jid));
 }
 
 /** Normaliza payload de /user/contacts para mapa jid → info. */
@@ -573,13 +611,35 @@ function deepExtractMessageText(source: unknown, depth = 0): string {
   return "";
 }
 
-/** Extrai preview legível de raw whatsmeow/UAZAPI armazenado no DB. */
+/** Extrai preview legível de raw whatsmeow/UAZAPI/WuzAPI armazenado no DB. */
 export function extractPreviewFromMessageRaw(raw: unknown): string {
   if (!raw || typeof raw !== "object") return "";
   const row = raw as Record<string, unknown>;
 
-  const direct = pickNestedText(row.text || row.body || row.message || row.wa_lastMsgText);
+  const direct = pickNestedText(
+    row.text_content
+    || row.textContent
+    || row.text
+    || row.body
+    || row.message
+    || row.wa_lastMsgText,
+  );
   if (direct) return direct;
+
+  // WuzAPI summary: data_json vem como string JSON do evento whatsmeow
+  const dataJsonRaw = row.data_json ?? row.dataJson;
+  if (typeof dataJsonRaw === "string" && dataJsonRaw.trim()) {
+    try {
+      const parsed = JSON.parse(dataJsonRaw) as unknown;
+      const fromJson = deepExtractMessageText(parsed);
+      if (fromJson) return fromJson;
+    } catch {
+      /* ignore */
+    }
+  } else if (dataJsonRaw && typeof dataJsonRaw === "object") {
+    const fromJson = deepExtractMessageText(dataJsonRaw);
+    if (fromJson) return fromJson;
+  }
 
   const fromDeep = deepExtractMessageText(row);
   if (fromDeep) return fromDeep;
@@ -663,6 +723,72 @@ export function mergeConversationSummaries<T extends {
   return Array.from(byKey.values());
 }
 
+function extractPhoneJidFromSummaryRaw(raw: unknown): string {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "";
+  let row = raw as Record<string, unknown>;
+
+  const dataJsonRaw = row.data_json ?? row.dataJson ?? row.DataJson;
+  if (typeof dataJsonRaw === "string" && dataJsonRaw.trim()) {
+    try {
+      const parsed = JSON.parse(dataJsonRaw) as Record<string, unknown>;
+      if (parsed && typeof parsed === "object") row = { ...parsed, ...row };
+    } catch {
+      /* ignore */
+    }
+  } else if (dataJsonRaw && typeof dataJsonRaw === "object" && !Array.isArray(dataJsonRaw)) {
+    row = { ...(dataJsonRaw as Record<string, unknown>), ...row };
+  }
+
+  const pickPn = (value: unknown): string => {
+    const jid = String(value || "").trim().toLowerCase();
+    if (jid.endsWith("@s.whatsapp.net") && isPlausibleWhatsappPhoneDigits(normalizePhone(jid))) {
+      return jid;
+    }
+    return "";
+  };
+
+  const info = (row.Info ?? row.info) as Record<string, unknown> | undefined;
+  const fromMe = Boolean(info?.IsFromMe ?? info?.isFromMe ?? row.fromMe);
+  if (info && typeof info === "object") {
+    // fromMe: RecipientAlt = contato; SenderAlt = sessão. Inbound: SenderAlt = contato.
+    const candidates: unknown[] = !fromMe
+      ? [
+          info.SenderAlt, info.senderAlt,
+          info.Sender, info.sender,
+          info.Participant, info.participant,
+          info.RecipientAlt, info.recipientAlt,
+        ]
+      : [
+          info.RecipientAlt, info.recipientAlt,
+          info.Recipient, info.recipient,
+        ];
+    if (fromMe) {
+      const deviceMeta = (info.DeviceSentMeta ?? info.deviceSentMeta) as Record<string, unknown> | undefined;
+      if (deviceMeta) {
+        candidates.push(deviceMeta.DestinationJID, deviceMeta.destinationJID);
+      }
+    }
+    for (const candidate of candidates) {
+      const hit = pickPn(candidate);
+      if (hit) return hit;
+    }
+  }
+
+  const topLevel = fromMe
+    ? [row.recipient_pn, row.recipientPn, row.RecipientPn]
+    : [
+        row.sender_pn, row.senderPn, row.SenderPn,
+        row.participant_pn, row.participantPn, row.ParticipantPn,
+        row.recipient_pn, row.recipientPn, row.RecipientPn,
+      ];
+  for (const candidate of topLevel) {
+    const hit = pickPn(candidate);
+    if (hit) return hit;
+  }
+
+  return "";
+}
+
 export function mapConversationSummaryToUazChat(
   summary: {
     chatJid: string;
@@ -688,6 +814,17 @@ export function mapConversationSummaryToUazChat(
     rawRow.sender_name || rawRow.senderName || rawRow.pushName || rawRow.PushName || "",
   ).trim();
 
+  // PN embutido em data_json (SenderAlt) — necessário p/ avatar e lista
+  // Nunca transformar user de @lid em telefone (LID numérico longo ≠ PN).
+  const pnFromRaw = extractPhoneJidFromSummaryRaw(summary.raw);
+  const phoneDigits = pnFromRaw
+    ? normalizePhone(pnFromRaw)
+    : (
+      chatJid.endsWith("@lid")
+        ? ""
+        : (isPlausibleWhatsappPhoneDigits(normalizePhone(chatJid)) ? normalizePhone(chatJid) : "")
+    );
+
   const contactName = pickContactDisplayName(contact);
   const groupName = pickGroupDisplayName(group);
   const groupAvatar = pickGroupAvatarUrl(group);
@@ -705,10 +842,13 @@ export function mapConversationSummaryToUazChat(
     || "",
   ).trim();
 
+  const lid = chatJid.endsWith("@lid") ? chatJid : "";
+  const phoneJid = pnFromRaw || (phoneDigits ? `${phoneDigits}@s.whatsapp.net` : "");
+
   return {
-    wa_chatid: chatJid,
-    chatid: chatJid,
-    id: chatJid,
+    wa_chatid: phoneJid || chatJid,
+    chatid: phoneJid || chatJid,
+    id: phoneJid || chatJid,
     name,
     wa_name: name,
     wa_contactName: contactName || rawSenderName || name,
@@ -720,8 +860,8 @@ export function mapConversationSummaryToUazChat(
     wa_lastMessageTextVote: previewText,
     lastMessage: previewText,
     fromMe: Boolean(summary.fromMe),
-    phone: isPlausibleWhatsappPhoneDigits(normalizePhone(chatJid)) ? normalizePhone(chatJid) : "",
-    ...(chatJid.endsWith("@lid") ? { wa_chatlid: chatJid } : {}),
+    phone: phoneDigits,
+    ...(lid ? { wa_chatlid: lid } : {}),
     image: avatarUrl,
     imagePreview: avatarUrl,
     avatarUrl,

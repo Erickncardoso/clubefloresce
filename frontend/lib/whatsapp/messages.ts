@@ -92,46 +92,61 @@ interface FetchMessagesOptions {
   offset?: number
 }
 
+function extractMessagesPayload(data: unknown): Record<string, unknown>[] {
+  if (!data || typeof data !== 'object') return []
+  const row = data as Record<string, unknown>
+  if (Array.isArray(row.messages)) return row.messages as Record<string, unknown>[]
+  if (Array.isArray(row.Messages)) return row.Messages as Record<string, unknown>[]
+  if (Array.isArray((row.data as Record<string, unknown> | undefined)?.messages)) {
+    return (row.data as Record<string, unknown>).messages as Record<string, unknown>[]
+  }
+  if (Array.isArray(row.data)) return row.data as Record<string, unknown>[]
+  if (Array.isArray((row.result as Record<string, unknown> | undefined)?.messages)) {
+    return (row.result as Record<string, unknown>).messages as Record<string, unknown>[]
+  }
+  if (Array.isArray(row.result)) return row.result as Record<string, unknown>[]
+  if (Array.isArray(data)) return data as Record<string, unknown>[]
+  return []
+}
+
 export async function fetchMessages(opts: FetchMessagesOptions): Promise<WaMessage[]> {
   const base = getWhatsappApiBase()
   const { chatJid, limit = 40, offset = 0 } = opts
+  const normalizedChatId = normalizeJid(chatJid) || chatJid
+  if (!normalizedChatId) return []
 
-  // Tentativa 1: backend interno /messages
+  // Endpoint canônico (igual Nuxt): GET /chats/:chatJid/messages
   try {
-    const params = new URLSearchParams({ chatid: chatJid, limit: String(limit), offset: String(offset) })
-    const res = await fetch(`${base}/messages?${params}`, whatsappFetchInit())
+    const params = new URLSearchParams({
+      limit: String(Math.min(200, Math.max(1, limit))),
+      offset: String(Math.max(0, offset)),
+      sync: '1',
+      awaitHistory: '0',
+    })
+    const res = await fetch(
+      `${base}/chats/${encodeURIComponent(normalizedChatId)}/messages?${params}`,
+      whatsappFetchInit(),
+    )
     if (res.ok) {
       const data = await res.json() as unknown
-      const rows = Array.isArray(data)
-        ? data
-        : Array.isArray((data as Record<string, unknown>)?.messages)
-          ? (data as Record<string, unknown>).messages as unknown[]
-          : Array.isArray((data as Record<string, unknown>)?.data)
-            ? (data as Record<string, unknown>).data as unknown[]
-            : []
-      return (rows as Record<string, unknown>[])
-        .map((r) => normalizeMessageRow(r, chatJid))
+      return extractMessagesPayload(data)
+        .map((r) => normalizeMessageRow(r, normalizedChatId))
         .sort((a, b) => a.timestamp - b.timestamp)
     }
   } catch {
     // fallback abaixo
   }
 
-  // Tentativa 2: proxy UAZAPI /message/findMessages
+  // Fallback WuzAPI proxy: POST /proxy/message/find
   try {
-    const res = await fetch(`${base}/proxy/message/findMessages`, whatsappFetchInit({
+    const res = await fetch(`${base}/proxy/message/find`, whatsappFetchInit({
       method: 'POST',
-      body: JSON.stringify({ chatid: chatJid, count: limit, page: Math.floor(offset / limit) }),
+      body: JSON.stringify({ chatid: normalizedChatId, limit, offset }),
     }))
     if (res.ok) {
       const data = await res.json() as unknown
-      const rows = Array.isArray(data)
-        ? data
-        : Array.isArray((data as Record<string, unknown>)?.messages)
-          ? (data as Record<string, unknown>).messages as unknown[]
-          : []
-      return (rows as Record<string, unknown>[])
-        .map((r) => normalizeMessageRow(r, chatJid))
+      return extractMessagesPayload(data)
+        .map((r) => normalizeMessageRow(r, normalizedChatId))
         .sort((a, b) => a.timestamp - b.timestamp)
     }
   } catch {

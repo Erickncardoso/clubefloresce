@@ -74,26 +74,47 @@ const normalizeAvatarForBrowser = async (raw: string): Promise<string> => {
   return value;
 };
 
-const resolvePrivateAvatarPhone = async (userId: string, target: string): Promise<string> => {
+const resolvePrivateAvatarPhone = async (
+  userId: string,
+  target: string,
+  excludePhones: string[] = [],
+): Promise<string> => {
   const raw = String(target || "").trim();
   if (!raw) return "";
+  const excluded = new Set(
+    (Array.isArray(excludePhones) ? excludePhones : [])
+      .map((p) => normalizePhone(p))
+      .filter((p) => isPlausibleWhatsappPhoneDigits(p)),
+  );
   const digitsOnly = normalizePhone(raw);
   if (isPlausibleWhatsappPhoneDigits(digitsOnly) && !raw.includes("@")) {
-    return digitsOnly;
+    return excluded.has(digitsOnly) ? "" : digitsOnly;
   }
   if (normalizeLookupJid(raw).endsWith("@lid")) {
-    const fromLid = await wuzapiLidResolverService.resolvePhoneFromLid(userId, raw);
-    if (fromLid) return fromLid;
+    const fromLid = await wuzapiLidResolverService.resolvePhoneFromLid(
+      userId,
+      raw,
+      "",
+      excludePhones,
+    );
+    if (fromLid && !excluded.has(fromLid)) return fromLid;
   }
 
-  const resolved = await wuzapiLidResolverService.resolvePhoneForSend(userId, raw);
-  return isPlausibleWhatsappPhoneDigits(resolved) ? resolved : "";
+  const resolved = await wuzapiLidResolverService.resolvePhoneForSend(
+    userId,
+    raw,
+    "",
+    excludePhones,
+  );
+  if (isPlausibleWhatsappPhoneDigits(resolved) && !excluded.has(resolved)) return resolved;
+  return "";
 };
 
 export async function fetchWuzapiUserAvatar(
   userId: string,
   phoneOrJid: string,
   preview = true,
+  excludePhones: string[] = [],
 ): Promise<string> {
   const target = String(phoneOrJid || "").trim();
   if (!target) return "";
@@ -113,25 +134,42 @@ export async function fetchWuzapiUserAvatar(
       return resolved;
     }
 
-    const phone = await resolvePrivateAvatarPhone(userId, target);
-    if (!phone) return "";
+    const phone = await resolvePrivateAvatarPhone(userId, target, excludePhones);
+    const tryPhones: string[] = [];
+    if (phone) tryPhones.push(phone);
 
-    const phoneCacheKey = cacheKey(userId, phone, preview);
-    const cachedByPhone = readCached(phoneCacheKey);
-    if (cachedByPhone) {
-      writeCached(key, cachedByPhone);
-      return cachedByPhone;
+    // Fallback: WuzAPI às vezes aceita o user do @lid quando não há PN (agenda só tem sessão)
+    const lid = normalizeLookupJid(target);
+    if (lid.endsWith("@lid")) {
+      const lidUser = lid.split("@")[0] || "";
+      if (lidUser && !tryPhones.includes(lidUser)) tryPhones.push(lidUser);
+      if (!tryPhones.includes(lid)) tryPhones.push(lid);
     }
 
-    const avatarBody = await wuzapiHttp.postUser(userId, "/user/avatar", {
-      Phone: phone,
-      Preview: preview,
-    });
-    const picked = pickAvatarUrl(unwrap(avatarBody) ?? avatarBody);
-    const resolved = await normalizeAvatarForBrowser(picked);
-    writeCached(phoneCacheKey, resolved);
-    writeCached(key, resolved);
-    return resolved;
+    for (const candidate of tryPhones) {
+      const phoneCacheKey = cacheKey(userId, candidate, preview);
+      const cachedByPhone = readCached(phoneCacheKey);
+      if (cachedByPhone) {
+        writeCached(key, cachedByPhone);
+        return cachedByPhone;
+      }
+
+      try {
+        const avatarBody = await wuzapiHttp.postUser(userId, "/user/avatar", {
+          Phone: candidate,
+          Preview: preview,
+        });
+        const picked = pickAvatarUrl(unwrap(avatarBody) ?? avatarBody);
+        const resolved = await normalizeAvatarForBrowser(picked);
+        if (!resolved) continue;
+        writeCached(phoneCacheKey, resolved);
+        writeCached(key, resolved);
+        return resolved;
+      } catch {
+        /* tenta próximo candidato */
+      }
+    }
+    return "";
   } catch {
     return "";
   }

@@ -234,4 +234,57 @@ export class WhatsappChatRepository {
       raw: chat.raw ?? existing?.raw ?? undefined,
     }]);
   }
+
+  /**
+   * Adota conversas com histórico de outros userIds (troca de WUZAPI_DEFAULT_USER_ID).
+   * Evita “sumir” a sidebar após remapear o tenant.
+   */
+  async adoptLegacyChatsWithHistory(targetUserId: string): Promise<number> {
+    const target = String(targetUserId || "").trim();
+    if (!target) return 0;
+
+    const legacy = await prisma.whatsappChat.findMany({
+      where: {
+        userId: { not: target },
+        lastMessageTime: { not: null },
+      },
+      take: 200,
+      orderBy: { lastMessageTime: "desc" },
+    });
+    if (!legacy.length) return 0;
+
+    const existing = await prisma.whatsappChat.findMany({
+      where: { userId: target },
+      select: { chatJid: true },
+    });
+    const existingSet = new Set(existing.map((row) => row.chatJid.toLowerCase()));
+
+    let adopted = 0;
+    for (const row of legacy) {
+      const jid = String(row.chatJid || "").trim();
+      if (!jid || existingSet.has(jid.toLowerCase())) continue;
+      try {
+        await prisma.whatsappChat.create({
+          data: {
+            userId: target,
+            chatJid: jid,
+            sessionJid: row.sessionJid ?? null,
+            name: row.name,
+            pushName: row.pushName,
+            avatarUrl: row.avatarUrl,
+            isGroup: Boolean(row.isGroup),
+            lastMessage: row.lastMessage,
+            lastMessageTime: row.lastMessageTime,
+            unreadCount: 0,
+            raw: row.raw ?? undefined,
+          },
+        });
+        existingSet.add(jid.toLowerCase());
+        adopted += 1;
+      } catch {
+        /* unique race — ignore */
+      }
+    }
+    return adopted;
+  }
 }

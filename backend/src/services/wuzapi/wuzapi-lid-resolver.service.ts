@@ -51,36 +51,55 @@ export class WuzapiLidResolverService {
 
   extractPnJidFromRaw(raw: unknown): string | null {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    const row = raw as JsonObject;
+    let row = raw as JsonObject;
 
-    const directCandidates = [
-      row.sender_pn,
-      row.senderPn,
-      row.SenderPn,
-      row.recipient,
-      row.to,
-    ];
-    for (const candidate of directCandidates) {
-      const value = pickText(candidate).toLowerCase();
-      if (value.endsWith("@s.whatsapp.net") && isPlausibleWhatsappPhoneDigits(normalizePhone(value))) {
-        return value;
+    // WuzAPI list/history: Info vem serializado em data_json
+    const dataJsonRaw = row.data_json ?? row.dataJson ?? row.DataJson;
+    if (typeof dataJsonRaw === "string" && dataJsonRaw.trim()) {
+      try {
+        const parsed = JSON.parse(dataJsonRaw) as JsonObject;
+        if (parsed && typeof parsed === "object") {
+          row = { ...parsed, ...row };
+        }
+      } catch {
+        /* ignore */
       }
+    } else if (dataJsonRaw && typeof dataJsonRaw === "object" && !Array.isArray(dataJsonRaw)) {
+      row = { ...(dataJsonRaw as JsonObject), ...row };
     }
 
     const info = (row.Info ?? row.info) as JsonObject | undefined;
+    const fromMe = Boolean(info?.IsFromMe ?? info?.isFromMe ?? row.fromMe);
+
+    // Preferência: Info.* com ordem correta por fromMe (evita SenderAlt = sessão)
     if (info && typeof info === "object") {
-      const infoCandidates = [
-        info.SenderAlt,
-        info.senderAlt,
-        info.Sender,
-        info.sender,
-        info.Participant,
-        info.participant,
-        info.RemoteJid,
-        info.remoteJid,
-        info.Chat,
-        info.chat,
-      ];
+      // Addressing mode LID: em fromMe, SenderAlt = conta conectada; RecipientAlt = contato.
+      // Em inbound, SenderAlt = contato. Misturar os dois e priorizar SenderAlt em outbound
+      // gruda o telefone da sessão no chat errado (ex.: Jully → número da sessão).
+      const infoCandidates: unknown[] = [];
+      if (!fromMe) {
+        infoCandidates.push(
+          info.SenderAlt,
+          info.senderAlt,
+          info.Sender,
+          info.sender,
+          info.Participant,
+          info.participant,
+          info.RecipientAlt,
+          info.recipientAlt,
+        );
+      } else {
+        infoCandidates.push(
+          info.RecipientAlt,
+          info.recipientAlt,
+          info.Recipient,
+          info.recipient,
+        );
+        const deviceMeta = (info.DeviceSentMeta ?? info.deviceSentMeta) as JsonObject | undefined;
+        if (deviceMeta && typeof deviceMeta === "object") {
+          infoCandidates.push(deviceMeta.DestinationJID, deviceMeta.destinationJID);
+        }
+      }
       for (const candidate of infoCandidates) {
         const value = pickText(candidate).toLowerCase();
         if (value.endsWith("@s.whatsapp.net") && isPlausibleWhatsappPhoneDigits(normalizePhone(value))) {
@@ -89,8 +108,31 @@ export class WuzapiLidResolverService {
       }
     }
 
+    // Campos top-level: só seguros em inbound (sender_pn em fromMe costuma ser a sessão)
+    const directCandidates = fromMe
+      ? [row.recipient_pn, row.recipientPn, row.RecipientPn, row.recipient, row.to]
+      : [
+          row.sender_pn,
+          row.senderPn,
+          row.SenderPn,
+          row.participant_pn,
+          row.participantPn,
+          row.ParticipantPn,
+          row.recipient_pn,
+          row.recipientPn,
+          row.RecipientPn,
+          row.recipient,
+          row.to,
+        ];
+    for (const candidate of directCandidates) {
+      const value = pickText(candidate).toLowerCase();
+      if (value.endsWith("@s.whatsapp.net") && isPlausibleWhatsappPhoneDigits(normalizePhone(value))) {
+        return value;
+      }
+    }
+
     const key = (row.key ?? row.Key) as JsonObject | undefined;
-    if (key && typeof key === "object") {
+    if (key && typeof key === "object" && !fromMe) {
       const keyCandidates = [key.participant, key.Participant, key.remoteJid, key.RemoteJid];
       for (const candidate of keyCandidates) {
         const value = pickText(candidate).toLowerCase();
@@ -173,15 +215,46 @@ export class WuzapiLidResolverService {
     }
   }
 
-  /** Busca @lid → telefone na agenda (/user/contacts) pelo campo LID do contato. */
-  async prefetchFromContactsForLid(userId: string, lidJid: string): Promise<void> {
+  private contactDisplayNames(row: JsonObject, key = ""): string[] {
+    const names = [
+      pickText(row.PushName),
+      pickText(row.FullName),
+      pickText(row.FirstName),
+      pickText(row.BusinessName),
+      pickText(row.name),
+      pickText(row.wa_name),
+    ]
+      .map((n) => n.trim().toLowerCase())
+      .filter((n) => n.length >= 2);
+    return [...new Set(names)];
+  }
+
+  /**
+   * Agenda WuzAPI costuma ter DUAS entradas: `xxx@lid` e `55…@s.whatsapp.net` com o mesmo nome,
+   * sem campo LID na entrada PN. Cruza por nome e confirma com GET /user/lid/{phone}.
+   * `excludePhones` evita colar o JID da sessão (conta conectada) no contato errado.
+   */
+  async prefetchFromContactsForLid(
+    userId: string,
+    lidJid: string,
+    hintName = "",
+    excludePhones: string[] = [],
+  ): Promise<void> {
     const targetLid = normalizeLookupJid(lidJid);
     if (!targetLid.endsWith("@lid")) return;
     if (this.getPnJid(userId, targetLid)) return;
 
+    const excluded = new Set(
+      (Array.isArray(excludePhones) ? excludePhones : [])
+        .map((p) => normalizePhone(p))
+        .filter((p) => isPlausibleWhatsappPhoneDigits(p)),
+    );
+
     try {
       const body = await wuzapiForUser(userId).userContacts();
       const contacts = normalizeContactsRecord(wuzapiHttp.unwrap(body) ?? body);
+
+      // 1) match direto por campo LID (quando a API expõe)
       for (const [key, value] of Object.entries(contacts)) {
         if (!value || typeof value !== "object") continue;
         const row = value as JsonObject;
@@ -192,13 +265,56 @@ export class WuzapiLidResolverService {
 
         const pnFromRow = pickText(row.JID || row.jid || row.Phone || row.phone || key).toLowerCase();
         if (pnFromRow.endsWith("@s.whatsapp.net") && isPlausibleWhatsappPhoneDigits(normalizePhone(pnFromRow))) {
-          this.registerMapping(userId, targetLid, pnFromRow);
-          return;
+          const digits = normalizePhone(pnFromRow);
+          if (!excluded.has(digits)) {
+            this.registerMapping(userId, targetLid, pnFromRow);
+            return;
+          }
         }
 
         const phoneDigits = normalizePhone(pnFromRow || key);
-        if (!isPlausibleWhatsappPhoneDigits(phoneDigits)) continue;
+        if (!isPlausibleWhatsappPhoneDigits(phoneDigits) || excluded.has(phoneDigits)) continue;
         await this.prefetchFromPhone(userId, phoneDigits);
+        if (this.getPnJid(userId, targetLid)) return;
+      }
+
+      // 2) nomes da entrada @lid (e hint do chat) → candidatos PN com o mesmo nome
+      const lidEntry = contacts[targetLid] as JsonObject | undefined;
+      const hintNames = [
+        ...this.contactDisplayNames(lidEntry || {}),
+        ...String(hintName || "")
+          .split(/[|,/]/)
+          .map((n) => n.trim().toLowerCase())
+          .filter((n) => n.length >= 2),
+      ];
+      const uniqueHints = [...new Set(hintNames)];
+      if (!uniqueHints.length) return;
+
+      const phoneCandidates: string[] = [];
+      for (const [key, value] of Object.entries(contacts)) {
+        if (!value || typeof value !== "object") continue;
+        const row = value as JsonObject;
+        const jid = normalizeLookupJid(pickText(row.JID || row.jid || key));
+        const phoneDigits = normalizePhone(jid || key);
+        if (!isPlausibleWhatsappPhoneDigits(phoneDigits)) continue;
+        if (excluded.has(phoneDigits)) continue;
+        if (!jid.endsWith("@s.whatsapp.net") && key.endsWith("@lid")) continue;
+
+        const names = this.contactDisplayNames(row, key);
+        const hit = uniqueHints.some((hint) => names.some((n) => n === hint));
+        if (!hit) continue;
+        phoneCandidates.push(phoneDigits);
+      }
+
+      const uniquePhones = [...new Set(phoneCandidates)].slice(0, 12);
+      // Nome único na agenda: mapeia sem depender de /user/lid (nem sempre confirma o mesmo LID)
+      if (uniquePhones.length === 1) {
+        this.registerMapping(userId, targetLid, `${uniquePhones[0]}@s.whatsapp.net`);
+        return;
+      }
+      for (const phone of uniquePhones) {
+        if (excluded.has(phone)) continue;
+        await this.prefetchFromPhone(userId, phone);
         if (this.getPnJid(userId, targetLid)) return;
       }
     } catch {
@@ -206,18 +322,45 @@ export class WuzapiLidResolverService {
     }
   }
 
-  /** Resolve telefone a partir de @lid (cache → contatos → GET /user/lid/{phone}). */
-  async resolvePhoneFromLid(userId: string, lidJid: string): Promise<string> {
+  /** Resolve telefone a partir de @lid (cache → contatos/nome → GET /user/lid/{phone}). */
+  async resolvePhoneFromLid(
+    userId: string,
+    lidJid: string,
+    hintName = "",
+    excludePhones: string[] = [],
+  ): Promise<string> {
     const lid = normalizeLookupJid(lidJid);
     if (!lid.endsWith("@lid")) return "";
+    const excluded = new Set(
+      (Array.isArray(excludePhones) ? excludePhones : [])
+        .map((p) => normalizePhone(p))
+        .filter((p) => isPlausibleWhatsappPhoneDigits(p)),
+    );
+
     const cached = this.getPnJid(userId, lid);
-    if (cached) return normalizePhone(cached);
-    await this.prefetchFromContactsForLid(userId, lid);
+    if (cached) {
+      const digits = normalizePhone(cached);
+      if (!excluded.has(digits)) return digits;
+      // Cache contaminado com JID da sessão — remove e resolve de novo
+      this.cache.delete(this.cacheKey(userId, lid));
+    }
+    await this.prefetchFromContactsForLid(userId, lid, hintName, excludePhones);
     const pn = this.getPnJid(userId, lid);
-    return pn ? normalizePhone(pn) : "";
+    if (!pn) return "";
+    const digits = normalizePhone(pn);
+    if (excluded.has(digits)) {
+      this.cache.delete(this.cacheKey(userId, lid));
+      return "";
+    }
+    return digits;
   }
 
-  async resolvePhoneForSend(userId: string, target: string): Promise<string> {
+  async resolvePhoneForSend(
+    userId: string,
+    target: string,
+    hintName = "",
+    excludePhones: string[] = [],
+  ): Promise<string> {
     const raw = String(target || "").trim();
     if (!raw) return "";
     const jid = raw.includes("@") ? normalizeLookupJid(raw) : toChatJid(normalizePhone(raw));
@@ -227,7 +370,7 @@ export class WuzapiLidResolverService {
     }
 
     if (jid.endsWith("@lid")) {
-      const phone = await this.resolvePhoneFromLid(userId, jid);
+      const phone = await this.resolvePhoneFromLid(userId, jid, hintName, excludePhones);
       if (phone) return phone;
     }
 
@@ -268,8 +411,17 @@ export class WuzapiLidResolverService {
     }
   }
 
-  /** Pré-aquece mapeamentos para targets @lid da sidebar (avatars, detalhes). */
-  async warmFromLidTargets(userId: string, targets: string[], max = 25): Promise<void> {
+  /**
+   * Pré-aquece mapeamentos para targets @lid da sidebar (avatars, detalhes).
+   * `namesByTarget` permite cruzar agenda por nome quando a entrada PN não traz LID.
+   */
+  async warmFromLidTargets(
+    userId: string,
+    targets: string[],
+    max = 25,
+    namesByTarget: Record<string, string> = {},
+    excludePhones: string[] = [],
+  ): Promise<void> {
     const lids = Array.from(new Set(
       (Array.isArray(targets) ? targets : [])
         .map((item) => normalizeLookupJid(String(item || "")))
@@ -278,10 +430,17 @@ export class WuzapiLidResolverService {
 
     if (!lids.length) return;
 
-    await this.warmFromContacts(userId, Math.max(20, max));
+    // Warm genérico pequeno — o match por nome abaixo cobre os da sidebar
+    await this.warmFromContacts(userId, Math.min(30, Math.max(10, max)));
 
     await Promise.allSettled(
-      lids.map((lid) => this.prefetchFromContactsForLid(userId, lid)),
+      lids.map((lid) => {
+        const hint =
+          namesByTarget[lid]
+          || namesByTarget[normalizeLookupJid(lid)]
+          || "";
+        return this.prefetchFromContactsForLid(userId, lid, hint, excludePhones);
+      }),
     );
   }
 }

@@ -24,12 +24,15 @@
   max-height: 100dvh;
   min-height: 0;
   overflow: hidden;
+  /* Impede override legado (column) que colapsava o chat */
+  flex-direction: row !important;
 }
 
 .mainWhatsappChat {
   height: 100dvh;
   max-height: 100dvh;
   min-height: 0;
+  flex: 1 1 0;
   overflow: hidden;
   background: #fff;
 }

@@ -132,14 +132,25 @@ export function wuzapiWhatsappEventToUazRow(
     Message: messageBody,
     Info: info,
     sender_pn: pickText(
-      info.SenderAlt
-      ?? info.senderAlt
-      ?? info.Sender
-      ?? info.sender
-      ?? info.Participant
-      ?? info.participant
-      ?? key?.Participant
-      ?? key?.participant,
+      fromMe
+        ? (
+            info.RecipientAlt
+            ?? info.recipientAlt
+            ?? info.Recipient
+            ?? info.recipient
+            ?? (info.DeviceSentMeta as JsonObject | undefined)?.DestinationJID
+            ?? (info.DeviceSentMeta as JsonObject | undefined)?.destinationJID
+          )
+        : (
+            info.SenderAlt
+            ?? info.senderAlt
+            ?? info.Sender
+            ?? info.sender
+            ?? info.Participant
+            ?? info.participant
+            ?? key?.Participant
+            ?? key?.participant
+          ),
     ),
     raw: event,
   };

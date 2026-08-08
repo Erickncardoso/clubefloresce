@@ -94,6 +94,7 @@ const corsOptions: cors.CorsOptions = {
     "X-Patient-Date",
     "X-Patient-Timezone",
     "X-CF-Client",
+    "X-Requested-With",
   ],
   optionsSuccessStatus: 204,
 };

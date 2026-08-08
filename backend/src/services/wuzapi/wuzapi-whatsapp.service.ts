@@ -87,6 +87,13 @@ export class WuzapiWhatsappService {
     return wuzapiForUser(userId);
   }
 
+  /** Digits do JID da sessão — nunca usar como telefone de contato na sidebar. */
+  private async getSessionExcludePhones(userId: string): Promise<string[]> {
+    const sessionJid = await whatsappSessionService.getBoundSessionJid(userId);
+    const digits = normalizePhone(sessionJid || "");
+    return isPlausibleWhatsappPhoneDigits(digits) ? [digits] : [];
+  }
+
   private webhookUrl(): string {
     return resolveWhatsappWebhookUrl();
   }
@@ -896,10 +903,11 @@ export class WuzapiWhatsappService {
     }> = [];
     const uniqueJids = Array.from(new Set(
       chatJids.map((jid) => String(jid || "").trim().toLowerCase()).filter(Boolean),
-    )).slice(0, maxChats);
+    )).slice(0, Math.max(1, maxChats));
+    const concurrency = Math.max(4, Math.min(16, Number(batchSize) || 8));
 
-    for (let i = 0; i < uniqueJids.length; i += batchSize) {
-      const batch = uniqueJids.slice(i, i + batchSize);
+    for (let i = 0; i < uniqueJids.length; i += concurrency) {
+      const batch = uniqueJids.slice(i, i + concurrency);
       const results = await Promise.allSettled(
         batch.map(async (jid) => {
           const page = await this.findMessages(userId, { chatid: jid, limit: 1 });
@@ -926,6 +934,103 @@ export class WuzapiWhatsappService {
     return summaries;
   }
 
+  private chatListDedupeKey(chat: Record<string, unknown>): string {
+    const phone = normalizePhone(String(chat.phone || ""));
+    if (isPlausibleWhatsappPhoneDigits(phone)) return `pn:${phone}`;
+
+    const jid = String(chat.wa_chatid || chat.chatid || "").trim().toLowerCase();
+    const lid = String(chat.wa_chatlid || "").trim().toLowerCase()
+      || (jid.endsWith("@lid") ? jid : "");
+    if (lid.endsWith("@lid")) return `lid:${lid}`;
+
+    if (jid.endsWith("@g.us")) return `g:${toGroupJid(jid)}`;
+    if (jid.endsWith("@s.whatsapp.net") && isPlausibleWhatsappPhoneDigits(normalizePhone(jid))) {
+      return `pn:${normalizePhone(jid)}`;
+    }
+    return `jid:${jid}`;
+  }
+
+  private dedupeChatListRows(chats: Record<string, unknown>[]): Record<string, unknown>[] {
+    const byKey = new Map<string, Record<string, unknown>>();
+    for (const chat of chats) {
+      const key = this.chatListDedupeKey(chat);
+      if (!key || key === "jid:") continue;
+      const prev = byKey.get(key);
+      if (!prev) {
+        byKey.set(key, chat);
+        continue;
+      }
+      const prevTs = Number(prev.wa_lastMsgTimestamp || prev.lastMessageTime || 0);
+      const nextTs = Number(chat.wa_lastMsgTimestamp || chat.lastMessageTime || 0);
+      const preferNext = nextTs >= prevTs;
+      const winner = preferNext ? chat : prev;
+      const loser = preferNext ? prev : chat;
+      // Mantém aliases LID/PN no vencedor
+      winner.wa_chatlid = String(winner.wa_chatlid || loser.wa_chatlid || "").trim() || winner.wa_chatlid;
+      winner.phone = String(winner.phone || loser.phone || "").trim() || winner.phone;
+      winner.image = String(winner.image || loser.image || "").trim() || winner.image;
+      winner.imagePreview = String(winner.imagePreview || loser.imagePreview || "").trim() || winner.imagePreview;
+      winner.avatarUrl = String(winner.avatarUrl || loser.avatarUrl || "").trim() || winner.avatarUrl;
+      winner.name = String(winner.name || loser.name || "").trim() || winner.name;
+      byKey.set(key, winner);
+    }
+
+    // Segundo passe: mesmo nome + (LID vs PN) → uma conversa
+    const byName = new Map<string, Record<string, unknown>>();
+    const normalizeName = (value: unknown) => String(value || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    for (const chat of byKey.values()) {
+      const name = normalizeName(chat.name || chat.wa_name);
+      if (name.length < 2 || name.startsWith("+")) {
+        byName.set(`__${this.chatListDedupeKey(chat)}`, chat);
+        continue;
+      }
+      const prev = byName.get(name);
+      if (!prev) {
+        byName.set(name, chat);
+        continue;
+      }
+      const prevIsLid = String(prev.wa_chatid || "").endsWith("@lid") || String(prev.wa_chatlid || "").endsWith("@lid");
+      const nextIsLid = String(chat.wa_chatid || "").endsWith("@lid") || String(chat.wa_chatlid || "").endsWith("@lid");
+      const prevIsPn = String(prev.wa_chatid || "").endsWith("@s.whatsapp.net")
+        || isPlausibleWhatsappPhoneDigits(normalizePhone(String(prev.phone || "")));
+      const nextIsPn = String(chat.wa_chatid || "").endsWith("@s.whatsapp.net")
+        || isPlausibleWhatsappPhoneDigits(normalizePhone(String(chat.phone || "")));
+      if (!((prevIsLid && nextIsPn) || (prevIsPn && nextIsLid))) {
+        // Nomes iguais sem par LID/PN (ex.: várias Isabella) — manter ambos
+        byName.set(`${name}::${this.chatListDedupeKey(chat)}`, chat);
+        continue;
+      }
+      const prevTs = Number(prev.wa_lastMsgTimestamp || prev.lastMessageTime || 0);
+      const nextTs = Number(chat.wa_lastMsgTimestamp || chat.lastMessageTime || 0);
+      const preferNext = nextTs >= prevTs;
+      const winner = preferNext ? chat : prev;
+      const loser = preferNext ? prev : chat;
+      if (String(loser.wa_chatid || "").endsWith("@lid")) {
+        winner.wa_chatlid = String(loser.wa_chatid);
+      } else if (String(loser.wa_chatlid || "").endsWith("@lid")) {
+        winner.wa_chatlid = String(loser.wa_chatlid);
+      }
+      if (isPlausibleWhatsappPhoneDigits(normalizePhone(String(loser.phone || loser.wa_chatid || "")))) {
+        winner.phone = normalizePhone(String(loser.phone || loser.wa_chatid || ""));
+        if (String(winner.wa_chatid || "").endsWith("@lid")) {
+          winner.wa_chatid = `${winner.phone}@s.whatsapp.net`;
+          winner.chatid = winner.wa_chatid;
+          winner.id = winner.wa_chatid;
+        }
+      }
+      winner.image = String(winner.image || loser.image || "").trim() || winner.image;
+      winner.avatarUrl = String(winner.avatarUrl || loser.avatarUrl || "").trim() || winner.avatarUrl;
+      byName.set(name, winner);
+    }
+
+    return Array.from(byName.values());
+  }
+
   /** Enriquece nomes/avatares em lote — usado pelo sync, não bloqueia findChats. */
   async batchEnrichChatsMetadata(
     userId: string,
@@ -934,6 +1039,7 @@ export class WuzapiWhatsappService {
   ): Promise<void> {
     const nameLimit = Math.max(1, Number(options.nameLimit || 30));
     const avatarLimit = Math.max(1, Number(options.avatarLimit || 20));
+    const excludePhones = await this.getSessionExcludePhones(userId);
 
     const [contactsMap, groupsMap] = await Promise.all([
       this.fetchContactsMap(userId),
@@ -942,6 +1048,11 @@ export class WuzapiWhatsappService {
 
     for (const chat of chats) {
       applyMapsMetadataToChat(chat, contactsMap, groupsMap);
+      // Contaminações antigas: phone = sessão conectada
+      const chatPhone = normalizePhone(String(chat.phone || ""));
+      if (chatPhone && excludePhones.includes(chatPhone)) {
+        chat.phone = "";
+      }
     }
 
     const needNames = chats.filter((chat) => {
@@ -955,7 +1066,7 @@ export class WuzapiWhatsappService {
         .map((chat) => {
           const jid = String(chat.wa_chatid || chat.chatid || "").trim().toLowerCase();
           if (jid.endsWith("@lid")) {
-            return resolveAvatarPhoneForChat(chat, contactsMap);
+            return resolveAvatarPhoneForChat(chat, contactsMap, excludePhones);
           }
           const digits = normalizePhone(jid);
           return isPlausibleWhatsappPhoneDigits(digits) ? digits : "";
@@ -995,8 +1106,20 @@ export class WuzapiWhatsappService {
     const lidTargets = needAvatars
       .map((chat) => String(chat.wa_chatid || chat.chatid || "").trim())
       .filter((jid) => jid.endsWith("@lid"));
+    const namesByTarget: Record<string, string> = {};
+    for (const chat of needAvatars) {
+      const jid = String(chat.wa_chatid || chat.chatid || "").trim().toLowerCase();
+      const name = String(chat.name || chat.wa_name || chat.wa_contactName || "").trim();
+      if (jid && name) namesByTarget[jid] = name;
+    }
     if (lidTargets.length) {
-      await wuzapiLidResolverService.warmFromLidTargets(userId, lidTargets, avatarLimit);
+      await wuzapiLidResolverService.warmFromLidTargets(
+        userId,
+        lidTargets,
+        avatarLimit,
+        namesByTarget,
+        excludePhones,
+      );
     }
 
     const avatarBatchSize = 6;
@@ -1016,13 +1139,43 @@ export class WuzapiWhatsappService {
               }
               return;
             }
-            const phone = resolveAvatarPhoneForChat(chat, contactsMap);
-            if (!phone || isGroupJid(phone)) return;
-            const image = await fetchWuzapiUserAvatar(userId, phone, true);
+            const hint = String(chat.name || chat.wa_name || chat.wa_contactName || "").trim();
+            let phone = resolveAvatarPhoneForChat(chat, contactsMap, excludePhones);
+            if (!isPlausibleWhatsappPhoneDigits(phone) && jid.endsWith("@lid")) {
+              phone = await wuzapiLidResolverService.resolvePhoneFromLid(
+                userId,
+                jid,
+                hint,
+                excludePhones,
+              );
+            }
+            if (!phone || isGroupJid(phone)) {
+              const imageFromLid = await fetchWuzapiUserAvatar(userId, jid, true, excludePhones);
+              if (imageFromLid) {
+                chat.image = imageFromLid;
+                chat.imagePreview = imageFromLid;
+                chat.avatarUrl = imageFromLid;
+              }
+              return;
+            }
+            if (excludePhones.includes(normalizePhone(phone))) {
+              const imageFromLid = await fetchWuzapiUserAvatar(userId, jid, true, excludePhones);
+              if (imageFromLid) {
+                chat.image = imageFromLid;
+                chat.imagePreview = imageFromLid;
+                chat.avatarUrl = imageFromLid;
+              }
+              return;
+            }
+            let image = await fetchWuzapiUserAvatar(userId, phone, true, excludePhones);
+            if (!image && jid.endsWith("@lid")) {
+              image = await fetchWuzapiUserAvatar(userId, jid, true, excludePhones);
+            }
             if (image) {
               chat.image = image;
               chat.imagePreview = image;
               chat.avatarUrl = image;
+              if (!chat.phone) chat.phone = phone;
             }
           } catch { /* ignore */ }
         }),
@@ -1071,10 +1224,20 @@ export class WuzapiWhatsappService {
     const offset = Math.max(0, Number(data?.offset || 0));
     const wantGroups = data?.wa_isGroup === true;
     const wantPrivate = data?.wa_isGroup === false;
+    const dataUserId = this.dataUserId(userId);
 
-    const [contactsMap, groupsMap] = await Promise.all([
+    // Recupera conversas “sumidas” após troca de WUZAPI_DEFAULT_USER_ID
+    try {
+      await chatRepository.adoptLegacyChatsWithHistory(dataUserId);
+    } catch (err: any) {
+      console.warn("[WuzAPI] adoptLegacyChatsWithHistory:", err?.message || err);
+    }
+
+    const [contactsMap, groupsMap, cachedChats, sessionJid] = await Promise.all([
       this.fetchContactsMap(userId),
       this.fetchGroupsMap(userId),
+      chatRepository.listByUser(dataUserId),
+      whatsappSessionService.getBoundSessionJid(dataUserId),
     ]);
     const groupJidSet = new Set(Array.from(groupsMap.keys()));
 
@@ -1082,50 +1245,147 @@ export class WuzapiWhatsappService {
       rows: Array<{ chatJid: string; messageTimestamp: bigint; fromMe: boolean; raw: unknown }>,
     ) => rows.filter((summary) => Number(summary.messageTimestamp || 0) > 0);
 
-    const candidateJids = new Set<string>();
-    for (const jid of contactsMap.keys()) {
-      const resolved = resolveHistoryChatJid(String(jid), groupJidSet);
-      if (resolved && isValidChatJid(resolved)) candidateJids.add(resolved.toLowerCase());
-    }
-    for (const jid of groupsMap.keys()) {
-      const resolved = resolveHistoryChatJid(String(jid), groupJidSet);
-      if (resolved && isValidChatJid(resolved)) candidateJids.add(resolved.toLowerCase());
-    }
+    const candidateJids: string[] = [];
+    const seenCandidates = new Set<string>();
+    const pushCandidate = (raw: string) => {
+      const resolved = resolveHistoryChatJid(String(raw), groupJidSet);
+      if (!resolved || !isValidChatJid(resolved)) return;
+      const key = resolved.toLowerCase();
+      if (seenCandidates.has(key)) return;
+      seenCandidates.add(key);
+      candidateJids.push(resolved);
+    };
+
+    // 1) JIDs que já tiveram conversa no Postgres — sonda esses primeiro (lista completa)
+    const cachedWithHistory = cachedChats.filter((row) => Number(row.lastMessageTime || 0) > 0);
+    for (const row of cachedWithHistory) pushCandidate(row.chatJid);
+
+    // 2) Resumos de mensagens (se existirem)
+    const dbSummaries = await messageRepository.listConversationSummaries(
+      dataUserId,
+      500,
+      sessionJid,
+    );
+    for (const summary of dbSummaries) pushCandidate(summary.chatJid);
+
+    // 3) Contatos / grupos — TODOS os @lid primeiro (são as conversas reais no modo addressing LID)
+    const contactKeys = Array.from(contactsMap.keys());
+    const lidKeys = contactKeys.filter((j) => j.endsWith("@lid"));
+    const phoneKeys = contactKeys.filter((j) => {
+      if (!j.endsWith("@s.whatsapp.net")) return false;
+      return isPlausibleWhatsappPhoneDigits(normalizePhone(j));
+    });
+    for (const jid of lidKeys) pushCandidate(jid);
+    for (const jid of phoneKeys) pushCandidate(jid);
+    for (const jid of groupsMap.keys()) pushCandidate(jid);
 
     const forceLive = Boolean(data?.forceLive || data?.forceRefresh);
-    const maxProbe = forceLive ? 120 : 80;
+    // Sem lista nativa na WuzAPI: precisa sondar /chat/history por JID.
+    // Cobre os @lid + PNs plausíveis para achar as ~30 conversas com histórico no aparelho.
+    const maxProbe = forceLive
+      ? Math.min(600, candidateJids.length)
+      : Math.min(400, Math.max(120, cachedWithHistory.length + lidKeys.length));
 
     let liveSummaries = await this.fetchLiveConversationSummaries(
       userId,
-      Array.from(candidateJids),
+      candidateJids,
       maxProbe,
-      8,
+      12,
     );
 
     if (filterRealSummaries(liveSummaries).length === 0) {
       liveSummaries = await this.fetchBootstrapLiveSummaries(userId, groupsMap);
     }
 
-    const mergedSummaries = new Map<string, typeof liveSummaries[number]>();
-    for (const summary of filterRealSummaries(liveSummaries)) {
-      const canonicalJid = resolveHistoryChatJid(summary.chatJid, groupJidSet);
-      mergedSummaries.set(canonicalConversationSummaryKey({ ...summary, chatJid: canonicalJid }), {
-        ...summary,
-        chatJid: canonicalJid,
+    const mergedSummaries = new Map<string, {
+      chatJid: string;
+      messageTimestamp: bigint;
+      fromMe: boolean;
+      raw: unknown;
+    }>();
+
+    const upsertSummary = (summary: {
+      chatJid: string;
+      messageTimestamp: bigint | number;
+      fromMe?: boolean;
+      raw?: unknown;
+    }) => {
+      const canonicalJid = resolveHistoryChatJid(String(summary.chatJid || ""), groupJidSet);
+      if (!canonicalJid || !isValidChatJid(canonicalJid)) return;
+      const key = canonicalConversationSummaryKey({ ...summary, chatJid: canonicalJid });
+      if (!key) return;
+      const ts = BigInt(Number(summary.messageTimestamp || 0) || 0);
+      if (Number(ts) <= 0) return;
+      const prev = mergedSummaries.get(key);
+      if (!prev || Number(ts) >= Number(prev.messageTimestamp || 0)) {
+        mergedSummaries.set(key, {
+          chatJid: canonicalJid,
+          messageTimestamp: ts,
+          fromMe: Boolean(summary.fromMe),
+          raw: summary.raw,
+        });
+      }
+    };
+
+    // Cache local (histórico persistido) + probe live + mensagens no Postgres
+    for (const row of cachedWithHistory) {
+      const raw = row.raw && typeof row.raw === "object" ? row.raw : {};
+      upsertSummary({
+        chatJid: row.chatJid,
+        messageTimestamp: Number(row.lastMessageTime || 0),
+        fromMe: Boolean((raw as Record<string, unknown>).fromMe),
+        raw: {
+          ...raw,
+          text: row.lastMessage || (raw as Record<string, unknown>).text || "",
+          body: row.lastMessage || (raw as Record<string, unknown>).body || "",
+          wa_lastMsgText: row.lastMessage || "",
+          name: row.name || (raw as Record<string, unknown>).name,
+          phone: (raw as Record<string, unknown>).phone,
+          image: row.avatarUrl || (raw as Record<string, unknown>).image,
+          avatarUrl: row.avatarUrl || (raw as Record<string, unknown>).avatarUrl,
+        },
       });
     }
+    for (const summary of dbSummaries) upsertSummary(summary);
+    for (const summary of filterRealSummaries(liveSummaries)) upsertSummary(summary);
 
     let chats = Array.from(mergedSummaries.values())
       .filter((summary) => isValidChatJid(summary.chatJid))
       .map((summary) => {
         const jid = summary.chatJid.toLowerCase();
+        const cached = cachedChats.find((row) => row.chatJid.toLowerCase() === jid);
         const chat = mapConversationSummaryToUazChat(
           summary,
           lookupInJidMap(contactsMap, jid),
           lookupInJidMap(groupsMap, jid),
-          undefined,
+          cached
+            ? {
+                name: cached.name,
+                pushName: cached.pushName,
+                avatarUrl: cached.avatarUrl,
+              }
+            : undefined,
         );
         applyMapsMetadataToChat(chat, contactsMap, groupsMap);
+        if (cached?.lastMessage && !String(chat.wa_lastMsgText || "").trim()) {
+          chat.wa_lastMsgText = cached.lastMessage;
+          chat.lastMessage = cached.lastMessage;
+        }
+
+        // Liga @lid → PN via agenda (evita Isabella LID + Isabella PN duplicados)
+        const excludePhones = [];
+        const sessionDigits = normalizePhone(sessionJid || "");
+        if (isPlausibleWhatsappPhoneDigits(sessionDigits)) excludePhones.push(sessionDigits);
+        const resolvedPhone = resolveAvatarPhoneForChat(chat, contactsMap, excludePhones);
+        if (isPlausibleWhatsappPhoneDigits(resolvedPhone)) {
+          chat.phone = resolvedPhone;
+          if (String(chat.wa_chatid || "").endsWith("@lid")) {
+            chat.wa_chatlid = String(chat.wa_chatid);
+            chat.wa_chatid = `${resolvedPhone}@s.whatsapp.net`;
+            chat.chatid = chat.wa_chatid;
+            chat.id = chat.wa_chatid;
+          }
+        }
         return chat;
       });
 
@@ -1136,6 +1396,19 @@ export class WuzapiWhatsappService {
       chats = chats.filter((chat) => !isGroupJid(String(chat.wa_chatid || chat.chatid || "")));
     }
 
+    // Não listar a própria sessão como "conversa" (agenda às vezes salva o número com nome)
+    const sessionDigits = normalizePhone(sessionJid || "");
+    if (isPlausibleWhatsappPhoneDigits(sessionDigits)) {
+      chats = chats.filter((chat) => {
+        const phone = normalizePhone(String(chat.phone || chat.wa_chatid || ""));
+        return phone !== sessionDigits;
+      });
+    }
+
+    chats.sort(
+      (a, b) => Number(b.wa_lastMsgTimestamp || 0) - Number(a.wa_lastMsgTimestamp || 0),
+    );
+    chats = this.dedupeChatListRows(chats);
     chats.sort(
       (a, b) => Number(b.wa_lastMsgTimestamp || 0) - Number(a.wa_lastMsgTimestamp || 0),
     );
@@ -1191,6 +1464,7 @@ export class WuzapiWhatsappService {
     userId: string,
     targets: string[],
     preview = true,
+    namesByTarget: Record<string, string> = {},
   ): Promise<Record<string, string>> {
     const unique = Array.from(new Set(
       (Array.isArray(targets) ? targets : [])
@@ -1198,8 +1472,9 @@ export class WuzapiWhatsappService {
         .filter(Boolean),
     )).slice(0, 40);
     const out: Record<string, string> = {};
+    const excludePhones = await this.getSessionExcludePhones(userId);
     const contactsMap = await this.fetchContactsMap(userId);
-    await wuzapiLidResolverService.warmFromLidTargets(userId, unique, 30);
+    await wuzapiLidResolverService.warmFromLidTargets(userId, unique, 40, namesByTarget, excludePhones);
 
     const aliasKeys = (original: string, phoneDigits: string): string[] => {
       const keys = new Set<string>();
@@ -1214,14 +1489,27 @@ export class WuzapiWhatsappService {
 
     const resolveTargetPhone = async (target: string): Promise<string> => {
       if (isGroupJid(target)) return "";
-      let phone = await wuzapiLidResolverService.resolvePhoneForSend(userId, target);
-      if (!isPlausibleWhatsappPhoneDigits(phone)) {
-        phone = resolveAvatarPhoneForChat(
-          { wa_chatid: target, chatid: target, phone: "" },
-          contactsMap,
+      const hint =
+        namesByTarget[target]
+        || namesByTarget[String(target || "").trim().toLowerCase()]
+        || "";
+      // Preferência: PN da agenda (nome único) — não depende de /user/lid confirmar o LID
+      let phone = resolveAvatarPhoneForChat(
+        { wa_chatid: target, chatid: target, phone: "", name: hint },
+        contactsMap,
+        excludePhones,
+      );
+      if (!isPlausibleWhatsappPhoneDigits(phone) || excludePhones.includes(normalizePhone(phone))) {
+        phone = await wuzapiLidResolverService.resolvePhoneForSend(
+          userId,
+          target,
+          hint,
+          excludePhones,
         );
       }
-      return isPlausibleWhatsappPhoneDigits(phone) ? phone : "";
+      const digits = normalizePhone(phone);
+      if (!isPlausibleWhatsappPhoneDigits(digits) || excludePhones.includes(digits)) return "";
+      return digits;
     };
 
     const batchSize = 6;
@@ -1229,15 +1517,20 @@ export class WuzapiWhatsappService {
       const batch = unique.slice(i, i + batchSize);
       await Promise.allSettled(batch.map(async (target) => {
         if (isGroupJid(target)) {
-          const image = await fetchWuzapiUserAvatar(userId, target, preview);
+          const image = await fetchWuzapiUserAvatar(userId, target, preview, excludePhones);
           if (!image) return;
           for (const key of aliasKeys(target, "")) out[key] = image;
           return;
         }
 
         const phone = await resolveTargetPhone(target);
-        if (!phone) return;
-        const image = await fetchWuzapiUserAvatar(userId, phone, preview);
+        // Sem PN: ainda tenta o próprio @lid (fallback WuzAPI)
+        const image = await fetchWuzapiUserAvatar(
+          userId,
+          phone || target,
+          preview,
+          excludePhones,
+        );
         if (!image) return;
         for (const key of aliasKeys(target, phone)) out[key] = image;
       }));

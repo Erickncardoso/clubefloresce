@@ -50,7 +50,10 @@ export function ChatHeader() {
 
   if (!selectedChat) return null
 
-  const phone = selectedChat.chatJid.split('@')[0] || ''
+  const phoneLabel = selectedChat.phone
+    || (selectedChat.waChatId.endsWith('@s.whatsapp.net')
+      ? selectedChat.waChatId.split('@')[0]
+      : '')
 
   return (
     <>
@@ -58,9 +61,9 @@ export function ChatHeader() {
         <div className="chat-contact-info">
           <ChatAvatar name={selectedChat.name} avatarUrl={selectedChat.avatarUrl} />
           <div className="chat-contact-text">
-            <h3>{selectedChat.name || phone}</h3>
-            {phone && selectedChat.name !== phone && (
-              <span style={{ fontSize: 13, color: '#667781' }}>{phone}</span>
+            <h3>{selectedChat.name || phoneLabel || selectedChat.chatJid}</h3>
+            {phoneLabel && selectedChat.name !== phoneLabel && (
+              <span style={{ fontSize: 13, color: '#667781' }}>{phoneLabel}</span>
             )}
           </div>
         </div>

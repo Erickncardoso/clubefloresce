@@ -292,7 +292,16 @@ export class WhatsappController {
         ? req.body.targets
         : (Array.isArray(req.body?.phones) ? req.body.phones : []);
       const preview = req.body?.preview !== false;
-      const avatars = await whatsappService.batchFetchAvatars(user.id, targets, preview);
+      const namesByTarget =
+        req.body?.namesByTarget && typeof req.body.namesByTarget === "object"
+          ? (req.body.namesByTarget as Record<string, string>)
+          : {};
+      const avatars = await whatsappService.batchFetchAvatars(
+        user.id,
+        targets,
+        preview,
+        namesByTarget,
+      );
       return res.json({ avatars });
     } catch (error: any) {
       return sendNormalizedUazapiError(res, error, "Falha ao buscar avatares.");

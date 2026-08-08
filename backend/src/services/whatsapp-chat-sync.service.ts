@@ -1,6 +1,6 @@
 import { WhatsappChatRepository } from "../repositories/whatsapp_chat.repository";
 
-import { isWuzapiProvider, resolveWhatsappDatastoreUserId } from "../config/whatsapp-provider.config";
+import { resolveWhatsappDatastoreUserId } from "../config/whatsapp-provider.config";
 
 import { WhatsappService } from "./whatsapp.service";
 
@@ -291,62 +291,33 @@ export class WhatsappChatSyncService {
 
       const sessionJid = await whatsappSessionService.getBoundSessionJid(dataUserId);
 
-      // WuzAPI: sidebar 100% ao vivo — não gravar cache de chats no Postgres.
-      if (rows.length && !isWuzapiProvider()) {
-
+      // Persist sidebar (WuzAPI inclusive) — permite reabrir com ~todas as conversas com histórico
+      if (rows.length) {
         await this.repository.upsertMany(
-
           dataUserId,
-
           rows.map((row) => ({
-
             chatJid: row.chatJid,
-
             sessionJid,
-
             name: row.name,
-
             pushName: row.pushName,
-
             avatarUrl: row.avatarUrl,
-
             isGroup: row.isGroup,
-
             lastMessage: row.lastMessage,
-
             lastMessageTime: row.lastMessageTime > 0 ? BigInt(row.lastMessageTime) : null,
-
             unreadCount: row.unreadCount,
-
             raw: row.raw,
-
           })),
-
         );
-
       }
 
-
-
       return rows
-
         .filter((chat) => Number(chat.lastMessageTime || 0) > 0)
-
         .sort((a, b) => Number(b.lastMessageTime || 0) - Number(a.lastMessageTime || 0))
-
         .map((row) => this.dbRowToApiChat(row));
-
     } catch (error: any) {
-
       console.warn("[WhatsApp] Falha ao buscar chats na WuzAPI:", error?.message || error);
-
-      if (isWuzapiProvider()) return [];
-
       return this.listCachedChats(userId);
-
     }
-
   }
-
 }
 

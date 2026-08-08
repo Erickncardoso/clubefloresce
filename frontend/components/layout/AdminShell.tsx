@@ -123,7 +123,9 @@ export function AdminShell({ children }: Props) {
           <PatientChartSidebarNav />
         </aside>
       ) : null}
-      <div className={`${styles.main} ${isWhatsappChat ? styles.mainWhatsappChat : ''}`}>
+      <div
+        className={`main-content ${styles.main} ${isWhatsappChat ? styles.mainWhatsappChat : ''}`}
+      >
         {!fullPageEditor ? (
           <AdminTopbar
             profile={{ name: user.name, avatar: user.avatar, email: user.email }}
@@ -131,7 +133,7 @@ export function AdminShell({ children }: Props) {
           />
         ) : null}
         <div
-          className={`${styles.content} ${showPatientChartSidebar ? styles.contentPatientChart : ''} ${fullPageEditor ? styles.contentFullEditor : ''} ${isWhatsappChat ? styles.contentWhatsappChat : ''}`}
+          className={`content-body ${styles.content} ${showPatientChartSidebar ? styles.contentPatientChart : ''} ${fullPageEditor ? styles.contentFullEditor : ''} ${isWhatsappChat ? styles.contentWhatsappChat : ''}`}
         >
           {children}
         </div>
