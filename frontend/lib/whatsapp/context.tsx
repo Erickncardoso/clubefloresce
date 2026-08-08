@@ -20,6 +20,7 @@ import { fetchWhatsappSessionConnected, whatsappHasAuth } from './api'
 import { verifyAuthSession } from '@/lib/auth'
 import {
   fetchChats,
+  dedupeWaChatList,
   enrichMissingChatAvatars,
   mergeChatUpdate,
   clearUnread,
@@ -169,13 +170,13 @@ export function WhatsappProvider({ children }: { children: React.ReactNode }) {
   const reloadChats = useCallback(async () => {
     setLoadingChats(true)
     try {
-      const list = await fetchChats({ limit: 60 })
+      const list = dedupeWaChatList(await fetchChats({ limit: 60 }))
       const sorted = list.sort((a, b) => b.lastMessageAt - a.lastMessageAt)
       setChats(sorted)
       // Avatares em background — não bloqueia a lista; sincroniza o chat aberto
       void enrichMissingChatAvatars(sorted).then((enriched) => {
         if (enriched === sorted) return
-        setChats(enriched)
+        setChats(dedupeWaChatList(enriched))
         setSelectedChat((prev) => {
           if (!prev) return prev
           const hit = enriched.find((c) =>
@@ -318,7 +319,7 @@ export function WhatsappProvider({ children }: { children: React.ReactNode }) {
           chatRaw.wa_chatid || chatRaw.chatid || chatRaw.chatJid || chatRaw.wa_chatlid || chatRaw.name,
         )
         if (looksLikeChat) {
-          setChats((prev) => mergeChatUpdate(prev, chatRaw))
+          setChats((prev) => dedupeWaChatList(mergeChatUpdate(prev, chatRaw)))
         }
       }
     }
@@ -338,9 +339,11 @@ export function WhatsappProvider({ children }: { children: React.ReactNode }) {
 
       // Preview/unread/ordem na sidebar — sintetiza chat se a lista ainda não tem a linha
       setChats((prev) =>
-        applyMessageToChatList(prev, msgRaw, candidates[0] || '', {
-          isActiveChat: matchesOpen,
-        }),
+        dedupeWaChatList(
+          applyMessageToChatList(prev, msgRaw, candidates[0] || '', {
+            isActiveChat: matchesOpen,
+          }),
+        ),
       )
     }
   }, [reloadChats])

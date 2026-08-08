@@ -76,6 +76,12 @@ export function preferWhatsappNetPrivateJid(a: unknown, b: unknown = ''): string
 export function canonicalChatListKey(chat: Partial<WaChat> | Record<string, unknown> | null | undefined): string {
   if (!chat) return ''
   const row = chat as Record<string, unknown>
+  const phoneDigits = String(row.phone || '')
+    .replace(/\D/g, '')
+  if (phoneDigits.length >= 10 && phoneDigits.length <= 15) {
+    return `pn:${phoneDigits}`
+  }
+
   let j = normalizeJid(
     pickString(row.chatJid, row.waChatId, row.wa_chatid, row.chatid, row.chatId),
   )
@@ -87,14 +93,51 @@ export function canonicalChatListKey(chat: Partial<WaChat> | Record<string, unkn
   if (j.endsWith('@g.us')) return `g:${j}`
 
   const digits = extractDigitsFromJid(j).replace(/\D/g, '')
+  if (j.endsWith('@s.whatsapp.net') && digits.length >= 10) return `pn:${digits}`
   if (j.endsWith('@lid')) return digits ? `lid:${digits}` : `jid:${j}`
-  if (digits.length >= 10 && j.endsWith('@s.whatsapp.net')) return `pn:${digits}`
   // Se temos LID separado e JID ainda é frágil, preferir digits do PN quando possível
   if (lid) {
     const lidDigits = extractDigitsFromJid(lid).replace(/\D/g, '')
     if (lidDigits && !j.endsWith('@s.whatsapp.net')) return `lid:${lidDigits}`
   }
   return `jid:${j}`
+}
+
+/** Junta chats duplicados (mesmo PN / mesmo LID) preservando o mais recente. */
+export function dedupeWaChatList(list: WaChat[]): WaChat[] {
+  const byKey = new Map<string, WaChat>()
+  for (const chat of list) {
+    if (!chat?.chatJid && !chat?.waChatLid && !chat?.waChatId) continue
+    const key = canonicalChatListKey(chat)
+      || (chat.chatJid ? `jid:${chat.chatJid}` : '')
+      || (chat.waChatLid ? `lid:${chat.waChatLid}` : '')
+    if (!key) continue
+
+    const prev = byKey.get(key)
+    if (!prev) {
+      byKey.set(key, chat)
+      continue
+    }
+
+    const preferIncoming = (chat.lastMessageAt || 0) >= (prev.lastMessageAt || 0)
+    const winner = preferIncoming ? chat : prev
+    const loser = preferIncoming ? prev : chat
+    byKey.set(key, {
+      ...loser,
+      ...winner,
+      chatJid: preferWhatsappNetPrivateJid(winner.chatJid, loser.chatJid) || winner.chatJid || loser.chatJid,
+      waChatId: winner.waChatId || loser.waChatId,
+      waChatLid: winner.waChatLid || loser.waChatLid,
+      phone: winner.phone || loser.phone,
+      name: winner.name || loser.name,
+      avatarUrl: winner.avatarUrl || loser.avatarUrl,
+      lastMessagePreview: winner.lastMessagePreview || loser.lastMessagePreview,
+      lastMessageAt: Math.max(winner.lastMessageAt || 0, loser.lastMessageAt || 0),
+      unreadCount: Math.max(winner.unreadCount || 0, loser.unreadCount || 0),
+      _raw: { ...(loser._raw || {}), ...(winner._raw || {}) },
+    })
+  }
+  return Array.from(byKey.values())
 }
 
 /** Todos os JIDs/aliases conhecidos de um chat (inclui _raw). */
@@ -447,7 +490,7 @@ export async function fetchChats(opts: FetchChatsOptions = {}): Promise<WaChat[]
           : Array.isArray((data as Record<string, unknown>)?.data)
             ? (data as Record<string, unknown>).data as unknown[]
             : []
-      return (rows as Record<string, unknown>[]).map(normalizeChatRow)
+      return dedupeWaChatList((rows as Record<string, unknown>[]).map(normalizeChatRow))
     }
   } catch {
     // fallback abaixo
@@ -465,7 +508,7 @@ export async function fetchChats(opts: FetchChatsOptions = {}): Promise<WaChat[]
         : Array.isArray((data as Record<string, unknown>)?.chats)
           ? (data as Record<string, unknown>).chats as unknown[]
           : []
-      return (rows as Record<string, unknown>[]).map(normalizeChatRow)
+      return dedupeWaChatList((rows as Record<string, unknown>[]).map(normalizeChatRow))
     }
   } catch {
     // retorna vazio

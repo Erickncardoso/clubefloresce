@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react'
 import { Search, Tag, Archive, MessageSquare, Image } from 'lucide-react'
 import { useWhatsapp } from '@/lib/whatsapp/context'
 import type { WaChat } from '@/lib/whatsapp/chats'
-import { jidMatchesChat } from '@/lib/whatsapp/chats'
+import { canonicalChatListKey, jidMatchesChat } from '@/lib/whatsapp/chats'
 import type { WaLabel } from '@/lib/whatsapp/labels'
 import type { QuickReply, SaveQuickReplyPayload } from '@/lib/whatsapp/quick-replies'
 import {
@@ -337,9 +337,9 @@ export function ChatSidebar() {
               <span>{searchQuery ? 'Nenhuma conversa encontrada' : 'Sem conversas'}</span>
             </div>
           ) : (
-            filtered.map((chat) => (
+            filtered.map((chat, index) => (
               <ChatItem
-                key={chat.chatJid}
+                key={canonicalChatListKey(chat) || `${chat.chatJid}:${chat.waChatLid || chat.waChatId || index}`}
                 chat={chat}
                 isActive={Boolean(selectedChat && jidMatchesChat(selectedChat, chat.chatJid, chat.waChatLid, chat.waChatId))}
                 onClick={() => selectChat(chat)}
