@@ -1,9 +1,12 @@
 /**
  * Pusher Channels — tempo real do WhatsApp no painel admin.
  * Fallback: polling em chats.ts quando Pusher não está configurado.
+ *
+ * Config/auth ficam em /api/pusher/* (não em /api/whatsapp).
  */
 import Pusher from 'pusher-js'
-import { getWhatsappApiBase, whatsappHasAuth, whatsappFetchInit } from './api'
+import { API_BASE } from '@/lib/api'
+import { whatsappHasAuth, whatsappFetchInit } from './api'
 import { dispatchWhatsappRealtime } from './realtime-bus'
 
 let pusherClient: Pusher | null = null
@@ -15,6 +18,10 @@ type StateListener = (connected: boolean) => void
 const stateListeners = new Set<StateListener>()
 let pusherConnectedState = false
 let pusherEnabledState = false
+
+function getPusherApiBase(): string {
+  return String(API_BASE || '/api').replace(/\/+$/, '') || '/api'
+}
 
 function setConnected(v: boolean) {
   pusherConnectedState = v
@@ -69,7 +76,7 @@ export async function connectWhatsappPusher(): Promise<boolean> {
   if (connectPromise) return connectPromise
 
   connectPromise = (async () => {
-    const apiBase = getWhatsappApiBase()
+    const apiBase = getPusherApiBase()
     if (!apiBase || !whatsappHasAuth()) {
       pusherEnabledState = false
       pusherConnectionRefs = Math.max(0, pusherConnectionRefs - 1)

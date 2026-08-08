@@ -84,6 +84,32 @@ export async function whatsappProxyFetch<T = unknown>(
   return whatsappFetch<T>(`/proxy${path}`, init)
 }
 
+let whatsappProviderKind = ''
+
+export function setWhatsappProviderKind(kind = '') {
+  whatsappProviderKind = String(kind || '').trim().toLowerCase()
+}
+
+export function isWhatsappWuzapiProvider() {
+  return whatsappProviderKind === 'wuzapi'
+}
+
+/** Carrega provider uma vez — WuzAPI usa Pusher/polling, não SSE UAZAPI. */
+export async function ensureWhatsappProviderKind(): Promise<string> {
+  if (whatsappProviderKind) return whatsappProviderKind
+  const base = getWhatsappApiBase()
+  if (!base) return ''
+  try {
+    const res = await fetch(`${base}/provider`, whatsappFetchInit())
+    if (!res.ok) return ''
+    const data = (await parseJsonBodySafe(res)) as { provider?: string } | null
+    whatsappProviderKind = String(data?.provider || '').trim().toLowerCase()
+  } catch {
+    /* ignore */
+  }
+  return whatsappProviderKind
+}
+
 export function isWhatsappConnectedFromStatusPayload(data: unknown): boolean {
   if (!data || typeof data !== 'object') return false
   const payload = data as Record<string, unknown>

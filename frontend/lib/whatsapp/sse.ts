@@ -5,7 +5,7 @@
  * a cada ~15s; sem bytes por SSE_STALE_MS o stream é considerado morto,
  * derrubado e reconectado.
  */
-import { getWhatsappApiBase, whatsappHasAuth, whatsappFetchInit } from './api'
+import { getWhatsappApiBase, whatsappHasAuth, whatsappFetchInit, ensureWhatsappProviderKind, isWhatsappWuzapiProvider } from './api'
 import { dispatchWhatsappRealtime } from './realtime-bus'
 
 const SSE_STALE_MS = 45_000
@@ -176,6 +176,15 @@ function startSseLoop(): void {
   const run = async (): Promise<void> => {
     if (!sseRunning) return
 
+    // SSE é exclusivo da UAZAPI. No WuzAPI o tempo real vem por webhook + Pusher.
+    await ensureWhatsappProviderKind()
+    if (isWhatsappWuzapiProvider()) {
+      sseRunning = false
+      setSseConnected(false)
+      stopSseWatchdog()
+      return
+    }
+
     const base = getWhatsappApiBase()
     if (!base || !whatsappHasAuth()) {
       scheduleReconnect(run)
@@ -197,6 +206,15 @@ function startSseLoop(): void {
         signal: sseAbortController.signal,
       }))
       clearTimeout(connectTimer)
+
+      // Endpoint inexistente / não suportado — não spammar reconexão
+      if (response.status === 404 || response.status === 501) {
+        console.warn(`[WhatsApp SSE] Desabilitado (HTTP ${response.status})`)
+        sseRunning = false
+        setSseConnected(false)
+        stopSseWatchdog()
+        return
+      }
 
       if (!response.ok || !response.body) throw new Error(`SSE ${response.status}`)
 

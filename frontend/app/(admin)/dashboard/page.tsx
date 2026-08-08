@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { CalendarDays, ChevronRight, Loader2, Sparkles, UserPlus, UtensilsCrossed } from 'lucide-react'
+import { ArrowRight, CalendarDays, Clock3, Loader2, Palette, UserPlus, UtensilsCrossed } from 'lucide-react'
 import { apiFetch, ApiError } from '@/lib/api'
 import {
   buildPatientPath,
@@ -39,13 +39,6 @@ Que tal registrar sua refeição no *diário alimentar* ou atualizar a *hidrata�
 Se precisar de apoio, é só responder esta mensagem. Estou por aqui.`
 
 const DANGER_WA_VARS_HINT = 'Variáveis: {{primeiroNome}} · {{nome}}'
-
-function dayGreeting(now = new Date()) {
-  const hour = now.getHours()
-  if (hour < 12) return 'Bom dia'
-  if (hour < 18) return 'Boa tarde'
-  return 'Boa noite'
-}
 
 function formatLongDate(now = new Date()) {
   const raw = now.toLocaleDateString('pt-BR', {
@@ -87,6 +80,7 @@ export default function DashboardPage() {
   const [dangerStarting, setDangerStarting] = useState(false)
   const [dangerSending, setDangerSending] = useState(false)
   const [dangerStatusText, setDangerStatusText] = useState('')
+  const [listTab, setListTab] = useState<'recent' | 'requests'>('recent')
   const dangerPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const carePatients = useMemo(() => {
@@ -102,9 +96,9 @@ export default function DashboardPage() {
   }, [engagement])
 
   const needCount = engagement.danger.length + engagement.attention.length
-  const greetingTitle = `${dayGreeting()}, ${greetingName}.`
+  const greetingTitle = `Olá, ${greetingName}.`
   const todayLabel = formatLongDate()
-  const diaryPreview = diaryFeed.slice(0, 3)
+  const diaryPreview = diaryFeed.slice(0, 4)
 
   const stopDangerPoll = useCallback(() => {
     if (dangerPollRef.current) {
@@ -214,6 +208,10 @@ export default function DashboardPage() {
       setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (requests.length > 0) setListTab('requests')
+  }, [requests.length])
 
   useEffect(() => {
     void Promise.all([loadDashboard(), loadRequests()])
@@ -340,332 +338,285 @@ export default function DashboardPage() {
         <div className={styles.heroCopy}>
           <h1 className={styles.greeting}>{greetingTitle}</h1>
           <p className={styles.heroDate}>{todayLabel}</p>
-          <p className={styles.heroLine}>
-            {loading ? (
-              'Preparando o dia…'
-            ) : needCount > 0 ? (
-              <>
-                <span className={styles.heroEm}>
-                  {needCount} {needCount === 1 ? 'pessoa precisa' : 'pessoas precisam'} de você
-                </span>
-                {requests.length > 0
-                  ? ` · ${requests.length} solicitação${requests.length === 1 ? '' : 'ões'} aguardando`
-                  : null}
-              </>
-            ) : (
-              <>
-                Tudo calmo por aqui
-                {requests.length > 0
-                  ? ` · ${requests.length} solicitação${requests.length === 1 ? '' : 'ões'} aguardando`
-                  : ' · ótimo momento para revisar o diário'}
-              </>
-            )}
-          </p>
         </div>
-        <button
-          type="button"
-          className={`bento-cta cf-squircle cf-squircle--control ${styles.heroCta}`}
-          onClick={openCreate}
-        >
-          <UserPlus size={16} aria-hidden />
-          Adicionar paciente
+        <button type="button" className={styles.heroCta} onClick={openCreate}>
+          <UserPlus size={16} strokeWidth={2.25} aria-hidden />
+          Adicionar Paciente
         </button>
       </header>
 
-      <div className={styles.spotlight}>
-        <section
-          className={`admin-shell-card bento-card ${styles.spotCard} ${styles.spotCare} ${
-            engagement.danger.length ? styles.spotCareUrgent : ''
-          }`}
-        >
-          <div className={styles.cardHead}>
-            <div>
-              <h2>Precisam de você</h2>
-              <p>Perigo e atenção no acompanhamento</p>
-            </div>
-            <div className={styles.headActions}>
-              {needCount > 0 ? (
-                <span className={`${styles.badge} ${styles.badgeDanger}`}>{needCount}</span>
-              ) : null}
-              {engagement.danger.length > 0 ? (
-                <button
-                  type="button"
-                  className={`danger-wa-btn cf-squircle cf-squircle--control ${styles.dangerWaBtn}`}
-                  disabled={dangerSending}
-                  title={dangerSending ? 'Envio em andamento…' : 'Enviar WhatsApp para a zona de perigo'}
-                  onClick={openDangerWaModal}
-                >
-                  <WhatsAppIcon className={styles.dangerWaIcon} />
-                  <span>{dangerSending ? 'Enviando…' : 'WhatsApp'}</span>
-                </button>
-              ) : null}
-            </div>
+      <div className={styles.topGrid}>
+        <Link href="/personalizar" className={`${styles.card} ${styles.promoCard}`}>
+          <div className={styles.promoCopy}>
+            <p className={styles.promoEyebrow}>Marca Florescer</p>
+            <h2>Personalize PDFs e materiais</h2>
+            <p>Deixe planos e documentos com a cara do seu consultório.</p>
+            <span className={styles.promoCta}>
+              Criar modelo
+              <ArrowRight size={15} aria-hidden />
+            </span>
           </div>
-          {loading ? (
-            <div className={styles.empty}>
-              <Loader2 className={styles.spin} size={20} />
-              <span>Carregando…</span>
+          <div className={styles.promoArt} aria-hidden>
+            <div className={styles.promoSheet}>
+              <Palette size={22} />
             </div>
-          ) : carePatients.length ? (
-            <>
-              <ul className={styles.careList}>
-                {carePatients.slice(0, 5).map(({ patient, zone }) => (
-                  <li key={`${zone}-${patient.id}`}>
-                    <Link
-                      href={patientUrl(patient)}
-                      className={`engagement-patient-btn cf-squircle cf-squircle--control ${styles.careRow}`}
-                      title={`Abrir ficha de ${patient.name}`}
-                    >
-                      <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
-                      <div className={styles.careCopy}>
-                        <strong>{patient.name}</strong>
-                        <span
-                          className={`${styles.zoneTag} ${
-                            zone === 'danger' ? styles.zoneTagDanger : styles.zoneTagAttention
-                          }`}
-                        >
-                          {zone === 'danger' ? 'Zona de perigo' : 'Zona de atenção'}
-                        </span>
-                      </div>
-                      <ChevronRight size={14} className={styles.careArrow} aria-hidden />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              {dangerStatusText ? <p className={styles.dangerWaStatus}>{dangerStatusText}</p> : null}
-            </>
-          ) : (
-            <div className={styles.emptyState}>
-              <div className={`${styles.emptyArt} ${styles.emptyArtCalm}`} aria-hidden>
-                <Sparkles size={28} />
-              </div>
-              <p>Ninguém na zona de perigo ou atenção agora.</p>
-              {engagement.success.length > 0 ? (
-                <span>{engagement.success.length} pacientes na zona de sucesso</span>
-              ) : null}
-            </div>
-          )}
-        </section>
+            <div className={styles.promoSheetAlt} />
+          </div>
+        </Link>
 
-        <section className={`admin-shell-card bento-card ${styles.spotCard}`}>
-          <div className={styles.cardHead}>
-            <div>
-              <h2>Próximos atendimentos</h2>
-              <p>Check-ins programados</p>
-            </div>
-            <Link href="/check-in" className={styles.homeLink}>
+        <section className={`${styles.card} ${styles.midCard}`}>
+          <div className={styles.cardTop}>
+            <h2>Próximos atendimentos</h2>
+            <Link href="/check-in" className={styles.quietLink}>
               Ver detalhes
             </Link>
           </div>
           {loading ? (
-            <div className={styles.empty}>
+            <div className={styles.emptyPad}>
               <Loader2 className={styles.spin} size={20} />
-              <span>Carregando…</span>
             </div>
           ) : schedules.length ? (
             <ul className={styles.scheduleList}>
-              {schedules.map((item) => (
+              {schedules.slice(0, 4).map((item) => (
                 <li key={item.id}>
                   <span className={styles.dot} aria-hidden />
                   <div>
                     <strong>{item.templateTitle || 'Check-in'}</strong>
                     <span>{formatScheduleWhen(item.scheduledAt)}</span>
                   </div>
-                  <small>
-                    {item.allPatients ? 'Todos' : `${(item.userIds || []).length} pac.`}
-                  </small>
                 </li>
               ))}
             </ul>
           ) : (
-            <div className={styles.emptyState}>
-              <div className={`${styles.emptyArt} ${styles.emptyArtAgenda}`} aria-hidden>
-                <CalendarDays size={28} />
+            <div className={styles.emptyPad}>
+              <div className={`${styles.illus} ${styles.illusAgenda}`}>
+                <CalendarDays size={32} strokeWidth={1.5} />
               </div>
               <p>Nenhum agendamento futuro</p>
-              <Link href="/check-in">Abrir check-in</Link>
             </div>
           )}
         </section>
 
-        <section className={`admin-shell-card bento-card ${styles.spotCard} ${styles.spotDaily}`}>
-          <div className={styles.cardHead}>
-            <div>
-              <h2>Diário</h2>
-              <p>Últimos registros das pacientes</p>
-            </div>
-            <Link href="/usuarios" className={styles.homeLink}>
-              Ver detalhes
-            </Link>
+        <section className={`${styles.card} ${styles.midCard}`}>
+          <div className={styles.cardTop}>
+            <h2>Diário</h2>
+            {diaryPreview.length ? (
+              <span className={styles.quietLink}>{diaryFeed.length} recentes</span>
+            ) : null}
           </div>
           {loading ? (
-            <div className={styles.empty}>
+            <div className={styles.emptyPad}>
               <Loader2 className={styles.spin} size={20} />
-              <span>Carregando…</span>
             </div>
           ) : diaryPreview.length ? (
-            <ul className={styles.list}>
+            <ul className={styles.dailyList}>
               {diaryPreview.map((entry) => {
                 const patient = entry.patient || entry.user
                 return (
                   <li key={entry.id}>
-                    <Link href={patientUrl(patient)} className={`feed-row ${styles.row}`}>
-                      <div className={`feed-thumb cf-squircle cf-squircle--control ${styles.feedThumb}`}>
+                    <Link href={patientUrl(patient)} className={styles.dailyRow}>
+                      <div className={styles.dailyThumb}>
                         {entry.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={entry.imageUrl} alt="" loading="lazy" />
                         ) : (
-                          <UtensilsCrossed className={styles.feedThumbIcon} size={18} />
+                          <UtensilsCrossed size={16} />
                         )}
                       </div>
-                      <div className={styles.copy}>
+                      <div className={styles.dailyCopy}>
                         <strong>{patient?.name || 'Paciente'}</strong>
                         <span>{entry.mealLabel || entry.mealType || 'Refeição'}</span>
                       </div>
-                      <div className={styles.feedMeta}>
-                        <strong>{Math.round(entry.caloriesKcal || 0)} kcal</strong>
-                        <time>{formatRelative(entry.createdAt)}</time>
-                      </div>
+                      <time>{formatRelative(entry.createdAt)}</time>
                     </Link>
                   </li>
                 )
               })}
             </ul>
           ) : (
-            <div className={styles.emptyState}>
-              <div className={`${styles.emptyArt} ${styles.emptyArtDaily}`} aria-hidden>
-                <UtensilsCrossed size={28} />
+            <div className={styles.emptyPad}>
+              <div className={`${styles.illus} ${styles.illusDaily}`}>
+                <UtensilsCrossed size={32} strokeWidth={1.5} />
               </div>
-              <p>Não há registros do diário ainda</p>
-              <span>Quando as pacientes fotografarem as refeições, elas aparecem aqui.</span>
+              <p>Não há registros do diário</p>
             </div>
           )}
         </section>
       </div>
 
-      <div className={styles.kpis}>
-        <article className={`admin-shell-card bento-card ${styles.kpi}`}>
+      <div className={styles.kpiRow}>
+        <article className={styles.kpi}>
           <span>Total de pacientes</span>
           <strong>{loading ? '—' : patientsTotal}</strong>
-          <p>No portal Florescer</p>
+          <p>Ativas no portal</p>
         </article>
-        <article className={`admin-shell-card bento-card ${styles.kpi}`}>
-          <span>Precisam de atenção</span>
-          <strong className={needCount > 0 ? styles.kpiAlert : undefined}>
+        <article className={styles.kpi}>
+          <span>Precisam de você</span>
+          <strong className={needCount ? styles.kpiWarn : undefined}>
             {loading ? '—' : needCount}
           </strong>
-          <p>
-            {engagement.danger.length} perigo · {engagement.attention.length} atenção
-          </p>
+          <div className={styles.kpiActions}>
+            <p>
+              {engagement.danger.length} perigo · {engagement.attention.length} atenção
+            </p>
+            {engagement.danger.length > 0 ? (
+              <button
+                type="button"
+                className={styles.miniWa}
+                disabled={dangerSending}
+                onClick={openDangerWaModal}
+              >
+                <WhatsAppIcon className={styles.miniWaIcon} />
+                {dangerSending ? 'Enviando…' : 'WhatsApp'}
+              </button>
+            ) : null}
+          </div>
+          {dangerStatusText ? <small className={styles.dangerStatus}>{dangerStatusText}</small> : null}
         </article>
-        <article className={`admin-shell-card bento-card ${styles.kpi}`}>
-          <span>Zona de sucesso</span>
-          <strong className={styles.kpiSuccess}>
-            {loading ? '—' : engagement.success.length}
-          </strong>
+        <article className={styles.kpi}>
+          <span>Engajamento ok</span>
+          <strong className={styles.kpiOk}>{loading ? '—' : engagement.success.length}</strong>
           <p>
             {consumption.totals.meals
               ? `${consumption.totals.meals} refeições hoje`
-              : 'Engajamento da semana'}
+              : 'Zona de sucesso'}
           </p>
         </article>
       </div>
 
-      {(requestsLoading || requests.length > 0 || requestsError) && (
-        <section className={`admin-shell-card bento-card ${styles.inbox}`}>
-          <div className={styles.cardHead}>
-            <div>
-              <h2>Chegou agora</h2>
-              <p>Solicitações e atalhos</p>
+      {needCount > 0 && carePatients.length > 0 ? (
+        <section className={styles.careStrip}>
+          <div className={styles.careStripHead}>
+            <h2>Quem precisa de atenção</h2>
+            <span>{needCount}</span>
+          </div>
+          <div className={styles.careStripRail}>
+            {carePatients.slice(0, 10).map(({ patient, zone }) => (
+              <Link
+                key={`${zone}-${patient.id}`}
+                href={patientUrl(patient)}
+                className={styles.careChip}
+              >
+                <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
+                <div>
+                  <strong>{patient.name}</strong>
+                  <span className={zone === 'danger' ? styles.tagDanger : styles.tagAttention}>
+                    {zone === 'danger' ? 'Perigo' : 'Atenção'}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className={styles.panel}>
+        <div className={styles.tabs}>
+          <button
+            type="button"
+            className={`${styles.tab} ${listTab === 'recent' ? styles.tabActive : ''}`}
+            onClick={() => setListTab('recent')}
+          >
+            <Clock3 size={15} aria-hidden />
+            Recentes
+          </button>
+          <button
+            type="button"
+            className={`${styles.tab} ${listTab === 'requests' ? styles.tabActive : ''}`}
+            onClick={() => setListTab('requests')}
+          >
+            Solicitações
+            {requests.length > 0 ? <em>{requests.length}</em> : null}
+          </button>
+        </div>
+
+        {listTab === 'recent' ? (
+          loading ? (
+            <div className={styles.emptyPad}>
+              <Loader2 className={styles.spin} size={20} />
             </div>
-            <div className={styles.headActions}>
-              {requests.length > 0 ? (
-                <span className={`${styles.badge} ${styles.badgeWarm}`}>{requests.length}</span>
-              ) : null}
-              <Link href="/whatsapp/chat" className={styles.waChip}>
-                <WhatsAppIcon className={styles.waChipIcon} />
-                Chat ao vivo
+          ) : recentPatients.length ? (
+            <div className={styles.table}>
+              <div className={styles.thead}>
+                <span>Paciente</span>
+                <span>Plano</span>
+                <span>Última atualização</span>
+              </div>
+              <ul>
+                {recentPatients.map((patient) => (
+                  <li key={patient.id}>
+                    <Link href={patientUrl(patient)} className={styles.trow}>
+                      <div className={styles.tpatient}>
+                        <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
+                        <div>
+                          <strong>{patient.name}</strong>
+                          <span>{patient.email || 'Sem e-mail'}</span>
+                        </div>
+                      </div>
+                      <span className={styles.tplan}>{patient.plan || '—'}</span>
+                      <time>{formatRelative(patient.createdAt)}</time>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className={styles.emptyPad}>
+              <p>Nenhum paciente cadastrado ainda.</p>
+            </div>
+          )
+        ) : (
+          <div className={styles.requestsBlock}>
+            {requestsLoading ? (
+              <div className={styles.emptyPad}>
+                <Loader2 className={styles.spin} size={20} />
+              </div>
+            ) : null}
+            {!requestsLoading && requestsError ? (
+              <p className={styles.error}>{requestsError}</p>
+            ) : null}
+            {!requestsLoading && !requestsError && requests.length === 0 ? (
+              <div className={styles.emptyPad}>
+                <p>Nenhuma solicitação pendente.</p>
+              </div>
+            ) : null}
+            {!requestsLoading && !requestsError && requests.length > 0 ? (
+              <ul className={styles.requestList}>
+                {requests.map((req) => (
+                  <li key={req.id} className={styles.requestCard}>
+                    <PatientAvatar name={req.name} size="sm" />
+                    <div className={styles.requestBody}>
+                      <strong>{req.name}</strong>
+                      <p>
+                        {req.email}
+                        {req.phone ? ` · ${req.phone}` : ''}
+                      </p>
+                      {req.message ? <p className={styles.requestMsg}>{req.message}</p> : null}
+                      <small>{formatDate(req.createdAt)}</small>
+                    </div>
+                    <div className={styles.requestActions}>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={rejectingId === req.id}
+                        onClick={() => rejectRequest(req)}
+                      >
+                        {rejectingId === req.id ? 'Reprovando…' : 'Reprovar'}
+                      </button>
+                      <button type="button" className="btn-primary" onClick={() => openApprove(req)}>
+                        Aprovar
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className={styles.panelFooter}>
+              <Link href="/whatsapp/chat" className={styles.waLink}>
+                <WhatsAppIcon className={styles.waLinkIcon} />
+                Abrir chat ao vivo
               </Link>
             </div>
-          </div>
-          {requestsLoading ? <p className={styles.muted}>Carregando solicitações…</p> : null}
-          {!requestsLoading && requestsError ? <p className={styles.error}>{requestsError}</p> : null}
-          {!requestsLoading && !requestsError && requests.length > 0 ? (
-            <ul className={styles.requestList}>
-              {requests.slice(0, 4).map((req) => (
-                <li key={req.id} className={styles.requestCard}>
-                  <PatientAvatar name={req.name} size="sm" />
-                  <div className={styles.requestBody}>
-                    <strong>{req.name}</strong>
-                    <p>
-                      {req.email}
-                      {req.phone ? ` · ${req.phone}` : ''}
-                    </p>
-                    {req.message ? <p className={styles.requestMessage}>{req.message}</p> : null}
-                    <small>{formatDate(req.createdAt)}</small>
-                  </div>
-                  <div className={styles.requestActions}>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={rejectingId === req.id}
-                      onClick={() => rejectRequest(req)}
-                    >
-                      {rejectingId === req.id ? 'Reprovando…' : 'Reprovar'}
-                    </button>
-                    <button type="button" className="btn-primary" onClick={() => openApprove(req)}>
-                      Aprovar
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : !requestsLoading && !requestsError ? (
-            <p className={styles.muted}>Nenhuma solicitação pendente.</p>
-          ) : null}
-        </section>
-      )}
-
-      <section className={`admin-shell-card bento-card ${styles.panel}`}>
-        <div className={styles.panelTabs}>
-          <span className={`${styles.panelTab} ${styles.panelTabActive}`}>Recentes</span>
-        </div>
-        {loading ? (
-          <div className={styles.empty}>
-            <Loader2 className={styles.spin} size={20} />
-            <span>Carregando…</span>
-          </div>
-        ) : recentPatients.length ? (
-          <div className={styles.table}>
-            <div className={styles.tableHead}>
-              <span>Paciente</span>
-              <span>Plano</span>
-              <span>Cadastro</span>
-            </div>
-            <ul className={styles.tableBody}>
-              {recentPatients.map((patient) => (
-                <li key={patient.id}>
-                  <Link href={patientUrl(patient)} className={styles.tableRow}>
-                    <div className={styles.tablePatient}>
-                      <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
-                      <div className={styles.copy}>
-                        <strong>{patient.name}</strong>
-                        <span>{patient.email || 'Sem e-mail'}</span>
-                      </div>
-                    </div>
-                    <span className={styles.tablePlan}>{patient.plan || '—'}</span>
-                    <time>{formatRelative(patient.createdAt)}</time>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <div className={styles.emptyState}>
-            <p>Nenhum paciente cadastrado ainda.</p>
-            <button type="button" className="btn-primary" onClick={openCreate}>
-              Adicionar paciente
-            </button>
           </div>
         )}
       </section>
