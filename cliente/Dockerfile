@@ -19,7 +19,8 @@ ENV NUXT_PUBLIC_MOBILE_APP=true
 ARG NUXT_PUBLIC_API_BASE=/api
 ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
 
-COPY frontend ./frontend
+# Layer Nuxt compartilhado (utils + components usados pelo PWA)
+COPY frontend2 ./frontend2
 COPY cliente/package*.json ./cliente/
 COPY cliente ./cliente
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Loader2, UserPlus, UtensilsCrossed } from 'lucide-react'
+import { CalendarDays, ChevronRight, Loader2, Sparkles, UserPlus, UtensilsCrossed } from 'lucide-react'
 import { apiFetch, ApiError } from '@/lib/api'
 import {
   buildPatientPath,
@@ -40,9 +40,27 @@ Se precisar de apoio, é só responder esta mensagem. Estou por aqui.`
 
 const DANGER_WA_VARS_HINT = 'Variáveis: {{primeiroNome}} · {{nome}}'
 
+function dayGreeting(now = new Date()) {
+  const hour = now.getHours()
+  if (hour < 12) return 'Bom dia'
+  if (hour < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+function formatLongDate(now = new Date()) {
+  const raw = now.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
+  return raw.charAt(0).toUpperCase() + raw.slice(1)
+}
+
 export default function DashboardPage() {
   const [greetingName, setGreetingName] = useState('Nutricionista')
   const [loading, setLoading] = useState(true)
+  const [patientsTotal, setPatientsTotal] = useState(0)
   const [recentPatients, setRecentPatients] = useState<AuthUser[]>([])
   const [schedules, setSchedules] = useState<CheckinSchedule[]>([])
   const [diaryFeed, setDiaryFeed] = useState<DiaryFeedEntry[]>([])
@@ -71,32 +89,22 @@ export default function DashboardPage() {
   const [dangerStatusText, setDangerStatusText] = useState('')
   const dangerPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const buckets = useMemo(
-    () => [
-      {
-        key: 'danger' as const,
-        label: 'Zona de perigo',
-        hint: 'Fora da atenção e do sucesso',
-        count: engagement.danger.length,
-        patients: engagement.danger.slice(0, 3),
-      },
-      {
-        key: 'attention' as const,
-        label: 'Zona de atenção',
-        hint: 'Pelo menos 1 registro em 7 dias ou chat parcial',
-        count: engagement.attention.length,
-        patients: engagement.attention.slice(0, 3),
-      },
-      {
-        key: 'success' as const,
-        label: 'Zona de sucesso',
-        hint: 'Pelo menos 4 postagens na semana ou chat completo',
-        count: engagement.success.length,
-        patients: engagement.success.slice(0, 3),
-      },
-    ],
-    [engagement],
-  )
+  const carePatients = useMemo(() => {
+    const danger = engagement.danger.map((patient) => ({
+      patient,
+      zone: 'danger' as const,
+    }))
+    const attention = engagement.attention.map((patient) => ({
+      patient,
+      zone: 'attention' as const,
+    }))
+    return [...danger, ...attention].slice(0, 8)
+  }, [engagement])
+
+  const needCount = engagement.danger.length + engagement.attention.length
+  const greetingTitle = `${dayGreeting()}, ${greetingName}.`
+  const todayLabel = formatLongDate()
+  const diaryPreview = diaryFeed.slice(0, 3)
 
   const stopDangerPoll = useCallback(() => {
     if (dangerPollRef.current) {
@@ -165,7 +173,9 @@ export default function DashboardPage() {
         ])
 
       if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
-        setRecentPatients(usersResult.value.filter((u) => u.role === 'PACIENTE').slice(0, 6))
+        const patients = usersResult.value.filter((u) => u.role === 'PACIENTE')
+        setPatientsTotal(patients.length)
+        setRecentPatients(patients.slice(0, 8))
       }
 
       if (schedulesResult.status === 'fulfilled') {
@@ -326,100 +336,125 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.home}>
-      <p className={styles.greeting}>Olá, {greetingName}</p>
+      <header className={styles.hero}>
+        <div className={styles.heroCopy}>
+          <h1 className={styles.greeting}>{greetingTitle}</h1>
+          <p className={styles.heroDate}>{todayLabel}</p>
+          <p className={styles.heroLine}>
+            {loading ? (
+              'Preparando o dia…'
+            ) : needCount > 0 ? (
+              <>
+                <span className={styles.heroEm}>
+                  {needCount} {needCount === 1 ? 'pessoa precisa' : 'pessoas precisam'} de você
+                </span>
+                {requests.length > 0
+                  ? ` · ${requests.length} solicitação${requests.length === 1 ? '' : 'ões'} aguardando`
+                  : null}
+              </>
+            ) : (
+              <>
+                Tudo calmo por aqui
+                {requests.length > 0
+                  ? ` · ${requests.length} solicitação${requests.length === 1 ? '' : 'ões'} aguardando`
+                  : ' · ótimo momento para revisar o diário'}
+              </>
+            )}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`bento-cta cf-squircle cf-squircle--control ${styles.heroCta}`}
+          onClick={openCreate}
+        >
+          <UserPlus size={16} aria-hidden />
+          Adicionar paciente
+        </button>
+      </header>
 
-      {(requestsLoading || requests.length > 0 || requestsError) && (
-        <section className={`admin-shell-card ${styles.requests}`}>
-          <div className={styles.requestsHead}>
-            <h2 className={styles.requestsTitle}>Solicitações pendentes</h2>
-            {requests.length > 0 ? <span className={styles.count}>{requests.length}</span> : null}
-          </div>
-          {requestsLoading ? <p className={styles.muted}>Carregando solicitações...</p> : null}
-          {!requestsLoading && requestsError ? (
-            <p className={styles.error}>{requestsError}</p>
-          ) : null}
-          {!requestsLoading && !requestsError && requests.length > 0 ? (
-            <div className={styles.requestList}>
-              {requests.map((req) => (
-                <article key={req.id} className={styles.requestCard}>
-                  <PatientAvatar name={req.name} size="sm" />
-                  <div className={styles.requestBody}>
-                    <strong>{req.name}</strong>
-                    <p>
-                      {req.email}
-                      {req.phone ? ` · ${req.phone}` : ''}
-                    </p>
-                    {req.message ? <p className={styles.requestMessage}>{req.message}</p> : null}
-                    <p className={styles.paymentHint}>
-                      Forma de pagamento: definida no checkout ou ao aprovar
-                    </p>
-                    <small>{formatDate(req.createdAt)}</small>
-                  </div>
-                  <div className={styles.requestActions}>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={rejectingId === req.id}
-                      onClick={() => rejectRequest(req)}
-                    >
-                      {rejectingId === req.id ? 'Reprovando...' : 'Reprovar acesso'}
-                    </button>
-                    <button type="button" className="btn-primary" onClick={() => openApprove(req)}>
-                      Aprovar acesso
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : null}
-        </section>
-      )}
-
-      <div className={styles.bento}>
-        <section className={`admin-shell-card bento-card ${styles.card} ${styles.cardPatients}`}>
+      <div className={styles.spotlight}>
+        <section
+          className={`admin-shell-card bento-card ${styles.spotCard} ${styles.spotCare} ${
+            engagement.danger.length ? styles.spotCareUrgent : ''
+          }`}
+        >
           <div className={styles.cardHead}>
             <div>
-              <h2>Últimos pacientes</h2>
-              <p>Cadastros mais recentes no portal</p>
+              <h2>Precisam de você</h2>
+              <p>Perigo e atenção no acompanhamento</p>
             </div>
-            <button type="button" className={`bento-cta cf-squircle cf-squircle--control ${styles.cta}`} onClick={openCreate}>
-              <UserPlus size={15} aria-hidden />
-              Adicionar paciente
-            </button>
+            <div className={styles.headActions}>
+              {needCount > 0 ? (
+                <span className={`${styles.badge} ${styles.badgeDanger}`}>{needCount}</span>
+              ) : null}
+              {engagement.danger.length > 0 ? (
+                <button
+                  type="button"
+                  className={`danger-wa-btn cf-squircle cf-squircle--control ${styles.dangerWaBtn}`}
+                  disabled={dangerSending}
+                  title={dangerSending ? 'Envio em andamento…' : 'Enviar WhatsApp para a zona de perigo'}
+                  onClick={openDangerWaModal}
+                >
+                  <WhatsAppIcon className={styles.dangerWaIcon} />
+                  <span>{dangerSending ? 'Enviando…' : 'WhatsApp'}</span>
+                </button>
+              ) : null}
+            </div>
           </div>
           {loading ? (
             <div className={styles.empty}>
               <Loader2 className={styles.spin} size={20} />
               <span>Carregando…</span>
             </div>
-          ) : recentPatients.length ? (
-            <ul className={styles.list}>
-              {recentPatients.map((patient) => (
-                <li key={patient.id}>
-                  <Link href={patientUrl(patient)} className={`patient-row ${styles.row}`}>
-                    <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
-                    <div className={styles.copy}>
-                      <strong>{patient.name}</strong>
-                      <span>{patient.email || 'Sem e-mail'}</span>
-                    </div>
-                    <time>{formatRelative(patient.createdAt)}</time>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          ) : carePatients.length ? (
+            <>
+              <ul className={styles.careList}>
+                {carePatients.slice(0, 5).map(({ patient, zone }) => (
+                  <li key={`${zone}-${patient.id}`}>
+                    <Link
+                      href={patientUrl(patient)}
+                      className={`engagement-patient-btn cf-squircle cf-squircle--control ${styles.careRow}`}
+                      title={`Abrir ficha de ${patient.name}`}
+                    >
+                      <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
+                      <div className={styles.careCopy}>
+                        <strong>{patient.name}</strong>
+                        <span
+                          className={`${styles.zoneTag} ${
+                            zone === 'danger' ? styles.zoneTagDanger : styles.zoneTagAttention
+                          }`}
+                        >
+                          {zone === 'danger' ? 'Zona de perigo' : 'Zona de atenção'}
+                        </span>
+                      </div>
+                      <ChevronRight size={14} className={styles.careArrow} aria-hidden />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {dangerStatusText ? <p className={styles.dangerWaStatus}>{dangerStatusText}</p> : null}
+            </>
           ) : (
-            <p className={styles.empty}>Nenhum paciente cadastrado ainda.</p>
+            <div className={styles.emptyState}>
+              <div className={`${styles.emptyArt} ${styles.emptyArtCalm}`} aria-hidden>
+                <Sparkles size={28} />
+              </div>
+              <p>Ninguém na zona de perigo ou atenção agora.</p>
+              {engagement.success.length > 0 ? (
+                <span>{engagement.success.length} pacientes na zona de sucesso</span>
+              ) : null}
+            </div>
           )}
         </section>
 
-        <section className={`admin-shell-card bento-card ${styles.card} ${styles.cardSchedules}`}>
+        <section className={`admin-shell-card bento-card ${styles.spotCard}`}>
           <div className={styles.cardHead}>
             <div>
-              <h2>Agendamentos</h2>
+              <h2>Próximos atendimentos</h2>
               <p>Check-ins programados</p>
             </div>
             <Link href="/check-in" className={styles.homeLink}>
-              Ver todos
+              Ver detalhes
             </Link>
           </div>
           {loading ? (
@@ -443,94 +478,34 @@ export default function DashboardPage() {
               ))}
             </ul>
           ) : (
-            <p className={styles.empty}>Nenhum agendamento pendente.</p>
+            <div className={styles.emptyState}>
+              <div className={`${styles.emptyArt} ${styles.emptyArtAgenda}`} aria-hidden>
+                <CalendarDays size={28} />
+              </div>
+              <p>Nenhum agendamento futuro</p>
+              <Link href="/check-in">Abrir check-in</Link>
+            </div>
           )}
         </section>
 
-        <section className={`admin-shell-card bento-card ${styles.card} ${styles.cardEngagement}`}>
+        <section className={`admin-shell-card bento-card ${styles.spotCard} ${styles.spotDaily}`}>
           <div className={styles.cardHead}>
             <div>
-              <h2>Status de engajamento</h2>
-              <p>Diário, hidratação, chat e questionários</p>
+              <h2>Diário</h2>
+              <p>Últimos registros das pacientes</p>
             </div>
-          </div>
-          <div className={styles.engagementRow}>
-            {buckets.map((bucket) => {
-              const pillTone =
-                bucket.key === 'danger'
-                  ? styles.pillDanger
-                  : bucket.key === 'attention'
-                    ? styles.pillAttention
-                    : styles.pillSuccess
-              return (
-              <article
-                key={bucket.key}
-                className={`engagement-pill cf-squircle cf-squircle--control ${styles.pill} ${pillTone}`}
-              >
-                <div className={styles.pillTop}>
-                  <span className={styles.engagementCount}>{bucket.count}</span>
-                  {bucket.key === 'danger' && bucket.count > 0 ? (
-                    <button
-                      type="button"
-                      className={`danger-wa-btn cf-squircle cf-squircle--control ${styles.dangerWaBtn}`}
-                      disabled={dangerSending}
-                      title={
-                        dangerSending ? 'Envio em andamento…' : 'Enviar WhatsApp para todas'
-                      }
-                      onClick={openDangerWaModal}
-                    >
-                      <WhatsAppIcon className={styles.dangerWaIcon} />
-                      <span>{dangerSending ? 'Enviando…' : 'WhatsApp'}</span>
-                    </button>
-                  ) : null}
-                </div>
-                <div>
-                  <strong>{bucket.label}</strong>
-                  <span>{bucket.hint}</span>
-                </div>
-                {bucket.patients.length ? (
-                  <ul className={styles.names}>
-                    {bucket.patients.map((patient) => (
-                      <li key={patient.id}>
-                        <Link
-                          href={patientUrl(patient)}
-                          className={`engagement-patient-btn cf-squircle cf-squircle--control ${styles.patientBtn}`}
-                          title={`Abrir ficha de ${patient.name}`}
-                        >
-                          <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
-                          <span>{patient.name}</span>
-                          <ChevronRight size={14} className={styles.patientArrow} aria-hidden />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={styles.engagementEmpty}>Sem pacientes nesta faixa</p>
-                )}
-                {bucket.key === 'danger' && dangerStatusText ? (
-                  <p className={styles.dangerWaStatus}>{dangerStatusText}</p>
-                ) : null}
-              </article>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className={`admin-shell-card bento-card ${styles.card} ${styles.cardFeed}`}>
-          <div className={styles.cardHead}>
-            <div>
-              <h2>Feed do diário</h2>
-              <p>Últimas refeições registradas</p>
-            </div>
+            <Link href="/usuarios" className={styles.homeLink}>
+              Ver detalhes
+            </Link>
           </div>
           {loading ? (
             <div className={styles.empty}>
               <Loader2 className={styles.spin} size={20} />
               <span>Carregando…</span>
             </div>
-          ) : diaryFeed.length ? (
+          ) : diaryPreview.length ? (
             <ul className={styles.list}>
-              {diaryFeed.map((entry) => {
+              {diaryPreview.map((entry) => {
                 const patient = entry.patient || entry.user
                 return (
                   <li key={entry.id}>
@@ -557,66 +532,143 @@ export default function DashboardPage() {
               })}
             </ul>
           ) : (
-            <p className={styles.empty}>Nenhuma refeição registrada recentemente.</p>
+            <div className={styles.emptyState}>
+              <div className={`${styles.emptyArt} ${styles.emptyArtDaily}`} aria-hidden>
+                <UtensilsCrossed size={28} />
+              </div>
+              <p>Não há registros do diário ainda</p>
+              <span>Quando as pacientes fotografarem as refeições, elas aparecem aqui.</span>
+            </div>
           )}
         </section>
+      </div>
 
-        <section className={`admin-shell-card bento-card ${styles.card} ${styles.cardConsumption}`}>
+      <div className={styles.kpis}>
+        <article className={`admin-shell-card bento-card ${styles.kpi}`}>
+          <span>Total de pacientes</span>
+          <strong>{loading ? '—' : patientsTotal}</strong>
+          <p>No portal Florescer</p>
+        </article>
+        <article className={`admin-shell-card bento-card ${styles.kpi}`}>
+          <span>Precisam de atenção</span>
+          <strong className={needCount > 0 ? styles.kpiAlert : undefined}>
+            {loading ? '—' : needCount}
+          </strong>
+          <p>
+            {engagement.danger.length} perigo · {engagement.attention.length} atenção
+          </p>
+        </article>
+        <article className={`admin-shell-card bento-card ${styles.kpi}`}>
+          <span>Zona de sucesso</span>
+          <strong className={styles.kpiSuccess}>
+            {loading ? '—' : engagement.success.length}
+          </strong>
+          <p>
+            {consumption.totals.meals
+              ? `${consumption.totals.meals} refeições hoje`
+              : 'Engajamento da semana'}
+          </p>
+        </article>
+      </div>
+
+      {(requestsLoading || requests.length > 0 || requestsError) && (
+        <section className={`admin-shell-card bento-card ${styles.inbox}`}>
           <div className={styles.cardHead}>
             <div>
-              <h2>Consumo alimentar</h2>
-              <p>Resumo de hoje · {consumption.date || '—'}</p>
+              <h2>Chegou agora</h2>
+              <p>Solicitações e atalhos</p>
+            </div>
+            <div className={styles.headActions}>
+              {requests.length > 0 ? (
+                <span className={`${styles.badge} ${styles.badgeWarm}`}>{requests.length}</span>
+              ) : null}
+              <Link href="/whatsapp/chat" className={styles.waChip}>
+                <WhatsAppIcon className={styles.waChipIcon} />
+                Chat ao vivo
+              </Link>
             </div>
           </div>
-          <div className={`consumption-stats ${styles.stats}`}>
-            <div>
-              <span>Pacientes</span>
-              <strong>{consumption.totals.patients}</strong>
-            </div>
-            <div>
-              <span>Refeições</span>
-              <strong>{consumption.totals.meals}</strong>
-            </div>
-            <div>
-              <span>Kcal total</span>
-              <strong>{Math.round(consumption.totals.caloriesKcal)}</strong>
-            </div>
+          {requestsLoading ? <p className={styles.muted}>Carregando solicitações…</p> : null}
+          {!requestsLoading && requestsError ? <p className={styles.error}>{requestsError}</p> : null}
+          {!requestsLoading && !requestsError && requests.length > 0 ? (
+            <ul className={styles.requestList}>
+              {requests.slice(0, 4).map((req) => (
+                <li key={req.id} className={styles.requestCard}>
+                  <PatientAvatar name={req.name} size="sm" />
+                  <div className={styles.requestBody}>
+                    <strong>{req.name}</strong>
+                    <p>
+                      {req.email}
+                      {req.phone ? ` · ${req.phone}` : ''}
+                    </p>
+                    {req.message ? <p className={styles.requestMessage}>{req.message}</p> : null}
+                    <small>{formatDate(req.createdAt)}</small>
+                  </div>
+                  <div className={styles.requestActions}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={rejectingId === req.id}
+                      onClick={() => rejectRequest(req)}
+                    >
+                      {rejectingId === req.id ? 'Reprovando…' : 'Reprovar'}
+                    </button>
+                    <button type="button" className="btn-primary" onClick={() => openApprove(req)}>
+                      Aprovar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : !requestsLoading && !requestsError ? (
+            <p className={styles.muted}>Nenhuma solicitação pendente.</p>
+          ) : null}
+        </section>
+      )}
+
+      <section className={`admin-shell-card bento-card ${styles.panel}`}>
+        <div className={styles.panelTabs}>
+          <span className={`${styles.panelTab} ${styles.panelTabActive}`}>Recentes</span>
+        </div>
+        {loading ? (
+          <div className={styles.empty}>
+            <Loader2 className={styles.spin} size={20} />
+            <span>Carregando…</span>
           </div>
-          {loading ? (
-            <div className={styles.empty}>
-              <Loader2 className={styles.spin} size={20} />
-              <span>Carregando…</span>
+        ) : recentPatients.length ? (
+          <div className={styles.table}>
+            <div className={styles.tableHead}>
+              <span>Paciente</span>
+              <span>Plano</span>
+              <span>Cadastro</span>
             </div>
-          ) : consumption.patients.length ? (
-            <ul className={styles.list}>
-              {consumption.patients.map((item) => (
-                <li key={item.patient.id}>
-                  <Link href={patientUrl(item.patient)} className={`consumption-row ${styles.row}`}>
-                    <PatientAvatar
-                      src={item.patient.avatar}
-                      name={item.patient.name}
-                      size="sm"
-                    />
-                    <div className={styles.copy}>
-                      <strong>{item.patient.name}</strong>
-                      <span>{item.meals} refeição(ões)</span>
+            <ul className={styles.tableBody}>
+              {recentPatients.map((patient) => (
+                <li key={patient.id}>
+                  <Link href={patientUrl(patient)} className={styles.tableRow}>
+                    <div className={styles.tablePatient}>
+                      <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
+                      <div className={styles.copy}>
+                        <strong>{patient.name}</strong>
+                        <span>{patient.email || 'Sem e-mail'}</span>
+                      </div>
                     </div>
-                    <div className={styles.macros}>
-                      <strong>{Math.round(item.caloriesKcal)} kcal</strong>
-                      <span>
-                        P {Math.round(item.proteinG || 0)} · C {Math.round(item.carbsG || 0)} · G{' '}
-                        {Math.round(item.fatG || 0)}
-                      </span>
-                    </div>
+                    <span className={styles.tablePlan}>{patient.plan || '—'}</span>
+                    <time>{formatRelative(patient.createdAt)}</time>
                   </Link>
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className={styles.empty}>Nenhum consumo registrado hoje.</p>
-          )}
-        </section>
-      </div>
+          </div>
+        ) : (
+          <div className={styles.emptyState}>
+            <p>Nenhum paciente cadastrado ainda.</p>
+            <button type="button" className="btn-primary" onClick={openCreate}>
+              Adicionar paciente
+            </button>
+          </div>
+        )}
+      </section>
 
       {dangerModalOpen ? (
         <div

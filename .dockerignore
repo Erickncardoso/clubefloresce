@@ -23,6 +23,6 @@ backend
 **/coverage
 **/.DS_Store
 
-# Mantém frontend/ e cliente/ no contexto
-!frontend
+# Mantém layer Nuxt compartilhado + paciente no contexto do PWA
+!frontend2
 !cliente
