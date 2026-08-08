@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CalendarDays, Clock3, Loader2, Palette, UserPlus, UtensilsCrossed } from 'lucide-react'
+import {
+  ArrowRight,
+  CalendarDays,
+  CircleAlert,
+  CircleCheck,
+  Clock3,
+  Loader2,
+  Palette,
+  UserPlus,
+  UsersRound,
+  UtensilsCrossed,
+} from 'lucide-react'
 import { apiFetch, ApiError } from '@/lib/api'
 import {
   buildPatientPath,
@@ -96,7 +107,6 @@ export default function DashboardPage() {
   }, [engagement])
 
   const needCount = engagement.danger.length + engagement.attention.length
-  const greetingTitle = `Olá, ${greetingName}.`
   const todayLabel = formatLongDate()
   const diaryPreview = diaryFeed.slice(0, 4)
 
@@ -336,8 +346,10 @@ export default function DashboardPage() {
     <div className={styles.home}>
       <header className={styles.hero}>
         <div className={styles.heroCopy}>
-          <h1 className={styles.greeting}>{greetingTitle}</h1>
-          <p className={styles.heroDate}>{todayLabel}</p>
+          <h1 className={styles.greeting}>Visão geral</h1>
+          <p className={styles.heroDate}>
+            Olá, {greetingName} <span aria-hidden>·</span> {todayLabel}
+          </p>
         </div>
         <button type="button" className={styles.heroCta} onClick={openCreate}>
           <UserPlus size={16} strokeWidth={2.25} aria-hidden />
@@ -446,12 +458,22 @@ export default function DashboardPage() {
 
       <div className={styles.kpiRow}>
         <article className={styles.kpi}>
-          <span>Total de pacientes</span>
+          <div className={styles.kpiHead}>
+            <span>Total de pacientes</span>
+            <span className={styles.kpiIcon} aria-hidden>
+              <UsersRound size={17} strokeWidth={1.8} />
+            </span>
+          </div>
           <strong>{loading ? '—' : patientsTotal}</strong>
           <p>Ativas no portal</p>
         </article>
         <article className={styles.kpi}>
-          <span>Precisam de você</span>
+          <div className={styles.kpiHead}>
+            <span>Precisam de você</span>
+            <span className={`${styles.kpiIcon} ${styles.kpiIconWarn}`} aria-hidden>
+              <CircleAlert size={17} strokeWidth={1.8} />
+            </span>
+          </div>
           <strong className={needCount ? styles.kpiWarn : undefined}>
             {loading ? '—' : needCount}
           </strong>
@@ -474,7 +496,12 @@ export default function DashboardPage() {
           {dangerStatusText ? <small className={styles.dangerStatus}>{dangerStatusText}</small> : null}
         </article>
         <article className={styles.kpi}>
-          <span>Engajamento ok</span>
+          <div className={styles.kpiHead}>
+            <span>Engajamento em dia</span>
+            <span className={`${styles.kpiIcon} ${styles.kpiIconOk}`} aria-hidden>
+              <CircleCheck size={17} strokeWidth={1.8} />
+            </span>
+          </div>
           <strong className={styles.kpiOk}>{loading ? '—' : engagement.success.length}</strong>
           <p>
             {consumption.totals.meals
