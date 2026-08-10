@@ -4,6 +4,9 @@
 #   Base Directory:  /          (raiz do repositório)
 #   Dockerfile:      cliente/Dockerfile
 #   Porta:           3000
+#
+# Coolify builders pequenos matam o build com exit 255 (OOM) sem mensagem.
+# Evitar `nuxt prepare` no pós-install do npm ci — roda de novo no generate.
 
 FROM node:22-bookworm-slim AS builder
 
@@ -13,9 +16,12 @@ RUN apt-get update \
 
 WORKDIR /app
 
+# Coolify costuma injetar NODE_ENV=production (corta devDeps no npm ci).
+ENV NODE_ENV=development
 ENV NUXT_TELEMETRY_DISABLED=1
 ENV NUXT_IGNORE_LOCK=1
 ENV NUXT_PUBLIC_MOBILE_APP=true
+ENV NODE_OPTIONS=--max-old-space-size=3072
 ARG NUXT_PUBLIC_API_BASE=/api
 ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE
 
@@ -26,10 +32,14 @@ COPY cliente ./cliente
 
 WORKDIR /app/cliente
 
-RUN npm ci --include=optional
+# --ignore-scripts: não roda `prepare`/`nuxt prepare` aqui (economiza RAM).
+RUN npm ci --include=dev --include=optional --ignore-scripts --no-audit --no-fund \
+  && npm cache clean --force
 
-ENV NODE_OPTIONS=--max-old-space-size=3072
-RUN npm run generate
+ENV NODE_ENV=production
+RUN npm run generate \
+  && rm -rf node_modules .nuxt-mobile \
+  && npm cache clean --force
 
 FROM nginx:1.27-alpine AS runner
 

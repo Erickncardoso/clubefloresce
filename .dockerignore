@@ -15,8 +15,12 @@
 .agents
 .claude
 
-# Backend não entra no build do cliente
+# Fora do build do PWA (Base Directory = /)
 backend
+frontend
+expo-app
+**/*.mov
+app.json
 
 # Artefatos e logs
 **/*.log
