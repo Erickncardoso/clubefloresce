@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { FloatField } from '@/components/ui/FloatField'
+import { AnimatedDialog } from '@/components/overlays'
 import {
   CHECKIN_STEP_TYPE_OPTIONS,
   buildStepPayload,
@@ -68,8 +69,6 @@ export function CheckinTemplateEditorModal({
     () => steps.map((step, index) => buildStepPreviewPayload(step, index)),
     [steps],
   )
-
-  if (!open) return null
 
   function updateStep(index: number, patch: Partial<EditorStep>) {
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)))
@@ -138,15 +137,17 @@ export function CheckinTemplateEditorModal({
 
   const displayError = localError || error
 
+  const checkinTitle = mode === 'create' ? 'Novo check-in' : 'Editar check-in'
+
   return (
-    <div className={styles.overlay} role="presentation" onClick={onClose}>
-      <div
-        className={styles.card}
-        role="dialog"
-        aria-modal="true"
-        aria-label={mode === 'create' ? 'Novo check-in' : 'Editar check-in'}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title={checkinTitle}
+      contentClassName={styles.card}
+    >
         <header className={styles.head}>
           <h2>{mode === 'create' ? 'Novo check-in' : 'Editar check-in'}</h2>
           <button type="button" className={styles.close} aria-label="Fechar" onClick={onClose}>
@@ -440,7 +441,6 @@ export function CheckinTemplateEditorModal({
             />
           </aside>
         </div>
-      </div>
-    </div>
+    </AnimatedDialog>
   )
 }

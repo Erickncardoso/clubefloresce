@@ -35,6 +35,10 @@ P0: regras do usuário e do Cursor → P1: agente ativo → P2: skills → P3: c
 - `verify-changes` — após mudanças, rodar o que for aplicável (build, lint, teste manual)
 - `powershell-windows` — comandos no Windows deste ambiente
 
+## Overlays admin (Next)
+
+Popovers e modais em `frontend/`: fade **somente opacity** 150ms ease via `AnimatedPopover` / `AppModal` / `AnimatedDialog`. Ver `.cursor/rules/admin-overlays-motion.mdc`.
+
 ## Memória
 
 No início de sessões longas, consulte `.agents/memory/MEMORY.md` e convenções do Clube Florescer.

@@ -24,6 +24,7 @@ import { QuickAddPatientModal } from '@/components/patients/QuickAddPatientModal
 import { PatientVideoCallModal } from '@/components/patients/PatientVideoCallModal'
 import { usePatientChart } from '@/lib/patient-chart/context'
 import { PATIENT_CHART_TABS, PATIENT_EVOLUCAO_SUBS } from '@/lib/patient-chart/nav'
+import { userToQuickAddSeed } from '@/lib/quick-add-patient'
 import {
   buildAnswerRows,
   formatCheckinPeriod,
@@ -561,12 +562,10 @@ export default function PatientChartPage() {
       <QuickAddPatientModal
         open={editOpen}
         mode="edit"
-        seed={{
-          name: user.name || '',
-          email: user.email || '',
-          phone: user.phone || '',
-          plan: user.plan || 'MONTHLY',
-        }}
+        seed={userToQuickAddSeed({
+          ...user,
+          patientProfileData: profile || user.patientProfileData,
+        })}
         editUserId={user.id}
         onClose={() => setEditOpen(false)}
         onCreated={(next) => {

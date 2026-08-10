@@ -37,14 +37,22 @@ export function AdminShell({ children }: Props) {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const session = await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' })
-      if (!alive) return
-      if (!session) {
+      try {
+        const session = await verifyAuthSession({ requiredRole: 'NUTRICIONISTA' })
+        if (!alive) return
+        if (!session) {
+          setChecking(false)
+          router.replace('/login')
+          return
+        }
+        setUser(session)
+      } catch {
+        // Erro de rede sem cache — redireciona para login
+        if (!alive) return
         router.replace('/login')
-        return
+      } finally {
+        if (alive) setChecking(false)
       }
-      setUser(session)
-      setChecking(false)
     })()
     return () => {
       alive = false
@@ -100,12 +108,16 @@ export function AdminShell({ children }: Props) {
   const closeMobile = useCallback(() => setMobileOpen(false), [])
   const openMobile = useCallback(() => setMobileOpen(true), [])
 
-  if (checking || !user) {
+  if (checking) {
     return (
       <div className={styles.loading}>
         <span>Carregando painel…</span>
       </div>
     )
+  }
+
+  if (!user) {
+    return null
   }
 
   return (

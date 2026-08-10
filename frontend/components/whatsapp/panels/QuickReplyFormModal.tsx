@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { X, Loader } from 'lucide-react'
+import { AnimatedDialog } from '@/components/overlays'
 import type { QuickReply, SaveQuickReplyPayload } from '@/lib/whatsapp/quick-replies'
 import styles from './QuickReplyFormModal.module.scss'
 
@@ -55,110 +55,111 @@ export function QuickReplyFormModal({ open, saving, error, reply, onCancel, onSa
     })
   }
 
-  if (!open || typeof document === 'undefined') return null
+  return (
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => { if (!next) onCancel() }}
+      title={title}
+      overlayClassName={styles.waOverlay}
+      contentClassName={styles.modal}
+    >
+      <header className={styles.header}>
+        <h2 className={styles.title}>{title}</h2>
+        <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={onCancel}>
+          <X size={20} />
+        </button>
+      </header>
 
-  return createPortal(
-    <div className={styles.overlay} onClick={(e) => e.target === e.currentTarget && onCancel()}>
-      <div className={styles.modal} role="dialog" aria-modal="true" aria-label={title}>
-        <header className={styles.header}>
-          <h2 className={styles.title}>{title}</h2>
-          <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={onCancel}>
-            <X size={20} />
-          </button>
-        </header>
+      <form className={styles.body} onSubmit={handleSubmit}>
+        <label className={styles.field}>
+          <span className={styles.label}>Atalho</span>
+          <div className={styles.shortcutRow}>
+            <input
+              className={styles.input}
+              type="text"
+              maxLength={25}
+              required
+              placeholder="saudacao"
+              value={form.shortCut}
+              onChange={(e) => set('shortCut', e.target.value)}
+            />
+            <span className={styles.counter}>{form.shortCut.length}</span>
+          </div>
+        </label>
 
-        <form className={styles.body} onSubmit={handleSubmit}>
+        {form.type !== 'text' && (
           <label className={styles.field}>
-            <span className={styles.label}>Atalho</span>
-            <div className={styles.shortcutRow}>
-              <input
-                className={styles.input}
-                type="text"
-                maxLength={25}
-                required
-                placeholder="saudacao"
-                value={form.shortCut}
-                onChange={(e) => set('shortCut', e.target.value)}
-              />
-              <span className={styles.counter}>{form.shortCut.length}</span>
-            </div>
+            <span className={styles.label}>Tipo</span>
+            <select
+              className={styles.input}
+              value={form.type}
+              onChange={(e) => set('type', e.target.value)}
+            >
+              <option value="text">Texto</option>
+              <option value="image">Imagem</option>
+              <option value="document">Documento</option>
+              <option value="video">Vídeo</option>
+              <option value="audio">Áudio</option>
+            </select>
           </label>
+        )}
 
-          {form.type !== 'text' && (
-            <label className={styles.field}>
-              <span className={styles.label}>Tipo</span>
-              <select
-                className={styles.input}
-                value={form.type}
-                onChange={(e) => set('type', e.target.value)}
-              >
-                <option value="text">Texto</option>
-                <option value="image">Imagem</option>
-                <option value="document">Documento</option>
-                <option value="video">Vídeo</option>
-                <option value="audio">Áudio</option>
-              </select>
-            </label>
-          )}
-
-          {form.type !== 'text' && (
-            <label className={styles.field}>
-              <span className={styles.label}>URL do arquivo</span>
-              <input
-                className={styles.input}
-                type="text"
-                required
-                placeholder="https://..."
-                value={form.file}
-                onChange={(e) => set('file', e.target.value)}
-              />
-            </label>
-          )}
-
-          {form.type === 'document' && (
-            <label className={styles.field}>
-              <span className={styles.label}>Nome do arquivo (opcional)</span>
-              <input
-                className={styles.input}
-                type="text"
-                value={form.docName}
-                onChange={(e) => set('docName', e.target.value)}
-              />
-            </label>
-          )}
-
+        {form.type !== 'text' && (
           <label className={styles.field}>
-            <span className={styles.label}>
-              {form.type === 'text' ? 'Mensagem da resposta' : 'Legenda (opcional)'}
-            </span>
-            <textarea
-              className={styles.textarea}
-              rows={5}
-              required={form.type === 'text'}
-              placeholder="Digite a mensagem..."
-              value={form.text}
-              onChange={(e) => set('text', e.target.value)}
+            <span className={styles.label}>URL do arquivo</span>
+            <input
+              className={styles.input}
+              type="text"
+              required
+              placeholder="https://..."
+              value={form.file}
+              onChange={(e) => set('file', e.target.value)}
             />
           </label>
+        )}
 
-          {error && <p className={styles.error}>{error}</p>}
+        {form.type === 'document' && (
+          <label className={styles.field}>
+            <span className={styles.label}>Nome do arquivo (opcional)</span>
+            <input
+              className={styles.input}
+              type="text"
+              value={form.docName}
+              onChange={(e) => set('docName', e.target.value)}
+            />
+          </label>
+        )}
 
-          <footer className={styles.footer}>
-            <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onCancel}>
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className={`${styles.btn} ${styles.btnPrimary}`}
-              disabled={saving}
-            >
-              {saving && <Loader size={16} className={styles.spinner} />}
-              Salvar
-            </button>
-          </footer>
-        </form>
-      </div>
-    </div>,
-    document.body,
+        <label className={styles.field}>
+          <span className={styles.label}>
+            {form.type === 'text' ? 'Mensagem da resposta' : 'Legenda (opcional)'}
+          </span>
+          <textarea
+            className={styles.textarea}
+            rows={5}
+            required={form.type === 'text'}
+            placeholder="Digite a mensagem..."
+            value={form.text}
+            onChange={(e) => set('text', e.target.value)}
+          />
+        </label>
+
+        {error && <p className={styles.error}>{error}</p>}
+
+        <footer className={styles.footer}>
+          <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onCancel}>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className={`${styles.btn} ${styles.btnPrimary}`}
+            disabled={saving}
+          >
+            {saving && <Loader size={16} className={styles.spinner} />}
+            Salvar
+          </button>
+        </footer>
+      </form>
+    </AnimatedDialog>
   )
 }

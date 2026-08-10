@@ -131,9 +131,19 @@ export class FoodDiaryRepository {
     });
   }
 
-  async findRecentForNutri(limit = 24) {
+  async findRecentForNutri(
+    limit = 24,
+    opts?: { withImageOnly?: boolean; skip?: number },
+  ) {
     return prisma.foodDiaryEntry.findMany({
+      where: opts?.withImageOnly
+        ? {
+            imageUrl: { not: null },
+            NOT: { imageUrl: "" },
+          }
+        : undefined,
       orderBy: { createdAt: "desc" },
+      skip: Math.max(0, opts?.skip ?? 0),
       take: limit,
       include: {
         user: { select: { id: true, name: true, avatar: true } },

@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "prisma generate && nodemon src/index.ts",
+    "restart": "bash scripts/restart-dev.sh",
     "build": "tsc",
     "test": "node -r ts-node/register --test \"src/tests/**/*.test.ts\" --test-skip-pattern integration",
     "test:integration": "node -r ts-node/register --test \"src/tests/**/*.integration.test.ts\"",

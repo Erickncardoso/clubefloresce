@@ -1,4 +1,4 @@
-import { apiFetch } from './api'
+import { apiFetch, ApiError } from './api'
 import type { AuthUser } from './types'
 
 const SESSION_HINT_KEY = 'cf_session_active'
@@ -55,9 +55,17 @@ export async function verifyAuthSession(options: {
     applyVerifiedSessionUser(user)
     if (requiredRole && user.role !== requiredRole) return null
     return user
-  } catch {
-    clearAuthSessionMeta()
-    return null
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+      clearAuthSessionMeta()
+      return null
+    }
+    // Erro de rede (backend reiniciando) — usa cache mesmo stale para não deslogar
+    if (cachedUser) {
+      if (requiredRole && cachedUser.role !== requiredRole) return null
+      return cachedUser
+    }
+    throw err
   }
 }
 

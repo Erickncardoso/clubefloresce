@@ -1,27 +1,9 @@
-.modal {
+.panel {
   --mph-water: #00b2ca;
   --mph-water-strong: #0099ad;
   --mph-water-soft: #eefafb;
   --mph-water-text: #0099ad;
 
-  position: fixed;
-  inset: 0;
-  z-index: 6100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.4);
-}
-
-.panel {
-  position: relative;
-  z-index: 1;
   width: min(100%, 56rem);
   max-height: min(92vh, 52rem);
   overflow: auto;

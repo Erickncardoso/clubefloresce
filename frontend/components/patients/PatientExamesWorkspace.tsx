@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { FlaskConical, MoreVertical } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import type { Exame, PatientUser, PatientProfile } from '@/lib/types'
 import { canCompare, formatExameDate, EXAMES_LIMIT } from '@/lib/lab-exams'
+import { AnimatedPopover } from '@/components/overlays'
 import { ExameEditorModal } from './ExameEditorModal'
 import { ExameComparisonPanel } from './ExameComparisonPanel'
 import s from './PatientWorkspace.module.scss'
@@ -38,28 +39,36 @@ function badgeClass(status?: string | null): string {
 
 function TileMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  function handleBlur(e: React.FocusEvent) {
-    if (!ref.current?.contains(e.relatedTarget as Node)) setOpen(false)
-  }
 
   return (
-    <div ref={ref} className={s.menu} onBlur={handleBlur}>
-      <button type="button" className={s.menuBtn} aria-label="Ações" onClick={() => setOpen((v) => !v)}>
-        <MoreVertical size={15} />
+    <AnimatedPopover
+      open={open}
+      onOpenChange={setOpen}
+      align="end"
+      contentClassName={s.dropdown}
+      trigger={
+        <button type="button" className={s.menuBtn} aria-label="Ações">
+          <MoreVertical size={15} />
+        </button>
+      }
+    >
+      <button
+        type="button"
+        className={s.dropdownItem}
+        role="menuitem"
+        onClick={() => { setOpen(false); onEdit() }}
+      >
+        Editar
       </button>
-      {open && (
-        <div className={s.dropdown} role="menu">
-          <button type="button" className={s.dropdownItem} role="menuitem" onClick={() => { onEdit(); setOpen(false) }}>
-            Editar
-          </button>
-          <button type="button" className={`${s.dropdownItem} ${s.danger}`} role="menuitem" onClick={() => { onDelete(); setOpen(false) }}>
-            Excluir
-          </button>
-        </div>
-      )}
-    </div>
+      <button
+        type="button"
+        className={`${s.dropdownItem} ${s.danger}`}
+        role="menuitem"
+        onClick={() => { setOpen(false); onDelete() }}
+      >
+        Excluir
+      </button>
+    </AnimatedPopover>
   )
 }
 

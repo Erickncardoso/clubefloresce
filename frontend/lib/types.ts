@@ -157,13 +157,16 @@ export type ConsumptionSummary = {
 
 export type DiaryFeedEntry = {
   id: string
-  mealLabel?: string
+  mealLabel?: string | null
   mealType?: string
   imageUrl?: string | null
   createdAt?: string
-  patient?: AuthUser
-  user?: AuthUser
+  patient?: { id: string; name: string; avatar?: string | null }
+  user?: { id: string; name: string; avatar?: string | null }
   caloriesKcal?: number
+  likesCount?: number
+  likedByMe?: boolean
+  commentsCount?: number
 }
 
 export type CheckinSchedule = {

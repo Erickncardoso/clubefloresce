@@ -7,7 +7,9 @@ import styles from './PatientAvatar.module.scss'
 type Props = {
   src?: string | null
   name?: string | null
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  /** Círculo simples (sem máscara squircle) — ideal em chips/overlays */
+  circle?: boolean
   ring?: boolean
   className?: string
 }
@@ -16,6 +18,7 @@ export function PatientAvatar({
   src,
   name,
   size = 'md',
+  circle = false,
   ring = false,
   className,
 }: Props) {
@@ -35,6 +38,7 @@ export function PatientAvatar({
         'patient-avatar',
         `patient-avatar--${size}`,
         styles[`avatar--${size}`],
+        circle ? styles.avatarCircle : '',
         ring ? styles.avatarRing : '',
         className,
       ]

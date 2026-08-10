@@ -235,10 +235,6 @@
 }
 
 .menuPopover {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  right: 0;
-  z-index: 20;
   min-width: 10.5rem;
   padding: 0.35rem;
   background: var(--cf-surface);

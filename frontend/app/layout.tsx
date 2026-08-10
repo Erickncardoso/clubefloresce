@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={plusJakarta.variable}>
-      <body style={{ fontFamily: 'var(--cf-font-family), var(--cf-font)' }}>{children}</body>
+      <body style={{ fontFamily: 'var(--cf-font-family), var(--cf-font)' }} suppressHydrationWarning>{children}</body>
     </html>
   )
 }

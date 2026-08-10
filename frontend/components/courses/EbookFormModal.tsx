@@ -5,6 +5,7 @@ import { FileUp, ImagePlus, X } from 'lucide-react'
 import { FloatField } from '@/components/ui/FloatField'
 import type { Ebook } from '@/lib/courses'
 import { uploadDocument, uploadImage } from '@/lib/courses'
+import { AnimatedDialog } from '@/components/overlays'
 import styles from './EbookFormModal.module.scss'
 
 export type EbookSavePayload = {
@@ -57,7 +58,7 @@ export function EbookFormModal({
     setPdfName(ebook?.fileUrl ? 'PDF atual' : '')
   }, [open, ebook])
 
-  if (!open) return null
+  const heading = ebook ? 'Editar ebook' : 'Novo ebook'
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -95,84 +96,88 @@ export function EbookFormModal({
   }
 
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true">
-      <div className={styles.backdrop} onClick={onClose} aria-hidden />
-      <div className={`modal-card ${styles.card}`}>
-        <header className={styles.head}>
-          <div>
-            <h2>{ebook ? 'Editar ebook' : 'Novo ebook'}</h2>
-            <p>Capa, título e PDF.</p>
-          </div>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="Fechar">
-            <X size={18} />
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title={heading}
+      contentClassName={`modal-card ${styles.card}`}
+    >
+      <header className={styles.head}>
+        <div>
+          <h2>{heading}</h2>
+          <p>Capa, título e PDF.</p>
+        </div>
+        <button type="button" className={styles.close} onClick={onClose} aria-label="Fechar">
+          <X size={18} />
+        </button>
+      </header>
+
+      <form className={styles.form} onSubmit={onSubmit}>
+        <div className={styles.uploads}>
+          <button type="button" className={styles.coverBtn} onClick={() => coverRef.current?.click()}>
+            {coverPreview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={coverPreview} alt="" />
+            ) : (
+              <span>
+                <ImagePlus size={18} />
+                Capa
+              </span>
+            )}
           </button>
-        </header>
+          <button type="button" className={styles.pdfBtn} onClick={() => pdfRef.current?.click()}>
+            <FileUp size={18} />
+            <span>{pdfName || 'Enviar PDF'}</span>
+          </button>
+        </div>
+        <input
+          ref={coverRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            if (coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview)
+            setCoverFile(file)
+            setCoverPreview(URL.createObjectURL(file))
+          }}
+        />
+        <input
+          ref={pdfRef}
+          type="file"
+          accept="application/pdf"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            setPdfFile(file)
+            setPdfName(file.name)
+          }}
+        />
 
-        <form className={styles.form} onSubmit={onSubmit}>
-          <div className={styles.uploads}>
-            <button type="button" className={styles.coverBtn} onClick={() => coverRef.current?.click()}>
-              {coverPreview ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={coverPreview} alt="" />
-              ) : (
-                <span>
-                  <ImagePlus size={18} />
-                  Capa
-                </span>
-              )}
-            </button>
-            <button type="button" className={styles.pdfBtn} onClick={() => pdfRef.current?.click()}>
-              <FileUp size={18} />
-              <span>{pdfName || 'Enviar PDF'}</span>
-            </button>
-          </div>
-          <input
-            ref={coverRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              if (coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview)
-              setCoverFile(file)
-              setCoverPreview(URL.createObjectURL(file))
-            }}
-          />
-          <input
-            ref={pdfRef}
-            type="file"
-            accept="application/pdf"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              setPdfFile(file)
-              setPdfName(file.name)
-            }}
-          />
+        <FloatField label="Título" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <FloatField
+          as="textarea"
+          label="Descrição"
+          rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
 
-          <FloatField label="Título" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          <FloatField
-            as="textarea"
-            label="Descrição"
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
+        {localError || error ? <p className={styles.error}>{localError || error}</p> : null}
 
-          {localError || error ? <p className={styles.error}>{localError || error}</p> : null}
-
-          <div className={styles.actions}>
-            <button type="button" className="btn-secondary" disabled={saving || uploading} onClick={onClose}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn-primary" disabled={saving || uploading}>
-              {saving || uploading ? 'Salvando…' : 'Salvar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className={styles.actions}>
+          <button type="button" className="btn-secondary" disabled={saving || uploading} onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn-primary" disabled={saving || uploading}>
+            {saving || uploading ? 'Salvando…' : 'Salvar'}
+          </button>
+        </div>
+      </form>
+    </AnimatedDialog>
   )
 }

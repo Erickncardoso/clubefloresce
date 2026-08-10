@@ -128,3 +128,9 @@
   flex-direction: column;
   gap: 1.1rem;
 }
+
+.field.field--float .cf-select,
+.field.field--float .cf-date-input {
+  display: block;
+  width: 100%;
+}

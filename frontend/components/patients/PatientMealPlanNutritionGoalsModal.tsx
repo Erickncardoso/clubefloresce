@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Calculator, ChevronRight, Target, X } from 'lucide-react'
 import {
   MacroGoalsDraft,
@@ -19,6 +18,7 @@ import {
   roundMacroGoal,
 } from '@/lib/meal-plan/nutrition-goals'
 import type { MacroTotals } from '@/lib/meal-plan/types'
+import { AnimatedDialog } from '@/components/overlays'
 import styles from './PatientMealPlanNutritionGoalsModal.module.scss'
 
 const GOAL_TYPE_OPTIONS: Array<{ id: MacroGoalType; label: string }> = [
@@ -51,8 +51,6 @@ function useDraft(open: boolean, goals: Props['goals'], patientWeightKg: number 
 
 export function PatientMealPlanNutritionGoalsModal({ open, goals, liveTotals, patientWeightKg, onClose, onSave }: Props) {
   const [draft, setDraft] = useDraft(open, goals, patientWeightKg)
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
 
   function updateDraft(patch: Partial<MacroGoalsDraft>) {
     setDraft((prev) => ({ ...prev, ...patch }))
@@ -169,23 +167,26 @@ export function PatientMealPlanNutritionGoalsModal({ open, goals, liveTotals, pa
     return 'Informe proteínas, carboidratos e gorduras em gramas.'
   })()
 
-  if (!mounted || !open) return null
+  return (
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title="Metas Nutricionais"
+      contentClassName={styles.panel}
+    >
+      <header className={styles.head}>
+        <div className={styles.titleWrap}>
+          <Target className={styles.icon} aria-hidden="true" />
+          <h2 id="mpng-title">Metas Nutricionais</h2>
+        </div>
+        <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={onClose}>
+          <X aria-hidden="true" />
+        </button>
+      </header>
 
-  return createPortal(
-    <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="mpng-title">
-      <div className={styles.backdrop} aria-hidden="true" onClick={onClose} />
-      <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
-        <header className={styles.head}>
-          <div className={styles.titleWrap}>
-            <Target className={styles.icon} aria-hidden="true" />
-            <h2 id="mpng-title">Metas Nutricionais</h2>
-          </div>
-          <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={onClose}>
-            <X aria-hidden="true" />
-          </button>
-        </header>
-
-        <div className={styles.body}>
+      <div className={styles.body}>
           {/* Goal type segment */}
           <div className={styles.field}>
             <span className={styles.fieldLabel}>Tipo de meta</span>
@@ -308,19 +309,17 @@ export function PatientMealPlanNutritionGoalsModal({ open, goals, liveTotals, pa
           </div>
         </div>
 
-        <footer className={styles.foot}>
-          <button type="button" className={styles.microLink} disabled>
-            <Target aria-hidden="true" />
-            Metas de micronutrientes
-            <ChevronRight aria-hidden="true" />
-          </button>
-          <div className={styles.footActions}>
-            <button type="button" className={`btn-secondary ${styles.footBtn}`} onClick={onClose}>Cancelar</button>
-            <button type="button" className={`btn-primary ${styles.footBtn}`} onClick={handleSave}>Salvar</button>
-          </div>
-        </footer>
-      </div>
-    </div>,
-    document.body,
+      <footer className={styles.foot}>
+        <button type="button" className={styles.microLink} disabled>
+          <Target aria-hidden="true" />
+          Metas de micronutrientes
+          <ChevronRight aria-hidden="true" />
+        </button>
+        <div className={styles.footActions}>
+          <button type="button" className={`btn-secondary ${styles.footBtn}`} onClick={onClose}>Cancelar</button>
+          <button type="button" className={`btn-primary ${styles.footBtn}`} onClick={handleSave}>Salvar</button>
+        </div>
+      </footer>
+    </AnimatedDialog>
   )
 }

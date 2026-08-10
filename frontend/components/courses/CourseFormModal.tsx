@@ -11,6 +11,7 @@ import {
   uploadImage,
 } from '@/lib/courses'
 import styles from './CourseFormModal.module.scss'
+import { AnimatedDialog } from '@/components/overlays'
 
 export type CourseEditMode = 'create' | 'card' | 'banner'
 
@@ -74,8 +75,6 @@ export function CourseFormModal({
     setPreview(mode === 'banner' ? course.bannerImage || '' : course.thumbnail || '')
   }, [open, mode, course])
 
-  if (!open) return null
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!title.trim()) {
@@ -131,24 +130,29 @@ export function CourseFormModal({
     mode === 'create' ? 'Novo curso' : mode === 'banner' ? 'Editar capa do destaque' : 'Editar curso'
 
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true">
-      <div className={styles.backdrop} onClick={onClose} aria-hidden />
-      <div className={`modal-card ${styles.card}`}>
-        <header className={styles.head}>
-          <div>
-            <h2>{heading}</h2>
-            <p>
-              {mode === 'banner'
-                ? 'Imagem e textos do banner em destaque.'
-                : 'Capa do card, título e descrição.'}
-            </p>
-          </div>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="Fechar">
-            <X size={18} />
-          </button>
-        </header>
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title={heading}
+      contentClassName={`modal-card ${styles.card}`}
+    >
+      <header className={styles.head}>
+        <div>
+          <h2>{heading}</h2>
+          <p>
+            {mode === 'banner'
+              ? 'Imagem e textos do banner em destaque.'
+              : 'Capa do card, título e descrição.'}
+          </p>
+        </div>
+        <button type="button" className={styles.close} onClick={onClose} aria-label="Fechar">
+          <X size={18} />
+        </button>
+      </header>
 
-        <form className={styles.form} onSubmit={onSubmit}>
+      <form className={styles.form} onSubmit={onSubmit}>
           <button
             type="button"
             className={`${styles.upload} ${mode === 'banner' ? styles.uploadBanner : ''}`}
@@ -233,7 +237,6 @@ export function CourseFormModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </AnimatedDialog>
   )
 }

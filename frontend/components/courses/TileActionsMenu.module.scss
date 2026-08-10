@@ -16,10 +16,7 @@
 }
 
 .menu {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
-  z-index: 20;
+  z-index: 40;
   min-width: 11.5rem;
   padding: 0.35rem;
   border: 1px solid var(--admin-border);

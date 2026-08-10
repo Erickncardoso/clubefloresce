@@ -1,0 +1,40 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 7000;
+  background: rgb(18 18 22 / 22%);
+  backdrop-filter: blur(1.5px);
+}
+
+/*
+ * Centralização via transform estático.
+ * Nunca anime translate/scale — só opacity (OverlayMotion).
+ * Estas regras vêm por último no className do Dialog.Content
+ * para não serem sobrescritas por contentClassName (ex.: position: relative).
+ */
+.content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 7001;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  max-height: min(720px, calc(100dvh - 32px));
+  overflow: auto;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

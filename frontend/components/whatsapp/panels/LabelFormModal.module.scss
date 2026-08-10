@@ -1,18 +1,11 @@
-.overlay {
-  position: fixed;
-  inset: 0;
+.waOverlay {
   z-index: 10080;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-  background: rgba(11, 20, 26, 0.45);
 }
 
 .modal {
   width: min(100%, 440px);
   background: #fff;
-  border-radius: 16px;
+  border-radius: var(--cf-radius-control);
   box-shadow: 0 8px 32px rgba(11, 20, 26, 0.18);
 }
 

@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { CommunityPost } from '@/lib/community'
+import { AnimatedPopover } from '@/components/overlays'
 import styles from './CommunityFeed.module.scss'
 
 export type CommunityTab = 'feed' | 'groups' | 'friends'
@@ -222,37 +223,44 @@ export function CommunityFeed({
                       <span>{formatDistance(post.createdAt)}</span>
                     </div>
                     <div className={styles.menuWrap}>
-                      <button
-                        type="button"
-                        className={styles.menuBtn}
-                        aria-label="Opções da publicação"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onTogglePostMenu(post.id)
-                        }}
-                      >
-                        <MoreHorizontal size={18} aria-hidden />
-                      </button>
-                      {openMenuPostId === post.id ? (
-                        <div className={styles.menuPopover} onClick={(e) => e.stopPropagation()}>
-                          {isMyPost(post) || isNutri ? (
-                            <button
-                              type="button"
-                              className={`${styles.menuItem} ${styles.menuDanger}`}
-                              onClick={() => onDeletePost(post.id)}
-                            >
-                              Excluir publicação
-                            </button>
-                          ) : null}
+                      <AnimatedPopover
+                        open={openMenuPostId === post.id}
+                        onOpenChange={() => onTogglePostMenu(post.id)}
+                        align="end"
+                        contentClassName={styles.menuPopover}
+                        trigger={
                           <button
                             type="button"
-                            className={styles.menuItem}
-                            onClick={() => onCopyPost(post)}
+                            className={styles.menuBtn}
+                            aria-label="Opções da publicação"
                           >
-                            Copiar texto
+                            <MoreHorizontal size={18} aria-hidden />
                           </button>
-                        </div>
-                      ) : null}
+                        }
+                      >
+                        {isMyPost(post) || isNutri ? (
+                          <button
+                            type="button"
+                            className={`${styles.menuItem} ${styles.menuDanger}`}
+                            onClick={() => {
+                              onDeletePost(post.id)
+                              onTogglePostMenu(post.id)
+                            }}
+                          >
+                            Excluir publicação
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className={styles.menuItem}
+                          onClick={() => {
+                            onCopyPost(post)
+                            onTogglePostMenu(post.id)
+                          }}
+                        >
+                          Copiar texto
+                        </button>
+                      </AnimatedPopover>
                     </div>
                   </div>
 

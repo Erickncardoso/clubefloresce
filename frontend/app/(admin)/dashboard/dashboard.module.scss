@@ -226,6 +226,15 @@
   }
 }
 
+.cardTitleLink {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--admin-primary);
+  }
+}
+
 .quietLink {
   font-size: 0.78rem;
   font-weight: 600;
@@ -325,6 +334,126 @@
   background: var(--admin-primary);
 }
 
+.diaryCard {
+  min-height: 258px;
+  max-height: 258px;
+}
+
+.diaryMoreTop {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--admin-primary);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.diaryScroll {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0.2rem;
+  overflow-y: auto;
+  overflow-x: visible;
+  padding-right: 0.1rem;
+  scrollbar-gutter: stable;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--admin-muted) 45%, transparent);
+    border-radius: 999px;
+  }
+}
+
+.diaryMasonry {
+  column-count: 3;
+  column-gap: 0.35rem;
+}
+
+.diaryTile {
+  position: relative;
+  break-inside: avoid;
+  margin-bottom: 0.35rem;
+  border-radius: var(--cf-radius-xs);
+  background: var(--admin-primary-soft);
+
+}
+
+.diaryTile1 .diaryTileHit img {
+  aspect-ratio: 3 / 4;
+}
+.diaryTile2 .diaryTileHit img {
+  aspect-ratio: 2 / 3;
+}
+.diaryTile3 .diaryTileHit img {
+  aspect-ratio: 3 / 5;
+}
+.diaryTile4 .diaryTileHit img {
+  aspect-ratio: 4 / 5;
+}
+
+.diaryTileHit {
+  display: block;
+  position: relative;
+  line-height: 0;
+  text-decoration: none;
+  border-radius: var(--cf-radius-xs);
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+
+.diaryTileFade {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2rem;
+  background: linear-gradient(
+    to top,
+    rgba(12, 14, 13, 0.55) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.diaryLike {
+  position: absolute;
+  right: 0.15rem;
+  bottom: 0.1rem;
+  z-index: 2;
+  border: none;
+  background: transparent;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0.2rem;
+  line-height: 1;
+  border-radius: var(--cf-radius-xs);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+}
+
+.diaryLiked {
+  color: #ff6b8a;
+}
+
 .dailyList {
   list-style: none;
   margin: 0.25rem 0 0;
@@ -359,7 +488,7 @@
 .dailyThumb {
   width: 40px;
   height: 40px;
-  border-radius: 0.85rem;
+  border-radius: var(--cf-radius-xs);
   overflow: hidden;
   flex-shrink: 0;
   display: grid;
@@ -843,6 +972,140 @@
   }
 }
 
+/* ── Skeletons ────────────────────────────────────────────────────────────── */
+
+.bone {
+  display: inline-block;
+  border-radius: var(--cf-radius-control);
+  background: linear-gradient(90deg, #eef0eb 0%, #f7f8f6 50%, #eef0eb 100%);
+  background-size: 200% 100%;
+  animation: dashShimmer 1.2s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+.skelHeroDate {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.skelHeroSep {
+  color: #b1b8b3;
+}
+
+@keyframes dashShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.skelDot {
+  width: 8px !important;
+  height: 8px !important;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+}
+
+.skelScheduleCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-top: 0.1rem;
+}
+
+.skelDiaryTile {
+  pointer-events: none;
+}
+
+.skelDiaryImg {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--cf-radius-xs);
+}
+
+.diaryTile2 .skelDiaryImg {
+  aspect-ratio: 2 / 3;
+}
+
+.diaryTile3 .skelDiaryImg {
+  aspect-ratio: 3 / 5;
+}
+
+.diaryTile4 .skelDiaryImg {
+  aspect-ratio: 4 / 5;
+}
+
+.skelKpiValue {
+  display: block;
+  width: 3.25rem;
+  height: 1.85rem;
+  margin: 0.65rem 0 0;
+}
+
+.skelKpiFoot {
+  display: block;
+  height: 0.72rem;
+  margin-top: 0.55rem;
+  max-width: 100%;
+}
+
+.skelKpiIcon {
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: 0.75rem;
+  flex: 0 0 auto;
+}
+
+.skelCareChip {
+  pointer-events: none;
+  cursor: default;
+}
+
+.skelTrow {
+  cursor: default;
+  pointer-events: none;
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.skelAvatar {
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skelPatientCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.skelTime {
+  justify-self: end;
+}
+
+.skelRequestCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.skelRequestActions {
+  display: flex;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
 /* ── Modal (kept) ─────────────────────────────────────────────────────────── */
 
 .dangerOverlay {
@@ -927,6 +1190,29 @@
   }
 }
 
+/* ── Side row (care + panel | tasks) ─────────────────────────────────────── */
+
+.sideRow {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.sideMain {
+  min-width: 0;
+}
+
+.sideTasks {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .sideRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 @media (max-width: 1180px) {
@@ -1002,6 +1288,10 @@
 
   .midCard {
     min-height: 230px;
+  }
+
+  .diaryCard {
+    max-height: 230px;
   }
 
   .tabs,

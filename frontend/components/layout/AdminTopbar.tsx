@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api'
 import { logout } from '@/lib/auth'
 import { buildPatientPath } from '@/lib/patient-slug'
 import type { AuthUser } from '@/lib/types'
+import { AnimatedDialog, AnimatedPopover } from '@/components/overlays'
 import { PatientAvatar } from '@/components/patients/PatientAvatar'
 import { QuickAddPatientModal } from '@/components/patients/QuickAddPatientModal'
 import styles from './AdminTopbar.module.scss'
@@ -25,7 +26,6 @@ export function AdminTopbar({ profile, onPatientCreated, onOpenMobileNav }: Prop
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [highlighted, setHighlighted] = useState(0)
-  const [profileOpen, setProfileOpen] = useState(false)
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -160,84 +160,88 @@ export function AdminTopbar({ profile, onPatientCreated, onOpenMobileNav }: Prop
           </button>
 
           <div className={styles.profileWrap}>
-            <button
-              type="button"
-              className={`admin-topbar-profile ${styles.profile}`}
-              aria-expanded={profileOpen}
-              onClick={() => setProfileOpen((v) => !v)}
-            >
-              <PatientAvatar src={profile.avatar} name={profile.name} size="sm" />
-              <span className={styles.profileCopy}>
-                <strong>{profile.name || 'Usuário'}</strong>
-                <small>Nutricionista</small>
-              </span>
-              <ChevronDown size={14} aria-hidden />
-            </button>
-            {profileOpen ? (
-              <div className={`admin-topbar-profile-menu ${styles.profileMenu}`} role="menu">
-                <button type="button" role="menuitem" onClick={handleLogout}>
-                  Sair
+            <AnimatedPopover
+              align="end"
+              contentClassName={`admin-topbar-profile-menu ${styles.profileMenu}`}
+              trigger={
+                <button
+                  type="button"
+                  className={`admin-topbar-profile ${styles.profile}`}
+                >
+                  <PatientAvatar src={profile.avatar} name={profile.name} size="sm" />
+                  <span className={styles.profileCopy}>
+                    <strong>{profile.name || 'Usuário'}</strong>
+                    <small>Nutricionista</small>
+                  </span>
+                  <ChevronDown size={14} aria-hidden />
                 </button>
-              </div>
-            ) : null}
+              }
+            >
+              <button type="button" role="menuitem" onClick={handleLogout}>
+                Sair
+              </button>
+            </AnimatedPopover>
           </div>
         </div>
       </header>
 
-      {searchOpen ? (
-        <div className={styles.layer} role="dialog" aria-modal="true" aria-label="Buscar paciente">
-          <div className={styles.backdrop} onClick={closeSearch} aria-hidden />
-          <div className={`admin-topbar-search-panel ${styles.panel}`}>
-            <div className={styles.field}>
-              <Search size={16} aria-hidden />
-              <input
-                ref={inputRef}
-                type="search"
-                placeholder="Buscar paciente por nome ou e-mail..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={onSearchKey}
-              />
-              <button type="button" className={styles.close} onClick={closeSearch} aria-label="Fechar">
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className={styles.createRow}>
-              <button type="button" className="admin-topbar-search-create" onClick={openCreate}>
-                <UserPlus size={15} aria-hidden />
-                Novo paciente
-              </button>
-            </div>
-
-            {loading ? <p className={styles.state}>Carregando pacientes…</p> : null}
-            {!loading && loadError ? <p className={`${styles.state} ${styles.stateError}`}>{loadError}</p> : null}
-            {!loading && !loadError && !filtered.length ? (
-              <p className={styles.state}>Nenhum paciente encontrado.</p>
-            ) : null}
-            {!loading && filtered.length ? (
-              <ul className={styles.list}>
-                {filtered.map((patient, index) => (
-                  <li key={patient.id}>
-                    <button
-                      type="button"
-                      className={`admin-topbar-search-item ${styles.item} ${index === highlighted ? styles.itemActive : ''}`}
-                      onMouseEnter={() => setHighlighted(index)}
-                      onClick={() => selectPatient(patient)}
-                    >
-                      <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
-                      <span>
-                        <strong>{patient.name}</strong>
-                        <small>{patient.email || 'Sem e-mail'}</small>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
+      {/* Search dialog — Radix handles backdrop, Escape and focus trap */}
+      <AnimatedDialog
+        bare
+        open={searchOpen}
+        onOpenChange={(o) => !o && closeSearch()}
+        title="Buscar paciente"
+        overlayClassName={styles.searchBackdrop}
+        contentClassName={`admin-topbar-search-panel ${styles.panel}`}
+      >
+        <div className={styles.field}>
+          <Search size={16} aria-hidden />
+          <input
+            ref={inputRef}
+            type="search"
+            placeholder="Buscar paciente por nome ou e-mail..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onSearchKey}
+          />
+          <button type="button" className={styles.close} onClick={closeSearch} aria-label="Fechar">
+            <X size={16} />
+          </button>
         </div>
-      ) : null}
+
+        <div className={styles.createRow}>
+          <button type="button" className="admin-topbar-search-create" onClick={openCreate}>
+            <UserPlus size={15} aria-hidden />
+            Novo paciente
+          </button>
+        </div>
+
+        {loading ? <p className={styles.state}>Carregando pacientes…</p> : null}
+        {!loading && loadError ? <p className={`${styles.state} ${styles.stateError}`}>{loadError}</p> : null}
+        {!loading && !loadError && !filtered.length ? (
+          <p className={styles.state}>Nenhum paciente encontrado.</p>
+        ) : null}
+        {!loading && filtered.length ? (
+          <ul className={styles.list}>
+            {filtered.map((patient, index) => (
+              <li key={patient.id}>
+                <button
+                  type="button"
+                  className={`admin-topbar-search-item ${styles.item} ${index === highlighted ? styles.itemActive : ''}`}
+                  onMouseEnter={() => setHighlighted(index)}
+                  onClick={() => selectPatient(patient)}
+                >
+                  <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
+                  <span>
+                    <strong>{patient.name}</strong>
+                    <small>{patient.email || 'Sem e-mail'}</small>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </AnimatedDialog>
 
       <QuickAddPatientModal
         open={quickAddOpen}

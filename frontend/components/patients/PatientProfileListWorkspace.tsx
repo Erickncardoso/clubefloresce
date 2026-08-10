@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { MoreVertical, Plus, type LucideIcon } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import type { PatientUser } from '@/lib/types'
+import { AnimatedDialog, AnimatedPopover } from '@/components/overlays'
 import { PatientChartEmptyState } from '@/components/patients/PatientChartEmptyState'
 import { FloatField } from '@/components/ui/FloatField'
 import s from './PatientWorkspace.module.scss'
@@ -133,6 +134,8 @@ export function PatientProfileListWorkspace({
     await persist(items.filter((item) => item.id !== id))
   }
 
+  const modalTitle = editing === 'new' ? createLabel : 'Editar'
+
   return (
     <div className={s.workspace}>
       <header className={s.head}>
@@ -165,38 +168,42 @@ export function PatientProfileListWorkspace({
                   <p>{formatDate(item.updatedAt || item.createdAt)}</p>
                 </div>
                 <div className={s.menu}>
-                  <button
-                    type="button"
-                    className={s.menuBtn}
-                    aria-label="Ações"
-                    onClick={() => setMenuId((cur) => (cur === item.id ? '' : item.id))}
+                  <AnimatedPopover
+                    open={menuId === item.id}
+                    onOpenChange={(o) => setMenuId(o ? item.id : '')}
+                    align="end"
+                    contentClassName={s.dropdown}
+                    trigger={
+                      <button
+                        type="button"
+                        className={s.menuBtn}
+                        aria-label="Ações"
+                      >
+                        <MoreVertical size={15} />
+                      </button>
+                    }
                   >
-                    <MoreVertical size={15} />
-                  </button>
-                  {menuId === item.id ? (
-                    <div className={s.dropdown} role="menu">
-                      <button
-                        type="button"
-                        className={s.dropdownItem}
-                        onClick={() => {
-                          openEdit(item)
-                          setMenuId('')
-                        }}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className={`${s.dropdownItem} ${s.danger}`}
-                        onClick={() => {
-                          void removeItem(item.id)
-                          setMenuId('')
-                        }}
-                      >
-                        Excluir
-                      </button>
-                    </div>
-                  ) : null}
+                    <button
+                      type="button"
+                      className={s.dropdownItem}
+                      onClick={() => {
+                        openEdit(item)
+                        setMenuId('')
+                      }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className={`${s.dropdownItem} ${s.danger}`}
+                      onClick={() => {
+                        void removeItem(item.id)
+                        setMenuId('')
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  </AnimatedPopover>
                 </div>
               </header>
               <div className={s.cardBody}>
@@ -211,16 +218,16 @@ export function PatientProfileListWorkspace({
         </div>
       )}
 
-      {editing ? (
-        <div className={s.overlay} role="presentation" onClick={() => setEditing(null)}>
-          <div
-            className={s.modal}
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <AnimatedDialog
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        title={modalTitle}
+        contentClassName={s.modal}
+      >
+        {editing ? (
+          <>
             <header className={s.modalHead}>
-              <h2>{editing === 'new' ? createLabel : 'Editar'}</h2>
+              <h2>{modalTitle}</h2>
               <button type="button" aria-label="Fechar" onClick={() => setEditing(null)}>
                 ×
               </button>
@@ -254,9 +261,9 @@ export function PatientProfileListWorkspace({
                 {saving ? 'Salvando…' : 'Salvar'}
               </button>
             </footer>
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </AnimatedDialog>
     </div>
   )
 }

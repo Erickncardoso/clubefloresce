@@ -1,0 +1,373 @@
+.list {
+  border-top: 1px solid #e5e7eb;
+}
+
+.block + .block {
+  border-top: 1px solid #e5e7eb;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.8rem 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.toggleTitle {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.toggleEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.toggleSummary {
+  font-size: 0.8125rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 11rem;
+}
+
+.chevron {
+  width: 1rem;
+  height: 1rem;
+  color: #6b7280;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 0.85rem;
+}
+
+.panelActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.row {
+  display: grid;
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.row2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.row3 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+}
+
+.fieldWithRemove {
+  position: relative;
+  padding-right: 1.75rem;
+}
+
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2.65rem;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: var(--cf-radius-control);
+
+  &:hover {
+    color: #ef4444;
+  }
+}
+
+.removeCorner {
+  position: absolute;
+  top: 1.65rem;
+  right: 0;
+  height: 2rem;
+}
+
+.removeInline {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: transparent;
+  color: var(--qap-accent, #8b967c);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+
+  &:hover {
+    color: var(--qap-accent-hover, #6f7863);
+  }
+}
+
+.req {
+  color: #dc2626;
+}
+
+.toggleRow,
+.notifyRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+.switch,
+.notify {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switchInput {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switchTrack {
+  width: 2.55rem;
+  height: 1.4rem;
+  border-radius: var(--cf-radius-pill);
+  background: #d1d5db;
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 1.08rem;
+    height: 1.08rem;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease;
+  }
+}
+
+.switchInput:checked + .switchTrack {
+  background: #6ee7a5;
+
+  &::after {
+    transform: translateX(1.12rem);
+  }
+}
+
+.switchLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.tipWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+
+  &:hover .tip,
+  &:focus-within .tip {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  &:hover .tipTrigger,
+  &:focus-within .tipTrigger {
+    color: #6b7280;
+  }
+}
+
+.tipTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: help;
+  padding: 0;
+}
+
+.tip {
+  position: absolute;
+  bottom: calc(100% + 0.45rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 14.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--cf-radius-xs);
+  background: #1f2937;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 20;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.22);
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1f2937;
+  }
+}
+
+.cepField {
+  position: relative;
+}
+
+.cepLink {
+  position: absolute;
+  right: 0.65rem;
+  top: 1.85rem;
+  border: none;
+  background: transparent;
+  color: var(--qap-accent, #8b967c);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.hintError {
+  color: #dc2626;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1.5px dashed #d1d5db;
+  border-radius: var(--cf-radius-control);
+  background: #fafafa;
+  color: var(--qap-accent, #8b967c);
+  text-align: center;
+}
+
+.dropzoneDrag {
+  border-color: var(--qap-accent, #8b967c);
+  background: rgba(139, 150, 124, 0.06);
+}
+
+.dropText {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.dropHint {
+  margin: 0;
+  font-size: 0.6875rem;
+  color: #9ca3af;
+}
+
+.dropBtn {
+  border: none;
+  background: var(--qap-accent-soft, rgba(139, 150, 124, 0.14));
+  color: var(--qap-accent, #8b967c);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--cf-radius-control);
+  cursor: pointer;
+}
+
+.fileInput {
+  display: none;
+}
+
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: #374151;
+  }
+}
+
+.fileName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filePending {
+  font-size: 0.6875rem;
+  color: #9ca3af;
+}
+
+@media (max-width: 640px) {
+  .row2,
+  .row3 {
+    grid-template-columns: 1fr;
+  }
+
+  .toggleSummary {
+    display: none;
+  }
+}

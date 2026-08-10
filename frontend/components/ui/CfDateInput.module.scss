@@ -1,0 +1,282 @@
+.root {
+  position: relative;
+  width: 100%;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.85rem 0.9rem;
+  border: 1.5px solid #e8ece9;
+  background: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+  border-radius: var(--cf-radius-control);
+
+  &:hover:not(:disabled) {
+    border-color: #d4e5d1;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: #b8d4b4;
+    box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.triggerEditable {
+  padding: 0;
+  gap: 0;
+  cursor: default;
+}
+
+.triggerFocused,
+.open .triggerEditable {
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+}
+
+.open .trigger {
+  border-color: #b8d4b4;
+  box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.08);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.9rem 0.35rem 0.9rem 1rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--cf-text, #1a2e24);
+  outline: none;
+
+  &::placeholder {
+    color: #9aa8a2;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.calendarBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 100%;
+  min-height: 3rem;
+  border: none;
+  background: transparent;
+  color: #8a9a92;
+  cursor: pointer;
+  appearance: none;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #9fc499;
+    outline-offset: -2px;
+  }
+}
+
+.icon {
+  flex-shrink: 0;
+  color: #8a9a92;
+}
+
+.open .icon {
+  color: #8b967c;
+}
+
+.value {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1a2e24;
+}
+
+.valuePlaceholder {
+  color: #9aa8a2;
+}
+
+.panel {
+  z-index: 12000;
+  width: min(20rem, calc(100vw - 1.5rem));
+  overflow: hidden;
+  border: 1px solid #e2e8e4;
+  background: #fff;
+  border-radius: var(--cf-radius-control);
+  padding: 0.85rem 0.85rem 0.7rem;
+  box-shadow:
+    0 4px 6px rgba(26, 46, 36, 0.04),
+    0 14px 32px rgba(26, 46, 36, 0.12);
+}
+
+.panelInner {
+  min-width: 0;
+}
+
+.panelHead {
+  display: grid;
+  grid-template-columns: 2rem 1fr 2rem;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.panelTitle {
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1a2e24;
+  text-transform: capitalize;
+  line-height: 1.2;
+}
+
+.nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: #f4f8f3;
+  color: #8b967c;
+  cursor: pointer;
+
+  &:hover {
+    background: #eaf3e8;
+  }
+}
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.15rem;
+  margin-bottom: 0.35rem;
+
+  span {
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #8a9a92;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.15rem;
+}
+
+.day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: transparent;
+  color: #1a2e24;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #f4f8f3;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.dayOutside {
+  color: #7a8a82;
+}
+
+.dayToday:not(.daySelected) {
+  color: #8b967c;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1.5px #cfe3cb;
+}
+
+.daySelected {
+  background: #8b967c;
+  color: #fff;
+  font-weight: 700;
+
+  &:hover:not(:disabled) {
+    background: #3a6f34;
+  }
+}
+
+.panelFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #eef2ef;
+}
+
+.footBtn {
+  border: none;
+  background: transparent;
+  color: #5c6b64;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--cf-radius-pill);
+  cursor: pointer;
+
+  &:hover {
+    color: #8b967c;
+    background: #f4f8f3;
+  }
+}
+
+.footBtnPrimary {
+  color: #8b967c;
+}
+
+.disabled {
+  opacity: 0.85;
+}
+
+:global(.field--float) .trigger {
+  padding-top: 0.95rem;
+}
+
+:global(.field--float) .triggerEditable {
+  padding-top: 0;
+}

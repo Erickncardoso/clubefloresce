@@ -1,0 +1,99 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 7000;
+  background: rgb(18 18 22 / 22%);
+  backdrop-filter: blur(1.5px);
+}
+
+.content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 7001;
+  box-sizing: border-box;
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(720px, calc(100dvh - 32px));
+  padding: 22px;
+  overflow: auto;
+  /* Centraliza — nunca anime este transform */
+  transform: translate(-50%, -50%);
+  color: #2e2e32;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: var(--cf-radius-control);
+  box-shadow:
+    0 2px 5px rgb(16 24 40 / 7%),
+    0 20px 48px rgb(16 24 40 / 18%);
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.header {
+  padding-right: 38px;
+  display: grid;
+  gap: 6px;
+}
+
+.title {
+  margin: 0;
+  color: #252529;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 26px;
+  letter-spacing: -0.25px;
+}
+
+.description {
+  margin: 0;
+  color: #70717a;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.body {
+  margin-top: 20px;
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: #63636b;
+  background: transparent;
+  border: 0;
+  border-radius: var(--cf-radius-control);
+  cursor: pointer;
+  transition:
+    color 100ms ease,
+    background-color 100ms ease;
+
+  &:hover {
+    color: #29292e;
+    background: #f3f3f4;
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgb(128 0 181 / 18%);
+    outline-offset: 1px;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

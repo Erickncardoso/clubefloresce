@@ -12,6 +12,8 @@ import type {
 } from "../types/food-diary.types";
 
 import { entryDateFromKey, getDateKeyInTimeZone } from "../utils/patient-timezone";
+import { normalizeFoodDiaryCommentContent } from "../utils/food-diary-comment";
+import { FoodDiarySocialRepository } from "../repositories/food-diary-social.repository";
 
 let foodDiaryRepository: FoodDiaryRepository | null = null;
 let bellaRepository: BellaRepository | null = null;
@@ -382,9 +384,23 @@ export class FoodDiaryService {
     return { entry, dailySummary };
   }
 
-  async getAdminFeed(limit = 18) {
+  async getAdminFeed(limit = 18, viewerId: string, skip = 0) {
     const take = Math.min(40, Math.max(1, Number(limit) || 18));
-    const entries = await getFoodDiaryRepository().findRecentForNutri(take);
+    const offset = Math.max(0, Number(skip) || 0);
+    // Busca take+1 para saber se ainda há próxima página
+    const rows = await getFoodDiaryRepository().findRecentForNutri(take + 1, {
+      withImageOnly: true,
+      skip: offset,
+    });
+    const hasMore = rows.length > take;
+    const entries = hasMore ? rows.slice(0, take) : rows;
+    const social = new FoodDiarySocialRepository();
+    const ids = entries.map((e) => e.id);
+    const { likeCounts, commentCounts, likedIds, previews } = await social.countsForEntries(
+      ids,
+      viewerId,
+    );
+
     return {
       entries: entries.map((entry) => ({
         id: entry.id,
@@ -398,8 +414,67 @@ export class FoodDiaryService {
         fatG: entry.fatG,
         createdAt: entry.createdAt,
         patient: entry.user,
+        likesCount: likeCounts.get(entry.id) || 0,
+        likedByMe: likedIds.has(entry.id),
+        commentsCount: commentCounts.get(entry.id) || 0,
+        commentsPreview: (previews.get(entry.id) || []).map((c) => ({
+          id: c.id,
+          content: c.content,
+          createdAt: c.createdAt,
+          author: c.author,
+        })),
       })),
+      hasMore,
+      nextSkip: hasMore ? offset + take : null,
     };
+  }
+
+  async toggleEntryLike(entryId: string, userId: string) {
+    const social = new FoodDiarySocialRepository();
+    const entry = await social.assertEntryWithImage(entryId);
+    if (!entry) throw new Error("Entrada não encontrada.");
+    const existing = await social.findLike(entryId, userId);
+    if (existing) await social.deleteLike(entryId, userId);
+    else await social.createLike(entryId, userId);
+    const likesCount = await social.countLikes(entryId);
+    return { likedByMe: !existing, likesCount };
+  }
+
+  async listEntryComments(entryId: string) {
+    const social = new FoodDiarySocialRepository();
+    const entry = await social.assertEntryWithImage(entryId);
+    if (!entry) throw new Error("Entrada não encontrada.");
+    return social.listComments(entryId);
+  }
+
+  async addEntryComment(entryId: string, authorId: string, rawContent: unknown) {
+    const content = normalizeFoodDiaryCommentContent(rawContent);
+    const social = new FoodDiarySocialRepository();
+    const entry = await social.assertEntryWithImage(entryId);
+    if (!entry) throw new Error("Entrada não encontrada.");
+    return social.createComment(entryId, authorId, content);
+  }
+
+  async updateEntryComment(commentId: string, authorId: string, rawContent: unknown) {
+    const content = normalizeFoodDiaryCommentContent(rawContent);
+    const social = new FoodDiarySocialRepository();
+    const comment = await social.findCommentById(commentId);
+    if (!comment) throw new Error("Comentário não encontrado.");
+    if (comment.authorId !== authorId) {
+      throw new Error("Você só pode editar o seu próprio comentário.");
+    }
+    return social.updateComment(commentId, content);
+  }
+
+  async deleteEntryComment(commentId: string, authorId: string) {
+    const social = new FoodDiarySocialRepository();
+    const comment = await social.findCommentById(commentId);
+    if (!comment) throw new Error("Comentário não encontrado.");
+    if (comment.authorId !== authorId) {
+      throw new Error("Você só pode apagar o seu próprio comentário.");
+    }
+    await social.deleteComment(commentId);
+    return { ok: true, entryId: comment.entryId };
   }
 
   async getAdminConsumptionToday(dateKey?: string) {

@@ -1,7 +1,8 @@
 'use client'
 
-import { ReactNode, useEffect, useRef, useState } from 'react'
+import { ReactNode, useState } from 'react'
 import { MoreVertical } from 'lucide-react'
+import { AnimatedPopover } from '@/components/overlays'
 import styles from './TileActionsMenu.module.scss'
 
 type Props = {
@@ -11,41 +12,29 @@ type Props = {
 
 export function TileActionsMenu({ menuKey, children }: Props) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function onDoc(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
 
   return (
-    <div ref={rootRef} className={styles.root} data-menu-key={menuKey}>
-      <button
-        type="button"
-        className={styles.trigger}
-        aria-label="Ações"
-        aria-expanded={open}
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen((v) => !v)
-        }}
+    <div className={styles.root} data-menu-key={menuKey}>
+      <AnimatedPopover
+        open={open}
+        onOpenChange={setOpen}
+        side="bottom"
+        align="end"
+        sideOffset={4}
+        trigger={
+          <button
+            type="button"
+            className={styles.trigger}
+            aria-label="Ações"
+            aria-expanded={open}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreVertical size={16} />
+          </button>
+        }
+        contentClassName={styles.menu}
       >
-        <MoreVertical size={16} />
-      </button>
-      {open ? (
         <div
-          className={styles.menu}
           role="menu"
           onClick={(e) => {
             e.stopPropagation()
@@ -54,7 +43,7 @@ export function TileActionsMenu({ menuKey, children }: Props) {
         >
           {children}
         </div>
-      ) : null}
+      </AnimatedPopover>
     </div>
   )
 }

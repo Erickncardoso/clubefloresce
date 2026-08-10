@@ -208,7 +208,8 @@
 // ── Tile actions dropdown ─────────────────────────────────────────────────────
 
 .menu {
-  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .menuBtn {
@@ -230,10 +231,6 @@
 }
 
 .dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.35rem);
-  z-index: 200;
   min-width: 9.5rem;
   background: #fff;
   border: 1px solid #e8ece9;
@@ -318,17 +315,6 @@
     color: #6b7368;
     line-height: 1.45;
   }
-}
-
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 6200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(15, 23, 42, 0.45);
 }
 
 .modal {

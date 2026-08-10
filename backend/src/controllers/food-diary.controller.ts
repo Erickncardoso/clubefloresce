@@ -118,10 +118,82 @@ export class FoodDiaryController {
   async getAdminFeed(req: Request, res: Response): Promise<any> {
     try {
       const limit = Number(req.query.limit) || 18;
-      const data = await foodDiaryService.getAdminFeed(limit);
+      const skip = Number(req.query.skip) || 0;
+      const data = await foodDiaryService.getAdminFeed(limit, req.user!.id, skip);
       return res.json(data);
     } catch (error: any) {
       return res.status(500).json({ message: error.message });
+    }
+  }
+
+  async toggleEntryLike(req: Request, res: Response): Promise<any> {
+    try {
+      const data = await foodDiaryService.toggleEntryLike(req.params.entryId, req.user!.id);
+      return res.json(data);
+    } catch (error: any) {
+      const status = /não encontrada/i.test(error.message) ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async listEntryComments(req: Request, res: Response): Promise<any> {
+    try {
+      const comments = await foodDiaryService.listEntryComments(req.params.entryId);
+      return res.json({ comments });
+    } catch (error: any) {
+      const status = /não encontrada/i.test(error.message) ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async addEntryComment(req: Request, res: Response): Promise<any> {
+    try {
+      const comment = await foodDiaryService.addEntryComment(
+        req.params.entryId,
+        req.user!.id,
+        req.body?.content,
+      );
+      return res.status(201).json(comment);
+    } catch (error: any) {
+      const status = /não encontrada/i.test(error.message) ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async updateEntryComment(req: Request, res: Response): Promise<any> {
+    try {
+      const comment = await foodDiaryService.updateEntryComment(
+        req.params.commentId,
+        req.user!.id,
+        req.body?.content,
+      );
+      return res.json(comment);
+    } catch (error: any) {
+      const msg = String(error?.message || "");
+      const status = /não encontrado/i.test(msg)
+        ? 404
+        : /próprio/i.test(msg)
+          ? 403
+          : 400;
+      return res.status(status).json({ message: msg });
+    }
+  }
+
+  async deleteEntryComment(req: Request, res: Response): Promise<any> {
+    try {
+      const data = await foodDiaryService.deleteEntryComment(
+        req.params.commentId,
+        req.user!.id,
+      );
+      return res.json(data);
+    } catch (error: any) {
+      const msg = String(error?.message || "");
+      const status = /não encontrado/i.test(msg)
+        ? 404
+        : /próprio/i.test(msg)
+          ? 403
+          : 400;
+      return res.status(status).json({ message: msg });
     }
   }
 

@@ -68,10 +68,10 @@
   color: var(--admin-muted);
   cursor: pointer;
   flex-shrink: 0;
-  opacity: 0;
-  pointer-events: none;
+  /* Sempre clicável — opacity:0 + pointer-events:none no hover quebrava o recolher */
+  opacity: 1;
+  pointer-events: auto;
   transition:
-    opacity 0.15s ease,
     background 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease;
@@ -84,31 +84,12 @@
   }
 }
 
-.sidebar:hover .toggle,
-.sidebar:focus-within .toggle,
-.toggle:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .sidebarCollapsed .brandRow {
   justify-content: center;
 }
 
 .sidebarCollapsed .logoLink {
   display: none;
-}
-
-.sidebarCollapsed .toggle {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-@media (hover: none) {
-  .toggle {
-    opacity: 1;
-    pointer-events: auto;
-  }
 }
 
 .nav {

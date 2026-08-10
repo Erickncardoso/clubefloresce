@@ -14,6 +14,36 @@ router.get(
   authorize(["NUTRICIONISTA"]),
   controller.getAdminConsumption.bind(controller),
 );
+router.post(
+  "/admin/entries/:entryId/like",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.toggleEntryLike.bind(controller),
+);
+router.get(
+  "/admin/entries/:entryId/comments",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.listEntryComments.bind(controller),
+);
+router.post(
+  "/admin/entries/:entryId/comments",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.addEntryComment.bind(controller),
+);
+router.patch(
+  "/admin/comments/:commentId",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.updateEntryComment.bind(controller),
+);
+router.delete(
+  "/admin/comments/:commentId",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.deleteEntryComment.bind(controller),
+);
 router.post("/confirm", authenticate, authorize(["PACIENTE"]), controller.confirm.bind(controller));
 router.put("/entries/:id", authenticate, authorize(["PACIENTE"]), controller.updateEntry.bind(controller));
 router.put("/plan-check", authenticate, authorize(["PACIENTE"]), controller.syncPlanCheck.bind(controller));

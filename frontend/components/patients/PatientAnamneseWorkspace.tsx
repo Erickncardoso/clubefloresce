@@ -1,9 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { MoreVertical, Stethoscope } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import type { Anamnese, PatientUser, PatientProfile } from '@/lib/types'
+import { AnimatedPopover } from '@/components/overlays'
 import s from './PatientWorkspace.module.scss'
 
 const ANAMNESE_LIMIT = 5
@@ -59,64 +60,48 @@ function TileMenu({
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  function close() {
-    setOpen(false)
-  }
-
-  function handleBlur(e: React.FocusEvent) {
-    if (!ref.current?.contains(e.relatedTarget as Node)) close()
-  }
 
   return (
-    <div ref={ref} className={s.menu} onBlur={handleBlur}>
+    <AnimatedPopover
+      open={open}
+      onOpenChange={setOpen}
+      align="end"
+      contentClassName={s.dropdown}
+      trigger={
+        <button
+          type="button"
+          className={s.menuBtn}
+          aria-label="Ações"
+        >
+          <MoreVertical size={15} />
+        </button>
+      }
+    >
       <button
         type="button"
-        className={s.menuBtn}
-        aria-label="Ações"
-        onClick={() => setOpen((v) => !v)}
+        className={s.dropdownItem}
+        role="menuitem"
+        onClick={() => { setOpen(false); onOpen() }}
       >
-        <MoreVertical size={15} />
+        Abrir
       </button>
-      {open && (
-        <div className={s.dropdown} role="menu">
-          <button
-            type="button"
-            className={s.dropdownItem}
-            role="menuitem"
-            onClick={() => {
-              onOpen()
-              close()
-            }}
-          >
-            Abrir
-          </button>
-          <button
-            type="button"
-            className={s.dropdownItem}
-            role="menuitem"
-            onClick={() => {
-              onEdit()
-              close()
-            }}
-          >
-            Editar texto livre
-          </button>
-          <button
-            type="button"
-            className={`${s.dropdownItem} ${s.danger}`}
-            role="menuitem"
-            onClick={() => {
-              onDelete()
-              close()
-            }}
-          >
-            Excluir
-          </button>
-        </div>
-      )}
-    </div>
+      <button
+        type="button"
+        className={s.dropdownItem}
+        role="menuitem"
+        onClick={() => { setOpen(false); onEdit() }}
+      >
+        Editar texto livre
+      </button>
+      <button
+        type="button"
+        className={`${s.dropdownItem} ${s.danger}`}
+        role="menuitem"
+        onClick={() => { setOpen(false); onDelete() }}
+      >
+        Excluir
+      </button>
+    </AnimatedPopover>
   )
 }
 

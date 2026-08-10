@@ -1,0 +1,21 @@
+.page {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.head {
+  margin-bottom: 1.15rem;
+  text-align: center;
+
+  h1 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0.35rem 0 0;
+    color: var(--admin-muted);
+    font-size: 0.88rem;
+  }
+}

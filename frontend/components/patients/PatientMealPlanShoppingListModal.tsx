@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { AnimatedDialog } from '@/components/overlays'
 import { ShoppingCart, Sparkles, X } from 'lucide-react'
 import {
   SHOPPING_LIST_PERIODS,
@@ -39,8 +39,6 @@ export function PatientMealPlanShoppingListModal({
   const [notice, setNotice] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [smartLoading, setSmartLoading] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (!open) return
@@ -133,103 +131,104 @@ export function PatientMealPlanShoppingListModal({
 
   const remainingUses = smartListRemainingUses(draft)
 
-  if (!mounted || !open) return null
+  return (
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title="Lista de Compras"
+      contentClassName={styles.panel}
+    >
+      <header className={styles.head}>
+        <div className={styles.titleWrap}>
+          <ShoppingCart aria-hidden="true" />
+          <h2 id="mpsl-title">Lista de Compras</h2>
+        </div>
+        <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={onClose}>
+          <X aria-hidden="true" />
+        </button>
+      </header>
 
-  return createPortal(
-    <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="mpsl-title">
-      <div className={styles.backdrop} aria-hidden="true" onClick={onClose} />
-      <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
-        <header className={styles.head}>
-          <div className={styles.titleWrap}>
-            <ShoppingCart aria-hidden="true" />
-            <h2 id="mpsl-title">Lista de Compras</h2>
-          </div>
-          <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={onClose}>
-            <X aria-hidden="true" />
-          </button>
-        </header>
-
-        <div className={styles.body}>
-          {/* Title field */}
-          <div className="field field--float">
-            <label htmlFor="mpsl-title-input">Título</label>
-            <input
-              id="mpsl-title-input"
-              type="text"
-              maxLength={80}
-              value={draft.title}
-              onChange={(e) => updateDraft({ title: e.target.value })}
-            />
-          </div>
-
-          {/* Period pills */}
-          <div className={styles.period}>
-            <span className={styles.periodLabel}>Período</span>
-            <div className={styles.periodPills} role="group" aria-label="Período da lista">
-              {SHOPPING_LIST_PERIODS.map((period) => (
-                <button
-                  key={period.id}
-                  type="button"
-                  className={`${styles.periodBtn} ${draft.periodDays === period.id ? styles.periodBtnActive : ''}`}
-                  onClick={() => setPeriod(period.id)}
-                >
-                  {period.label}
-                </button>
-              ))}
-            </div>
-            <p className={styles.periodHint}>
-              Escala a lista para planos de {draft.periodDays} dias (base: 1 semana do plano).
-            </p>
-          </div>
-
-          {/* Toolbar */}
-          <div className={styles.toolbar}>
-            <button type="button" className={`btn-secondary ${styles.toolbarBtn}`} onClick={regenerateFromPlan}>
-              Atualizar a partir do plano
-            </button>
-            <button type="button" className={`btn-secondary ${styles.toolbarBtn}`} onClick={copyList}>
-              Copiar lista
-            </button>
-          </div>
-
-          {/* Items textarea */}
-          <div className={`field field--float ${styles.listField}`}>
-            <label htmlFor="mpsl-items">Itens da lista</label>
-            <textarea
-              id="mpsl-items"
-              rows={10}
-              placeholder="Um item por linha. Use ## Categoria para seções."
-              value={draft.customText}
-              onChange={(e) => updateDraft({ customText: e.target.value })}
-            />
-          </div>
-
-          {notice && <p className={styles.notice}>{notice}</p>}
-          {errorMessage && <p className={styles.error}>{errorMessage}</p>}
-
-          {/* Smart list */}
-          <div className={styles.smartWrap}>
-            <button
-              type="button"
-              className={styles.smartBtn}
-              disabled={smartLoading || !remainingUses}
-              onClick={runSmartList}
-            >
-              {!smartLoading && <Sparkles aria-hidden="true" />}
-              <span>{smartLoading ? 'Organizando…' : 'Lista Inteligente'}</span>
-            </button>
-            <span className={styles.smartMeta}>
-              {remainingUses}/{SHOPPING_LIST_SMART_LIMIT} usos restantes
-            </span>
-          </div>
+      <div className={styles.body}>
+        {/* Title field */}
+        <div className="field field--float">
+          <label htmlFor="mpsl-title-input">Título</label>
+          <input
+            id="mpsl-title-input"
+            type="text"
+            maxLength={80}
+            value={draft.title}
+            onChange={(e) => updateDraft({ title: e.target.value })}
+          />
         </div>
 
-        <footer className={styles.foot}>
-          <button type="button" className={`btn-secondary ${styles.footBtn}`} onClick={onClose}>Cancelar</button>
-          <button type="button" className={`btn-primary ${styles.footBtn}`} onClick={handleSave}>Salvar alterações</button>
-        </footer>
+        {/* Period pills */}
+        <div className={styles.period}>
+          <span className={styles.periodLabel}>Período</span>
+          <div className={styles.periodPills} role="group" aria-label="Período da lista">
+            {SHOPPING_LIST_PERIODS.map((period) => (
+              <button
+                key={period.id}
+                type="button"
+                className={`${styles.periodBtn} ${draft.periodDays === period.id ? styles.periodBtnActive : ''}`}
+                onClick={() => setPeriod(period.id)}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+          <p className={styles.periodHint}>
+            Escala a lista para planos de {draft.periodDays} dias (base: 1 semana do plano).
+          </p>
+        </div>
+
+        {/* Toolbar */}
+        <div className={styles.toolbar}>
+          <button type="button" className={`btn-secondary ${styles.toolbarBtn}`} onClick={regenerateFromPlan}>
+            Atualizar a partir do plano
+          </button>
+          <button type="button" className={`btn-secondary ${styles.toolbarBtn}`} onClick={copyList}>
+            Copiar lista
+          </button>
+        </div>
+
+        {/* Items textarea */}
+        <div className={`field field--float ${styles.listField}`}>
+          <label htmlFor="mpsl-items">Itens da lista</label>
+          <textarea
+            id="mpsl-items"
+            rows={10}
+            placeholder="Um item por linha. Use ## Categoria para seções."
+            value={draft.customText}
+            onChange={(e) => updateDraft({ customText: e.target.value })}
+          />
+        </div>
+
+        {notice && <p className={styles.notice}>{notice}</p>}
+        {errorMessage && <p className={styles.error}>{errorMessage}</p>}
+
+        {/* Smart list */}
+        <div className={styles.smartWrap}>
+          <button
+            type="button"
+            className={styles.smartBtn}
+            disabled={smartLoading || !remainingUses}
+            onClick={runSmartList}
+          >
+            {!smartLoading && <Sparkles aria-hidden="true" />}
+            <span>{smartLoading ? 'Organizando…' : 'Lista Inteligente'}</span>
+          </button>
+          <span className={styles.smartMeta}>
+            {remainingUses}/{SHOPPING_LIST_SMART_LIMIT} usos restantes
+          </span>
+        </div>
       </div>
-    </div>,
-    document.body,
+
+      <footer className={styles.foot}>
+        <button type="button" className={`btn-secondary ${styles.footBtn}`} onClick={onClose}>Cancelar</button>
+        <button type="button" className={`btn-primary ${styles.footBtn}`} onClick={handleSave}>Salvar alterações</button>
+      </footer>
+    </AnimatedDialog>
   )
 }

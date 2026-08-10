@@ -1,17 +1,5 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 6200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(15, 23, 42, 0.45);
-}
-
 .card {
-  position: relative;
-  width: min(72rem, 100%);
+  width: min(72rem, calc(100vw - 32px));
   max-height: min(94dvh, 900px);
   overflow: auto;
   background: #fff;

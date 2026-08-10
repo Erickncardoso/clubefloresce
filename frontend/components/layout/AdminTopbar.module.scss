@@ -137,16 +137,12 @@
 }
 
 .profileMenu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.35rem);
   min-width: 9rem;
   padding: 0.35rem;
   background: #fff;
   border: 1px solid var(--admin-border);
   border-radius: var(--cf-radius-control);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
-  z-index: 40;
 
   button {
     width: 100%;
@@ -165,25 +161,21 @@
   }
 }
 
-.layer {
+.searchBackdrop {
   position: fixed;
   inset: 0;
-  z-index: 220;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 8vh 1rem 1rem;
-}
-
-.backdrop {
-  position: absolute;
-  inset: 0;
+  z-index: 7000;
   background: rgba(15, 23, 42, 0.35);
 }
 
 .panel {
-  position: relative;
-  width: min(34rem, 100%);
+  position: fixed;
+  top: 8vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7001;
+  width: min(34rem, calc(100vw - 2rem));
+  box-sizing: border-box;
   border: 1px solid #e5e7eb;
   border-radius: var(--cf-radius-control);
   background: #fff;

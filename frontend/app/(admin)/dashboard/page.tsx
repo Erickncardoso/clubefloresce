@@ -1,14 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   ArrowRight,
   CalendarDays,
   CircleAlert,
   CircleCheck,
   Clock3,
-  Loader2,
+  Heart,
   Palette,
   UserPlus,
   UsersRound,
@@ -21,6 +23,7 @@ import {
   formatRelative,
   formatScheduleWhen,
 } from '@/lib/patient-slug'
+import { fetchDiaryFeed, toggleDiaryLike } from '@/lib/diary-feed'
 import type {
   AuthUser,
   CheckinSchedule,
@@ -33,6 +36,17 @@ import type {
 import { PatientAvatar } from '@/components/patients/PatientAvatar'
 import { QuickAddPatientModal } from '@/components/patients/QuickAddPatientModal'
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon'
+import { TaskBoard } from '@/components/tasks/TaskBoard'
+import { AnimatedDialog } from '@/components/overlays'
+import {
+  CareStripSkeleton,
+  DiarySkeleton,
+  HeroGreetingSkeleton,
+  KpiRowSkeleton,
+  RecentTableSkeleton,
+  RequestsSkeleton,
+  ScheduleSkeleton,
+} from '@/components/dashboard/DashboardSkeletons'
 import styles from './dashboard.module.scss'
 
 const emptyConsumption: ConsumptionSummary = {
@@ -62,12 +76,14 @@ function formatLongDate(now = new Date()) {
 }
 
 export default function DashboardPage() {
+  const pathname = usePathname()
   const [greetingName, setGreetingName] = useState('Nutricionista')
   const [loading, setLoading] = useState(true)
   const [patientsTotal, setPatientsTotal] = useState(0)
   const [recentPatients, setRecentPatients] = useState<AuthUser[]>([])
   const [schedules, setSchedules] = useState<CheckinSchedule[]>([])
   const [diaryFeed, setDiaryFeed] = useState<DiaryFeedEntry[]>([])
+  const [diaryLikingId, setDiaryLikingId] = useState<string | null>(null)
   const [consumption, setConsumption] = useState<ConsumptionSummary>(emptyConsumption)
   const [engagement, setEngagement] = useState<EngagementZones>({
     danger: [],
@@ -85,6 +101,8 @@ export default function DashboardPage() {
     phone?: string
   } | null>(null)
   const [approvingRequestId, setApprovingRequestId] = useState('')
+
+  const [diaryTooltip, setDiaryTooltip] = useState<{ name: string; meal: string; x: number; y: number; side: 'left' | 'right' } | null>(null)
 
   const [dangerModalOpen, setDangerModalOpen] = useState(false)
   const [dangerMessage, setDangerMessage] = useState(DEFAULT_DANGER_WA)
@@ -108,7 +126,39 @@ export default function DashboardPage() {
 
   const needCount = engagement.danger.length + engagement.attention.length
   const todayLabel = formatLongDate()
-  const diaryPreview = diaryFeed.slice(0, 4)
+  const diaryPreview = diaryFeed.filter((e) => Boolean(e.imageUrl)).slice(0, 8)
+
+  async function onToggleDiaryLike(entryId: string) {
+    if (diaryLikingId) return
+    const prev = diaryFeed.find((e) => e.id === entryId)
+    if (!prev) return
+    setDiaryLikingId(entryId)
+    setDiaryFeed((list) =>
+      list.map((e) =>
+        e.id === entryId
+          ? {
+              ...e,
+              likedByMe: !e.likedByMe,
+              likesCount: Math.max(0, (e.likesCount || 0) + (e.likedByMe ? -1 : 1)),
+            }
+          : e,
+      ),
+    )
+    try {
+      const res = await toggleDiaryLike(entryId)
+      setDiaryFeed((list) =>
+        list.map((e) =>
+          e.id === entryId
+            ? { ...e, likedByMe: res.likedByMe, likesCount: res.likesCount }
+            : e,
+        ),
+      )
+    } catch {
+      setDiaryFeed((list) => list.map((e) => (e.id === entryId ? prev : e)))
+    } finally {
+      setDiaryLikingId(null)
+    }
+  }
 
   const stopDangerPoll = useCallback(() => {
     if (dangerPollRef.current) {
@@ -171,7 +221,7 @@ export default function DashboardPage() {
         await Promise.allSettled([
           apiFetch<AuthUser[]>('/users'),
           apiFetch<{ schedules?: CheckinSchedule[] }>('/checkin/dispatch/schedules'),
-          apiFetch<{ entries?: DiaryFeedEntry[] }>('/food-diary/admin/feed?limit=8'),
+          fetchDiaryFeed(8, 0),
           apiFetch<ConsumptionSummary>('/food-diary/admin/consumption'),
           apiFetch<{ zones?: EngagementZones }>('/patients/engagement-zones'),
         ])
@@ -187,7 +237,7 @@ export default function DashboardPage() {
       }
 
       if (feedResult.status === 'fulfilled') {
-        setDiaryFeed(feedResult.value?.entries || [])
+        setDiaryFeed(feedResult.value.entries || [])
       }
 
       if (consumptionResult.status === 'fulfilled') {
@@ -230,6 +280,22 @@ export default function DashboardPage() {
     })
     return () => stopDangerPoll()
   }, [loadDashboard, loadRequests, pollDangerWaStatus, stopDangerPoll])
+
+  // Reconsulta curtidas do diário ao voltar pro dashboard
+  useEffect(() => {
+    if (pathname !== '/dashboard') return
+    let alive = true
+    void fetchDiaryFeed(8, 0)
+      .then((data) => {
+        if (alive) setDiaryFeed(data.entries || [])
+      })
+      .catch(() => {
+        /* keep current preview */
+      })
+    return () => {
+      alive = false
+    }
+  }, [pathname])
 
   useEffect(() => {
     if (!dangerSending) return
@@ -347,9 +413,13 @@ export default function DashboardPage() {
       <header className={styles.hero}>
         <div className={styles.heroCopy}>
           <h1 className={styles.greeting}>Visão geral</h1>
-          <p className={styles.heroDate}>
-            Olá, {greetingName} <span aria-hidden>·</span> {todayLabel}
-          </p>
+          {loading ? (
+            <HeroGreetingSkeleton />
+          ) : (
+            <p className={styles.heroDate}>
+              Olá, {greetingName} <span aria-hidden>·</span> {todayLabel}
+            </p>
+          )}
         </div>
         <button type="button" className={styles.heroCta} onClick={openCreate}>
           <UserPlus size={16} strokeWidth={2.25} aria-hidden />
@@ -384,9 +454,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           {loading ? (
-            <div className={styles.emptyPad}>
-              <Loader2 className={styles.spin} size={20} />
-            </div>
+            <ScheduleSkeleton />
           ) : schedules.length ? (
             <ul className={styles.scheduleList}>
               {schedules.slice(0, 4).map((item) => (
@@ -409,42 +477,86 @@ export default function DashboardPage() {
           )}
         </section>
 
-        <section className={`${styles.card} ${styles.midCard}`}>
+        <section className={`${styles.card} ${styles.midCard} ${styles.diaryCard}`}>
           <div className={styles.cardTop}>
-            <h2>Diário</h2>
-            {diaryPreview.length ? (
-              <span className={styles.quietLink}>{diaryFeed.length} recentes</span>
+            <h2>
+              <Link href="/diario" className={styles.cardTitleLink}>
+                Diário
+              </Link>
+            </h2>
+            {loading ? (
+              <span className={styles.bone} style={{ width: '3.6rem', height: '0.78rem' }} aria-hidden />
+            ) : diaryPreview.length ? (
+              <Link href="/diario" className={styles.diaryMoreTop}>
+                Ver mais
+              </Link>
             ) : null}
           </div>
           {loading ? (
-            <div className={styles.emptyPad}>
-              <Loader2 className={styles.spin} size={20} />
-            </div>
+            <DiarySkeleton />
           ) : diaryPreview.length ? (
-            <ul className={styles.dailyList}>
-              {diaryPreview.map((entry) => {
-                const patient = entry.patient || entry.user
-                return (
-                  <li key={entry.id}>
-                    <Link href={patientUrl(patient)} className={styles.dailyRow}>
-                      <div className={styles.dailyThumb}>
-                        {entry.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={entry.imageUrl} alt="" loading="lazy" />
-                        ) : (
-                          <UtensilsCrossed size={16} />
-                        )}
-                      </div>
-                      <div className={styles.dailyCopy}>
-                        <strong>{patient?.name || 'Paciente'}</strong>
-                        <span>{entry.mealLabel || entry.mealType || 'Refeição'}</span>
-                      </div>
-                      <time>{formatRelative(entry.createdAt)}</time>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
+            <div className={styles.diaryScroll}>
+              <div className={styles.diaryMasonry}>
+                {diaryPreview.map((entry, index) => {
+                  const patient = entry.patient || entry.user
+                  const meal = entry.mealLabel || entry.mealType || 'Refeição'
+                  const liked = Boolean(entry.likedByMe)
+                  const sizeClass = [
+                    styles.diaryTile1,
+                    styles.diaryTile2,
+                    styles.diaryTile3,
+                    styles.diaryTile4,
+                  ][index % 4]
+                  return (
+                    <article
+                      key={entry.id}
+                      className={`${styles.diaryTile} ${sizeClass}`}
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const TOOLTIP_W = 160
+                        const fitsRight = rect.right + 8 + TOOLTIP_W < window.innerWidth
+                        setDiaryTooltip({
+                          name: patient?.name || 'Paciente',
+                          meal,
+                          x: fitsRight ? rect.right + 8 : rect.left - 8,
+                          y: rect.top + rect.height / 2,
+                          side: fitsRight ? 'right' : 'left',
+                        })
+                      }}
+                      onMouseLeave={() => setDiaryTooltip(null)}
+                    >
+                      <Link
+                        href={`/diario?post=${encodeURIComponent(entry.id)}`}
+                        className={styles.diaryTileHit}
+                        aria-label={`Abrir no diário: ${patient?.name || 'paciente'}, ${meal}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={entry.imageUrl || ''} alt="" loading="lazy" />
+                        <span className={styles.diaryTileFade} aria-hidden />
+                      </Link>
+                      <button
+                        type="button"
+                        className={`${styles.diaryLike} ${liked ? styles.diaryLiked : ''}`}
+                        aria-label={liked ? 'Remover curtida' : 'Curtir'}
+                        aria-pressed={liked}
+                        disabled={diaryLikingId === entry.id}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          void onToggleDiaryLike(entry.id)
+                        }}
+                      >
+                        <Heart
+                          size={18}
+                          fill={liked ? 'currentColor' : 'none'}
+                          aria-hidden
+                        />
+                      </button>
+                    </article>
+                  )
+                })}
+              </div>
+            </div>
           ) : (
             <div className={styles.emptyPad}>
               <div className={`${styles.illus} ${styles.illusDaily}`}>
@@ -456,88 +568,93 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      <div className={styles.kpiRow}>
-        <article className={styles.kpi}>
-          <div className={styles.kpiHead}>
-            <span>Total de pacientes</span>
-            <span className={styles.kpiIcon} aria-hidden>
-              <UsersRound size={17} strokeWidth={1.8} />
-            </span>
-          </div>
-          <strong>{loading ? '—' : patientsTotal}</strong>
-          <p>Ativas no portal</p>
-        </article>
-        <article className={styles.kpi}>
-          <div className={styles.kpiHead}>
-            <span>Precisam de você</span>
-            <span className={`${styles.kpiIcon} ${styles.kpiIconWarn}`} aria-hidden>
-              <CircleAlert size={17} strokeWidth={1.8} />
-            </span>
-          </div>
-          <strong className={needCount ? styles.kpiWarn : undefined}>
-            {loading ? '—' : needCount}
-          </strong>
-          <div className={styles.kpiActions}>
+      {loading ? (
+        <KpiRowSkeleton />
+      ) : (
+        <div className={styles.kpiRow}>
+          <article className={styles.kpi}>
+            <div className={styles.kpiHead}>
+              <span>Total de pacientes</span>
+              <span className={styles.kpiIcon} aria-hidden>
+                <UsersRound size={17} strokeWidth={1.8} />
+              </span>
+            </div>
+            <strong>{patientsTotal}</strong>
+            <p>Ativas no portal</p>
+          </article>
+          <article className={styles.kpi}>
+            <div className={styles.kpiHead}>
+              <span>Precisam de você</span>
+              <span className={`${styles.kpiIcon} ${styles.kpiIconWarn}`} aria-hidden>
+                <CircleAlert size={17} strokeWidth={1.8} />
+              </span>
+            </div>
+            <strong className={needCount ? styles.kpiWarn : undefined}>{needCount}</strong>
+            <div className={styles.kpiActions}>
+              <p>
+                {engagement.danger.length} perigo · {engagement.attention.length} atenção
+              </p>
+              {engagement.danger.length > 0 ? (
+                <button
+                  type="button"
+                  className={styles.miniWa}
+                  disabled={dangerSending}
+                  onClick={openDangerWaModal}
+                >
+                  <WhatsAppIcon className={styles.miniWaIcon} />
+                  {dangerSending ? 'Enviando…' : 'WhatsApp'}
+                </button>
+              ) : null}
+            </div>
+            {dangerStatusText ? <small className={styles.dangerStatus}>{dangerStatusText}</small> : null}
+          </article>
+          <article className={styles.kpi}>
+            <div className={styles.kpiHead}>
+              <span>Engajamento em dia</span>
+              <span className={`${styles.kpiIcon} ${styles.kpiIconOk}`} aria-hidden>
+                <CircleCheck size={17} strokeWidth={1.8} />
+              </span>
+            </div>
+            <strong className={styles.kpiOk}>{engagement.success.length}</strong>
             <p>
-              {engagement.danger.length} perigo · {engagement.attention.length} atenção
+              {consumption.totals.meals
+                ? `${consumption.totals.meals} refeições hoje`
+                : 'Zona de sucesso'}
             </p>
-            {engagement.danger.length > 0 ? (
-              <button
-                type="button"
-                className={styles.miniWa}
-                disabled={dangerSending}
-                onClick={openDangerWaModal}
-              >
-                <WhatsAppIcon className={styles.miniWaIcon} />
-                {dangerSending ? 'Enviando…' : 'WhatsApp'}
-              </button>
-            ) : null}
-          </div>
-          {dangerStatusText ? <small className={styles.dangerStatus}>{dangerStatusText}</small> : null}
-        </article>
-        <article className={styles.kpi}>
-          <div className={styles.kpiHead}>
-            <span>Engajamento em dia</span>
-            <span className={`${styles.kpiIcon} ${styles.kpiIconOk}`} aria-hidden>
-              <CircleCheck size={17} strokeWidth={1.8} />
-            </span>
-          </div>
-          <strong className={styles.kpiOk}>{loading ? '—' : engagement.success.length}</strong>
-          <p>
-            {consumption.totals.meals
-              ? `${consumption.totals.meals} refeições hoje`
-              : 'Zona de sucesso'}
-          </p>
-        </article>
-      </div>
+          </article>
+        </div>
+      )}
 
-      {needCount > 0 && carePatients.length > 0 ? (
-        <section className={styles.careStrip}>
-          <div className={styles.careStripHead}>
-            <h2>Quem precisa de atenção</h2>
-            <span>{needCount}</span>
-          </div>
-          <div className={styles.careStripRail}>
-            {carePatients.slice(0, 10).map(({ patient, zone }) => (
-              <Link
-                key={`${zone}-${patient.id}`}
-                href={patientUrl(patient)}
-                className={styles.careChip}
-              >
-                <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
-                <div>
-                  <strong>{patient.name}</strong>
-                  <span className={zone === 'danger' ? styles.tagDanger : styles.tagAttention}>
-                    {zone === 'danger' ? 'Perigo' : 'Atenção'}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className={styles.panel}>
+      <div className={styles.sideRow}>
+        <div className={styles.sideMain}>
+          {loading ? (
+            <CareStripSkeleton />
+          ) : needCount > 0 && carePatients.length > 0 ? (
+            <section className={styles.careStrip}>
+              <div className={styles.careStripHead}>
+                <h2>Quem precisa de atenção</h2>
+                <span>{needCount}</span>
+              </div>
+              <div className={styles.careStripRail}>
+                {carePatients.slice(0, 10).map(({ patient, zone }) => (
+                  <Link
+                    key={`${zone}-${patient.id}`}
+                    href={patientUrl(patient)}
+                    className={styles.careChip}
+                  >
+                    <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
+                    <div>
+                      <strong>{patient.name}</strong>
+                      <span className={zone === 'danger' ? styles.tagDanger : styles.tagAttention}>
+                        {zone === 'danger' ? 'Perigo' : 'Atenção'}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
+          <section className={styles.panel}>
         <div className={styles.tabs}>
           <button
             type="button"
@@ -559,9 +676,7 @@ export default function DashboardPage() {
 
         {listTab === 'recent' ? (
           loading ? (
-            <div className={styles.emptyPad}>
-              <Loader2 className={styles.spin} size={20} />
-            </div>
+            <RecentTableSkeleton />
           ) : recentPatients.length ? (
             <div className={styles.table}>
               <div className={styles.thead}>
@@ -594,11 +709,7 @@ export default function DashboardPage() {
           )
         ) : (
           <div className={styles.requestsBlock}>
-            {requestsLoading ? (
-              <div className={styles.emptyPad}>
-                <Loader2 className={styles.spin} size={20} />
-              </div>
-            ) : null}
+            {requestsLoading ? <RequestsSkeleton /> : null}
             {!requestsLoading && requestsError ? (
               <p className={styles.error}>{requestsError}</p>
             ) : null}
@@ -647,56 +758,56 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
-
-      {dangerModalOpen ? (
-        <div
-          className={styles.dangerOverlay}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="danger-wa-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeDangerWaModal()
-          }}
-        >
-          <div className={`modal-card danger-wa-dialog cf-squircle cf-squircle--control ${styles.dangerDialog}`}>
-            <h3 id="danger-wa-title">Confirmar envio no WhatsApp</h3>
-            <p className={styles.dangerHint}>
-              Confira a mensagem abaixo. Ao clicar em <strong>Enviar</strong>, ela vai para as{' '}
-              <strong>{engagement.danger.length}</strong> pacientes da zona de perigo, uma a uma,
-              com <strong>20 segundos</strong> de intervalo.
-            </p>
-            <label className={styles.dangerLabel} htmlFor="danger-wa-message">
-              Mensagem que será enviada
-            </label>
-            <textarea
-              id="danger-wa-message"
-              rows={9}
-              className={`danger-wa-textarea cf-squircle cf-squircle--control ${styles.dangerTextarea}`}
-              value={dangerMessage}
-              onChange={(e) => setDangerMessage(e.target.value)}
-            />
-            <p className={styles.dangerVars}>{DANGER_WA_VARS_HINT}</p>
-            <div className={styles.dangerActions}>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={dangerStarting}
-                onClick={closeDangerWaModal}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className={`btn-primary ${styles.dangerConfirm}`}
-                disabled={dangerStarting || !dangerMessage.trim()}
-                onClick={confirmDangerWaSend}
-              >
-                {dangerStarting ? 'Iniciando…' : 'Enviar'}
-              </button>
-            </div>
-          </div>
         </div>
-      ) : null}
+        <div className={styles.sideTasks}>
+          <TaskBoard />
+        </div>
+      </div>
+
+      <AnimatedDialog
+        open={dangerModalOpen}
+        onOpenChange={(next) => {
+          if (!next) closeDangerWaModal()
+        }}
+        title="Confirmar envio no WhatsApp"
+        contentClassName={`modal-card danger-wa-dialog cf-squircle cf-squircle--control ${styles.dangerDialog}`}
+      >
+        <h3 id="danger-wa-title">Confirmar envio no WhatsApp</h3>
+        <p className={styles.dangerHint}>
+          Confira a mensagem abaixo. Ao clicar em <strong>Enviar</strong>, ela vai para as{' '}
+          <strong>{engagement.danger.length}</strong> pacientes da zona de perigo, uma a uma,
+          com <strong>20 segundos</strong> de intervalo.
+        </p>
+        <label className={styles.dangerLabel} htmlFor="danger-wa-message">
+          Mensagem que será enviada
+        </label>
+        <textarea
+          id="danger-wa-message"
+          rows={9}
+          className={`danger-wa-textarea cf-squircle cf-squircle--control ${styles.dangerTextarea}`}
+          value={dangerMessage}
+          onChange={(e) => setDangerMessage(e.target.value)}
+        />
+        <p className={styles.dangerVars}>{DANGER_WA_VARS_HINT}</p>
+        <div className={styles.dangerActions}>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={dangerStarting}
+            onClick={closeDangerWaModal}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className={`btn-primary ${styles.dangerConfirm}`}
+            disabled={dangerStarting || !dangerMessage.trim()}
+            onClick={confirmDangerWaSend}
+          >
+            {dangerStarting ? 'Iniciando…' : 'Enviar'}
+          </button>
+        </div>
+      </AnimatedDialog>
 
       <QuickAddPatientModal
         open={quickAddOpen}
@@ -710,6 +821,40 @@ export default function DashboardPage() {
         }}
         onCreated={onCreated}
       />
+
+      {diaryTooltip && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              style={{
+                position: 'fixed',
+                left: diaryTooltip.x,
+                top: diaryTooltip.y,
+                transform: diaryTooltip.side === 'left' ? 'translateY(-50%) translateX(-100%)' : 'translateY(-50%)',
+                zIndex: 9999,
+                pointerEvents: 'none',
+                background: 'rgba(10,12,11,0.88)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                color: '#fff',
+                borderRadius: '0.4rem',
+                padding: '0.35rem 0.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.05rem',
+                maxWidth: '10rem',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              }}
+            >
+              <strong style={{ fontSize: '0.72rem', fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {diaryTooltip.name}
+              </strong>
+              <span style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.78)', whiteSpace: 'nowrap' }}>
+                {diaryTooltip.meal}
+              </span>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }

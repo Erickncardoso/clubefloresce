@@ -100,6 +100,8 @@ model User {
   bellaMessages                BellaMessage[]
   nutritionTarget              NutritionTarget?
   foodDiaryEntries             FoodDiaryEntry[]
+  foodDiaryLikes               FoodDiaryLike[]
+  foodDiaryComments            FoodDiaryComment[]
   patientMealPlan              PatientMealPlan?
   passwordResetTokens          PasswordResetToken[]
   billingSubscriptions         BillingSubscription[]
@@ -110,6 +112,7 @@ model User {
   instagramContacts            InstagramContact[]
   instagramQueueItems          InstagramQueueItem[]
   instagramEvents              InstagramEvent[]
+  tasks                        Task[]
 }
 
 model PasswordResetToken {
@@ -300,8 +303,34 @@ model FoodDiaryEntry {
   proteinG     Float
   fatG         Float
   createdAt    DateTime @default(now())
+  likes        FoodDiaryLike[]
+  comments     FoodDiaryComment[]
 
   @@index([userId, entryDate])
+}
+
+model FoodDiaryLike {
+  id        String         @id @default(uuid())
+  entryId   String
+  entry     FoodDiaryEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([entryId, userId])
+  @@index([entryId])
+}
+
+model FoodDiaryComment {
+  id        String         @id @default(uuid())
+  entryId   String
+  entry     FoodDiaryEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime       @default(now())
+
+  @@index([entryId, createdAt])
 }
 
 model Course {
@@ -844,4 +873,28 @@ model RagQueryLog {
 
   @@index([createdAt])
   @@index([matched, createdAt])
+}
+
+enum TaskPriority {
+  URGENTE
+  IMPORTANTE
+  NORMAL
+  SOMEDAY
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?      @db.Text
+  priority    TaskPriority @default(NORMAL)
+  color       String?
+  done        Boolean      @default(false)
+  position    Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([userId, priority, position])
+  @@index([userId, done])
 }

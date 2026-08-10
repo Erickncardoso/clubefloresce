@@ -11,29 +11,29 @@ O browser usa UI do sistema operacional (cantos retos, cores erradas).
 
 | Caso | Componente |
 |------|------------|
-| Lista de opções | `SharedCfSelect` → `frontend/components/shared/CfSelect.vue` |
-| Data | `SharedCfDateInput` → `frontend/components/shared/CfDateInput.vue` |
+| Lista de opções | `CfSelect` → `frontend/components/ui/CfSelect.tsx` |
+| Data | `CfDateInput` → `frontend/components/ui/CfDateInput.tsx` |
 
-## Padrão markup
+Legado Nuxt (`frontend2/` / `cliente/`): `SharedCfSelect` / `SharedCfDateInput`.
 
-```html
-<div class="field field--float">
-  <label for="id-campo">Rótulo</label>
-  <SharedCfSelect id="id-campo" v-model="form.campo" :options="opcoes" placeholder="Selecione" />
+## Padrão markup (Next)
+
+```tsx
+<div className="field field--float">
+  <label htmlFor="id-campo">Rótulo</label>
+  <CfSelect id="id-campo" value={form.campo} onChange={…} options={opcoes} />
 </div>
 
-<div class="field field--float">
-  <label for="id-data">Data</label>
-  <SharedCfDateInput id="id-data" v-model="form.data" />
+<div className="field field--float">
+  <label htmlFor="id-data">Data</label>
+  <CfDateInput id="id-data" value={form.data} onChange={…} editable />
 </div>
 ```
 
+## Overlay
+
+Menus e calendário abrem com `AnimatedPopover` (fade só opacity ~150ms).
+
 ## Raio
 
-Trigger, menu (`.cf-select-menu`) e painel (`.cf-date-panel`) usam `--cf-radius-control` — já cobertos por `frontend/assets/css/admin-rounding.css`.
-
-## Referência implementada
-
-`frontend/components/patients/PatientMealPlanEditor.vue` (config: tipo de dieta, início, término).
-
-Documentação completa: `regras.md` § Select e data.
+Trigger e painéis usam `--cf-radius-control`.

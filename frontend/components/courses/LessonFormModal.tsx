@@ -20,6 +20,7 @@ import {
 } from '@/lib/courses'
 import { extractYoutubeId } from '@/lib/course-slug'
 import { FloatField } from '@/components/ui/FloatField'
+import { AnimatedDialog } from '@/components/overlays'
 import styles from './LessonFormModal.module.scss'
 
 export type LessonSavePayload = {
@@ -160,8 +161,6 @@ export function LessonFormModal({
       if (thumbPreview.startsWith('blob:')) URL.revokeObjectURL(thumbPreview)
     }
   }, [videoObjectUrl, thumbPreview])
-
-  if (!open) return null
 
   function resetVideoObjectUrl(next?: string) {
     setVideoObjectUrl((prev) => {
@@ -324,10 +323,17 @@ export function LessonFormModal({
 
   const disabled = saving || busy
 
+  const lessonTitle = mode === 'edit' ? 'Editar aula' : 'Nova aula'
+
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={mode === 'edit' ? 'Editar aula' : 'Nova aula'}>
-      <div className={styles.backdrop} onClick={disabled ? undefined : onClose} aria-hidden />
-      <div className={`modal-card cf-admin-radius cf-squircle cf-squircle--control ${styles.card}`}>
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !disabled) onClose()
+      }}
+      title={lessonTitle}
+      contentClassName={`modal-card cf-admin-radius cf-squircle cf-squircle--control ${styles.card}`}
+    >
         <header className={styles.head}>
           <div>
             {context?.courseTitle ? (
@@ -709,7 +715,6 @@ export function LessonFormModal({
             </button>
           ) : null}
         </footer>
-      </div>
-    </div>
+    </AnimatedDialog>
   )
 }

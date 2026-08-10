@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Info, X } from 'lucide-react'
 import {
   HYDRATION_ACTIVITY_LEVELS,
@@ -17,6 +16,7 @@ import {
   hydrationPerReminder,
   normalizeHydrationPrescription,
 } from '@/lib/meal-plan/hydration'
+import { AnimatedDialog } from '@/components/overlays'
 import styles from './PatientMealPlanHydrationModal.module.scss'
 
 interface Props {
@@ -48,8 +48,6 @@ function useDraft(open: boolean, props: Props): [HydrationPrescription, React.Di
 
 export function PatientMealPlanHydrationModal({ open, prescription, planTitle, patientWeightKg, patientHeightCm, onClose, onSave }: Props) {
   const [draft, setDraft] = useDraft(open, { open, prescription, planTitle, patientWeightKg, patientHeightCm, onClose, onSave })
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
 
   function updateDraft(patch: Partial<HydrationPrescription>) {
     setDraft((prev) => ({ ...prev, ...patch }))
@@ -131,16 +129,19 @@ export function PatientMealPlanHydrationModal({ open, prescription, planTitle, p
     return formatHydrationAmount(ml, draft.unit)
   }
 
-  if (!mounted || !open) return null
-
   const activityOptions = HYDRATION_ACTIVITY_LEVELS.map((item) => ({ value: item.id, label: item.label }))
 
-  return createPortal(
-    <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="mph-title">
-      <div className={styles.backdrop} aria-hidden="true" onClick={onClose} />
-      <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <header className={styles.head}>
+  return (
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title="Prescrição de hidratação"
+      contentClassName={styles.panel}
+    >
+      {/* Header */}
+      <header className={styles.head}>
           <label className={styles.titleField}>
             <span className={styles.titleSr}>Título da prescrição</span>
             <input
@@ -417,13 +418,10 @@ export function PatientMealPlanHydrationModal({ open, prescription, planTitle, p
           </aside>
         </div>
 
-        {/* Footer */}
         <footer className={styles.foot}>
           <button type="button" className={`btn-secondary ${styles.footBtn}`} onClick={onClose}>Cancelar</button>
           <button type="button" className={`btn-primary ${styles.footBtnSave}`} onClick={handleSave}>Salvar</button>
         </footer>
-      </div>
-    </div>,
-    document.body,
+    </AnimatedDialog>
   )
 }

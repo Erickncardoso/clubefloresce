@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { Printer, X } from 'lucide-react'
 import type { MacroTotals, MealEntry, MealPlanFormData } from '@/lib/meal-plan/types'
 import { computeLiveNutritionTotals, formatMacroGrams, formatMacroKcal, resolvedMealMacros } from '@/lib/meal-plan/prescription'
 import styles from './PatientMealPlanNutritionFullModal.module.scss'
+import { AnimatedDialog } from '@/components/overlays'
 
 interface Props {
   open: boolean
@@ -159,19 +158,6 @@ function MacroCard({
 }
 
 export function PatientMealPlanNutritionFullModal({ open, form, onClose }: Props) {
-  const panelRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [open, onClose])
-
-  if (!open) return null
-
   const meals = form.meals ?? []
   const totals = computeLiveNutritionTotals(form)
   const hasMacros = totals.caloriesKcal > 0
@@ -183,135 +169,131 @@ export function PatientMealPlanNutritionFullModal({ open, form, onClose }: Props
     window.print()
   }
 
-  const content = (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="mpnf-title">
-      <div className={styles.backdrop} aria-hidden="true" onClick={onClose} />
-      <div ref={panelRef} className={styles.panel}>
-        {/* Header */}
-        <header className={styles.head}>
-          <div>
-            <p className={styles.kicker}>Resumo nutricional</p>
-            <h2 id="mpnf-title" className={styles.modalTitle}>Resumo completo</h2>
-          </div>
-          <div className={styles.headActions}>
-            <button type="button" className="btn-secondary" onClick={handlePrint}>
-              <Printer size={14} aria-hidden="true" />
-              Imprimir
-            </button>
-            <button type="button" className="btn-secondary" aria-label="Fechar" onClick={onClose}>
-              <X size={14} aria-hidden="true" />
-              Fechar
-            </button>
-          </div>
-        </header>
-
-        <div className={styles.body}>
-          {/* Overview */}
-          {hasMacros && (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Resumo Nutricional</h3>
-              <div className={styles.overviewPanel}>
-                <div className={styles.overview}>
-                  <OverviewDonut totals={totals} pcts={pcts} />
-                  <div className={styles.macroCards}>
-                    <MacroCard tone="carb" label="Carboidratos" grams={totals.carbsG ?? 0} pct={pcts.carbs} />
-                    <MacroCard tone="prot" label="Proteínas" grams={totals.proteinG ?? 0} pct={pcts.protein} />
-                    <MacroCard tone="fat" label="Lipídios" grams={totals.fatG ?? 0} pct={pcts.fat} />
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Por refeição */}
-          {mealRows.length > 0 && (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Por refeição</h3>
-              <div className={styles.tableWrap}>
-                <div className={styles.tableScroll}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>Refeição</th>
-                        <th>Kcal</th>
-                        <th>Carb (g)</th>
-                        <th>Prot (g)</th>
-                        <th>Lip (g)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mealRows.map((row) => (
-                        <tr key={row.id}>
-                          <td>
-                            {row.time && <span className={styles.rowTime}>{row.time}</span>}
-                            {row.label}
-                          </td>
-                          <td>{formatMacroKcal(row.caloriesKcal)}</td>
-                          <td>{formatMacroGrams(row.carbsG)}</td>
-                          <td>{formatMacroGrams(row.proteinG)}</td>
-                          <td>{formatMacroGrams(row.fatG)}</td>
-                        </tr>
-                      ))}
-                      {/* Totals row */}
-                      <tr className={styles.totalRow}>
-                        <td><strong>Total</strong></td>
-                        <td><strong>{formatMacroKcal(totals.caloriesKcal)}</strong></td>
-                        <td><strong>{formatMacroGrams(totals.carbsG)}</strong></td>
-                        <td><strong>{formatMacroGrams(totals.proteinG)}</strong></td>
-                        <td><strong>{formatMacroGrams(totals.fatG)}</strong></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Composição por alimento */}
-          {foodRows.length > 0 && (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Composição por alimento</h3>
-              <div className={styles.tableWrap}>
-                <div className={styles.tableScroll}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>Alimento</th>
-                        <th>Qtd</th>
-                        <th>Kcal</th>
-                        <th>Carb</th>
-                        <th>Prot</th>
-                        <th>Lip</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {foodRows.map((row) => (
-                        <tr key={row.id}>
-                          <td>{row.name}</td>
-                          <td>{row.portion}</td>
-                          <td>{formatMacroKcal(row.caloriesKcal)}</td>
-                          <td>{formatMacroGrams(row.carbsG)}</td>
-                          <td>{formatMacroGrams(row.proteinG)}</td>
-                          <td>{formatMacroGrams(row.fatG)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {!hasMacros && (
-            <p className={styles.empty}>
-              Nenhum dado nutricional disponível. Adicione alimentos com vínculo na TBCA/TACO para ver o resumo completo.
-            </p>
-          )}
+  return (
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title="Resumo completo"
+      contentClassName={styles.panel}
+    >
+      <header className={styles.head}>
+        <div>
+          <p className={styles.kicker}>Resumo nutricional</p>
+          <h2 id="mpnf-title" className={styles.modalTitle}>Resumo completo</h2>
         </div>
-      </div>
-    </div>
-  )
+        <div className={styles.headActions}>
+          <button type="button" className="btn-secondary" onClick={handlePrint}>
+            <Printer size={14} aria-hidden="true" />
+            Imprimir
+          </button>
+          <button type="button" className="btn-secondary" aria-label="Fechar" onClick={onClose}>
+            <X size={14} aria-hidden="true" />
+            Fechar
+          </button>
+        </div>
+      </header>
 
-  if (typeof document === 'undefined') return null
-  return createPortal(content, document.body)
+      <div className={styles.body}>
+        {hasMacros && (
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Resumo Nutricional</h3>
+            <div className={styles.overviewPanel}>
+              <div className={styles.overview}>
+                <OverviewDonut totals={totals} pcts={pcts} />
+                <div className={styles.macroCards}>
+                  <MacroCard tone="carb" label="Carboidratos" grams={totals.carbsG ?? 0} pct={pcts.carbs} />
+                  <MacroCard tone="prot" label="Proteínas" grams={totals.proteinG ?? 0} pct={pcts.protein} />
+                  <MacroCard tone="fat" label="Lipídios" grams={totals.fatG ?? 0} pct={pcts.fat} />
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {mealRows.length > 0 && (
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Por refeição</h3>
+            <div className={styles.tableWrap}>
+              <div className={styles.tableScroll}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Refeição</th>
+                      <th>Kcal</th>
+                      <th>Carb (g)</th>
+                      <th>Prot (g)</th>
+                      <th>Lip (g)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mealRows.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          {row.time && <span className={styles.rowTime}>{row.time}</span>}
+                          {row.label}
+                        </td>
+                        <td>{formatMacroKcal(row.caloriesKcal)}</td>
+                        <td>{formatMacroGrams(row.carbsG)}</td>
+                        <td>{formatMacroGrams(row.proteinG)}</td>
+                        <td>{formatMacroGrams(row.fatG)}</td>
+                      </tr>
+                    ))}
+                    <tr className={styles.totalRow}>
+                      <td><strong>Total</strong></td>
+                      <td><strong>{formatMacroKcal(totals.caloriesKcal)}</strong></td>
+                      <td><strong>{formatMacroGrams(totals.carbsG)}</strong></td>
+                      <td><strong>{formatMacroGrams(totals.proteinG)}</strong></td>
+                      <td><strong>{formatMacroGrams(totals.fatG)}</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {foodRows.length > 0 && (
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Composição por alimento</h3>
+            <div className={styles.tableWrap}>
+              <div className={styles.tableScroll}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Alimento</th>
+                      <th>Qtd</th>
+                      <th>Kcal</th>
+                      <th>Carb</th>
+                      <th>Prot</th>
+                      <th>Lip</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {foodRows.map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.name}</td>
+                        <td>{row.portion}</td>
+                        <td>{formatMacroKcal(row.caloriesKcal)}</td>
+                        <td>{formatMacroGrams(row.carbsG)}</td>
+                        <td>{formatMacroGrams(row.proteinG)}</td>
+                        <td>{formatMacroGrams(row.fatG)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {!hasMacros && (
+          <p className={styles.empty}>
+            Nenhum dado nutricional disponível. Adicione alimentos com vínculo na TBCA/TACO para ver o resumo completo.
+          </p>
+        )}
+      </div>
+    </AnimatedDialog>
+  )
 }

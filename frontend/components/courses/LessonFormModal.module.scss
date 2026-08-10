@@ -1,21 +1,4 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 6200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-}
-
 .card {
-  position: relative;
   display: flex;
   flex-direction: column;
   width: min(40rem, 100%);

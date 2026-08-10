@@ -15,6 +15,7 @@ import {
   fromLocalDateTimeInputValue,
 } from '@/lib/agenda'
 import { FloatField } from '@/components/ui/FloatField'
+import { AnimatedDialog } from '@/components/overlays'
 import styles from './AgendaAppointmentModal.module.scss'
 
 export type AgendaSavePayload = {
@@ -89,8 +90,6 @@ export function AgendaAppointmentModal({
     [patients, patientId],
   )
 
-  if (!open) return null
-
   function applyQuickHour(hour: number) {
     const dayKey = toDateKey(new Date(fromLocalDateTimeInputValue(startsAtLocal) || Date.now()))
     const iso = buildSlotDateTime(dayKey, hour, 0)
@@ -113,126 +112,132 @@ export function AgendaAppointmentModal({
     })
   }
 
+  const titleText = editing ? 'Editar agendamento' : 'Agendar paciente'
+
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="agenda-modal-title">
-      <div className={styles.backdrop} onClick={onClose} aria-hidden />
-      <div className={`modal-card ${styles.card}`}>
-        <header className={styles.head}>
-          <div>
-            <h2 id="agenda-modal-title">{editing ? 'Editar agendamento' : 'Agendar paciente'}</h2>
-            {selectedPatient?.name ? <p>{selectedPatient.name}</p> : null}
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title={titleText}
+      contentClassName={`modal-card ${styles.card}`}
+    >
+      <header className={styles.head}>
+        <div>
+          <h2 id="agenda-modal-title">{titleText}</h2>
+          {selectedPatient?.name ? <p>{selectedPatient.name}</p> : null}
+        </div>
+        <button type="button" className={styles.close} onClick={onClose} aria-label="Fechar">
+          <X size={18} />
+        </button>
+      </header>
+
+      <form className={styles.form} onSubmit={onSubmit}>
+        <FloatField
+          as="select"
+          label="Paciente"
+          value={patientId}
+          onChange={(e) => setPatientId(e.target.value)}
+          required
+        >
+          <option value="">Selecione…</option>
+          {patients.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </FloatField>
+
+        <FloatField
+          as="select"
+          label="Tipo"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        >
+          {AGENDA_TITLE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </FloatField>
+
+        <FloatField
+          label="Data e horário"
+          type="datetime-local"
+          value={startsAtLocal}
+          onChange={(e) => setStartsAtLocal(e.target.value)}
+          required
+        />
+
+        {!editing ? (
+          <div className={styles.quickHours}>
+            <span>Horários rápidos</span>
+            <div className={styles.hourGrid}>
+              {AGENDA_QUICK_HOURS.map((hour) => (
+                <button
+                  key={hour}
+                  type="button"
+                  className={styles.hourBtn}
+                  onClick={() => applyQuickHour(hour)}
+                >
+                  {String(hour).padStart(2, '0')}:00
+                </button>
+              ))}
+            </div>
           </div>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="Fechar">
-            <X size={18} />
-          </button>
-        </header>
+        ) : null}
 
-        <form className={styles.form} onSubmit={onSubmit}>
-          <FloatField
-            as="select"
-            label="Paciente"
-            value={patientId}
-            onChange={(e) => setPatientId(e.target.value)}
-            required
-          >
-            <option value="">Selecione…</option>
-            {patients.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </FloatField>
+        <FloatField
+          as="select"
+          label="Duração"
+          value={durationMin}
+          onChange={(e) => setDurationMin(Number(e.target.value))}
+        >
+          {AGENDA_DURATION_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </FloatField>
 
-          <FloatField
-            as="select"
-            label="Tipo"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          >
-            {AGENDA_TITLE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </FloatField>
+        <FloatField
+          as="textarea"
+          label="Observações"
+          rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
 
-          <FloatField
-            label="Data e horário"
-            type="datetime-local"
-            value={startsAtLocal}
-            onChange={(e) => setStartsAtLocal(e.target.value)}
-            required
-          />
+        {error ? <p className={styles.error}>{error}</p> : null}
 
-          {!editing ? (
-            <div className={styles.quickHours}>
-              <span>Horários rápidos</span>
-              <div className={styles.hourGrid}>
-                {AGENDA_QUICK_HOURS.map((hour) => (
-                  <button
-                    key={hour}
-                    type="button"
-                    className={styles.hourBtn}
-                    onClick={() => applyQuickHour(hour)}
-                  >
-                    {String(hour).padStart(2, '0')}:00
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <FloatField
-            as="select"
-            label="Duração"
-            value={durationMin}
-            onChange={(e) => setDurationMin(Number(e.target.value))}
-          >
-            {AGENDA_DURATION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </FloatField>
-
-          <FloatField
-            as="textarea"
-            label="Observações"
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-
-          {error ? <p className={styles.error}>{error}</p> : null}
-
-          <footer className={styles.foot}>
-            {editing && onDelete ? (
-              <button
-                type="button"
-                className={`btn-secondary ${styles.danger}`}
-                disabled={saving}
-                onClick={onDelete}
-              >
-                Excluir
-              </button>
-            ) : (
-              <span />
-            )}
-            <div className={styles.actions}>
-              <button type="button" className="btn-secondary" disabled={saving} onClick={onClose}>
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={saving || !patientId}
-              >
-                {saving ? 'Salvando…' : editing ? 'Salvar' : 'Agendar'}
-              </button>
-            </div>
-          </footer>
-        </form>
-      </div>
-    </div>
+        <footer className={styles.foot}>
+          {editing && onDelete ? (
+            <button
+              type="button"
+              className={`btn-secondary ${styles.danger}`}
+              disabled={saving}
+              onClick={onDelete}
+            >
+              Excluir
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className={styles.actions}>
+            <button type="button" className="btn-secondary" disabled={saving} onClick={onClose}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={saving || !patientId}
+            >
+              {saving ? 'Salvando…' : editing ? 'Salvar' : 'Agendar'}
+            </button>
+          </div>
+        </footer>
+      </form>
+    </AnimatedDialog>
   )
 }

@@ -1,0 +1,54 @@
+$overlay-duration: 150ms;
+$overlay-easing: cubic-bezier(0.25, 0.1, 0.25, 1); // CSS "ease"
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes overlay-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/*
+ * Apenas opacidade muda — sem scale, sem translateY.
+ * A geometria já aparece na posição final.
+ */
+
+.surface {
+  opacity: 1;
+  will-change: opacity;
+}
+
+.surface[data-state='open'] {
+  animation: overlay-fade-in $overlay-duration $overlay-easing both;
+}
+
+.surface[data-state='closed'] {
+  pointer-events: none;
+  animation: overlay-fade-out $overlay-duration $overlay-easing both;
+}
+
+.backdrop {
+  opacity: 1;
+  will-change: opacity;
+}
+
+.backdrop[data-state='open'] {
+  animation: overlay-fade-in $overlay-duration $overlay-easing both;
+}
+
+.backdrop[data-state='closed'] {
+  pointer-events: none;
+  animation: overlay-fade-out $overlay-duration $overlay-easing both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface[data-state='open'],
+  .surface[data-state='closed'],
+  .backdrop[data-state='open'],
+  .backdrop[data-state='closed'] {
+    animation-duration: 1ms;
+  }
+}

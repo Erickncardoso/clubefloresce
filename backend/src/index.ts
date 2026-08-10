@@ -28,6 +28,7 @@ import patientProfileRoutes from "./routes/patient-profile.routes";
 import registrationRequestRoutes from "./routes/registration-request.routes";
 import billingRoutes from "./routes/billing.routes";
 import agendaRoutes from "./routes/agenda.routes";
+import tasksRoutes from "./routes/tasks.routes";
 import instagramRoutes, { instagramWebhookRouter } from "./routes/instagram.routes";
 import { prisma } from "./lib/prisma";
 import { readEnv, maskSecret } from "./utils/env";
@@ -165,6 +166,7 @@ app.use("/api/pusher", pusherRoutes);
 app.use("/api/registration-requests", registrationRequestRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/agenda", agendaRoutes);
+app.use("/api/tasks", tasksRoutes);
 app.use("/api/instagram", instagramRoutes);
 
 // Páginas exigidas pela Meta para publicar o app do Instagram (públicas via tunnel em dev).

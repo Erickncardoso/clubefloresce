@@ -7,7 +7,19 @@
     <p class="typeform-success-text">Suas respostas foram registradas. Redirecionando para o início…</p>
   </div>
 
-  <div v-else class="typeform-checkin" :class="{ 'typeform-checkin--preview': preview }">
+  <div
+    v-else
+    ref="rootRef"
+    class="typeform-checkin"
+    :class="{
+      'typeform-checkin--preview': preview,
+      'typeform-checkin--text-focus': textFocused,
+      'typeform-checkin--keyboard': keyboardDocked,
+    }"
+    :style="rootStyle"
+    @focusin="onFocusIn"
+    @focusout="onFocusOut"
+  >
     <div
       class="typeform-progress"
       role="progressbar"
@@ -22,10 +34,11 @@
       <span class="typeform-counter">{{ stepIndex + 1 }} / {{ flowSteps.length }}</span>
     </header>
 
-    <main class="typeform-main">
+    <main ref="mainRef" class="typeform-main">
       <Transition name="typeform-slide" mode="out-in">
         <section
           :key="currentStep.id"
+          ref="stepRef"
           class="typeform-step"
           :class="{ 'typeform-step--text': stepType === 'text' }"
         >
@@ -247,6 +260,26 @@ const form = reactive({})
 const stepIndex = ref(0)
 const submitLocked = ref(false)
 const textAnswerRef = ref(null)
+const rootRef = ref(null)
+const mainRef = ref(null)
+const stepRef = ref(null)
+const textFocused = ref(false)
+const keyboardInset = ref(0)
+const vvOffset = ref(0)
+const vvHeight = ref(0)
+let viewportCleanup = null
+let focusOutTimer = null
+
+const keyboardDocked = computed(() => textFocused.value && keyboardInset.value > 56)
+
+const rootStyle = computed(() => {
+  if (!keyboardDocked.value) return undefined
+  return {
+    '--typeform-vv-height': `${Math.round(vvHeight.value)}px`,
+    '--typeform-vv-offset': `${Math.round(vvOffset.value)}px`,
+    '--typeform-keyboard-inset': `${Math.round(keyboardInset.value)}px`,
+  }
+})
 
 const flowSteps = computed(() => {
   const list = props.steps?.length ? props.steps : CHECKIN_DEFAULT_STEPS
@@ -452,6 +485,117 @@ function resizeTextAnswer(event) {
 
   el.style.height = 'auto'
   el.style.height = `${Math.ceil(Math.max(minHeight, el.scrollHeight + 3))}px`
+
+  if (textFocused.value) {
+    requestAnimationFrame(() => ensureTextStepVisible())
+  }
+}
+
+function getKeyboardInset() {
+  if (!import.meta.client) return 0
+  const vv = window.visualViewport
+  if (!vv) return 0
+  return Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
+}
+
+function syncViewport() {
+  if (!import.meta.client) return
+  const vv = window.visualViewport
+  if (!vv) {
+    keyboardInset.value = 0
+    vvOffset.value = 0
+    vvHeight.value = window.innerHeight
+    return
+  }
+  keyboardInset.value = getKeyboardInset()
+  vvOffset.value = vv.offsetTop || 0
+  vvHeight.value = vv.height
+  if (window.scrollY !== 0) window.scrollTo(0, 0)
+}
+
+function ensureTextStepVisible() {
+  if (!import.meta.client) return
+  const main = mainRef.value
+  const step = stepRef.value
+  if (!main || !step) return
+  // Mantém título + input no topo da área visível (evita iOS empurrar o h1 pra fora).
+  const topPad = 4
+  const nextTop = Math.max(0, step.offsetTop - topPad)
+  if (Math.abs(main.scrollTop - nextTop) > 2) {
+    main.scrollTo({ top: nextTop, behavior: 'auto' })
+  }
+}
+
+function bindViewportSync() {
+  if (!import.meta.client || viewportCleanup) return
+  syncViewport()
+  const vv = window.visualViewport
+  const onChange = () => {
+    syncViewport()
+    if (textFocused.value) {
+      requestAnimationFrame(() => ensureTextStepVisible())
+    }
+  }
+  if (vv) {
+    vv.addEventListener('resize', onChange, { passive: true })
+    vv.addEventListener('scroll', onChange, { passive: true })
+  }
+  window.addEventListener('orientationchange', onChange, { passive: true })
+  viewportCleanup = () => {
+    vv?.removeEventListener('resize', onChange)
+    vv?.removeEventListener('scroll', onChange)
+    window.removeEventListener('orientationchange', onChange)
+  }
+}
+
+function unbindViewportSync() {
+  viewportCleanup?.()
+  viewportCleanup = null
+  keyboardInset.value = 0
+  vvOffset.value = 0
+  vvHeight.value = 0
+}
+
+function onFocusIn(event) {
+  const target = event.target
+  if (!(target instanceof HTMLElement)) return
+  if (!target.matches('textarea, input')) return
+  if (focusOutTimer) {
+    clearTimeout(focusOutTimer)
+    focusOutTimer = null
+  }
+  textFocused.value = true
+  bindViewportSync()
+  syncViewport()
+  requestAnimationFrame(() => {
+    syncViewport()
+    ensureTextStepVisible()
+  })
+  window.setTimeout(() => {
+    syncViewport()
+    ensureTextStepVisible()
+  }, 120)
+  window.setTimeout(() => {
+    syncViewport()
+    ensureTextStepVisible()
+  }, 300)
+}
+
+function onFocusOut() {
+  if (focusOutTimer) clearTimeout(focusOutTimer)
+  focusOutTimer = window.setTimeout(() => {
+    focusOutTimer = null
+    const active = document.activeElement
+    if (
+      active instanceof HTMLElement &&
+      rootRef.value?.contains(active) &&
+      active.matches('textarea, input')
+    ) {
+      return
+    }
+    textFocused.value = false
+    syncViewport()
+  }, 80)
 }
 
 watch(() => props.saving, (isSaving) => {
@@ -551,6 +695,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
+  if (focusOutTimer) clearTimeout(focusOutTimer)
+  unbindViewportSync()
 })
 </script>
 
@@ -617,6 +763,40 @@ onUnmounted(() => {
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   background: var(--cf-bg);
+}
+
+/* Ao focar o texto: tira o centramento vertical imediatamente. */
+.typeform-checkin--text-focus .typeform-step {
+  margin-block: 0;
+}
+
+.typeform-checkin--text-focus .typeform-main {
+  justify-content: flex-start;
+}
+
+/* Teclado PWA (interactive-widget=overlays-content): trava no visualViewport
+   para o título/input não subirem pra fora da tela. */
+.typeform-checkin--keyboard {
+  height: var(--typeform-vv-height, 100%);
+  max-height: var(--typeform-vv-height, 100%);
+  transform: translateY(var(--typeform-vv-offset, 0px));
+  will-change: transform;
+  padding-bottom: 0.4rem;
+  overflow: hidden;
+}
+
+.typeform-checkin--keyboard .typeform-main {
+  padding-top: 0.2rem;
+  padding-bottom: 0.35rem;
+  overscroll-behavior: contain;
+}
+
+.typeform-checkin--keyboard .typeform-step--text .typeform-question {
+  margin-bottom: 0.25rem;
+}
+
+.typeform-checkin--keyboard .typeform-hint {
+  margin-bottom: 0.85rem;
 }
 
 .typeform-progress {

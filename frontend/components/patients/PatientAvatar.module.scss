@@ -33,8 +33,19 @@
   object-fit: contain;
 }
 
+.avatar--xs {
+  width: 1.35rem;
+}
+
 .avatar--sm {
   width: 2.25rem;
+}
+
+.avatarCircle .shape {
+  -webkit-mask-image: none;
+  mask-image: none;
+  border-radius: var(--cf-radius-xs);
+  overflow: hidden;
 }
 
 .avatar--md {

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { X, Loader } from 'lucide-react'
+import { AnimatedDialog } from '@/components/overlays'
 import type { WaLabel } from '@/lib/whatsapp/labels'
 import { resolveLabelColorHex, WA_LABEL_COLOR_HEX } from '@/lib/whatsapp/labels'
 import styles from './LabelFormModal.module.scss'
@@ -40,54 +40,55 @@ export function LabelFormModal({ open, saving, error, label, onCancel, onSave }:
 
   const title = label?.id ? 'Editar etiqueta' : 'Adicionar etiqueta'
 
-  if (!open || typeof document === 'undefined') return null
+  return (
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => { if (!next) onCancel() }}
+      title={title}
+      overlayClassName={styles.waOverlay}
+      contentClassName={styles.modal}
+    >
+      <header className={styles.header}>
+        <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={onCancel}>
+          <X size={20} />
+        </button>
+        <h2 className={styles.title}>{title}</h2>
+      </header>
 
-  return createPortal(
-    <div className={styles.overlay} onClick={(e) => e.target === e.currentTarget && onCancel()}>
-      <div className={styles.modal} role="dialog" aria-modal="true" aria-label={title}>
-        <header className={styles.header}>
-          <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={onCancel}>
-            <X size={20} />
+      <form className={styles.body} onSubmit={(e) => { e.preventDefault(); if (name.trim()) onSave({ labelid: label?.id ? String(label.id) : 'new', name: name.trim(), color: label?.color ?? 2 }) }}>
+        <div className={styles.fieldRow}>
+          <LabelTagIconLarge colorHex={previewColorHex} />
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Etiqueta</span>
+            <input
+              className={styles.input}
+              type="text"
+              maxLength={80}
+              required
+              autoFocus
+              placeholder="Etiqueta"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+        </div>
+
+        {error && <p className={styles.error}>{error}</p>}
+
+        <footer className={styles.footer}>
+          <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onCancel}>
+            Cancelar
           </button>
-          <h2 className={styles.title}>{title}</h2>
-        </header>
-
-        <form className={styles.body} onSubmit={(e) => { e.preventDefault(); if (name.trim()) onSave({ labelid: label?.id ? String(label.id) : 'new', name: name.trim(), color: label?.color ?? 2 }) }}>
-          <div className={styles.fieldRow}>
-            <LabelTagIconLarge colorHex={previewColorHex} />
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Etiqueta</span>
-              <input
-                className={styles.input}
-                type="text"
-                maxLength={80}
-                required
-                autoFocus
-                placeholder="Etiqueta"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-          </div>
-
-          {error && <p className={styles.error}>{error}</p>}
-
-          <footer className={styles.footer}>
-            <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onCancel}>
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className={`${styles.btn} ${styles.btnPrimary}`}
-              disabled={saving || !name.trim()}
-            >
-              {saving && <Loader size={16} className={styles.spinner} />}
-              Salvar
-            </button>
-          </footer>
-        </form>
-      </div>
-    </div>,
-    document.body,
+          <button
+            type="submit"
+            className={`${styles.btn} ${styles.btnPrimary}`}
+            disabled={saving || !name.trim()}
+          >
+            {saving && <Loader size={16} className={styles.spinner} />}
+            Salvar
+          </button>
+        </footer>
+      </form>
+    </AnimatedDialog>
   )
 }

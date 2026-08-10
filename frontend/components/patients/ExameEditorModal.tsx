@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Trash2, X } from 'lucide-react'
 import type { Exame, BiomarkerRow } from '@/lib/types'
 import { FloatField } from '@/components/ui/FloatField'
+import { AnimatedDialog } from '@/components/overlays'
 import s from './ExameEditorModal.module.scss'
 
 // ── Biomarker catalog (subset) ────────────────────────────────────────────────
@@ -105,25 +106,14 @@ export function ExameEditorModal({ open, seed, saving, onClose, onSave }: Props)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (open) {
-      setTitle(seed?.title || 'Registro de exame')
-      setCollectedAt(seed?.collectedAt || new Date().toISOString().slice(0, 10))
-      setLabName(seed?.labName || '')
-      setNotes(seed?.notes || '')
-      setBiomarkers(seed?.biomarkers?.length ? seed.biomarkers.map(rowFromExisting) : [])
-      setError('')
-    }
-    document.body.style.overflow = open ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+    if (!open) return
+    setTitle(seed?.title || 'Registro de exame')
+    setCollectedAt(seed?.collectedAt || new Date().toISOString().slice(0, 10))
+    setLabName(seed?.labName || '')
+    setNotes(seed?.notes || '')
+    setBiomarkers(seed?.biomarkers?.length ? seed.biomarkers.map(rowFromExisting) : [])
+    setError('')
   }, [open, seed?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && open) onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
 
   function addRow() {
     setBiomarkers((rows) => [...rows, createRow()])
@@ -196,17 +186,17 @@ export function ExameEditorModal({ open, seed, saving, onClose, onSave }: Props)
     }
   }
 
-  if (!open) return null
+  const exameTitle = isNew ? 'Registro de exame' : 'Editar registro de exame'
 
   return (
-    <div
-      className={s.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="pex-title"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <AnimatedDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title={exameTitle}
+      contentClassName={`admin-shell-card ${s.modal}`}
     >
-      <div className={`admin-shell-card ${s.modal}`} onClick={(e) => e.stopPropagation()}>
         <header className={s.head}>
           <h2 id="pex-title" style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
             {isNew ? 'Registro de exame' : 'Editar registro de exame'}
@@ -297,7 +287,6 @@ export function ExameEditorModal({ open, seed, saving, onClose, onSave }: Props)
             {saving ? 'Salvando…' : 'Salvar registro'}
           </button>
         </footer>
-      </div>
-    </div>
+    </AnimatedDialog>
   )
 }

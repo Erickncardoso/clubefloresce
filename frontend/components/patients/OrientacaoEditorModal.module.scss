@@ -1,24 +1,24 @@
 // Full-height bottom sheet modal for orientation editor.
-// Mirrors the Nuxt PatientOrientacaoEditorModal.vue styles.
+// Uses AnimatedDialog bare + overlayBg + sheet overrides for bottom sheet positioning.
 
-.overlay {
+.overlayBg {
   position: fixed;
   inset: 0;
-  z-index: 10100;
-  display: flex;
-  align-items: flex-end;
-  justify-content: stretch;
-  width: 100vw;
-  height: 100dvh;
+  z-index: 7000;
   background: rgba(28, 32, 28, 0.45);
   backdrop-filter: blur(2px);
 }
 
 .sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7001;
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: min(96dvh, 100%);
+  height: min(96dvh, 100dvh);
   background: #f7f8f6;
   border-radius: var(--cf-radius-md, 1.25rem) var(--cf-radius-md, 1.25rem) 0 0;
   box-shadow: 0 -16px 48px rgba(28, 32, 28, 0.2);

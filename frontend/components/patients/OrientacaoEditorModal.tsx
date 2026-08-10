@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Printer, Sparkles, X } from 'lucide-react'
+import { AnimatedDialog } from '@/components/overlays'
 import type { Orientacao, PatientUser, PatientProfile } from '@/lib/types'
 import { getCachedUser } from '@/lib/auth'
 import { PatientAnamneseRichEditor, type RichEditorHandle } from './PatientAnamneseRichEditor'
@@ -149,11 +150,7 @@ export function OrientacaoEditorModal({
   // ── Open / seed effect ─────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!open) {
-      document.body.style.overflow = ''
-      return
-    }
-    document.body.style.overflow = 'hidden'
+    if (!open) return
 
     setError('')
     setSuccess('')
@@ -181,21 +178,7 @@ export function OrientacaoEditorModal({
         titleRef.current?.focus()
       }, 50)
     }
-
-    return () => {
-      document.body.style.overflow = ''
-    }
   }, [open, orientacao?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Escape key ────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && open) onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
 
   // ── blankMode watcher ──────────────────────────────────────────────────────
 
@@ -283,16 +266,17 @@ export function OrientacaoEditorModal({
     w.print()
   }
 
-  if (!open) return null
-
   return (
-    <div
-      className={s.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label={isNew ? 'Nova orientação' : 'Editar orientação'}
+    <AnimatedDialog
+      bare
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      title={isNew ? 'Nova orientação' : 'Editar orientação'}
+      overlayClassName={s.overlayBg}
+      contentClassName={s.sheet}
     >
-      <div className={s.sheet} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <header className={s.head}>
           <div className={s.headMain}>
@@ -430,7 +414,6 @@ export function OrientacaoEditorModal({
             </button>
           </div>
         </footer>
-      </div>
-    </div>
+    </AnimatedDialog>
   )
 }

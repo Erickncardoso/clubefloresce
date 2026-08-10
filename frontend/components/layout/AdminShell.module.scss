@@ -8,7 +8,8 @@
 }
 
 .shellCollapsed {
-  /* reserved for layout hooks tied to collapse */
+  /* marcador de layout (regra não-vazia p/ CSS Modules não exportar undefined) */
+  --cf-admin-sidebar-collapsed: 1;
 }
 
 .shellPatientChart {

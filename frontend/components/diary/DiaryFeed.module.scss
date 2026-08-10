@@ -1,0 +1,680 @@
+.feed {
+  max-width: 44rem;
+  width: 100%;
+  margin: 0 auto;
+  column-count: 2;
+  column-gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .feed {
+    column-count: 1;
+    max-width: 22rem;
+  }
+}
+
+.card {
+  break-inside: avoid;
+  margin-bottom: 0.85rem;
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  position: relative;
+}
+
+.cardCommenting {
+  z-index: 30;
+}
+
+.cardHighlight {
+  outline: 2px solid color-mix(in srgb, var(--admin-primary) 70%, #fff);
+  outline-offset: 3px;
+  border-radius: var(--cf-radius-xs);
+  animation: diaryPulse 1.2s ease-out 1;
+}
+
+@keyframes diaryPulse {
+  0% {
+    outline-color: color-mix(in srgb, var(--admin-primary) 90%, #fff);
+  }
+  100% {
+    outline-color: transparent;
+  }
+}
+
+
+.photoShell {
+  position: relative;
+  width: 100%;
+  border-radius: var(--cf-radius-xs);
+  overflow: hidden;
+  background: var(--admin-primary-soft);
+}
+
+.photoHit {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.photo {
+  width: 100%;
+  height: auto;
+  aspect-ratio: var(--diary-aspect, 3 / 4);
+  object-fit: cover;
+  display: block;
+}
+
+.overlay {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 2.4rem 0.7rem 0.65rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: linear-gradient(
+    to top,
+    rgba(12, 14, 13, 0.72) 0%,
+    rgba(12, 14, 13, 0.28) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
+  color: #fff;
+  z-index: 1;
+}
+
+.overlayActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  pointer-events: auto;
+}
+
+.likeBtn,
+.commentBtn {
+  pointer-events: auto;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.25rem;
+  border-radius: var(--cf-radius-xs);
+  line-height: 1;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+}
+
+.count {
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+  min-width: 0.6rem;
+}
+
+.overlayMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  text-align: left;
+
+  strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 650;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  span {
+    font-size: 0.68rem;
+    opacity: 0.88;
+  }
+}
+
+.mealIcon {
+  flex-shrink: 0;
+}
+
+.patientOnPhoto {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: calc(100% - 1.2rem);
+  min-height: 1.7rem;
+  padding: 0.18rem 0.5rem 0.18rem 0.18rem;
+  border-radius: var(--cf-radius-xs);
+  background: rgba(10, 12, 11, 0.42);
+  backdrop-filter: blur(6px);
+  text-decoration: none;
+  color: #fff;
+  pointer-events: auto;
+}
+
+.avatarTiny {
+  flex-shrink: 0;
+}
+
+.patientName {
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.liked {
+  color: #ff6b8a;
+}
+
+.send {
+  border: none;
+  border-radius: var(--cf-radius-xs);
+  background: transparent;
+  color: var(--admin-primary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  padding: 0.35rem 0.4rem;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--admin-muted);
+}
+
+.moreWrap {
+  display: flex;
+  justify-content: center;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.moreBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cf-radius-xs);
+  background: #fff;
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.65rem 1.15rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--admin-primary-soft);
+    border-color: color-mix(in srgb, var(--admin-primary) 35%, var(--admin-border));
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: wait;
+  }
+}
+
+.spin {
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.skeletonGrid {
+  max-width: 44rem;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.skeleton {
+  height: 14rem;
+  border-radius: var(--cf-radius-xs);
+  background: linear-gradient(
+    90deg,
+    var(--admin-primary-soft),
+    #f7f8f6,
+    var(--admin-primary-soft)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+
+  &:nth-child(2) {
+    height: 18rem;
+  }
+
+  &:nth-child(3) {
+    height: 12rem;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.92);
+  border: none;
+  cursor: pointer;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: var(--cf-radius-xs);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.lightboxImg {
+  max-width: min(100%, 920px);
+  max-height: calc(100vh - 2.5rem);
+  object-fit: contain;
+  border-radius: var(--cf-radius-xs);
+  cursor: default;
+}
+
+/* Mesma base do chip paciente na foto */
+$diary-chip: rgba(10, 12, 11, 0.72);
+
+.commentOnPhoto {
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: 80dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem;
+  background: #1a1e1c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: var(--cf-radius-sm, 0.5rem);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.commentOnPhotoHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.commentPatientChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: calc(100% - 2.4rem);
+  min-height: 1.7rem;
+  padding: 0.18rem 0.5rem 0.18rem 0.18rem;
+  border-radius: var(--cf-radius-xs);
+  background: rgba(10, 12, 11, 0.42);
+  backdrop-filter: blur(6px);
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: #fff;
+
+  span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.commentOnPhotoClose {
+  width: 1.85rem;
+  height: 1.85rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--cf-radius-xs);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.commentOnPhotoList {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-right: 0.1rem;
+}
+
+.commentListEmpty {
+  margin: 0;
+  padding: 0.35rem 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+}
+
+.commentRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.commentBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #fff;
+
+  strong {
+    font-weight: 650;
+    font-size: 0.72rem;
+  }
+
+  span {
+    color: rgba(255, 255, 255, 0.92);
+    word-break: break-word;
+  }
+}
+
+.commentMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.commentWhen {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+}
+
+.commentActions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.commentActionBtn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--cf-radius-xs);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+}
+
+.deleteDialog {
+  width: min(22rem, calc(100vw - 2rem));
+  background: #1a1e1c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--cf-radius-sm, 0.5rem);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 14rem;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.deleteDialogText {
+  margin: 0;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+}
+
+.deleteDialogActions {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.deleteDialogCancel,
+.deleteDialogConfirm {
+  border: none;
+  border-radius: var(--cf-radius-xs);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.deleteDialogCancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+}
+
+.deleteDialogConfirm {
+  background: #c0392b;
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: #e74c3c;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+}
+
+.commentEditBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.commentEditInput {
+  width: 100%;
+  resize: none;
+  min-height: 2.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--cf-radius-xs);
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  font-size: 0.78rem;
+  box-sizing: border-box;
+  background: rgba(10, 12, 11, 0.42);
+  color: #fff;
+  box-shadow: none;
+
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    box-shadow: none;
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+}
+
+.commentEditActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.commentEditCancel,
+.commentEditSave {
+  border: none;
+  border-radius: var(--cf-radius-xs);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  padding: 0.3rem 0.55rem;
+  cursor: pointer;
+}
+
+.commentEditCancel {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+
+  &:hover {
+    color: #fff;
+  }
+}
+
+.commentEditSave {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.24);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.commentOnPhotoForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.commentOnPhotoInput {
+  width: 100%;
+  resize: none;
+  min-height: 3.4rem;
+  max-height: 5.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--cf-radius-xs);
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  font-size: 0.8rem;
+  box-sizing: border-box;
+  background: rgba(10, 12, 11, 0.42);
+  color: #fff;
+  box-shadow: none;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    box-shadow: none;
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+}
+
+.commentOnPhotoSend {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  border-radius: var(--cf-radius-xs);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.24);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}

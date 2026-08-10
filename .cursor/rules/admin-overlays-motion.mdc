@@ -1,0 +1,44 @@
+---
+description: Animação padrão de popovers e modais no admin Next (fade opacity 150ms)
+globs: frontend/**/*.{tsx,jsx,scss}
+alwaysApply: true
+---
+
+# Clube Florescer — Overlays (popovers e modais)
+
+## Comportamento obrigatório
+
+- Entrada/saída: **somente opacity** `0↔1`
+- Duração: **150ms**, curva **ease** (`cubic-bezier(0.25, 0.1, 0.25, 1)`)
+- **Proibido**: `scale`, `translateY` animados, `{open && <Modal/>}` (corta o fade-out)
+
+## Usar sempre
+
+| Caso | Componente |
+|------|------------|
+| Popover / menu ancorado | `AnimatedPopover` (`frontend/components/overlays`) |
+| Modal formulário padrão | `AppModal` |
+| Modal com UI custom | `AnimatedDialog` + classes locais no `contentClassName` |
+| Classes de motion | `overlayMotion` / `OverlayMotion.module.scss` |
+
+```tsx
+import { AnimatedPopover, AppModal, AnimatedDialog } from '@/components/overlays'
+```
+
+## Regras
+
+1. Radix (`radix-ui`) + `data-state="open|closed"` — o fade-out roda antes do unmount.
+2. `sideOffset` default do popover: **4**.
+3. `border-radius` do painel: `var(--cf-radius-control)` (nunca px fixo no admin).
+4. Backdrop e superfície usam as mesmas classes `.backdrop` / `.surface` do OverlayMotion.
+5. Viewers de imagem, composers de mídia e toolbars flutuantes podem ficar fora deste padrão se a UX exigir.
+
+## Anti-padrão
+
+```tsx
+// ❌ remove o DOM na hora — sem fade-out
+{open && <div className={styles.modal}>…</div>}
+
+// ✅
+<AppModal open={open} onOpenChange={setOpen} title="…">…</AppModal>
+```

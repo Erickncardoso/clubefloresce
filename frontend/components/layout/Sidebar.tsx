@@ -20,6 +20,7 @@ import {
   Radio,
   Users,
   UsersRound,
+  UtensilsCrossed,
   Workflow,
   type LucideIcon,
 } from 'lucide-react'
@@ -51,6 +52,7 @@ const menu: MenuItem[] = [
   { label: 'Cursos', path: '/cursos', icon: BookOpen },
   { label: 'Comunidade', path: '/comunidade', icon: Users },
   { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
+  { label: 'Diário', path: '/diario', icon: UtensilsCrossed },
   { label: 'Financeiro', path: '/financeiro', icon: DollarSign },
   { label: 'Personalizar', path: '/personalizar', icon: Palette },
   {
@@ -107,6 +109,7 @@ function isLeafActive(pathname: string, path?: string) {
   if (path === '/dashboard') return pathname.startsWith('/dashboard')
   if (path === '/agenda') return pathname.startsWith('/agenda')
   if (path === '/check-in') return pathname.startsWith('/check-in')
+  if (path === '/diario') return pathname.startsWith('/diario')
   if (path === '/financeiro') return pathname.startsWith('/financeiro')
   if (path === '/cursos') {
     return (
