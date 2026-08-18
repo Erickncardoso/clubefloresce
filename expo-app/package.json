@@ -18,6 +18,8 @@
     "build:ios": "eas build --platform ios --profile production",
     "build:ios:preview": "eas build --platform ios --profile preview",
     "submit:ios": "eas submit --platform ios --profile production",
+    "update": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel production --platform ios",
+    "update:preview": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel preview --platform ios",
     "metadata:push": "eas metadata:push",
     "metadata:pull": "eas metadata:pull"
   },

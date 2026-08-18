@@ -2,6 +2,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { scheduleRagReindex } from "./rag/rag-hooks";
 import type {
   PatientGender,
+  PatientMaritalStatus,
   PatientPrimaryGoal,
   PatientProfileData,
   PatientProfileResponse,
@@ -9,6 +10,14 @@ import type {
 } from "../types/patient-profile.types";
 
 const GENDERS = new Set<PatientGender>(["female", "male", "other", "prefer_not_say"]);
+const MARITAL = new Set<PatientMaritalStatus>([
+  "single",
+  "married",
+  "divorced",
+  "widowed",
+  "stable_union",
+  "other",
+]);
 const GOALS = new Set<PatientPrimaryGoal>([
   "lose_weight",
   "maintain",
@@ -30,6 +39,27 @@ const BASE_REQUIRED: (keyof PatientProfileData)[] = [
 function asObject(value: unknown): PatientProfileData {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as PatientProfileData;
+}
+
+function onlyDigits(value: unknown, max = 32): string {
+  return String(value || "").replace(/\D/g, "").slice(0, max);
+}
+
+function parseCpf(value: unknown): string | null {
+  const digits = onlyDigits(value, 11);
+  if (!digits) return null;
+  if (digits.length !== 11) throw new Error("CPF inválido.");
+  return digits;
+}
+
+function parseOptionalString(value: unknown, max: number): string | null {
+  if (value == null || value === "") return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  if (trimmed.length > max) {
+    throw new Error(`Texto muito longo (máximo ${max} caracteres).`);
+  }
+  return trimmed;
 }
 
 function parseBirthDate(value: unknown): string | null {
@@ -183,6 +213,29 @@ export class PatientProfileService {
       } else {
         throw new Error("Frequência de treinos inválida.");
       }
+    }
+
+    if ("maritalStatus" in payload) {
+      const maritalStatus = payload.maritalStatus;
+      if (maritalStatus == null || maritalStatus === "") {
+        next.maritalStatus = null;
+      } else if (MARITAL.has(maritalStatus as PatientMaritalStatus)) {
+        next.maritalStatus = maritalStatus as PatientMaritalStatus;
+      } else {
+        throw new Error("Estado civil inválido.");
+      }
+    }
+
+    if ("cpf" in payload) {
+      if (payload.cpf == null || payload.cpf === "") {
+        next.cpf = null;
+      } else {
+        next.cpf = parseCpf(payload.cpf);
+      }
+    }
+
+    if ("occupation" in payload) {
+      next.occupation = parseOptionalString(payload.occupation, 80);
     }
 
     const missing = missingFields(next);

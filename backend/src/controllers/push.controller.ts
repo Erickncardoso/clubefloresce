@@ -67,18 +67,43 @@ export class PushController {
   async updatePreferences(req: Request, res: Response): Promise<any> {
     try {
       const mealRemindersEnabled = req.body?.mealRemindersEnabled;
-      if (typeof mealRemindersEnabled !== "boolean") {
-        return res.status(400).json({ message: "Informe mealRemindersEnabled (boolean)." });
+      const diarySocialPushEnabled = req.body?.diarySocialPushEnabled;
+      const categories = req.body?.categories;
+      const hasMeal = typeof mealRemindersEnabled === "boolean";
+      const hasSocial = typeof diarySocialPushEnabled === "boolean";
+      const hasCategories = Boolean(categories && typeof categories === "object" && !Array.isArray(categories));
+      if (!hasMeal && !hasSocial && !hasCategories) {
+        return res.status(400).json({
+          message: "Informe as preferências de notificação.",
+        });
       }
 
       const headers = readPatientTimeHeaders(req);
       await pushService.syncTimezone(req.user!.id, headers.patientTimeZone);
 
       const preferences = await pushService.updatePreferences(req.user!.id, {
-        mealRemindersEnabled,
+        ...(hasMeal ? { mealRemindersEnabled } : {}),
+        ...(hasSocial ? { diarySocialPushEnabled } : {}),
+        ...(hasCategories ? { categories } : {}),
       });
 
       return res.json(preferences);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
+  async registerExpoToken(req: Request, res: Response): Promise<any> {
+    try {
+      const token = typeof req.body?.token === "string" ? req.body.token : "";
+      const headers = readPatientTimeHeaders(req);
+      await pushService.syncTimezone(req.user!.id, headers.patientTimeZone);
+      const subscription = await pushService.subscribeExpoToken(
+        req.user!.id,
+        token,
+        req.header("user-agent") || undefined,
+      );
+      return res.status(201).json({ ok: true, id: subscription.id });
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
     }

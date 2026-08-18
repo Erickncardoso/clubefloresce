@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { getCachedUser } from '@/lib/auth'
 import {
-  JitsiMeetEmbed,
-  type JitsiMeetEmbedHandle,
-} from '@/components/patients/JitsiMeetEmbed'
+  CfVideoCallHost,
+  type CfVideoCallHostHandle,
+} from '@/components/patients/CfVideoCallHost'
 import styles from './PatientVideoCallModal.module.scss'
 
 type VideoCallPayload = {
@@ -33,7 +33,7 @@ export function PatientVideoCallModal({
   patientName = 'Paciente',
   onClose,
 }: Props) {
-  const embedRef = useRef<JitsiMeetEmbedHandle | null>(null)
+  const embedRef = useRef<CfVideoCallHostHandle | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [joinUrl, setJoinUrl] = useState('')
@@ -171,22 +171,28 @@ export function PatientVideoCallModal({
             </div>
           ) : null}
           {!loading && !error && roomUrl ? (
-            <JitsiMeetEmbed
+            <CfVideoCallHost
               ref={embedRef}
               roomUrl={roomUrl}
               roomName={roomName}
               jitsiDomain={jitsiDomain}
               displayName={nutriDisplayName}
-              role="host"
+              patientName={patientName}
+              onReady={() => {
+                setStatusHint('ao vivo')
+                setNotifyHint('Chamada aberta. Peça para o paciente tocar em Atender no app.')
+              }}
               onError={(message) => {
-                setStatusHint(message ? 'com aviso' : 'ao vivo')
+                setStatusHint('com aviso')
                 setNotifyHint(
-                  message
-                    ? `${message} A chamada continua aberta para o paciente.`
-                    : 'Chamada aberta. Peça para o paciente tocar em Atender no app.',
+                  `${message} A chamada continua aberta para o paciente.`,
                 )
               }}
-              onLeft={() => void endCall()}
+              onLeft={() => {
+                if (endingRef.current) return
+                setStatusHint('ao vivo')
+                setNotifyHint('A chamada continua aberta. O paciente ainda pode atender no app.')
+              }}
             />
           ) : null}
         </div>

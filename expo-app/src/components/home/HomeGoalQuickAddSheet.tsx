@@ -13,13 +13,11 @@ import {
   Moon,
   Plus,
   Sun,
-  X,
   type LucideIcon,
 } from 'lucide-react-native';
 import EvolucaoWaterVesselIcon from '@/components/evolucao/EvolucaoWaterVesselIcon';
 import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
 import { usePatientGoals } from '@/hooks/usePatientGoals';
-import { syncWaterActivity } from '../../../modules/live-activity';
 import { loadWaterVesselSettings, type WaterVesselSettings } from '@/lib/water-vessel-settings';
 import { colors, fonts } from '@/theme/tokens';
 
@@ -135,9 +133,6 @@ function HomeGoalQuickAddContent({ goalId }: { goalId: string }) {
   async function addWater(ml: number) {
     if (goalComplete) return;
     await incrementGoal('water', ml / 1000);
-    const currentLiters = Number(activeSummary?.progress || 0) + ml / 1000;
-    const goalLiters = Number(activeGoal.target || 0);
-    void syncWaterActivity(currentLiters, goalLiters);
     dismiss();
   }
 
@@ -166,14 +161,6 @@ function HomeGoalQuickAddContent({ goalId }: { goalId: string }) {
           <Text style={styles.headTitle}>{activeGoal.label}</Text>
           <Text style={styles.headSub}>{SUBTITLES[goalId] || 'Registre seu progresso.'}</Text>
         </View>
-        <Pressable
-          style={styles.closeBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Fechar"
-          onPress={dismiss}
-        >
-          <X color="#5f5f65" size={16} strokeWidth={1.8} />
-        </Pressable>
       </View>
 
       <View style={styles.status}>
@@ -312,15 +299,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     color: '#6e6e73',
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f2f2f4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
   status: {
     flexDirection: 'row',

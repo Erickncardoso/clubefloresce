@@ -10,6 +10,7 @@ router.get("/status", authenticate, authorize(["PACIENTE"]), controller.getStatu
 router.post("/subscribe", authenticate, authorize(["PACIENTE"]), controller.subscribe.bind(controller));
 router.post("/unsubscribe", authenticate, authorize(["PACIENTE"]), controller.unsubscribe.bind(controller));
 router.patch("/preferences", authenticate, authorize(["PACIENTE"]), controller.updatePreferences.bind(controller));
+router.post("/expo-token", authenticate, authorize(["PACIENTE"]), controller.registerExpoToken.bind(controller));
 router.post("/sync-timezone", authenticate, authorize(["PACIENTE"]), controller.syncTimezone.bind(controller));
 
 export default router;

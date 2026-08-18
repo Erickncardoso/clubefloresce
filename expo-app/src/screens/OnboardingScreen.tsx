@@ -411,7 +411,7 @@ export default function OnboardingScreen() {
             </View>
             <Text style={styles.pushTitle}>Ative as notificações</Text>
             <Text style={styles.pushCopy}>
-              Receba lembretes de refeições, check-ins, mensagens da Bella e avisos da comunidade —
+              Receba lembretes de refeições, check-ins, mensagens da Bella e avisos do diário —
               mesmo com o app fechado.
             </Text>
             {pushPermission === 'granted' ? (

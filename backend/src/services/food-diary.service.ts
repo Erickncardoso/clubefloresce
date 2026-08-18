@@ -14,6 +14,10 @@ import type {
 import { entryDateFromKey, getDateKeyInTimeZone } from "../utils/patient-timezone";
 import { normalizeFoodDiaryCommentContent } from "../utils/food-diary-comment";
 import { FoodDiarySocialRepository } from "../repositories/food-diary-social.repository";
+import { NotificationRepository } from "../repositories/notification.repository";
+import { prisma } from "../lib/prisma";
+import { isDiarySocialPushEnabled } from "./patient-preferences.service";
+import type { PatientProfileData } from "../types/patient-profile.types";
 
 let foodDiaryRepository: FoodDiaryRepository | null = null;
 let bellaRepository: BellaRepository | null = null;
@@ -26,6 +30,41 @@ function getFoodDiaryRepository(): FoodDiaryRepository {
 function getBellaRepository(): BellaRepository {
   if (!bellaRepository) bellaRepository = new BellaRepository();
   return bellaRepository;
+}
+
+const diaryNotificationRepository = new NotificationRepository();
+
+function firstName(name?: string | null): string {
+  return String(name || "").trim().split(/\s+/)[0] || "Sua nutricionista";
+}
+
+function asProfile(value: unknown): PatientProfileData {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as PatientProfileData;
+}
+
+async function notifyDiaryOwner(input: {
+  ownerId: string;
+  actorId: string;
+  title: string;
+  body: string;
+  sourceKey: string;
+}) {
+  if (!input.ownerId || input.ownerId === input.actorId) return;
+  const owner = await prisma.user.findUnique({
+    where: { id: input.ownerId },
+    select: { patientProfileData: true },
+  });
+  if (!owner || !isDiarySocialPushEnabled(asProfile(owner.patientProfileData))) return;
+
+  await diaryNotificationRepository.upsertBySourceKey({
+    userId: input.ownerId,
+    type: "community",
+    title: input.title,
+    body: input.body,
+    actionPath: "/diario",
+    sourceKey: input.sourceKey,
+  });
 }
 
 function subtractMacros(targets: NutritionTargets, consumed: MacroTotals): MacroTotals {
@@ -384,13 +423,19 @@ export class FoodDiaryService {
     return { entry, dailySummary };
   }
 
-  async getAdminFeed(limit = 18, viewerId: string, skip = 0) {
-    const take = Math.min(40, Math.max(1, Number(limit) || 18));
-    const offset = Math.max(0, Number(skip) || 0);
-    // Busca take+1 para saber se ainda há próxima página
+  private async buildPhotoFeed(opts: {
+    viewerId: string;
+    limit?: number;
+    skip?: number;
+    userId?: string;
+    includePatient?: boolean;
+  }) {
+    const take = Math.min(40, Math.max(1, Number(opts.limit) || 18));
+    const offset = Math.max(0, Number(opts.skip) || 0);
     const rows = await getFoodDiaryRepository().findRecentForNutri(take + 1, {
       withImageOnly: true,
       skip: offset,
+      userId: opts.userId,
     });
     const hasMore = rows.length > take;
     const entries = hasMore ? rows.slice(0, take) : rows;
@@ -398,35 +443,57 @@ export class FoodDiaryService {
     const ids = entries.map((e) => e.id);
     const { likeCounts, commentCounts, likedIds, previews } = await social.countsForEntries(
       ids,
-      viewerId,
+      opts.viewerId,
     );
 
     return {
-      entries: entries.map((entry) => ({
-        id: entry.id,
-        entryDate: entry.entryDate,
-        mealType: entry.mealType,
-        mealLabel: entry.mealLabel,
-        imageUrl: entry.imageUrl,
-        caloriesKcal: entry.caloriesKcal,
-        proteinG: entry.proteinG,
-        carbsG: entry.carbsG,
-        fatG: entry.fatG,
-        createdAt: entry.createdAt,
-        patient: entry.user,
-        likesCount: likeCounts.get(entry.id) || 0,
-        likedByMe: likedIds.has(entry.id),
-        commentsCount: commentCounts.get(entry.id) || 0,
-        commentsPreview: (previews.get(entry.id) || []).map((c) => ({
-          id: c.id,
-          content: c.content,
-          createdAt: c.createdAt,
-          author: c.author,
-        })),
-      })),
+      entries: entries.map((entry) => {
+        const likesCount = likeCounts.get(entry.id) || 0;
+        return {
+          id: entry.id,
+          entryDate: entry.entryDate,
+          mealType: entry.mealType,
+          mealLabel: entry.mealLabel,
+          imageUrl: entry.imageUrl,
+          caloriesKcal: entry.caloriesKcal,
+          proteinG: entry.proteinG,
+          carbsG: entry.carbsG,
+          fatG: entry.fatG,
+          createdAt: entry.createdAt,
+          ...(opts.includePatient ? { patient: entry.user } : {}),
+          likesCount,
+          likedByMe: likedIds.has(entry.id),
+          likedByNutri: likesCount > 0,
+          commentsCount: commentCounts.get(entry.id) || 0,
+          commentsPreview: (previews.get(entry.id) || []).map((c) => ({
+            id: c.id,
+            content: c.content,
+            createdAt: c.createdAt,
+            author: c.author,
+          })),
+        };
+      }),
       hasMore,
       nextSkip: hasMore ? offset + take : null,
     };
+  }
+
+  async getAdminFeed(limit = 18, viewerId: string, skip = 0) {
+    return this.buildPhotoFeed({
+      viewerId,
+      limit,
+      skip,
+      includePatient: true,
+    });
+  }
+
+  async getPatientFeed(userId: string, limit = 18, skip = 0) {
+    return this.buildPhotoFeed({
+      viewerId: userId,
+      limit,
+      skip,
+      userId,
+    });
   }
 
   async toggleEntryLike(entryId: string, userId: string) {
@@ -435,24 +502,70 @@ export class FoodDiaryService {
     if (!entry) throw new Error("Entrada não encontrada.");
     const existing = await social.findLike(entryId, userId);
     if (existing) await social.deleteLike(entryId, userId);
-    else await social.createLike(entryId, userId);
+    else {
+      await social.createLike(entryId, userId);
+      const actor = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+      const meal = entry.mealLabel?.trim() || "prato";
+      await notifyDiaryOwner({
+        ownerId: entry.userId,
+        actorId: userId,
+        title: "Diário",
+        body: `${firstName(actor?.name)} curtiu seu ${meal}.`,
+        sourceKey: `diary-like:${entryId}:${userId}`,
+      });
+    }
     const likesCount = await social.countLikes(entryId);
     return { likedByMe: !existing, likesCount };
   }
 
-  async listEntryComments(entryId: string) {
+  async listEntryComments(entryId: string, ownerId?: string) {
     const social = new FoodDiarySocialRepository();
-    const entry = await social.assertEntryWithImage(entryId);
+    const entry = await social.assertEntryWithImage(entryId, ownerId);
     if (!entry) throw new Error("Entrada não encontrada.");
     return social.listComments(entryId);
   }
 
-  async addEntryComment(entryId: string, authorId: string, rawContent: unknown) {
+  async getEntrySocial(entryId: string, ownerId: string) {
+    const social = new FoodDiarySocialRepository();
+    const entry = await social.assertEntryWithImage(entryId, ownerId);
+    if (!entry) throw new Error("Entrada não encontrada.");
+    const [likes, comments] = await Promise.all([
+      social.listLikes(entryId),
+      social.listComments(entryId),
+    ]);
+    return {
+      likes: likes.map((like) => ({
+        id: like.user.id,
+        name: like.user.name,
+        avatar: like.user.avatar,
+        role: like.user.role,
+      })),
+      comments: comments.map((c) => ({
+        id: c.id,
+        content: c.content,
+        createdAt: c.createdAt,
+        author: c.author,
+      })),
+    };
+  }
+
+  async addEntryComment(entryId: string, authorId: string, rawContent: unknown, ownerId?: string) {
     const content = normalizeFoodDiaryCommentContent(rawContent);
     const social = new FoodDiarySocialRepository();
-    const entry = await social.assertEntryWithImage(entryId);
+    const entry = await social.assertEntryWithImage(entryId, ownerId);
     if (!entry) throw new Error("Entrada não encontrada.");
-    return social.createComment(entryId, authorId, content);
+    const comment = await social.createComment(entryId, authorId, content);
+    await notifyDiaryOwner({
+      ownerId: entry.userId,
+      actorId: authorId,
+      title: "Diário",
+      body: `${firstName(comment.author?.name)} comentou no seu ${entry.mealLabel?.trim() || "prato"}.`,
+      sourceKey: `diary-comment:${comment.id}`,
+    });
+    return comment;
   }
 
   async updateEntryComment(commentId: string, authorId: string, rawContent: unknown) {

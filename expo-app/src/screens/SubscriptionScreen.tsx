@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AlertCircle, CheckCircle2, CreditCard, Sparkles } from 'lucide-react-native';
+import { AlertCircle, CheckCircle2, Shield, Sparkles } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import CfButton from '@/components/ui/CfButton';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { useBilling } from '@/hooks/useBilling';
 import { isPatientAccessExpired, isPatientFullAccessActive } from '@/lib/patient-access';
-import { formatDateBr, planLabel } from '@/lib/format';
 import { useAuth } from '@/providers/AuthProvider';
 import { LEGAL_CONTACT_EMAIL } from '@/config/legal';
 import {
+  getNutritionistAccessMessage,
   getPaymentRequiredMessage,
   getSubscriptionScreenTitle,
 } from '@/lib/platform-billing';
@@ -37,6 +37,8 @@ export default function SubscriptionScreen() {
     user?.approvalEmailSentAt,
   );
 
+  const accessMessage = getNutritionistAccessMessage(hasFullAccess, accessExpiresAt, accessExpired);
+
   const load = useCallback(async () => {
     setPageLoading(true);
     await refreshUser();
@@ -59,7 +61,9 @@ export default function SubscriptionScreen() {
   }
 
   async function openSupportEmail() {
-    await Linking.openURL(`mailto:${LEGAL_CONTACT_EMAIL}?subject=${encodeURIComponent('Clube Florescer — status da assinatura')}`);
+    await Linking.openURL(
+      `mailto:${LEGAL_CONTACT_EMAIL}?subject=${encodeURIComponent('Clube Florescer — meu acesso')}`,
+    );
   }
 
   if (pageLoading) {
@@ -71,12 +75,12 @@ export default function SubscriptionScreen() {
     );
   }
 
-  const heroTitle = hasFullAccess ? 'Status da assinatura' : 'Acesso pendente';
+  const heroTitle = hasFullAccess && !accessExpired ? 'Meu acesso' : 'Acesso pendente';
   const heroSub = accessExpired
-    ? 'Seu período de acesso terminou. Entre em contato se precisar de ajuda.'
+    ? 'Seu período de acesso terminou. Fale com sua nutricionista se precisar de ajuda.'
     : hasFullAccess
-      ? 'Confira o status do seu acesso ao Clube Florescer.'
-      : 'Entre com a mesma conta usada no site. Se o acesso já foi ativado, toque em Atualizar acesso abaixo.';
+      ? 'Confira até quando seu acesso está liberado no Clube Florescer.'
+      : 'Quando sua nutricionista liberar seu acesso, toque em Sincronizar abaixo.';
 
   return (
     <PatientShell withTabClearance={false}>
@@ -99,36 +103,32 @@ export default function SubscriptionScreen() {
           <View style={[styles.banner, styles.bannerAlert]}>
             <AlertCircle color={colors.error} size={20} />
             <View style={styles.bannerCopy}>
-              <Text style={styles.bannerTitle}>Seu acesso expirou</Text>
-              <Text style={styles.bannerText}>
-                Entre em contato se precisar reativar seu acesso ao Clube Florescer.
-              </Text>
+              <Text style={styles.bannerTitle}>Acesso expirado</Text>
+              <Text style={styles.bannerText}>{accessMessage}</Text>
             </View>
           </View>
-        ) : currentPlan !== 'FREE' ? (
+        ) : hasFullAccess ? (
           <View style={[styles.banner, styles.bannerOk]}>
             <CheckCircle2 color={colors.primary} size={20} />
             <View style={styles.bannerCopy}>
-              <Text style={styles.bannerTitle}>Plano {planLabel(currentPlan)}</Text>
-              <Text style={styles.bannerText}>
-                {accessExpiresAt ? `Acesso até ${formatDateBr(accessExpiresAt)}` : 'Assinatura ativa'}
-              </Text>
+              <Text style={styles.bannerTitle}>Acesso ativo</Text>
+              <Text style={styles.bannerText}>{accessMessage}</Text>
             </View>
           </View>
         ) : null}
 
         <View style={styles.statusCard}>
-          <CreditCard color={colors.primary} size={32} />
+          <Shield color={colors.primary} size={32} />
           <Text style={styles.statusTitle}>
-            {hasFullAccess && !accessExpired ? 'Acesso vinculado à conta' : 'Aguardando ativação'}
+            {hasFullAccess && !accessExpired ? 'Acesso vinculado à conta' : 'Aguardando liberação'}
           </Text>
           <Text style={styles.statusText}>
             {hasFullAccess && !accessExpired
-              ? 'Use o botão abaixo para sincronizar o status do seu acesso com o servidor.'
+              ? 'Use o botão abaixo para sincronizar seu acesso com o servidor.'
               : getPaymentRequiredMessage()}
           </Text>
           <CfButton
-            label={refreshing ? 'Atualizando…' : 'Atualizar acesso'}
+            label={refreshing ? 'Sincronizando…' : 'Sincronizar'}
             loading={refreshing}
             onPress={handleRefreshAccess}
           />

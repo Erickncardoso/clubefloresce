@@ -7,6 +7,31 @@ const controller = new FoodDiaryController();
 
 router.get("/today", authenticate, authorize(["PACIENTE"]), controller.getToday.bind(controller));
 router.get("/month", authenticate, authorize(["PACIENTE"]), controller.getMonth.bind(controller));
+router.get("/feed", authenticate, authorize(["PACIENTE"]), controller.getPatientFeed.bind(controller));
+router.get(
+  "/entries/:entryId/social",
+  authenticate,
+  authorize(["PACIENTE"]),
+  controller.getOwnEntrySocial.bind(controller),
+);
+router.post(
+  "/entries/:entryId/comments",
+  authenticate,
+  authorize(["PACIENTE"]),
+  controller.addOwnEntryComment.bind(controller),
+);
+router.patch(
+  "/comments/:commentId",
+  authenticate,
+  authorize(["PACIENTE"]),
+  controller.updateEntryComment.bind(controller),
+);
+router.delete(
+  "/comments/:commentId",
+  authenticate,
+  authorize(["PACIENTE"]),
+  controller.deleteEntryComment.bind(controller),
+);
 router.get("/admin/feed", authenticate, authorize(["NUTRICIONISTA"]), controller.getAdminFeed.bind(controller));
 router.get(
   "/admin/consumption",

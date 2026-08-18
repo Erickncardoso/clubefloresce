@@ -1067,7 +1067,22 @@ export function useJitsiMediaCall() {
       serviceUrl: `wss://${cleanDomain}/xmpp-websocket`,
       bosh: `https://${cleanDomain}/http-bind`,
       clientNode: 'https://jitsi.org/jitsimeet',
+      p2p: {
+        stunServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ],
+      },
+      p2pStunServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ],
     })
+    try {
+      const xmpp = connection.xmpp || connection._xmpp
+      const jingle = xmpp?.connection?.jingle
+      if (jingle) jingle.getStunAndTurnCredentials = () => {}
+    } catch { /* ignore */ }
 
     await new Promise((resolve, reject) => {
       const onOk = () => { cleanup(); resolve() }
@@ -1089,7 +1104,7 @@ export function useJitsiMediaCall() {
     conference = connection.initJitsiConference(room, {
       openBridgeChannel: 'websocket',
       p2p: {
-        enabled: true,
+        enabled: false,
         codecPreferenceOrder: ['VP9', 'VP8', 'H264'],
       },
       channelLastN: -1,

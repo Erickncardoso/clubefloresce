@@ -1,17 +1,34 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
-import { AlertCircle } from 'lucide-react-native';
+import { AlertCircle, Info } from 'lucide-react-native';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type Props = {
   compact?: boolean;
+  /** Linha única discreta, só ícone + "Fontes" — usar em telas com pouco espaço/visual carregado. */
+  micro?: boolean;
 };
 
 /**
- * Aviso visível + link para fontes, exigidos em apps de saúde/nutrição
+ * Aviso + link para fontes, exigidos em apps de saúde/nutrição
  * (Guideline 1.4.1 Apple: citações das recomendações, fáceis de encontrar).
  */
-export default function HealthDisclaimerBanner({ compact = false }: Props) {
+export default function HealthDisclaimerBanner({ compact = false, micro = false }: Props) {
+  if (micro) {
+    return (
+      <Link href="/legal/fontes" asChild>
+        <Pressable
+          style={styles.microLink}
+          accessibilityRole="link"
+          accessibilityLabel="Fontes e avisos de saúde: este app não substitui consulta médica."
+        >
+          <Info color={colors.textMuted} size={12} />
+          <Text style={styles.microText}>Fontes e avisos de saúde</Text>
+        </Pressable>
+      </Link>
+    );
+  }
+
   return (
     <View
       style={[styles.banner, compact && styles.bannerCompact]}
@@ -67,6 +84,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: colors.primaryDark,
+    textDecorationLine: 'underline',
+  },
+  microLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+  },
+  microText: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    color: colors.textMuted,
     textDecorationLine: 'underline',
   },
 });

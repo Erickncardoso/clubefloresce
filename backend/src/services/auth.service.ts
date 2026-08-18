@@ -11,6 +11,7 @@ import {
   buildPasswordResetUrl,
   type PasswordResetApp,
 } from "../utils/email-config";
+import { normalizePhoneForWhatsapp } from "../utils/phone";
 import {
   createPasswordResetToken,
   getPasswordResetTtlMs,
@@ -258,20 +259,45 @@ export class AuthService {
     return userWithoutPassword;
   }
 
-  async updateMyProfile(userId: string, input: { name?: string }): Promise<any> {
-    const name = String(input?.name ?? "")
-      .replace(/\s+/g, " ")
-      .trim();
+  async updateMyProfile(
+    userId: string,
+    input: { name?: string; phone?: string | null },
+  ): Promise<any> {
+    const data: { name?: string; phone?: string | null } = {};
 
-    if (name.length < 2) {
-      throw new Error("Informe um nome com pelo menos 2 caracteres.");
+    if (input.name !== undefined) {
+      const name = String(input.name ?? "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (name.length < 2) {
+        throw new Error("Informe um nome com pelo menos 2 caracteres.");
+      }
+
+      if (name.length > 120) {
+        throw new Error("Nome muito longo (máximo 120 caracteres).");
+      }
+
+      data.name = name;
     }
 
-    if (name.length > 120) {
-      throw new Error("Nome muito longo (máximo 120 caracteres).");
+    if (input.phone !== undefined) {
+      if (input.phone == null || String(input.phone).trim() === "") {
+        data.phone = null;
+      } else {
+        const normalized = normalizePhoneForWhatsapp(input.phone);
+        if (!normalized) {
+          throw new Error("Telefone inválido. Informe DDD + número.");
+        }
+        data.phone = normalized;
+      }
     }
 
-    const updatedUser = await userRepository.update(userId, { name });
+    if (!("name" in data) && !("phone" in data)) {
+      throw new Error("Nenhum campo para atualizar.");
+    }
+
+    const updatedUser = await userRepository.update(userId, data);
     const { password, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword;
   }

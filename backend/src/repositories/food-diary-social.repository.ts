@@ -5,14 +5,19 @@ type CommentPreview = {
   content: string;
   createdAt: Date;
   entryId: string;
-  author: { id: string; name: string; avatar: string | null };
+  author: { id: string; name: string; avatar: string | null; role?: string | null };
 };
 
 export class FoodDiarySocialRepository {
-  async assertEntryWithImage(entryId: string) {
+  async assertEntryWithImage(entryId: string, ownerId?: string) {
     return prisma.foodDiaryEntry.findFirst({
-      where: { id: entryId, imageUrl: { not: null }, NOT: { imageUrl: "" } },
-      select: { id: true },
+      where: {
+        id: entryId,
+        ...(ownerId ? { userId: ownerId } : {}),
+        imageUrl: { not: null },
+        NOT: { imageUrl: "" },
+      },
+      select: { id: true, userId: true, mealLabel: true, mealType: true },
     });
   }
 
@@ -29,6 +34,16 @@ export class FoodDiarySocialRepository {
   async deleteLike(entryId: string, userId: string) {
     return prisma.foodDiaryLike.delete({
       where: { entryId_userId: { entryId, userId } },
+    });
+  }
+
+  async listLikes(entryId: string) {
+    return prisma.foodDiaryLike.findMany({
+      where: { entryId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: { select: { id: true, name: true, avatar: true, role: true } },
+      },
     });
   }
 
@@ -107,7 +122,7 @@ export class FoodDiarySocialRepository {
         where: { entryId: { in: entryIds } },
         orderBy: { createdAt: "desc" },
         take: entryIds.length * 3,
-        include: { author: { select: { id: true, name: true, avatar: true } } },
+        include: { author: { select: { id: true, name: true, avatar: true, role: true } } },
       }),
     ]);
 

@@ -28,7 +28,7 @@ import {
 
 import * as DocumentPicker from 'expo-document-picker';
 
-import * as ImagePicker from 'expo-image-picker';
+import { pickMealPhoto } from '@/lib/meal-photo-pick';
 
 import { useLocalSearchParams } from 'expo-router';
 
@@ -50,8 +50,6 @@ import {
 
 import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
-
-import HealthDisclaimerBanner from '@/components/ui/HealthDisclaimerBanner';
 import PatientHeader from '@/components/ui/PatientHeader';
 
 import PatientShell from '@/components/PatientShell';
@@ -222,6 +220,7 @@ export default function BellaChatScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const bootstrapTokenRef = useRef(0);
+  const autoCameraRef = useRef(false);
 
 
 
@@ -348,7 +347,7 @@ export default function BellaChatScreen() {
   const buildWelcomeContent = useCallback(() => {
     const mealLabel = typeof params.label === 'string' ? params.label.trim() : '';
 
-    if (chatTopic === 'meal' && params.from === 'dieta' && mealLabel) {
+    if (chatTopic === 'meal' && (params.from === 'dieta' || params.from === 'home') && mealLabel) {
       return `Olá, ${userName}! 📸 Vamos registrar ${mealLabel.toLowerCase()}. Confira a refeição selecionada abaixo e envie a foto do prato.`;
     }
 
@@ -679,18 +678,11 @@ export default function BellaChatScreen() {
 
 
   useEffect(() => {
-
-    if (params.from === 'dieta' && chatTopic === 'meal') {
-
+    if ((params.from === 'dieta' || params.from === 'home') && chatTopic === 'meal') {
       const label = typeof params.label === 'string' ? params.label.trim() : '';
-
       if (label) setDraft(`Analise meu ${label.toLowerCase()}`);
-
     }
-
   }, [chatTopic, params.from, params.label]);
-
-
 
   function clearAttachment() {
 
@@ -703,70 +695,36 @@ export default function BellaChatScreen() {
 
 
   async function pickImage(fromCamera: boolean) {
+    try {
+      const photo = await pickMealPhoto(fromCamera);
+      if (!photo) return;
 
-    const permission = fromCamera
-
-      ? await ImagePicker.requestCameraPermissionsAsync()
-
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-
-      setError('Permita acesso à câmera ou galeria para enviar fotos.');
-
-      return;
-
+      setError('');
+      setPendingFile({
+        uri: photo.uri,
+        name: photo.name,
+        mimeType: photo.mimeType,
+      });
+      setAttachmentPreview({
+        kind: 'image',
+        name: photo.name,
+        uri: photo.uri,
+      });
+    } catch (err) {
+      setError((err as Error).message || 'Permita acesso à câmera ou galeria para enviar fotos.');
     }
-
-
-
-    const result = fromCamera
-
-      ? await ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: false })
-
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
-
-
-
-    if (result.canceled || !result.assets?.[0]) return;
-
-
-
-    const asset = result.assets[0];
-
-    if (asset.fileSize && asset.fileSize > 12 * 1024 * 1024) {
-
-      setError('Arquivo muito grande. O limite é 12 MB.');
-
-      return;
-
-    }
-
-
-
-    setError('');
-
-    setPendingFile({
-
-      uri: asset.uri,
-
-      name: asset.fileName || 'foto.jpg',
-
-      mimeType: asset.mimeType || 'image/jpeg',
-
-    });
-
-    setAttachmentPreview({
-
-      kind: 'image',
-
-      name: asset.fileName || 'foto.jpg',
-
-      uri: asset.uri,
-
-    });
-
   }
+
+  useEffect(() => {
+    if (autoCameraRef.current) return;
+    if (chatTopic !== 'meal' || loadingMessages || !selectedMealId) return;
+    if (params.camera !== '1') return;
+    autoCameraRef.current = true;
+    const timer = setTimeout(() => {
+      void pickImage(true);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [chatTopic, loadingMessages, params.camera, selectedMealId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -1277,12 +1235,6 @@ export default function BellaChatScreen() {
 
       />
 
-
-
-      <View style={styles.disclaimerWrap}>
-        <HealthDisclaimerBanner compact />
-      </View>
-
       {chatTopic === 'meal' && dailySummary ? (
 
         <View style={styles.diaryBarWrap}>
@@ -1680,7 +1632,6 @@ const styles = StyleSheet.create({
 
   flex: { flex: 1 },
 
-  disclaimerWrap: { paddingHorizontal: spacing[4], paddingTop: spacing[2] },
 
   diaryBarWrap: { paddingHorizontal: spacing[4], paddingTop: spacing[2] },
 

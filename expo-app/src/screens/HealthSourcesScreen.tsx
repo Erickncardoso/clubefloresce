@@ -8,7 +8,7 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 export default function HealthSourcesScreen() {
   return (
     <PatientShell withTabClearance={false}>
-      <PatientHeader title="Fontes e referências" showBack showBell={false} showMenu={false} />
+      <PatientHeader title="Fontes e avisos de saúde" showBack showBell={false} showMenu={false} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.intro}>
           As orientações de alimentação e bem-estar do Clube Florescer se baseiam nas seguintes fontes:

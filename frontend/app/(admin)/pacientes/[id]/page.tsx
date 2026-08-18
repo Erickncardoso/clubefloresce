@@ -181,6 +181,7 @@ export default function PatientChartPage() {
             patientId={user.id}
             profile={profile as never}
             overview={overview as never}
+            templateResponses={templateResponses}
             onNavigateEvolucao={(sub) => {
               setTab('evolucao')
               setEvolucaoSubTab(sub as never)

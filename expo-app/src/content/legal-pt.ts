@@ -21,7 +21,7 @@ export const LEGAL_DOCUMENTS = {
         heading: '3. Finalidade do tratamento',
         body:
           'Utilizamos seus dados para prestar o serviço contratado, personalizar orientações, permitir comunicação '
-          + 'com sua nutricionista, processar assinatura, enviar lembretes e melhorar a experiência no app.',
+          + 'com sua nutricionista, gerenciar seu acesso ao app, enviar lembretes e melhorar a experiência no app.',
       },
       {
         heading: '4. Compartilhamento',
@@ -78,11 +78,10 @@ export const LEGAL_DOCUMENTS = {
           + 'Notifique-nos imediatamente sobre uso não autorizado da conta.',
       },
       {
-        heading: '4. Assinatura',
+        heading: '4. Acesso ao app',
         body:
-          'O acesso completo depende de assinatura ativa vinculada à sua conta. No aplicativo iOS, a contratação e '
-          + 'renovação são feitas exclusivamente no site oficial (app.nutrisabellajardim.com.br), fora da App Store. '
-          + 'Após pagar, entre no app com a mesma conta e toque em Atualizar acesso em Perfil → Status da assinatura. '
+          'O acesso completo ao app é liberado pela sua nutricionista responsável e vinculado à sua conta. '
+          + 'Você pode consultar a validade em Perfil → Meu acesso. '
           + 'Dúvidas: contato@nutrisabellajardim.com.br.',
       },
       {

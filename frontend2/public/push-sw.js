@@ -45,9 +45,13 @@ self.addEventListener('push', (event) => {
         body: data.body || '',
         icon: data.icon || '/pwa/icon-192.png',
         badge: '/pwa/icon-192.png',
+        image: data.image || undefined,
         tag: data.tag || 'clube-florescer',
         renotify: !!isVideoCall,
         requireInteraction: !!isVideoCall,
+        actions: data.buttonLabel
+          ? [{ action: 'open', title: String(data.buttonLabel) }]
+          : undefined,
         data: {
           url: data.url || '/perfil/notificacoes',
         },

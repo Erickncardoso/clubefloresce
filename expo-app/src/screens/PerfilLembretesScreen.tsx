@@ -128,7 +128,7 @@ export default function PerfilLembretesScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Lembretes" showBack backTo="/perfil/configuracoes" showBell={false} showMenu={false} />
+      <PatientHeader title="Lembretes" showBack backTo="/perfil/configuracoes/preferencias" showBell={false} showMenu={false} />
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.permissionCard}>

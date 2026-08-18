@@ -99,7 +99,7 @@ export default function HomeRecentMealUploads({ entries, readOnly = false }: Pro
         }
 
         return (
-          <Link key={entry.id} href="/evolucao/nutricao" asChild>
+          <Link key={entry.id} href="/diario" asChild>
             <Pressable style={[styles.row, index < entries.length - 1 && styles.rowBorder]}>
               {rowContent}
             </Pressable>

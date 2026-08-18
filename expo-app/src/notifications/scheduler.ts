@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import { FACTORY_LIMITS } from '@/notifications/factory-rules';
 import {
   getDailyScheduledCount,
@@ -9,6 +8,16 @@ import {
   upsertRegistryEntry,
 } from '@/notifications/registry';
 import type { NotificationLogicalKey, NotificationPayload } from '@/notifications/types';
+
+type NotificationsNS = typeof import('expo-notifications');
+
+function getNotifications(): NotificationsNS | null {
+  try {
+    return require('expo-notifications') as NotificationsNS;
+  } catch {
+    return null;
+  }
+}
 
 function isInQuietHours(date: Date) {
   const hour = date.getHours();
@@ -34,22 +43,28 @@ async function canScheduleMore(at: Date) {
 
 export async function cancelLogicalKeys(keys: NotificationLogicalKey[]) {
   if (!keys.length) return;
+  const Notifications = getNotifications();
   const ids = (await loadRegistry())
     .filter((entry) => keys.includes(entry.logicalKey))
     .map((entry) => entry.notificationId);
-  await Promise.all(
-    ids.map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {})),
-  );
+  if (Notifications) {
+    await Promise.all(
+      ids.map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {})),
+    );
+  }
   await removeRegistryKeys(keys);
 }
 
 export async function cancelAllManagedNotifications() {
+  const Notifications = getNotifications();
   const registry = await loadRegistry();
-  await Promise.all(
-    registry.map((entry) =>
-      Notifications.cancelScheduledNotificationAsync(entry.notificationId).catch(() => {}),
-    ),
-  );
+  if (Notifications) {
+    await Promise.all(
+      registry.map((entry) =>
+        Notifications.cancelScheduledNotificationAsync(entry.notificationId).catch(() => {}),
+      ),
+    );
+  }
   await saveRegistry([]);
 }
 
@@ -59,14 +74,18 @@ type ScheduleInput = {
   body: string;
   route: string;
   channelId?: 'reminders' | 'motivation';
-  trigger: Notifications.NotificationTriggerInput;
+  trigger: import('expo-notifications').NotificationTriggerInput;
+  ignoreQuietHours?: boolean;
+  ignoreDailyCap?: boolean;
 };
 
 export async function scheduleManagedNotification(input: ScheduleInput): Promise<string | null> {
+  const Notifications = getNotifications();
+  if (!Notifications) return null;
   await cancelLogicalKeys([input.logicalKey]);
 
   let trigger = input.trigger;
-  if (trigger && 'date' in trigger && trigger.date) {
+  if (trigger && 'date' in trigger && trigger.date && !input.ignoreQuietHours && !input.ignoreDailyCap) {
     const date = new Date(trigger.date as Date);
     if (isInQuietHours(date)) {
       if (!(await canScheduleMore(nextAllowedDate(date)))) return null;
@@ -115,6 +134,8 @@ export async function scheduleWeeklyNotification(input: {
   hour: number;
   minute: number;
 }) {
+  const Notifications = getNotifications();
+  if (!Notifications) return null;
   return scheduleManagedNotification({
     ...input,
     trigger: {
@@ -134,7 +155,11 @@ export async function scheduleDailyNotification(input: {
   channelId?: 'reminders' | 'motivation';
   hour: number;
   minute: number;
+  ignoreQuietHours?: boolean;
+  ignoreDailyCap?: boolean;
 }) {
+  const Notifications = getNotifications();
+  if (!Notifications) return null;
   return scheduleManagedNotification({
     ...input,
     trigger: {
@@ -155,6 +180,8 @@ export async function scheduleAtDate(input: {
 }) {
   const when = nextAllowedDate(input.date);
   if (when.getTime() <= Date.now()) return null;
+  const Notifications = getNotifications();
+  if (!Notifications) return null;
   return scheduleManagedNotification({
     logicalKey: input.logicalKey,
     title: input.title,
@@ -182,6 +209,9 @@ export async function scheduleUserReminder(input: {
     .filter((entry) => entry.logicalKey.startsWith(prefix))
     .map((entry) => entry.logicalKey);
   if (existing.length) await cancelLogicalKeys(existing);
+
+  const Notifications = getNotifications();
+  if (!Notifications) return [];
 
   const ids: string[] = [];
   for (const weekday of input.weekdays) {

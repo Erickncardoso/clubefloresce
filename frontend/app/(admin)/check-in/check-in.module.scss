@@ -484,6 +484,35 @@
   white-space: nowrap;
 }
 
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.actionGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.42rem 0.72rem;
+  border: 1px solid var(--admin-border, #e8ece9);
+  border-radius: var(--cf-radius-pill);
+  background: #fff;
+  color: #4b5563;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #cfe3d2;
+    background: #f8fbf8;
+    color: var(--primary, #8b967c);
+  }
+}
+
 .actionMain {
   display: inline-flex;
   align-items: center;

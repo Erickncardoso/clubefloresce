@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Camera, X } from 'lucide-react'
 import { fetchFoodDiaryPhotos, type PhotoEntry } from '@/lib/patient-chart/evolucao'
 import styles from './PatientPhotosPanel.module.scss'
@@ -9,6 +10,7 @@ type Props = {
   patientId: string
   compact?: boolean
   limit?: number
+  onPhotoClick?: (photo: PhotoEntry) => void
 }
 
 function formatDate(value?: string | null): string {
@@ -17,11 +19,16 @@ function formatDate(value?: string | null): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
-export function PatientPhotosPanel({ patientId, compact = false, limit = 60 }: Props) {
+export function PatientPhotosPanel({ patientId, compact = false, limit = 60, onPhotoClick }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [photos, setPhotos] = useState<PhotoEntry[]>([])
   const [lightbox, setLightbox] = useState<PhotoEntry | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -61,6 +68,14 @@ export function PatientPhotosPanel({ patientId, compact = false, limit = 60 }: P
     }
   }, [lightbox])
 
+  const openPhoto = (photo: PhotoEntry) => {
+    if (onPhotoClick) {
+      onPhotoClick(photo)
+      return
+    }
+    setLightbox(photo)
+  }
+
   if (loading) return <div className={styles.loading}>Carregando fotos…</div>
   if (error) return <p className={styles.error}>{error}</p>
 
@@ -83,7 +98,7 @@ export function PatientPhotosPanel({ patientId, compact = false, limit = 60 }: P
               key={photo.id}
               type="button"
               className={styles.slide}
-              onClick={() => setLightbox(photo)}
+              onClick={() => openPhoto(photo)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={photo.imageUrl ?? ''} alt="" loading="lazy" />
@@ -116,7 +131,7 @@ export function PatientPhotosPanel({ patientId, compact = false, limit = 60 }: P
               key={photo.id}
               type="button"
               className={styles.item}
-              onClick={() => setLightbox(photo)}
+              onClick={() => openPhoto(photo)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={photo.imageUrl ?? ''} alt="" loading="lazy" />
@@ -129,37 +144,40 @@ export function PatientPhotosPanel({ patientId, compact = false, limit = 60 }: P
         </div>
       )}
 
-      {/* Lightbox — rendered in-tree (no Teleport needed in React) */}
-      {lightbox && (
-        <div
-          className={styles.lightbox}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setLightbox(null)
-          }}
-          role="dialog"
-          aria-modal
-          aria-label="Foto ampliada"
-        >
-          <button
-            type="button"
-            className={styles.closeBtn}
-            aria-label="Fechar"
-            onClick={() => setLightbox(null)}
-          >
-            <X size={18} />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lightbox.imageUrl ?? ''} alt="" />
-          <p className={styles.lightboxMeta}>
-            {lightbox.mealLabel || lightbox.mealType}
-            {' · '}
-            {formatDate(lightbox.entryDate)}
-            {lightbox.caloriesKcal != null && (
-              <> · {Math.round(lightbox.caloriesKcal)} kcal</>
-            )}
-          </p>
-        </div>
-      )}
+      {/* Lightbox — portal no body (igual Teleport do Nuxt legado) */}
+      {lightbox && mounted && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className={styles.lightbox}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setLightbox(null)
+              }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Foto ampliada"
+            >
+              <button
+                type="button"
+                className={styles.closeBtn}
+                aria-label="Fechar"
+                onClick={() => setLightbox(null)}
+              >
+                <X size={18} />
+              </button>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={lightbox.imageUrl ?? ''} alt="" />
+              <p className={styles.lightboxMeta}>
+                {lightbox.mealLabel || lightbox.mealType}
+                {' · '}
+                {formatDate(lightbox.entryDate)}
+                {lightbox.caloriesKcal != null && (
+                  <> · {Math.round(lightbox.caloriesKcal)} kcal</>
+                )}
+              </p>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }

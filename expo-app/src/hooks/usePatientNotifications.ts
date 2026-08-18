@@ -10,6 +10,7 @@ export type NotificationItem = {
   read: boolean;
   createdAt: string;
   actionPath?: string | null;
+  imageUrl?: string | null;
 };
 
 function startOfLocalDay(date = new Date()) {

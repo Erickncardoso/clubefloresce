@@ -1,16 +1,41 @@
-import { isPatientFullAccessActive } from '@/lib/patient-access';
+import { isPatientFullAccessActive, isPatientAccessExpired } from '@/lib/patient-access';
 
 /**
- * O app nativo (iOS/Android) nunca vende nem exibe planos/preços — só reflete o status
- * de acesso vindo da API. A assinatura é feita exclusivamente pelo site (Guideline 3.1.1).
+ * Copy de acesso no app nativo — sem linguagem de assinatura, pagamento ou planos comerciais.
+ * O acesso é apresentado como liberação pela nutricionista (Guideline 3.1.1).
  */
 
+export function formatAccessUntilDate(accessExpiresAt?: Date | string | null): string | null {
+  if (!accessExpiresAt) return null;
+  const date = new Date(accessExpiresAt);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('pt-BR');
+}
+
+export function getNutritionistAccessMessage(
+  hasFullAccess: boolean,
+  accessExpiresAt?: Date | string | null,
+  accessExpired = false,
+): string {
+  if (accessExpired) {
+    return 'Seu acesso expirou. Fale com sua nutricionista se precisar de ajuda.';
+  }
+  if (hasFullAccess) {
+    const until = formatAccessUntilDate(accessExpiresAt);
+    if (until) {
+      return `Acesso liberado pela nutricionista até ${until}`;
+    }
+    return 'Acesso liberado pela nutricionista';
+  }
+  return 'Aguardando liberação pela nutricionista';
+}
+
 export function getPaymentRequiredMessage(): string {
-  return 'Seu acesso ainda não está ativo. Se você já possui assinatura, entre com sua conta ou aguarde a ativação.';
+  return 'Seu acesso ainda não está ativo. Aguarde a liberação pela sua nutricionista ou fale conosco.';
 }
 
 export function getAccessExpiredMessage(): string {
-  return 'Seu acesso expirou. Entre com sua conta ou fale conosco se precisar de ajuda.';
+  return 'Seu acesso expirou. Fale com sua nutricionista se precisar de ajuda.';
 }
 
 export function getAccessStatusLabel(
@@ -18,17 +43,13 @@ export function getAccessStatusLabel(
   accessExpiresAt?: Date | string | null,
   approvalEmailSentAt?: Date | string | null,
 ): string {
-  if (isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt)) {
-    const normalized = String(plan || '').toUpperCase();
-    if (normalized === 'PLATINUM') return 'Plano Completo';
-    if (normalized === 'PREMIUM' || normalized === 'ESSENTIAL') return 'Plano Essencial';
-    return 'Assinatura ativa';
-  }
-  return 'Acesso limitado';
+  const expired = isPatientAccessExpired(accessExpiresAt);
+  const hasFullAccess = isPatientFullAccessActive(plan, accessExpiresAt, approvalEmailSentAt);
+  return getNutritionistAccessMessage(hasFullAccess, accessExpiresAt, expired);
 }
 
 export function getSubscriptionScreenTitle(): string {
-  return 'Status da assinatura';
+  return 'Meu acesso';
 }
 
 export function getSubscriptionMenuLabel(): string {
@@ -39,16 +60,11 @@ export function getSubscriptionMenuSubtitle(
   hasPaidAccess: boolean,
   accessExpiresAt?: Date | string | null,
 ): string {
-  if (hasPaidAccess && accessExpiresAt) {
-    const date = new Date(accessExpiresAt);
-    if (!Number.isNaN(date.getTime())) {
-      return `Acesso até ${date.toLocaleDateString('pt-BR')}`;
-    }
-  }
-  if (hasPaidAccess) return 'Assinatura ativa';
-  return 'Consultar status do acesso';
+  if (!hasPaidAccess) return 'Consultar meu acesso';
+  const expired = isPatientAccessExpired(accessExpiresAt);
+  return getNutritionistAccessMessage(true, accessExpiresAt, expired);
 }
 
 export function getRegisterSubtitle(): string {
-  return 'Crie sua conta para acompanhar seu progresso. O acesso completo é vinculado à sua conta após a ativação.';
+  return 'Crie sua conta para acompanhar seu progresso com a nutricionista.';
 }

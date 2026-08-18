@@ -133,15 +133,18 @@ export class FoodDiaryRepository {
 
   async findRecentForNutri(
     limit = 24,
-    opts?: { withImageOnly?: boolean; skip?: number },
+    opts?: { withImageOnly?: boolean; skip?: number; userId?: string },
   ) {
     return prisma.foodDiaryEntry.findMany({
-      where: opts?.withImageOnly
-        ? {
-            imageUrl: { not: null },
-            NOT: { imageUrl: "" },
-          }
-        : undefined,
+      where: {
+        ...(opts?.userId ? { userId: opts.userId } : {}),
+        ...(opts?.withImageOnly
+          ? {
+              imageUrl: { not: null },
+              NOT: { imageUrl: "" },
+            }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       skip: Math.max(0, opts?.skip ?? 0),
       take: limit,

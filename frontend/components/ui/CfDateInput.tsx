@@ -1,148 +1,155 @@
-'use client'
+"use client";
 
-import { useEffect, useId, useMemo, useState } from 'react'
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
-import { AnimatedPopover } from '@/components/overlays'
-import styles from './CfDateInput.module.scss'
+import { useEffect, useId, useMemo, useState } from "react";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { AnimatedPopover } from "@/components/overlays";
+import styles from "./CfDateInput.module.scss";
 
-const WEEKDAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
+const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
 const MONTHS = [
-  'janeiro',
-  'fevereiro',
-  'março',
-  'abril',
-  'maio',
-  'junho',
-  'julho',
-  'agosto',
-  'setembro',
-  'outubro',
-  'novembro',
-  'dezembro',
-]
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
 
 function parseIso(value?: string | null) {
-  if (!value) return null
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return null
-  return new Date(year, month - 1, day)
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
 }
 
 function toIsoDate(date: Date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-function formatDisplay(value?: string | null, placeholder = 'dd/mm/aaaa') {
-  const date = parseIso(value)
-  if (!date) return placeholder
-  return date.toLocaleDateString('pt-BR')
+function formatDisplay(value?: string | null, placeholder = "dd/mm/aaaa") {
+  const date = parseIso(value);
+  if (!date) return placeholder;
+  return date.toLocaleDateString("pt-BR");
 }
 
 function maskDigits(digits: string) {
-  if (digits.length <= 2) return digits
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
 function parseBrazilianToIso(display: string) {
-  const match = display.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-  if (!match) return null
-  const day = Number(match[1])
-  const month = Number(match[2])
-  const year = Number(match[3])
-  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000) return null
-  const date = new Date(year, month - 1, day)
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-    return null
+  const match = display.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000)
+    return null;
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
   }
-  return toIsoDate(date)
+  return toIsoDate(date);
 }
 
 type Props = {
-  value?: string
-  onChange?: (value: string) => void
-  id?: string
-  min?: string
-  max?: string
-  required?: boolean
-  disabled?: boolean
-  placeholder?: string
+  value?: string;
+  onChange?: (value: string) => void;
+  id?: string;
+  min?: string;
+  max?: string;
+  required?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
   /** Texto digitável + botão de calendário (padrão admin) */
-  editable?: boolean
-}
+  editable?: boolean;
+};
 
 export function CfDateInput({
-  value = '',
+  value = "",
   onChange,
   id: idProp,
   min,
   max,
   required = false,
   disabled = false,
-  placeholder = 'dd/mm/aaaa',
+  placeholder = "dd/mm/aaaa",
   editable = true,
 }: Props) {
-  const autoId = useId()
-  const id = idProp || autoId
-  const [open, setOpen] = useState(false)
-  const [textValue, setTextValue] = useState(() => (value ? formatDisplay(value, '') : ''))
-  const [textFocused, setTextFocused] = useState(false)
-  const now = new Date()
-  const [viewYear, setViewYear] = useState(now.getFullYear())
-  const [viewMonth, setViewMonth] = useState(now.getMonth())
+  const autoId = useId();
+  const id = idProp || autoId;
+  const [open, setOpen] = useState(false);
+  const [textValue, setTextValue] = useState(() =>
+    value ? formatDisplay(value, "") : "",
+  );
+  const [textFocused, setTextFocused] = useState(false);
+  const now = new Date();
+  const [viewYear, setViewYear] = useState(now.getFullYear());
+  const [viewMonth, setViewMonth] = useState(now.getMonth());
 
-  const todayIso = toIsoDate(now)
+  const todayIso = toIsoDate(now);
 
   useEffect(() => {
-    if (!textFocused) setTextValue(value ? formatDisplay(value, '') : '')
-  }, [value, textFocused])
+    if (!textFocused) setTextValue(value ? formatDisplay(value, "") : "");
+  }, [value, textFocused]);
 
   function isDisabled(iso: string) {
-    if (min && iso < min) return true
-    if (max && iso > max) return true
-    return false
+    if (min && iso < min) return true;
+    if (max && iso > max) return true;
+    return false;
   }
 
   function syncViewToValue() {
-    const date = parseIso(value) || new Date()
-    setViewYear(date.getFullYear())
-    setViewMonth(date.getMonth())
+    const date = parseIso(value) || new Date();
+    setViewYear(date.getFullYear());
+    setViewMonth(date.getMonth());
   }
 
   function emit(next: string) {
-    onChange?.(next)
+    onChange?.(next);
   }
 
   function selectDate(iso: string) {
-    if (isDisabled(iso)) return
-    emit(iso)
-    setTextValue(formatDisplay(iso, ''))
-    setOpen(false)
+    if (isDisabled(iso)) return;
+    emit(iso);
+    setTextValue(formatDisplay(iso, ""));
+    setOpen(false);
   }
 
   const cells = useMemo(() => {
-    const firstOfMonth = new Date(viewYear, viewMonth, 1)
-    const startOffset = firstOfMonth.getDay()
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+    const firstOfMonth = new Date(viewYear, viewMonth, 1);
+    const startOffset = firstOfMonth.getDay();
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     const list: Array<{
-      key: string
-      day: number
-      iso: string
-      inMonth: boolean
-      isToday: boolean
-      isSelected: boolean
-      disabled: boolean
-      label: string
-    }> = []
+      key: string;
+      day: number;
+      iso: string;
+      inMonth: boolean;
+      isToday: boolean;
+      isSelected: boolean;
+      disabled: boolean;
+      label: string;
+    }> = [];
 
     for (let i = 0; i < 42; i += 1) {
-      const dayIndex = i - startOffset + 1
-      const date = new Date(viewYear, viewMonth, dayIndex)
-      const inMonth = dayIndex >= 1 && dayIndex <= daysInMonth
-      const iso = toIsoDate(date)
+      const dayIndex = i - startOffset + 1;
+      const date = new Date(viewYear, viewMonth, dayIndex);
+      const inMonth = dayIndex >= 1 && dayIndex <= daysInMonth;
+      const iso = toIsoDate(date);
       list.push({
         key: `${viewYear}-${viewMonth}-${i}`,
         day: date.getDate(),
@@ -151,16 +158,16 @@ export function CfDateInput({
         isToday: iso === todayIso,
         isSelected: iso === value,
         disabled: isDisabled(iso),
-        label: date.toLocaleDateString('pt-BR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
+        label: date.toLocaleDateString("pt-BR", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
         }),
-      })
+      });
     }
-    return list
-  }, [viewYear, viewMonth, value, todayIso, min, max])
+    return list;
+  }, [viewYear, viewMonth, value, todayIso, min, max]);
 
   const panel = (
     <div className={styles.panelInner}>
@@ -171,9 +178,9 @@ export function CfDateInput({
           aria-label="Mês anterior"
           onClick={() => {
             if (viewMonth === 0) {
-              setViewMonth(11)
-              setViewYear((y) => y - 1)
-            } else setViewMonth((m) => m - 1)
+              setViewMonth(11);
+              setViewYear((y) => y - 1);
+            } else setViewMonth((m) => m - 1);
           }}
         >
           <ChevronLeft size={16} />
@@ -187,9 +194,9 @@ export function CfDateInput({
           aria-label="Próximo mês"
           onClick={() => {
             if (viewMonth === 11) {
-              setViewMonth(0)
-              setViewYear((y) => y + 1)
-            } else setViewMonth((m) => m + 1)
+              setViewMonth(0);
+              setViewYear((y) => y + 1);
+            } else setViewMonth((m) => m + 1);
           }}
         >
           <ChevronRight size={16} />
@@ -210,12 +217,12 @@ export function CfDateInput({
             role="gridcell"
             className={[
               styles.day,
-              !cell.inMonth ? styles.dayOutside : '',
-              cell.isToday ? styles.dayToday : '',
-              cell.isSelected ? styles.daySelected : '',
+              !cell.inMonth ? styles.dayOutside : "",
+              cell.isToday ? styles.dayToday : "",
+              cell.isSelected ? styles.daySelected : "",
             ]
               .filter(Boolean)
-              .join(' ')}
+              .join(" ")}
             disabled={cell.disabled}
             aria-label={cell.label}
             aria-selected={cell.isSelected}
@@ -232,9 +239,9 @@ export function CfDateInput({
             type="button"
             className={styles.footBtn}
             onClick={() => {
-              emit('')
-              setTextValue('')
-              setOpen(false)
+              emit("");
+              setTextValue("");
+              setOpen(false);
             }}
           >
             Limpar
@@ -251,7 +258,7 @@ export function CfDateInput({
         </button>
       </div>
     </div>
-  )
+  );
 
   const calendarBtn = (
     <button
@@ -262,36 +269,36 @@ export function CfDateInput({
       aria-expanded={open}
       aria-haspopup="dialog"
       onClick={() => {
-        if (disabled) return
-        if (!open) syncViewToValue()
+        if (disabled) return;
+        if (!open) syncViewToValue();
       }}
     >
       <Calendar className={styles.icon} aria-hidden size={17} />
     </button>
-  )
+  );
 
   if (editable) {
     return (
-    <div
-      className={[
-        'cf-date-input',
-        styles.root,
-        open ? styles.open : '',
-        disabled ? styles.disabled : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
+      <div
+        className={[
+          "cf-date-input",
+          styles.root,
+          open ? styles.open : "",
+          disabled ? styles.disabled : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <div
           className={[
             styles.trigger,
             styles.triggerEditable,
-            textFocused || open ? styles.triggerFocused : '',
-            'cf-squircle',
-            'cf-squircle--control',
+            textFocused || open ? styles.triggerFocused : "",
+            "cf-squircle",
+            "cf-squircle--control",
           ]
             .filter(Boolean)
-            .join(' ')}
+            .join(" ")}
         >
           <input
             id={id}
@@ -306,37 +313,37 @@ export function CfDateInput({
             aria-label="Data"
             onFocus={() => setTextFocused(true)}
             onBlur={() => {
-              setTextFocused(false)
+              setTextFocused(false);
               if (!textValue.trim()) {
-                if (!required) emit('')
-                return
+                if (!required) emit("");
+                return;
               }
-              const iso = parseBrazilianToIso(textValue)
+              const iso = parseBrazilianToIso(textValue);
               if (iso && !isDisabled(iso)) {
-                emit(iso)
-                setTextValue(formatDisplay(iso, ''))
-                return
+                emit(iso);
+                setTextValue(formatDisplay(iso, ""));
+                return;
               }
-              setTextValue(value ? formatDisplay(value, '') : '')
+              setTextValue(value ? formatDisplay(value, "") : "");
             }}
             onChange={(e) => {
-              const digits = e.target.value.replace(/\D/g, '').slice(0, 8)
-              const masked = maskDigits(digits)
-              setTextValue(masked)
+              const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
+              const masked = maskDigits(digits);
+              setTextValue(masked);
               if (digits.length === 8) {
-                const iso = parseBrazilianToIso(masked)
-                if (iso && !isDisabled(iso)) emit(iso)
+                const iso = parseBrazilianToIso(masked);
+                if (iso && !isDisabled(iso)) emit(iso);
               } else if (!digits.length) {
-                emit('')
+                emit("");
               }
             }}
           />
           <AnimatedPopover
             open={open}
             onOpenChange={(next) => {
-              if (disabled) return
-              if (next) syncViewToValue()
-              setOpen(next)
+              if (disabled) return;
+              if (next) syncViewToValue();
+              setOpen(next);
             }}
             trigger={calendarBtn}
             contentClassName={styles.panel}
@@ -348,26 +355,26 @@ export function CfDateInput({
           </AnimatedPopover>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div
       className={[
-        'cf-date-input',
+        "cf-date-input",
         styles.root,
-        open ? styles.open : '',
-        disabled ? styles.disabled : '',
+        open ? styles.open : "",
+        disabled ? styles.disabled : "",
       ]
         .filter(Boolean)
-        .join(' ')}
+        .join(" ")}
     >
       <AnimatedPopover
         open={open}
         onOpenChange={(next) => {
-          if (disabled) return
-          if (next) syncViewToValue()
-          setOpen(next)
+          if (disabled) return;
+          if (next) syncViewToValue();
+          setOpen(next);
         }}
         trigger={
           <button
@@ -379,7 +386,9 @@ export function CfDateInput({
             aria-haspopup="dialog"
           >
             <Calendar className={styles.icon} aria-hidden size={17} />
-            <span className={`${styles.value} ${!value ? styles.valuePlaceholder : ''}`}>
+            <span
+              className={`${styles.value} ${!value ? styles.valuePlaceholder : ""}`}
+            >
               {formatDisplay(value, placeholder)}
             </span>
           </button>
@@ -392,5 +401,5 @@ export function CfDateInput({
         {panel}
       </AnimatedPopover>
     </div>
-  )
+  );
 }

@@ -28,8 +28,11 @@ type Props = {
 
 /** Tokens espelhados de `frontend/components/home/GoalsGrid.vue` (base 16px). */
 const PANEL_RADIUS = 16;
-const GOAL_MIN_HEIGHT = 109;
-const GOAL_LINK_PAD = { top: 13, right: 56, bottom: 36, left: 16 };
+const GOAL_MIN_HEIGHT = 118;
+const CHART_SIZE = 100;
+const CHART_RIGHT = -26;
+const CHART_VISIBLE = 74;
+const GOAL_LINK_PAD = { top: 13, right: CHART_VISIBLE, bottom: 42, left: 16 };
 const HEADING_GAP = 8;
 const ICON_WRAP = 28;
 const ICON_SIZE = 14;
@@ -38,13 +41,11 @@ const LABEL_LINE = 17;
 const META_TOP = 9;
 const META_SIZE = 11;
 const META_LINE = 15;
-const CHART_SIZE = 112;
-const CHART_RIGHT = -56;
 const CHART_VALUE_W = 32;
 const CHART_VALUE_SIZE = 10;
 const CHART_VALUE_TRIPLE = 8.5;
-const QUICK_ADD = 30;
-const QUICK_ADD_INSET = 9;
+const QUICK_ADD = 28;
+const QUICK_ADD_INSET = 11;
 
 const GOAL_ICONS: Record<string, LucideIcon> = {
   water: Droplets,
@@ -85,7 +86,7 @@ function GoalArc({ percent, color }: { percent: number; color: string }) {
           stroke={color}
           strokeWidth={10}
           strokeLinecap="round"
-          strokeDasharray={`${dash} ${ARC_LEN}`}
+          strokeDasharray={`${dash} ${ARC_LEN * 2}`}
         />
       ) : null}
     </Svg>
@@ -130,10 +131,10 @@ function GoalCell({
           </Text>
           <View style={styles.chartWrap} pointerEvents="none">
             <GoalArc percent={pct} color={palette.accent} />
-            <Text style={[styles.chartValue, pct === 100 && styles.chartValueTriple]}>
-              {pct}%
-            </Text>
           </View>
+          <Text style={[styles.chartValue, pct === 100 && styles.chartValueTriple]}>
+            {pct}%
+          </Text>
         </View>
       ) : (
         <Link href="/evolucao?tab=metas" asChild>
@@ -155,10 +156,10 @@ function GoalCell({
             </Text>
             <View style={styles.chartWrap} pointerEvents="none">
               <GoalArc percent={pct} color={palette.accent} />
-              <Text style={[styles.chartValue, pct === 100 && styles.chartValueTriple]}>
-                {pct}%
-              </Text>
             </View>
+            <Text style={[styles.chartValue, pct === 100 && styles.chartValueTriple]}>
+              {pct}%
+            </Text>
           </Pressable>
         </Link>
       )}
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     paddingLeft: GOAL_LINK_PAD.left,
     paddingRight: GOAL_LINK_PAD.right,
     paddingBottom: GOAL_LINK_PAD.bottom,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   heading: {
     flexDirection: 'row',
@@ -260,6 +261,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     marginTop: META_TOP,
+    paddingRight: QUICK_ADD + 6,
     fontFamily: fonts.regular,
     fontSize: META_SIZE,
     lineHeight: META_LINE,
@@ -281,7 +283,8 @@ const styles = StyleSheet.create({
   chartValue: {
     position: 'absolute',
     top: '50%',
-    right: 0,
+    right: 2,
+    zIndex: 2,
     width: CHART_VALUE_W,
     fontFamily: fonts.medium,
     fontSize: CHART_VALUE_SIZE,
@@ -304,14 +307,9 @@ const styles = StyleSheet.create({
     height: QUICK_ADD,
     borderRadius: QUICK_ADD / 2,
     borderWidth: 1,
-    borderColor: '#dedee3',
+    borderColor: '#e3e3e8',
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#141418',
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 3,
   },
 });

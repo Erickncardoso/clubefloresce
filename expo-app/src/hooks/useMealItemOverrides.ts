@@ -13,6 +13,7 @@ type OverrideItem = MealPlanFoodItem & {
 let revision = 0;
 const listeners = new Set<() => void>();
 const cache: Record<string, Record<string, OverrideItem>> = {};
+const inflight = new Set<string>();
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -26,6 +27,11 @@ function getRevision() {
 function bumpRevision() {
   revision += 1;
   listeners.forEach((listener) => listener());
+}
+
+function asOverrideMap(parsed: unknown): Record<string, OverrideItem> {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  return parsed as Record<string, OverrideItem>;
 }
 
 function storageKey(mealId: string) {
@@ -79,8 +85,7 @@ async function readFromStorage(mealId: string): Promise<Record<string, OverrideI
   try {
     const raw = await AsyncStorage.getItem(storageKey(mealId));
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, OverrideItem>) : {};
+    return asOverrideMap(JSON.parse(raw) as unknown);
   } catch {
     return {};
   }
@@ -90,18 +95,26 @@ export function useMealItemOverrides() {
   const overridesRevision = useSyncExternalStore(subscribe, getRevision, getRevision);
 
   const ensureLoaded = useCallback((mealId: string) => {
+    if (!mealId) return;
     const key = cacheKey(mealId);
-    if (cache[key]) return;
-    void readFromStorage(mealId).then((overrides) => {
-      cache[key] = overrides;
-      bumpRevision();
-    });
+    if (key in cache || inflight.has(key)) return;
+
+    inflight.add(key);
+    cache[key] = {};
+    void readFromStorage(mealId)
+      .then((overrides) => {
+        cache[key] = overrides;
+        if (Object.keys(overrides).length > 0) bumpRevision();
+      })
+      .finally(() => {
+        inflight.delete(key);
+      });
   }, []);
 
   const getOverrides = useCallback((mealId: string) => {
     ensureLoaded(mealId);
     return cache[cacheKey(mealId)] || {};
-  }, [ensureLoaded, overridesRevision]);
+  }, [ensureLoaded]);
 
   const persistOverrides = useCallback(async (mealId: string, overrides: Record<string, OverrideItem>) => {
     cache[cacheKey(mealId)] = overrides;

@@ -176,31 +176,20 @@ export default function CheckInScreen() {
 
 
   if (selected) {
-
     return (
-
-      <PatientShell withTabClearance={false}>
-
-        <CheckinTypeformFlow
-
-          steps={selected.steps || []}
-
-          saving={saving}
-
-          submitted={submitted}
-
-          error={error}
-
-          showHistoryLink
-
-          onSubmit={submitAnswers}
-
-        />
-
+      <PatientShell>
+        <View style={{ flex: 1 }}>
+          <CheckinTypeformFlow
+            steps={selected.steps || []}
+            saving={saving}
+            submitted={submitted}
+            error={error}
+            showHistoryLink
+            onSubmit={submitAnswers}
+          />
+        </View>
       </PatientShell>
-
     );
-
   }
 
 

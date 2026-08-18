@@ -1,5 +1,6 @@
 export type NotificationLogicalKey =
   | `user:${string}`
+  | `meal:${string}`
   | 'factory:weekly-checkin'
   | 'factory:empty-diary'
   | 'factory:streak-7'

@@ -1,21 +1,21 @@
-'use client'
+"use client";
 
-import type { ReactNode } from 'react'
-import { Dialog } from 'radix-ui'
-import { X } from 'lucide-react'
-import motion from './OverlayMotion.module.scss'
-import styles from './AppModal.module.scss'
-import { joinOverlayClassNames } from './overlay-utils'
+import type { ReactNode } from "react";
+import { Dialog } from "radix-ui";
+import { X } from "lucide-react";
+import motion from "./OverlayMotion.module.scss";
+import styles from "./AppModal.module.scss";
+import { joinOverlayClassNames } from "./overlay-utils";
 
 type AppModalProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  description?: string
-  children: ReactNode
-  contentClassName?: string
-  showClose?: boolean
-}
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description?: string;
+  children: ReactNode;
+  contentClassName?: string;
+  showClose?: boolean;
+};
 
 /**
  * Modal central padrão do admin.
@@ -67,5 +67,5 @@ export function AppModal({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  )
+  );
 }

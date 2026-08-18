@@ -11,7 +11,8 @@ alwaysApply: true
 |-----|-------|----------|
 | **Admin (produção)** | `frontend/` | **Next.js** — painel nutri (Coolify Base Directory = `frontend`) |
 | **Admin legado** | `frontend2/` | Nuxt 3 — referência / legado; não deployar como app principal |
-| **Paciente PWA** | `cliente/pages/` | **Fonte de verdade** do design/UI do paciente |
+| **Paciente PWA** | `cliente/pages/` | **Fonte de verdade** do design/UI do paciente (web) |
+| **Paciente iOS** | `expo-app/` | App Store / Expo — atualizar por OTA; **não** gerar build Apple sem avisar |
 | **Compartilhado Nuxt** | `frontend2/components`, `composables`, `assets` | Layer Nuxt ainda usado pelo `cliente/` |
 
 ## Regras críticas

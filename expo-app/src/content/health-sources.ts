@@ -7,6 +7,16 @@ export type HealthSource = {
 /** Fontes das orientações nutricionais/de saúde exibidas no app (Guideline 1.4.1 Apple). */
 export const HEALTH_SOURCES: HealthSource[] = [
   {
+    label: 'TBCA — Tabela Brasileira de Composição de Alimentos',
+    description: 'USP/FOOD-Comp-Lab — composição nutricional usada em substituições e cálculos de macros.',
+    url: 'https://www.tbca.net.br/',
+  },
+  {
+    label: 'TACO — Tabela Brasileira de Composição de Alimentos (NEPA/UNICAMP)',
+    description: 'Referência oficial de nutrientes para alimentos consumidos no Brasil.',
+    url: 'https://www.nepa.unicamp.br/taco/',
+  },
+  {
     label: 'Guia Alimentar para a População Brasileira',
     description: 'Ministério da Saúde — diretrizes oficiais de alimentação saudável no Brasil.',
     url: 'https://bvsms.saude.gov.br/bvs/publicacoes/guia_alimentar_populacao_brasileira_2ed.pdf',
@@ -30,5 +40,6 @@ export const HEALTH_SOURCES: HealthSource[] = [
 
 export const HEALTH_SOURCES_NOTE =
   'Os planos alimentares do Clube Florescer são prescritos individualmente pela nutricionista responsável, '
-  + 'com base nessas diretrizes e na avaliação de cada paciente. As sugestões da Bella (assistente de IA) seguem '
-  + 'as mesmas referências e não substituem a orientação profissional.';
+  + 'com base nessas diretrizes e na avaliação de cada paciente. Cálculos de substituição alimentar usam dados '
+  + 'oficiais da TBCA/TACO. As sugestões da Bella (assistente de IA) seguem as mesmas referências e não substituem '
+  + 'a orientação profissional.';

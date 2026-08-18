@@ -33,6 +33,8 @@ type Props = {
   maxHeightRatio?: number;
   /** Padding horizontal do conteúdo (seções full-bleed usam margem negativa). */
   contentPadding?: number;
+  /** false = não fecha no swipe/backdrop (ex.: escolha obrigatória). */
+  dismissible?: boolean;
 };
 
 const DISMISS_DRAG = 110;
@@ -41,6 +43,8 @@ const SPRING = { damping: 32, stiffness: 340, mass: 0.85 };
 
 type BottomSheetContextValue = {
   dismiss: () => void;
+  /** Fecha o sheet e executa `after` quando a animação terminar. */
+  dismissThen: (after?: () => void) => void;
   contentPadding: number;
 };
 
@@ -51,7 +55,11 @@ export function useBottomSheetDismiss() {
   if (!ctx) {
     throw new Error('useBottomSheetDismiss must be used within AppleBottomSheet');
   }
-  return ctx;
+  return {
+    dismiss: ctx.dismiss,
+    dismissThen: ctx.dismissThen ?? ctx.dismiss,
+    contentPadding: ctx.contentPadding,
+  };
 }
 
 export default function AppleBottomSheet({
@@ -60,6 +68,7 @@ export default function AppleBottomSheet({
   children,
   maxHeightRatio = 0.78,
   contentPadding = 16,
+  dismissible = true,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -67,6 +76,7 @@ export default function AppleBottomSheet({
 
   const [mounted, setMounted] = useState(visible);
   const closingRef = useRef(false);
+  const pendingAfterRef = useRef<(() => void) | null>(null);
   const translateY = useSharedValue(sheetHeight);
   const dragY = useSharedValue(0);
   const backdrop = useSharedValue(0);
@@ -77,22 +87,45 @@ export default function AppleBottomSheet({
     onClose();
   }, [onClose]);
 
+  const finishCloseThen = useCallback(() => {
+    finishClose();
+    const after = pendingAfterRef.current;
+    pendingAfterRef.current = null;
+    if (after) {
+      setTimeout(after, 0);
+    }
+  }, [finishClose]);
+
   const animateOut = useCallback((after?: () => void) => {
+    pendingAfterRef.current = after ?? null;
     backdrop.value = withTiming(0, { duration: 180 });
     translateY.value = translateY.value + dragY.value;
     dragY.value = 0;
     translateY.value = withTiming(sheetHeight, { duration: 260 }, (finished) => {
       if (!finished) return;
-      if (after) runOnJS(after)();
-      else runOnJS(finishClose)();
+      runOnJS(finishCloseThen)();
     });
-  }, [backdrop, dragY, finishClose, sheetHeight, translateY]);
+  }, [backdrop, dragY, finishCloseThen, sheetHeight, translateY]);
 
-  const dismiss = useCallback(() => {
+  const closeSheet = useCallback(() => {
     if (closingRef.current || !mounted) return;
     closingRef.current = true;
     animateOut();
   }, [animateOut, mounted]);
+
+  const dismissThen = useCallback((after?: () => void) => {
+    if (closingRef.current || !mounted) {
+      after?.();
+      return;
+    }
+    closingRef.current = true;
+    animateOut(after);
+  }, [animateOut, mounted]);
+
+  const dismiss = useCallback(() => {
+    if (!dismissible) return;
+    dismissThen();
+  }, [dismissThen, dismissible]);
 
   useEffect(() => {
     if (visible) {
@@ -114,6 +147,7 @@ export default function AppleBottomSheet({
   }, [visible]);
 
   const pan = Gesture.Pan()
+    .enabled(dismissible)
     .activeOffsetY(8)
     .failOffsetX([-24, 24])
     .onUpdate((event) => {
@@ -173,7 +207,9 @@ export default function AppleBottomSheet({
               <View style={styles.handle} accessibilityElementsHidden />
             </View>
           </GestureDetector>
-          <BottomSheetDismissContext.Provider value={{ dismiss, contentPadding }}>
+          <BottomSheetDismissContext.Provider
+            value={{ dismiss: closeSheet, dismissThen, contentPadding }}
+          >
             {children}
           </BottomSheetDismissContext.Provider>
         </Animated.View>

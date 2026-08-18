@@ -8,6 +8,7 @@ export type CreateNotificationInput = {
   title: string;
   body: string;
   actionPath?: string | null;
+  imageUrl?: string | null;
   sourceKey?: string | null;
 };
 
@@ -26,6 +27,10 @@ export class NotificationRepository {
     });
   }
 
+  async createWithoutPush(input: CreateNotificationInput) {
+    return prisma.notification.create({ data: input });
+  }
+
   async upsertBySourceKey(input: CreateNotificationInput) {
     if (!input.sourceKey) {
       const notification = await prisma.notification.create({ data: input });
@@ -34,6 +39,7 @@ export class NotificationRepository {
         body: input.body,
         url: input.actionPath,
         tag: notification.id,
+        type: input.type,
       });
       return notification;
     }
@@ -54,6 +60,7 @@ export class NotificationRepository {
         body: input.body,
         url: input.actionPath,
         tag: input.sourceKey,
+        type: input.type,
       });
       return notification;
     }
@@ -88,6 +95,7 @@ export class NotificationRepository {
         body: input.body,
         url: input.actionPath,
         tag: input.sourceKey,
+        type: input.type,
       });
     }
 

@@ -26,6 +26,7 @@ export type ExtraFoodItem = MealPlanFoodItem & {
 let revision = 0;
 const listeners = new Set<() => void>();
 const cache: Record<string, ExtraFoodItem[]> = {};
+const inflight = new Set<string>();
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -90,16 +91,22 @@ export function useMealExtraItems() {
   const extrasRevision = useSyncExternalStore(subscribe, getRevision, getRevision);
 
   const getExtraItems = useCallback((mealId: string) => {
+    if (!mealId) return cache[cacheKey(mealId)] || [];
     const key = cacheKey(mealId);
-    if (!cache[key]) {
-      void readFromStorage(mealId).then((items) => {
-        cache[key] = items;
-        bumpRevision();
-      });
-      return [];
+    if (!(key in cache) && !inflight.has(key)) {
+      inflight.add(key);
+      cache[key] = [];
+      void readFromStorage(mealId)
+        .then((items) => {
+          cache[key] = items;
+          if (items.length > 0) bumpRevision();
+        })
+        .finally(() => {
+          inflight.delete(key);
+        });
     }
-    return cache[key];
-  }, [extrasRevision]);
+    return cache[key] || [];
+  }, []);
 
   const persistExtras = useCallback(async (mealId: string, items: ExtraFoodItem[]) => {
     const key = cacheKey(mealId);

@@ -68,9 +68,13 @@ export function useDietaDiarySync() {
 
     const timer = setTimeout(() => {
       syncTimers.current.delete(key);
-      void syncMealCheck(mealId, meal, checkedStates).then((summary) => {
-        onSynced?.(summary);
-      });
+      void syncMealCheck(mealId, meal, checkedStates)
+        .then((summary) => {
+          onSynced?.(summary);
+        })
+        .catch(() => {
+          onSynced?.(null);
+        });
     }, delayMs);
 
     syncTimers.current.set(key, timer);

@@ -46,6 +46,17 @@ const securityHeaders = {
   ].join('; '),
 }
 
+const jitsiVbCorsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+const nitroRouteRules = {
+  '/jitsi-vb/**': { headers: { ...securityHeaders, ...jitsiVbCorsHeaders } },
+  '/**': { headers: securityHeaders },
+}
+
 if (!isGenerate) {
   ensurePwaDevSwPlaceholder(rootDir, '.nuxt-mobile')
 }
@@ -348,9 +359,7 @@ export default defineNuxtConfig({
             '/documento',
           ],
         },
-        routeRules: {
-          '/**': { headers: securityHeaders },
-        },
+        routeRules: nitroRouteRules,
       }
     : {
         devProxy: {
@@ -359,8 +368,6 @@ export default defineNuxtConfig({
             changeOrigin: true,
           },
         },
-        routeRules: {
-          '/**': { headers: securityHeaders },
-        },
+        routeRules: nitroRouteRules,
       },
 })

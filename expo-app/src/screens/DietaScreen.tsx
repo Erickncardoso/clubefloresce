@@ -25,7 +25,6 @@ import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
-import HealthDisclaimerBanner from '@/components/ui/HealthDisclaimerBanner';
 import DietaAddExtraFoodModal from '@/components/dieta/DietaAddExtraFoodModal';
 import DietaCheckIcon from '@/components/dieta/DietaCheckIcon';
 import DietaMealPlanOptionPickerModal from '@/components/dieta/DietaMealPlanOptionPickerModal';
@@ -33,6 +32,7 @@ import DietaMealPlanOptionsIntroModal from '@/components/dieta/DietaMealPlanOpti
 import DietaMealPlanRecipeDetailSheet from '@/components/dieta/DietaMealPlanRecipeDetailSheet';
 import DietaMealPlanUploadCard from '@/components/dieta/DietaMealPlanUploadCard';
 import DietaMealSubstitutionsModal from '@/components/dieta/DietaMealSubstitutionsModal';
+import MealPhotoFlow from '@/components/diario/MealPhotoFlow';
 import { useDietaDiarySync, type DailySummary } from '@/hooks/useDietaDiarySync';
 import { useAppToast } from '@/hooks/useAppToast';
 import { toastSuccess } from '@/lib/app-toast';
@@ -44,6 +44,7 @@ import { useMealSubstitutions } from '@/hooks/useMealSubstitutions';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { usePatientMealPlan } from '@/hooks/usePatientMealPlan';
 import { countDone, loadChecked, saveChecked } from '@/lib/dieta-progress';
+import { applyOptimisticPlanCheck } from '@/lib/plan-diary-sync';
 import type { MealPlanRecipe } from '@/lib/meal-plan-api';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -99,6 +100,8 @@ export default function DietaScreen() {
   const [extraFoodOpen, setExtraFoodOpen] = useState(false);
   const [recipeDetailOpen, setRecipeDetailOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<MealPlanRecipe | null>(null);
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
+  const [photoMeal, setPhotoMeal] = useState<{ id: string; label?: string | null } | null>(null);
 
   const checkedItemsRef = useRef(checkedItems);
   checkedItemsRef.current = checkedItems;
@@ -125,10 +128,10 @@ export default function DietaScreen() {
   const activeMealHasOptionAlternatives = mealHasOptionAlternatives(activeMealId);
 
   const currentMealPercent = useMemo(() => {
-    const progress = mealProgressById[activeMealId];
-    if (!progress?.total) return 0;
-    return Math.round((progress.done / progress.total) * 100);
-  }, [activeMealId, mealProgressById]);
+    const total = currentMeal?.itemLabels.length || 0;
+    if (!total) return 0;
+    return Math.round((countDone(checkedItems) / total) * 100);
+  }, [checkedItems, currentMeal]);
 
   const completedMealsCount = useMemo(
     () => mealList.filter((meal) => {
@@ -139,27 +142,44 @@ export default function DietaScreen() {
   );
 
   useEffect(() => {
+    const total = currentMeal?.itemLabels.length || checkedItems.length;
+    if (!activeMealId || !total) return;
+    const done = countDone(checkedItems);
+    setMealProgressById((prev) => {
+      const existing = prev[activeMealId];
+      if (existing?.done === done && existing?.total === total) return prev;
+      return { ...prev, [activeMealId]: { done, total } };
+    });
+  }, [activeMealId, checkedItems, currentMeal]);
+
+  useEffect(() => {
     let cancelled = false;
 
-    async function loadAllProgress() {
+    async function loadOtherMealsProgress() {
       const next: Record<string, { done: number; total: number }> = {};
       for (const meal of mealList) {
         const entry = getMealById(meal.id);
         if (!entry) continue;
         const total = entry.itemLabels.length;
-        const states = meal.id === activeMealId
-          ? checkedItems
-          : await loadChecked(meal.id, total);
+        if (meal.id === activeMealId) {
+          next[meal.id] = { done: countDone(checkedItemsRef.current), total };
+          continue;
+        }
+        const states = await loadChecked(meal.id, total);
         next[meal.id] = { done: countDone(states), total };
       }
-      if (!cancelled) setMealProgressById(next);
+      if (cancelled) return;
+      setMealProgressById((prev) => ({
+        ...next,
+        ...(activeMealId && prev[activeMealId] ? { [activeMealId]: prev[activeMealId] } : {}),
+      }));
     }
 
-    if (mealList.length) void loadAllProgress();
+    if (mealList.length) void loadOtherMealsProgress();
     return () => {
       cancelled = true;
     };
-  }, [activeMealId, checkedItems, getMealById, mealList, overridesRevision]);
+  }, [activeMealId, getMealById, mealList, overridesRevision]);
 
   const progressLabel = useMemo(() => {
     if (!currentMeal) return '';
@@ -343,17 +363,27 @@ export default function DietaScreen() {
     setSubstitutionsOpen(false);
   }
 
-  async function toggleItem(index: number) {
+  function toggleItem(index: number) {
     if (!currentMeal) return;
-    const wasChecked = Boolean(checkedItems[index]);
-    const next = [...checkedItems];
+    const total = currentMeal.items.length || currentMeal.itemLabels.length;
+    if (!Number.isInteger(index) || index < 0 || index >= total) return;
+
+    const current = checkedItemsRef.current;
+    const next = Array.from({ length: total }, (_, itemIndex) => Boolean(current[itemIndex]));
     next[index] = !next[index];
+    checkedItemsRef.current = next;
     setCheckedItems(next);
-    await saveChecked(activeMealId, next);
-    if (!wasChecked && next[index]) {
+    setMealProgressById((prev) => ({
+      ...prev,
+      [activeMealId]: { done: countDone(next), total: next.length },
+    }));
+    void saveChecked(activeMealId, next);
+
+    if (next[index]) {
       const label = currentMeal.items[index]?.display || currentMeal.itemLabels[index] || 'Item';
       showToast(toastSuccess('Registrado no diário', label));
     }
+    setDailySummary((prev) => applyOptimisticPlanCheck(prev, activeMealId, currentMeal, next) ?? prev);
     queueSyncMealCheck(activeMealId, currentMeal, next, (summary) => {
       if (summary) setDailySummary(summary);
     });
@@ -371,6 +401,7 @@ export default function DietaScreen() {
 
     const meal = getMealById(activeMealId);
     showToast(toastSuccess('Registrado no diário', payload.food.name));
+    setDailySummary((prev) => applyOptimisticPlanCheck(prev, activeMealId, meal, next) ?? prev);
     queueSyncMealCheck(activeMealId, meal, next, (summary) => {
       if (summary) setDailySummary(summary);
     });
@@ -385,6 +416,7 @@ export default function DietaScreen() {
     await saveChecked(activeMealId, next);
 
     const meal = getMealById(activeMealId);
+    setDailySummary((prev) => applyOptimisticPlanCheck(prev, activeMealId, meal, next) ?? prev);
     queueSyncMealCheck(activeMealId, meal, next, (summary) => {
       if (summary) setDailySummary(summary);
     });
@@ -448,27 +480,18 @@ export default function DietaScreen() {
     setView('today');
   }
 
+  function openPhotoPicker(meal?: { id: string; label?: string | null } | null) {
+    if (!meal?.id) return;
+    setPhotoMeal(meal);
+    setPhotoPickerOpen(true);
+  }
+
   function takePhotoNow() {
-    router.push({
-      pathname: '/bella/chat/meal-photo',
-      params: {
-        from: 'dieta',
-        meal: activeMealId,
-        label: currentMeal?.label || 'Refeição',
-        camera: '1',
-      },
-    } as never);
+    openPhotoPicker(currentMeal);
   }
 
   function openGallery() {
-    router.push({
-      pathname: '/bella/chat/meal',
-      params: {
-        from: 'dieta',
-        meal: activeMealId,
-        label: currentMeal?.label || 'Refeição',
-      },
-    } as never);
+    openPhotoPicker(currentMeal);
   }
 
   async function deleteDiaryEntry(entry: NonNullable<DailySummary['entries']>[number]) {
@@ -511,8 +534,6 @@ export default function DietaScreen() {
     <PatientShell>
       <PatientHeader title="Minha dieta" showBack backTo="/inicio" showBell={false} showMenu={false} />
       <ScrollView contentContainerStyle={styles.scroll}>
-        <HealthDisclaimerBanner compact />
-
         <BellaDailyDiaryBar
           summary={dailySummary}
           manageable
@@ -615,13 +636,22 @@ export default function DietaScreen() {
                     {progressLabel ? <Text style={styles.progress}>{progressLabel}</Text> : null}
 
                     {currentMeal.items.map((item, index) => (
-                      <View key={item.key || `${activeMealId}-${index}`} style={styles.checkRow}>
-                        <Pressable style={styles.checkBtn} onPress={() => toggleItem(index)}>
+                      <Pressable
+                        key={item.key || `${activeMealId}-${index}`}
+                        style={styles.checkRow}
+                        onPress={() => toggleItem(index)}
+                      >
+                        <View style={styles.checkBtn}>
                           <DietaCheckIcon completed={Boolean(checkedItems[index])} />
-                        </Pressable>
+                        </View>
                         <View style={styles.itemCopy}>
                           {item.recipe ? (
-                            <Pressable onPress={() => openRecipeDetail(item.recipe!)}>
+                            <Pressable
+                              onPress={(event) => {
+                                event.stopPropagation();
+                                openRecipeDetail(item.recipe!);
+                              }}
+                            >
                               <Text
                                 style={[
                                   styles.itemText,
@@ -650,11 +680,17 @@ export default function DietaScreen() {
                           {item.isExtra ? <Text style={styles.extraTag}>Fora do plano</Text> : null}
                         </View>
                         {item.isExtra ? (
-                          <Pressable style={styles.removeBtn} onPress={() => removeExtraItemAt(index, item.id)}>
+                          <Pressable
+                            style={styles.removeBtn}
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              void removeExtraItemAt(index, item.id);
+                            }}
+                          >
                             <Trash2 size={15} color="#9b8178" />
                           </Pressable>
                         ) : null}
-                      </View>
+                      </Pressable>
                     ))}
 
                     <View style={styles.tools}>
@@ -684,7 +720,7 @@ export default function DietaScreen() {
                       <Text style={styles.registerTitle}>Registrar refeição</Text>
                       <Text style={styles.registerSubtitle}>Envie uma foto para a Bella analisar.</Text>
                       <View style={styles.actions}>
-                        <Pressable style={styles.actionPrimary} onPress={takePhotoNow}>
+                        <Pressable style={[styles.actionPrimary, styles.actionPrimaryFlex]} onPress={takePhotoNow}>
                           <Camera size={15} color="#fff" />
                           <Text style={styles.actionPrimaryText}>Tirar foto</Text>
                         </Pressable>
@@ -731,6 +767,15 @@ export default function DietaScreen() {
                       <View style={styles.weekTrack}>
                         <View style={[styles.weekFill, { width: `${percent}%` }]} />
                       </View>
+                      <View style={styles.weekFoot}>
+                        <Pressable
+                          style={styles.weekPhotoBtn}
+                          onPress={() => openPhotoPicker(entry)}
+                        >
+                          <Camera size={14} color="#fff" />
+                          <Text style={styles.weekPhotoBtnText}>Tirar foto</Text>
+                        </Pressable>
+                      </View>
                     </View>
                   );
                 })}
@@ -773,9 +818,7 @@ export default function DietaScreen() {
         focusSlotKey={optionPickerFocusSlot}
         title={optionPickerTitle}
         confirmLabel={optionPickerRequired ? 'Continuar' : 'Salvar opção'}
-        onClose={() => {
-          if (!optionPickerRequired) setOptionPickerOpen(false);
-        }}
+        onClose={() => setOptionPickerOpen(false)}
         onSaved={onOptionSelectionsSaved}
       />
 
@@ -789,6 +832,13 @@ export default function DietaScreen() {
         open={recipeDetailOpen}
         recipe={selectedRecipe}
         onClose={() => setRecipeDetailOpen(false)}
+      />
+
+      <MealPhotoFlow
+        meal={photoMeal}
+        pickerOpen={photoPickerOpen}
+        onPickerClose={() => setPhotoPickerOpen(false)}
+        onSaved={() => void loadDailySummary()}
       />
     </PatientShell>
   );
@@ -974,6 +1024,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#798a70',
   },
   actionPrimaryText: { fontFamily: fonts.medium, fontSize: 12, color: '#fff' },
+  actionPrimaryFlex: { flex: 1.35 },
+  weekPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 40,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+  },
+  weekPhotoBtnText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: '#fff',
+  },
   actionOutline: {
     flex: 1,
     flexDirection: 'row',
@@ -1026,6 +1092,13 @@ const styles = StyleSheet.create({
   weekProgress: { fontFamily: fonts.regular, fontSize: 11, color: '#8b9089', marginTop: 3 },
   weekTrack: { height: 3, backgroundColor: '#eceeeb' },
   weekFill: { height: '100%', backgroundColor: '#839678' },
+  weekFoot: {
+    paddingHorizontal: spacing[3],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: '#eceeeb',
+  },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

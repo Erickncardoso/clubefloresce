@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import Svg, { Path } from 'react-native-svg';
-import { X, type LucideIcon } from 'lucide-react-native';
+import { type LucideIcon } from 'lucide-react-native';
 import { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
 import { useAppToast } from '@/hooks/useAppToast';
 import { toastSaveError } from '@/lib/app-toast';
@@ -35,8 +35,6 @@ export function GoalSheetHead({
   title,
   subtitle,
 }: SheetHeadProps) {
-  const { dismiss } = useBottomSheetDismiss();
-
   return (
     <View style={styles.head}>
       <View style={[styles.headIcon, { backgroundColor: iconBg }]}>
@@ -46,9 +44,6 @@ export function GoalSheetHead({
         <Text style={styles.headTitle}>{title}</Text>
         <Text style={styles.headSub}>{subtitle}</Text>
       </View>
-      <Pressable style={styles.closeBtn} accessibilityLabel="Fechar" onPress={dismiss}>
-        <X color="#5f5f65" size={15} strokeWidth={2} />
-      </Pressable>
     </View>
   );
 }
@@ -235,18 +230,27 @@ export function GoalSheetSaveButton({
   label,
   onPress,
   compact,
+  disabled,
 }: {
   label: string;
   onPress: () => void | Promise<void>;
   compact?: boolean;
+  disabled?: boolean;
 }) {
   const { dismiss } = useBottomSheetDismiss();
   const { showToast } = useAppToast();
 
   return (
     <Pressable
-      style={[styles.saveBtn, !compact && styles.saveBtnPadded, compact && styles.saveBtnCompact]}
+      style={[
+        styles.saveBtn,
+        !compact && styles.saveBtnPadded,
+        compact && styles.saveBtnCompact,
+        disabled && styles.saveBtnDisabled,
+      ]}
+      disabled={disabled}
       onPress={() => {
+        if (disabled) return;
         void (async () => {
           try {
             await onPress();
@@ -328,15 +332,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 11,
     color: '#737378',
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f2f2f4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
   hero: {
     position: 'relative',
@@ -547,6 +542,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: 0,
     width: undefined,
+  },
+  saveBtnDisabled: {
+    opacity: 0.5,
   },
   cancelBtn: {
     flex: 1,

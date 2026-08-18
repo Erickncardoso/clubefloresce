@@ -16,7 +16,8 @@ export type VideoCallRecord = {
   nutriId: string;
   patientName: string;
   nutriName: string;
-  status: "ringing" | "active" | "ended";
+  nutriAvatar?: string | null;
+  status: "ringing" | "active" | "declined" | "ended";
   createdAt: number;
   expiresAt: number;
 };
@@ -113,6 +114,7 @@ function toPublic(
     patientId: call.patientId,
     patientName: call.patientName,
     nutriName: call.nutriName,
+    nutriAvatar: call.nutriAvatar || null,
     provider: "jitsi" as const,
     displayName,
     token: null,
@@ -139,7 +141,7 @@ export class VideoCallService {
       }),
       prisma.user.findUnique({
         where: { id: nutriId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, avatar: true },
       }),
     ]);
 
@@ -157,6 +159,7 @@ export class VideoCallService {
         && existing.expiresAt > Date.now()
       ) {
         activeCalls.delete(id);
+        void notificationRepo.deleteBySourceKey(patientId, `video-call:${id}`).catch(() => {});
       }
     }
 
@@ -172,6 +175,7 @@ export class VideoCallService {
       nutriId,
       patientName: patient.name || "Paciente",
       nutriName: nutri.name || "Nutricionista",
+      nutriAvatar: nutri.avatar || null,
       status: "ringing",
       createdAt: now,
       expiresAt: now + CALL_TTL_MS,
@@ -251,6 +255,19 @@ export class VideoCallService {
     }
   }
 
+  private async ensureNutriAvatar(call: VideoCallRecord) {
+    if (call.nutriAvatar) return;
+    const nutri = await prisma.user.findUnique({
+      where: { id: call.nutriId },
+      select: { avatar: true, name: true },
+    });
+    if (!nutri) return;
+    if (nutri.avatar) call.nutriAvatar = nutri.avatar;
+    if (nutri.name) call.nutriName = nutri.name;
+    activeCalls.set(call.id, call);
+    saveStore(activeCalls);
+  }
+
   async getCallForNutri(callId: string, nutriId: string) {
     activeCalls = loadStore();
     purgeExpired();
@@ -261,40 +278,86 @@ export class VideoCallService {
     if (call.nutriId !== nutriId) {
       throw new Error("Você não tem acesso a esta chamada.");
     }
+    await this.ensureNutriAvatar(call);
     return toPublic(call, "NUTRICIONISTA");
   }
 
-  async getCallForPatient(callId: string, patientId: string) {
+  async getCallForPatient(
+    callId: string,
+    patientId: string,
+    opts?: { activate?: boolean },
+  ) {
     activeCalls = loadStore();
     purgeExpired();
     const call = activeCalls.get(callId);
     if (!call || call.status === "ended" || call.expiresAt <= Date.now()) {
       throw new Error("Chamada não encontrada ou encerrada.");
     }
+    if (call.status === "declined") {
+      throw new Error("Chamada recusada.");
+    }
     if (call.patientId !== patientId) {
       throw new Error("Você não tem acesso a esta chamada.");
     }
-    if (call.status === "ringing") {
+    const shouldActivate = opts?.activate !== false;
+    if (shouldActivate && call.status === "ringing") {
       call.status = "active";
       activeCalls.set(call.id, call);
       saveStore(activeCalls);
     }
+    await this.ensureNutriAvatar(call);
     return toPublic(call, "PACIENTE");
   }
 
-  getActiveForPatient(patientId: string) {
+  async peekCallForPatient(callId: string, patientId: string) {
     activeCalls = loadStore();
     purgeExpired();
-    for (const call of activeCalls.values()) {
-      if (
-        call.patientId === patientId
-        && call.status === "ringing"
-        && call.expiresAt > Date.now()
-      ) {
-        return toPublic(call, "PACIENTE");
-      }
+    const call = activeCalls.get(callId);
+    if (
+      !call
+      || call.status !== "ringing"
+      || call.expiresAt <= Date.now()
+      || call.patientId !== patientId
+    ) {
+      return null;
     }
-    return null;
+    await this.ensureNutriAvatar(call);
+    return toPublic(call, "PACIENTE");
+  }
+
+  async getActiveForPatient(patientId: string) {
+    activeCalls = loadStore();
+    purgeExpired();
+    let latest: VideoCallRecord | null = null;
+    for (const call of activeCalls.values()) {
+      if (call.patientId !== patientId) continue;
+      if (call.status !== "ringing") continue;
+      if (call.expiresAt <= Date.now()) continue;
+      if (!latest || call.createdAt > latest.createdAt) latest = call;
+    }
+    if (!latest) return null;
+    await this.ensureNutriAvatar(latest);
+    return toPublic(latest, "PACIENTE");
+  }
+
+  declineCall(callId: string, patientId: string) {
+    activeCalls = loadStore();
+    purgeExpired();
+    const call = activeCalls.get(callId);
+    if (!call || call.expiresAt <= Date.now()) {
+      throw new Error("Chamada não encontrada ou encerrada.");
+    }
+    if (call.patientId !== patientId) {
+      throw new Error("Você não tem acesso a esta chamada.");
+    }
+    if (call.status === "ringing") {
+      call.status = "declined";
+      activeCalls.set(callId, call);
+      saveStore(activeCalls);
+    }
+    void notificationRepo.deleteBySourceKey(patientId, `video-call:${callId}`).catch(() => {});
+    console.log(`[video-call] declined call=${callId} patient=${patientId}`);
+    return { declined: true };
   }
 
   endAllForPatient(patientId: string, nutriId: string) {

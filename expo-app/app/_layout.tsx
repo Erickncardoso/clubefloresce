@@ -22,6 +22,7 @@ import { AuthProvider } from '@/providers/AuthProvider';
 import { PatientGoalsProvider } from '@/providers/PatientGoalsProvider';
 import { PatientMealPlanProvider } from '@/providers/PatientMealPlanProvider';
 import NotificationBootstrap from '@/notifications/NotificationBootstrap';
+import IncomingVideoCallBootstrap from '@/notifications/IncomingVideoCallBootstrap';
 import { colors } from '@/theme/tokens';
 
 function AppNavigationShell() {
@@ -32,6 +33,7 @@ function AppNavigationShell() {
 
   return (
     <View style={styles.navShell}>
+      <IncomingVideoCallBootstrap />
       <Stack screenOptions={iosHiddenHeaderOptions}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="cursos/[id]" />
@@ -46,8 +48,10 @@ function AppNavigationShell() {
         <Stack.Screen name="chamada/index" />
         <Stack.Screen name="legal/privacidade" />
         <Stack.Screen name="legal/termos" />
+        <Stack.Screen name="legal/fontes" />
         <Stack.Screen name="assinatura/index" />
         <Stack.Screen name="perfil/configuracoes" />
+        <Stack.Screen name="perfil/configuracoes/preferencias" />
         <Stack.Screen name="perfil/notificacoes" />
         <Stack.Screen name="perfil/lembretes" />
         <Stack.Screen name="register" />
@@ -96,7 +100,7 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  navShell: { flex: 1, backgroundColor: colors.bg },
+  navShell: { flex: 1, backgroundColor: colors.bg, overflow: 'visible' },
   boot: {
     flex: 1,
     alignItems: 'center',

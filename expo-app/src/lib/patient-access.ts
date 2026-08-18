@@ -109,13 +109,13 @@ export function isPatientLimitedAppPath(path?: string | null): boolean {
 }
 
 export const PATIENT_ACCESS_EXPIRED_MESSAGE =
-  'Sua assinatura expirou. Renove para continuar usando o app.';
+  'Seu acesso expirou. Fale com sua nutricionista para continuar usando o app.';
 
 export const PATIENT_PAYMENT_REQUIRED_MESSAGE =
-  'Finalize sua assinatura para acessar o Clube Florescer.';
+  'Seu acesso ainda não foi liberado. Aguarde a liberação pela nutricionista.';
 
 export const PATIENT_PREMIUM_REQUIRED_MESSAGE =
-  'Este recurso faz parte do plano Essencial ou Completo. Faça upgrade para liberar.';
+  'Este recurso estará disponível quando sua nutricionista liberar seu acesso.';
 
 export const PATIENT_CHECKOUT_PATHS = ['/assinatura', '/assinatura/obrigado'];
 
@@ -141,7 +141,8 @@ export function isPatientAccessBlockedMessage(message: string): boolean {
     || normalized.includes('assinatura expirou')
     || normalized.includes('finalize sua assinatura')
     || normalized.includes('conta desativada')
-    || normalized.includes('plano essencial ou completo');
+    || normalized.includes('acesso ainda não foi liberado')
+    || normalized.includes('liberação pela nutricionista')
 }
 
 export function isPatientAccessBlockedError(err: unknown): boolean {

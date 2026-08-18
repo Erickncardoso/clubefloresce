@@ -25,7 +25,6 @@ import {
   isMealRemindersEnabled,
   resolvePatientTimezone,
 } from "./patient-preferences.service";
-import { isVapidConfigured } from "../utils/vapid-config";
 
 const notificationRepository = new NotificationRepository();
 const foodDiaryRepository = new FoodDiaryRepository();
@@ -103,8 +102,6 @@ export class MealReminderDispatchService {
   }
 
   async dispatchDueReminders(now = new Date()): Promise<{ sent: number; skipped: number }> {
-    if (!isVapidConfigured()) return { sent: 0, skipped: 0 };
-
     const patients = await this.listEligiblePatients();
     let sent = 0;
     let skipped = 0;

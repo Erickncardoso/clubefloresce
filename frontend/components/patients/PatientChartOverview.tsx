@@ -13,10 +13,13 @@ import {
   Wallet,
 } from 'lucide-react'
 import type { ElementType } from 'react'
+import { useState } from 'react'
 import { paymentAccessLabel, paymentMethodLabel } from '@/lib/patient-chart/patient-billing'
 import { formatCepMask, formatCpfMask, formatDateTime, formatWeek } from '@/lib/patient-chart/patient-format'
 import type { PatientOverview, PatientProfile } from '@/lib/patient-chart/types'
-import { PatientNutritionSection } from './PatientNutritionSection'
+import type { TemplateCheckInResponse } from '@/lib/patient-chart/api'
+import { PatientNutritionModal, type NutritionModalTab } from './PatientNutritionModal'
+import { PatientPhotosPanel } from './PatientPhotosPanel'
 import styles from './PatientChartOverview.module.scss'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -39,6 +42,7 @@ type Props = {
   patientId: string
   profile: PatientProfile
   overview?: PatientOverview | null
+  templateResponses?: TemplateCheckInResponse[]
   onEditProfile?: () => void
   onNavigateEvolucao?: (sub: string) => void
   onNavigateTab?: (tab: string) => void
@@ -238,11 +242,32 @@ export function PatientChartOverview({
   patientId,
   profile,
   overview,
+  templateResponses = [],
   onEditProfile,
   onNavigateEvolucao,
   onNavigateTab,
 }: Props) {
+  const [nutritionOpen, setNutritionOpen] = useState(false)
+  const [nutritionTab, setNutritionTab] = useState<NutritionModalTab>('checkins')
   const metricItems = overview ? buildMetricItems(overview, profile) : []
+
+  const nutritionTarget =
+    overview?.nutritionTarget &&
+    typeof overview.nutritionTarget === 'object' &&
+    overview.nutritionTarget !== null &&
+    'caloriesKcal' in overview.nutritionTarget
+      ? (overview.nutritionTarget as {
+          caloriesKcal?: number
+          carbsG?: number
+          proteinG?: number
+          fatG?: number
+        })
+      : null
+
+  function openNutritionModal(tab: NutritionModalTab = 'fotos') {
+    setNutritionTab(tab)
+    setNutritionOpen(true)
+  }
 
   function onMetricClick(metric: MetricItem) {
     const action = metric?.action
@@ -479,31 +504,41 @@ export function PatientChartOverview({
           <button
             type="button"
             className={styles.pcoLinkBtn}
-            onClick={() => onNavigateEvolucao?.('nutricao')}
+            onClick={() => openNutritionModal('fotos')}
           >
             Abrir Evolução
           </button>
         </header>
-        <PatientNutritionSection
-          patientId={patientId}
-          showLinks
-          compact
-          nutritionTarget={
-            overview?.nutritionTarget &&
-            typeof overview.nutritionTarget === 'object' &&
-            overview.nutritionTarget !== null &&
-            'caloriesKcal' in overview.nutritionTarget
-              ? (overview.nutritionTarget as {
-                  caloriesKcal?: number
-                  carbsG?: number
-                  proteinG?: number
-                  fatG?: number
-                })
-              : null
-          }
-          onNavigate={onNavigateEvolucao}
-        />
+        <div
+          role="button"
+          tabIndex={0}
+          className={styles.pcoNutritionTeaser}
+          onClick={() => openNutritionModal('fotos')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              openNutritionModal('fotos')
+            }
+          }}
+        >
+          <PatientPhotosPanel
+            patientId={patientId}
+            limit={4}
+            onPhotoClick={() => openNutritionModal('fotos')}
+          />
+        </div>
       </article>
+
+      <PatientNutritionModal
+        open={nutritionOpen}
+        onOpenChange={setNutritionOpen}
+        patientId={patientId}
+        patientName={overview?.patient?.name || 'Paciente'}
+        patientAvatar={null}
+        initialTab={nutritionTab}
+        nutritionTarget={nutritionTarget}
+        checkinResponses={templateResponses}
+      />
 
       {overview && (
         <div className={styles.pcoBottom}>
@@ -519,7 +554,7 @@ export function PatientChartOverview({
               <button
                 type="button"
                 className={styles.pcoLinkBtn}
-                onClick={() => onNavigateEvolucao?.('checkins')}
+                onClick={() => openNutritionModal('checkins')}
               >
                 Ver todos
               </button>
@@ -531,21 +566,27 @@ export function PatientChartOverview({
                 <button
                   type="button"
                   className={styles.pcoEmptyCta}
-                  onClick={() => onNavigateEvolucao?.('checkins')}
+                  onClick={() => openNutritionModal('checkins')}
                 >
-                  Ir para check-ins
+                  Ver check-ins
                 </button>
               </div>
             ) : (
               <ul className={styles.pcoTimeline}>
                 {overview.checkIn.recent.map((item) => (
                   <li key={item.id} className={styles.pcoTimelineItem}>
-                    <div className={styles.pcoTimelineDate}>{formatWeek(item.weekStart)}</div>
-                    <div className={styles.pcoTimelineTags}>
-                      <span>Humor {item.mood}</span>
-                      <span>Energia {item.energy}</span>
-                      {item.weightKg && <span>{item.weightKg} kg</span>}
-                    </div>
+                    <button
+                      type="button"
+                      className={styles.pcoTimelineBtn}
+                      onClick={() => openNutritionModal('checkins')}
+                    >
+                      <div className={styles.pcoTimelineDate}>{formatWeek(item.weekStart)}</div>
+                      <div className={styles.pcoTimelineTags}>
+                        <span>Humor {item.mood}</span>
+                        <span>Energia {item.energy}</span>
+                        {item.weightKg && <span>{item.weightKg} kg</span>}
+                      </div>
+                    </button>
                   </li>
                 ))}
               </ul>

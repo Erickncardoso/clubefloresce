@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
+import { Camera } from 'lucide-react-native';
+import MealPhotoFlow from '@/components/diario/MealPhotoFlow';
 import { usePatientMealPlan } from '@/hooks/usePatientMealPlan';
 import { countDone, loadChecked } from '@/lib/dieta-progress';
 import { splitMealItemDisplay } from '@/lib/meal-item-display';
@@ -13,6 +14,7 @@ type Props = {
   mealId?: string;
   maxItems?: number;
   readOnly?: boolean;
+  onPhotoSaved?: () => void;
 };
 
 type DisplayItem = {
@@ -55,8 +57,14 @@ function formatDisplayItem(source: string, isSubstituted = false): DisplayItem {
   };
 }
 
-export default function HomeCurrentMealCard({ mealId = '', maxItems = 4, readOnly = false }: Props) {
+export default function HomeCurrentMealCard({
+  mealId = '',
+  maxItems = 4,
+  readOnly = false,
+  onPhotoSaved,
+}: Props) {
   const { meals } = usePatientMealPlan();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [itemsProgress, setItemsProgress] = useState(0);
   const [progressText, setProgressText] = useState('');
@@ -112,7 +120,11 @@ export default function HomeCurrentMealCard({ mealId = '', maxItems = 4, readOnl
   const MealIcon = meal.icon;
   const dietaHref = `/dieta?meal=${meal.id}` as const;
 
-  const cardBody = (
+  function takePhoto() {
+    setPickerOpen(true);
+  }
+
+  const tappableBody = (
     <>
       <View style={styles.head}>
         <View style={styles.iconWrap}>
@@ -163,37 +175,47 @@ export default function HomeCurrentMealCard({ mealId = '', maxItems = 4, readOnl
           + {hiddenCount} {hiddenCount === 1 ? 'item' : 'itens'}
         </Text>
       ) : null}
-
-      {!readOnly ? (
-        <View style={styles.foot}>
-          <Text style={styles.cta}>Abrir no plano alimentar</Text>
-          <ChevronRight color={colors.primaryDark} size={14} strokeWidth={2} />
-        </View>
-      ) : null}
     </>
   );
 
   if (readOnly) {
-    return <View style={styles.card}>{cardBody}</View>;
+    return <View style={styles.card}>{tappableBody}</View>;
   }
 
   return (
-    <Link href={dietaHref as never} asChild>
-      <Pressable style={styles.card} accessibilityRole="button">
-        {cardBody}
-      </Pressable>
-    </Link>
+    <View style={styles.card}>
+      <Link href={dietaHref as never} asChild>
+        <Pressable style={styles.tapArea} accessibilityRole="button">
+          {tappableBody}
+        </Pressable>
+      </Link>
+      <View style={styles.foot}>
+        <Pressable style={styles.photoBtn} onPress={takePhoto}>
+          <Camera size={15} color="#fff" strokeWidth={2} />
+          <Text style={styles.photoBtnText}>Tirar foto</Text>
+        </Pressable>
+      </View>
+      <MealPhotoFlow
+        meal={meal}
+        pickerOpen={pickerOpen}
+        onPickerClose={() => setPickerOpen(false)}
+        onSaved={onPhotoSaved}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    paddingTop: 16,
-    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#e5e5ea',
     borderRadius: radii.surface,
     backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  tapArea: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
   },
   head: { flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 14 },
   iconWrap: {
@@ -251,13 +273,26 @@ const styles = StyleSheet.create({
   },
   more: { marginTop: 6, paddingLeft: 17, fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
   foot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 45,
     marginTop: 4,
+    paddingTop: 12,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(60, 60, 67, 0.1)',
   },
-  cta: { fontFamily: fonts.medium, fontSize: 12, color: colors.primaryDark },
+  photoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+  },
+  photoBtnText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: '#fff',
+  },
 });

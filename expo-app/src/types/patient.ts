@@ -3,6 +3,7 @@ export type PatientUser = {
   role: string;
   name?: string | null;
   email?: string | null;
+  phone?: string | null;
   avatar?: string | null;
   plan?: string | null;
   accessExpiresAt?: string | null;

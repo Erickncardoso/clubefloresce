@@ -1,5 +1,6 @@
 import type { ChatMessage, LLMCompletionResult, MessageContent, OpenAIToolDefinition } from "./types";
 import { readEnv } from "../../utils/env";
+import { sniffImageMime } from "../../utils/image-mime";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_REQUEST_TIMEOUT_MS || 90_000);
@@ -155,6 +156,6 @@ function stringifyContent(content: MessageContent): string {
 }
 
 export function buildImageDataUrl(buffer: Buffer, mimeType: string): string {
-  const safeMime = mimeType.startsWith("image/") ? mimeType : "image/jpeg";
+  const safeMime = sniffImageMime(buffer, mimeType);
   return `data:${safeMime};base64,${buffer.toString("base64")}`;
 }

@@ -29,6 +29,7 @@ export const CLIENTE_SCREEN_MAP: ClienteScreenMeta[] = [
   { route: '/modulos/[id]', sourceFile: 'cliente/pages/modulos/[id].vue', layout: 'none', middleware: ['patient-only'] },
   { route: '/ebooks', sourceFile: 'cliente/pages/ebooks.vue', layout: 'patient', middleware: ['patient-only'] },
   { route: '/comunidade', sourceFile: 'cliente/pages/comunidade.vue', layout: 'patient', middleware: ['patient-only'] },
+  { route: '/diario', sourceFile: 'expo-app/src/screens/DiarioAlimentarScreen.tsx', layout: 'patient', middleware: ['patient-only'] },
   { route: '/substituicao', sourceFile: 'cliente/pages/substituicao/index.vue', layout: 'patient', middleware: ['patient-only'] },
   { route: '/check-in', sourceFile: 'cliente/pages/check-in.vue', layout: 'patient', middleware: ['patient-only'] },
   { route: '/check-in/responder', sourceFile: 'cliente/pages/check-in/responder.vue', layout: 'patient', middleware: ['patient-only'] },

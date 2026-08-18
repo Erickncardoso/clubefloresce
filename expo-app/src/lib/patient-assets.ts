@@ -25,5 +25,5 @@ export const QUICK_ACTIONS = [
   { label: 'Vídeos', href: '/cursos', image: patientAssets.quick.videos },
   { label: 'Ebooks', href: '/ebooks', image: patientAssets.quick.ebooks },
   { label: 'Biblioteca', href: '/conteudo', image: patientAssets.quick.biblioteca },
-  { label: 'Comunidade', href: '/comunidade', image: patientAssets.quick.comunidade },
+  { label: 'Diário', href: '/diario', image: patientAssets.quick.dieta },
 ] as const;

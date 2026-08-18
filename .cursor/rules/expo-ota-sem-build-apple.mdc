@@ -1,0 +1,43 @@
+---
+description: Expo/iOS — atualizar por OTA; não gerar build nativo da Apple sem aviso prévio
+alwaysApply: true
+---
+
+# Clube Florescer — Expo sem build Apple (OTA)
+
+O app iOS **já está em revisão na Apple** (binário 1.0.0 / build 14). Por enquanto **não** gerar novo build nativo nem submit na App Store.
+
+## Como atualizar
+
+| Caminho | Quando usar |
+|---------|-------------|
+| **Dev** (`expo start` + development build no simulador/Xcode) | Trabalho diário. Metro recarrega JS. |
+| **OTA** (`npm run update` em `expo-app/`) | JS, telas, estilos, copy, lógica — no app já instalado (canal `production`, `runtimeVersion` = `appVersion` 1.0.0). |
+| **EAS Build + App Store** | Só se o nativo mudar. **Parar e avisar o usuário antes.** |
+
+## PROIBIDO sem confirmação explícita do usuário
+
+- `eas build` (qualquer profile, especialmente `production`)
+- `eas submit` / envio App Store Connect
+- `npx expo prebuild` / `pod install` / alterar `ios/` nativo
+- subir `version` / `runtimeVersion` (quebra OTA no binário atual)
+- adicionar plugin nativo, permissão nova no `infoPlist`, módulo Swift/Kotlin, Live Activity, ícone/splash nativos
+
+## OTA-safe (seguir sem build Apple)
+
+- Telas e componentes em `expo-app/src/`
+- Rotas Expo Router em `expo-app/app/`
+- Copy, tokens, layout, check-in, “Meu acesso”, fontes de saúde
+- `requireOptionalNativeModule` (módulo ausente = no-op)
+
+## Se a tarefa exigir nativo
+
+Avisar **antes** de implementar, em uma frase, por exemplo:
+
+> Isso precisa de **novo build na Apple** (módulo nativo / permissão / plugin). OTA não cobre. Posso deixar no JS por enquanto ou você quer que eu prepare o build 15?
+
+Não seguir com EAS/ASC até o usuário confirmar.
+
+## API no update de produção
+
+OTA de produção deve ir com `EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api` (já está no script `npm run update`).

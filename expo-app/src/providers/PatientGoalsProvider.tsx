@@ -32,8 +32,15 @@ import {
   type GoalsStore,
   type PatientGoal,
 } from '@/lib/patient-goals-core';
+import { syncWaterActivity } from '../../modules/live-activity';
 
 const HYDRATE_API_TIMEOUT_MS = 8000;
+
+function syncWaterLiveActivity(next: GoalsStore) {
+  const water = next.goals.find((item) => item.id === 'water');
+  if (!water) return;
+  void syncWaterActivity(getProgress(next, water), Number(water.target) || 0);
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -86,9 +93,13 @@ export function PatientGoalsProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<GoalsStore>(() => readGoalsStore(null));
   const [ready, setReady] = useState(false);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const storeRef = useRef(store);
+  storeRef.current = store;
 
   const persist = useCallback(async (next: GoalsStore) => {
     setStore(next);
+    storeRef.current = next;
+    syncWaterLiveActivity(next);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     if (syncTimer.current) clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(async () => {
@@ -127,6 +138,8 @@ export function PatientGoalsProvider({ children }: { children: ReactNode }) {
         }
       }
       setStore(next);
+      storeRef.current = next;
+      syncWaterLiveActivity(next);
     } finally {
       setReady(true);
     }
@@ -149,29 +162,34 @@ export function PatientGoalsProvider({ children }: { children: ReactNode }) {
     options?: { silent?: boolean },
   ) => {
     if (goalId === 'food') return;
-    const goal = store.goals.find((item) => item.id === goalId);
+    const current = storeRef.current;
+    const goal = current.goals.find((item) => item.id === goalId);
     if (!goal) return;
     const delta = step ?? goal.step ?? 1;
-    const next = setProgressInStore(store, goalId, getProgress(store, goal) + delta);
+    const next = setProgressInStore(current, goalId, getProgress(current, goal) + delta);
+    storeRef.current = next;
     await persist(next);
     if (!options?.silent) {
       showToast(buildGoalCheckToast(goalId, { goal, stepLiters: goalId === 'water' ? delta : undefined }));
     }
-  }, [persist, showToast, store]);
+  }, [persist, showToast]);
 
   const decrementGoal = useCallback(async (goalId: string, step?: number) => {
     if (goalId === 'food') return;
-    const goal = store.goals.find((item) => item.id === goalId);
+    const current = storeRef.current;
+    const goal = current.goals.find((item) => item.id === goalId);
     if (!goal) return;
     const delta = step ?? goal.step ?? 1;
-    const next = setProgressInStore(store, goalId, getProgress(store, goal) - delta);
+    const next = setProgressInStore(current, goalId, getProgress(current, goal) - delta);
+    storeRef.current = next;
     await persist(next);
-  }, [persist, store]);
+  }, [persist]);
 
   const setGoalProgress = useCallback(async (goalId: string, value: number) => {
-    const next = setProgressInStore(store, goalId, value);
+    const next = setProgressInStore(storeRef.current, goalId, value);
+    storeRef.current = next;
     await persist(next);
-  }, [persist, store]);
+  }, [persist]);
 
   const toggleFoodDay = useCallback(async (dayIndex: number, options?: { silent?: boolean }) => {
     const wasSelected = getFoodSelectedDays(store).includes(dayIndex);

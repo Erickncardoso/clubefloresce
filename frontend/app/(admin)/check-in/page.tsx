@@ -1,12 +1,13 @@
 'use client'
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import {
   Calendar,
   CalendarDays,
   CalendarRange,
   Eye,
+  Image as ImageIcon,
+  LineChart,
   ListChecks,
   MessageSquare,
   Pencil,
@@ -17,6 +18,10 @@ import {
 } from 'lucide-react'
 import { ApiError } from '@/lib/api'
 import { PatientAvatar } from '@/components/patients/PatientAvatar'
+import {
+  PatientNutritionModal,
+  type NutritionModalTab,
+} from '@/components/patients/PatientNutritionModal'
 import { FloatField } from '@/components/ui/FloatField'
 import {
   CheckinTemplateEditorModal,
@@ -96,6 +101,7 @@ export default function CheckInPage() {
 
   const [viewOpen, setViewOpen] = useState(false)
   const [selectedResponse, setSelectedResponse] = useState<CheckinResponseItem | null>(null)
+  const [modalNutritionTab, setModalNutritionTab] = useState<NutritionModalTab>('fotos')
 
   const loadResponses = useCallback(async () => {
     setLoadingResponses(true)
@@ -366,9 +372,16 @@ export default function CheckInPage() {
     }
   }
 
-  function openViewModal(item: CheckinResponseItem) {
+  function openViewModal(item: CheckinResponseItem, tab: NutritionModalTab = 'fotos') {
     setSelectedResponse(item)
+    setModalNutritionTab(tab)
     setViewOpen(true)
+  }
+
+  function closeViewModal() {
+    setViewOpen(false)
+    setSelectedResponse(null)
+    setModalNutritionTab('fotos')
   }
 
   return (
@@ -695,14 +708,38 @@ export default function CheckInPage() {
                         </td>
                         <td className={styles.muted}>{formatResponseUpdatedAt(item.updatedAt)}</td>
                         <td className={styles.tdActions} onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            className={styles.actionMain}
-                            onClick={() => openViewModal(item)}
-                          >
-                            <Eye size={14} aria-hidden />
-                            Ver
-                          </button>
+                          <div className={styles.rowActions}>
+                            {item.user?.id ? (
+                              <button
+                                type="button"
+                                className={styles.actionGhost}
+                                title="Fotos de refeições"
+                                onClick={() => openViewModal(item, 'fotos')}
+                              >
+                                <ImageIcon size={14} aria-hidden />
+                                Fotos
+                              </button>
+                            ) : null}
+                            {item.user?.id ? (
+                              <button
+                                type="button"
+                                className={styles.actionGhost}
+                                title="Gráfico nutricional"
+                                onClick={() => openViewModal(item, 'desempenho')}
+                              >
+                                <LineChart size={14} aria-hidden />
+                                Nutrição
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className={styles.actionMain}
+                              onClick={() => openViewModal(item)}
+                            >
+                              <Eye size={14} aria-hidden />
+                              Ver
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -842,84 +879,46 @@ export default function CheckInPage() {
         onSave={handleSaveTemplate}
       />
 
-      {viewOpen && selectedResponse ? (
-        <div
-          className={styles.modalOverlay}
-          role="presentation"
-          onClick={() => setViewOpen(false)}
-        >
-          <div
-            className={styles.responseCard}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Resposta do check-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className={styles.responseHead}>
-              <div className={styles.responseHeadMain}>
-                <PatientAvatar
-                  src={selectedResponse.user?.avatar}
-                  name={selectedResponse.user?.name || 'Paciente'}
-                  size="md"
-                  ring={false}
-                />
-                <div>
-                  <span className={styles.responseKicker}>
-                    {selectedResponse.template?.title || 'Check-in'}
-                  </span>
-                  <h2>{selectedResponse.user?.name || 'Paciente'}</h2>
-                  <p className={styles.responseMeta}>
-                    <span>
-                      {formatCheckinPeriod(
-                        selectedResponse.periodKey,
-                        selectedResponse.template?.frequency,
-                      )}
-                    </span>
-                    <span>{formatResponseUpdatedAt(selectedResponse.updatedAt)}</span>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                className={styles.modalClose}
-                aria-label="Fechar"
-                onClick={() => setViewOpen(false)}
-              >
-                ×
-              </button>
-            </header>
-
-            <div className={styles.responseBody}>
-              <h3>Respostas do check-in</h3>
-              {answerRows.length ? (
-                answerRows.map((row) => (
-                  <article key={row.id} className={styles.answerRow}>
-                    <span>{row.label}</span>
-                    <strong>{row.value}</strong>
-                    {row.question ? <p>{row.question}</p> : null}
-                  </article>
-                ))
-              ) : (
-                <p className={styles.patientEmpty}>Sem respostas neste check-in.</p>
-              )}
-            </div>
-
-            <footer className={styles.responseFoot}>
-              <button type="button" className="btn-secondary" onClick={() => setViewOpen(false)}>
-                Fechar
-              </button>
-              {selectedResponse.user?.id ? (
-                <Link
-                  href={buildPatientPath(selectedResponse.user)}
-                  className="btn-primary"
-                  onClick={() => setViewOpen(false)}
-                >
-                  Perfil do paciente
-                </Link>
-              ) : null}
-            </footer>
-          </div>
-        </div>
+      {selectedResponse ? (
+        <PatientNutritionModal
+          open={viewOpen}
+          onOpenChange={(open) => {
+            if (!open) closeViewModal()
+          }}
+          patientId={selectedResponse.user?.id || ''}
+          patientName={selectedResponse.user?.name || 'Paciente'}
+          patientAvatar={selectedResponse.user?.avatar}
+          kicker={selectedResponse.template?.title || 'Check-in'}
+          initialTab={modalNutritionTab}
+          meta={
+            <>
+              <span>
+                {formatCheckinPeriod(
+                  selectedResponse.periodKey,
+                  selectedResponse.template?.frequency,
+                )}
+              </span>
+              <span>{formatResponseUpdatedAt(selectedResponse.updatedAt)}</span>
+            </>
+          }
+          leftPanel={
+            answerRows.length ? (
+              answerRows.map((row) => (
+                <article key={row.id} className={styles.answerRow}>
+                  <span>{row.label}</span>
+                  <strong>{row.value}</strong>
+                  {row.question ? <p>{row.question}</p> : null}
+                </article>
+              ))
+            ) : (
+              <p className={styles.patientEmpty}>Sem respostas neste check-in.</p>
+            )
+          }
+          profileHref={
+            selectedResponse.user?.id ? buildPatientPath(selectedResponse.user) : undefined
+          }
+          onProfileClick={closeViewModal}
+        />
       ) : null}
     </div>
   )

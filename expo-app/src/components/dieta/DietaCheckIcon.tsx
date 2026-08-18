@@ -1,15 +1,9 @@
-import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 const GREEN = '#63ba8a';
 const GRAY = '#e2e8f0';
+const SIZE = 28;
 
 const UNCHECKED_BLOB =
   'M151.255 667.282C227.952 779.244 360.846 838.021 487.002 826.266C640.206 812.026 746.435 732.08 805.69 586.429C813.049 568.174 821.029 535.107 829.631 487.225C831.496 476.447 837.505 466.826 846.374 460.423C855.242 454.019 866.265 451.342 877.083 452.963L879.807 453.393C890.506 454.982 900.136 460.764 906.586 469.471C913.036 478.178 915.778 489.1 914.213 499.841C903.031 575.916 883.152 637.846 854.575 685.632C750.783 859.811 554.954 946.829 355.685 903.249C266.42 883.752 188.289 837.83 121.293 765.482C98.7375 741.207 84.6405 724.96 79.0017 716.741C73.4585 708.617 63.4234 689.646 48.8963 659.828C5.69739 571.233 -8.87751 481.778 5.1717 391.462C36.5674 189.902 188.528 38.8028 388.371 4.9704C443.325 -4.39563 508.267 -0.524902 583.196 16.5824C593.767 18.9855 602.959 25.4626 608.762 34.5968C614.565 43.7311 616.507 54.779 614.162 65.324L613.445 68.0477C611.07 78.7259 604.61 88.0502 595.447 94.025C586.283 99.9999 575.145 102.151 564.416 100.017C516.63 90.6505 482.893 86.1108 463.205 86.3975C305.987 88.9779 193.068 159.128 124.447 296.846C67.8197 410.242 74.5576 555.463 151.255 667.282Z';
@@ -24,88 +18,28 @@ type Props = {
   completed: boolean;
 };
 
-/** Espelha `frontend/components/dieta/CheckIcon.vue` — blob cinza ↔ check verde animado. */
+/** Espelha `frontend2/components/dieta/CheckIcon.vue` — troca instantânea (SVG no iOS não pinta se nascer com opacity 0). */
 export default function DietaCheckIcon({ completed }: Props) {
-  const skipNext = useRef(completed);
-  const grayOpacity = useSharedValue(completed ? 0 : 1);
-  const greenOpacity = useSharedValue(completed ? 1 : 0);
-  const blobOpacity = useSharedValue(completed ? 1 : 0);
-  const wipe = useSharedValue(completed ? 1 : 0);
-
-  useEffect(() => {
-    if (completed && skipNext.current) {
-      skipNext.current = false;
-      grayOpacity.value = 0;
-      greenOpacity.value = 1;
-      blobOpacity.value = 1;
-      wipe.value = 1;
-      return;
-    }
-
-    if (completed) {
-      grayOpacity.value = withTiming(0, { duration: 200 });
-      greenOpacity.value = withTiming(1, { duration: 0 });
-      blobOpacity.value = withTiming(1, { duration: 400 });
-      wipe.value = withDelay(200, withTiming(1, { duration: 400 }));
-      return;
-    }
-
-    wipe.value = withTiming(0, { duration: 400 });
-    blobOpacity.value = withDelay(200, withTiming(0, { duration: 400 }));
-    grayOpacity.value = withDelay(400, withTiming(1, { duration: 200 }));
-    greenOpacity.value = withDelay(400, withTiming(0, { duration: 0 }));
-  }, [completed, blobOpacity, grayOpacity, greenOpacity, wipe]);
-
-  const grayStyle = useAnimatedStyle(() => ({ opacity: grayOpacity.value }));
-  const greenWrapStyle = useAnimatedStyle(() => ({ opacity: greenOpacity.value }));
-  const blobStyle = useAnimatedStyle(() => ({ opacity: blobOpacity.value }));
-  const wipeStyle = useAnimatedStyle(() => ({
-    width: `${Math.max(0, Math.min(100, wipe.value * 100))}%`,
-  }));
-
   return (
-    <View style={styles.wrap}>
-      <Animated.View style={[styles.layer, grayStyle]}>
-        <Svg width="100%" height="100%" viewBox="0 0 915 915">
+    <View style={styles.wrap} pointerEvents="none">
+      {completed ? (
+        <Svg width={SIZE} height={SIZE} viewBox="0 0 703 650">
+          <Path d={CHECKED_BLOB} fill={GREEN} />
+          <Path d={CHECK_PATH} fill={GREEN} />
+        </Svg>
+      ) : (
+        <Svg width={SIZE} height={SIZE} viewBox="0 0 915 915">
           <Path d={UNCHECKED_BLOB} fill={GRAY} />
         </Svg>
-      </Animated.View>
-
-      <Animated.View style={[styles.layer, greenWrapStyle]}>
-        <Animated.View style={[StyleSheet.absoluteFillObject, blobStyle]}>
-          <Svg width="100%" height="100%" viewBox="0 0 703 650">
-            <Path d={CHECKED_BLOB} fill={GREEN} />
-          </Svg>
-        </Animated.View>
-        <View style={styles.checkClip} pointerEvents="none">
-          <Animated.View style={[styles.checkWipe, wipeStyle]}>
-            <Svg width={SIZE} height={SIZE} viewBox="0 0 703 650">
-              <Path d={CHECK_PATH} fill={GREEN} />
-            </Svg>
-          </Animated.View>
-        </View>
-      </Animated.View>
+      )}
     </View>
   );
 }
-
-const SIZE = 28;
 
 const styles = StyleSheet.create({
   wrap: {
     width: SIZE,
     height: SIZE,
     flexShrink: 0,
-  },
-  layer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  checkClip: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-  },
-  checkWipe: {
-    height: '100%',
-    overflow: 'hidden',
   },
 });

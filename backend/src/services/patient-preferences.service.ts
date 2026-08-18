@@ -22,6 +22,26 @@ export function isMealRemindersEnabled(profile: PatientProfileData): boolean {
   return profile.mealRemindersEnabled !== false;
 }
 
+export function isDiarySocialPushEnabled(profile: PatientProfileData): boolean {
+  return profile.diarySocialPushEnabled !== false;
+}
+
+const CATEGORY_ALIASES: Record<string, string> = {
+  meal: "meals",
+};
+
+export function isPushCategoryEnabled(profile: PatientProfileData, type?: string | null): boolean {
+  const key = CATEGORY_ALIASES[String(type || "").trim()] || String(type || "").trim();
+  if (!key || key === "video_call") return true;
+  if (key === "meals") return isMealRemindersEnabled(profile);
+  if (key === "community") return isDiarySocialPushEnabled(profile);
+  const categories = profile.pushCategories;
+  if (categories && typeof categories === "object" && key in categories) {
+    return categories[key] !== false;
+  }
+  return true;
+}
+
 export class PatientPreferencesService {
   async syncTimezone(userId: string, timeZone?: string | null): Promise<void> {
     const zone = timeZone?.trim();
@@ -45,6 +65,17 @@ export class PatientPreferencesService {
   }
 
   async setMealRemindersEnabled(userId: string, enabled: boolean): Promise<PatientProfileData> {
+    return this.patchProfile(userId, { mealRemindersEnabled: enabled });
+  }
+
+  async setDiarySocialPushEnabled(userId: string, enabled: boolean): Promise<PatientProfileData> {
+    return this.patchProfile(userId, { diarySocialPushEnabled: enabled });
+  }
+
+  async setPushCategories(
+    userId: string,
+    categories: Record<string, boolean>,
+  ): Promise<PatientProfileData> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { patientProfileData: true },
@@ -52,7 +83,27 @@ export class PatientPreferencesService {
     if (!user) throw new Error("Usuário não encontrado.");
 
     const profile = asProfile(user.patientProfileData);
-    const next = { ...profile, mealRemindersEnabled: enabled };
+    const nextCategories = { ...(profile.pushCategories || {}), ...categories };
+    const patch: Partial<PatientProfileData> = { pushCategories: nextCategories };
+    if (typeof categories.meals === "boolean") patch.mealRemindersEnabled = categories.meals;
+    if (typeof categories.community === "boolean") {
+      patch.diarySocialPushEnabled = categories.community;
+    }
+    return this.patchProfile(userId, patch);
+  }
+
+  private async patchProfile(
+    userId: string,
+    patch: Partial<PatientProfileData>,
+  ): Promise<PatientProfileData> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { patientProfileData: true },
+    });
+    if (!user) throw new Error("Usuário não encontrado.");
+
+    const profile = asProfile(user.patientProfileData);
+    const next = { ...profile, ...patch };
 
     await prisma.user.update({
       where: { id: userId },
@@ -73,6 +124,8 @@ export class PatientPreferencesService {
     return {
       timezone: resolvePatientTimezone(profile),
       mealRemindersEnabled: isMealRemindersEnabled(profile),
+      diarySocialPushEnabled: isDiarySocialPushEnabled(profile),
+      pushCategories: profile.pushCategories || {},
     };
   }
 }

@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
-import type { AuthUser } from '@/lib/types'
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
+import type { AuthUser } from "@/lib/types";
 import {
   AGENDA_DURATION_OPTIONS,
   AGENDA_QUICK_HOURS,
@@ -13,38 +13,38 @@ import {
   toDateKey,
   toLocalDateTimeInputValue,
   fromLocalDateTimeInputValue,
-} from '@/lib/agenda'
-import { FloatField } from '@/components/ui/FloatField'
-import { AnimatedDialog } from '@/components/overlays'
-import styles from './AgendaAppointmentModal.module.scss'
+} from "@/lib/agenda";
+import { FloatField } from "@/components/ui/FloatField";
+import { AnimatedDialog } from "@/components/overlays";
+import styles from "./AgendaAppointmentModal.module.scss";
 
 export type AgendaSavePayload = {
-  patientId: string
-  patientName: string
-  title: string
-  startsAt: string
-  durationMin: number
-  notes: string
-}
+  patientId: string;
+  patientName: string;
+  title: string;
+  startsAt: string;
+  durationMin: number;
+  notes: string;
+};
 
 type Prefill = {
-  patientId?: string
-  startsAt?: string
-  durationMin?: number
-}
+  patientId?: string;
+  startsAt?: string;
+  durationMin?: number;
+};
 
 type Props = {
-  open: boolean
-  patients: AuthUser[]
-  appointment: AgendaAppointment | null
-  defaultDate?: Date | null
-  prefill?: Prefill
-  saving?: boolean
-  error?: string
-  onClose: () => void
-  onSave: (payload: AgendaSavePayload) => void
-  onDelete?: () => void
-}
+  open: boolean;
+  patients: AuthUser[];
+  appointment: AgendaAppointment | null;
+  defaultDate?: Date | null;
+  prefill?: Prefill;
+  saving?: boolean;
+  error?: string;
+  onClose: () => void;
+  onSave: (payload: AgendaSavePayload) => void;
+  onDelete?: () => void;
+};
 
 export function AgendaAppointmentModal({
   open,
@@ -53,72 +53,74 @@ export function AgendaAppointmentModal({
   defaultDate = null,
   prefill,
   saving = false,
-  error = '',
+  error = "",
   onClose,
   onSave,
   onDelete,
 }: Props) {
-  const editing = Boolean(appointment?.id)
-  const [patientId, setPatientId] = useState('')
-  const [title, setTitle] = useState('Consulta')
-  const [startsAtLocal, setStartsAtLocal] = useState('')
-  const [durationMin, setDurationMin] = useState(60)
-  const [notes, setNotes] = useState('')
+  const editing = Boolean(appointment?.id);
+  const [patientId, setPatientId] = useState("");
+  const [title, setTitle] = useState("Consulta");
+  const [startsAtLocal, setStartsAtLocal] = useState("");
+  const [durationMin, setDurationMin] = useState(60);
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     if (appointment) {
-      setPatientId(appointment.patientId || '')
-      setTitle(appointment.title || 'Consulta')
-      setStartsAtLocal(toLocalDateTimeInputValue(appointment.startsAt))
-      setDurationMin(Number(appointment.durationMin) || 60)
-      setNotes(appointment.notes || '')
-      return
+      setPatientId(appointment.patientId || "");
+      setTitle(appointment.title || "Consulta");
+      setStartsAtLocal(toLocalDateTimeInputValue(appointment.startsAt));
+      setDurationMin(Number(appointment.durationMin) || 60);
+      setNotes(appointment.notes || "");
+      return;
     }
     const iso =
       prefill?.startsAt ||
-      defaultAppointmentDateTime(defaultDate || new Date())
-    setPatientId(prefill?.patientId || '')
-    setTitle('Consulta')
-    setStartsAtLocal(toLocalDateTimeInputValue(iso))
-    setDurationMin(Number(prefill?.durationMin) || 60)
-    setNotes('')
-  }, [open, appointment, defaultDate, prefill])
+      defaultAppointmentDateTime(defaultDate || new Date());
+    setPatientId(prefill?.patientId || "");
+    setTitle("Consulta");
+    setStartsAtLocal(toLocalDateTimeInputValue(iso));
+    setDurationMin(Number(prefill?.durationMin) || 60);
+    setNotes("");
+  }, [open, appointment, defaultDate, prefill]);
 
   const selectedPatient = useMemo(
     () => patients.find((p) => p.id === patientId),
     [patients, patientId],
-  )
+  );
 
   function applyQuickHour(hour: number) {
-    const dayKey = toDateKey(new Date(fromLocalDateTimeInputValue(startsAtLocal) || Date.now()))
-    const iso = buildSlotDateTime(dayKey, hour, 0)
-    setStartsAtLocal(toLocalDateTimeInputValue(iso))
+    const dayKey = toDateKey(
+      new Date(fromLocalDateTimeInputValue(startsAtLocal) || Date.now()),
+    );
+    const iso = buildSlotDateTime(dayKey, hour, 0);
+    setStartsAtLocal(toLocalDateTimeInputValue(iso));
   }
 
   function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    const patient = patients.find((p) => p.id === patientId)
-    if (!patient) return
-    const startsAt = fromLocalDateTimeInputValue(startsAtLocal)
-    if (!startsAt) return
+    e.preventDefault();
+    const patient = patients.find((p) => p.id === patientId);
+    if (!patient) return;
+    const startsAt = fromLocalDateTimeInputValue(startsAtLocal);
+    if (!startsAt) return;
     onSave({
       patientId: patient.id,
       patientName: patient.name,
-      title: title.trim() || 'Consulta',
+      title: title.trim() || "Consulta",
       startsAt,
       durationMin: Number(durationMin) || 60,
       notes: notes.trim(),
-    })
+    });
   }
 
-  const titleText = editing ? 'Editar agendamento' : 'Agendar paciente'
+  const titleText = editing ? "Editar agendamento" : "Agendar paciente";
 
   return (
     <AnimatedDialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose()
+        if (!next) onClose();
       }}
       title={titleText}
       contentClassName={`modal-card ${styles.card}`}
@@ -128,7 +130,12 @@ export function AgendaAppointmentModal({
           <h2 id="agenda-modal-title">{titleText}</h2>
           {selectedPatient?.name ? <p>{selectedPatient.name}</p> : null}
         </div>
-        <button type="button" className={styles.close} onClick={onClose} aria-label="Fechar">
+        <button
+          type="button"
+          className={styles.close}
+          onClick={onClose}
+          aria-label="Fechar"
+        >
           <X size={18} />
         </button>
       </header>
@@ -181,7 +188,7 @@ export function AgendaAppointmentModal({
                   className={styles.hourBtn}
                   onClick={() => applyQuickHour(hour)}
                 >
-                  {String(hour).padStart(2, '0')}:00
+                  {String(hour).padStart(2, "0")}:00
                 </button>
               ))}
             </div>
@@ -225,7 +232,12 @@ export function AgendaAppointmentModal({
             <span />
           )}
           <div className={styles.actions}>
-            <button type="button" className="btn-secondary" disabled={saving} onClick={onClose}>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={saving}
+              onClick={onClose}
+            >
               Cancelar
             </button>
             <button
@@ -233,11 +245,11 @@ export function AgendaAppointmentModal({
               className="btn-primary"
               disabled={saving || !patientId}
             >
-              {saving ? 'Salvando…' : editing ? 'Salvar' : 'Agendar'}
+              {saving ? "Salvando…" : editing ? "Salvar" : "Agendar"}
             </button>
           </div>
         </footer>
       </form>
     </AnimatedDialog>
-  )
+  );
 }

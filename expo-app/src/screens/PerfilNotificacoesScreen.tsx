@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Bell, BookOpen, CalendarCheck, Sparkles, Users } from 'lucide-react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Bell, BookOpen, CalendarCheck, Sparkles, UtensilsCrossed, Users } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -12,6 +12,7 @@ const TYPE_ICONS: Record<string, typeof Bell> = {
   checkin: CalendarCheck,
   community: Users,
   content: BookOpen,
+  meal: UtensilsCrossed,
   general: Bell,
 };
 
@@ -20,6 +21,7 @@ const TYPE_COLORS: Record<string, { bg: string; fg: string }> = {
   checkin: { bg: '#eff6ff', fg: '#2563eb' },
   community: { bg: '#fdf4ff', fg: '#9333ea' },
   content: { bg: '#fff7ed', fg: '#ea580c' },
+  meal: { bg: '#f0fdf4', fg: '#15803d' },
   general: { bg: '#f3f4f6', fg: '#4b5563' },
 };
 
@@ -76,6 +78,9 @@ export default function PerfilNotificacoesScreen() {
                     <View style={styles.body}>
                       <Text style={styles.title}>{item.title}</Text>
                       <Text style={styles.text}>{item.body}</Text>
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={styles.image} />
+                      ) : null}
                       <Text style={styles.time}>{formatNotificationTime(item.createdAt)}</Text>
                     </View>
                     {!item.read ? <View style={styles.dot} /> : null}
@@ -109,6 +114,13 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   title: { fontFamily: fonts.bold, fontSize: 14 },
   text: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, marginTop: 2, lineHeight: 18 },
+  image: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    marginTop: 8,
+    backgroundColor: colors.border,
+  },
   time: { fontFamily: fonts.medium, fontSize: 12, color: '#6b7280', marginTop: 4 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginTop: 6 },
 });

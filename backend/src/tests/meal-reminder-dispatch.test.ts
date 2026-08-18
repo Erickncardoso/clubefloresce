@@ -7,7 +7,7 @@ import {
   parseTimeToMinutes,
 } from "../utils/meal-time";
 import { mealReminderSourceKey } from "../services/meal-reminder-dispatch.service";
-import { isMealRemindersEnabled, resolvePatientTimezone } from "../services/patient-preferences.service";
+import { isMealRemindersEnabled, isDiarySocialPushEnabled, resolvePatientTimezone } from "../services/patient-preferences.service";
 import {
   buildMealReminderBody,
   buildMealReminderTitle,
@@ -39,6 +39,11 @@ test("preferences: usa fuso padrão quando ausente", () => {
 test("preferences: lembretes ativos por padrão", () => {
   assert.equal(isMealRemindersEnabled({}), true);
   assert.equal(isMealRemindersEnabled({ mealRemindersEnabled: false }), false);
+});
+
+test("preferences: curtidas do diário ativas por padrão", () => {
+  assert.equal(isDiarySocialPushEnabled({}), true);
+  assert.equal(isDiarySocialPushEnabled({ diarySocialPushEnabled: false }), false);
 });
 
 test("mealReminderSourceKey: chave única por dia, slot e usuária", () => {

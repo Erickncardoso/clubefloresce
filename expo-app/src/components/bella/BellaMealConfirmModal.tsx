@@ -15,6 +15,7 @@ import {
   sumMealItems,
   type MealDiaryItem,
 } from '@/lib/meal-diary';
+import { patientAssets } from '@/lib/patient-assets';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -97,9 +98,10 @@ export default function BellaMealConfirmModal({
       <View style={styles.sheet}>
         <View style={styles.handle} />
         <View style={styles.head}>
+          <Image source={patientAssets.bellaAvatar} style={styles.bellaAvatar} />
           <View style={styles.headCopy}>
-            <Text style={styles.kicker}>{draft.mealLabel || 'Refeição'}</Text>
-            <Text style={styles.title}>Confirmar prato</Text>
+            <Text style={styles.kicker}>Bella · {draft.mealLabel || 'Refeição'}</Text>
+            <Text style={styles.title}>O que tem no seu prato</Text>
           </View>
           <Pressable onPress={onCancel} hitSlop={8} style={styles.closeBtn}>
             <X color={colors.textMuted} size={18} />
@@ -121,7 +123,7 @@ export default function BellaMealConfirmModal({
             />
           </View>
 
-          <Text style={styles.sectionLabel}>Ingredientes detectados</Text>
+          <Text style={styles.sectionLabel}>A Bella encontrou</Text>
           {items.map((item, index) => (
             <View key={item.id || `${item.name}-${index}`} style={styles.itemRow}>
               <TextInput
@@ -191,6 +193,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   headCopy: { flex: 1 },
+  bellaAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    marginRight: spacing[3],
+  },
   kicker: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
   title: { fontFamily: fonts.bold, fontSize: 18, color: colors.text, marginTop: 2 },
   closeBtn: {

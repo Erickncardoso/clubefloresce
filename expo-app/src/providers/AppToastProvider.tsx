@@ -8,23 +8,20 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/tokens';
-import { toastError as buildToastError, toastSuccess as buildToastSuccess } from '@/lib/app-toast';
+import {
+  toastError as buildToastError,
+  toastSuccess as buildToastSuccess,
+  type AppToastPayload,
+  type AppToastType,
+} from '@/lib/app-toast';
 
-export type AppToastType = 'success' | 'error' | 'call';
+export type { AppToastPayload, AppToastType };
 
-export type AppToastPayload = {
-  type?: AppToastType;
-  title?: string;
-  message?: string;
-  detail?: string;
-  duration?: number;
-};
-
-type ToastState = AppToastPayload & {
+type ToastState = Omit<AppToastPayload, 'onAction'> & {
   id: number;
 };
 
@@ -39,10 +36,10 @@ const AppToastContext = createContext<AppToastContextValue | null>(null);
 
 function AppToastBanner({
   toast,
-  onHide,
+  onAction,
 }: {
   toast: ToastState | null;
-  onHide: () => void;
+  onAction: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-120)).current;
@@ -83,14 +80,17 @@ function AppToastBanner({
 
   const isError = type === 'error';
   const isCall = type === 'call';
+  const actionable = Boolean(isCall && toast.actionLabel);
 
   return (
     <Animated.View
-      pointerEvents="box-none"
+      pointerEvents={actionable ? 'box-none' : 'none'}
+      accessibilityRole="alert"
       style={[
         styles.host,
         isError ? styles.hostError : styles.hostSuccess,
         isCall && styles.hostCall,
+        actionable && styles.hostActionable,
         {
           paddingTop: Math.max(insets.top, 8),
           transform: [{ translateY }],
@@ -100,8 +100,8 @@ function AppToastBanner({
     >
       <Pressable
         style={styles.inner}
-        accessibilityRole="alert"
-        onPress={onHide}
+        disabled={!actionable}
+        onPress={actionable ? onAction : undefined}
       >
         <View style={styles.row}>
           {isCall ? (
@@ -140,6 +140,12 @@ function AppToastBanner({
               </Text>
             ) : null}
           </View>
+
+          {toast.actionLabel ? (
+            <Pressable style={styles.cta} onPress={onAction} accessibilityRole="button">
+              <Text style={styles.ctaText}>{toast.actionLabel}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </Pressable>
     </Animated.View>
@@ -149,14 +155,22 @@ function AppToastBanner({
 export function AppToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionRef = useRef<(() => void) | null>(null);
 
   const hideToast = useCallback(() => {
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
+    actionRef.current = null;
     setToast(null);
   }, []);
+
+  const runAction = useCallback(() => {
+    const action = actionRef.current;
+    hideToast();
+    action?.();
+  }, [hideToast]);
 
   const showToast = useCallback((payload: AppToastPayload = {}) => {
     if (hideTimerRef.current) {
@@ -164,6 +178,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
       hideTimerRef.current = null;
     }
 
+    actionRef.current = payload.onAction ?? null;
     const duration = payload.duration ?? 4500;
     const nextToast: ToastState = {
       id: Date.now(),
@@ -172,12 +187,14 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
       message: payload.message || '',
       detail: payload.detail || '',
       duration,
+      actionLabel: payload.actionLabel || '',
     };
 
     setToast(nextToast);
 
     if (duration > 0) {
       hideTimerRef.current = setTimeout(() => {
+        actionRef.current = null;
         setToast(null);
         hideTimerRef.current = null;
       }, duration);
@@ -203,18 +220,12 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppToastContext.Provider value={value}>
-      {children}
-      <Modal
-        visible={Boolean(toast)}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        onRequestClose={hideToast}
-      >
-        <View style={styles.modalRoot} pointerEvents="box-none">
-          <AppToastBanner toast={toast} onHide={hideToast} />
+      <View style={styles.root}>
+        {children}
+        <View style={styles.overlay} pointerEvents="box-none">
+          <AppToastBanner toast={toast} onAction={runAction} />
         </View>
-      </Modal>
+      </View>
     </AppToastContext.Provider>
   );
 }
@@ -228,8 +239,13 @@ export function useAppToast() {
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
+  root: {
     flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 99999,
+    elevation: 99999,
   },
   host: {
     position: 'absolute',
@@ -249,6 +265,9 @@ const styles = StyleSheet.create({
   },
   hostCall: {
     backgroundColor: '#5cdb95',
+  },
+  hostActionable: {
+    minHeight: 48,
   },
   hostError: {
     backgroundColor: '#ef4444',
@@ -326,5 +345,19 @@ const styles = StyleSheet.create({
   },
   subtitleError: {
     color: 'rgba(255, 255, 255, 0.92)',
+  },
+  cta: {
+    marginLeft: 'auto',
+    minHeight: 32,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15, 26, 20, 0.16)',
+    flexShrink: 0,
+  },
+  ctaText: {
+    fontFamily: fonts.extrabold,
+    fontSize: 12,
+    color: '#0f1a14',
   },
 });

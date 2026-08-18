@@ -42,6 +42,12 @@ export type MealPlanFoodItem = {
   proteinG?: number;
   fatG?: number;
   source?: string;
+  per100g?: {
+    caloriesKcal?: number | null;
+    proteinG?: number | null;
+    carbsG?: number | null;
+    fatG?: number | null;
+  } | null;
 };
 
 export type MealPlanMeal = {

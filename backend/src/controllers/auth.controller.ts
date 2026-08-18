@@ -196,9 +196,13 @@ export class AuthController {
         return res.status(401).json({ message: "Usuário não autenticado." });
       }
 
-      const user = await authService.updateMyProfile(req.user.id, {
-        name: req.body?.name,
-      });
+      const body = req.body ?? {};
+      const input: { name?: string; phone?: string | null } = {};
+
+      if (body.name !== undefined) input.name = body.name;
+      if (body.phone !== undefined) input.phone = body.phone;
+
+      const user = await authService.updateMyProfile(req.user.id, input);
 
       const { invalidateAuthUserCache } = await import("../middleware/auth.middleware");
       invalidateAuthUserCache(req.user.id);

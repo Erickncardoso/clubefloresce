@@ -115,6 +115,55 @@ export class FoodDiaryController {
     }
   }
 
+  async getPatientFeed(req: Request, res: Response): Promise<any> {
+    try {
+      const limit = Number(req.query.limit) || 18;
+      const skip = Number(req.query.skip) || 0;
+      const data = await foodDiaryService.getPatientFeed(req.user!.id, limit, skip);
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+
+  async getOwnEntrySocial(req: Request, res: Response): Promise<any> {
+    try {
+      const data = await foodDiaryService.getEntrySocial(req.params.entryId, req.user!.id);
+      return res.json(data);
+    } catch (error: any) {
+      const status = /não encontrada/i.test(error.message) ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async addOwnEntryComment(req: Request, res: Response): Promise<any> {
+    try {
+      const comment = await foodDiaryService.addEntryComment(
+        req.params.entryId,
+        req.user!.id,
+        req.body?.content,
+        req.user!.id,
+      );
+      return res.status(201).json(comment);
+    } catch (error: any) {
+      const status = /não encontrada/i.test(error.message) ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
+  async listOwnEntryComments(req: Request, res: Response): Promise<any> {
+    try {
+      const comments = await foodDiaryService.listEntryComments(
+        req.params.entryId,
+        req.user!.id,
+      );
+      return res.json({ comments });
+    } catch (error: any) {
+      const status = /não encontrada/i.test(error.message) ? 404 : 400;
+      return res.status(status).json({ message: error.message });
+    }
+  }
+
   async getAdminFeed(req: Request, res: Response): Promise<any> {
     try {
       const limit = Number(req.query.limit) || 18;

@@ -1,10 +1,8 @@
 import { randomUUID } from "crypto";
 import { OpenAIClient, buildImageDataUrl } from "./openai.client";
-import { buildUserContext } from "./context-builder";
-import { BELLA_MEMORY_RULES } from "./memory-rules";
+import { UserRepository } from "../../repositories/user.repository";
+import { firstName } from "./patient-context-helpers";
 import { getModelForTask } from "./model-config";
-import { buildAiKnowledgeContext } from "../ai/ai-knowledge-context";
-import type { UserContextSnapshot } from "./types";
 import type { MealAnalysisDraft, MealItemDraft } from "../../types/food-diary.types";
 import { round1, sumItems } from "./meal-item-math";
 import { enrichMealItemsWithFoodBank, recalculateMealTotals } from "./meal-food-enricher";
@@ -12,14 +10,15 @@ import { enrichMealItemsWithFoodBank, recalculateMealTotals } from "./meal-food-
 export { sumItems, scaleItemGrams } from "./meal-item-math";
 
 const llm = new OpenAIClient();
+const userRepository = new UserRepository();
 
-function buildMealJsonPrompt(ctx: UserContextSnapshot, userQuestion: string): string {
-  return `${BELLA_MEMORY_RULES}
+function buildMealJsonPrompt(firstName: string, userQuestion: string): string {
+  return `Você analisa a FOTO do prato de ${firstName}, nutricionista virtual do Clube Florescer.
 
-${ctx.verifiedMemory}
-
-Você analisa fotos de pratos para ${ctx.firstName}, nutricionista virtual do Clube Florescer.
-Use a memória verificada acima. Não invente alimentos já registrados hoje nem itens do plano que não estão na foto.
+Regra principal: descreva SOMENTE o que aparece na imagem.
+- NÃO use plano alimentar, diário, refeições típicas nem memória da paciente para completar o prato.
+- Se um alimento não estiver visível, não liste.
+- Não troque o que está na foto por itens prescritos.
 
 Retorne SOMENTE um JSON válido (sem markdown) neste formato:
 {
@@ -43,14 +42,13 @@ Regras:
   - arroz integral cozido → "Arroz, integral, cozido"
   - feijão carioca cozido → "Feijão, carioca, cozido"
   - frango grelhado → "Frango, peito, sem pele, grelhado"
-- Preencha apenas "grams" (porção estimada em gramas). Calorias e macros serão calculados pela base de alimentos quando houver correspondência.
-- Se não reconhecer o alimento ou não houver equivalente na TBCA/TACO, ainda informe name e grams; deixe caloriesKcal, carbsG, proteinG e fatG como estimativa coerente.
-- Se identificar um prato preparado ou receita (bolo, lasanha, strogonoff, pizza, sanduíche, feijoada etc.), NÃO trate como um único alimento genérico: liste cada ingrediente visível ou separável (ex.: arroz, feijão, frango) em itens distintos. Se não conseguir separar, use um nome descritivo e em "notes" avise para o paciente cadastrar ingrediente por ingrediente.
-- Não invente itens invisíveis.
+- Preencha "grams" (porção estimada em gramas). Calorias e macros serão recalculados pela base de alimentos quando houver correspondência.
+- Se não reconhecer o alimento, ainda informe name e grams; estime caloriesKcal, carbsG, proteinG e fatG.
+- Se identificar um prato preparado (bolo, lasanha, strogonoff, pizza, sanduíche, feijoada etc.), liste cada ingrediente visível ou separável. Se não conseguir separar, use um nome descritivo e avise em "notes".
 - Se a foto não mostrar comida, retorne "items": [] e explique em "notes".
 - Mínimo 1 item quando houver comida reconhecível.
 
-Pergunta do paciente: ${userQuestion || "Estime gramas e nutrientes de cada item do prato."}`;
+Pergunta da paciente: ${userQuestion || "Estime gramas e nutrientes de cada item visível nesta foto."}`;
 }
 
 function parseAnalysisJson(raw: string): MealAnalysisDraft {
@@ -102,27 +100,16 @@ export async function analyzeMealStructured(
   buffer: Buffer,
   mimeType: string,
   userQuestion: string,
-  patientDateKey?: string,
+  _patientDateKey?: string,
 ): Promise<MealAnalysisDraft> {
   if (!llm.isEnabled()) {
     throw new Error("Análise de prato por foto requer OpenAI configurada no servidor.");
   }
 
-  const ctx = await buildUserContext(userId, patientDateKey);
+  const user = await userRepository.findById(userId);
   const model = getModelForTask("image");
   const dataUrl = buildImageDataUrl(buffer, mimeType);
-  const knowledgeBlock = await buildAiKnowledgeContext({
-    userId,
-    query: userQuestion || "análise de prato alimentos TBCA TACO",
-    topic: "meal",
-    sourceTypes: ["food", "meal_plan", "nutri_note"],
-    limit: 3,
-  });
-
-  const systemPrompt = [
-    buildMealJsonPrompt(ctx, userQuestion),
-    knowledgeBlock,
-  ].filter(Boolean).join("\n\n");
+  const systemPrompt = buildMealJsonPrompt(firstName(user?.name || "você"), userQuestion);
 
   const completion = await llm.complete({
     messages: [

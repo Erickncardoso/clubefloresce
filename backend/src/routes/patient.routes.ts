@@ -84,10 +84,22 @@ router.get(
   controller.getMyActiveVideoCall.bind(controller),
 );
 router.get(
+  "/me/video-call/:callId/peek",
+  authenticate,
+  authorize(["PACIENTE"]),
+  controller.peekMyVideoCall.bind(controller),
+);
+router.get(
   "/me/video-call/:callId",
   authenticate,
   authorize(["PACIENTE"]),
   controller.joinMyVideoCall.bind(controller),
+);
+router.post(
+  "/me/video-call/:callId/decline",
+  authenticate,
+  authorize(["PACIENTE"]),
+  controller.declineMyVideoCall.bind(controller),
 );
 router.post(
   "/me/video-call/:callId/end",

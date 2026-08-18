@@ -16,6 +16,9 @@ type Props = {
   light?: boolean;
   hideBrand?: boolean;
   style?: ViewStyle;
+  /** Conteúdo à esquerda, após menu/voltar (ex.: streak na home). */
+  leadingActions?: ReactNode;
+  /** Conteúdo à direita, antes do sino (ex.: avatar). */
   actions?: ReactNode;
   subtitle?: string;
 };
@@ -31,6 +34,7 @@ export default function PatientHeader({
   light = false,
   hideBrand = false,
   style,
+  leadingActions,
   actions,
   subtitle,
 }: Props) {
@@ -97,7 +101,10 @@ export default function PatientHeader({
       ]}
     >
       <View style={styles.row}>
-        <View style={styles.start}>{renderStart()}</View>
+        <View style={styles.start}>
+          {renderStart()}
+          {leadingActions ? <View style={styles.leadingActions}>{leadingActions}</View> : null}
+        </View>
 
         <View style={styles.brand} pointerEvents="none">
           {title ? (
@@ -108,9 +115,8 @@ export default function PatientHeader({
         </View>
 
         <View style={styles.end}>
-          {actions ? (
-            <View style={styles.iconBtn}>{actions}</View>
-          ) : showBell ? (
+          {actions ? <View style={styles.endActions}>{actions}</View> : null}
+          {showBell ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Notificações"
@@ -128,9 +134,9 @@ export default function PatientHeader({
             >
               <Menu color={fg} size={20} strokeWidth={1.75} />
             </Pressable>
-          ) : (
+          ) : !actions ? (
             <View style={styles.startSpacer} />
-          )}
+          ) : null}
         </View>
       </View>
       {subtitle ? <Text style={[styles.subtitle, { color: muted }]}>{subtitle}</Text> : null}
@@ -153,16 +159,30 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     minHeight: 44,
   },
   start: {
-    minWidth: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
     zIndex: 1,
   },
+  leadingActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   end: {
-    minWidth: 44,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexShrink: 0,
+    marginLeft: 'auto',
     zIndex: 1,
+  },
+  endActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   brand: {
     ...StyleSheet.absoluteFillObject,

@@ -1,6 +1,15 @@
 import { PushSubscriptionRepository } from "../repositories/push-subscription.repository";
 import { ensureVapidConfigured, getVapidPublicKey, webpush } from "../utils/vapid-config";
-import { PatientPreferencesService } from "./patient-preferences.service";
+import {
+  expoEndpointFromToken,
+  expoTokenFromEndpoint,
+  isExpoPushEndpoint,
+  isExpoPushToken,
+  sendExpoPushMessage,
+} from "../utils/expo-push";
+import { PatientPreferencesService, isPushCategoryEnabled } from "./patient-preferences.service";
+import { prisma } from "../lib/prisma";
+import type { PatientProfileData } from "../types/patient-profile.types";
 
 const repo = new PushSubscriptionRepository();
 const preferencesService = new PatientPreferencesService();
@@ -10,6 +19,10 @@ export type PushMessage = {
   body: string;
   url?: string | null;
   tag?: string | null;
+  imageUrl?: string | null;
+  categoryId?: string | null;
+  buttonLabel?: string | null;
+  type?: string | null;
 };
 
 export type PushSubscribePayload = {
@@ -61,41 +74,117 @@ export class PushNotificationService {
       subscribed: count > 0,
       deviceCount: count,
       mealRemindersEnabled: preferences.mealRemindersEnabled,
+      diarySocialPushEnabled: preferences.diarySocialPushEnabled,
+      pushCategories: preferences.pushCategories,
       timezone: preferences.timezone,
     };
+  }
+
+  async subscribeExpoToken(userId: string, token: string, userAgent?: string) {
+    const normalized = String(token || "").trim();
+    if (!isExpoPushToken(normalized)) {
+      throw new Error("Token Expo inválido.");
+    }
+
+    return repo.upsert({
+      userId,
+      endpoint: expoEndpointFromToken(normalized),
+      p256dh: "expo",
+      auth: "expo",
+      userAgent: userAgent?.trim() || "expo-ios",
+    });
+  }
+
+  async unsubscribeExpoToken(userId: string, token: string) {
+    const endpoint = expoEndpointFromToken(token);
+    if (!endpoint) throw new Error("Token inválido.");
+    await repo.deleteByEndpoint(userId, endpoint);
   }
 
   async syncTimezone(userId: string, timeZone?: string | null) {
     await preferencesService.syncTimezone(userId, timeZone);
   }
 
-  async updatePreferences(userId: string, input: { mealRemindersEnabled?: boolean }) {
+  async updatePreferences(
+    userId: string,
+    input: {
+      mealRemindersEnabled?: boolean;
+      diarySocialPushEnabled?: boolean;
+      categories?: Record<string, boolean>;
+    },
+  ) {
+    if (input.categories && typeof input.categories === "object") {
+      await preferencesService.setPushCategories(userId, input.categories);
+    }
     if (typeof input.mealRemindersEnabled === "boolean") {
       await preferencesService.setMealRemindersEnabled(userId, input.mealRemindersEnabled);
+    }
+    if (typeof input.diarySocialPushEnabled === "boolean") {
+      await preferencesService.setDiarySocialPushEnabled(userId, input.diarySocialPushEnabled);
     }
     return preferencesService.getPreferences(userId);
   }
 
   async sendToUser(userId: string, message: PushMessage) {
-    if (!ensureVapidConfigured()) return { sent: 0, failed: 0 };
+    if (message.type) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { patientProfileData: true },
+      });
+      const profile = (user?.patientProfileData || {}) as PatientProfileData;
+      if (!isPushCategoryEnabled(profile, message.type)) {
+        return { sent: 0, failed: 0 };
+      }
+    }
 
     const subscriptions = await repo.listByUser(userId);
     if (!subscriptions.length) return { sent: 0, failed: 0 };
 
-    const payload = JSON.stringify({
-      title: message.title,
-      body: message.body,
-      url: message.url || "/perfil/notificacoes",
-      tag: message.tag || undefined,
-      icon: "/pwa/icon-192.png",
-    });
-
+    const vapidReady = ensureVapidConfigured();
     let sent = 0;
     let failed = 0;
 
     await Promise.all(
       subscriptions.map(async (sub) => {
         try {
+          if (isExpoPushEndpoint(sub.endpoint)) {
+            const result = await sendExpoPushMessage({
+              token: expoTokenFromEndpoint(sub.endpoint),
+              title: message.title,
+              body: message.body,
+              url: message.url,
+              tag: message.tag,
+              imageUrl: message.imageUrl,
+              categoryId: message.categoryId,
+            });
+            if (result.deviceNotRegistered) {
+              await repo.deleteByEndpoint(userId, sub.endpoint);
+              failed += 1;
+              return;
+            }
+            if (!result.ok) {
+              failed += 1;
+              return;
+            }
+            sent += 1;
+            return;
+          }
+
+          if (!vapidReady) {
+            failed += 1;
+            return;
+          }
+
+          const payload = JSON.stringify({
+            title: message.title,
+            body: message.body,
+            url: message.url || "/perfil/notificacoes",
+            tag: message.tag || undefined,
+            icon: message.imageUrl || "/pwa/icon-192.png",
+            image: message.imageUrl || undefined,
+            buttonLabel: message.buttonLabel || undefined,
+          });
+
           await webpush.sendNotification(
             {
               endpoint: sub.endpoint,

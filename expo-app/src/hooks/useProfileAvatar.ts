@@ -1,10 +1,28 @@
 import { useCallback, useState } from 'react';
+import { Platform } from 'react-native';
+import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import { getApiBase, NATIVE_CLIENT_HEADER } from '@/config/env';
 import { patientTimeHeaders } from '@/lib/patient-local-time';
 import { useAuth } from '@/providers/AuthProvider';
 
 const MAX_BYTES = 8 * 1024 * 1024;
+const CAMERA_SIMULATOR_MESSAGE =
+  'A câmera não está disponível no simulador. Use a galeria ou teste em um iPhone físico.';
+
+function isCameraUnavailableError(err: unknown): boolean {
+  const message = String((err as Error)?.message || err || '').toLowerCase();
+  return message.includes('simulator') || message.includes('not available');
+}
+
+function canReadMediaLibrary(permission: ImagePicker.MediaLibraryPermissionResponse): boolean {
+  return permission.granted || permission.accessPrivileges === 'limited';
+}
+
+function imagePickerPresentationStyle(): ImagePicker.UIImagePickerPresentationStyle | undefined {
+  if (Platform.OS !== 'ios') return undefined;
+  return ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN;
+}
 
 export function useProfileAvatar() {
   const { token, refreshUser } = useAuth();
@@ -41,44 +59,105 @@ export function useProfileAvatar() {
     return body;
   }, [refreshUser, token]);
 
-  const pickAndUpload = useCallback(async () => {
+  const pickAndUploadFromSource = useCallback(async (fromCamera: boolean) => {
     setMessage('');
     setError(false);
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError(true);
-      setMessage('Permita acesso à galeria para alterar a foto.');
-      return;
-    }
+    const useCamera = fromCamera && Device.isDevice;
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
-
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-
-    const asset = result.assets[0];
-    if (asset.fileSize && asset.fileSize > MAX_BYTES) {
-      setError(true);
-      setMessage('A imagem deve ter no máximo 8 MB.');
-      return;
-    }
-
-    setUploading(true);
     try {
-      await uploadAvatarUri(asset.uri, asset.mimeType || 'image/jpeg');
-      setMessage('Foto atualizada.');
+      const permission = useCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      const hasPermission = useCamera
+        ? permission.granted
+        : canReadMediaLibrary(permission as ImagePicker.MediaLibraryPermissionResponse);
+
+      if (!hasPermission) {
+        setError(true);
+        setMessage(
+          useCamera
+            ? 'Permita acesso à câmera para tirar uma foto.'
+            : 'Permita acesso à galeria para alterar a foto.',
+        );
+        return false;
+      }
+
+      const pickerOptions = {
+        mediaTypes: ['images'] as ImagePicker.MediaType[],
+        allowsEditing: true,
+        aspect: [1, 1] as [number, number],
+        quality: 0.85,
+        presentationStyle: imagePickerPresentationStyle(),
+      };
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync(pickerOptions)
+        : await ImagePicker.launchImageLibraryAsync(pickerOptions);
+
+      if (result.canceled || !result.assets?.[0]?.uri) return false;
+
+      const asset = result.assets[0];
+      if (asset.fileSize && asset.fileSize > MAX_BYTES) {
+        setError(true);
+        setMessage('A imagem deve ter no máximo 8 MB.');
+        return false;
+      }
+
+      setUploading(true);
+      try {
+        await uploadAvatarUri(asset.uri, asset.mimeType || 'image/jpeg');
+        if (fromCamera && !Device.isDevice) {
+          setMessage('Foto atualizada. (No simulador usamos a galeria.)');
+        } else {
+          setMessage('Foto atualizada.');
+        }
+        return true;
+      } catch (err) {
+        setError(true);
+        setMessage((err as Error).message || 'Não foi possível atualizar a foto.');
+        return false;
+      } finally {
+        setUploading(false);
+      }
     } catch (err) {
       setError(true);
-      setMessage((err as Error).message || 'Não foi possível atualizar a foto.');
-    } finally {
-      setUploading(false);
+      if (useCamera && isCameraUnavailableError(err)) {
+        setMessage(CAMERA_SIMULATOR_MESSAGE);
+      } else {
+        setMessage(
+          useCamera
+            ? 'Não foi possível abrir a câmera.'
+            : 'Não foi possível abrir a galeria.',
+        );
+      }
+      return false;
     }
   }, [uploadAvatarUri]);
 
-  return { uploading, message, error, pickAndUpload, clearMessage: () => { setMessage(''); setError(false); } };
+  const pickFromGallery = useCallback(
+    () => pickAndUploadFromSource(false),
+    [pickAndUploadFromSource],
+  );
+
+  const takePhoto = useCallback(
+    () => pickAndUploadFromSource(true),
+    [pickAndUploadFromSource],
+  );
+
+  const pickAndUpload = pickFromGallery;
+
+  return {
+    uploading,
+    message,
+    error,
+    pickFromGallery,
+    takePhoto,
+    pickAndUpload,
+    clearMessage: () => {
+      setMessage('');
+      setError(false);
+    },
+  };
 }

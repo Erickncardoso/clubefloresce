@@ -2,14 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { markCheckinDraftStarted } from '@/notifications/registry';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight, Check, ChevronUp } from 'lucide-react-native';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -87,6 +89,7 @@ export default function CheckinTypeformFlow({
   onSubmit,
 }: Props) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const flowSteps = useMemo(
     () => (steps.length ? steps : []).map(normalizeStep),
     [steps],
@@ -203,17 +206,34 @@ export default function CheckinTypeformFlow({
     ? (Number(form[currentStep.id] ?? 0) === 1 ? 'litro' : 'litros')
     : (currentStep.unit || '');
 
+  const isTextStep = stepType === 'text';
+  const showFooter = stepIndex > 0
+    || (stepType !== 'text' && (stepType === 'water' || stepType === 'number' || isLastStep));
+
+  const Root = isTextStep ? KeyboardAvoidingView : View;
+  const rootProps = isTextStep
+    ? { behavior: Platform.OS === 'ios' ? 'padding' as const : undefined }
+    : {};
+
   return (
-    <View style={styles.root}>
+    <Root
+      style={[styles.root, { paddingTop: Math.max(insets.top, 8) }]}
+      {...rootProps}
+    >
       <View style={styles.progressTrack} accessibilityRole="progressbar">
         <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
       </View>
 
-      <Text style={styles.counter}>{stepIndex + 1} / {flowSteps.length}</Text>
+      <View style={styles.top}>
+        <Text style={styles.counter}>{stepIndex + 1} / {flowSteps.length}</Text>
+      </View>
 
-      <ScrollView contentContainerStyle={styles.main} keyboardShouldPersistTaps="handled">
-        <Text style={styles.question}>{currentStep.question}</Text>
-        {currentStep.hint ? <Text style={styles.hint}>{currentStep.hint}</Text> : null}
+      <View style={[styles.stage, isTextStep ? styles.stageText : styles.stageCentered]}>
+        <View style={[styles.step, isTextStep && styles.stepText]}>
+          <Text style={[styles.question, isTextStep && styles.questionText]}>{currentStep.question}</Text>
+          {currentStep.hint ? (
+            <Text style={[styles.hint, isTextStep && styles.hintText]}>{currentStep.hint}</Text>
+          ) : null}
 
         {stepType === 'food' ? (
           <View style={styles.foodRow}>
@@ -321,13 +341,17 @@ export default function CheckinTypeformFlow({
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {showHistoryLink && stepIndex === 0 ? (
-          <Pressable onPress={() => router.push('/check-in/historico' as never)}>
+          <Pressable
+            style={styles.historyWrap}
+            onPress={() => router.push('/check-in/historico' as never)}
+          >
             <Text style={styles.historyLink}>Ver histórico</Text>
           </Pressable>
         ) : null}
-      </ScrollView>
+        </View>
+      </View>
 
-      {(stepIndex > 0 || (stepType !== 'text' && (stepType === 'water' || stepType === 'number' || isLastStep))) ? (
+      {showFooter ? (
         <View style={styles.footer}>
           {stepIndex > 0 ? (
             <Pressable style={styles.backBtn} onPress={() => setStepIndex((i) => i - 1)}>
@@ -360,43 +384,80 @@ export default function CheckinTypeformFlow({
           <Text style={styles.busyText}>Enviando check-in...</Text>
         </View>
       ) : null}
-    </View>
+    </Root>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    paddingHorizontal: spacing[5],
+  },
   progressTrack: {
-    height: 4,
+    height: 3,
+    marginHorizontal: -spacing[5],
     backgroundColor: colors.track,
   },
   progressFill: {
     height: '100%',
     backgroundColor: colors.primary,
   },
+  top: {
+    alignItems: 'flex-end',
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
   counter: {
-    paddingHorizontal: spacing[4],
-    paddingTop: spacing[3],
-    fontFamily: fonts.medium,
+    fontFamily: fonts.semibold,
     fontSize: 12,
     color: colors.textMuted,
+    fontVariant: ['tabular-nums'],
   },
-  main: {
-    padding: spacing[5],
-    paddingBottom: spacing[8],
+  stage: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+  },
+  stageCentered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stageText: {
+    justifyContent: 'flex-start',
+    paddingTop: spacing[2],
+  },
+  step: {
+    width: '100%',
+    alignItems: 'center',
     gap: spacing[4],
+  },
+  stepText: {
+    alignItems: 'stretch',
   },
   question: {
     fontFamily: fonts.bold,
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.4,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  questionText: {
+    textAlign: 'left',
     fontSize: 24,
     lineHeight: 30,
-    color: colors.text,
   },
   hint: {
     fontFamily: fonts.regular,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
     color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing[3],
+  },
+  hintText: {
+    textAlign: 'left',
   },
   foodRow: {
     flexDirection: 'row',
@@ -439,7 +500,7 @@ const styles = StyleSheet.create({
   stepperValue: { alignItems: 'center', minWidth: 100 },
   stepperStrong: { fontFamily: fonts.bold, fontSize: 32, color: colors.text },
   stepperUnit: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted },
-  choiceCol: { gap: spacing[2] },
+  choiceCol: { gap: spacing[2], width: '100%' },
   choiceBtn: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -482,8 +543,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing[4],
-    paddingBottom: spacing[4],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[2],
   },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: spacing[2] },
   backText: { fontFamily: fonts.medium, fontSize: 13, color: colors.textMuted },
@@ -503,12 +564,15 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   busyText: { fontFamily: fonts.medium, color: colors.textMuted },
+  historyWrap: {
+    paddingVertical: spacing[3],
+    alignItems: 'center',
+  },
   historyLink: {
     textAlign: 'center',
     color: colors.primaryDark,
     fontFamily: fonts.semibold,
     fontSize: 13,
-    marginTop: spacing[2],
   },
   error: { color: colors.error, fontFamily: fonts.medium, textAlign: 'center' },
   success: {

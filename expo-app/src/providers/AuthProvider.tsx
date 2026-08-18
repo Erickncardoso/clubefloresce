@@ -29,6 +29,9 @@ export type PatientProfileData = {
   targetWeightKg?: number | null;
   primaryGoal?: string | null;
   workoutsPerWeek?: string | null;
+  cpf?: string | null;
+  occupation?: string | null;
+  maritalStatus?: string | null;
 };
 
 type AuthContextValue = {
@@ -40,6 +43,8 @@ type AuthContextValue = {
   register: (payload: Record<string, unknown>) => Promise<{ user: PatientUser; redirectTo?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<PatientUser | null>;
+  updateProfileName: (name: string) => Promise<PatientUser>;
+  updateProfilePhone: (phone: string | null) => Promise<PatientUser>;
   fetchOnboarding: (force?: boolean) => Promise<OnboardingStatus | null>;
   saveProfile: (partial: PatientProfileData, options?: { complete?: boolean }) => Promise<OnboardingStatus>;
   resolvePostLoginRoute: () => Promise<string>;
@@ -107,6 +112,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return userRef.current;
     }
   }, [token]);
+
+  const patchProfileMe = useCallback(async (body: { name?: string; phone?: string | null }) => {
+    const activeToken = token || (await getStoredToken());
+    if (!activeToken) throw new Error('Sessão expirada.');
+
+    const me = await apiFetch<PatientUser>('/auth/me', {
+      method: 'PATCH',
+      token: activeToken,
+      body: JSON.stringify(body),
+    });
+    setUser(me);
+    userRef.current = me;
+    if (me.id) await saveStoredUserId(me.id);
+    return me;
+  }, [token]);
+
+  const updateProfileName = useCallback(async (name: string) => {
+    return patchProfileMe({ name });
+  }, [patchProfileMe]);
+
+  const updateProfilePhone = useCallback(async (phone: string | null) => {
+    const digits = phone?.replace(/\D/g, '') || null;
+    return patchProfileMe({ phone: digits });
+  }, [patchProfileMe]);
 
   const fetchOnboarding = useCallback(async (force = false) => {
     if (!force && onboarding) return onboarding;
@@ -290,6 +319,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     refreshUser,
+    updateProfileName,
+    updateProfilePhone,
     fetchOnboarding,
     saveProfile,
     resolvePostLoginRoute,
@@ -305,6 +336,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     onboarding,
     refreshUser,
+    updateProfileName,
+    updateProfilePhone,
     register,
     resolvePostLoginRoute,
     saveProfile,

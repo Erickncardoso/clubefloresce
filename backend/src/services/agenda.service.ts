@@ -48,7 +48,10 @@ function listForNutri(store: StoreShape, nutriId: string): AgendaAppointment[] {
   return Array.isArray(store[nutriId]) ? store[nutriId] : [];
 }
 
-function normalizeAppointment(input: Partial<AgendaAppointment>, nutriId: string): AgendaAppointment | null {
+function normalizeAppointment(
+  input: Partial<AgendaAppointment>,
+  nutriId: string,
+): AgendaAppointment | null {
   const patientId = String(input.patientId || "").trim();
   const patientName = String(input.patientName || "").trim();
   const startsAt = String(input.startsAt || "").trim();
@@ -58,8 +61,14 @@ function normalizeAppointment(input: Partial<AgendaAppointment>, nutriId: string
   if (Number.isNaN(date.getTime())) return null;
 
   const now = new Date().toISOString();
-  const durationMin = Math.min(Math.max(Number(input.durationMin) || 60, 15), 240);
-  const status = input.status === "completed" || input.status === "cancelled" ? input.status : "scheduled";
+  const durationMin = Math.min(
+    Math.max(Number(input.durationMin) || 60, 15),
+    240,
+  );
+  const status =
+    input.status === "completed" || input.status === "cancelled"
+      ? input.status
+      : "scheduled";
 
   return {
     id: String(input.id || randomUUID()),
@@ -98,13 +107,21 @@ export async function listAgendaAppointments(
   const store = loadStore();
   const items = listForNutri(store, nutriId)
     .filter((item) => inRange(item.startsAt, options.from, options.to))
-    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    .sort(
+      (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+    );
 
   return items;
 }
 
-export async function searchAgendaAppointments(nutriId: string, query: string, limit = 20) {
-  const q = String(query || "").trim().toLowerCase();
+export async function searchAgendaAppointments(
+  nutriId: string,
+  query: string,
+  limit = 20,
+) {
+  const q = String(query || "")
+    .trim()
+    .toLowerCase();
   if (!q) return [];
 
   const store = loadStore();
@@ -114,7 +131,9 @@ export async function searchAgendaAppointments(nutriId: string, query: string, l
       const title = String(item.title || "").toLowerCase();
       return name.includes(q) || title.includes(q);
     })
-    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+    .sort(
+      (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+    )
     .slice(0, Math.min(Math.max(limit, 1), 50));
 }
 
@@ -153,7 +172,10 @@ export async function updateAgendaAppointment(
   if (index < 0) throw new Error("Agendamento não encontrado.");
 
   const current = list[index];
-  const merged = normalizeAppointment({ ...current, ...payload, id: current.id, createdAt: current.createdAt }, nutriId);
+  const merged = normalizeAppointment(
+    { ...current, ...payload, id: current.id, createdAt: current.createdAt },
+    nutriId,
+  );
   if (!merged) throw new Error("Dados do agendamento inválidos.");
 
   if (payload.patientId && payload.patientId !== current.patientId) {
@@ -177,7 +199,8 @@ export async function deleteAgendaAppointment(nutriId: string, id: string) {
   const store = loadStore();
   const list = listForNutri(store, nutriId);
   const next = list.filter((item) => item.id !== id);
-  if (next.length === list.length) throw new Error("Agendamento não encontrado.");
+  if (next.length === list.length)
+    throw new Error("Agendamento não encontrado.");
   store[nutriId] = next;
   saveStore(store);
   return { ok: true };

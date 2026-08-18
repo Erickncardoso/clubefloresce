@@ -23,6 +23,9 @@ type Props = {
   photoLimit?: number
   nutritionTarget?: NutritionTarget | null
   onNavigate?: (sub: string) => void
+  activeTab?: Tab
+  onActiveTabChange?: (tab: Tab) => void
+  hideToolbar?: boolean
 }
 
 const tabs: { id: Tab; label: string; Icon: React.ElementType }[] = [
@@ -50,14 +53,23 @@ export function PatientNutritionSection({
   photoLimit = 12,
   nutritionTarget = null,
   onNavigate,
+  activeTab: activeTabProp,
+  onActiveTabChange,
+  hideToolbar = false,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>('fotos')
+  const [internalTab, setInternalTab] = useState<Tab>('fotos')
+  const activeTab = activeTabProp ?? internalTab
+  const setActiveTab = (tab: Tab) => {
+    if (activeTabProp === undefined) setInternalTab(tab)
+    onActiveTabChange?.(tab)
+  }
 
   const navigateSub = evolucaoSubMap[activeTab]
   const navigateLabel = navigateLabelMap[activeTab]
 
   return (
     <div className={[styles.pns, compact ? styles.pnsCompact : ''].filter(Boolean).join(' ')}>
+      {hideToolbar ? null : (
       <div className={styles.pnsToolbar}>
         <div className={styles.pnsSegment} role="tablist" aria-label="Nutrição do paciente">
           {tabs.map(({ id, label, Icon }) => (
@@ -88,6 +100,7 @@ export function PatientNutritionSection({
           </button>
         ) : null}
       </div>
+      )}
 
       <section
         className={styles.pnsPanel}
@@ -101,7 +114,7 @@ export function PatientNutritionSection({
         }
       >
         {activeTab === 'fotos' ? (
-          <PatientPhotosPanel patientId={patientId} compact limit={photoLimit} />
+          <PatientPhotosPanel patientId={patientId} compact={compact} limit={photoLimit} />
         ) : null}
         {activeTab === 'metas' ? (
           <PatientGoalsPanel

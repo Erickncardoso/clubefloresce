@@ -40,6 +40,7 @@ import {
 } from "./utils/media/media-config";
 import { isBunnyStorageConfigured, isBunnyStreamConfigured } from "./utils/media/bunny-config";
 import { startCheckInDispatchScheduler } from "./jobs/checkin-weekly-dispatch.job";
+import { startAdminPushDispatchScheduler } from "./jobs/admin-push-dispatch.job";
 import { startMealReminderDispatchScheduler } from "./jobs/meal-reminder-dispatch.job";
 import { startEvolutionReminderDispatchScheduler } from "./jobs/evolution-reminder-dispatch.job";
 import { startWhatsappMobilePresenceScheduler } from "./jobs/whatsapp-mobile-presence.job";
@@ -298,6 +299,8 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
 
   startCheckInDispatchScheduler();
   console.log("[CheckIn] Agendador ativo — disparo automático às sextas 11h (Brasília).");
+  startAdminPushDispatchScheduler();
+  console.log("[AdminPush] Agendador ativo — campanhas programadas a cada 60s.");
   startMealReminderDispatchScheduler();
   console.log("[MealReminder] Agendador ativo — lembretes nos horários do plano alimentar.");
   startEvolutionReminderDispatchScheduler();
@@ -317,6 +320,8 @@ const server = app.listen(Number(PORT), "0.0.0.0", () => {
         if (merged > 0 || deleted > 0) {
           console.log(`[WhatsApp] Merge LID na subida — msgs=${merged}, chats removidos=${deleted}`);
         }
+      }).catch((err) => {
+        console.warn("[WhatsApp] Merge LID na subida falhou:", err?.message || err);
       });
     }
   }
@@ -334,3 +339,6 @@ async function shutdown(signal: string) {
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("unhandledRejection", (reason) => {
+  console.error("[Server] unhandledRejection:", reason instanceof Error ? reason.message : reason);
+});

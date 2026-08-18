@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
-import { CalendarDays, Video } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Bell, CalendarDays, Video } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon'
+import { PatientPushModal } from '@/components/patients/PatientPushModal'
 import type { PatientOverview, PatientProfileData, PatientUser } from '@/lib/patient-chart/api'
 import { isPatientAccessExpired } from '@/lib/patient-chart/billing'
 import styles from './PatientChartHeader.module.scss'
@@ -25,6 +26,7 @@ export function PatientChartHeader({
   onEditPatient,
   onStartCall,
 }: Props) {
+  const [pushOpen, setPushOpen] = useState(false)
   const sinceLabel = useMemo(() => {
     const raw = user?.approvedAt || user?.createdAt
     if (!raw) return ''
@@ -74,6 +76,15 @@ export function PatientChartHeader({
           <div className={styles.actions}>
             <button
               type="button"
+              className={styles.iconBtn}
+              title="Enviar notificação"
+              aria-label="Enviar notificação push"
+              onClick={() => setPushOpen(true)}
+            >
+              <Bell size={16} aria-hidden />
+            </button>
+            <button
+              type="button"
               className={`${styles.iconBtn} ${styles.callBtn}`}
               title="Ligar por vídeo"
               aria-label="Ligar por vídeo"
@@ -104,6 +115,15 @@ export function PatientChartHeader({
 
       {accessExpired ? (
         <p className={styles.expiredNote}>Acesso expirado</p>
+      ) : null}
+
+      {user?.id ? (
+        <PatientPushModal
+          open={pushOpen}
+          patientId={user.id}
+          patientName={user.name}
+          onOpenChange={setPushOpen}
+        />
       ) : null}
     </header>
   )

@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
-import { ApiError } from '@/lib/api'
-import type { AuthUser } from '@/lib/types'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
+import { ApiError } from "@/lib/api";
+import type { AuthUser } from "@/lib/types";
 import {
   type AgendaAppointment,
   addDays,
@@ -16,137 +16,137 @@ import {
   startOfDay,
   startOfWeek,
   updateAgendaAppointment,
-} from '@/lib/agenda'
+} from "@/lib/agenda";
 import {
   AgendaCalendar,
   type AgendaViewMode,
   type ScheduleSlot,
-} from '@/components/agenda/AgendaCalendar'
+} from "@/components/agenda/AgendaCalendar";
 import {
   AgendaAppointmentModal,
   type AgendaSavePayload,
-} from '@/components/agenda/AgendaAppointmentModal'
-import styles from './agenda.module.scss'
+} from "@/components/agenda/AgendaAppointmentModal";
+import styles from "./agenda.module.scss";
 
 function formatAgendaDateTime(iso: string) {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString('pt-BR', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function AgendaPage() {
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
-  const [appointments, setAppointments] = useState<AgendaAppointment[]>([])
-  const [patients, setPatients] = useState<AuthUser[]>([])
-  const [anchorDate, setAnchorDate] = useState(() => new Date())
-  const [viewMode, setViewMode] = useState<AgendaViewMode>('week')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<AgendaAppointment[]>([])
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
+  const [patients, setPatients] = useState<AuthUser[]>([]);
+  const [anchorDate, setAnchorDate] = useState(() => new Date());
+  const [viewMode, setViewMode] = useState<AgendaViewMode>("week");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<AgendaAppointment[]>([]);
 
-  const [modalOpen, setModalOpen] = useState(false)
-  const [modalSaving, setModalSaving] = useState(false)
-  const [modalError, setModalError] = useState('')
-  const [editing, setEditing] = useState<AgendaAppointment | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalSaving, setModalSaving] = useState(false);
+  const [modalError, setModalError] = useState("");
+  const [editing, setEditing] = useState<AgendaAppointment | null>(null);
   const [prefill, setPrefill] = useState<{
-    patientId?: string
-    startsAt?: string
-    durationMin?: number
-  }>({})
+    patientId?: string;
+    startsAt?: string;
+    durationMin?: number;
+  }>({});
 
   const range = useMemo(() => {
-    if (viewMode === 'day') {
-      const start = startOfDay(anchorDate)
-      return { start, end: addDays(start, 1) }
+    if (viewMode === "day") {
+      const start = startOfDay(anchorDate);
+      return { start, end: addDays(start, 1) };
     }
     return {
       start: startOfWeek(anchorDate, 0),
       end: addDays(endOfWeek(anchorDate, 0), 1),
-    }
-  }, [anchorDate, viewMode])
+    };
+  }, [anchorDate, viewMode]);
 
   const loadAppointments = useCallback(async () => {
-    setLoading(true)
-    setLoadError('')
+    setLoading(true);
+    setLoadError("");
     try {
       const data = await fetchAgendaAppointments({
         from: range.start.toISOString(),
         to: range.end.toISOString(),
-      })
-      setAppointments(data.appointments || [])
+      });
+      setAppointments(data.appointments || []);
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
           : err instanceof Error
             ? err.message
-            : 'Falha ao carregar a agenda.'
-      setLoadError(message)
-      setAppointments([])
+            : "Falha ao carregar a agenda.";
+      setLoadError(message);
+      setAppointments([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [range.start, range.end])
+  }, [range.start, range.end]);
 
   useEffect(() => {
-    void loadAppointments()
-  }, [loadAppointments])
+    void loadAppointments();
+  }, [loadAppointments]);
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        const list = await fetchPatientsForAgenda()
-        if (!cancelled) setPatients(list)
+        const list = await fetchPatientsForAgenda();
+        if (!cancelled) setPatients(list);
       } catch {
-        if (!cancelled) setPatients([])
+        if (!cancelled) setPatients([]);
       }
-    })()
+    })();
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   function openCreateModal() {
-    setEditing(null)
-    setPrefill({})
-    setModalError('')
-    setModalOpen(true)
+    setEditing(null);
+    setPrefill({});
+    setModalError("");
+    setModalOpen(true);
   }
 
   function openEditModal(item: AgendaAppointment) {
-    setEditing(item)
-    setPrefill({})
-    setModalError('')
-    setModalOpen(true)
+    setEditing(item);
+    setPrefill({});
+    setModalError("");
+    setModalOpen(true);
   }
 
   function openFromSlot(slot: ScheduleSlot) {
-    setEditing(null)
+    setEditing(null);
     setPrefill({
       startsAt: slot.startsAt,
       durationMin: slot.durationMin,
-    })
-    setModalError('')
-    setModalOpen(true)
+    });
+    setModalError("");
+    setModalOpen(true);
   }
 
   function closeModal() {
-    if (modalSaving) return
-    setModalOpen(false)
-    setEditing(null)
-    setModalError('')
+    if (modalSaving) return;
+    setModalOpen(false);
+    setEditing(null);
+    setModalError("");
   }
 
   async function saveAppointment(payload: AgendaSavePayload) {
-    setModalSaving(true)
-    setModalError('')
+    setModalSaving(true);
+    setModalError("");
     try {
       if (editing?.id) {
         await updateAgendaAppointment(editing.id, {
@@ -156,7 +156,7 @@ export default function AgendaPage() {
           startsAt: payload.startsAt,
           durationMin: payload.durationMin,
           notes: payload.notes || null,
-        })
+        });
       } else {
         await createAgendaAppointment({
           patientId: payload.patientId,
@@ -165,60 +165,64 @@ export default function AgendaPage() {
           startsAt: payload.startsAt,
           durationMin: payload.durationMin,
           notes: payload.notes || null,
-        })
+        });
       }
-      setModalOpen(false)
-      setEditing(null)
-      await loadAppointments()
+      setModalOpen(false);
+      setEditing(null);
+      await loadAppointments();
     } catch (err) {
       setModalError(
-        err instanceof Error ? err.message : 'Não foi possível salvar o agendamento.',
-      )
+        err instanceof Error
+          ? err.message
+          : "Não foi possível salvar o agendamento.",
+      );
     } finally {
-      setModalSaving(false)
+      setModalSaving(false);
     }
   }
 
   async function deleteCurrent() {
-    if (!editing?.id) return
-    if (!window.confirm('Excluir este agendamento?')) return
-    setModalSaving(true)
-    setModalError('')
+    if (!editing?.id) return;
+    if (!window.confirm("Excluir este agendamento?")) return;
+    setModalSaving(true);
+    setModalError("");
     try {
-      await deleteAgendaAppointment(editing.id)
-      setModalOpen(false)
-      setEditing(null)
-      await loadAppointments()
+      await deleteAgendaAppointment(editing.id);
+      setModalOpen(false);
+      setEditing(null);
+      await loadAppointments();
     } catch (err) {
       setModalError(
-        err instanceof Error ? err.message : 'Não foi possível excluir o agendamento.',
-      )
+        err instanceof Error
+          ? err.message
+          : "Não foi possível excluir o agendamento.",
+      );
     } finally {
-      setModalSaving(false)
+      setModalSaving(false);
     }
   }
 
   function runSearch() {
-    const q = searchQuery.trim().toLowerCase()
+    const q = searchQuery.trim().toLowerCase();
     if (!q) {
-      setSearchResults([])
-      return
+      setSearchResults([]);
+      return;
     }
     const results = appointments
       .filter((item) => {
-        const name = (item.patientName || '').toLowerCase()
-        const title = (item.title || '').toLowerCase()
-        const notes = (item.notes || '').toLowerCase()
-        return name.includes(q) || title.includes(q) || notes.includes(q)
+        const name = (item.patientName || "").toLowerCase();
+        const title = (item.title || "").toLowerCase();
+        const notes = (item.notes || "").toLowerCase();
+        return name.includes(q) || title.includes(q) || notes.includes(q);
       })
-      .slice(0, 20)
-    setSearchResults(results)
+      .slice(0, 20);
+    setSearchResults(results);
   }
 
   function jumpToAppointment(item: AgendaAppointment) {
-    setAnchorDate(new Date(item.startsAt))
-    setViewMode('day')
-    openEditModal(item)
+    setAnchorDate(new Date(item.startsAt));
+    setViewMode("day");
+    openEditModal(item);
   }
 
   return (
@@ -248,9 +252,14 @@ export default function AgendaPage() {
           <ul className={styles.searchList}>
             {searchResults.map((item) => (
               <li key={item.id}>
-                <button type="button" className={styles.searchItem} onClick={() => jumpToAppointment(item)}>
+                <button
+                  type="button"
+                  className={styles.searchItem}
+                  onClick={() => jumpToAppointment(item)}
+                >
                   <time>
-                    {formatAgendaDateTime(item.startsAt)} · {formatAgendaTime(item.startsAt)}
+                    {formatAgendaDateTime(item.startsAt)} ·{" "}
+                    {formatAgendaTime(item.startsAt)}
                   </time>
                   <div>
                     <strong>{item.patientName}</strong>
@@ -277,5 +286,5 @@ export default function AgendaPage() {
         onDelete={editing ? deleteCurrent : undefined}
       />
     </div>
-  )
+  );
 }

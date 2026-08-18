@@ -12,9 +12,10 @@ import {
 import { usePathname, useRouter } from 'expo-router';
 import {
   Bell,
+  Camera,
   BookOpen,
   ChevronRight,
-  CreditCard,
+  ShieldCheck,
   Home,
   LogOut,
   Settings,
@@ -65,7 +66,7 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
 
     if (!canUseApp) {
       return [
-        { href: '/assinatura', label: subscriptionLabel, Icon: CreditCard },
+        { href: '/assinatura', label: subscriptionLabel, Icon: ShieldCheck },
         { href: '/perfil/configuracoes', label: 'Configurações', Icon: Settings },
       ];
     }
@@ -78,13 +79,14 @@ export default function PatientMenuDrawer({ open, onClose }: PatientMenuDrawerPr
       items.push(
         { href: '/bella', label: 'Bella IA', Icon: Sparkles },
         { href: '/dieta', label: 'Minha dieta', Icon: UtensilsCrossed },
+        { href: '/diario', label: 'Diário alimentar', Icon: Camera },
         { href: '/evolucao', label: 'Evolução', Icon: TrendingUp },
         { href: '/conteudo', label: 'Conteúdo', Icon: BookOpen },
       );
     }
 
     items.push(
-      { href: '/assinatura', label: subscriptionLabel, Icon: CreditCard },
+      { href: '/assinatura', label: subscriptionLabel, Icon: ShieldCheck },
       {
         href: '/perfil/notificacoes',
         label: 'Notificações',

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +17,7 @@ import HomeRecentMealUploads from '@/components/home/HomeRecentMealUploads';
 import PatientHeaderDailyChip from '@/components/home/PatientHeaderDailyChip';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
+import PatientAvatar from '@/components/ui/PatientAvatar';
 import PatientHeader from '@/components/ui/PatientHeader';
 import { useDietaDiarySync } from '@/hooks/useDietaDiarySync';
 import { usePatientPlanAccess } from '@/hooks/usePatientPlanAccess';
@@ -29,6 +29,7 @@ import { useWeeklyCheckInPrompt } from '@/hooks/useWeeklyCheckInPrompt';
 import { getBellaDailyTip } from '@/lib/bella-tips';
 import { countDone, loadChecked } from '@/lib/dieta-progress';
 import { firstNameFrom, timeGreeting, todayLabel } from '@/lib/format';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { DEFAULT_GOALS } from '@/lib/patient-goals-core';
 import { extractMealPlanMeals, getMealById } from '@/lib/meal-plan-api';
 import { useAuth } from '@/providers/AuthProvider';
@@ -48,6 +49,9 @@ function formatGoalMeta(progress: number, goal: { id?: string; type?: string; ta
   if (goal?.id === 'food' || goal?.type === 'food') {
     return current === 1 ? '1 dia esta semana' : `${current} dias esta semana`;
   }
+  if (goal?.id === 'water' || goal?.type === 'water') {
+    return `${current} / ${target} L`;
+  }
   if (goal?.type === 'sleep') {
     return `${current}h de ${target}h`;
   }
@@ -62,7 +66,11 @@ function goalBarPct(progress: number, goal: { id?: string; target?: number }, pe
     const target = Math.max(1, Number(goal?.target ?? 1));
     return Math.min(100, Math.round((Number(progress ?? 0) / target) * 100));
   }
-  return Math.min(100, Number(percent ?? 0));
+  const fromPercent = Math.min(100, Math.max(0, Number(percent ?? 0)));
+  if (fromPercent > 0) return fromPercent;
+  const target = Number(goal?.target ?? 0);
+  if (!target) return 0;
+  return Math.min(100, Math.round((Number(progress ?? 0) / target) * 100));
 }
 
 function HomeSection({
@@ -113,6 +121,7 @@ export default function HomeScreen() {
     activeStreak,
     bootstrapDailyHeader,
     refreshActivityForToday,
+    loadDailyNutrition,
   } = usePatientDailyHeader();
   const {
     checkInStatus,
@@ -127,7 +136,7 @@ export default function HomeScreen() {
   const [featuredCourseId, setFeaturedCourseId] = useState<string | null>(null);
 
   const firstName = firstNameFrom(user?.name);
-  const avatarUrl = user?.avatar || null;
+  const avatarUrl = resolveMediaUrl(user?.avatar);
   const greeting = timeGreeting();
   const dateLabel = todayLabel();
   const bellaTip = getBellaDailyTip();
@@ -238,16 +247,25 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const initials = firstName.slice(0, 1).toUpperCase();
-
   return (
     <PatientShell>
       <PatientHeader
         menuLeft
         showMenu
-        showBell
+        showBell={false}
         hideBrand
-        actions={<PatientHeaderDailyChip activeStreak={activeStreak} />}
+        leadingActions={<PatientHeaderDailyChip activeStreak={activeStreak} />}
+        actions={(
+          <Link href="/perfil/configuracoes" asChild>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Abrir configurações"
+              style={styles.headerAvatarBtn}
+            >
+              <PatientAvatar src={avatarUrl} name={user?.name} size="sm" />
+            </Pressable>
+          </Link>
+        )}
       />
 
       {pageLoading ? (
@@ -259,11 +277,11 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.lockedTitle}>Seu acesso ainda não está ativo</Text>
           <Text style={styles.lockedSub}>
-            Assim que sua assinatura for ativada pelo site, seu painel aparece aqui automaticamente.
+            Assim que sua nutricionista liberar seu acesso, seu painel aparece aqui automaticamente.
           </Text>
           <Link href="/assinatura" asChild>
             <Pressable style={styles.lockedBtn}>
-              <Text style={styles.lockedBtnText}>Ver status da assinatura</Text>
+              <Text style={styles.lockedBtnText}>Ver meu acesso</Text>
             </Pressable>
           </Link>
         </View>
@@ -275,13 +293,7 @@ export default function HomeScreen() {
           <View style={styles.welcome} accessibilityLabel="Boas-vindas">
             <Link href="/perfil" asChild>
               <Pressable style={styles.greetingProfile}>
-                {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-                ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarInitials}>{initials}</Text>
-                  </View>
-                )}
+                <PatientAvatar src={avatarUrl} name={user?.name} size="md" />
                 <View style={styles.greetingCopy}>
                   <Text style={styles.greetingHello}>{greeting}, {firstName}</Text>
                   <Text style={styles.greetingSub}>{dateLabel}</Text>
@@ -298,7 +310,7 @@ export default function HomeScreen() {
               linkLabel="Ver dieta"
               showLink={!readOnlyHome}
             >
-              <HomeCurrentMealCard readOnly={readOnlyHome} />
+              <HomeCurrentMealCard readOnly={readOnlyHome} onPhotoSaved={loadDailyNutrition} />
             </HomeSection>
           ) : null}
 
@@ -319,8 +331,8 @@ export default function HomeScreen() {
           {recentMealUploads.length ? (
             <HomeSection
               title="Registros recentes"
-              linkHref="/evolucao/nutricao"
-              linkLabel="Ver histórico"
+              linkHref="/diario"
+              linkLabel="Ver diário"
               showLink={!readOnlyHome}
             >
               <HomeRecentMealUploads entries={recentMealUploads} readOnly={readOnlyHome} />
@@ -418,7 +430,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   page: {
     paddingHorizontal: spacing[4],
-    paddingBottom: spacing[6],
+    paddingBottom: spacing[2],
     backgroundColor: '#fff',
   },
   lockedWrap: {
@@ -464,30 +476,17 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   welcome: { marginTop: 6, marginBottom: 20 },
+  headerAvatarBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   greetingProfile: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
     minHeight: 52,
-  },
-  avatarImage: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primarySoft,
-  },
-  avatarFallback: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitials: {
-    fontFamily: fonts.bold,
-    fontSize: 20,
-    color: colors.primaryDark,
   },
   greetingCopy: { flex: 1, minWidth: 0 },
   greetingHello: {

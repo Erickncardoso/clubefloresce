@@ -31,6 +31,10 @@ export interface PatientProfileData {
   timezone?: string | null;
   /** Lembretes push nos horários do plano alimentar (padrão: true). */
   mealRemindersEnabled?: boolean | null;
+  /** Push de curtidas e comentários no diário (padrão: true). */
+  diarySocialPushEnabled?: boolean | null;
+  /** Preferências por tipo de aviso (padrão: todos ligados). */
+  pushCategories?: Record<string, boolean> | null;
 
   /** Cadastro rápido / ficha admin */
   nickname?: string | null;

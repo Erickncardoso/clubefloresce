@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
-import { BookOpen, Home, LineChart, Users } from 'lucide-react-native';
+import { BookOpen, Home, LineChart, UtensilsCrossed } from 'lucide-react-native';
 import NavBellaIcon from '@/components/icons/NavBellaIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BellaActionSheet from '@/components/BellaActionSheet';
@@ -22,6 +21,9 @@ type TabItem = {
 
 const LOCKED_TINT = '#c7c7cc';
 const DEFAULT_TINT = '#7b8377';
+const BELLA_SIZE = 44;
+/** Quanto a bolinha sobe acima da fileira de ícones — igual ao PWA (`translateY(-8px)`). */
+const BELLA_LIFT = 8;
 
 const TAB_ITEMS: TabItem[] = [
   {
@@ -58,13 +60,13 @@ const TAB_ITEMS: TabItem[] = [
     match: (p) => p.startsWith('/conteudo') || p.startsWith('/cursos') || p.startsWith('/ebooks'),
   },
   {
-    key: 'comunidade',
-    label: 'Comunidade',
-    href: '/comunidade',
-    icon: Users,
+    key: 'diario',
+    label: 'Diário',
+    href: '/diario',
+    icon: UtensilsCrossed,
     kind: 'route',
     requiresPaidAccess: true,
-    match: (p) => p.startsWith('/comunidade'),
+    match: (p) => p.startsWith('/diario') || p.startsWith('/comunidade'),
   },
 ];
 
@@ -80,7 +82,7 @@ export default function PatientTabBar() {
   const { hasPaidAccess } = usePatientPlanAccess();
 
   const path = useMemo(() => pathname || '/', [pathname]);
-  const bottomInset = Platform.OS === 'ios' ? Math.max(insets.bottom, 0) : Math.max(insets.bottom, 0);
+  const bottomInset = insets.bottom;
 
   function isLocked(item: TabItem) {
     return Boolean(item.requiresPaidAccess && !hasPaidAccess);
@@ -113,7 +115,7 @@ export default function PatientTabBar() {
               !locked && (bellaOpen || active) && styles.bellaIconActive,
             ]}
           >
-            <NavBellaIcon size={24} color={locked ? '#f4f4f5' : '#ffffff'} />
+            <NavBellaIcon size={22} color={locked ? '#f4f4f5' : '#ffffff'} />
           </View>
         </Pressable>
       );
@@ -135,28 +137,20 @@ export default function PatientTabBar() {
         }}
       >
         <View style={active ? styles.iconActiveWrap : undefined}>
-          <Icon color={tint} size={26} strokeWidth={1.75} />
+          <Icon color={tint} size={24} strokeWidth={1.75} />
         </View>
       </Pressable>
     );
   }
 
-  const barBody = (
-    <View style={[styles.inner, { height: PATIENT_NAV_HEIGHT }]}>
-      {TAB_ITEMS.map(renderItem)}
-    </View>
-  );
-
   return (
     <>
-      <View style={[styles.nav, { paddingBottom: bottomInset }]}>
-        {Platform.OS === 'ios' ? (
-          <BlurView intensity={80} tint="light" style={styles.blur}>
-            {barBody}
-          </BlurView>
-        ) : (
-          <View style={styles.solid}>{barBody}</View>
-        )}
+      <View style={[styles.nav, { height: PATIENT_NAV_HEIGHT + bottomInset }]} pointerEvents="box-none">
+        {/* Fundo sólido — BlurView no iOS recorta overflow e ainda desenha um hairline nativo (segunda linha). */}
+        <View style={styles.surface} pointerEvents="none" />
+        <View style={[styles.inner, { height: PATIENT_NAV_HEIGHT, marginBottom: bottomInset }]}>
+          {TAB_ITEMS.map(renderItem)}
+        </View>
       </View>
       {hasPaidAccess ? (
         <BellaActionSheet open={bellaOpen} onClose={() => setBellaOpen(false)} />
@@ -173,30 +167,29 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1000,
     elevation: 24,
+    overflow: 'visible',
+  },
+  surface: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#ffffff',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(23, 32, 20, 0.08)',
   },
-  blur: {
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-  },
-  solid: {
-    backgroundColor: '#ffffff',
-  },
   inner: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     width: '100%',
-    paddingTop: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
+    overflow: 'visible',
+    zIndex: 1,
   },
   item: {
     flex: 1,
     minWidth: 0,
-    minHeight: 52,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 2,
+    overflow: 'visible',
   },
   itemLocked: {
     opacity: 0.72,
@@ -205,21 +198,19 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.04 }],
   },
   bellaIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: BELLA_SIZE,
+    height: BELLA_SIZE,
+    borderRadius: BELLA_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    transform: [{ translateY: -8 }],
+    marginTop: -BELLA_LIFT,
     backgroundColor: colors.primary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
     shadowColor: '#6f7863',
-    shadowOpacity: 0.28,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
   },
   bellaIconLocked: {
     backgroundColor: '#d1d1d6',

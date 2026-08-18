@@ -24,12 +24,14 @@ import {
   scheduleWeeklyNotification,
 } from '@/notifications/scheduler';
 import { loadUserReminders } from '@/notifications/user-reminders';
+import { syncMealReminders } from '@/notifications/meal-reminders';
 import { buildMonthActivityMap, computeCurrentStreak } from '@/lib/patient-activity-days';
 
 type SyncContext = {
   request: <T>(path: string, init?: RequestInit & { method?: string }) => Promise<T>;
   onboardingComplete: boolean;
   checkinPreferenceEnabled: boolean;
+  mealRemindersEnabled?: boolean;
 };
 
 function hoursToMs(hours: number) {
@@ -227,6 +229,7 @@ export async function syncLocalNotifications(ctx: SyncContext) {
   if (permission !== 'granted') return;
 
   await syncUserReminders();
+  await syncMealReminders(ctx.request, ctx.mealRemindersEnabled !== false);
   await syncWeeklyCheckin(ctx);
   await syncEmptyDiary(ctx);
   await syncStreakCelebration(ctx);

@@ -96,6 +96,7 @@ model User {
   weeklyCheckIns               WeeklyCheckIn[]
   checkInTemplates             CheckInTemplate[]              @relation("CheckInTemplateAuthor")
   checkInDispatchSchedules     CheckInDispatchSchedule[]      @relation("CheckInDispatchAuthor")
+  adminPushCampaigns           AdminPushCampaign[]            @relation("AdminPushCampaignAuthor")
   checkInResponses             CheckInResponse[]
   bellaMessages                BellaMessage[]
   nutritionTarget              NutritionTarget?
@@ -475,12 +476,36 @@ model Notification {
   title      String
   body       String
   actionPath String?
+  imageUrl   String?
   sourceKey  String?
   read       Boolean  @default(false)
   createdAt  DateTime @default(now())
 
   @@unique([userId, sourceKey])
   @@index([userId, read, createdAt])
+}
+
+model AdminPushCampaign {
+  id          String    @id @default(uuid())
+  authorId    String
+  author      User      @relation("AdminPushCampaignAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  type        String    @default("general")
+  actionPath  String?
+  imageUrl    String?
+  buttonKey   String?
+  categoryId  String?
+  audience    String
+  userIds     Json      @default("[]")
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      String    @default("pending")
+  resultJson  Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([authorId])
 }
 
 model PushSubscription {

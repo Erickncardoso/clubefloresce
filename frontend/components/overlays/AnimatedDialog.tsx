@@ -1,25 +1,25 @@
-'use client'
+"use client";
 
-import type { ReactNode } from 'react'
-import { Dialog } from 'radix-ui'
-import motion from './OverlayMotion.module.scss'
-import styles from './AnimatedDialog.module.scss'
-import { joinOverlayClassNames } from './overlay-utils'
+import type { ReactNode } from "react";
+import { Dialog } from "radix-ui";
+import motion from "./OverlayMotion.module.scss";
+import styles from "./AnimatedDialog.module.scss";
+import { joinOverlayClassNames } from "./overlay-utils";
 
 type AnimatedDialogProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  children: ReactNode
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
   /** Título acessível (visível ou via VisuallyHidden) */
-  title: string
-  description?: string
+  title: string;
+  description?: string;
   /** Se true, não renderiza Dialog.Title visível — usa sr-only */
-  titleSrOnly?: boolean
-  contentClassName?: string
-  overlayClassName?: string
+  titleSrOnly?: boolean;
+  contentClassName?: string;
+  overlayClassName?: string;
   /** Sem estilos default de overlay/content — só motion + classes passadas */
-  bare?: boolean
-}
+  bare?: boolean;
+};
 
 /**
  * Modal central com fade só de opacidade (150ms ease).
@@ -58,9 +58,7 @@ export function AnimatedDialog({
             !bare && styles.content,
           )}
         >
-          <Dialog.Title
-            className={titleSrOnly ? styles.srOnly : undefined}
-          >
+          <Dialog.Title className={titleSrOnly ? styles.srOnly : undefined}>
             {title}
           </Dialog.Title>
 
@@ -80,5 +78,5 @@ export function AnimatedDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  )
+  );
 }

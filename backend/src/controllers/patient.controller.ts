@@ -421,7 +421,7 @@ export class PatientController {
 
   async getMyActiveVideoCall(req: Request, res: Response): Promise<any> {
     try {
-      const call = videoCallService.getActiveForPatient(req.user!.id);
+      const call = await videoCallService.getActiveForPatient(req.user!.id);
       return res.json({ call });
     } catch (error: any) {
       return res.status(400).json({ message: error.message || "Falha ao buscar chamada." });
@@ -430,13 +430,38 @@ export class PatientController {
 
   async joinMyVideoCall(req: Request, res: Response): Promise<any> {
     try {
-      const call = await videoCallService.getCallForPatient(req.params.callId, req.user!.id);
+      const call = await videoCallService.getCallForPatient(
+        req.params.callId,
+        req.user!.id,
+        { activate: true },
+      );
       return res.json({ call });
     } catch (error: any) {
       const status = error.message?.includes("não encontrada") || error.message?.includes("acesso")
         ? 404
         : 400;
       return res.status(status).json({ message: error.message || "Falha ao entrar na chamada." });
+    }
+  }
+
+  async peekMyVideoCall(req: Request, res: Response): Promise<any> {
+    try {
+      const call = await videoCallService.peekCallForPatient(req.params.callId, req.user!.id);
+      return res.json({ call });
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message || "Falha ao buscar chamada." });
+    }
+  }
+
+  async declineMyVideoCall(req: Request, res: Response): Promise<any> {
+    try {
+      const data = videoCallService.declineCall(req.params.callId, req.user!.id);
+      return res.json(data);
+    } catch (error: any) {
+      const status = error.message?.includes("não encontrada") || error.message?.includes("acesso")
+        ? 404
+        : 400;
+      return res.status(status).json({ message: error.message || "Falha ao recusar chamada." });
     }
   }
 

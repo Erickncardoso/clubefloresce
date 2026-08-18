@@ -1,4 +1,14 @@
-import type { AppToastPayload } from '@/providers/AppToastProvider';
+export type AppToastType = 'success' | 'error' | 'call';
+
+export type AppToastPayload = {
+  type?: AppToastType;
+  title?: string;
+  message?: string;
+  detail?: string;
+  duration?: number;
+  actionLabel?: string;
+  onAction?: () => void;
+};
 
 /** Alerta verde — sucesso / confirmação. */
 export function toastSuccess(title: string, message?: string): AppToastPayload {

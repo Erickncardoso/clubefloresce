@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { handleNotificationResponse } from '@/notifications/handlers';
-import { defaultNotificationHandler } from '@/notifications/permission';
+import { registerAdminPushCategories } from '@/notifications/admin-categories';
+import { registerExpoPushToken } from '@/notifications/register-expo-push';
 import { syncLocalNotifications } from '@/notifications/sync-engine';
 
 export default function NotificationBootstrap() {
@@ -15,14 +15,41 @@ export default function NotificationBootstrap() {
   const syncingRef = useRef(false);
 
   useEffect(() => {
-    defaultNotificationHandler();
-  }, []);
+    let cancelled = false;
+    let remove: (() => void) | undefined;
 
-  useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      handleNotificationResponse(response.notification.request.content.data);
-    });
-    return () => sub.remove();
+    void import('expo-notifications')
+      .then(async (Notifications) => {
+        if (cancelled) return;
+        try {
+          Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+              shouldShowAlert: true,
+              shouldPlaySound: true,
+              shouldSetBadge: false,
+              shouldShowBanner: true,
+              shouldShowList: true,
+            }),
+          });
+          try {
+            await registerAdminPushCategories(Notifications);
+          } catch {
+            // Categorias opcionais — o toque na notificação já abre o destino.
+          }
+          const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+            handleNotificationResponse(response.notification.request.content.data);
+          });
+          remove = () => sub.remove();
+        } catch {
+          // Dev client sem native module — segue o app sem push local.
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      remove?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -33,11 +60,16 @@ export default function NotificationBootstrap() {
       syncingRef.current = true;
       try {
         const checkinPref = preferences.find((item) => item.key === 'checkin');
+        const mealsPref = preferences.find((item) => item.key === 'meals');
+        await registerExpoPushToken(request);
         await syncLocalNotifications({
           request,
           onboardingComplete: Boolean(onboarding?.isComplete),
           checkinPreferenceEnabled: checkinPref?.enabled !== false,
+          mealRemindersEnabled: mealsPref?.enabled !== false,
         });
+      } catch {
+        // Native notifications indisponíveis neste binary.
       } finally {
         syncingRef.current = false;
       }

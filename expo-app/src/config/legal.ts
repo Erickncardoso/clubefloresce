@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-/** URL pública do app paciente (assinatura web, links legais). */
+/** URL pública do app paciente (links legais). */
 export const PATIENT_WEB_BASE =
   (typeof Constants.expoConfig?.extra?.patientWebUrl === 'string'
     && Constants.expoConfig.extra.patientWebUrl)
@@ -13,4 +13,5 @@ export const SUPPORT_URL = `${PATIENT_WEB_BASE}/perfil`;
 /** URLs para App Store Connect — espelham rotas in-app /legal/* */
 export const PRIVACY_POLICY_URL = `${PATIENT_WEB_BASE}/legal/privacidade`;
 export const TERMS_OF_USE_URL = `${PATIENT_WEB_BASE}/legal/termos`;
+/** Rota web legada — não usada no app nativo iOS. */
 export const SUBSCRIPTION_WEB_URL = `${PATIENT_WEB_BASE}/assinatura`;
