@@ -106,7 +106,6 @@ export const CfVideoCallHost = forwardRef<CfVideoCallHostHandle, Props>(function
     })
     callRef.current = handle
     bind()
-    return handle
   }, [bind, displayName, jitsiDomain, resolvedRoom])
 
   useEffect(() => {

@@ -85,9 +85,9 @@ type JitsiXmpp = {
 }
 
 type JitsiConference = {
-  on: (ev: string, fn: (...args: unknown[]) => void) => void
-  addEventListener: (ev: string, fn: (...args: unknown[]) => void) => void
-  removeEventListener: (ev: string, fn: (...args: unknown[]) => void) => void
+  on: (ev: string, fn: (...args: never[]) => void) => void
+  addEventListener: (ev: string, fn: (...args: never[]) => void) => void
+  removeEventListener: (ev: string, fn: (...args: never[]) => void) => void
   addTrack: (track: JitsiTrack) => Promise<void> | void
   removeTrack?: (track: JitsiTrack) => Promise<void>
   replaceTrack?: (oldTrack: JitsiTrack, next: JitsiTrack) => Promise<void>
@@ -235,7 +235,7 @@ function attach(track: JitsiTrack | null | undefined, el: HTMLElement | null | u
     track.attach(el)
     if (el instanceof HTMLMediaElement) {
       el.autoplay = true
-      el.playsInline = true
+      if (el instanceof HTMLVideoElement) el.playsInline = true
       void el.play?.().catch(() => {})
     }
   } catch {

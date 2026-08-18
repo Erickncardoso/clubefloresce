@@ -123,7 +123,7 @@ export function PatientNutritionModal({
               compact
               photoLimit={12}
               nutritionTarget={nutritionTarget}
-              activeTab={activeTab}
+              activeTab={activeTab === 'checkins' ? 'fotos' : activeTab}
               onActiveTabChange={setActiveTab}
               hideToolbar
             />
