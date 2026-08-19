@@ -17,6 +17,7 @@
     "icons:generate": "node scripts/generate-app-icons.mjs",
     "build:ios": "eas build --platform ios --profile production",
     "build:ios:preview": "eas build --platform ios --profile preview",
+    "build:android": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas build --platform android --profile production",
     "submit:ios": "eas submit --platform ios --profile production",
     "update": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel production --platform ios",
     "update:preview": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel preview --platform ios",

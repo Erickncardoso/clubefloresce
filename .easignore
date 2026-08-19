@@ -1,0 +1,45 @@
+# Substitui o .gitignore no upload do EAS. Sem isto o arquivo inclui
+# frontend/.next, Pods do iOS e o restante do monorepo (~200MB+).
+
+.git
+node_modules
+**/.expo
+**/.kotlin
+**/.DS_Store
+
+# Pastas nativas geradas localmente (EAS faz prebuild)
+expo-app/ios
+expo-app/android
+expo-app/dist
+**/Pods
+
+# Outros apps do monorepo
+frontend
+frontend2
+frontend 2
+cliente
+backend
+docs
+scripts
+.agents
+.claude
+.cursor
+.cloudflared
+.superpowers
+
+# Lixo local
+*.mov
+*.tgz
+*.md
+*.log
+.env
+.env.*
+!.env.example
+**/.next
+**/.nuxt
+**/.output
+coverage
+tmp
+cookies.txt
+ffmpeg-installer-win32-x64-4.1.0.tgz
+Gravação de Tela 2026-08-09 às 21.17.05.mov

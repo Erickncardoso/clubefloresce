@@ -104,8 +104,38 @@ const splashLogo = await renderLogoOnCanvas(512, {
 await writeFile(path.join(assetsDir, 'splash-icon.png'), splashLogo);
 await writeFile(path.join(assetsDir, 'splash.png'), await renderSplash());
 
-const androidFg = await renderLogoOnCanvas(1024, { transparent: true, logoFill: BRAND, logoScale: 0.58 });
+const androidFg = await renderLogoOnCanvas(1024, {
+  transparent: true,
+  logoFill: BRAND,
+  logoScale: 0.58,
+});
 await writeFile(path.join(assetsDir, 'android-icon-foreground.png'), androidFg);
+
+const androidBg = await sharp({
+  create: {
+    width: 1024,
+    height: 1024,
+    channels: 3,
+    background: SPLASH_BG,
+  },
+})
+  .png()
+  .toBuffer();
+await writeFile(path.join(assetsDir, 'android-icon-background.png'), androidBg);
+
+const androidMono = await renderLogoOnCanvas(1024, {
+  transparent: true,
+  logoFill: '#FFFFFF',
+  logoScale: 0.58,
+});
+await writeFile(path.join(assetsDir, 'android-icon-monochrome.png'), androidMono);
+
+const notificationIcon = await renderLogoOnCanvas(96, {
+  transparent: true,
+  logoFill: '#FFFFFF',
+  logoScale: 0.78,
+});
+await writeFile(path.join(assetsDir, 'notification-icon.png'), notificationIcon);
 
 await writeFile(path.join(assetsDir, 'favicon.png'), await renderLogoOnCanvas(192));
 

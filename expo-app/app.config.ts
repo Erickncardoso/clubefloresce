@@ -80,6 +80,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         'expo-notifications',
         {
           color: '#8B967C',
+          icon: './assets/notification-icon.png',
         },
       ],
       [
@@ -100,7 +101,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           backgroundColor: '#F7F6F2',
         },
       ],
-      '@bacons/apple-targets',
+      ...(process.env.EAS_BUILD_PLATFORM === 'android' ? [] : ['@bacons/apple-targets']),
     ],
     experiments: {
       typedRoutes: true,

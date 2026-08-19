@@ -1,9 +1,23 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 7000;
+  background: rgb(18 18 22 / 22%);
+  backdrop-filter: blur(1.5px);
+}
+
 .card {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 7001;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   width: min(72rem, 96vw);
   max-height: calc(100dvh - 2rem);
   overflow: hidden;
+  transform: translate(-50%, -50%);
   background: #fff;
   border: 1px solid var(--admin-border, #e8ece9);
   border-radius: var(--cf-radius-control);
@@ -11,6 +25,10 @@
 
   @supports (corner-shape: squircle) {
     corner-shape: squircle;
+  }
+
+  &:focus {
+    outline: none;
   }
 }
 

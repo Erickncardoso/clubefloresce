@@ -89,6 +89,7 @@ export function PatientNutritionModal({
       onOpenChange={onOpenChange}
       title={`Evolução nutricional — ${patientName}`}
       bare
+      overlayClassName={styles.overlay}
       contentClassName={styles.card}
     >
       <header className={styles.head}>
@@ -123,7 +124,9 @@ export function PatientNutritionModal({
               compact
               photoLimit={12}
               nutritionTarget={nutritionTarget}
-              activeTab={activeTab === 'checkins' ? 'fotos' : activeTab}
+              activeTab={
+                activeTab === 'metas' || activeTab === 'desempenho' ? activeTab : 'fotos'
+              }
               onActiveTabChange={setActiveTab}
               hideToolbar
             />

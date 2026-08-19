@@ -35,5 +35,15 @@
       "demoPassword": "AppleReview2026!",
       "notes": "USE A CONTA COMPLETA PARA TESTAR: review.full@clubeflorescer.app / AppleReview2026!\n\nConta preview (acesso limitado): review.limited@clubeflorescer.app / mesma senha. Onboarding já concluído.\n\nMODELO DE NEGÓCIO (3.1.1): portal de paciente de consultório nutricional. Não há compra, preço ou pagamento no app iOS. O acesso completo é liberado manualmente pela nutricionista. Avatar (header) → Configurações → Meu acesso → Sincronizar. Sem links de checkout externo. Sem IAP.\n\nCITAÇÕES DE SAÚDE (1.4.1): Avatar → Configurações → Fontes e referências (TBCA, TACO, Guia Alimentar MS, OMS, CFN, NIH). Também visível em Início, Dieta, Bella chat, Substituir alimento e Evolução.\n\nComunidade: menu ⋮ → Denunciar publicação ou Bloquear membro. Regras visíveis no topo do feed.\n\nExclusão de conta: Avatar → Configurações → Meu Perfil → Apagar minha conta.\n\nContato: contato@nutrisabellajardim.com.br"
     }
+  },
+  "android": {
+    "title": "Clube Florescer",
+    "shortDescription": "Nutrição personalizada com a Bella IA e acompanhamento da nutricionista.",
+    "fullDescription": "O Clube Florescer é o app oficial de acompanhamento nutricional da nutricionista Isabella Jardim. Tenha sua dieta personalizada, converse com a Bella IA para tirar dúvidas sobre alimentação, registre seus check-ins semanais e acompanhe sua evolução — tudo em um só lugar.\n\n• Dieta personalizada com substituição inteligente de alimentos\n• Bella IA: leitura de rótulos, sugestões de prato e dúvidas nutricionais\n• Check-ins semanais e acompanhamento de evolução\n• Conteúdos exclusivos: vídeos, e-books e receitas\n• Comunidade para trocar experiências\n• Videochamadas com sua nutricionista\n\nO acesso completo é liberado pela nutricionista responsável e vinculado à sua conta. Consulte a validade em Perfil → Meu acesso.\n\nSem acesso liberado, o app permite criar conta e visualizar uma prévia da área Início.\n\nEste app apoia hábitos alimentares e bem-estar. Não substitui consulta médica, nutricional presencial ou atendimento de emergência.",
+    "applicationId": "com.clubeflorescer.app",
+    "category": "HEALTH_AND_FITNESS",
+    "privacyPolicyUrl": "https://app.nutrisabellajardim.com.br/legal/privacidade",
+    "supportUrl": "https://app.nutrisabellajardim.com.br/perfil",
+    "marketingUrl": "https://app.nutrisabellajardim.com.br"
   }
 }
