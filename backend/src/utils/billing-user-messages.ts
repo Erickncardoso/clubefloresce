@@ -22,8 +22,8 @@ export function mapBillingErrorMessage(raw?: string | null): string {
     return "Não foi possível criar a assinatura Pix. Tente novamente em instantes.";
   }
 
-  if (lower.includes("pix automático") || lower.includes("pix automatic") || lower.includes("preapproval")) {
-    return "Não foi possível iniciar o Pix mensal. Confira se Pix Automático está ativo no Mercado Pago ou use Pix avulso / crédito.";
+  if (lower.includes("sandbox") || lower.includes("app_usr") || lower.includes("pix mensal não roda")) {
+    return "Pix mensal só funciona em produção. Por enquanto use Pix avulso ou crédito neste ambiente de teste.";
   }
 
   if (lower.includes("assinatura") || lower.includes("pix automático")) {

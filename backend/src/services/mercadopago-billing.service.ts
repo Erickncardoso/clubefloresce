@@ -802,6 +802,12 @@ export class MercadoPagoBillingService {
   /** Pix Automático: autorização única no banco, cobrança mensal pelo Mercado Pago. */
   async subscribeWithPixAutomatic(input: SubscribePixInput) {
     this.ensureConfigured();
+    if (isMercadoPagoTestMode()) {
+      throw new Error(
+        "Pix mensal não roda no sandbox do Mercado Pago. Use Pix avulso aqui, ou teste no site de produção com as chaves APP_USR.",
+      );
+    }
+    this.ensureConfigured();
     const { planId, amount, product } = await billingPlanConfigService.resolvePlanAmount(input.planId);
     const userPlan = billingPlanConfigService.toUserPlan(product);
     const accessDays = productAccessDays(product);

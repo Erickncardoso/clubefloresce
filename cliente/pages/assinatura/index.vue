@@ -144,7 +144,6 @@
                   autocapitalize="off"
                   autocorrect="off"
                   spellcheck="false"
-                  readonly
                   required
                   placeholder="seu@email.com"
                   @focus="onGuestEmailFocus"
@@ -458,6 +457,9 @@
             <p class="checkout-pix-start-note">
               Vamos abrir o Mercado Pago para você confirmar o Pix Automático no app do seu banco.
             </p>
+            <p v-if="billingConfig?.testMode" class="checkout-sandbox-note">
+              Ambiente de teste: o Pix mensal só autoriza em produção. Use Pix avulso ou crédito aqui.
+            </p>
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixAutomaticCheckout">
               <div
                 class="form-group field--float"
@@ -715,18 +717,6 @@ async function loadBillingData() {
       await completeCheckoutSuccess()
     } else {
       syncCardFormFromSession()
-    }
-    // Chrome às vezes injeta autofill depois do mount — limpa de novo.
-    if (import.meta.client) {
-      requestAnimationFrame(() => {
-        guestForm.value.email = ''
-        guestForm.value.name = guestForm.value.name || ''
-      })
-      setTimeout(() => {
-        if (!document.activeElement || document.activeElement.id !== 'cf-guest-email') {
-          guestForm.value.email = ''
-        }
-      }, 300)
     }
     return
   }
