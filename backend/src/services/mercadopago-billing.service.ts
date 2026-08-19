@@ -292,18 +292,28 @@ function assertPixQrGenerated(payment: Record<string, unknown>): ReturnType<type
 }
 
 function extractMercadoPagoApiError(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== "object") return fallback;
+  if (!payload) return fallback;
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    return trimmed || fallback;
+  }
+  if (Array.isArray(payload)) {
+    const joined = payload
+      .map((item) => extractMercadoPagoApiError(item, ""))
+      .filter(Boolean)
+      .join(" ");
+    return joined || fallback;
+  }
+  if (typeof payload !== "object") return fallback;
+
   const data = payload as Record<string, unknown>;
-  const cause = Array.isArray(data.cause) ? data.cause : [];
-  const causeMessage = cause
-    .map((item) => {
-      if (!item || typeof item !== "object") return "";
-      const entry = item as Record<string, unknown>;
-      return String(entry.description || entry.message || "").trim();
-    })
-    .filter(Boolean)
-    .join(" ");
-  return String(causeMessage || data.message || fallback);
+  const nested = [data.cause, data.error, data.apiResponse, data.data]
+    .map((item) => extractMercadoPagoApiError(item, ""))
+    .filter(Boolean);
+  if (nested.length) return nested.join(" ");
+
+  const description = String(data.description || data.message || data.error_description || "").trim();
+  return description || fallback;
 }
 
 function isInvalidUsersMpError(payload: unknown): boolean {
@@ -402,6 +412,7 @@ async function createMercadoPagoPreApproval(body: Record<string, unknown>): Prom
     return (response || {}) as unknown as Record<string, unknown>;
   } catch (err: any) {
     const payload = err?.cause || err?.apiResponse || err;
+    console.error("[Billing] preapproval create failed:", err?.message || err);
     throw new Error(extractMercadoPagoApiError(payload, err?.message || "Não foi possível criar a assinatura no Mercado Pago."));
   }
 }
@@ -807,7 +818,6 @@ export class MercadoPagoBillingService {
         "Pix mensal não roda no sandbox do Mercado Pago. Use Pix avulso aqui, ou teste no site de produção com as chaves APP_USR.",
       );
     }
-    this.ensureConfigured();
     const { planId, amount, product } = await billingPlanConfigService.resolvePlanAmount(input.planId);
     const userPlan = billingPlanConfigService.toUserPlan(product);
     const accessDays = productAccessDays(product);
@@ -815,26 +825,35 @@ export class MercadoPagoBillingService {
     const mpPayerEmail = resolveMercadoPagoPayerEmail(input.payerEmail);
     const startDate = new Date();
     startDate.setMinutes(startDate.getMinutes() + 2);
+    const backUrl = `${getPatientAppProductionUrl()}/assinatura`;
 
     const planFromDashboard = getMercadoPagoPreapprovalPlanId();
-    const body = planFromDashboard
-      ? {
+    const withoutPlan = buildPixPreapprovalBody({
+      description: buildPreapprovalReason(product),
+      externalReference,
+      payerEmail: mpPayerEmail,
+      amount,
+      product,
+      startDate,
+    });
+
+    let response: Record<string, unknown>;
+    if (planFromDashboard) {
+      try {
+        response = await createMercadoPagoPreApproval({
           preapproval_plan_id: planFromDashboard,
           payer_email: mpPayerEmail,
+          reason: buildPreapprovalReason(product),
           external_reference: externalReference,
-          back_url: `${getPatientAppProductionUrl()}/assinatura?status=success`,
-          status: "pending",
-        }
-      : buildPixPreapprovalBody({
-          description: buildPreapprovalReason(product),
-          externalReference,
-          payerEmail: mpPayerEmail,
-          amount,
-          product,
-          startDate,
+          back_url: backUrl,
         });
-
-    const response = await createMercadoPagoPreApproval(body);
+      } catch (err: any) {
+        console.warn("[Billing] pix automatic plan id falhou, tentando sem plano:", err?.message || err);
+        response = await createMercadoPagoPreApproval(withoutPlan);
+      }
+    } else {
+      response = await createMercadoPagoPreApproval(withoutPlan);
+    }
     const mpId = String(response.id || "");
     const initPoint = extractPreapprovalInitPoint(response, mpId);
     if (!mpId || !initPoint) {

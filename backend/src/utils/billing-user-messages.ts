@@ -1,6 +1,5 @@
 const DEV_PATTERNS = [
   /mercado\s*pago/i,
-  /preapproval/i,
   /card_token/i,
   /invalid users involved/i,
   /prisma/i,
@@ -24,10 +23,6 @@ export function mapBillingErrorMessage(raw?: string | null): string {
 
   if (lower.includes("sandbox") || lower.includes("app_usr") || lower.includes("pix mensal não roda")) {
     return "Pix mensal só funciona em produção. Por enquanto use Pix avulso ou crédito neste ambiente de teste.";
-  }
-
-  if (lower.includes("assinatura") || lower.includes("pix automático")) {
-    return message.length <= 200 ? message : "Não foi possível criar a assinatura Pix. Verifique a conta Mercado Pago ou use cartão.";
   }
 
   if (lower.includes("cpf") || lower.includes("identification") || lower.includes("identific")) {
