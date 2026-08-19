@@ -44,9 +44,9 @@ export function getMercadoPagoPreapprovalPlanId(): string | null {
   return "a8322221c78041ff82fa1fa1898da92a";
 }
 
-/** Plano cujo checkout só aceita Pix. Nunca reutilizar o plano de cartão do painel. */
-export function getMercadoPagoPixAutomaticPlanId(): string | null {
-  return readEnv("MERCADOPAGO_PIX_AUTOMATIC_PLAN_ID");
+/** Link copiado em Assinaturas → Copiar link (plano Pix, não o de cartão). */
+export function getMercadoPagoPixAutomaticCheckoutUrl(): string | null {
+  return readEnv("MERCADOPAGO_PIX_AUTOMATIC_CHECKOUT_URL");
 }
 
 export function getBillingWebhookUrl(): string | null {

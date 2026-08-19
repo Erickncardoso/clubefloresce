@@ -452,13 +452,10 @@
 
           <div v-else class="checkout-pix-start">
             <p class="checkout-pix-start-lead">
-              <strong>Pix mensal</strong> de {{ formatCurrency(selectedPlanAmount) }} — você autoriza uma vez no banco e os próximos meses saem sozinhos.
+              <strong>Pix mensal</strong> de {{ formatCurrency(selectedPlanAmount) }} — você autoriza uma vez no app do seu banco (Nubank, Itaú, etc.).
             </p>
             <p class="checkout-pix-start-note">
-              Vamos abrir o Mercado Pago já no Pix Automático — não use cartão nessa tela. A autorização sai no app do seu banco.
-            </p>
-            <p v-if="billingConfig?.testMode" class="checkout-sandbox-note">
-              Ambiente de teste: o Pix mensal só autoriza em produção. Use Pix avulso ou crédito aqui.
+              Vamos abrir o plano Pix do Mercado Pago. Não use cartão nessa tela: escolha Pix e confirme no banco. Os próximos meses saem sozinhos.
             </p>
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixAutomaticCheckout">
               <div
@@ -485,7 +482,7 @@
                 class="btn-auth-submit patient-auth-submit cf-squircle--control"
                 :disabled="processing"
               >
-                {{ processing ? 'Abrindo autorização…' : `Autorizar Pix mensal — ${formatCurrency(selectedPlanAmount)}` }}
+                {{ processing ? 'Abrindo o plano…' : `Continuar no Pix mensal — ${formatCurrency(selectedPlanAmount)}` }}
               </button>
             </form>
           </div>
@@ -1038,12 +1035,13 @@ async function startPixAutomaticCheckout() {
 
     const initPoint = String(result?.initPoint || '').trim()
     if (!initPoint) {
-      checkoutError.value = 'Não foi possível abrir o Pix mensal. Tente o Pix avulso ou o crédito.'
+      checkoutError.value = 'Não foi possível abrir o plano Pix mensal. Tente a aba Pix.'
       return
     }
     window.location.assign(initPoint)
   } catch (err) {
-    checkoutError.value = err?.data?.message || err?.message || 'Não foi possível iniciar o Pix mensal.'
+    checkoutError.value = err?.data?.message || err?.message || 'Não foi possível abrir o Pix mensal.'
+  } finally {
     processing.value = false
   }
 }

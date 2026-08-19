@@ -22,6 +22,10 @@ export function mapBillingErrorMessage(raw?: string | null): string {
 
   const lower = message.toLowerCase();
 
+  if (lower.includes("template") && lower.includes("does not exist")) {
+    return "O plano de Pix mensal no Mercado Pago está inválido. Tente de novo em instantes ou use Pix avulso.";
+  }
+
   if (lower.includes("40 character") || lower.includes("more than 40")) {
     return "Não foi possível criar a assinatura Pix. Tente novamente em instantes.";
   }
