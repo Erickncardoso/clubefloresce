@@ -5,7 +5,6 @@ import { prisma } from "../lib/prisma";
 import {
   getMercadoPagoAccessToken,
   getBillingWebhookUrl,
-  getMercadoPagoPreapprovalPlanId,
   getMercadoPagoSandboxPayerEmail,
   isBillingSandboxSimulateCard,
   isMercadoPagoConfigured,
@@ -291,29 +290,39 @@ function assertPixQrGenerated(payment: Record<string, unknown>): ReturnType<type
   return pix;
 }
 
+function isGenericGatewayCode(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (/^(bad_request|invalid_request|unauthorized|forbidden|not_found|error)$/i.test(trimmed)) return true;
+  return trimmed.length < 24 && !trimmed.includes(" ") && /^[a-z0-9._-]+$/i.test(trimmed);
+}
+
 function extractMercadoPagoApiError(payload: unknown, fallback: string): string {
-  if (!payload) return fallback;
-  if (typeof payload === "string") {
-    const trimmed = payload.trim();
-    return trimmed || fallback;
-  }
-  if (Array.isArray(payload)) {
-    const joined = payload
-      .map((item) => extractMercadoPagoApiError(item, ""))
-      .filter(Boolean)
-      .join(" ");
-    return joined || fallback;
-  }
-  if (typeof payload !== "object") return fallback;
+  const parts: string[] = [];
 
-  const data = payload as Record<string, unknown>;
-  const nested = [data.cause, data.error, data.apiResponse, data.data]
-    .map((item) => extractMercadoPagoApiError(item, ""))
-    .filter(Boolean);
-  if (nested.length) return nested.join(" ");
+  const walk = (value: unknown, depth: number) => {
+    if (value == null || depth > 6) return;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed && !isGenericGatewayCode(trimmed)) parts.push(trimmed);
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item, depth + 1);
+      return;
+    }
+    if (typeof value !== "object") return;
+    const data = value as Record<string, unknown>;
+    walk(data.description, depth + 1);
+    walk(data.message, depth + 1);
+    walk(data.error_description, depth + 1);
+    walk(data.cause, depth + 1);
+    walk(data.apiResponse, depth + 1);
+  };
 
-  const description = String(data.description || data.message || data.error_description || "").trim();
-  return description || fallback;
+  walk(payload, 0);
+  const unique = [...new Set(parts)].sort((a, b) => b.length - a.length);
+  return unique[0] || fallback;
 }
 
 function isInvalidUsersMpError(payload: unknown): boolean {
@@ -372,32 +381,20 @@ function buildPixPreapprovalBody(params: {
   payerEmail: string;
   amount: number;
   product: BillingProduct;
-  startDate: Date;
 }): Record<string, unknown> {
-  const autoRecurring: Record<string, unknown> = {
-    frequency: params.product.frequency,
-    frequency_type: params.product.frequencyType,
-    start_date: params.startDate.toISOString(),
-    transaction_amount: params.amount,
-    currency_id: "BRL",
-  };
-
-  if (params.product.frequencyType === "months") {
-    autoRecurring.billing_day = Math.min(28, Math.max(1, params.startDate.getDate()));
-    autoRecurring.billing_day_proportional = true;
-  }
-
-  const endDate = new Date(params.startDate);
-  endDate.setFullYear(endDate.getFullYear() + 2);
-  autoRecurring.end_date = endDate.toISOString();
-
   return {
     reason: truncateMercadoPagoText(params.description, MP_PREAPPROVAL_REASON_MAX_LEN),
     external_reference: truncateMercadoPagoText(params.externalReference, MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN),
     payer_email: params.payerEmail,
+    payment_method_id: "pix",
     status: "pending",
-    back_url: `${getPatientAppProductionUrl()}/assinatura?status=success`,
-    auto_recurring: autoRecurring,
+    back_url: `${getPatientAppProductionUrl()}/assinatura`,
+    auto_recurring: {
+      frequency: params.product.frequency,
+      frequency_type: params.product.frequencyType,
+      transaction_amount: params.amount,
+      currency_id: "BRL",
+    },
   };
 }
 
@@ -413,6 +410,11 @@ async function createMercadoPagoPreApproval(body: Record<string, unknown>): Prom
   } catch (err: any) {
     const payload = err?.cause || err?.apiResponse || err;
     console.error("[Billing] preapproval create failed:", err?.message || err);
+    try {
+      console.error("[Billing] preapproval create payload:", JSON.stringify(payload)?.slice(0, 1500));
+    } catch {
+      /* ignore */
+    }
     throw new Error(extractMercadoPagoApiError(payload, err?.message || "Não foi possível criar a assinatura no Mercado Pago."));
   }
 }
@@ -823,29 +825,21 @@ export class MercadoPagoBillingService {
     const accessDays = productAccessDays(product);
     const externalReference = buildExternalReference(input.userId, planId);
     const mpPayerEmail = resolveMercadoPagoPayerEmail(input.payerEmail);
-    const startDate = new Date();
-    startDate.setMinutes(startDate.getMinutes() + 2);
-    const backUrl = `${getPatientAppProductionUrl()}/assinatura`;
-
-    const planFromDashboard = getMercadoPagoPreapprovalPlanId();
+    const pixPlanId = String(process.env.MERCADOPAGO_PIX_AUTOMATIC_PLAN_ID || "").trim();
     const withoutPlan = buildPixPreapprovalBody({
       description: buildPreapprovalReason(product),
       externalReference,
       payerEmail: mpPayerEmail,
       amount,
       product,
-      startDate,
     });
 
     let response: Record<string, unknown>;
-    if (planFromDashboard) {
+    if (pixPlanId) {
       try {
         response = await createMercadoPagoPreApproval({
-          preapproval_plan_id: planFromDashboard,
-          payer_email: mpPayerEmail,
-          reason: buildPreapprovalReason(product),
-          external_reference: externalReference,
-          back_url: backUrl,
+          ...withoutPlan,
+          preapproval_plan_id: pixPlanId,
         });
       } catch (err: any) {
         console.warn("[Billing] pix automatic plan id falhou, tentando sem plano:", err?.message || err);

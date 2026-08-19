@@ -176,8 +176,11 @@ export class BillingController {
       res.status(201).json(result);
     } catch (err: any) {
       console.error("[Billing] subscribePixAutomatic:", err?.message || err);
+      const raw = String(err?.message || "").trim();
       res.status(400).json({
-        message: mapBillingErrorMessage(err?.message || "Não foi possível iniciar o Pix Automático."),
+        message: raw && raw.length <= 200
+          ? mapBillingErrorMessage(raw)
+          : "Não foi possível iniciar o Pix mensal. Tente Pix avulso ou crédito.",
       });
     }
   };

@@ -1,13 +1,18 @@
 const DEV_PATTERNS = [
-  /mercado\s*pago/i,
   /card_token/i,
-  /invalid users involved/i,
   /prisma/i,
   /BILLING_SANDBOX/i,
   /MERCADOPAGO_/i,
   /idempotency/i,
   /apiResponse/i,
 ];
+
+function isGenericGatewayCode(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (/^(bad_request|invalid_request|unauthorized|forbidden|not_found|error)$/i.test(trimmed)) return true;
+  return trimmed.length < 24 && !trimmed.includes(" ") && /^[a-z0-9._-]+$/i.test(trimmed);
+}
 
 export function mapBillingErrorMessage(raw?: string | null): string {
   const message = String(raw || "").trim();
@@ -21,7 +26,7 @@ export function mapBillingErrorMessage(raw?: string | null): string {
     return "Não foi possível criar a assinatura Pix. Tente novamente em instantes.";
   }
 
-  if (lower.includes("sandbox") || lower.includes("app_usr") || lower.includes("pix mensal não roda")) {
+  if (lower.includes("sandbox") || lower.includes("pix mensal não roda")) {
     return "Pix mensal só funciona em produção. Por enquanto use Pix avulso ou crédito neste ambiente de teste.";
   }
 
@@ -54,7 +59,7 @@ export function mapBillingErrorMessage(raw?: string | null): string {
     return "Seu cartão foi recusado. Verifique os dados ou tente outro cartão.";
   }
 
-  if (lower.includes("insufficient") || lower.includes("saldo")) {
+  if (lower.includes("insufficient") || (lower.includes("saldo") && !lower.includes("mensal"))) {
     return "Pagamento não autorizado por saldo ou limite. Tente outro cartão.";
   }
 
@@ -82,7 +87,7 @@ export function mapBillingErrorMessage(raw?: string | null): string {
     return "Não foi possível processar o pagamento agora. Tente outro método ou aguarde alguns minutos.";
   }
 
-  if (message.length > 160) {
+  if (isGenericGatewayCode(message) || message.length > 200) {
     return "Não foi possível processar o pagamento. Verifique os dados e tente novamente.";
   }
 
