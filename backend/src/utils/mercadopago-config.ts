@@ -36,12 +36,17 @@ export function resolveMercadoPagoPayerEmail(patientEmail: string): string {
   return normalized;
 }
 
-/** Plano criado em Ferramentas para vender → Assinaturas (opcional). */
+/** Plano de assinatura com cartão (opcional). Não usar no Pix Automático. */
 export function getMercadoPagoPreapprovalPlanId(): string | null {
   const fromEnv = readEnv("MERCADOPAGO_PREAPPROVAL_PLAN_ID");
   if (fromEnv) return fromEnv;
   if (isMercadoPagoTestMode()) return null;
   return "a8322221c78041ff82fa1fa1898da92a";
+}
+
+/** Plano cujo checkout só aceita Pix. Nunca reutilizar o plano de cartão do painel. */
+export function getMercadoPagoPixAutomaticPlanId(): string | null {
+  return readEnv("MERCADOPAGO_PIX_AUTOMATIC_PLAN_ID");
 }
 
 export function getBillingWebhookUrl(): string | null {

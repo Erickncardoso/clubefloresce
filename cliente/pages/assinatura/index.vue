@@ -455,7 +455,7 @@
               <strong>Pix mensal</strong> de {{ formatCurrency(selectedPlanAmount) }} — você autoriza uma vez no banco e os próximos meses saem sozinhos.
             </p>
             <p class="checkout-pix-start-note">
-              Vamos abrir o Mercado Pago para você confirmar o Pix Automático no app do seu banco.
+              Vamos abrir o Mercado Pago já no Pix Automático — não use cartão nessa tela. A autorização sai no app do seu banco.
             </p>
             <p v-if="billingConfig?.testMode" class="checkout-sandbox-note">
               Ambiente de teste: o Pix mensal só autoriza em produção. Use Pix avulso ou crédito aqui.

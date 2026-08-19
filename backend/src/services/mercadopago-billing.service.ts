@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import {
   getMercadoPagoAccessToken,
   getBillingWebhookUrl,
+  getMercadoPagoPixAutomaticPlanId,
   getMercadoPagoSandboxPayerEmail,
   isBillingSandboxSimulateCard,
   isMercadoPagoConfigured,
@@ -375,26 +376,167 @@ function extractPreapprovalInitPoint(
   return id ? buildPreapprovalCheckoutUrl(id) : "";
 }
 
-function buildPixPreapprovalBody(params: {
-  description: string;
+const PIX_PAYMENT_METHODS_ALLOWED = {
+  payment_types: [{ id: "bank_transfer" }, { id: "pix" }],
+  payment_methods: [{ id: "pix" }],
+};
+
+function planAllowsPix(plan: Record<string, unknown> | null | undefined): boolean {
+  const raw = JSON.stringify(plan?.payment_methods_allowed || "").toLowerCase();
+  if (!raw.includes("pix") && !raw.includes("bank_transfer")) return false;
+  return !/visa|master|amex|elo|credit_card|debit_card/.test(raw);
+}
+
+function withPixCheckoutHint(url: string): string {
+  const trimmed = String(url || "").trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    parsed.searchParams.set("payment_method_id", "pix");
+    return parsed.toString();
+  } catch {
+    return trimmed;
+  }
+}
+
+function buildPixPlanExternalReference(planId: string, amount: number): string {
+  const cents = Math.round(Number(amount) * 100);
+  const planPart = String(planId || "plan").replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
+  return truncateMercadoPagoText(`cfpx-${planPart}-${cents}`, MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN);
+}
+
+async function mercadoPagoRequest(path: string, init: RequestInit = {}): Promise<Record<string, unknown>> {
+  const accessToken = getMercadoPagoAccessToken();
+  if (!accessToken) throw new Error("Mercado Pago não configurado.");
+  const response = await fetch(`https://api.mercadopago.com${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(extractMercadoPagoApiError(payload, `Mercado Pago ${response.status}`));
+  }
+  return (payload || {}) as Record<string, unknown>;
+}
+
+async function getMercadoPagoPreapprovalPlan(planId: string): Promise<Record<string, unknown> | null> {
+  try {
+    return await mercadoPagoRequest(`/preapproval_plan/${encodeURIComponent(planId)}`);
+  } catch {
+    return null;
+  }
+}
+
+async function searchPixAutomaticPlan(externalReference: string, amount: number): Promise<Record<string, unknown> | null> {
+  try {
+    const payload = await mercadoPagoRequest("/preapproval_plan/search?status=active&limit=50");
+    const results = Array.isArray(payload.results) ? payload.results : [];
+    const matchRef = results.find((item) => {
+      const plan = (item || {}) as Record<string, unknown>;
+      return String(plan.external_reference || "") === externalReference && planAllowsPix(plan);
+    }) as Record<string, unknown> | undefined;
+    if (matchRef) return matchRef;
+    return (results.find((item) => {
+      const plan = (item || {}) as Record<string, unknown>;
+      const recurring = (plan.auto_recurring || {}) as Record<string, unknown>;
+      return planAllowsPix(plan) && Number(recurring.transaction_amount) === Number(amount);
+    }) || null) as Record<string, unknown> | null;
+  } catch (err: any) {
+    console.warn("[Billing] busca de plano Pix Automático falhou:", err?.message || err);
+    return null;
+  }
+}
+
+async function createPixOnlyPreapprovalPlan(params: {
+  reason: string;
   externalReference: string;
-  payerEmail: string;
+  backUrl: string;
   amount: number;
   product: BillingProduct;
-}): Record<string, unknown> {
-  return {
-    reason: truncateMercadoPagoText(params.description, MP_PREAPPROVAL_REASON_MAX_LEN),
-    external_reference: truncateMercadoPagoText(params.externalReference, MP_PREAPPROVAL_EXTERNAL_REF_MAX_LEN),
-    payer_email: params.payerEmail,
-    payment_method_id: "pix",
-    status: "pending",
-    back_url: `${getPatientAppProductionUrl()}/assinatura`,
+}): Promise<Record<string, unknown>> {
+  const base = {
+    reason: params.reason,
+    external_reference: params.externalReference,
+    back_url: params.backUrl,
     auto_recurring: {
       frequency: params.product.frequency,
       frequency_type: params.product.frequencyType,
       transaction_amount: params.amount,
       currency_id: "BRL",
     },
+  };
+  const allowedVariants = [
+    PIX_PAYMENT_METHODS_ALLOWED,
+    { payment_methods: [{ id: "pix" }] },
+  ];
+  let lastError: unknown;
+  for (const payment_methods_allowed of allowedVariants) {
+    try {
+      return await mercadoPagoRequest("/preapproval_plan", {
+        method: "POST",
+        headers: { "X-Idempotency-Key": randomUUID() },
+        body: JSON.stringify({ ...base, payment_methods_allowed }),
+      });
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Não foi possível criar o plano de Pix mensal no Mercado Pago.");
+}
+
+async function ensurePixAutomaticPlan(params: {
+  reason: string;
+  amount: number;
+  product: BillingProduct;
+  backUrl: string;
+}): Promise<{ id: string; initPoint: string; plan: Record<string, unknown> }> {
+  const envPlanId = getMercadoPagoPixAutomaticPlanId();
+  if (envPlanId) {
+    const envPlan = await getMercadoPagoPreapprovalPlan(envPlanId);
+    if (envPlan && planAllowsPix(envPlan)) {
+      return {
+        id: envPlanId,
+        initPoint: String(envPlan.init_point || "").trim(),
+        plan: envPlan,
+      };
+    }
+    console.warn("[Billing] MERCADOPAGO_PIX_AUTOMATIC_PLAN_ID não é um plano só de Pix. Criando outro.");
+  }
+
+  const externalReference = buildPixPlanExternalReference(params.product.id, params.amount);
+  const existing = await searchPixAutomaticPlan(externalReference, params.amount);
+  if (existing?.id) {
+    return {
+      id: String(existing.id),
+      initPoint: String(existing.init_point || "").trim(),
+      plan: existing,
+    };
+  }
+
+  const created = await createPixOnlyPreapprovalPlan({
+    reason: params.reason,
+    externalReference,
+    backUrl: params.backUrl,
+    amount: params.amount,
+    product: params.product,
+  });
+  const id = String(created.id || "").trim();
+  if (!id) {
+    throw new Error("O Mercado Pago não criou o plano de Pix mensal. Ative Pix Automático na conta vendedora.");
+  }
+  if (created.payment_methods_allowed && !planAllowsPix(created)) {
+    throw new Error("O plano criado no Mercado Pago ainda aceita cartão. Ative Pix Automático em Assinaturas e tente de novo.");
+  }
+  return {
+    id,
+    initPoint: String(created.init_point || "").trim(),
+    plan: created,
   };
 }
 
@@ -825,34 +967,45 @@ export class MercadoPagoBillingService {
     const accessDays = productAccessDays(product);
     const externalReference = buildExternalReference(input.userId, planId);
     const mpPayerEmail = resolveMercadoPagoPayerEmail(input.payerEmail);
-    const pixPlanId = String(process.env.MERCADOPAGO_PIX_AUTOMATIC_PLAN_ID || "").trim();
-    const withoutPlan = buildPixPreapprovalBody({
-      description: buildPreapprovalReason(product),
-      externalReference,
-      payerEmail: mpPayerEmail,
+    const backUrl = `${getPatientAppProductionUrl()}/assinatura`;
+    const reason = buildPreapprovalReason(product);
+    const pixPlan = await ensurePixAutomaticPlan({
+      reason,
       amount,
       product,
+      backUrl,
     });
 
     let response: Record<string, unknown>;
-    if (pixPlanId) {
-      try {
-        response = await createMercadoPagoPreApproval({
-          ...withoutPlan,
-          preapproval_plan_id: pixPlanId,
-        });
-      } catch (err: any) {
-        console.warn("[Billing] pix automatic plan id falhou, tentando sem plano:", err?.message || err);
-        response = await createMercadoPagoPreApproval(withoutPlan);
-      }
-    } else {
-      response = await createMercadoPagoPreApproval(withoutPlan);
+    try {
+      response = await createMercadoPagoPreApproval({
+        preapproval_plan_id: pixPlan.id,
+        payer_email: mpPayerEmail,
+        reason,
+        external_reference: externalReference,
+        back_url: backUrl,
+        status: "pending",
+        payment_method_id: "pix",
+      });
+    } catch (err: any) {
+      console.warn("[Billing] preapproval com payment_method_id=pix falhou, tentando só com o plano Pix:", err?.message || err);
+      response = await createMercadoPagoPreApproval({
+        preapproval_plan_id: pixPlan.id,
+        payer_email: mpPayerEmail,
+        reason,
+        external_reference: externalReference,
+        back_url: backUrl,
+        status: "pending",
+      });
     }
+
     const mpId = String(response.id || "");
-    const initPoint = extractPreapprovalInitPoint(response, mpId);
+    const initPoint = withPixCheckoutHint(
+      extractPreapprovalInitPoint(response, mpId) || pixPlan.initPoint,
+    );
     if (!mpId || !initPoint) {
       throw new Error(
-        "O Mercado Pago não devolveu o link do Pix Automático. Confira se Assinaturas e Pix Automático estão ativos na conta.",
+        "O Mercado Pago não devolveu o link do Pix Automático. Ative Pix Automático em Assinaturas na conta vendedora.",
       );
     }
 
