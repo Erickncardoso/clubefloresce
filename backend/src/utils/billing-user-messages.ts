@@ -22,7 +22,11 @@ export function mapBillingErrorMessage(raw?: string | null): string {
     return "Não foi possível criar a assinatura Pix. Tente novamente em instantes.";
   }
 
-  if (lower.includes("assinatura") || lower.includes("preapproval") || lower.includes("pix automático")) {
+  if (lower.includes("pix automático") || lower.includes("pix automatic") || lower.includes("preapproval")) {
+    return "Não foi possível iniciar o Pix mensal. Confira se Pix Automático está ativo no Mercado Pago ou use Pix avulso / crédito.";
+  }
+
+  if (lower.includes("assinatura") || lower.includes("pix automático")) {
     return message.length <= 200 ? message : "Não foi possível criar a assinatura Pix. Verifique a conta Mercado Pago ou use cartão.";
   }
 
@@ -32,6 +36,23 @@ export function mapBillingErrorMessage(raw?: string | null): string {
 
   if (lower.includes("qr code") || lower.includes("chave pix")) {
     return message.length <= 160 ? message : "Não foi possível gerar o QR Code Pix. Verifique a chave Pix na conta Mercado Pago.";
+  }
+
+  if (
+    lower.includes("débito")
+    || lower.includes("debito")
+    || lower.includes("debit")
+  ) {
+    return "Aceitamos só cartão de crédito (Visa, Mastercard, Elo ou Amex) ou Pix.";
+  }
+
+  if (
+    lower.includes("payment_method")
+    || lower.includes("payment method")
+    || lower.includes("bandeira")
+    || lower.includes("cannot get payment method")
+  ) {
+    return "Use um cartão de crédito Visa, Mastercard, Elo ou Amex, ou pague com Pix.";
   }
 
   if (lower.includes("recusad") || lower.includes("rejected") || lower.includes("cc_rejected")) {

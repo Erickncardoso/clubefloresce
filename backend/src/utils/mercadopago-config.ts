@@ -36,6 +36,14 @@ export function resolveMercadoPagoPayerEmail(patientEmail: string): string {
   return normalized;
 }
 
+/** Plano criado em Ferramentas para vender → Assinaturas (opcional). */
+export function getMercadoPagoPreapprovalPlanId(): string | null {
+  const fromEnv = readEnv("MERCADOPAGO_PREAPPROVAL_PLAN_ID");
+  if (fromEnv) return fromEnv;
+  if (isMercadoPagoTestMode()) return null;
+  return "a8322221c78041ff82fa1fa1898da92a";
+}
+
 export function getBillingWebhookUrl(): string | null {
   const base = readEnv("BACKEND_PUBLIC_URL") || readEnv("CLOUDFLARE_TUNNEL_URL");
   if (!base) return null;

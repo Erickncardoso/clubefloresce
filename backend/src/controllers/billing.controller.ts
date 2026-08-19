@@ -151,6 +151,37 @@ export class BillingController {
     }
   };
 
+  subscribePixAutomatic = async (req: Request, res: Response) => {
+    try {
+      const { planId, payerEmail, payerName, identification } = req.body || {};
+      const userId = await resolveCheckoutUserId(req, req.body || {});
+
+      const account = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true },
+      });
+      const resolvedEmail = String(account?.email || payerEmail || req.user?.email || "").trim();
+      if (!resolvedEmail) {
+        return res.status(400).json({ message: "E-mail do pagador é obrigatório." });
+      }
+
+      const result = await mercadoPagoBillingService.subscribeWithPixAutomatic({
+        userId,
+        planId,
+        payerEmail: resolvedEmail,
+        payerName: payerName ? String(payerName) : account?.name || undefined,
+        identification,
+      });
+
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Billing] subscribePixAutomatic:", err?.message || err);
+      res.status(400).json({
+        message: mapBillingErrorMessage(err?.message || "Não foi possível iniciar o Pix Automático."),
+      });
+    }
+  };
+
   webhook = async (req: Request, res: Response) => {
     try {
       const valid = verifyMercadoPagoWebhookSignature(

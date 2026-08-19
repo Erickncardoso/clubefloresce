@@ -22,6 +22,12 @@ router.post(
   billingRateLimiter,
   controller.subscribePix,
 );
+router.post(
+  "/subscribe/pix-automatic",
+  optionalAuthenticate,
+  billingRateLimiter,
+  controller.subscribePixAutomatic,
+);
 router.post("/webhook", controller.webhook);
 
 router.get("/admin/products", authenticate, authorize(["NUTRICIONISTA"]), controller.getAdminProducts);

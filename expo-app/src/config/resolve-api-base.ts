@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { PROD_API_BASE } from './api-env';
 
@@ -12,18 +12,37 @@ function isProdApiBase(value: string): boolean {
   return /apiclube\.|nutrisabellajardim\.com\.br\/api/i.test(value);
 }
 
-function getDebuggerHost(): string | null {
+function isLoopbackHost(host: string): boolean {
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+}
+
+function hostFromUri(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const value = raw.trim();
+  try {
+    const withScheme = /^[a-z]+:\/\//i.test(value) ? value : `http://${value}`;
+    const hostname = new URL(withScheme).hostname;
+    return hostname || null;
+  } catch {
+    const host = value.split(':')[0]?.trim();
+    return host || null;
+  }
+}
+
+/** IP/hostname do Metro — no celular físico isso é o IP do Mac na LAN. */
+function getMetroHost(): string | null {
+  const scriptURL = (NativeModules.SourceCode as { scriptURL?: string } | undefined)?.scriptURL;
   const candidates = [
+    scriptURL,
     Constants.expoGoConfig?.debuggerHost,
     (Constants.expoConfig as { hostUri?: string } | null)?.hostUri,
     (Constants as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost,
-    (Constants as { manifest2?: { extra?: { expoGo?: { debuggerHost?: string } } } })
-      .manifest2?.extra?.expoGo?.debuggerHost,
+    (Constants as { manifest2?: { extra?: { expoGo?: { debuggerHost?: string } } } }).manifest2
+      ?.extra?.expoGo?.debuggerHost,
   ];
 
   for (const raw of candidates) {
-    if (typeof raw !== 'string' || !raw.trim()) continue;
-    const host = raw.split(':')[0]?.trim();
+    const host = hostFromUri(raw);
     if (host) return host;
   }
 
@@ -34,7 +53,7 @@ function buildLocalApiBase(host: string, port = DEFAULT_BACKEND_PORT): string {
   return trimTrailingSlash(`http://${host}:${port}/api`);
 }
 
-/** Backend local em dev — emulador, simulador ou celular na mesma Wi-Fi. */
+/** Backend local em dev — simulador no Mac, emulador, ou celular na mesma rede. */
 export function resolveDevApiBase(): string {
   const explicit = process.env.EXPO_PUBLIC_API_BASE?.trim();
   if (explicit && explicit !== 'auto' && !isProdApiBase(explicit)) {
@@ -47,12 +66,18 @@ export function resolveDevApiBase(): string {
     return buildLocalApiBase('10.0.2.2', port);
   }
 
-  const debuggerHost = getDebuggerHost();
-  if (debuggerHost) {
-    if (debuggerHost === 'localhost' || debuggerHost === '127.0.0.1') {
-      return buildLocalApiBase('127.0.0.1', port);
+  const metroHost = getMetroHost();
+
+  // Celular de verdade: nunca 127.0.0.1 (isso é o próprio aparelho).
+  if (Constants.isDevice) {
+    if (metroHost && !isLoopbackHost(metroHost)) {
+      return buildLocalApiBase(metroHost, port);
     }
-    return buildLocalApiBase(debuggerHost, port);
+    return buildLocalApiBase('127.0.0.1', port);
+  }
+
+  if (metroHost && !isLoopbackHost(metroHost)) {
+    return buildLocalApiBase(metroHost, port);
   }
 
   return buildLocalApiBase('127.0.0.1', port);

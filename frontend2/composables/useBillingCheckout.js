@@ -78,7 +78,8 @@ export function useBillingCheckout() {
       throw Object.assign(new Error('Chave pública do Mercado Pago ausente.'), { data: { message: 'Checkout indisponível.' } })
     }
 
-    const cardToken = await createMercadoPagoCardToken(publicKey, card, amount)
+    const tokenized = await createMercadoPagoCardToken(publicKey, card, amount)
+    const cardToken = typeof tokenized === 'string' ? tokenized : tokenized.token
     return subscribeWithCard({
       planId,
       cardToken,
@@ -86,6 +87,9 @@ export function useBillingCheckout() {
       payerName: payerName || card.cardholderName,
       password: password || undefined,
       phone: phone || undefined,
+      installments: tokenized?.installments || 1,
+      paymentMethodId: tokenized?.paymentMethodId,
+      issuerId: tokenized?.issuerId,
       identification: card.identification || {
         type: 'CPF',
         number: card.identificationNumber,
@@ -96,6 +100,15 @@ export function useBillingCheckout() {
   async function subscribeWithPix(payload, { asGuest = false } = {}) {
     return $fetch(
       `${apiBase}/billing/subscribe/pix`,
+      asGuest
+        ? guestFetchInit({ method: 'POST', body: payload })
+        : authFetchInit({ method: 'POST', body: payload }),
+    )
+  }
+
+  async function subscribeWithPixAutomatic(payload, { asGuest = false } = {}) {
+    return $fetch(
+      `${apiBase}/billing/subscribe/pix-automatic`,
       asGuest
         ? guestFetchInit({ method: 'POST', body: payload })
         : authFetchInit({ method: 'POST', body: payload }),
@@ -113,6 +126,7 @@ export function useBillingCheckout() {
     subscribeWithCard,
     subscribeWithCardForm,
     subscribeWithPix,
+    subscribeWithPixAutomatic,
   }
 }
 

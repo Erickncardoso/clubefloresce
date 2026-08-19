@@ -101,7 +101,7 @@
               @click="setPaymentMethod('card')"
             >
               <CreditCard class="checkout-tab-icon" />
-              Cartão
+              Crédito
             </button>
             <button
               type="button"
@@ -113,6 +113,18 @@
             >
               <QrCode class="checkout-tab-icon" />
               Pix
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="checkout-tab cf-squircle--control"
+              :class="{ 'checkout-tab--active': paymentMethod === 'pix_auto' }"
+              :aria-selected="paymentMethod === 'pix_auto'"
+              aria-label="Pix mensal automático"
+              @click="setPaymentMethod('pix_auto')"
+            >
+              <Repeat class="checkout-tab-icon" />
+              Mensal
             </button>
           </div>
 
@@ -265,7 +277,7 @@
               Modo teste: o Pix pode ser aprovado automaticamente em alguns segundos.
             </p>
             <p class="checkout-pix-hint">
-              Após pagar, a liberação é automática em alguns segundos. Renove todo mês pelo app.
+              Após pagar, a liberação é automática em alguns segundos.
             </p>
             <button type="button" class="checkout-btn checkout-btn--ghost" :disabled="pollingPix" @click="refreshSubscription">
               {{ pollingPix ? 'Verificando…' : 'Já paguei — verificar' }}
@@ -274,7 +286,8 @@
 
           <div v-else-if="paymentMethod === 'card'" class="checkout-card">
             <p class="checkout-card-hint">
-              Cobrança de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> no cartão agora. Renovação mensal pelo app quando o período vencer.
+              Cobrança de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> no cartão de crédito agora.
+              Aceitamos Visa, Mastercard, Elo e Amex — sem débito.
             </p>
 
             <details v-if="billingConfig?.testMode" class="checkout-sandbox cf-squircle cf-squircle--control">
@@ -309,7 +322,7 @@
                 class="form-group field--float"
                 :class="{ focused: focusedField === 'number' }"
               >
-                <label for="cf-card-number">Número do cartão</label>
+                <label for="cf-card-number">Número do cartão de crédito</label>
                 <div class="input-wrapper cf-squircle--control">
                   <input
                     id="cf-card-number"
@@ -401,12 +414,12 @@
             </form>
           </div>
 
-          <div v-else class="checkout-pix-start">
+          <div v-else-if="paymentMethod === 'pix'" class="checkout-pix-start">
             <p class="checkout-pix-start-lead">
-              Mensalidade de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> via <strong>Pix</strong>.
+              Mensalidade de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> via <strong>Pix</strong> avulso.
             </p>
             <p class="checkout-pix-start-note">
-              Informe seu CPF para gerar o QR Code ou o Pix copia e cola. Renove todo mês pelo app quando o acesso expirar.
+              Você paga este mês agora. No próximo ciclo, gere um novo Pix ou use Pix mensal.
             </p>
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixCheckout">
               <div
@@ -437,6 +450,43 @@
               </button>
             </form>
           </div>
+
+          <div v-else class="checkout-pix-start">
+            <p class="checkout-pix-start-lead">
+              <strong>Pix mensal</strong> de {{ formatCurrency(selectedPlanAmount) }} — você autoriza uma vez no banco e os próximos meses saem sozinhos.
+            </p>
+            <p class="checkout-pix-start-note">
+              Vamos abrir o Mercado Pago para você confirmar o Pix Automático no app do seu banco.
+            </p>
+            <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixAutomaticCheckout">
+              <div
+                class="form-group field--float"
+                :class="{ focused: focusedField === 'pix-auto-cpf' }"
+              >
+                <label for="cf-pix-auto-cpf">CPF</label>
+                <div class="input-wrapper cf-squircle--control">
+                  <input
+                    id="cf-pix-auto-cpf"
+                    :value="pixCpfDisplay"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="000.000.000-00"
+                    required
+                    @input="onPixCpfInput"
+                    @focus="focusedField = 'pix-auto-cpf'"
+                    @blur="focusedField = ''"
+                  >
+                </div>
+              </div>
+              <button
+                type="submit"
+                class="btn-auth-submit patient-auth-submit cf-squircle--control"
+                :disabled="processing"
+              >
+                {{ processing ? 'Abrindo autorização…' : `Autorizar Pix mensal — ${formatCurrency(selectedPlanAmount)}` }}
+              </button>
+            </form>
+          </div>
         </section>
       </template>
     </div>
@@ -450,6 +500,7 @@ import {
   CheckCircle2,
   CreditCard,
   QrCode,
+  Repeat,
   Salad,
   Sparkles,
 } from 'lucide-vue-next'
@@ -476,6 +527,7 @@ const {
   lookupGuestEmail,
   subscribeWithCardForm,
   subscribeWithPix,
+  subscribeWithPixAutomatic,
 } = useBillingCheckout()
 
 const route = useRoute()
@@ -968,6 +1020,44 @@ async function startPixCheckout() {
   }
 }
 
+async function startPixAutomaticCheckout() {
+  processing.value = true
+  checkoutError.value = ''
+  if (!(await assertGuestPayerReady())) {
+    processing.value = false
+    return
+  }
+  const cpf = onlyDigits(cardForm.value.identificationNumber, 11)
+  if (!billingConfig.value?.testMode && cpf.length !== 11) {
+    checkoutError.value = 'Informe um CPF válido para continuar.'
+    processing.value = false
+    return
+  }
+  try {
+    const result = await subscribeWithPixAutomatic({
+      planId: selectedPlanId.value,
+      payerEmail: payerEmail.value,
+      payerName: payerName.value || userFullName(),
+      password: guestNeedsPassword.value ? guestForm.value.password : undefined,
+      phone: guestNeedsPassword.value ? String(guestForm.value.phone || '').trim() : undefined,
+      identification: {
+        type: 'CPF',
+        number: cpf,
+      },
+    }, { asGuest: forceGuestCheckout.value || isGuestCheckout.value })
+
+    const initPoint = String(result?.initPoint || '').trim()
+    if (!initPoint) {
+      checkoutError.value = 'Não foi possível abrir o Pix mensal. Tente o Pix avulso ou o crédito.'
+      return
+    }
+    window.location.assign(initPoint)
+  } catch (err) {
+    checkoutError.value = err?.data?.message || err?.message || 'Não foi possível iniciar o Pix mensal.'
+    processing.value = false
+  }
+}
+
 async function copyPixCode() {
   const code = pixCopyCode.value
   if (!code) return
@@ -1315,8 +1405,8 @@ async function refreshSubscription() {
 
 .checkout-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.35rem;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.28rem;
   width: 100%;
   flex-shrink: 0;
   padding: 0.28rem;
@@ -1334,8 +1424,8 @@ async function refreshSubscription() {
   gap: 0.4rem;
   border: none;
   border-radius: calc(var(--cf-squircle-r, var(--checkout-radius-control)) - 0.35rem);
-  padding: 0.58rem 0.65rem;
-  font-size: 0.84rem;
+  padding: 0.5rem 0.35rem;
+  font-size: 0.78rem;
   font-weight: 600;
   font-family: inherit;
   background: transparent;

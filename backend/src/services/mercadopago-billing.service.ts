@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import {
   getMercadoPagoAccessToken,
   getBillingWebhookUrl,
+  getMercadoPagoPreapprovalPlanId,
   getMercadoPagoSandboxPayerEmail,
   isBillingSandboxSimulateCard,
   isMercadoPagoConfigured,
@@ -109,6 +110,64 @@ function mapPreapprovalStatus(status?: string | null): string {
   if (value === "paused") return "paused";
   if (value === "cancelled" || value === "canceled") return "cancelled";
   return "pending";
+}
+
+const ALLOWED_CREDIT_PAYMENT_METHODS = new Set(["visa", "master", "elo", "amex"]);
+
+function resolveCardPaymentMethodId(input: SubscribeCardInput): string {
+  const method = String(input.paymentMethodId || "").trim().toLowerCase();
+  if (!method) {
+    throw new Error("Não foi possível identificar a bandeira do cartão. Confira o número e tente novamente.");
+  }
+  if (
+    method.startsWith("deb")
+    || method === "maestro"
+    || !ALLOWED_CREDIT_PAYMENT_METHODS.has(method)
+  ) {
+    throw new Error("Aceitamos só cartão de crédito (Visa, Mastercard, Elo ou Amex) ou Pix.");
+  }
+  return method;
+}
+
+function buildCardPayer(input: SubscribeCardInput, payerEmail: string) {
+  return {
+    email: payerEmail,
+    first_name: input.payerName?.split(" ")[0] || undefined,
+    last_name: input.payerName?.split(" ").slice(1).join(" ") || undefined,
+    identification: input.identification?.number
+      ? {
+          type: input.identification.type || "CPF",
+          number: String(input.identification.number).replace(/\D/g, ""),
+        }
+      : undefined,
+  };
+}
+
+function buildCardPaymentBody(
+  input: SubscribeCardInput,
+  params: {
+    amount: number;
+    product: BillingProduct;
+    externalReference: string;
+    payerEmail: string;
+    payer?: Record<string, unknown>;
+  },
+) {
+  const paymentMethodId = resolveCardPaymentMethodId(input);
+  const issuerNumber = Number(String(input.issuerId || "").trim());
+  const notificationUrl = getBillingWebhookUrl();
+
+  return {
+    transaction_amount: params.amount,
+    token: input.cardToken,
+    description: params.product.description || `Clube Florescer — ${params.product.name}`,
+    installments: input.installments || 1,
+    payment_method_id: paymentMethodId,
+    issuer_id: Number.isFinite(issuerNumber) && issuerNumber > 0 ? issuerNumber : undefined,
+    external_reference: params.externalReference,
+    notification_url: notificationUrl || undefined,
+    payer: params.payer || buildCardPayer(input, params.payerEmail),
+  };
 }
 
 function mapPaymentStatus(status?: string | null): string {
@@ -408,27 +467,23 @@ export class MercadoPagoBillingService {
     const client = getMpClient();
     const paymentApi = new Payment(client);
 
-    const payment = await paymentApi.create({
-      body: {
-        transaction_amount: amount,
-        token: input.cardToken,
-        description: product.description || `Clube Florescer — ${product.name}`,
-        installments: input.installments || 1,
-        external_reference: externalReference,
-        payer: {
-          email: input.payerEmail,
-          first_name: input.payerName?.split(" ")[0] || undefined,
-          last_name: input.payerName?.split(" ").slice(1).join(" ") || undefined,
-          identification: input.identification?.number
-            ? {
-                type: input.identification.type || "CPF",
-                number: String(input.identification.number).replace(/\D/g, ""),
-              }
-            : undefined,
-        },
-      },
-      requestOptions: { idempotencyKey: randomUUID() },
-    });
+    let payment: any;
+    try {
+      payment = await paymentApi.create({
+        body: buildCardPaymentBody(input, {
+          amount,
+          product,
+          externalReference,
+          payerEmail: input.payerEmail,
+        }),
+        requestOptions: { idempotencyKey: randomUUID() },
+      });
+    } catch (err: any) {
+      const payload = err?.cause || err?.apiResponse || err;
+      throw new Error(
+        extractMercadoPagoApiError(payload, err?.message || "Não foi possível processar o cartão."),
+      );
+    }
 
     const paymentId = String(payment?.id || "");
     const paymentStatus = mapPaymentStatus(payment?.status);
@@ -458,6 +513,8 @@ export class MercadoPagoBillingService {
         metadata: {
           accessDays,
           flow: "card_one_time",
+          paymentMethodId: input.paymentMethodId || null,
+          issuerId: input.issuerId || null,
           payerIdentification: input.identification?.number
             ? {
                 type: input.identification.type || "CPF",
@@ -504,14 +561,13 @@ export class MercadoPagoBillingService {
     let lastError: any;
 
     for (const payerEmail of payerEmails) {
-      const body: Record<string, unknown> = {
-        transaction_amount: amount,
-        token: input.cardToken,
-        description: product.description || `Clube Florescer — ${product.name}`,
-        installments: input.installments || 1,
-        external_reference: externalReference,
+      const body: Record<string, unknown> = buildCardPaymentBody(input, {
+        amount,
+        product,
+        externalReference,
+        payerEmail,
         payer: buildSandboxCardPayer(input, payerEmail),
-      };
+      });
 
       try {
         payment = await paymentApi.create({
@@ -741,6 +797,88 @@ export class MercadoPagoBillingService {
   async subscribeWithPix(input: SubscribePixInput) {
     this.ensureConfigured();
     return this.subscribeWithPixOneTime(input);
+  }
+
+  /** Pix Automático: autorização única no banco, cobrança mensal pelo Mercado Pago. */
+  async subscribeWithPixAutomatic(input: SubscribePixInput) {
+    this.ensureConfigured();
+    const { planId, amount, product } = await billingPlanConfigService.resolvePlanAmount(input.planId);
+    const userPlan = billingPlanConfigService.toUserPlan(product);
+    const accessDays = productAccessDays(product);
+    const externalReference = buildExternalReference(input.userId, planId);
+    const mpPayerEmail = resolveMercadoPagoPayerEmail(input.payerEmail);
+    const startDate = new Date();
+    startDate.setMinutes(startDate.getMinutes() + 2);
+
+    const planFromDashboard = getMercadoPagoPreapprovalPlanId();
+    const body = planFromDashboard
+      ? {
+          preapproval_plan_id: planFromDashboard,
+          payer_email: mpPayerEmail,
+          external_reference: externalReference,
+          back_url: `${getPatientAppProductionUrl()}/assinatura?status=success`,
+          status: "pending",
+        }
+      : buildPixPreapprovalBody({
+          description: buildPreapprovalReason(product),
+          externalReference,
+          payerEmail: mpPayerEmail,
+          amount,
+          product,
+          startDate,
+        });
+
+    const response = await createMercadoPagoPreApproval(body);
+    const mpId = String(response.id || "");
+    const initPoint = extractPreapprovalInitPoint(response, mpId);
+    if (!mpId || !initPoint) {
+      throw new Error(
+        "O Mercado Pago não devolveu o link do Pix Automático. Confira se Assinaturas e Pix Automático estão ativos na conta.",
+      );
+    }
+
+    const subscription = await prisma.billingSubscription.create({
+      data: {
+        userId: input.userId,
+        plan: userPlan,
+        status: "pending",
+        paymentMethod: "pix",
+        amount,
+        mercadoPagoPreapprovalId: mpId,
+        rawPayload: { pixAutomatic: true, initPoint, response } as any,
+      },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        userId: input.userId,
+        amount,
+        status: "PENDING",
+        plan: userPlan,
+        paymentMethod: "pix",
+        mercadoPagoPreapprovalId: mpId,
+        externalReference,
+        metadata: {
+          flow: "pix_automatic",
+          accessDays,
+          initPoint,
+          payerIdentification: input.identification?.number
+            ? {
+                type: input.identification.type || "CPF",
+                number: String(input.identification.number).replace(/\D/g, ""),
+              }
+            : null,
+        },
+      },
+    });
+
+    return {
+      subscription,
+      mercadoPagoPreapprovalId: mpId,
+      initPoint,
+      status: "pending",
+      flow: "pix_automatic",
+    };
   }
 
   async resolveStoredPayerIdentification(userId: string): Promise<PayerIdentification | null> {
@@ -1093,6 +1231,7 @@ export class MercadoPagoBillingService {
 
     if (!subscription) return;
 
+    const wasAuthorized = subscription.status === "authorized";
     await prisma.billingSubscription.update({
       where: { id: subscription.id },
       data: {
@@ -1101,6 +1240,16 @@ export class MercadoPagoBillingService {
         rawPayload: preapproval as any,
       },
     });
+
+    if (status === "authorized" && !wasAuthorized) {
+      const { product } = await billingPlanConfigService.resolvePlanAmount(subscription.plan);
+      await this.activateUserAccess(
+        subscription.userId,
+        subscription.plan,
+        productAccessDays(product),
+        subscription.paymentMethod || "pix",
+      );
+    }
   }
 }
 

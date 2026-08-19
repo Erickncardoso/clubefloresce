@@ -19,8 +19,10 @@
     "build:ios:preview": "eas build --platform ios --profile preview",
     "build:android": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas build --platform android --profile production",
     "submit:ios": "eas submit --platform ios --profile production",
-    "update": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel production --platform ios",
-    "update:preview": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel preview --platform ios",
+    "update": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel production --platform all",
+    "update:ios": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel production --platform ios",
+    "update:android": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel production --platform android",
+    "update:preview": "EXPO_PUBLIC_API_BASE=https://apiclube.nutrisabellajardim.com.br/api eas update --channel preview --platform all",
     "metadata:push": "eas metadata:push",
     "metadata:pull": "eas metadata:pull"
   },

@@ -52,6 +52,63 @@ function parseMpError(error) {
   return error?.message || 'Não foi possível tokenizar o cartão.'
 }
 
+const DEBIT_CARD_MESSAGE =
+  'Aceitamos só cartão de crédito (Visa, Mastercard, Elo ou Amex) ou Pix. Este número é de débito.'
+
+function listPaymentMethods(payload) {
+  if (Array.isArray(payload?.results)) return payload.results
+  if (Array.isArray(payload)) return payload
+  return []
+}
+
+function pickCreditPaymentMethodId(payload) {
+  const list = listPaymentMethods(payload)
+  const credit = list.find((item) => {
+    if (item?.payment_type_id !== 'credit_card') return false
+    return item?.status === 'active' || !item?.status
+  })
+  return String(credit?.id || '').trim()
+}
+
+function isDebitCardPayload(payload) {
+  const list = listPaymentMethods(payload)
+  if (!list.length) return false
+  if (pickCreditPaymentMethodId(payload)) return false
+  return list.some((item) => {
+    const type = String(item?.payment_type_id || '')
+    const id = String(item?.id || '').toLowerCase()
+    return type === 'debit_card' || id.startsWith('deb') || id === 'maestro'
+  })
+}
+
+async function detectCardPaymentMethod(mp, cardNumber) {
+  const bin = String(cardNumber || '').replace(/\D/g, '').slice(0, 8)
+  if (bin.length < 6) return { paymentMethodId: '', issuerId: '' }
+
+  try {
+    const methods = await mp.getPaymentMethods({ bin })
+    if (isDebitCardPayload(methods)) {
+      throw new Error(DEBIT_CARD_MESSAGE)
+    }
+    const paymentMethodId = pickCreditPaymentMethodId(methods)
+    if (!paymentMethodId) return { paymentMethodId: '', issuerId: '' }
+
+    let issuerId = ''
+    try {
+      const issuers = await mp.getIssuers({ paymentMethodId, bin })
+      const list = Array.isArray(issuers) ? issuers : issuers?.results || []
+      issuerId = String(list[0]?.id || '').trim()
+    } catch {
+      /* emissor opcional */
+    }
+
+    return { paymentMethodId, issuerId }
+  } catch (err) {
+    if (err instanceof Error && err.message === DEBIT_CARD_MESSAGE) throw err
+    return { paymentMethodId: '', issuerId: '' }
+  }
+}
+
 function ensureBridgeDom() {
   if (document.getElementById(BRIDGE_ID)) return
 
@@ -74,7 +131,7 @@ function ensureBridgeDom() {
   document.body.appendChild(root)
 }
 
-function fillBridgeForm(card) {
+function fillBridgeForm(card, extras = {}) {
   const set = (id, value) => {
     const el = document.getElementById(`${BRIDGE_ID}-${id}`)
     if (el) el.value = String(value ?? '')
@@ -88,10 +145,21 @@ function fillBridgeForm(card) {
 
   const idType = document.getElementById(`${BRIDGE_ID}-id-type`)
   if (idType) idType.value = card.identification?.type || 'CPF'
+
+  if (extras.issuerId) {
+    const issuer = document.getElementById(`${BRIDGE_ID}-issuer`)
+    if (issuer) {
+      const value = String(extras.issuerId)
+      if (![...issuer.options].some((option) => option.value === value)) {
+        issuer.appendChild(new Option(value, value))
+      }
+      issuer.value = value
+    }
+  }
 }
 
 /**
- * Assinaturas exigem card_token gerado pelo SDK oficial (CardForm), não POST /v1/card_tokens com PAN.
+ * Gera card_token pelo SDK oficial (CardForm) e a bandeira (payment_method_id).
  */
 export async function createMercadoPagoCardToken(publicKey, card, amount = '19.90') {
   if (!publicKey) throw new Error('Chave pública do Mercado Pago ausente.')
@@ -106,15 +174,35 @@ export async function createMercadoPagoCardToken(publicKey, card, amount = '19.9
     advancedFraudPrevention: false,
   })
 
+  const detected = await detectCardPaymentMethod(mp, card.cardNumber)
+  if (!detected.paymentMethodId) {
+    throw new Error('Use um cartão de crédito Visa, Mastercard, Elo ou Amex, ou pague com Pix.')
+  }
+  fillBridgeForm(card, detected)
+
   return new Promise((resolve, reject) => {
     let cardForm = null
     let settled = false
+    let tokenRequested = false
 
     const finish = (fn, value) => {
       if (settled) return
       settled = true
       try { cardForm?.unmount?.() } catch { /* noop */ }
       fn(value)
+    }
+
+    const requestToken = () => {
+      if (tokenRequested || settled) return
+      tokenRequested = true
+      fillBridgeForm(card, detected)
+      window.setTimeout(() => {
+        try {
+          cardForm.createCardToken()
+        } catch (err) {
+          finish(reject, err instanceof Error ? err : new Error(parseMpError(err)))
+        }
+      }, 80)
     }
 
     cardForm = mp.cardForm({
@@ -138,26 +226,29 @@ export async function createMercadoPagoCardToken(publicKey, card, amount = '19.9
             finish(reject, new Error(parseMpError(error)))
             return
           }
-          fillBridgeForm(card)
-          window.setTimeout(() => {
-            try {
-              cardForm.createCardToken()
-            } catch (err) {
-              finish(reject, err instanceof Error ? err : new Error(parseMpError(err)))
-            }
-          }, 300)
+          fillBridgeForm(card, detected)
+          window.setTimeout(requestToken, 400)
+        },
+        onPaymentMethodsReceived: () => {
+          requestToken()
         },
         onCardTokenReceived: (error, data) => {
           if (error) {
             finish(reject, new Error(parseMpError(error)))
             return
           }
-          const token = String(data?.token || cardForm?.getCardFormData?.()?.token || '')
+          const formData = cardForm?.getCardFormData?.() || {}
+          const token = String(data?.token || formData.token || '')
           if (!token) {
             finish(reject, new Error('Mercado Pago não retornou token do cartão.'))
             return
           }
-          finish(resolve, token)
+          finish(resolve, {
+            token,
+            paymentMethodId: String(formData.paymentMethodId || detected.paymentMethodId || ''),
+            issuerId: String(formData.issuerId || detected.issuerId || ''),
+            installments: Number(formData.installments) || 1,
+          })
         },
         onError: (error) => {
           finish(reject, new Error(parseMpError(error)))
