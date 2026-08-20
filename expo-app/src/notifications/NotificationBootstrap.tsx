@@ -5,8 +5,7 @@ import { usePatientApi } from '@/hooks/usePatientApi';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { handleNotificationResponse } from '@/notifications/handlers';
 import { registerAdminPushCategories } from '@/notifications/admin-categories';
-import { registerExpoPushToken } from '@/notifications/register-expo-push';
-import { syncLocalNotifications } from '@/notifications/sync-engine';
+import { syncPatientLocalNotifications } from '@/notifications/sync-engine';
 
 export default function NotificationBootstrap() {
   const { hasSession, onboarding } = useAuth();
@@ -61,8 +60,7 @@ export default function NotificationBootstrap() {
       try {
         const checkinPref = preferences.find((item) => item.key === 'checkin');
         const mealsPref = preferences.find((item) => item.key === 'meals');
-        await registerExpoPushToken(request);
-        await syncLocalNotifications({
+        await syncPatientLocalNotifications({
           request,
           onboardingComplete: Boolean(onboarding?.isComplete),
           checkinPreferenceEnabled: checkinPref?.enabled !== false,

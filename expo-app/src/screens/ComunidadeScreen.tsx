@@ -11,7 +11,6 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import {
-  Camera,
   Flag,
   Heart,
   HelpCircle,
@@ -24,6 +23,7 @@ import {
   UtensilsCrossed,
   X,
 } from 'lucide-react-native';
+import CameraIcon from '@/components/icons/CameraIcon';
 import CommunityGuidelinesBanner from '@/components/comunidade/CommunityGuidelinesBanner';
 import PatientHeader from '@/components/ui/PatientHeader';
 import PatientScrollView from '@/components/ui/PatientScrollView';
@@ -350,7 +350,7 @@ export default function ComunidadeScreen() {
                     onPress={pickImage}
                     disabled={posting}
                   >
-                    <Camera color={imageUri ? colors.primaryDark : colors.textMuted} size={20} />
+                    <CameraIcon color={imageUri ? colors.primaryDark : colors.textMuted} size={20} />
                   </Pressable>
                 </View>
                 {imageUri ? (

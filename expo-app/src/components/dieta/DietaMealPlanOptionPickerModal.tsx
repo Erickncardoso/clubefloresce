@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Check, Layers } from 'lucide-react-native';
+import { Check, Clock3, Layers } from 'lucide-react-native';
 import AppleBottomSheet from '@/components/ui/AppleBottomSheet';
 import {
   GoalSheetHead,
   GoalSheetSaveButton,
   GoalSheetScroll,
-  GoalSheetSection,
 } from '@/components/evolucao/EvolucaoGoalSheetUi';
 import { useMealPlanOptionSelections } from '@/hooks/useMealPlanOptionSelections';
 import { mealOptionVariantLabel } from '@/lib/meal-plan-options';
-import type { MealPlanMeal } from '@/lib/meal-plan-api';
-import { fonts } from '@/theme/tokens';
+import type { MealPlanFoodItem, MealPlanMeal } from '@/lib/meal-plan-api';
+import { triggerImpactHaptic } from '@/lib/picker-haptics';
+import { colors, fonts, radii, spacing } from '@/theme/tokens';
+
+const PREVIEW_LIMIT = 4;
 
 type Props = {
   open: boolean;
@@ -23,23 +25,37 @@ type Props = {
   onSaved: () => void;
 };
 
-function previewItems(option: MealPlanMeal) {
-  const items = option?.items || [];
-  if (!items.length) return 'Sem itens listados';
-  const labels = items
-    .slice(0, 3)
-    .map((item) => item.display || item.name || '')
-    .filter(Boolean);
-  const more = items.length > 3 ? ` +${items.length - 3}` : '';
-  return `${labels.join(' · ')}${more}`;
+type FoodLine = { name: string; qty?: string };
+
+function foodLine(item: MealPlanFoodItem): FoodLine {
+  const name = String(item.name || item.food || item.label || '').trim();
+  const qtyParts: string[] = [];
+  if (item.amount != null && Number(item.amount) > 0) {
+    qtyParts.push(`${item.amount}${item.unit ? ` ${item.unit}` : ''}`.trim());
+  } else if (item.grams != null && Number(item.grams) > 0) {
+    qtyParts.push(`${Math.round(Number(item.grams))} g`);
+  }
+  if (name) return { name, qty: qtyParts[0] };
+  return { name: String(item.display || 'Alimento').trim(), qty: qtyParts[0] };
+}
+
+function optionFoods(option: MealPlanMeal): FoodLine[] {
+  return (option.items || []).map(foodLine).filter((line) => line.name);
+}
+
+function optionTitle(option: MealPlanMeal, index: number) {
+  const variant = mealOptionVariantLabel(option.label, index);
+  if (!/^opção\s*\d+$/i.test(variant)) return variant;
+  const first = optionFoods(option)[0]?.name;
+  return first || variant;
 }
 
 export default function DietaMealPlanOptionPickerModal({
   open,
   required = false,
   focusSlotKey = '',
-  title = 'Escolha suas opções',
-  confirmLabel = 'Continuar',
+  title = 'Escolha o que vai seguir',
+  confirmLabel = 'Confirmar escolhas',
   onClose,
   onSaved,
 }: Props) {
@@ -98,48 +114,81 @@ export default function DietaMealPlanOptionPickerModal({
       dismissible={!required}
       maxHeightRatio={0.88}
       contentPadding={0}
+      fillHeight
     >
       <GoalSheetScroll>
         <GoalSheetHead
           icon={Layers}
-          iconBg="#eff4ec"
-          iconColor="#62785a"
+          iconBg={colors.primarySoft}
+          iconColor={colors.primaryDark}
           title={title}
-          subtitle="Seu plano tem mais de uma opção em algumas refeições. Escolha qual seguir."
+          subtitle="Toque na opção de cada refeição. Só uma por horário."
         />
 
         {visibleGroups.map((group) => (
-          <GoalSheetSection
-            key={group.slotKey}
-            title={group.label}
-            description={`${group.options.length} opções`}
-          >
+          <View key={group.slotKey} style={styles.section}>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>{group.label}</Text>
+              <Text style={styles.sectionHint}>
+                {group.options.length} opções · escolha 1
+              </Text>
+            </View>
+
             {group.options.map((option, index) => {
               const active = draft[group.slotKey] === option.id;
+              const foods = optionFoods(option);
+              const visibleFoods = foods.slice(0, PREVIEW_LIMIT);
+              const extra = foods.length - visibleFoods.length;
+
               return (
                 <Pressable
                   key={option.id}
-                  style={[styles.choice, active && styles.choiceActive]}
+                  style={[styles.card, active && styles.cardActive]}
                   onPress={() => {
+                    triggerImpactHaptic();
                     setDraft((current) => ({ ...current, [group.slotKey]: option.id }));
                     setLocalError('');
                   }}
                 >
-                  <View style={[styles.badge, active && styles.badgeActive]}>
-                    <Text style={[styles.badgeText, active && styles.badgeTextActive]}>{index + 1}</Text>
+                  <View style={styles.cardTop}>
+                    <View style={styles.cardTitleWrap}>
+                      <Text style={styles.cardKicker}>Opção {index + 1}</Text>
+                      <Text style={styles.cardTitle}>{optionTitle(option, index)}</Text>
+                    </View>
+                    <View style={[styles.check, active && styles.checkOn]}>
+                      {active ? <Check size={14} color="#fff" strokeWidth={2.6} /> : null}
+                    </View>
                   </View>
-                  <View style={styles.choiceCopy}>
-                    <Text style={styles.choiceTitle}>{mealOptionVariantLabel(option.label, index)}</Text>
-                    {option.time ? <Text style={styles.choiceTime}>{option.time}</Text> : null}
-                    <Text style={styles.choicePreview}>{previewItems(option)}</Text>
-                  </View>
-                  <View style={[styles.radio, active && styles.radioActive]}>
-                    {active ? <Check size={12} color="#fff" strokeWidth={3} /> : null}
-                  </View>
+
+                  {option.time ? (
+                    <View style={styles.timeRow}>
+                      <Clock3 size={13} color={colors.textMuted} strokeWidth={2} />
+                      <Text style={styles.timeText}>{option.time}</Text>
+                    </View>
+                  ) : null}
+
+                  {visibleFoods.length ? (
+                    <View style={styles.foodList}>
+                      {visibleFoods.map((food, foodIndex) => (
+                        <View key={`${option.id}-${foodIndex}`} style={styles.foodRow}>
+                          <View style={styles.foodDot} />
+                          <Text style={styles.foodName} numberOfLines={1}>{food.name}</Text>
+                          {food.qty ? <Text style={styles.foodQty}>{food.qty}</Text> : null}
+                        </View>
+                      ))}
+                      {extra > 0 ? (
+                        <Text style={styles.foodMore}>+{extra} {extra === 1 ? 'alimento' : 'alimentos'}</Text>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <Text style={styles.foodEmpty}>Sem itens listados</Text>
+                  )}
+
+                  {active ? <Text style={styles.chosen}>Selecionada para hoje</Text> : null}
                 </Pressable>
               );
             })}
-          </GoalSheetSection>
+          </View>
         ))}
 
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
@@ -154,52 +203,128 @@ export default function DietaMealPlanOptionPickerModal({
 }
 
 const styles = StyleSheet.create({
-  choice: {
+  section: {
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[5],
+  },
+  sectionHead: {
+    marginBottom: spacing[3],
+    gap: 2,
+  },
+  sectionTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: 17,
+    color: colors.text,
+  },
+  sectionHint: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  card: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    backgroundColor: colors.surface,
+    padding: spacing[4],
+    marginBottom: spacing[2],
+    gap: spacing[2],
+  },
+  cardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  cardTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e3e5e2',
-    borderRadius: 14,
-    marginTop: 8,
-    backgroundColor: '#fff',
+    gap: spacing[3],
   },
-  choiceActive: {
-    borderColor: '#c5d0bf',
-    backgroundColor: '#f5f8f3',
+  cardTitleWrap: { flex: 1, minWidth: 0 },
+  cardKicker: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
-  badge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#eceeea',
-    alignItems: 'center',
-    justifyContent: 'center',
+  cardTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 22,
   },
-  badgeActive: { backgroundColor: '#6f7863' },
-  badgeText: { fontFamily: fonts.medium, fontSize: 12, color: '#5f675c' },
-  badgeTextActive: { color: '#fff' },
-  choiceCopy: { flex: 1 },
-  choiceTitle: { fontFamily: fonts.medium, fontSize: 15, color: '#202124' },
-  choiceTime: { fontFamily: fonts.regular, fontSize: 12, color: '#6c7074', marginTop: 2 },
-  choicePreview: { fontFamily: fonts.regular, fontSize: 12, color: '#686d72', marginTop: 4, lineHeight: 16 },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  check: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 1.5,
-    borderColor: '#d2d4d6',
+    borderColor: colors.border,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioActive: { borderColor: '#6f7863', backgroundColor: '#6f7863' },
+  checkOn: {
+    borderColor: colors.primaryDark,
+    backgroundColor: colors.primaryDark,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  timeText: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  foodList: { gap: 6, marginTop: 2 },
+  foodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  foodDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  foodName: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.text,
+  },
+  foodQty: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  foodMore: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.primaryDark,
+    marginLeft: 13,
+  },
+  foodEmpty: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  chosen: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.primaryDark,
+    marginTop: 2,
+  },
   error: {
-    marginTop: 12,
-    marginHorizontal: 16,
+    marginTop: spacing[2],
+    marginHorizontal: spacing[4],
     fontFamily: fonts.regular,
     fontSize: 12,
-    color: '#a14b4b',
+    color: colors.error,
     textAlign: 'center',
   },
 });

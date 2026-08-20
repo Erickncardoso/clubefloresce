@@ -24,7 +24,7 @@ import {
   requestNotificationPermission,
 } from '@/notifications/permission';
 import { registerExpoPushToken } from '@/notifications/register-expo-push';
-import { syncLocalNotifications } from '@/notifications/sync-engine';
+import { syncPatientLocalNotifications } from '@/notifications/sync-engine';
 import { colors, fonts, spacing } from '@/theme/tokens';
 
 export default function PerfilConfiguracoesPreferenciasScreen() {
@@ -47,7 +47,7 @@ export default function PerfilConfiguracoesPreferenciasScreen() {
   async function resyncLocal() {
     const checkinPref = preferences.find((item) => item.key === 'checkin');
     const mealsPref = preferences.find((item) => item.key === 'meals');
-    await syncLocalNotifications({
+    await syncPatientLocalNotifications({
       request,
       onboardingComplete: Boolean(onboarding?.isComplete),
       checkinPreferenceEnabled: checkinPref?.enabled !== false,

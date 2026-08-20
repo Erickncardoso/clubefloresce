@@ -10,6 +10,9 @@ const iosTint =
 export const iosHiddenHeaderOptions: NativeStackNavigationOptions = {
   headerShown: false,
   contentStyle: { backgroundColor: '#ffffff' },
+  animation: 'simple_push',
+  animationDuration: 420,
+  gestureEnabled: true,
 };
 
 /** Header compacto iOS (sem Large Title). */

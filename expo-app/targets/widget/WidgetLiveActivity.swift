@@ -11,7 +11,10 @@ struct WaterActivityAttributes: ActivityAttributes {
     var startedAt: Date
 }
 
-private let brandGreen = Color(red: 139 / 255, green: 150 / 255, blue: 124 / 255)
+// Espelha tokens de água do app paciente (#5ba4d9 / #4a8fc4 / #edf5fb).
+private let waterPrimary = Color(red: 91 / 255, green: 164 / 255, blue: 217 / 255)
+private let waterAccent = Color(red: 74 / 255, green: 143 / 255, blue: 196 / 255)
+private let waterSoftBg = Color(red: 237 / 255, green: 245 / 255, blue: 251 / 255)
 
 private func progress(_ state: WaterActivityAttributes.ContentState) -> Double {
     guard state.goalLiters > 0 else { return 0 }
@@ -28,7 +31,7 @@ struct WidgetLiveActivity: Widget {
             HStack(spacing: 14) {
                 Image(systemName: "drop.fill")
                     .font(.system(size: 28))
-                    .foregroundStyle(brandGreen)
+                    .foregroundStyle(waterPrimary)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Hidratação")
@@ -37,53 +40,52 @@ struct WidgetLiveActivity: Widget {
                     Text("\(litersLabel(context.state.currentLiters)) de \(litersLabel(context.state.goalLiters))")
                         .font(.headline)
                     ProgressView(value: progress(context.state))
-                        .tint(brandGreen)
+                        .tint(waterPrimary)
                 }
 
                 Spacer()
 
                 Text("\(Int(progress(context.state) * 100))%")
                     .font(.title3.bold())
-                    .foregroundStyle(brandGreen)
+                    .foregroundStyle(waterAccent)
             }
             .padding(16)
-            .activityBackgroundTint(Color(red: 247 / 255, green: 246 / 255, blue: 242 / 255))
+            .activityBackgroundTint(waterSoftBg)
             .activitySystemActionForegroundColor(Color.black)
 
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Image(systemName: "drop.fill")
-                        .foregroundStyle(brandGreen)
+                        .foregroundStyle(waterPrimary)
                         .font(.title2)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text("\(Int(progress(context.state) * 100))%")
                         .font(.title3.bold())
-                        .foregroundStyle(brandGreen)
+                        .foregroundStyle(waterAccent)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\(litersLabel(context.state.currentLiters)) de \(litersLabel(context.state.goalLiters))")
                             .font(.subheadline.bold())
                         ProgressView(value: progress(context.state))
-                            .tint(brandGreen)
+                            .tint(waterPrimary)
                     }
                 }
             } compactLeading: {
                 Image(systemName: "drop.fill")
-                    .foregroundStyle(brandGreen)
+                    .foregroundStyle(waterPrimary)
             } compactTrailing: {
                 Text(litersLabel(context.state.currentLiters))
                     .font(.caption2.bold())
-                    .foregroundStyle(brandGreen)
+                    .foregroundStyle(waterAccent)
             } minimal: {
                 Image(systemName: "drop.fill")
-                    .foregroundStyle(brandGreen)
+                    .foregroundStyle(waterPrimary)
             }
             .widgetURL(URL(string: "clubeflorescer://"))
-            .keylineTint(brandGreen)
+            .keylineTint(waterPrimary)
         }
     }
 }
-

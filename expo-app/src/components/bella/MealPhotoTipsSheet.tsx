@@ -1,6 +1,7 @@
-import { InteractionManager, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Check, UtensilsCrossed, X } from 'lucide-react-native';
+import { Image, InteractionManager, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Check, X } from 'lucide-react-native';
 import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
+import { patientAssets } from '@/lib/patient-assets';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type Props = {
@@ -32,8 +33,12 @@ function SheetBody({ onContinue }: { onContinue: () => void }) {
 
       <View style={styles.row}>
         <View style={styles.example}>
-          <View style={[styles.preview, styles.previewGood]}>
-            <UtensilsCrossed color={colors.primaryDark} size={28} strokeWidth={1.7} />
+          <View style={styles.preview}>
+            <Image
+              source={patientAssets.mealPhotoExampleGood}
+              style={styles.previewImage}
+              resizeMode="cover"
+            />
           </View>
           <View style={[styles.badge, styles.badgeGood]}>
             <Check color="#fff" size={14} strokeWidth={2.4} />
@@ -41,12 +46,12 @@ function SheetBody({ onContinue }: { onContinue: () => void }) {
           <Text style={styles.exampleLabel}>Um prato, de cima</Text>
         </View>
         <View style={styles.example}>
-          <View style={[styles.preview, styles.previewBad]}>
-            <View style={styles.clutter}>
-              <View style={styles.clutterDot} />
-              <View style={[styles.clutterDot, styles.clutterDotAlt]} />
-              <View style={styles.clutterDot} />
-            </View>
+          <View style={styles.preview}>
+            <Image
+              source={patientAssets.mealPhotoExampleBad}
+              style={styles.previewImage}
+              resizeMode="cover"
+            />
           </View>
           <View style={[styles.badge, styles.badgeBad]}>
             <X color="#fff" size={14} strokeWidth={2.4} />
@@ -64,7 +69,7 @@ function SheetBody({ onContinue }: { onContinue: () => void }) {
 
 export default function MealPhotoTipsSheet({ open, onClose, onContinue }: Props) {
   return (
-    <AppleBottomSheet visible={open} onClose={onClose} maxHeightRatio={0.62} contentPadding={20}>
+    <AppleBottomSheet visible={open} onClose={onClose} maxHeightRatio={0.72} contentPadding={20}>
       <SheetBody onContinue={onContinue} />
     </AppleBottomSheet>
   );
@@ -100,32 +105,12 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     borderRadius: radii.control,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewGood: {
-    backgroundColor: colors.primarySoft,
-  },
-  previewBad: {
+    overflow: 'hidden',
     backgroundColor: '#f3f1ef',
   },
-  clutter: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: 72,
-    gap: 8,
-    justifyContent: 'center',
-  },
-  clutterDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#d8d3cc',
-  },
-  clutterDotAlt: {
-    width: 28,
-    height: 16,
-    borderRadius: 8,
+  previewImage: {
+    width: '100%',
+    height: '100%',
   },
   badge: {
     marginTop: -18,

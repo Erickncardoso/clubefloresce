@@ -1,13 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocalDateKey } from '@/lib/patient-local-time';
 
-function storageKey(mealId: string) {
-  return `dieta_checks_${getLocalDateKey()}_${mealId}`;
+function storageKey(mealId: string, dateKey?: string) {
+  return `dieta_checks_${dateKey || getLocalDateKey()}_${mealId}`;
 }
 
-export async function loadChecked(mealId: string, itemCount: number): Promise<boolean[]> {
+export async function loadChecked(mealId: string, itemCount: number, dateKey?: string): Promise<boolean[]> {
   try {
-    const raw = await AsyncStorage.getItem(storageKey(mealId));
+    const raw = await AsyncStorage.getItem(storageKey(mealId, dateKey));
     if (!raw) return Array(itemCount).fill(false);
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return Array(itemCount).fill(false);
@@ -22,8 +22,8 @@ export async function loadChecked(mealId: string, itemCount: number): Promise<bo
   }
 }
 
-export async function saveChecked(mealId: string, states: boolean[]) {
-  await AsyncStorage.setItem(storageKey(mealId), JSON.stringify(states));
+export async function saveChecked(mealId: string, states: boolean[], dateKey?: string) {
+  await AsyncStorage.setItem(storageKey(mealId, dateKey), JSON.stringify(states));
 }
 
 export function countDone(states: boolean[]) {

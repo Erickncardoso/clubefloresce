@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -31,6 +31,70 @@ const TYPE_COLORS: Record<string, { bg: string; fg: string }> = {
   meal: { bg: '#f0fdf4', fg: '#15803d' },
   general: { bg: '#f3f4f6', fg: '#4b5563' },
 };
+
+const MEAL_ITEM_SPLIT = / · /;
+const MAX_MEAL_PREVIEW_ITEMS = 3;
+
+function mealNotificationDisplay(body: string, type: string, expanded: boolean) {
+  if (type !== 'meal' || expanded) {
+    return { text: body, canExpand: false, hiddenCount: 0 };
+  }
+
+  const items = body.split(MEAL_ITEM_SPLIT).map((part) => part.trim()).filter(Boolean);
+  if (items.length <= MAX_MEAL_PREVIEW_ITEMS) {
+    return { text: body, canExpand: false, hiddenCount: 0 };
+  }
+
+  const hiddenCount = items.length - MAX_MEAL_PREVIEW_ITEMS;
+  const preview = items.slice(0, MAX_MEAL_PREVIEW_ITEMS).join(' · ');
+  return {
+    text: `${preview} · +${hiddenCount} ${hiddenCount === 1 ? 'item' : 'itens'}`,
+    canExpand: true,
+    hiddenCount,
+  };
+}
+
+function NotificationRow({
+  item,
+  onOpen,
+  formatTime,
+}: {
+  item: import('@/hooks/usePatientNotifications').NotificationItem;
+  onOpen: (item: import('@/hooks/usePatientNotifications').NotificationItem) => void;
+  formatTime: (createdAt: string) => string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = TYPE_ICONS[item.type] || TYPE_ICONS.general;
+  const palette = TYPE_COLORS[item.type] || TYPE_COLORS.general;
+  const display = mealNotificationDisplay(item.body, item.type, expanded);
+
+  return (
+    <Pressable
+      style={styles.item}
+      onPress={() => void onOpen(item)}
+      onLongPress={() => {
+        if (display.canExpand) setExpanded(true);
+      }}
+      delayLongPress={280}
+    >
+      <View style={[styles.iconWrap, { backgroundColor: palette.bg }]}>
+        <Icon color={palette.fg} size={18} />
+      </View>
+      <View style={styles.body}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.text}>{expanded ? item.body : display.text}</Text>
+        {display.canExpand && !expanded ? (
+          <Text style={styles.expandHint}>Pressione e segure para ver todos os itens</Text>
+        ) : null}
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.image} />
+        ) : null}
+        <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
+      </View>
+      {!item.read ? <View style={styles.dot} /> : null}
+    </Pressable>
+  );
+}
 
 export default function PerfilNotificacoesScreen() {
   const {
@@ -70,30 +134,14 @@ export default function PerfilNotificacoesScreen() {
           {grouped.map((group) => (
             <View key={group.label} style={styles.group}>
               <Text style={styles.groupTitle}>{group.label}</Text>
-              {group.items.map((item) => {
-                const Icon = TYPE_ICONS[item.type] || TYPE_ICONS.general;
-                const palette = TYPE_COLORS[item.type] || TYPE_COLORS.general;
-                return (
-                  <Pressable
-                    key={item.id}
-                    style={styles.item}
-                    onPress={() => void openNotification(item)}
-                  >
-                    <View style={[styles.iconWrap, { backgroundColor: palette.bg }]}>
-                      <Icon color={palette.fg} size={18} />
-                    </View>
-                    <View style={styles.body}>
-                      <Text style={styles.title}>{item.title}</Text>
-                      <Text style={styles.text}>{item.body}</Text>
-                      {item.imageUrl ? (
-                        <Image source={{ uri: item.imageUrl }} style={styles.image} />
-                      ) : null}
-                      <Text style={styles.time}>{formatNotificationTime(item.createdAt)}</Text>
-                    </View>
-                    {!item.read ? <View style={styles.dot} /> : null}
-                  </Pressable>
-                );
-              })}
+              {group.items.map((item) => (
+                <NotificationRow
+                  key={item.id}
+                  item={item}
+                  onOpen={openNotification}
+                  formatTime={formatNotificationTime}
+                />
+              ))}
             </View>
           ))}
         </PatientScrollView>
@@ -121,6 +169,12 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   title: { fontFamily: fonts.bold, fontSize: 14 },
   text: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, marginTop: 2, lineHeight: 18 },
+  expandHint: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: colors.primaryDark,
+    marginTop: 4,
+  },
   image: {
     width: '100%',
     height: 140,

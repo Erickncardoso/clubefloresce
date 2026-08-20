@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
   Text,
-  View
+  View,
 } from 'react-native';
+import { consumeOpenWaterSheetFromIsland } from '@/lib/water-live-activity';
+import { useFocusEffect } from '@react-navigation/native';
 import { Link } from 'expo-router';
 import { ChevronRight, Lightbulb, Sparkles } from 'lucide-react-native';
 import CheckinFridayPrompt from '@/components/home/CheckinFridayPrompt';
@@ -18,6 +20,7 @@ import PatientShell from '@/components/PatientShell';
 import PatientAvatar from '@/components/ui/PatientAvatar';
 import PatientHeader from '@/components/ui/PatientHeader';
 import { useDietaDiarySync } from '@/hooks/useDietaDiarySync';
+import { useDiaryDate } from '@/hooks/useDiaryDate';
 import { usePatientPlanAccess } from '@/hooks/usePatientPlanAccess';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { usePatientDailyHeader } from '@/hooks/usePatientDailyHeader';
@@ -120,6 +123,7 @@ export default function HomeScreen() {
     refreshActivityForToday,
     loadDailyNutrition,
   } = usePatientDailyHeader();
+  const { setDateOffset } = useDiaryDate();
   const {
     checkInStatus,
     fridayPromptOpen,
@@ -136,6 +140,15 @@ export default function HomeScreen() {
   const greeting = timeGreeting();
   const dateLabel = todayLabel();
   const bellaTip = getBellaDailyTip();
+
+  useFocusEffect(
+    useCallback(() => {
+      setDateOffset(0);
+      if (consumeOpenWaterSheetFromIsland()) {
+        setQuickGoalId('water');
+      }
+    }, [setDateOffset]),
+  );
 
   const homeGoalMetrics = useMemo<HomeGoalMetric[]>(() => {
     if (!todaySummary.length) {

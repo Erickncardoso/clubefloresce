@@ -12,7 +12,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { requestNotificationPermission } from '@/notifications/permission';
-import { syncLocalNotifications } from '@/notifications/sync-engine';
+import { syncPatientLocalNotifications } from '@/notifications/sync-engine';
 import { colors, fonts, radii } from '@/theme/tokens';
 
 type Props = {
@@ -54,7 +54,7 @@ export default function CheckinFridayPrompt({
       }
 
       const checkinPref = preferences.find((item) => item.key === 'checkin');
-      await syncLocalNotifications({
+      await syncPatientLocalNotifications({
         request,
         onboardingComplete: Boolean(onboarding?.isComplete),
         checkinPreferenceEnabled: checkinPref?.enabled !== false,

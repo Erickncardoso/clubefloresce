@@ -1,16 +1,31 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
-  Modal,
+  LayoutAnimation,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from 'react-native';
-import { ArrowLeftRight, Check, CircleHelp, FileText, X } from 'lucide-react-native';
+import { ArrowLeftRight, Check, CircleHelp, FileText } from 'lucide-react-native';
+import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
+import {
+  DietaGroupedDivider,
+  DietaGroupedList,
+  DietaSheetHeader,
+  DietaSheetPrimaryButton,
+  DIETA_SHEET_GUTTER,
+} from '@/components/dieta/DietaSheetUi';
 import { useMealItemOverrides } from '@/hooks/useMealItemOverrides';
 import { useMealSubstitutions, type SubstitutionGroup } from '@/hooks/useMealSubstitutions';
+import { triggerImpactHaptic } from '@/lib/picker-haptics';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type Props = {
   open: boolean;
@@ -20,42 +35,75 @@ type Props = {
   onClose: () => void;
 };
 
-export default function DietaMealSubstitutionsModal({
-  open,
+type Option = SubstitutionGroup['options'][number];
+
+function SelectionRow({
+  title,
+  meta,
+  selected,
+  leading,
+  onPress,
+}: {
+  title: string;
+  meta: string;
+  selected: boolean;
+  leading?: ReactNode;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.row,
+        selected && styles.rowSelected,
+        pressed && styles.rowPressed,
+      ]}
+      onPress={() => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        triggerImpactHaptic();
+        onPress();
+      }}
+    >
+      {leading}
+      <View style={styles.rowCopy}>
+        <Text style={[styles.rowTitle, selected && styles.rowTitleSelected]}>{title}</Text>
+        <Text style={styles.rowMeta}>{meta}</Text>
+      </View>
+      <View style={[styles.checkRing, selected && styles.checkRingActive]}>
+        {selected ? <Check size={14} color="#fff" strokeWidth={2.5} /> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function SheetBody({
   mealId,
   mealLabel,
   groups,
-  onClose,
-}: Props) {
+}: Omit<Props, 'open' | 'onClose'>) {
+  const { dismiss } = useBottomSheetDismiss();
   const { pdfSource } = useMealSubstitutions();
   const { getOverrideForItem, setOverride, isSameOverride } = useMealItemOverrides();
-  const [initialOverrides, setInitialOverrides] = useState<Record<string, SubstitutionGroup['options'][number] | null>>({});
-  const [draftOverrides, setDraftOverrides] = useState<Record<string, SubstitutionGroup['options'][number] | null>>({});
+  const [initialOverrides, setInitialOverrides] = useState<Record<string, Option | null>>({});
+  const [draftOverrides, setDraftOverrides] = useState<Record<string, Option | null>>({});
 
-  const changedGroups = useMemo(
-    () => groups.filter((group) => !areChoicesEqual(initialOverrides[group.key], draftOverrides[group.key])),
-    [draftOverrides, groups, initialOverrides],
-  );
-
-  const changesCount = changedGroups.length;
-  const changesStatus = changesCount
-    ? `${changesCount} ${changesCount === 1 ? 'alteração selecionada' : 'alterações selecionadas'}`
-    : 'Nenhuma alteração pendente';
-  const saveLabel = changesCount
-    ? `Salvar ${changesCount === 1 ? 'alteração' : 'alterações'}`
-    : 'Concluir';
-
-  function areChoicesEqual(
-    first: SubstitutionGroup['options'][number] | null | undefined,
-    second: SubstitutionGroup['options'][number] | null | undefined,
-  ) {
+  function areChoicesEqual(first: Option | null | undefined, second: Option | null | undefined) {
     if (!first && !second) return true;
     if (!first || !second) return false;
     return isSameOverride(first, second);
   }
 
+  const changedGroups = useMemo(
+    () => groups.filter((group) => !areChoicesEqual(initialOverrides[group.key], draftOverrides[group.key])),
+    [draftOverrides, groups, initialOverrides, isSameOverride],
+  );
+
+  const changesCount = changedGroups.length;
+  const saveLabel = changesCount
+    ? `Salvar ${changesCount} ${changesCount === 1 ? 'troca' : 'trocas'}`
+    : 'Concluir';
+
   function syncDraft() {
-    const current: Record<string, SubstitutionGroup['options'][number] | null> = {};
+    const current: Record<string, Option | null> = {};
     for (const group of groups) {
       const stored = getOverrideForItem(mealId, group.key);
       if (!stored) {
@@ -70,243 +118,258 @@ export default function DietaMealSubstitutionsModal({
   }
 
   useEffect(() => {
-    if (open) syncDraft();
-  }, [open, groups, mealId]);
+    syncDraft();
+  }, [mealId, groups]);
 
   function resolveDraftChoice(itemKey: string) {
     return draftOverrides[itemKey] ?? null;
   }
 
-  function selectSubstitution(itemKey: string, option: SubstitutionGroup['options'][number] | null) {
+  function selectSubstitution(itemKey: string, option: Option | null) {
     setDraftOverrides((current) => ({ ...current, [itemKey]: option }));
   }
 
   function saveChanges() {
+    triggerImpactHaptic();
     for (const group of groups) {
       setOverride(mealId, group.key, resolveDraftChoice(group.key));
     }
     setInitialOverrides({ ...draftOverrides });
-    onClose();
+    dismiss();
   }
 
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.sheet}>
-        <View style={styles.head}>
-          <View style={styles.heading}>
-            <View style={styles.handle} />
-            <Text style={styles.eyebrow}>Substituição da refeição</Text>
-            <Text style={styles.title}>Escolha o que deseja trocar</Text>
-            <Text style={styles.meal}>{mealLabel}</Text>
-          </View>
-          <Pressable style={styles.closeBtn} onPress={onClose}>
-            <X size={18} color={colors.textMuted} />
-          </Pressable>
+    <View style={styles.root}>
+      <DietaSheetHeader
+        icon={ArrowLeftRight}
+        title="Substituições"
+        subtitle={mealLabel}
+        badge={changesCount > 0 ? `${changesCount} pendente${changesCount === 1 ? '' : 's'}` : undefined}
+      />
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.tip}>
+          <CircleHelp size={18} color={colors.primaryDark} />
+          <Text style={styles.tipText}>
+            Toque para trocar um item. Só aplica na refeição depois de salvar.
+          </Text>
         </View>
 
-        <ScrollView style={styles.content}>
-          <View style={styles.guidance}>
-            <CircleHelp size={16} color="#72806b" />
-            <Text style={styles.guidanceText}>
-              Selecione uma opção para cada alimento que quiser trocar. As alterações só serão aplicadas ao salvar.
-            </Text>
-          </View>
+        <View style={styles.sourcePill}>
+          <FileText size={13} color={colors.primaryDark} />
+          <Text style={styles.sourceText}>{pdfSource.label}</Text>
+        </View>
 
-          <View style={styles.sourceRow}>
-            <FileText size={13} color="#8b9088" />
-            <Text style={styles.sourceText}>Opções definidas em {pdfSource.label}</Text>
-          </View>
+        {groups.map((group, groupIndex) => (
+          <View key={group.key} style={styles.section}>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionIndex}>{groupIndex + 1}</Text>
+              <View style={styles.sectionHeadCopy}>
+                <Text style={styles.sectionTitle} numberOfLines={2}>{group.prescribedLabel}</Text>
+                <Text style={styles.sectionMeta}>
+                  {group.options.length} {group.options.length === 1 ? 'substituto' : 'substitutos'}
+                </Text>
+              </View>
+            </View>
 
-          {groups.map((group) => (
-            <View key={group.key} style={styles.group}>
-              <Text style={styles.sectionLabel}>Alimento do plano</Text>
-              <Pressable
-                style={[styles.choice, !resolveDraftChoice(group.key) && styles.choiceActive]}
+            <DietaGroupedList>
+              <SelectionRow
+                title="Manter prescrito"
+                meta="Sem alteração neste item"
+                selected={!resolveDraftChoice(group.key)}
                 onPress={() => selectSubstitution(group.key, null)}
-              >
-                <View style={styles.choiceCopy}>
-                  <Text style={styles.choiceTitle}>{group.prescribedLabel}</Text>
-                  <Text style={styles.choiceMeta}>Manter como foi prescrito</Text>
-                </View>
-                <View style={[styles.radio, !resolveDraftChoice(group.key) && styles.radioActive]}>
-                  {!resolveDraftChoice(group.key) ? <Check size={12} color="#fff" strokeWidth={3} /> : null}
-                </View>
-              </Pressable>
-
-              <Text style={styles.sectionLabelOptions}>
-                Trocar por · {group.options.length} {group.options.length === 1 ? 'opção' : 'opções'}
-              </Text>
-
+              />
               {group.options.map((option, index) => {
                 const active = areChoicesEqual(resolveDraftChoice(group.key), option);
                 return (
-                  <Pressable
-                    key={`${group.key}-${index}`}
-                    style={[styles.choice, styles.optionChoice, active && styles.choiceActive]}
-                    onPress={() => selectSubstitution(group.key, option)}
-                  >
-                    <View style={styles.optionSymbol}>
-                      <ArrowLeftRight size={14} color="#708067" />
-                    </View>
-                    <View style={styles.choiceCopy}>
-                      <Text style={styles.choiceTitle}>{option.label}</Text>
-                      <Text style={styles.choiceMeta}>{option.note || 'Porção equivalente'}</Text>
-                    </View>
-                    <View style={[styles.radio, active && styles.radioActive]}>
-                      {active ? <Check size={12} color="#fff" strokeWidth={3} /> : null}
-                    </View>
-                  </Pressable>
+                  <View key={`${group.key}-${index}`}>
+                    <DietaGroupedDivider inset={spacing[4]} />
+                    <SelectionRow
+                      title={option.label}
+                      meta={option.note || 'Porção equivalente'}
+                      selected={active}
+                      leading={(
+                        <View style={styles.swapIcon}>
+                          <ArrowLeftRight size={14} color={colors.primaryDark} strokeWidth={1.9} />
+                        </View>
+                      )}
+                      onPress={() => selectSubstitution(group.key, option)}
+                    />
+                  </View>
                 );
               })}
-            </View>
-          ))}
-        </ScrollView>
+            </DietaGroupedList>
+          </View>
+        ))}
+      </ScrollView>
 
-        <View style={styles.foot}>
-          <Text style={styles.status}>{changesStatus}</Text>
-          <Pressable style={styles.saveBtn} onPress={saveChanges}>
-            <Check size={16} color="#fff" />
-            <Text style={styles.saveText}>{saveLabel}</Text>
-          </Pressable>
-        </View>
+      <View style={[styles.foot, { paddingBottom: spacing[2] }]}>
+        <DietaSheetPrimaryButton
+          label={saveLabel}
+          sublabel={changesCount > 0 ? 'Suas escolhas entram na refeição de hoje' : undefined}
+          onPress={saveChanges}
+        />
       </View>
-    </Modal>
+    </View>
+  );
+}
+
+export default function DietaMealSubstitutionsModal({
+  open,
+  mealId,
+  mealLabel,
+  groups,
+  onClose,
+}: Props) {
+  return (
+    <AppleBottomSheet
+      visible={open}
+      onClose={onClose}
+      maxHeightRatio={0.88}
+      contentPadding={0}
+      topRadius={28}
+      fillHeight
+    >
+      {open ? (
+        <SheetBody mealId={mealId} mealLabel={mealLabel} groups={groups} />
+      ) : null}
+    </AppleBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(21,24,20,0.38)' },
-  sheet: {
-    maxHeight: '82%',
-    backgroundColor: '#fff',
-    borderTopLeftRadius: radii.surface,
-    borderTopRightRadius: radii.surface,
+  root: { flex: 1, minHeight: 0 },
+  scroll: { flex: 1, minHeight: 0 },
+  scrollContent: {
+    paddingHorizontal: DIETA_SHEET_GUTTER,
+    paddingTop: spacing[4],
+    paddingBottom: spacing[3],
   },
-  head: {
+  tip: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing[3],
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[5],
-    paddingBottom: spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: '#eceeea',
-  },
-  heading: { flex: 1 },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#d8dbd6',
-    marginBottom: spacing[3],
-  },
-  eyebrow: {
-    fontFamily: fonts.semibold,
-    fontSize: 11,
-    color: '#778372',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  title: { fontFamily: fonts.semibold, fontSize: 18, color: colors.text, marginTop: 4 },
-  meal: { fontFamily: fonts.medium, fontSize: 13, color: '#8a6c72', marginTop: 4 },
-  closeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#f1f2f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: { paddingHorizontal: spacing[4], paddingVertical: spacing[4] },
-  guidance: {
-    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing[2],
     padding: spacing[3],
-    borderWidth: 1,
-    borderColor: '#e4e9e1',
+    borderRadius: radii.control,
+    backgroundColor: colors.primarySoft,
+    marginBottom: spacing[3],
+  },
+  tipText: {
+    flex: 1,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.primaryDark,
+    lineHeight: 20,
+  },
+  sourcePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    backgroundColor: '#f2f2f7',
+    marginBottom: spacing[4],
+  },
+  sourceText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.primaryDark,
+  },
+  section: { marginBottom: spacing[4] },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing[3],
+    marginBottom: 10,
+  },
+  sectionIndex: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    backgroundColor: '#f6f8f4',
-    marginBottom: spacing[3],
+    backgroundColor: colors.primarySoft,
+    overflow: 'hidden',
+    textAlign: 'center',
+    lineHeight: 28,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.primaryDark,
   },
-  guidanceText: { flex: 1, fontFamily: fonts.regular, fontSize: 12, color: '#596255', lineHeight: 17 },
-  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing[4] },
-  sourceText: { fontFamily: fonts.regular, fontSize: 11, color: '#8b9088' },
-  group: {
-    padding: spacing[3],
-    borderWidth: 1,
-    borderColor: '#e1e4df',
-    borderRadius: 16,
-    marginBottom: spacing[3],
-  },
-  sectionLabel: {
+  sectionHeadCopy: { flex: 1, minWidth: 0 },
+  sectionTitle: {
     fontFamily: fonts.semibold,
-    fontSize: 10,
-    color: '#80857e',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginBottom: spacing[2],
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 20,
   },
-  sectionLabelOptions: {
-    fontFamily: fonts.semibold,
-    fontSize: 10,
-    color: '#80857e',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginTop: spacing[3],
-    marginBottom: spacing[2],
+  sectionMeta: {
+    marginTop: 2,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.textMuted,
   },
-  choice: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[3],
-    padding: spacing[3],
-    borderWidth: 1,
-    borderColor: '#e2e5e0',
-    borderRadius: 13,
-    marginBottom: spacing[2],
-    backgroundColor: '#fff',
-  },
-  optionChoice: { paddingLeft: spacing[2] },
-  choiceActive: { borderColor: '#84967a', backgroundColor: '#f4f7f2' },
-  optionSymbol: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#edf2ea',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  choiceCopy: { flex: 1 },
-  choiceTitle: { fontFamily: fonts.medium, fontSize: 13, color: '#2c302b' },
-  choiceMeta: { fontFamily: fonts.regular, fontSize: 11, color: '#858a82', marginTop: 2 },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#c9cdc6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioActive: { borderColor: '#758b6b', backgroundColor: '#758b6b' },
-  foot: {
+    minHeight: 56,
     paddingHorizontal: spacing[4],
-    paddingTop: spacing[3],
-    paddingBottom: spacing[6],
-    borderTopWidth: 1,
-    borderTopColor: '#e6e9e4',
+    paddingVertical: 10,
   },
-  status: { fontFamily: fonts.regular, fontSize: 11, color: '#858a82', textAlign: 'center', marginBottom: spacing[2] },
-  saveBtn: {
-    flexDirection: 'row',
+  rowSelected: {
+    backgroundColor: 'rgba(111, 120, 99, 0.08)',
+  },
+  rowPressed: {
+    backgroundColor: '#e8e8ed',
+  },
+  rowCopy: { flex: 1, minWidth: 0 },
+  rowTitle: {
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    color: colors.text,
+  },
+  rowTitleSelected: {
+    fontFamily: fonts.semibold,
+    color: colors.primaryDark,
+  },
+  rowMeta: {
+    marginTop: 2,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  checkRing: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#c7c7cc',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[2],
-    minHeight: 48,
-    borderRadius: 14,
-    backgroundColor: '#7d9073',
   },
-  saveText: { fontFamily: fonts.semibold, fontSize: 14, color: '#fff' },
+  checkRingActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  swapIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  foot: {
+    paddingHorizontal: DIETA_SHEET_GUTTER,
+    paddingTop: spacing[3],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e5e5ea',
+    backgroundColor: '#fff',
+  },
 });

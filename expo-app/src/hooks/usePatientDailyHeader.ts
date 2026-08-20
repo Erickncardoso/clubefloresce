@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDiaryDate } from '@/hooks/useDiaryDate';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { usePatientGoals } from '@/hooks/usePatientGoals';
 import {
@@ -26,6 +27,7 @@ const DEFAULT_TARGETS = {
 
 export function usePatientDailyHeader() {
   const { request } = usePatientApi();
+  const { foodDiaryPath, selectedDateKey } = useDiaryDate();
   const { goals, progress, ready: goalsReady } = usePatientGoals();
 
   const [dailySummary, setDailySummaryState] = useState<DailySummary | null>(null);
@@ -113,12 +115,12 @@ export function usePatientDailyHeader() {
 
   const loadDailyNutrition = useCallback(async () => {
     try {
-      const summary = await request<DailySummary>('/food-diary/today');
+      const summary = await request<DailySummary>(foodDiaryPath('/food-diary/today'));
       setDailySummary(summary);
     } catch {
       /* mantém cache do dia se existir */
     }
-  }, [request, setDailySummary]);
+  }, [foodDiaryPath, request, setDailySummary]);
 
   const loadCheckInStreak = useCallback(async () => {
     try {
@@ -178,6 +180,10 @@ export function usePatientDailyHeader() {
       loadMonthActivity(),
     ]);
   }, [loadCheckInStreak, loadDailyNutrition, loadMonthActivity]);
+
+  useEffect(() => {
+    void loadDailyNutrition();
+  }, [loadDailyNutrition, selectedDateKey]);
 
   const monthActiveCount = useMemo(() => {
     const now = new Date();

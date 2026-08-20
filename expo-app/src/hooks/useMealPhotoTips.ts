@@ -3,7 +3,7 @@ import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PickedMealPhoto } from '@/lib/meal-photo-pick';
 
-const STORAGE_KEY = 'cf-meal-photo-tips-v3';
+const STORAGE_KEY = 'cf-meal-photo-tips-v4';
 
 function runAfterOverlay(action: () => void) {
   InteractionManager.runAfterInteractions(() => {

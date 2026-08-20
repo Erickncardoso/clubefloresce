@@ -5,7 +5,7 @@ import {
   type PermissionState,
 } from '@/notifications/permission';
 import { sendLocalTestNotification } from '@/notifications/test-notification';
-import { syncLocalNotifications } from '@/notifications/sync-engine';
+import { syncPatientLocalNotifications } from '@/notifications/sync-engine';
 
 type ActivateContext = {
   request: <T>(path: string, init?: RequestInit & { method?: string }) => Promise<T>;
@@ -27,7 +27,7 @@ export async function activateOnboardingPushNotifications(
   const state = await requestNotificationPermission();
   if (state === 'granted') {
     await sendOnboardingCompleteTestNotification({ immediate: false });
-    await syncLocalNotifications({
+    await syncPatientLocalNotifications({
       request: ctx.request,
       onboardingComplete: true,
       checkinPreferenceEnabled: ctx.checkinPreferenceEnabled,
@@ -44,7 +44,7 @@ export async function finalizeOnboardingNotifications(
 
   await configureNotificationChannels();
   const sent = await sendOnboardingCompleteTestNotification({ immediate: true });
-  await syncLocalNotifications({
+  await syncPatientLocalNotifications({
     request: ctx.request,
     onboardingComplete: true,
     checkinPreferenceEnabled: ctx.checkinPreferenceEnabled,

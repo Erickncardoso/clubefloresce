@@ -72,6 +72,7 @@ type ScheduleInput = {
   logicalKey: NotificationLogicalKey;
   title: string;
   body: string;
+  subtitle?: string | null;
   route: string;
   channelId?: 'reminders' | 'motivation';
   trigger: import('expo-notifications').NotificationTriggerInput;
@@ -103,8 +104,10 @@ export async function scheduleManagedNotification(input: ScheduleInput): Promise
     content: {
       title: input.title,
       body: input.body,
+      ...(input.subtitle ? { subtitle: input.subtitle } : {}),
       data: payload,
       sound: true,
+      categoryIdentifier: input.logicalKey.startsWith('meal:') ? 'meal-reminder' : undefined,
       ...(input.channelId ? { channelId: input.channelId } : {}),
     },
     trigger,
@@ -151,6 +154,7 @@ export async function scheduleDailyNotification(input: {
   logicalKey: NotificationLogicalKey;
   title: string;
   body: string;
+  subtitle?: string | null;
   route: string;
   channelId?: 'reminders' | 'motivation';
   hour: number;

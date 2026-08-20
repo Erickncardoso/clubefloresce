@@ -6,6 +6,14 @@ export const ADMIN_PUSH_CATEGORIES = [
   { id: 'admin-diary', title: 'Ver diário' },
 ] as const;
 
+export const MEAL_REMINDER_CATEGORY = {
+  id: 'meal-reminder',
+  actions: [
+    { id: 'meal-reminder-open', title: 'Ver refeição' },
+    { id: 'meal-reminder-items', title: 'Ver todos os itens' },
+  ],
+} as const;
+
 export async function registerAdminPushCategories(
   Notifications: typeof import('expo-notifications'),
 ) {
@@ -18,4 +26,17 @@ export async function registerAdminPushCategories(
       },
     ]);
   }
+
+  await Notifications.setNotificationCategoryAsync(MEAL_REMINDER_CATEGORY.id, [
+    {
+      identifier: MEAL_REMINDER_CATEGORY.actions[0].id,
+      buttonTitle: MEAL_REMINDER_CATEGORY.actions[0].title,
+      options: { opensAppToForeground: true },
+    },
+    {
+      identifier: MEAL_REMINDER_CATEGORY.actions[1].id,
+      buttonTitle: MEAL_REMINDER_CATEGORY.actions[1].title,
+      options: { opensAppToForeground: true },
+    },
+  ]);
 }

@@ -25,6 +25,7 @@ import {
 import {
   isPatientAppAccessBlocked,
   isPatientAccessBlockedError,
+  shouldKeepPatientSessionOnError,
 } from '@/lib/patient-access';
 import type { LoginResult, OnboardingStatus, PatientUser } from '@/types/patient';
 
@@ -111,7 +112,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return me;
     } catch (err) {
       const status = (err as ApiError)?.status;
-      if (status === 401 || status === 403) {
+      if (status === 401) {
+        await clearStoredSession();
+        await clearPatientSessionCache();
+        setToken(null);
+        setUser(null);
+        userRef.current = null;
+        return null;
+      }
+      if (status === 403 && !shouldKeepPatientSessionOnError(err)) {
         await clearStoredSession();
         await clearPatientSessionCache();
         setToken(null);

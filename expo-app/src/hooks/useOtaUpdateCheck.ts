@@ -1,103 +1,63 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
+import * as Updates from 'expo-updates';
 
-const CHECK_COOLDOWN_MS = 5 * 60 * 1000;
-/** Tempo para registrar push token antes de recarregar o OTA. */
-const OTA_RELOAD_DELAY_MS = 18_000;
-
-type UpdatesModule = typeof import('expo-updates');
-
-async function loadUpdatesModule(): Promise<UpdatesModule | null> {
-  try {
-    return await import('expo-updates');
-  } catch {
-    return null;
-  }
-}
+const POLL_MS = 8_000;
 
 export function useOtaUpdateCheck() {
+  const { isUpdateAvailable, isUpdatePending, isDownloading } = Updates.useUpdates();
   const [applying, setApplying] = useState(false);
-  const [error, setError] = useState('');
-  const lastCheckAt = useRef(0);
-  const busyRef = useRef(false);
-  const updatesRef = useRef<UpdatesModule | null>(null);
-
-  const applyIfReady = useCallback(async (delayMs = OTA_RELOAD_DELAY_MS) => {
-    const Updates = updatesRef.current;
-    if (!Updates?.isEnabled) return false;
-    try {
-      if (Updates.isUpdatePending) {
-        setApplying(true);
-        if (delayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
-        await Updates.reloadAsync();
-        return true;
-      }
-    } catch {
-      setApplying(false);
-    }
-    return false;
-  }, []);
-
-  const checkForUpdate = useCallback(async (force = false) => {
-    const Updates = updatesRef.current;
-    if (!Updates?.isEnabled || busyRef.current) return;
-
-    const now = Date.now();
-    if (!force && now - lastCheckAt.current < CHECK_COOLDOWN_MS) {
-      await applyIfReady();
-      return;
-    }
-
-    busyRef.current = true;
-    setError('');
-
-    try {
-      if (await applyIfReady()) return;
-
-      const result = await Updates.checkForUpdateAsync();
-      lastCheckAt.current = Date.now();
-      if (!result.isAvailable) return;
-
-      setApplying(true);
-      const fetched = await Updates.fetchUpdateAsync();
-      if (fetched.isNew || Updates.isUpdatePending) {
-        await new Promise((resolve) => setTimeout(resolve, OTA_RELOAD_DELAY_MS));
-        await Updates.reloadAsync();
-        return;
-      }
-      setApplying(false);
-    } catch {
-      setError('');
-      setApplying(false);
-    } finally {
-      busyRef.current = false;
-    }
-  }, [applyIfReady]);
+  const [dismissed, setDismissed] = useState(false);
+  const enabled = Updates.isEnabled && !__DEV__;
 
   useEffect(() => {
-    if (__DEV__) return;
+    if (!enabled || dismissed || isUpdatePending || isDownloading) return;
+    if (!isUpdateAvailable) return;
+    void Updates.fetchUpdateAsync().catch(() => {});
+  }, [dismissed, enabled, isDownloading, isUpdateAvailable, isUpdatePending]);
 
-    let cancelled = false;
+  useEffect(() => {
+    if (!enabled) return;
 
-    void (async () => {
-      const Updates = await loadUpdatesModule();
-      if (cancelled || !Updates) return;
-      updatesRef.current = Updates;
-      void checkForUpdate(true);
-    })();
-
-    const onAppStateChange = (state: AppStateStatus) => {
-      if (state === 'active') void checkForUpdate(false);
+    const tick = () => {
+      void Updates.checkForUpdateAsync().catch(() => {});
     };
 
-    const sub = AppState.addEventListener('change', onAppStateChange);
+    tick();
+    const poll = setInterval(tick, POLL_MS);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      setDismissed(false);
+      tick();
+    });
+
     return () => {
-      cancelled = true;
+      clearInterval(poll);
       sub.remove();
     };
-  }, [checkForUpdate]);
+  }, [enabled]);
 
-  return { applying, error };
+  const applyUpdate = useCallback(async () => {
+    if (!enabled || applying) return;
+    setApplying(true);
+    try {
+      if (!isUpdatePending && isUpdateAvailable) {
+        await Updates.fetchUpdateAsync();
+      }
+      await Updates.reloadAsync();
+    } catch {
+      setApplying(false);
+    }
+  }, [applying, enabled, isUpdateAvailable, isUpdatePending]);
+
+  const ready = enabled && isUpdatePending && !dismissed;
+  const downloading = enabled && !ready && !dismissed && (isDownloading || isUpdateAvailable);
+
+  return {
+    ready,
+    downloading,
+    applying,
+    applyUpdate,
+    dismiss: () => setDismissed(true),
+  };
 }

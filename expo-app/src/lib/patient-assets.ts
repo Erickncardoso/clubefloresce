@@ -13,6 +13,8 @@ export const patientAssets = {
   },
   bellaEnsina: require('../../assets/imgs/bellaensina.png'),
   bellaAvatar: require('../../assets/imgs/falecomabella.webp'),
+  mealPhotoExampleGood: require('../../assets/imgs/meal-photo/exemplo-prato.png'),
+  mealPhotoExampleBad: require('../../assets/imgs/meal-photo/exemplo-mesa.png'),
   courseCover: require('../../assets/imgs/curso-capa-personalizada.png'),
   courseCoverMobile: require('../../assets/imgs/curso-capa-personalizada-mobile.png'),
 } as const;

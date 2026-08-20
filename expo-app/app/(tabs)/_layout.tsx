@@ -1,3 +1,4 @@
+import { Easing } from 'react-native';
 import { Tabs } from 'expo-router';
 
 /**
@@ -34,6 +35,14 @@ export default function PatientTabsLayout() {
         tabBarBackground: () => null,
         safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 },
         sceneStyle: { backgroundColor: '#ffffff' },
+        animation: 'fade',
+        transitionSpec: {
+          animation: 'timing',
+          config: {
+            duration: 320,
+            easing: Easing.bezier(0.22, 1, 0.36, 1),
+          },
+        },
       }}
     >
       <Tabs.Screen name="inicio" options={{ title: 'Início' }} />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
-import { Camera } from 'lucide-react-native';
+import CameraIcon from '@/components/icons/CameraIcon';
 import MealPhotoFlow from '@/components/diario/MealPhotoFlow';
 import { usePatientMealPlan } from '@/hooks/usePatientMealPlan';
 import { countDone, loadChecked } from '@/lib/dieta-progress';
@@ -65,6 +65,7 @@ export default function HomeCurrentMealCard({
 }: Props) {
   const { meals } = usePatientMealPlan();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [itemsExpanded, setItemsExpanded] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [itemsProgress, setItemsProgress] = useState(0);
   const [progressText, setProgressText] = useState('');
@@ -91,8 +92,12 @@ export default function HomeCurrentMealCard({
   }, [meal]);
 
   const totalItems = displayItems.length;
-  const visibleItems = displayItems.slice(0, maxItems);
-  const hiddenCount = Math.max(0, displayItems.length - maxItems);
+  const visibleItems = itemsExpanded ? displayItems : displayItems.slice(0, maxItems);
+  const hiddenCount = itemsExpanded ? 0 : Math.max(0, displayItems.length - maxItems);
+
+  useEffect(() => {
+    setItemsExpanded(false);
+  }, [meal?.id]);
 
   useEffect(() => {
     if (!meal?.items?.length) {
@@ -171,9 +176,17 @@ export default function HomeCurrentMealCard({
       </View>
 
       {hiddenCount > 0 ? (
-        <Text style={styles.more}>
-          + {hiddenCount} {hiddenCount === 1 ? 'item' : 'itens'}
-        </Text>
+        <Pressable
+          onLongPress={() => setItemsExpanded(true)}
+          delayLongPress={280}
+          accessibilityRole="button"
+          accessibilityLabel={`Ver mais ${hiddenCount} itens`}
+        >
+          <Text style={styles.more}>
+            + {hiddenCount} {hiddenCount === 1 ? 'item' : 'itens'}
+          </Text>
+          <Text style={styles.moreHint}>Pressione e segure para expandir</Text>
+        </Pressable>
       ) : null}
     </>
   );
@@ -191,7 +204,7 @@ export default function HomeCurrentMealCard({
       </Link>
       <View style={styles.foot}>
         <Pressable style={styles.photoBtn} onPress={takePhoto}>
-          <Camera size={15} color="#fff" strokeWidth={2} />
+          <CameraIcon size={15} color="#fff" />
           <Text style={styles.photoBtnText}>Tirar foto</Text>
         </Pressable>
       </View>
@@ -272,6 +285,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f3ed',
   },
   more: { marginTop: 6, paddingLeft: 17, fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
+  moreHint: {
+    paddingLeft: 17,
+    marginTop: 2,
+    fontFamily: fonts.medium,
+    fontSize: 10,
+    color: colors.primaryDark,
+  },
   foot: {
     marginTop: 4,
     paddingTop: 12,

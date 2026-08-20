@@ -5,18 +5,14 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View
+  View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   ArrowLeftRight,
   Calculator,
-  Camera,
   ChevronRight,
   CircleCheck,
-  ImagePlus,
   Layers,
   Plus,
   Trash2,
@@ -27,15 +23,19 @@ import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
+import DiaryDatePicker from '@/components/dieta/DiaryDatePicker';
 import DietaAddExtraFoodModal from '@/components/dieta/DietaAddExtraFoodModal';
+import DietaAllMealsList from '@/components/dieta/DietaAllMealsList';
 import DietaCheckIcon from '@/components/dieta/DietaCheckIcon';
 import DietaMealPlanOptionPickerModal from '@/components/dieta/DietaMealPlanOptionPickerModal';
 import DietaMealPlanOptionsIntroModal from '@/components/dieta/DietaMealPlanOptionsIntroModal';
 import DietaMealPlanRecipeDetailSheet from '@/components/dieta/DietaMealPlanRecipeDetailSheet';
 import DietaMealPlanUploadCard from '@/components/dieta/DietaMealPlanUploadCard';
+import DietaCalorieSubstitutionModal from '@/components/dieta/DietaCalorieSubstitutionModal';
 import DietaMealSubstitutionsModal from '@/components/dieta/DietaMealSubstitutionsModal';
 import MealPhotoFlow from '@/components/diario/MealPhotoFlow';
 import { useDietaDiarySync, type DailySummary } from '@/hooks/useDietaDiarySync';
+import { useDiaryDate } from '@/hooks/useDiaryDate';
 import { useAppToast } from '@/hooks/useAppToast';
 import { toastSuccess } from '@/lib/app-toast';
 import { useMealExtraItems } from '@/hooks/useMealExtraItems';
@@ -46,6 +46,7 @@ import { useMealSubstitutions } from '@/hooks/useMealSubstitutions';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { usePatientMealPlan } from '@/hooks/usePatientMealPlan';
 import { countDone, loadChecked, saveChecked } from '@/lib/dieta-progress';
+import { buildMealPhotoStatuses } from '@/lib/meal-photo-status';
 import { createMealItemId, normalizeMealItemsForSave, type MealDiaryItem } from '@/lib/meal-diary';
 import { applyOptimisticPlanCheck } from '@/lib/plan-diary-sync';
 import type { MealPlanRecipe } from '@/lib/meal-plan-api';
@@ -54,9 +55,9 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 type ViewMode = 'today' | 'week';
 
 export default function DietaScreen() {
-  const router = useRouter();
   const { showToast } = useAppToast();
   const { request } = usePatientApi();
+  const { foodDiaryPath, diaryTitle, selectedDateKey, isToday } = useDiaryDate();
   const { queueSyncMealCheck, resyncAllCheckedMeals } = useDietaDiarySync();
   const {
     planRecord,
@@ -104,6 +105,7 @@ export default function DietaScreen() {
   const [optionPickerTitle, setOptionPickerTitle] = useState('Escolha suas opções');
   const [optionIntroOpen, setOptionIntroOpen] = useState(false);
   const [extraFoodOpen, setExtraFoodOpen] = useState(false);
+  const [calorieSubstOpen, setCalorieSubstOpen] = useState(false);
   const [recipeDetailOpen, setRecipeDetailOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<MealPlanRecipe | null>(null);
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
@@ -147,6 +149,40 @@ export default function DietaScreen() {
     [mealList, mealProgressById],
   );
 
+  const allMealsRows = useMemo(() => {
+    const photoById = new Map(
+      buildMealPhotoStatuses(
+        mealList.map((meal) => {
+          const entry = getMealById(meal.id);
+          return { id: meal.id, label: entry?.label, time: entry?.time };
+        }),
+        dailySummary?.entries || [],
+        { isToday },
+      ).map((row) => [row.id, row] as const),
+    );
+
+    return mealList.flatMap((meal) => {
+      const entry = getMealById(meal.id);
+      if (!entry) return [];
+      const progress = mealProgressById[meal.id];
+      const complete = Boolean(progress?.total && progress.done === progress.total);
+      let progressLabel = entry.itemLabels.length ? `${entry.itemLabels.length} itens` : '';
+      if (progress?.total) {
+        progressLabel = complete ? 'Concluída' : `${progress.done} de ${progress.total}`;
+      }
+      return [{
+        id: meal.id,
+        label: entry.label || meal.id,
+        time: entry.time,
+        icon: meal.icon,
+        progressLabel,
+        percent: progress?.total ? Math.round((progress.done / progress.total) * 100) : 0,
+        complete,
+        hasPhoto: Boolean(photoById.get(meal.id)?.hasPhoto),
+      }];
+    });
+  }, [dailySummary?.entries, getMealById, isToday, mealList, mealProgressById]);
+
   useEffect(() => {
     const total = currentMeal?.itemLabels.length || checkedItems.length;
     if (!activeMealId || !total) return;
@@ -170,7 +206,7 @@ export default function DietaScreen() {
           if (meal.id === activeMealId) {
             return { id: meal.id, done: countDone(checkedItemsRef.current), total };
           }
-          const states = await loadChecked(meal.id, total);
+          const states = await loadChecked(meal.id, total, selectedDateKey);
           return { id: meal.id, done: countDone(states), total };
         }),
       );
@@ -191,7 +227,7 @@ export default function DietaScreen() {
     return () => {
       cancelled = true;
     };
-  }, [activeMealId, getMealById, mealList, overridesRevision]);
+  }, [activeMealId, checkedItems, getMealById, mealList, overridesRevision, selectedDateKey]);
 
   const progressLabel = useMemo(() => {
     if (!currentMeal) return '';
@@ -205,20 +241,18 @@ export default function DietaScreen() {
   const loadDailySummary = useCallback(async () => {
     setDiaryLoading(true);
     try {
-      const summary = await request<DailySummary>('/food-diary/today');
+      const summary = await request<DailySummary>(foodDiaryPath('/food-diary/today'));
       setDailySummary(summary);
     } catch {
       setDailySummary(null);
     } finally {
       setDiaryLoading(false);
     }
-  }, [request]);
+  }, [foodDiaryPath, request]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadDailySummary();
-    }, [loadDailySummary]),
-  );
+  useEffect(() => {
+    void loadDailySummary();
+  }, [loadDailySummary, selectedDateKey]);
 
   const syncChecked = useCallback(async (mealId: string, preserveChecked = false) => {
     const meal = getMealById(mealId);
@@ -228,34 +262,18 @@ export default function DietaScreen() {
     }
 
     const count = meal.itemLabels.length;
-    const previous = preserveChecked ? checkedItemsRef.current : await loadChecked(mealId, count);
+    const previous = preserveChecked ? checkedItemsRef.current : await loadChecked(mealId, count, selectedDateKey);
     const next = Array(count).fill(false);
     for (let i = 0; i < Math.min(previous.length, count); i += 1) {
       next[i] = Boolean(previous[i]);
     }
     setCheckedItems(next);
-    await saveChecked(mealId, next);
-  }, [getMealById]);
+    await saveChecked(mealId, next, selectedDateKey);
+  }, [getMealById, selectedDateKey]);
 
   function isMealComplete(mealId: string) {
     const progress = mealProgressById[mealId];
     return Boolean(progress?.total && progress.done === progress.total);
-  }
-
-  function weekProgressLabel(mealId: string) {
-    const progress = mealProgressById[mealId];
-    if (!progress?.total) {
-      const meal = getMealById(mealId);
-      return meal ? `${meal.itemLabels.length} itens` : '';
-    }
-    if (progress.done === progress.total) return 'Concluída hoje';
-    return `${progress.done}/${progress.total} itens marcados`;
-  }
-
-  function mealProgressPercent(mealId: string) {
-    const progress = mealProgressById[mealId];
-    if (!progress?.total) return 0;
-    return Math.round((progress.done / progress.total) * 100);
   }
 
   function resolveActiveMealFromRoute() {
@@ -467,14 +485,6 @@ export default function DietaScreen() {
     setPhotoPickerOpen(true);
   }
 
-  function takePhotoNow() {
-    openPhotoPicker(currentMeal);
-  }
-
-  function openGallery() {
-    openPhotoPicker(currentMeal);
-  }
-
   function normalizeEntryItems(items: unknown): MealDiaryItem[] {
     if (!Array.isArray(items)) return [];
     return items
@@ -578,14 +588,16 @@ export default function DietaScreen() {
     <PatientShell>
       <PatientHeader />
       <PatientScrollView contentContainerStyle={styles.scroll}>
+        <DiaryDatePicker variant="pill" />
         {diaryLoading && !dailySummary ? (
           <View style={styles.diaryLoading}>
             <ActivityIndicator color={colors.primary} />
-            <Text style={styles.diaryLoadingText}>Carregando diário de hoje…</Text>
+            <Text style={styles.diaryLoadingText}>Carregando diário…</Text>
           </View>
         ) : (
           <BellaDailyDiaryBar
             summary={dailySummary}
+            diaryTitle={diaryTitle}
             manageable
             onEditEntry={editDiaryEntry}
             onDeleteEntry={deleteDiaryEntry}
@@ -752,40 +764,41 @@ export default function DietaScreen() {
 
                     <View style={styles.tools}>
                       <Pressable style={styles.toolBtn} onPress={() => setExtraFoodOpen(true)}>
-                        <Plus size={14} color="#7e8b76" />
-                        <Text style={styles.toolText}>Adicionar alimento</Text>
+                        <View style={styles.toolBtnInner}>
+                          <View style={styles.toolIcon}>
+                            <Plus size={14} color="#7e8b76" strokeWidth={2} />
+                          </View>
+                          <Text style={styles.toolText}>Adicionar alimento</Text>
+                        </View>
                       </Pressable>
                       {hasSubstitutions ? (
                         <Pressable style={styles.toolBtn} onPress={() => setSubstitutionsOpen(true)}>
-                          <ArrowLeftRight size={14} color="#7e8b76" />
-                          <Text style={styles.toolText}>Substituições</Text>
+                          <View style={styles.toolBtnInner}>
+                            <View style={styles.toolIcon}>
+                              <ArrowLeftRight size={14} color="#7e8b76" strokeWidth={2} />
+                            </View>
+                            <Text style={styles.toolText}>Substituições</Text>
+                          </View>
                         </Pressable>
                       ) : null}
                       {activeMealHasOptionAlternatives ? (
                         <Pressable style={styles.toolBtn} onPress={openOptionPickerForActiveMeal}>
-                          <Layers size={14} color="#7e8b76" />
-                          <Text style={styles.toolText}>Trocar opção</Text>
+                          <View style={styles.toolBtnInner}>
+                            <View style={styles.toolIcon}>
+                              <Layers size={14} color="#7e8b76" strokeWidth={2} />
+                            </View>
+                            <Text style={styles.toolText}>Trocar opção</Text>
+                          </View>
                         </Pressable>
                       ) : null}
-                      <Pressable style={styles.toolBtn} onPress={() => router.push('/substituicao' as never)}>
-                        <Calculator size={14} color="#7e8b76" />
-                        <Text style={styles.toolText}>Calcular troca</Text>
+                      <Pressable style={styles.toolBtn} onPress={() => setCalorieSubstOpen(true)}>
+                        <View style={styles.toolBtnInner}>
+                          <View style={styles.toolIcon}>
+                            <Calculator size={14} color="#7e8b76" strokeWidth={2} />
+                          </View>
+                          <Text style={styles.toolText}>Calcular troca</Text>
+                        </View>
                       </Pressable>
-                    </View>
-
-                    <View style={styles.register}>
-                      <Text style={styles.registerTitle}>Registrar refeição</Text>
-                      <Text style={styles.registerSubtitle}>Envie uma foto para a Bella analisar.</Text>
-                      <View style={styles.actions}>
-                        <Pressable style={[styles.actionPrimary, styles.actionPrimaryFlex]} onPress={takePhotoNow}>
-                          <Camera size={15} color="#fff" />
-                          <Text style={styles.actionPrimaryText}>Tirar foto</Text>
-                        </Pressable>
-                        <Pressable style={styles.actionOutline} onPress={openGallery}>
-                          <ImagePlus size={15} color="#555b53" />
-                          <Text style={styles.actionOutlineText}>Galeria</Text>
-                        </Pressable>
-                      </View>
                     </View>
 
                     <Pressable style={styles.planLink} onPress={() => setView('week')}>
@@ -797,45 +810,12 @@ export default function DietaScreen() {
               </>
             ) : (
               <>
-                <View style={styles.sectionHeading}>
-                  <Text style={styles.sectionTitle}>Plano do dia</Text>
-                  <Text style={styles.sectionCount}>{completedMealsCount}/{mealList.length} concluídas</Text>
-                </View>
-
-                {mealList.map((meal) => {
-                  const entry = getMealById(meal.id);
-                  if (!entry) return null;
-                  const percent = mealProgressPercent(meal.id);
-                  return (
-                    <View key={meal.id} style={styles.weekCard}>
-                      <Pressable style={styles.weekHead} onPress={() => openMealFromWeek(meal.id)}>
-                        <View style={styles.weekIcon}>
-                          <meal.icon size={18} color="#75846d" />
-                        </View>
-                        <View style={styles.weekInfo}>
-                          <View style={styles.weekTitleRow}>
-                            <Text style={styles.weekTitle}>{entry.label}</Text>
-                            <Text style={styles.weekTime}>{entry.time}</Text>
-                          </View>
-                          <Text style={styles.weekProgress}>{weekProgressLabel(meal.id)}</Text>
-                        </View>
-                        <ChevronRight size={16} color="#a0a49e" />
-                      </Pressable>
-                      <View style={styles.weekTrack}>
-                        <View style={[styles.weekFill, { width: `${percent}%` }]} />
-                      </View>
-                      <View style={styles.weekFoot}>
-                        <Pressable
-                          style={styles.weekPhotoBtn}
-                          onPress={() => openPhotoPicker(entry)}
-                        >
-                          <Camera size={14} color="#fff" />
-                          <Text style={styles.weekPhotoBtnText}>Tirar foto</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  );
-                })}
+                <DietaAllMealsList
+                  meals={allMealsRows}
+                  completedCount={completedMealsCount}
+                  onOpenMeal={openMealFromWeek}
+                  onTakePhoto={openPhotoPicker}
+                />
               </>
             )}
 
@@ -865,6 +845,12 @@ export default function DietaScreen() {
             mealLabel={currentMeal.label}
             onClose={() => setExtraFoodOpen(false)}
             onAdded={onExtraFoodAdded}
+          />
+
+          <DietaCalorieSubstitutionModal
+            open={calorieSubstOpen}
+            mealLabel={currentMeal.label}
+            onClose={() => setCalorieSubstOpen(false)}
           />
         </>
       ) : null}
@@ -911,7 +897,7 @@ export default function DietaScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: spacing[4], paddingBottom: spacing[6], gap: spacing[3] },
+  scroll: { padding: spacing[4], paddingBottom: spacing[8], gap: spacing[3] },
   diaryLoading: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1084,67 +1070,36 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexBasis: '30%',
     minHeight: 44,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
     borderWidth: 1,
     borderColor: '#e2e5e0',
     borderRadius: 12,
     backgroundColor: '#fff',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
-  toolText: { fontFamily: fonts.regular, fontSize: 11, color: '#60665e', textAlign: 'center' },
-  register: {
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    borderTopWidth: 1,
-    borderTopColor: '#e8eae6',
-    backgroundColor: '#f8f9f7',
-  },
-  registerTitle: { fontFamily: fonts.medium, fontSize: 13, color: '#2b2e2a' },
-  registerSubtitle: { fontFamily: fonts.regular, fontSize: 11, color: '#888d85', marginTop: 2 },
-  actions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
-  actionPrimary: {
-    flex: 1.35,
+  toolBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[2],
-    minHeight: 44,
-    borderRadius: 12,
-    backgroundColor: '#798a70',
+    gap: 5,
+    maxWidth: '100%',
   },
-  actionPrimaryText: { fontFamily: fonts.medium, fontSize: 12, color: '#fff' },
-  actionPrimaryFlex: { flex: 1.35 },
-  weekPhotoBtn: {
-    flexDirection: 'row',
+  toolIcon: {
+    width: 14,
+    height: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    minHeight: 40,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
   },
-  weekPhotoBtnText: {
-    fontFamily: fonts.medium,
-    fontSize: 12,
-    color: '#fff',
+  toolText: {
+    flexShrink: 1,
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    color: '#60665e',
+    textAlign: 'left',
+    lineHeight: 14,
   },
-  actionOutline: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#dfe2dd',
-    backgroundColor: '#fff',
-  },
-  actionOutlineText: { fontFamily: fonts.medium, fontSize: 12, color: '#555b53' },
   planLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1155,42 +1110,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#e8eae6',
   },
   planLinkText: { fontFamily: fonts.regular, fontSize: 12, color: '#687264' },
-  weekCard: {
-    borderWidth: 1,
-    borderColor: '#e0e3de',
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
-    marginBottom: spacing[2],
-  },
-  weekHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    padding: spacing[3],
-  },
-  weekIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
-    backgroundColor: '#f0f3ed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weekInfo: { flex: 1 },
-  weekTitleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[2] },
-  weekTitle: { flex: 1, fontFamily: fonts.medium, fontSize: 14, color: '#282b27' },
-  weekTime: { fontFamily: fonts.regular, fontSize: 11, color: '#8b9089' },
-  weekProgress: { fontFamily: fonts.regular, fontSize: 11, color: '#8b9089', marginTop: 3 },
-  weekTrack: { height: 3, backgroundColor: '#eceeeb' },
-  weekFill: { height: '100%', backgroundColor: '#839678' },
-  weekFoot: {
-    paddingHorizontal: spacing[3],
-    paddingTop: spacing[2],
-    paddingBottom: spacing[3],
-    borderTopWidth: 1,
-    borderTopColor: '#eceeeb',
-  },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

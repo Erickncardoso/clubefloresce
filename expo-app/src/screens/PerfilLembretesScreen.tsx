@@ -17,7 +17,7 @@ import {
   permissionBlockedMessage,
   requestNotificationPermission,
 } from '@/notifications/permission';
-import { syncLocalNotifications } from '@/notifications/sync-engine';
+import { syncPatientLocalNotifications } from '@/notifications/sync-engine';
 import {
   createUserReminder,
   loadUserReminders,
@@ -68,7 +68,7 @@ export default function PerfilLembretesScreen() {
 
   async function resync(next: UserReminder[]) {
     const checkinPref = preferences.find((item) => item.key === 'checkin');
-    await syncLocalNotifications({
+    await syncPatientLocalNotifications({
       request,
       onboardingComplete: Boolean(onboarding?.isComplete),
       checkinPreferenceEnabled: checkinPref?.enabled !== false,

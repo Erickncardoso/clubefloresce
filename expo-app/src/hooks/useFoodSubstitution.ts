@@ -4,6 +4,7 @@ import { usePatientApi } from '@/hooks/usePatientApi';
 type FoodSearchItem = {
   id: string;
   name: string;
+  displayName?: string;
   category?: string;
   per100g?: {
     caloriesKcal?: number;
@@ -21,6 +22,7 @@ type SubstitutionPayload = {
   groupFilter: string;
   replacementId?: string;
   limit?: number;
+  mealLabel?: string;
 };
 
 export function useFoodSubstitution() {

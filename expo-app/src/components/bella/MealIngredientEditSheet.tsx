@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { Beef, Droplets, Wheat, X } from 'lucide-react-native';
+import { Beef, Droplets, Wheat } from 'lucide-react-native';
 import AppleBottomSheet from '@/components/ui/AppleBottomSheet';
 import { formatMacro, rescaleMealItem } from '@/lib/meal-confirm-display';
 import type { MealDiaryItem } from '@/lib/meal-diary';
@@ -70,12 +70,6 @@ export default function MealIngredientEditSheet({ item, onClose, onSave }: Props
       contentPadding={20}
       topRadius={36}
     >
-      <View style={styles.head}>
-        <View style={{ width: 36 }} />
-        <Pressable style={styles.close} onPress={onClose} accessibilityLabel="Fechar">
-          <X color={colors.text} size={16} />
-        </Pressable>
-      </View>
       <TextInput
         value={name}
         onChangeText={setName}

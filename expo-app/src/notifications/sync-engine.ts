@@ -24,7 +24,7 @@ import {
   scheduleWeeklyNotification,
 } from '@/notifications/scheduler';
 import { loadUserReminders } from '@/notifications/user-reminders';
-import { syncMealReminders } from '@/notifications/meal-reminders';
+import { cancelMealReminders, syncMealReminders } from '@/notifications/meal-reminders';
 import { buildMonthActivityMap, computeCurrentStreak } from '@/lib/patient-activity-days';
 
 type SyncContext = {
@@ -32,6 +32,8 @@ type SyncContext = {
   onboardingComplete: boolean;
   checkinPreferenceEnabled: boolean;
   mealRemindersEnabled?: boolean;
+  /** Push remoto ativo — não agendar lembretes locais que o backend já envia. */
+  remotePushActive?: boolean;
 };
 
 function hoursToMs(hours: number) {
@@ -229,13 +231,27 @@ export async function syncLocalNotifications(ctx: SyncContext) {
   if (permission !== 'granted') return;
 
   await syncUserReminders();
-  await syncMealReminders(ctx.request, ctx.mealRemindersEnabled !== false);
-  await syncWeeklyCheckin(ctx);
+
+  if (ctx.remotePushActive) {
+    await cancelMealReminders();
+    await cancelLogicalKeys(['factory:weekly-checkin']);
+  } else {
+    await syncMealReminders(ctx.request, ctx.mealRemindersEnabled !== false);
+    await syncWeeklyCheckin(ctx);
+  }
   await syncEmptyDiary(ctx);
   await syncStreakCelebration(ctx);
   await syncReengagement();
   await syncOnboardingRecovery(ctx);
   await syncCheckinDraftRecovery();
+}
+
+export async function syncPatientLocalNotifications(
+  ctx: Omit<SyncContext, 'remotePushActive'>,
+) {
+  const { registerExpoPushToken } = await import('@/notifications/register-expo-push');
+  const remotePushActive = await registerExpoPushToken(ctx.request);
+  await syncLocalNotifications({ ...ctx, remotePushActive });
 }
 
 export async function onCheckinCompleted() {

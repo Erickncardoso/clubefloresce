@@ -150,5 +150,27 @@ export function isPatientAccessBlockedError(err: unknown): boolean {
   const status = (err as { statusCode?: number; status?: number })?.statusCode
     ?? (err as { status?: number })?.status;
   if (status !== 403) return false;
+  const code = (err as { data?: { code?: string } })?.data?.code;
+  if (code === 'PATIENT_ACCESS_BLOCKED') return true;
+  if (code === 'PATIENT_PREMIUM_REQUIRED') return false;
   return isPatientAccessBlockedMessage(getFetchErrorMessage(err));
+}
+
+export function isPatientPremiumRequiredError(err: unknown): boolean {
+  const status = (err as { statusCode?: number; status?: number })?.statusCode
+    ?? (err as { status?: number })?.status;
+  if (status !== 403) return false;
+  const code = (err as { data?: { code?: string } })?.data?.code;
+  if (code === 'PATIENT_PREMIUM_REQUIRED') return true;
+  return getFetchErrorMessage(err).toLowerCase().includes('plano essencial ou completo');
+}
+
+/** Erros de plano/assinatura — manter sessão logada. */
+export function shouldKeepPatientSessionOnError(err: unknown): boolean {
+  if (isPatientPremiumRequiredError(err) || isPatientAccessBlockedError(err)) return true;
+  const status = (err as { statusCode?: number; status?: number })?.statusCode
+    ?? (err as { status?: number })?.status;
+  if (status !== 403) return false;
+  return isPatientAccessBlockedMessage(getFetchErrorMessage(err))
+    || getFetchErrorMessage(err).toLowerCase().includes('plano essencial ou completo');
 }

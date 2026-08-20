@@ -1,6 +1,8 @@
+import type { ComponentType } from 'react';
 import { ActivityIndicator, InteractionManager, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Device from 'expo-device';
-import { Camera, ImagePlus } from 'lucide-react-native';
+import CameraIcon from '@/components/icons/CameraIcon';
+import GalleryIcon from '@/components/icons/GalleryIcon';
 import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
 import { triggerImpactHaptic } from '@/lib/picker-haptics';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -28,7 +30,7 @@ function SheetAction({
   disabled = false,
 }: {
   label: string;
-  icon: typeof Camera;
+  icon: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
   onPress: () => void;
   disabled?: boolean;
 }) {
@@ -71,14 +73,14 @@ function SheetBody({
       <View style={styles.group}>
         <SheetAction
           label="Escolher da galeria"
-          icon={ImagePlus}
+          icon={GalleryIcon}
           disabled={uploading}
           onPress={handleGallery}
         />
         <View style={styles.divider} />
         <SheetAction
           label="Tirar foto"
-          icon={Camera}
+          icon={CameraIcon}
           disabled={uploading}
           onPress={handleCamera}
         />

@@ -6,6 +6,7 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type Props = {
   summary: DailySummary | null;
+  diaryTitle?: string;
   manageable?: boolean;
   onEditEntry?: (entry: NonNullable<DailySummary['entries']>[number]) => void;
   onDeleteEntry?: (entry: NonNullable<DailySummary['entries']>[number]) => void;
@@ -14,6 +15,7 @@ type Props = {
 /** Espelha `frontend/components/bella/DailyDiaryBar.vue`. */
 export default function BellaDailyDiaryBar({
   summary,
+  diaryTitle = 'Diário de hoje',
   manageable = false,
   onEditEntry,
   onDeleteEntry,
@@ -35,7 +37,7 @@ export default function BellaDailyDiaryBar({
     <View style={styles.wrap}>
       <Pressable style={styles.toggle} onPress={() => setExpanded((value) => !value)}>
         <View style={styles.toggleCopy}>
-          <Text style={styles.title}>Diário de hoje</Text>
+          <Text style={styles.title}>{diaryTitle}</Text>
           <Text style={styles.compactCal}>
             {summary.consumed?.caloriesKcal || 0} / {summary.targets?.caloriesKcal || 0} kcal
           </Text>

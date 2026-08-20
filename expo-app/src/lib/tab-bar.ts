@@ -1,7 +1,8 @@
 import { isPatientCheckoutPath } from '@/lib/patient-access';
 import { isPatientPublicPath } from '@/lib/patient-routes';
 
-/** Espelha `--patient-nav-height` / `--patient-nav-content-gap` do PWA. */
+/** Margem lateral da cápsula flutuante (tab bar e composers). */
+export const PATIENT_NAV_PILL_MARGIN_X = 16;
 /** Altura da cápsula flutuante (ícone + rótulo). */
 export const PATIENT_NAV_HEIGHT = 58;
 /** Margem da cápsula acima do home indicator (efeito flutuante). */

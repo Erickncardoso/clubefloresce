@@ -67,7 +67,7 @@ export default function IncomingVideoCallBootstrap() {
       if (!call) {
         try {
           const notifications = await request<{ items?: PatientNotificationRow[] }>(
-            '/notifications',
+            '/notifications?sync=0',
           );
           const fromNotification = resolveIncomingCallFromNotifications(notifications?.items);
           if (fromNotification?.id) {

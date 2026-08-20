@@ -1,8 +1,7 @@
-import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { InteractionManager, Pressable, StyleSheet, Text, View, Image } from 'react-native';
 import { useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import { X } from 'lucide-react-native';
-import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
+import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/PatientBottomSheet';
 import { usePatientPlanAccess } from '@/hooks/usePatientPlanAccess';
 import { BELLA_ACTIONS } from '@/lib/bella-actions';
 import { patientAssets } from '@/lib/patient-assets';
@@ -22,7 +21,7 @@ function runAfterSheetClosed(action: () => void) {
 
 function SheetBody() {
   const router = useRouter();
-  const { dismiss, dismissThen } = useBottomSheetDismiss();
+  const { dismissThen } = useBottomSheetDismiss();
   const { hasPaidAccess } = usePatientPlanAccess();
 
   const actions = useMemo(
@@ -53,11 +52,7 @@ function SheetBody() {
   }
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      bounces={false}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View>
       <View style={styles.head}>
         <View style={styles.heroIcon}>
           <Image source={patientAssets.bellaAvatar} style={styles.heroImg} resizeMode="cover" />
@@ -66,9 +61,6 @@ function SheetBody() {
           <Text style={styles.title}>Bella IA</Text>
           <Text style={styles.subtitle}>Como posso te ajudar hoje?</Text>
         </View>
-        <Pressable onPress={dismiss} hitSlop={8} style={styles.closeBtn} accessibilityLabel="Fechar">
-          <X color={colors.textMuted} size={18} />
-        </Pressable>
       </View>
 
       <View style={styles.grid}>
@@ -95,7 +87,7 @@ function SheetBody() {
       >
         <Text style={styles.chatBtnText}>Iniciar conversa</Text>
       </Pressable>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -127,14 +119,6 @@ const styles = StyleSheet.create({
   headCopy: { flex: 1 },
   title: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
   subtitle: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f2f2f7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

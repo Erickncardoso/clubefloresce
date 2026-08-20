@@ -1,23 +1,26 @@
+import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react-native';
 import {
-  Camera,
   MessageCircle,
   RefreshCw,
   Salad,
   ScanBarcode,
   UtensilsCrossed,
 } from 'lucide-react-native';
+import CameraIcon from '@/components/icons/CameraIcon';
+
+type IconProps = { size?: number; color?: string; strokeWidth?: number };
 
 export type BellaAction = {
   id: string;
   label: string;
-  icon: LucideIcon;
+  icon: LucideIcon | ComponentType<IconProps>;
   route?: string;
 };
 
 export const BELLA_ACTIONS: BellaAction[] = [
   { id: 'label', label: 'Ler rótulo', icon: ScanBarcode },
-  { id: 'meal', label: 'Meu prato', icon: Camera },
+  { id: 'meal', label: 'Meu prato', icon: CameraIcon },
   { id: 'restaurant', label: 'Restaurante', icon: UtensilsCrossed },
   { id: 'swap', label: 'Substituir alimento', icon: RefreshCw },
   { id: 'diet', label: 'Minha dieta', icon: Salad, route: '/dieta' },

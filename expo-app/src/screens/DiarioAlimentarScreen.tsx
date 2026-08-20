@@ -10,9 +10,10 @@ import {
   View
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
-import { Camera } from 'lucide-react-native';
 import DiarioFeedCard from '@/components/diario/DiarioFeedCard';
+import DiarioMealPhotoSection from '@/components/diario/DiarioMealPhotoSection';
+import DiarioMealPhotoSheet from '@/components/diario/DiarioMealPhotoSheet';
+import MealPhotoFlow, { type MealPhotoTarget } from '@/components/diario/MealPhotoFlow';
 import DiarioSocialModal from '@/components/diario/DiarioSocialModal';
 import PatientHeader from '@/components/ui/PatientHeader';
 import PatientFlatList from '@/components/ui/PatientFlatList';
@@ -31,7 +32,6 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 const PAGE_SIZE = 12;
 
 export default function DiarioAlimentarScreen() {
-  const router = useRouter();
   const { user } = useAuth();
   const { request } = usePatientApi();
   const [entries, setEntries] = useState<DiaryFeedEntry[]>([]);
@@ -45,6 +45,10 @@ export default function DiarioAlimentarScreen() {
   const [likes, setLikes] = useState<DiaryFeedAuthor[]>([]);
   const [comments, setComments] = useState<DiaryFeedComment[]>([]);
   const [sending, setSending] = useState(false);
+  const [mealSheetOpen, setMealSheetOpen] = useState(false);
+  const [mealStatsRefresh, setMealStatsRefresh] = useState(0);
+  const [photoMeal, setPhotoMeal] = useState<MealPhotoTarget | null>(null);
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
   const { highlightIds, syncUnseen, onViewableItemsChanged, acknowledge } = useDiaryNewLikes();
 
   const loadPage = useCallback(async (skip = 0, replace = false) => {
@@ -91,10 +95,6 @@ export default function DiarioAlimentarScreen() {
     } finally {
       setLoadingMore(false);
     }
-  }
-
-  function sendPhoto() {
-    router.push('/bella/chat/meal' as never);
   }
 
   async function openSocial(entry: DiaryFeedEntry, mode: 'like' | 'comment') {
@@ -177,16 +177,10 @@ export default function DiarioAlimentarScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
           }
           ListHeaderComponent={
-            <View style={styles.intro}>
-              <Text style={styles.introTitle}>Fotos dos seus pratos</Text>
-              <Text style={styles.introCopy}>
-                Envie a foto da refeição. A Bella registra no diário e sua nutri curte e comenta.
-              </Text>
-              <Pressable style={styles.cta} onPress={sendPhoto}>
-                <Camera size={18} color="#fff" strokeWidth={1.8} />
-                <Text style={styles.ctaText}>Enviar foto do prato</Text>
-              </Pressable>
-            </View>
+            <DiarioMealPhotoSection
+              refreshToken={mealStatsRefresh}
+              onPressUpload={() => setMealSheetOpen(true)}
+            />
           }
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -213,6 +207,25 @@ export default function DiarioAlimentarScreen() {
           )}
         />
       )}
+
+      <DiarioMealPhotoSheet
+        open={mealSheetOpen}
+        onClose={() => setMealSheetOpen(false)}
+        onStartPhoto={(meal) => {
+          setPhotoMeal(meal);
+          setPhotoPickerOpen(true);
+        }}
+      />
+
+      <MealPhotoFlow
+        meal={photoMeal}
+        pickerOpen={photoPickerOpen}
+        onPickerClose={() => setPhotoPickerOpen(false)}
+        onSaved={() => {
+          setMealStatsRefresh((value) => value + 1);
+          void onRefresh();
+        }}
+      />
 
       <DiarioSocialModal
         visible={Boolean(socialEntry)}
@@ -245,34 +258,6 @@ export default function DiarioAlimentarScreen() {
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { paddingHorizontal: spacing[4], paddingBottom: spacing[8] },
-  intro: { paddingTop: 4, paddingBottom: 18 },
-  introTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: 18,
-    color: colors.text,
-  },
-  introCopy: {
-    marginTop: 6,
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textMuted,
-  },
-  cta: {
-    marginTop: 14,
-    minHeight: 48,
-    borderRadius: radii.control,
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  ctaText: {
-    fontFamily: fonts.semibold,
-    fontSize: 15,
-    color: '#fff',
-  },
   empty: {
     paddingVertical: 36,
     alignItems: 'center',

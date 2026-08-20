@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { Camera, Images, Info, X } from 'lucide-react-native';
+import { Info, X } from 'lucide-react-native';
+import CameraIcon from '@/components/icons/CameraIcon';
+import GalleryIcon from '@/components/icons/GalleryIcon';
 import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
 import MealAnalyzingSheet from '@/components/bella/MealAnalyzingSheet';
 import MealLiveCameraPreview, {
@@ -170,7 +172,7 @@ export default function MealCameraStage({
               </View>
               <View style={styles.hintRow}>
                 <Text style={styles.hint}>Tire uma</Text>
-                <Camera color="#fff" size={14} strokeWidth={2} />
+                <CameraIcon color="#fff" size={14} />
                 <Text style={styles.hintStrong}>foto</Text>
                 <Text style={styles.hint}>do prato</Text>
               </View>
@@ -193,7 +195,7 @@ export default function MealCameraStage({
                   }}
                   accessibilityLabel="Galeria"
                 >
-                  <Images color="#fff" size={20} strokeWidth={1.8} />
+                  <GalleryIcon color="#fff" size={20} />
                 </Pressable>
                 <Pressable
                   style={styles.shutter}

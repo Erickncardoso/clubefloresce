@@ -9,9 +9,12 @@ import {
   type ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { useAppToast } from '@/providers/AppToastProvider';
 import { buildGoalCheckToast } from '@/lib/goal-check-toast';
+import { syncWaterLiveActivityFromStore } from '@/lib/water-live-activity';
 import {
   STORAGE_KEY,
   addGoalToStore,
@@ -32,14 +35,10 @@ import {
   type GoalsStore,
   type PatientGoal,
 } from '@/lib/patient-goals-core';
-import { syncWaterActivity } from '../../modules/live-activity';
-
 const HYDRATE_API_TIMEOUT_MS = 8000;
 
-function syncWaterLiveActivity(next: GoalsStore) {
-  const water = next.goals.find((item) => item.id === 'water');
-  if (!water) return;
-  void syncWaterActivity(getProgress(next, water), Number(water.target) || 0);
+function pushWaterLiveActivity(next: GoalsStore, options?: { force?: boolean; preferRestart?: boolean }) {
+  void syncWaterLiveActivityFromStore(next, options);
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -99,7 +98,7 @@ export function PatientGoalsProvider({ children }: { children: ReactNode }) {
   const persist = useCallback(async (next: GoalsStore) => {
     setStore(next);
     storeRef.current = next;
-    syncWaterLiveActivity(next);
+    pushWaterLiveActivity(next, { force: true });
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     if (syncTimer.current) clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(async () => {
@@ -127,7 +126,7 @@ export function PatientGoalsProvider({ children }: { children: ReactNode }) {
 
     setStore(next);
     storeRef.current = next;
-    syncWaterLiveActivity(next);
+    pushWaterLiveActivity(next, { force: true, preferRestart: true });
     setReady(true);
 
     if (!token) return;
@@ -145,7 +144,7 @@ export function PatientGoalsProvider({ children }: { children: ReactNode }) {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         setStore(next);
         storeRef.current = next;
-        syncWaterLiveActivity(next);
+        pushWaterLiveActivity(next, { force: true });
       }
     } catch {
       /* mantém cache local */
@@ -176,8 +175,22 @@ export function PatientGoalsProvider({ children }: { children: ReactNode }) {
     const next = setProgressInStore(current, goalId, getProgress(current, goal) + delta);
     storeRef.current = next;
     await persist(next);
+
+    if (goalId === 'water') {
+      const synced = await syncWaterLiveActivityFromStore(next, { force: true });
+      if (synced && Platform.OS === 'ios') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      }
+    }
+
     if (!options?.silent) {
-      showToast(buildGoalCheckToast(goalId, { goal, stepLiters: goalId === 'water' ? delta : undefined }));
+      const water = goalId === 'water' ? next.goals.find((item) => item.id === 'water') : undefined;
+      showToast(buildGoalCheckToast(goalId, {
+        goal,
+        stepLiters: goalId === 'water' ? delta : undefined,
+        waterCurrentLiters: water ? getProgress(next, water) : undefined,
+        waterGoalLiters: water ? Number(water.target) || 0 : undefined,
+      }));
     }
   }, [persist, showToast]);
 

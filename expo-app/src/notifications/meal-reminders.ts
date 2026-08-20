@@ -1,5 +1,6 @@
+import { buildMealReminderPushContent } from '@/lib/meal-reminder-copy';
 import { activeMeals, mealSlotDisplayLabel, normalizeMealSlotKey } from '@/lib/meal-plan-options';
-import type { MealPlanApiResponse, MealPlanFoodItem } from '@/lib/meal-plan-api';
+import type { MealPlanApiResponse } from '@/lib/meal-plan-api';
 import { normalizeMealPlanResponse } from '@/lib/meal-plan-api';
 import { cancelLogicalKeys, scheduleDailyNotification } from '@/notifications/scheduler';
 import { loadRegistry } from '@/notifications/registry';
@@ -14,16 +15,6 @@ function parseClock(time?: string | null): { hour: number; minute: number } | nu
   const minute = Number(match[2]);
   if (hour > 23 || minute > 59) return null;
   return { hour, minute };
-}
-
-function mealBody(items: MealPlanFoodItem[] = []) {
-  const names = items
-    .map((item) => String(item.display || item.name || '').trim())
-    .filter(Boolean)
-    .slice(0, 3);
-  if (!names.length) return 'Hora de registrar sua refeição no diário.';
-  const extra = items.length > names.length ? ` · +${items.length - names.length}` : '';
-  return `${names.join(' · ')}${extra}`;
 }
 
 export async function cancelMealReminders() {
@@ -52,11 +43,13 @@ export async function syncMealReminders(request: RequestFn, enabled: boolean) {
       if (seen.has(slotKey)) continue;
       seen.add(slotKey);
 
+      const pushContent = buildMealReminderPushContent(meal.items);
       const logicalKey = `meal:${slotKey}` as NotificationLogicalKey;
       await scheduleDailyNotification({
         logicalKey,
         title: mealSlotDisplayLabel(meal.label),
-        body: mealBody(meal.items),
+        body: pushContent.body,
+        subtitle: pushContent.subtitle,
         route: `/dieta?meal=${encodeURIComponent(meal.id)}`,
         channelId: 'reminders',
         hour: clock.hour,

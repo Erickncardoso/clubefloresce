@@ -593,7 +593,7 @@ export default function EvolucaoGoalsPanel() {
         <Text style={styles.addGoalText}>+ Nova meta</Text>
       </Pressable>
 
-      <AppleBottomSheet visible={isEditingWater} onClose={closeModal} maxHeightRatio={0.88} contentPadding={0}>
+      <AppleBottomSheet visible={isEditingWater} onClose={closeModal} maxHeightRatio={0.88} contentPadding={0} fillHeight>
         <GoalSheetScroll>
           <GoalSheetHead
             icon={Droplets}
@@ -658,7 +658,7 @@ export default function EvolucaoGoalsPanel() {
         </GoalSheetScroll>
       </AppleBottomSheet>
 
-      <AppleBottomSheet visible={isEditingFood} onClose={closeModal} maxHeightRatio={0.88} contentPadding={0}>
+      <AppleBottomSheet visible={isEditingFood} onClose={closeModal} maxHeightRatio={0.88} contentPadding={0} fillHeight>
         <GoalSheetScroll>
           <GoalSheetHead
             icon={Cookie}
@@ -702,7 +702,7 @@ export default function EvolucaoGoalsPanel() {
         </GoalSheetScroll>
       </AppleBottomSheet>
 
-      <AppleBottomSheet visible={isEditingExercise} onClose={closeModal} maxHeightRatio={0.88} contentPadding={0}>
+      <AppleBottomSheet visible={isEditingExercise} onClose={closeModal} maxHeightRatio={0.88} contentPadding={0} fillHeight>
         <GoalSheetScroll>
           <GoalSheetHead
             icon={Dumbbell}
@@ -764,7 +764,7 @@ export default function EvolucaoGoalsPanel() {
         </GoalSheetScroll>
       </AppleBottomSheet>
 
-      <AppleBottomSheet visible={isEditingSleep} onClose={closeModal} maxHeightRatio={0.88} contentPadding={0}>
+      <AppleBottomSheet visible={isEditingSleep} onClose={closeModal} maxHeightRatio={0.88} contentPadding={0} fillHeight>
         <GoalSheetScroll>
           <GoalSheetHead
             icon={Moon}

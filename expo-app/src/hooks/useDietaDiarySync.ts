@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { useDiaryDate } from '@/hooks/useDiaryDate';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { buildPlanDiaryItems } from '@/lib/plan-diary-sync';
 import { normalizeMealItemsForSave } from '@/lib/meal-diary';
@@ -9,6 +10,7 @@ export type { DailySummary } from '@/types/daily-summary';
 
 export function useDietaDiarySync() {
   const { request } = usePatientApi();
+  const { foodDiaryPath } = useDiaryDate();
   const syncTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const syncMealCheck = useCallback(async (
@@ -19,7 +21,7 @@ export function useDietaDiarySync() {
     if (!mealId || !meal) return null;
 
     const items = buildPlanDiaryItems(meal, checkedStates);
-    const res = await request<{ dailySummary?: DailySummary }>('/food-diary/plan-check', {
+    const res = await request<{ dailySummary?: DailySummary }>(foodDiaryPath('/food-diary/plan-check'), {
       method: 'PUT',
       body: JSON.stringify({
         mealType: mealId,
@@ -29,7 +31,7 @@ export function useDietaDiarySync() {
     });
 
     return res.dailySummary ?? null;
-  }, [request]);
+  }, [foodDiaryPath, request]);
 
   const queueSyncMealCheck = useCallback((
     mealId: string,

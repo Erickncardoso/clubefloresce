@@ -9,7 +9,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from 'react-native';
 
@@ -19,16 +18,9 @@ import { pickMealPhoto, type PickedMealPhoto } from '@/lib/meal-photo-pick';
 import { useMealPhotoTips } from '@/hooks/useMealPhotoTips';
 
 import { useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-
-  ArrowUp,
-
-  Camera,
-
-  FileText,
-
-  ImagePlus,
 
   RefreshCw,
 
@@ -37,8 +29,10 @@ import {
 } from 'lucide-react-native';
 
 import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
+import BellaChatComposer, { type BellaAttachmentPreview } from '@/components/bella/BellaChatComposer';
 import MealPhotoCaptureOverlays from '@/components/bella/MealPhotoCaptureOverlays';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
+import DiaryDatePicker from '@/components/dieta/DiaryDatePicker';
 import PatientHeader from '@/components/ui/PatientHeader';
 
 import PatientScrollView from '@/components/ui/PatientScrollView';
@@ -49,6 +43,7 @@ import { getApiBase, NATIVE_CLIENT_HEADER } from '@/config/env';
 import type { DailySummary } from '@/hooks/useDietaDiarySync';
 
 import { usePatientApi } from '@/hooks/usePatientApi';
+import { useDiaryDate } from '@/hooks/useDiaryDate';
 
 import { usePatientMealPlan } from '@/hooks/usePatientMealPlan';
 
@@ -73,6 +68,8 @@ import {
 } from '@/lib/bella-swap';
 
 import { getBellaTopicConfig, normalizeBellaTopic } from '@/lib/bella-topics';
+import { PATIENT_NAV_FLOAT_MARGIN } from '@/lib/tab-bar';
+import { useKeyboardInset } from '@/hooks/useKeyboardOpen';
 
 import { normalizeMealItemsForSave, type MealDiaryItem } from '@/lib/meal-diary';
 import { getMealIdForTimeFromMeals } from '@/lib/meal-plan-time';
@@ -88,15 +85,7 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 
 
-type AttachmentPreview = {
-
-  kind: 'image' | 'pdf';
-
-  name: string;
-
-  uri: string;
-
-};
+type AttachmentPreview = BellaAttachmentPreview;
 
 
 
@@ -180,6 +169,13 @@ function stripMarkdown(content: string) {
 
 }
 
+function formatBellaTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
 
 
 export default function BellaChatScreen() {
@@ -201,10 +197,15 @@ export default function BellaChatScreen() {
   const topicParam = Array.isArray(params.topic) ? params.topic[0] : params.topic;
   const chatTopic = useMemo(() => normalizeBellaTopic(topicParam), [topicParam]);
   const topicConfig = getBellaTopicConfig(chatTopic);
+  const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardInset();
+  const keyboardOpen = keyboardInset > 0;
+  const composerBottomInset = keyboardOpen ? 8 : Math.max(insets.bottom, 0) + PATIENT_NAV_FLOAT_MARGIN;
 
   const { user, token } = useAuth();
 
   const { request } = usePatientApi();
+  const { foodDiaryPath, diaryTitle, selectedDateKey } = useDiaryDate();
 
   const { meals, fetchPlan } = usePatientMealPlan();
 
@@ -236,6 +237,14 @@ export default function BellaChatScreen() {
   const [selectedMealId, setSelectedMealId] = useState('');
 
   const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
+
+  const scrollToLatest = useCallback(() => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }, []);
+
+  useEffect(() => {
+    if (keyboardInset > 0) scrollToLatest();
+  }, [keyboardInset, scrollToLatest]);
 
   const [attachmentPreview, setAttachmentPreview] = useState<AttachmentPreview | null>(null);
 
@@ -362,6 +371,7 @@ export default function BellaChatScreen() {
       id: `welcome-${chatTopic}`,
       role: 'assistant',
       content: buildWelcomeContent(),
+      createdAt: new Date().toISOString(),
     }]);
   }, [buildWelcomeContent, chatTopic]);
 
@@ -578,10 +588,10 @@ export default function BellaChatScreen() {
     if (chatTopic !== 'meal') return;
 
     try {
-      const summary = await request<DailySummary>('/food-diary/today');
+      const summary = await request<DailySummary>(foodDiaryPath('/food-diary/today'));
       setDailySummary(summary);
     } catch { /* ignore */ }
-  }, [chatTopic, request]);
+  }, [chatTopic, foodDiaryPath, request]);
 
   const loadMessages = useCallback(async (runToken?: number) => {
     setError('');
@@ -597,7 +607,7 @@ export default function BellaChatScreen() {
 
       const history = normalizeMessages(data.messages || []);
       setHistoryMessages(history);
-      setShowPreviousHistory(history.length > 0);
+      setShowPreviousHistory(false);
 
       if (chatTopic !== 'swap') {
         seedWelcomeMessage();
@@ -666,6 +676,11 @@ export default function BellaChatScreen() {
     if (loadingMessages || chatTopic !== 'meal' || !mealOptions.length) return;
     initMealSelection();
   }, [chatTopic, initMealSelection, loadingMessages, mealOptions.length]);
+
+  useEffect(() => {
+    if (chatTopic !== 'meal') return;
+    void loadDailySummary();
+  }, [chatTopic, loadDailySummary, selectedDateKey]);
 
   useEffect(() => {
     if (chatTopic !== 'meal' || loadingMessages) return;
@@ -971,7 +986,7 @@ export default function BellaChatScreen() {
           body: JSON.stringify(body),
         });
       } else {
-        res = await request('/food-diary/confirm', {
+        res = await request(foodDiaryPath('/food-diary/confirm'), {
           method: 'POST',
           body: JSON.stringify({
             ...body,
@@ -1058,23 +1073,18 @@ export default function BellaChatScreen() {
 
 
     const isPdf = file?.mimeType === 'application/pdf';
+    const isAudio = Boolean(file?.mimeType?.startsWith('audio/'));
 
-    const fallbackText = isPdf
-
+    const fallbackText = isAudio
+      ? (text || 'Mensagem de áudio')
+      : isPdf
       ? 'Analise este PDF, por favor.'
-
       : chatTopic === 'meal'
-
         ? `Analise meu ${(selectedMeal?.label || 'prato').toLowerCase()} para registrar no diário de hoje.`
-
         : chatTopic === 'label'
-
           ? 'Analise este rótulo e classifique o consumo (Verde, Amarelo ou Vermelho).'
-
           : chatTopic === 'receipt'
-
             ? 'Extraia os alimentos deste cupom e vincule à base de alimentos.'
-
             : 'Analise esta imagem, por favor.';
 
 
@@ -1093,24 +1103,17 @@ export default function BellaChatScreen() {
 
       content: outgoingText,
 
+      createdAt: new Date().toISOString(),
+
       metadata: file
-
         ? {
-
-            taskType: isPdf ? 'pdf' : 'image',
-
+            taskType: isAudio ? 'chat' : isPdf ? 'pdf' : 'image',
             attachment: {
-
-              type: isPdf ? 'pdf' : 'image',
-
+              type: isAudio ? 'audio' : isPdf ? 'pdf' : 'image',
               fileName: file.name,
-
-              url: isPdf ? undefined : file.uri,
-
+              url: isPdf || isAudio ? undefined : file.uri,
             },
-
           }
-
         : null,
 
     }]);
@@ -1214,13 +1217,9 @@ export default function BellaChatScreen() {
         setPendingFile(file);
 
         setAttachmentPreview({
-
-          kind: isPdf ? 'pdf' : 'image',
-
+          kind: isPdf ? 'pdf' : isAudio ? 'audio' : 'image',
           name: file.name,
-
           uri: isPdf ? '' : file.uri,
-
         });
 
       }
@@ -1243,9 +1242,15 @@ export default function BellaChatScreen() {
 
   return (
 
-    <PatientShell withTabClearance={false}>
+    <PatientShell withTabClearance={false} withBottomInset={false}>
 
       <PatientHeader />
+
+      {chatTopic === 'meal' ? (
+        <View style={styles.diaryBarWrap}>
+          <DiaryDatePicker />
+        </View>
+      ) : null}
 
       {chatTopic === 'meal' && dailySummary ? (
 
@@ -1254,6 +1259,8 @@ export default function BellaChatScreen() {
           <BellaDailyDiaryBar
 
             summary={dailySummary}
+
+            diaryTitle={diaryTitle}
 
             manageable
 
@@ -1268,23 +1275,17 @@ export default function BellaChatScreen() {
 
 
       <KeyboardAvoidingView
-
         style={styles.flex}
-
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-
-        keyboardVerticalOffset={80}
-
+        keyboardVerticalOffset={0}
       >
-
         <PatientScrollView
-
           ref={scrollRef}
-
+          style={styles.flex}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           contentContainerStyle={styles.messages}
-
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
-
         >
 
           {loadingMessages ? (
@@ -1306,7 +1307,7 @@ export default function BellaChatScreen() {
 
                 <Text style={styles.historyBtnText}>
 
-                  {showPreviousHistory ? 'Ocultar conversas anteriores' : 'Ver conversas anteriores'}
+                  {showPreviousHistory ? 'Ocultar' : 'Ver mais'}
 
                 </Text>
 
@@ -1340,6 +1341,8 @@ export default function BellaChatScreen() {
 
 
 
+              const messageTime = formatBellaTime(msg.createdAt);
+
               return (
 
                 <View
@@ -1362,7 +1365,7 @@ export default function BellaChatScreen() {
 
                   ) : null}
 
-
+                  <View style={styles.bubbleCol}>
 
                   {msg.role === 'user' && imageUrl ? (
 
@@ -1430,6 +1433,19 @@ export default function BellaChatScreen() {
 
                   ) : null}
 
+                  {messageTime ? (
+                    <Text
+                      style={[
+                        styles.bubbleTime,
+                        msg.role === 'user' ? styles.bubbleTimeUser : styles.bubbleTimeBot,
+                      ]}
+                    >
+                      {messageTime}
+                    </Text>
+                  ) : null}
+
+                  </View>
+
                 </View>
 
               );
@@ -1474,154 +1490,30 @@ export default function BellaChatScreen() {
 
           </PatientScrollView>
 
-
-
-        <View style={styles.composer}>
-
-          {chatTopic === 'meal' && mealOptions.length ? (
-
-            <PatientScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mealRow}>
-
-              <Text style={styles.mealLabel}>Refeição</Text>
-
-              {mealOptions.map((meal) => (
-
-                <Pressable
-
-                  key={meal.id}
-
-                  style={[styles.mealChip, selectedMealId === meal.id && styles.mealChipActive]}
-
-                  onPress={() => setSelectedMealId(meal.id)}
-
-                >
-
-                  <Text style={[styles.mealChipText, selectedMealId === meal.id && styles.mealChipTextActive]}>
-
-                    {meal.label}
-
-                  </Text>
-
-                </Pressable>
-
-              ))}
-
-            </PatientScrollView>
-
-          ) : null}
-
-
-
-          {attachmentPreview ? (
-
-            <View style={styles.attachPreview}>
-
-              {attachmentPreview.kind === 'image' ? (
-
-                <Image source={{ uri: attachmentPreview.uri }} style={styles.attachImage} />
-
-              ) : (
-
-                <View style={styles.attachPdf}>
-
-                  <FileText size={18} color={colors.primary} />
-
-                  <Text style={styles.attachPdfText} numberOfLines={1}>{attachmentPreview.name}</Text>
-
-                </View>
-
-              )}
-
-              <Pressable style={styles.attachRemove} onPress={clearAttachment}>
-
-                <X size={14} color="#fff" />
-
-              </Pressable>
-
-            </View>
-
-          ) : null}
-
-
-
-          <View style={styles.inputRow}>
-
-            {(topicConfig.acceptImages || topicConfig.acceptPdf) ? (
-
-              <View style={styles.tools}>
-
-                {topicConfig.acceptImages ? (
-
-                  <Pressable style={styles.toolBtn} disabled={sending} onPress={() => requestChatPhoto(true)}>
-
-                    <Camera size={20} color={colors.textMuted} />
-
-                  </Pressable>
-
-                ) : null}
-
-                {topicConfig.acceptImages ? (
-
-                  <Pressable style={styles.toolBtn} disabled={sending} onPress={() => requestChatPhoto(false)}>
-
-                    <ImagePlus size={20} color={colors.textMuted} />
-
-                  </Pressable>
-
-                ) : null}
-
-                {topicConfig.acceptPdf ? (
-
-                  <Pressable style={styles.toolBtn} disabled={sending} onPress={pickDocument}>
-
-                    <FileText size={20} color={colors.textMuted} />
-
-                  </Pressable>
-
-                ) : null}
-
-              </View>
-
-            ) : null}
-
-
-
-            <TextInput
-
-              style={styles.input}
-
-              value={draft}
-
-              onChangeText={setDraft}
-
-              placeholder={composerPlaceholder}
-
-              placeholderTextColor={colors.placeholder}
-
-              multiline
-
-              editable={!sending && !swapSelectionLocked}
-
-            />
-
-            <Pressable
-
-              style={[styles.sendBtn, (!canSend || sending) && styles.sendBtnDisabled]}
-
-              onPress={sendMessage}
-
-              disabled={!canSend || sending}
-
-            >
-
-              <ArrowUp color="#fff" size={18} />
-
-            </Pressable>
-
-          </View>
-
-        </View>
-
+        <BellaChatComposer
+          chatTopic={chatTopic}
+          mealOptions={mealOptions}
+          selectedMealId={selectedMealId}
+          onSelectMeal={setSelectedMealId}
+          attachmentPreview={attachmentPreview}
+          onClearAttachment={clearAttachment}
+          draft={draft}
+          onChangeDraft={setDraft}
+          composerPlaceholder={composerPlaceholder}
+          sending={sending}
+          swapSelectionLocked={swapSelectionLocked}
+          canSend={canSend}
+          onSend={() => { void sendMessage(); }}
+          acceptImages={topicConfig.acceptImages}
+          acceptPdf={topicConfig.acceptPdf}
+          acceptAudio={false}
+          onCamera={() => requestChatPhoto(true)}
+          onGallery={() => requestChatPhoto(false)}
+          onPickDocument={() => { void pickDocument(); }}
+          onComposerFocus={scrollToLatest}
+          bottomInset={composerBottomInset}
+          compact={keyboardOpen}
+        />
       </KeyboardAvoidingView>
 
       <MealPhotoCaptureOverlays
@@ -1664,10 +1556,14 @@ const styles = StyleSheet.create({
 
   flex: { flex: 1 },
 
-
   diaryBarWrap: { paddingHorizontal: spacing[4], paddingTop: spacing[2] },
 
-  messages: { padding: spacing[4], gap: spacing[3], paddingBottom: spacing[6] },
+  messages: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[5],
+    gap: spacing[4],
+  },
 
   messagesLoader: {
     alignItems: 'center',
@@ -1702,13 +1598,22 @@ const styles = StyleSheet.create({
 
   historyBtnText: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
 
-  bubbleWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2], maxWidth: '92%' },
+  bubbleWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2] },
 
-  bubbleWrapUser: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
+  bubbleWrapUser: { alignSelf: 'flex-end', flexDirection: 'row-reverse', maxWidth: '78%' },
 
-  bubbleWrapBot: { alignSelf: 'flex-start' },
+  bubbleWrapBot: { alignSelf: 'flex-start', maxWidth: '88%' },
 
-  botAvatar: { width: 32, height: 32, borderRadius: 16 },
+  bubbleCol: { flexShrink: 1, minWidth: 0, gap: 4 },
+
+  botAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#e8ebe4',
+    backgroundColor: colors.primarySoft,
+  },
 
   userThumb: {
 
@@ -1742,11 +1647,37 @@ const styles = StyleSheet.create({
 
   bubbleUser: { backgroundColor: '#fdf2f3', borderWidth: 1, borderColor: '#edcfd1' },
 
-  bubbleBot: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  bubbleBot: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: { elevation: 1 },
+      default: {},
+    }),
+  },
 
   bubbleText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.text },
 
   bubbleTextUser: { color: colors.text },
+
+  bubbleTime: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+
+  bubbleTimeUser: { alignSelf: 'flex-end', paddingRight: 4 },
+
+  bubbleTimeBot: { alignSelf: 'flex-start', paddingLeft: 4 },
 
   typingBubble: { minWidth: 120 },
 
@@ -1803,144 +1734,6 @@ const styles = StyleSheet.create({
   errorText: { flex: 1, color: '#b42318', fontFamily: fonts.regular, fontSize: 12 },
 
   errorRetry: { color: '#b42318', fontFamily: fonts.bold, fontSize: 12, textDecorationLine: 'underline' },
-
-  composer: {
-
-    padding: spacing[3],
-
-    borderTopWidth: 1,
-
-    borderTopColor: colors.border,
-
-    backgroundColor: colors.surface,
-
-    gap: spacing[2],
-
-  },
-
-  mealRow: { alignItems: 'center', gap: spacing[2], paddingBottom: spacing[1] },
-
-  mealLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.textMuted, marginRight: spacing[1] },
-
-  mealChip: {
-
-    borderWidth: 1,
-
-    borderColor: colors.border,
-
-    borderRadius: radii.pill,
-
-    paddingHorizontal: spacing[3],
-
-    paddingVertical: 6,
-
-    backgroundColor: colors.surface,
-
-  },
-
-  mealChipActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-
-  mealChipText: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
-
-  mealChipTextActive: { color: colors.primaryDark },
-
-  attachPreview: { position: 'relative', alignSelf: 'flex-start' },
-
-  attachImage: { width: 72, height: 72, borderRadius: 12 },
-
-  attachPdf: {
-
-    flexDirection: 'row',
-
-    alignItems: 'center',
-
-    gap: spacing[2],
-
-    padding: spacing[2],
-
-    borderRadius: radii.control,
-
-    borderWidth: 1,
-
-    borderColor: colors.border,
-
-    maxWidth: 220,
-
-  },
-
-  attachPdfText: { flex: 1, fontFamily: fonts.medium, fontSize: 12 },
-
-  attachRemove: {
-
-    position: 'absolute',
-
-    top: 4,
-
-    right: 4,
-
-    width: 22,
-
-    height: 22,
-
-    borderRadius: 11,
-
-    backgroundColor: 'rgba(15,23,42,0.68)',
-
-    alignItems: 'center',
-
-    justifyContent: 'center',
-
-  },
-
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2] },
-
-  tools: { flexDirection: 'row', gap: 2 },
-
-  toolBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-
-  input: {
-
-    flex: 1,
-
-    minHeight: 44,
-
-    maxHeight: 120,
-
-    borderWidth: 1,
-
-    borderColor: colors.border,
-
-    borderRadius: radii.pill,
-
-    paddingHorizontal: spacing[3],
-
-    paddingVertical: spacing[2],
-
-    fontFamily: fonts.regular,
-
-    fontSize: 15,
-
-    backgroundColor: '#fff',
-
-  },
-
-  sendBtn: {
-
-    width: 44,
-
-    height: 44,
-
-    borderRadius: 22,
-
-    backgroundColor: colors.primary,
-
-    alignItems: 'center',
-
-    justifyContent: 'center',
-
-  },
-
-  sendBtnDisabled: { opacity: 0.45 },
 
 });
 

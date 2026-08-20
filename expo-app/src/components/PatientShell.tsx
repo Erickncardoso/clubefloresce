@@ -7,6 +7,8 @@ type Props = {
   children: ReactNode;
   /** Reserva espaço para a tab bar fixa (como `--cf-tab-clearance` no PWA). */
   withTabClearance?: boolean;
+  /** Padding inferior do safe area no shell (desligar quando o filho controla, ex. chat Bella). */
+  withBottomInset?: boolean;
 };
 
 /** Folga inferior para ScrollViews (conteúdo passa por baixo da tab flutuante). */
@@ -15,9 +17,15 @@ export function usePatientTabClearance(withTab = true) {
   return getPatientTabClearance(insets.bottom, withTab);
 }
 
-export default function PatientShell({ children, withTabClearance = true }: Props) {
+export default function PatientShell({
+  children,
+  withTabClearance = true,
+  withBottomInset = true,
+}: Props) {
   const insets = useSafeAreaInsets();
   const tabClearance = getPatientTabClearance(insets.bottom, withTabClearance);
+  const bottomInset = withBottomInset ? Math.max(insets.bottom, 0) : 0;
+  const paddingBottom = withTabClearance ? tabClearance : bottomInset;
 
   return (
     <View style={styles.shell}>
@@ -27,6 +35,10 @@ export default function PatientShell({ children, withTabClearance = true }: Prop
           withTabClearance && {
             marginBottom: -tabClearance,
             paddingBottom: tabClearance,
+          },
+          !withTabClearance && paddingBottom > 0 && {
+            marginBottom: -paddingBottom,
+            paddingBottom,
           },
         ]}
       >

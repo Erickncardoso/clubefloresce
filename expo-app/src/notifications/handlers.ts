@@ -7,6 +7,8 @@ const BUTTON_ROUTES: Record<string, string> = {
   'admin-checkin': '/check-in',
   'admin-bella': '/bella',
   'admin-diary': '/diario',
+  'meal-reminder-open': '',
+  'meal-reminder-items': '',
 };
 
 type NotificationResponseLike = {
@@ -21,7 +23,8 @@ export function handleNotificationResponse(input: unknown) {
     data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
 
   const action = String(response.actionIdentifier || '');
-  const route = BUTTON_ROUTES[action] || extractNotificationRoute(payload);
+  const preset = BUTTON_ROUTES[action];
+  const route = preset && preset.length > 0 ? preset : extractNotificationRoute(payload);
   if (!route) return;
   router.push(route as never);
 }

@@ -6,12 +6,11 @@ import { useMealPhotoTips } from '@/hooks/useMealPhotoTips';
 import { getApiBase, NATIVE_CLIENT_HEADER } from '@/config/env';
 import { useAppToast } from '@/hooks/useAppToast';
 import { usePatientApi } from '@/hooks/usePatientApi';
+import { useDiaryDate } from '@/hooks/useDiaryDate';
 import { toastError, toastSuccess } from '@/lib/app-toast';
 import type { MealDiaryItem } from '@/lib/meal-diary';
 import { normalizeMealItemsForSave } from '@/lib/meal-diary';
 import { pickMealPhoto, type PickedMealPhoto } from '@/lib/meal-photo-pick';
-import { patientTimeHeaders } from '@/lib/patient-local-time';
-
 const ANALYZE_TIMEOUT_MS = 120_000;
 
 export type MealPhotoTarget = {
@@ -28,6 +27,7 @@ type Props = {
 
 export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved }: Props) {
   const { token, request } = usePatientApi();
+  const { foodDiaryPath, diaryHeaders } = useDiaryDate();
   const { showToast } = useAppToast();
   const [analyzing, setAnalyzing] = useState(false);
   const [freezeUri, setFreezeUri] = useState<string | null>(null);
@@ -113,7 +113,7 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
           Accept: 'application/json',
           Authorization: `Bearer ${token}`,
           'X-CF-Client': NATIVE_CLIENT_HEADER,
-          ...patientTimeHeaders(),
+          ...diaryHeaders(),
         },
         body: form,
       });
@@ -125,7 +125,12 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
       if (body.requiresMealConfirmation && body.mealDraft) {
         const next = body.mealDraft as MealDraft;
         keepFreeze = true;
-        setDraft({ ...next, imageUrl: next.imageUrl || photo?.uri });
+        setDraft({
+          ...next,
+          imageUrl: next.imageUrl || photo?.uri,
+          mealType: target.id,
+          mealLabel: target.label || 'Refeição',
+        });
         setConfirmError('');
         return;
       }
@@ -149,7 +154,7 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
         dismissStage();
       }
     }
-  }, [dismissStage, meal, showToast, token]);
+  }, [dismissStage, diaryHeaders, meal, showToast, token]);
 
   analyzeRef.current = (fromCamera, photo) => {
     void analyzePhoto(fromCamera, photo);
@@ -157,16 +162,17 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
 
   async function confirmMeal(items: MealDiaryItem[]) {
     if (!draft || saving) return;
+    const target = meal;
     setSaving(true);
     setConfirmError('');
 
     try {
-      await request('/food-diary/confirm', {
+      await request(foodDiaryPath('/food-diary/confirm'), {
         method: 'POST',
         body: JSON.stringify({
           items: normalizeMealItemsForSave(items),
-          mealType: draft.mealType,
-          mealLabel: draft.mealLabel,
+          mealType: target?.id || draft.mealType,
+          mealLabel: target?.label || draft.mealLabel,
           imageUrl: draft.imageUrl,
           userMessageId: draft.userMessageId,
           topic: 'meal',

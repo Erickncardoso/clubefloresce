@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { X } from 'lucide-react-native';
 import type { MealPlanRecipe } from '@/lib/meal-plan-api';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -36,9 +35,6 @@ export default function DietaMealPlanRecipeDetailSheet({ open, recipe, onClose }
             <Text style={styles.title}>{recipe?.title || 'Receita'}</Text>
             {metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
           </View>
-          <Pressable style={styles.closeBtn} onPress={onClose}>
-            <X size={18} color={colors.textMuted} />
-          </Pressable>
         </View>
 
         <ScrollView>

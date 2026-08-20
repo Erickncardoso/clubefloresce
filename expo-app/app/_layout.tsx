@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { ThemeProvider } from '@react-navigation/native';
 import { Stack, usePathname } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -14,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePatientRouteGuard } from '@/hooks/usePatientRouteGuard';
+import { usePatientAccessSync } from '@/hooks/usePatientAccessSync';
 import { useSimulatorMockupTheme } from '@/hooks/useSimulatorMockupTheme';
 import PatientMealPlanGate, { useShowMealPlanGate } from '@/components/dieta/PatientMealPlanGate';
 import PatientTabBar from '@/components/PatientTabBar';
@@ -25,13 +27,16 @@ import { PatientGoalsProvider } from '@/providers/PatientGoalsProvider';
 import { PatientMealPlanProvider } from '@/providers/PatientMealPlanProvider';
 import NotificationBootstrap from '@/notifications/NotificationBootstrap';
 import IncomingVideoCallBootstrap from '@/notifications/IncomingVideoCallBootstrap';
+import WaterLiveActivityBootstrap from '@/components/home/WaterLiveActivityBootstrap';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
 import OtaUpdatePrompt from '@/components/OtaUpdatePrompt';
 import { patientNavigationTheme } from '@/lib/patient-navigation-theme';
 import { colors } from '@/theme/tokens';
+import BootSplash from '@/components/brand/BootSplash';
 
 function AppNavigationShell() {
   usePatientRouteGuard();
+  usePatientAccessSync();
   useSimulatorMockupTheme();
   const pathname = usePathname();
   const showMealPlanGate = useShowMealPlanGate();
@@ -80,36 +85,36 @@ export default function RootLayout() {
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
   });
-
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.boot}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  const [splashDone, setSplashDone] = useState(false);
+  const hideSplash = useCallback(() => setSplashDone(true), []);
 
   return (
-    <ThemeProvider value={patientNavigationTheme}>
-      <GestureHandlerRootView style={styles.root}>
-        <SafeAreaProvider>
-          <AppErrorBoundary>
-            <AuthProvider>
-              <AppToastProvider>
-                <PatientGoalsProvider>
-                  <PatientMealPlanProvider>
-                    <NotificationBootstrap />
-                    <StatusBar style="dark" backgroundColor={colors.bg} />
-                    <OtaUpdatePrompt />
-                    <AppNavigationShell />
-                  </PatientMealPlanProvider>
-                </PatientGoalsProvider>
-              </AppToastProvider>
-            </AuthProvider>
-          </AppErrorBoundary>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </ThemeProvider>
+    <GestureHandlerRootView style={styles.root}>
+      {fontsLoaded ? (
+        <ThemeProvider value={patientNavigationTheme}>
+          <SafeAreaProvider>
+            <AppErrorBoundary>
+              <AuthProvider>
+                <AppToastProvider>
+                  <PatientGoalsProvider>
+                    <PatientMealPlanProvider>
+                      <NotificationBootstrap />
+                      <WaterLiveActivityBootstrap />
+                      <StatusBar style="dark" backgroundColor={colors.bg} />
+                      <OtaUpdatePrompt />
+                      <AppNavigationShell />
+                    </PatientMealPlanProvider>
+                  </PatientGoalsProvider>
+                </AppToastProvider>
+              </AuthProvider>
+            </AppErrorBoundary>
+          </SafeAreaProvider>
+        </ThemeProvider>
+      ) : (
+        <View style={styles.boot} />
+      )}
+      {splashDone ? null : <BootSplash appReady={fontsLoaded} onFinish={hideSplash} />}
+    </GestureHandlerRootView>
   );
 }
 
@@ -119,8 +124,6 @@ const styles = StyleSheet.create({
   navContent: { flex: 1, backgroundColor: colors.bg },
   boot: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
+    backgroundColor: '#f8f9f6',
   },
 });

@@ -291,7 +291,7 @@ export default function BellaMealConfirmModal({
           </Animated.View>
         </Animated.ScrollView>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.footer, { paddingBottom: 12 }]}>
           <Pressable
             style={[styles.confirmBtn, (saving || items.length === 0) && styles.confirmDisabled]}
             disabled={saving || items.length === 0}

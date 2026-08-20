@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';
-import { Beef, Droplets, Wheat, X } from 'lucide-react-native';
+import { Beef, Droplets, Wheat } from 'lucide-react-native';
 import AppleBottomSheet from '@/components/ui/AppleBottomSheet';
 import { mealDishEditStyles as styles } from '@/components/bella/mealDishEditStyles';
 import {
@@ -99,12 +99,7 @@ export default function MealDishEditSheet({ open, title, items, onClose, onSave 
   }
 
   return (
-    <AppleBottomSheet visible={open} onClose={onClose} maxHeightRatio={0.9} contentPadding={20} topRadius={36}>
-      <View style={styles.head}>
-        <Pressable style={styles.close} onPress={onClose} accessibilityLabel="Fechar">
-          <X color={colors.text} size={16} />
-        </Pressable>
-      </View>
+    <AppleBottomSheet visible={open} onClose={onClose} maxHeightRatio={0.9} contentPadding={20} topRadius={36} fillHeight>
       <TextInput
         value={name}
         onChangeText={setName}
