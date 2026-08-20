@@ -821,7 +821,8 @@ function clearComposerFields() {
 function patchUserMessageAttachment(msg, fallbackUrl) {
   if (!msg || !fallbackUrl) return msg
   const attachment = getMessageAttachment(msg)
-  if (attachment?.url?.startsWith('http')) return msg
+  const current = attachment?.url || ''
+  if (current.startsWith('http') && !fallbackUrl.startsWith('http')) return msg
 
   return {
     ...msg,
@@ -829,17 +830,18 @@ function patchUserMessageAttachment(msg, fallbackUrl) {
       ...(msg.metadata || {}),
       taskType: msg.metadata?.taskType || 'image',
       attachment: {
-        ...(attachment || {}),
         type: 'image',
         fileName: attachment?.fileName || 'foto.jpg',
-        url: fallbackUrl,
+        url: fallbackUrl.startsWith('http') ? fallbackUrl : current.startsWith('http') ? current : fallbackUrl,
       },
     },
   }
 }
 
 function mergeUserMessageResponse(tempMsg, serverMsg, localPreviewUrl) {
-  if (!serverMsg) return tempMsg
+  if (!serverMsg) {
+    return localPreviewUrl ? patchUserMessageAttachment(tempMsg, localPreviewUrl) : tempMsg
+  }
 
   const [normalized] = normalizeLoadedMessages([serverMsg])
   if (!normalized) return tempMsg
@@ -852,10 +854,11 @@ function mergeUserMessageResponse(tempMsg, serverMsg, localPreviewUrl) {
   const tempImageUrl = getUserMessageImageUrl(tempMsg) || localPreviewUrl
   const serverImageUrl = getUserMessageImageUrl(merged)
 
-  if (!serverImageUrl && tempImageUrl) {
-    merged = patchUserMessageAttachment(merged, tempImageUrl)
-  } else if (serverImageUrl?.startsWith('http') && tempImageUrl?.startsWith('blob:')) {
-    revokeBlobUrl(tempImageUrl)
+  if (serverImageUrl?.startsWith('http')) {
+    return patchUserMessageAttachment(merged, serverImageUrl)
+  }
+  if (tempImageUrl) {
+    return patchUserMessageAttachment(merged, tempImageUrl)
   }
 
   return merged

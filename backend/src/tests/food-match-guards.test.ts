@@ -121,4 +121,10 @@ describe("isAbsurdFoodMatch", () => {
       true,
     );
   });
+
+  it("parmegiana / milanesa não vira pinhão", () => {
+    assert.equal(isAbsurdFoodMatch("Frango à parmegiana", "Pinhão, cozido"), true);
+    assert.equal(isAbsurdFoodMatch("Bife milanesa", "Castanha-do-pará, crua"), true);
+    assert.equal(isAbsurdFoodMatch("Pinhão", "Frango à parmegiana"), true);
+  });
 });

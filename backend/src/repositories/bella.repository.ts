@@ -104,4 +104,13 @@ export class BellaRepository {
       },
     });
   }
+
+  async updateMetadata(id: string, metadata: Record<string, unknown>) {
+    return prisma.bellaMessage.update({
+      where: { id },
+      data: {
+        metadata: metadata as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
 }

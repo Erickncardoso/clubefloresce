@@ -98,6 +98,16 @@ export function isAbsurdFoodMatch(
     }
   }
 
+  // Parmegiana / milanesa ≠ pinhão / castanha / semente
+  const queryIsParmegianaOrBreaded =
+    /\b(parmegiana|parmigiana|milanesa|empanad)/.test(q);
+  const candidateIsSeedOrNut =
+    /\b(pinhao|castanha|noz|amendoa|semente|amendoim|pistache)\b/.test(n);
+  if (queryIsParmegianaOrBreaded && candidateIsSeedOrNut) return true;
+  if (/\bpinhao\b/.test(q) && /\b(parmegiana|parmigiana|milanesa|empanad|frango|bife)\b/.test(n)) {
+    return true;
+  }
+
   // Queijo muçarela ≠ rolinho / sanduíche / pizza
   if (/\b(mucarela|mussarela|mozarela)\b/.test(q)) {
     if (/\b(rolinho|sanduiche|pizza|presunto|misto)\b/.test(n)) return true;

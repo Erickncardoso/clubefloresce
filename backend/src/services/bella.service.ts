@@ -233,7 +233,7 @@ export class BellaService {
 
       return {
         topic,
-        userMessage: patchUserMessageAttachmentUrl(userMsg, attachmentUrl),
+        userMessage: await persistUserMessageAttachmentUrl(userMsg, attachmentUrl),
         requiresMealConfirmation: true,
         mealDraft: {
           ...mealDraft,
@@ -270,7 +270,7 @@ export class BellaService {
 
       return {
         topic,
-        userMessage: patchUserMessageAttachmentUrl(userMsg, attachmentUrl),
+        userMessage: await persistUserMessageAttachmentUrl(userMsg, attachmentUrl),
         requiresReceiptConfirmation: true,
         requiresMealConfirmation: false,
         receiptDraft: {
@@ -384,7 +384,7 @@ export class BellaService {
     return {
       topic,
       message: assistantMsg,
-      userMessage: patchUserMessageAttachmentUrl(userMsg, attachmentUrl),
+      userMessage: await persistUserMessageAttachmentUrl(userMsg, attachmentUrl),
       meta: serializeMeta(meta),
       requiresMealConfirmation: false,
       requiresRestaurantIntent: false,
@@ -823,25 +823,50 @@ async function uploadChatAttachment(
   }
 }
 
-function patchUserMessageAttachmentUrl<T extends { metadata?: unknown }>(
+function patchUserMessageAttachmentUrl<T extends { id?: string; metadata?: unknown }>(
   userMsg: T,
   attachmentUrl?: string,
 ): T {
   if (!attachmentUrl) return userMsg;
-  const metadata = userMsg.metadata as Record<string, unknown> | null | undefined;
-  const attachment = metadata?.attachment as Record<string, unknown> | undefined;
-  if (!attachment || attachment.type !== "image") return userMsg;
+  const metadata = (userMsg.metadata as Record<string, unknown> | null | undefined) || {};
+  const attachment = (metadata.attachment as Record<string, unknown> | undefined) || {};
 
   return {
     ...userMsg,
     metadata: {
-      ...(metadata || {}),
+      ...metadata,
+      taskType: metadata.taskType || "image",
       attachment: {
         ...attachment,
+        type: "image",
+        fileName: attachment.fileName || "foto.jpg",
         url: attachmentUrl,
       },
     },
   };
+}
+
+/** Persiste a URL do anexo no banco (antes só vinha no response e sumia no reload). */
+async function persistUserMessageAttachmentUrl<T extends { id?: string; metadata?: unknown }>(
+  userMsg: T,
+  attachmentUrl?: string,
+): Promise<T> {
+  const patched = patchUserMessageAttachmentUrl(userMsg, attachmentUrl);
+  if (!attachmentUrl || !userMsg.id || patched === userMsg) return patched;
+
+  try {
+    const updated = await bellaRepository.updateMetadata(
+      userMsg.id,
+      (patched.metadata || {}) as Record<string, unknown>,
+    );
+    return {
+      ...patched,
+      metadata: updated.metadata ?? patched.metadata,
+    };
+  } catch (err) {
+    console.error("[Bella] Falha ao persistir URL do anexo:", err);
+    return patched;
+  }
 }
 
 function buildUserDisplayContent(

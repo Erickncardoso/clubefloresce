@@ -30,7 +30,15 @@ import {
 
 import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
 import BellaChatComposer, { type BellaAttachmentPreview } from '@/components/bella/BellaChatComposer';
+import BellaMessageContent from '@/components/bella/BellaMessageContent';
 import MealPhotoCaptureOverlays from '@/components/bella/MealPhotoCaptureOverlays';
+import {
+  getMessageDisplayText,
+  getUserMessageImageUrl,
+  mergeUserMessageResponse,
+  patchUserMessageAttachment,
+  shouldShowUserMessageText,
+} from '@/lib/bella-message-format';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
 import DiaryDatePicker from '@/components/dieta/DiaryDatePicker';
 import PatientHeader from '@/components/ui/PatientHeader';
@@ -71,7 +79,7 @@ import { getBellaTopicConfig, normalizeBellaTopic } from '@/lib/bella-topics';
 import { PATIENT_NAV_FLOAT_MARGIN } from '@/lib/tab-bar';
 import { useKeyboardInset } from '@/hooks/useKeyboardOpen';
 
-import { normalizeMealItemsForSave, type MealDiaryItem } from '@/lib/meal-diary';
+import { createMealItemId, normalizeMealItemsForSave, type MealDiaryItem } from '@/lib/meal-diary';
 import { getMealIdForTimeFromMeals } from '@/lib/meal-plan-time';
 
 
@@ -143,30 +151,14 @@ function normalizeMessages(list: ChatMessage[] = []) {
 
 
 
-function getUserMessageImage(msg?: ChatMessage | null) {
-
-  const meta = msg?.metadata as Record<string, unknown> | null | undefined;
-
-  const attachment = meta?.attachment as { type?: string; url?: string } | undefined;
-
-  if (attachment?.type === 'image' && attachment.url) return resolveMediaUrl(String(attachment.url));
-
-  return null;
-
-}
-
-
-
-function stripMarkdown(content: string) {
-
-  return content
-
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-
-    .replace(/\*(.*?)\*/g, '$1')
-
-    .replace(/`(.*?)`/g, '$1');
-
+function getUserMessageImage(
+  msg?: ChatMessage | null,
+  stickyPhotos?: Map<string, string> | null,
+) {
+  const fromMeta = getUserMessageImageUrl(msg);
+  if (fromMeta) return resolveMediaUrl(fromMeta);
+  const sticky = msg?.id ? stickyPhotos?.get(String(msg.id)) : undefined;
+  return sticky ? resolveMediaUrl(sticky) : null;
 }
 
 function formatBellaTime(value?: string) {
@@ -215,6 +207,18 @@ export default function BellaChatScreen() {
   const pickImageRef = useRef<(fromCamera: boolean, photo?: PickedMealPhoto) => void>(() => {});
   const lastMealPhotoUri = useRef<string | null>(null);
   const mealFreezeUriRef = useRef<string | null>(null);
+  /** Mantém URI local/http da foto mesmo se o metadata vier sem url. */
+  const [stickyPhotos, setStickyPhotos] = useState<Map<string, string>>(() => new Map());
+
+  const rememberPhoto = useCallback((messageId: string | undefined | null, uri: string | null | undefined) => {
+    if (!messageId || !uri) return;
+    setStickyPhotos((prev) => {
+      if (prev.get(String(messageId)) === uri) return prev;
+      const next = new Map(prev);
+      next.set(String(messageId), uri);
+      return next;
+    });
+  }, []);
 
   const [mealFreezeUri, setMealFreezeUri] = useState<string | null>(null);
 
@@ -452,13 +456,33 @@ export default function BellaChatScreen() {
   const applyChatResponse = useCallback((res: Record<string, unknown>) => {
     if (res.requiresMealConfirmation && res.mealDraft) {
       const next = res.mealDraft as MealDraft;
-      setMealDraft({ ...next, imageUrl: next.imageUrl || lastMealPhotoUri.current || undefined });
+      const photoUrl = next.imageUrl || lastMealPhotoUri.current || undefined;
+      setMealDraft({ ...next, imageUrl: photoUrl });
       if (res.dailySummary) setDailySummary(res.dailySummary as DailySummary);
       if (res.message) {
         const [assistantMessage] = normalizeMessages([res.message as ChatMessage]);
         if (assistantMessage) {
           setMessages((prev) => [...prev, assistantMessage]);
         }
+      }
+      // Garante a foto na bolha do usuário (URL do Cloudinary ou local).
+      const localOrRemote = photoUrl || lastMealPhotoUri.current;
+      if (localOrRemote) {
+        let patchedId: string | undefined;
+        setMessages((prev) => {
+          for (let i = prev.length - 1; i >= 0; i -= 1) {
+            const msg = prev[i];
+            if (msg.role !== 'user') continue;
+            const nextMsgs = [...prev];
+            const merged = patchUserMessageAttachment(msg, localOrRemote);
+            nextMsgs[i] = merged;
+            patchedId = merged.id ? String(merged.id) : undefined;
+            return nextMsgs;
+          }
+          return prev;
+        });
+        if (patchedId) rememberPhoto(patchedId, localOrRemote);
+        if (next.userMessageId) rememberPhoto(String(next.userMessageId), localOrRemote);
       }
       setMealConfirmError('');
       setShowMealModal(!mealFreezeUriRef.current);
@@ -474,7 +498,7 @@ export default function BellaChatScreen() {
     }
 
     setError('A Bella não conseguiu responder. Tente enviar novamente.');
-  }, []);
+  }, [rememberPhoto]);
 
 
 
@@ -945,6 +969,49 @@ export default function BellaChatScreen() {
 
   }
 
+  function normalizeEntryItems(items: unknown): MealDiaryItem[] {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((raw) => {
+        const item = raw as Record<string, unknown>;
+        return {
+          id: typeof item.id === 'string' ? item.id : createMealItemId(),
+          name: String(item.name || '').trim(),
+          grams: Number(item.grams) || undefined,
+          caloriesKcal: Number(item.caloriesKcal) || 0,
+          carbsG: Number(item.carbsG) || 0,
+          proteinG: Number(item.proteinG) || 0,
+          fatG: Number(item.fatG) || 0,
+          foodId: typeof item.foodId === 'string' ? item.foodId : null,
+          source: typeof item.source === 'string' ? item.source : undefined,
+          originalName: typeof item.originalName === 'string' ? item.originalName : null,
+        };
+      })
+      .filter((item) => item.name);
+  }
+
+  function editDiaryEntry(entry: NonNullable<DailySummary['entries']>[number]) {
+    if (!entry?.id) return;
+    mealFreezeUriRef.current = null;
+    setMealFreezeUri(null);
+    dismissStage();
+    setMealDraft({
+      mealType: entry.mealType || 'other',
+      mealLabel: entry.mealLabel || 'Refeição',
+      imageUrl: entry.imageUrl || undefined,
+      items: normalizeEntryItems(entry.items),
+      totals: {
+        caloriesKcal: entry.caloriesKcal,
+        carbsG: entry.carbsG,
+        proteinG: entry.proteinG,
+        fatG: entry.fatG,
+      },
+      editingEntryId: entry.id,
+    });
+    setMealConfirmError('');
+    setShowMealModal(true);
+  }
+
 
 
   function cancelMealConfirm() {
@@ -1118,7 +1185,10 @@ export default function BellaChatScreen() {
 
     }]);
 
-
+    if (file && !isPdf && !isAudio && file.uri) {
+      rememberPhoto(tempId, file.uri);
+      lastMealPhotoUri.current = file.uri;
+    }
 
     clearAttachment();
 
@@ -1183,24 +1253,34 @@ export default function BellaChatScreen() {
 
 
       setMessages((prev) => {
-
         const index = prev.findIndex((m) => m.id === tempId);
-
         if (index < 0) return prev;
-
         const next = [...prev];
-
+        const tempMsg = next[index];
+        const localPreview = file && !isPdf && !isAudio
+          ? (file.uri || stickyPhotos.get(tempId) || lastMealPhotoUri.current || null)
+          : null;
         if (res.userMessage) {
-
-          next[index] = normalizeMessages([res.userMessage as ChatMessage])[0];
-
+          const [normalized] = normalizeMessages([res.userMessage as ChatMessage]);
+          const merged = mergeUserMessageResponse(tempMsg, normalized, localPreview);
+          next[index] = merged;
+          const stickyUri = getUserMessageImageUrl(merged) || localPreview;
+          if (stickyUri) {
+            rememberPhoto(merged.id, stickyUri);
+            if (tempId !== merged.id) {
+              setStickyPhotos((map) => {
+                if (!map.has(tempId)) return map;
+                const copy = new Map(map);
+                copy.delete(tempId);
+                return copy;
+              });
+            }
+          }
+        } else if (localPreview) {
+          next[index] = patchUserMessageAttachment(tempMsg, localPreview);
         }
-
         return next;
-
       });
-
-
 
       applyChatResponse(res);
 
@@ -1264,6 +1344,8 @@ export default function BellaChatScreen() {
 
             manageable
 
+            onEditEntry={editDiaryEntry}
+
             onDeleteEntry={deleteDiaryEntry}
 
           />
@@ -1319,7 +1401,22 @@ export default function BellaChatScreen() {
 
             {!loadingMessages ? displayMessages.map((msg) => {
 
-              const imageUrl = getUserMessageImage(msg);
+              const imageUrl = getUserMessageImage(msg, stickyPhotos);
+              const showUserText = msg.role === 'user'
+                ? (imageUrl
+                  ? shouldShowUserMessageText({
+                      ...msg,
+                      metadata: {
+                        ...(msg.metadata || {}),
+                        attachment: { type: 'image', url: imageUrl, fileName: 'foto.jpg' },
+                      },
+                    })
+                  : shouldShowUserMessageText(msg))
+                : true;
+              const displayText = msg.role === 'user' ? getMessageDisplayText(msg) : msg.content;
+              const showBubble = msg.role === 'assistant'
+                || showUserText
+                || Boolean(displayText?.trim() && !imageUrl);
 
               const swapOptions = chatTopic === 'swap' && msg.role === 'assistant'
 
@@ -1375,15 +1472,19 @@ export default function BellaChatScreen() {
 
 
 
-                  {(msg.role === 'assistant' || msg.content.trim() || !imageUrl) ? (
+                  {showBubble ? (
 
                     <View style={[styles.bubble, msg.role === 'user' ? styles.bubbleUser : styles.bubbleBot]}>
 
-                      <Text style={[styles.bubbleText, msg.role === 'user' && styles.bubbleTextUser]}>
+                      {msg.role === 'user' && showUserText ? (
+                        <Text style={[styles.bubbleText, styles.bubbleTextUser]}>
+                          {displayText}
+                        </Text>
+                      ) : null}
 
-                        {stripMarkdown(msg.content)}
-
-                      </Text>
+                      {msg.role === 'assistant' ? (
+                        <BellaMessageContent content={msg.content || ''} />
+                      ) : null}
 
 
 
@@ -1617,17 +1718,17 @@ const styles = StyleSheet.create({
 
   userThumb: {
 
-    width: 120,
+    width: 168,
 
-    height: 90,
+    height: 168,
 
     borderRadius: radii.control,
 
-    borderWidth: 2,
+    borderWidth: 1,
 
-    borderColor: '#dbbfc1',
+    borderColor: '#e4d0d2',
 
-    borderStyle: 'dashed',
+    backgroundColor: '#f7f0f1',
 
     marginBottom: spacing[1],
 

@@ -44,7 +44,12 @@ Regras:
   - frango grelhado → "Frango, peito, sem pele, grelhado"
 - Preencha "grams" (porção estimada em gramas). Calorias e macros serão recalculados pela base de alimentos quando houver correspondência.
 - Se não reconhecer o alimento, ainda informe name e grams; estime caloriesKcal, carbsG, proteinG e fatG.
-- Se identificar um prato preparado (bolo, lasanha, strogonoff, pizza, sanduíche, feijoada etc.), liste cada ingrediente visível ou separável. Se não conseguir separar, use um nome descritivo e avise em "notes".
+- Se identificar um prato preparado (bolo, lasanha, strogonoff, pizza, sanduíche, feijoada, parmegiana etc.), liste cada ingrediente visível ou separável. Se não conseguir separar, use um nome descritivo e avise em "notes".
+- Pratos brasileiros — NÃO confunda:
+  - à parmegiana / parmigiana = carne ou berinjela empanada/grelhada com molho de tomate e queijo derretido (não é pinhão, castanha nem semente)
+  - pinhão = semente do pinheiro, solta, formato de gota bege/amarelada (não é bife empanado nem milanesa)
+  - milanesa / empanado = cobertura crocante dourada de farinha/ovo (não é queijo ralado solto nem pinhão)
+  - strogonoff = molho cremoso rosado com carne/frango (não é molho de tomate puro)
 - Se a foto não mostrar comida, retorne "items": [] e explique em "notes".
 - Mínimo 1 item quando houver comida reconhecível.
 
