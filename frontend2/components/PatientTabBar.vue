@@ -169,6 +169,9 @@ async function goRoute(item) {
 }
 
 function onItemClick(item) {
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    navigator.vibrate(10)
+  }
   goRoute(item)
 }
 

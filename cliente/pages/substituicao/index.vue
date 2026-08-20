@@ -3,66 +3,19 @@
     <PatientHeader />
 
     <p class="subst-lead">
-      Encontre substitutos nutricionalmente equivalentes com base na TBCA/TACO, por similaridade de cossenos.
+      Escolha o que você comeu e por qual alimento quer trocar. Calculamos a quantidade equivalente em calorias (TBCA/TACO).
     </p>
 
     <section class="cf-card subst-form">
-      <h2 class="subst-form-title">Dados para substituição</h2>
-
-      <fieldset class="subst-field">
-        <legend>Modo de substituição</legend>
-        <div class="subst-segmented">
-          <button
-            type="button"
-            class="subst-segment"
-            :class="{ active: mode === 'multiple' }"
-            @click="mode = 'multiple'"
-          >
-            Ver múltiplas opções
-          </button>
-          <button
-            type="button"
-            class="subst-segment"
-            :class="{ active: mode === 'specific' }"
-            @click="mode = 'specific'"
-          >
-            Escolher substituto específico
-          </button>
-        </div>
-      </fieldset>
-
-      <fieldset class="subst-field">
-        <legend>Critério de equivalência</legend>
-        <div class="subst-chips">
-          <button
-            v-for="item in criterionOptions"
-            :key="item.id"
-            type="button"
-            class="subst-chip"
-            :class="{ active: criterion === item.id }"
-            @click="criterion = item.id"
-          >
-            {{ item.label }}
-          </button>
-        </div>
-      </fieldset>
-
-      <fieldset class="subst-field">
-        <legend>Tipo de alimento</legend>
-        <select v-model="groupFilter" class="subst-select">
-          <option v-for="item in groupOptions" :key="item.id" :value="item.id">
-            {{ item.label }}
-          </option>
-        </select>
-      </fieldset>
+      <h2 class="subst-form-title">Troca por calorias</h2>
 
       <label class="subst-label">
-        Alimento de referência
+        Alimento que você comeu
         <input
           v-model="foodQuery"
           type="search"
           class="subst-input"
-          placeholder="Ex.: arroz, branco, cozido"
+          placeholder="Ex.: arroz branco cozido"
           autocomplete="off"
           @input="onFoodQueryInput"
         />
@@ -82,36 +35,34 @@
       </p>
 
       <label class="subst-label">
-        Quantidade (g)
+        Quantidade que comeu (g)
         <input v-model.number="grams" type="number" min="1" step="1" class="subst-input" />
       </label>
 
-      <template v-if="mode === 'specific'">
-        <label class="subst-label">
-          Substituto específico
-          <input
-            v-model="replacementQuery"
-            type="search"
-            class="subst-input"
-            placeholder="Ex.: batata, inglesa, cozida"
-            autocomplete="off"
-            @input="onReplacementQueryInput"
-          />
-        </label>
+      <label class="subst-label">
+        Trocar por
+        <input
+          v-model="replacementQuery"
+          type="search"
+          class="subst-input"
+          placeholder="Ex.: batata inglesa cozida"
+          autocomplete="off"
+          @input="onReplacementQueryInput"
+        />
+      </label>
 
-        <ul v-if="replacementResults.length" class="subst-suggestions">
-          <li v-for="item in replacementResults" :key="item.id">
-            <button type="button" class="subst-suggestion-btn" @click="selectReplacement(item)">
-              <strong>{{ item.name }}</strong>
-              <span v-if="item.category">{{ item.category }}</span>
-            </button>
-          </li>
-        </ul>
+      <ul v-if="replacementResults.length" class="subst-suggestions">
+        <li v-for="item in replacementResults" :key="item.id">
+          <button type="button" class="subst-suggestion-btn" @click="selectReplacement(item)">
+            <strong>{{ item.name }}</strong>
+            <span v-if="item.category">{{ item.category }}</span>
+          </button>
+        </li>
+      </ul>
 
-        <p v-if="selectedReplacement" class="subst-selected">
-          Substituto: <strong>{{ selectedReplacement.name }}</strong>
-        </p>
-      </template>
+      <p v-if="selectedReplacement" class="subst-selected">
+        Substituto: <strong>{{ selectedReplacement.name }}</strong>
+      </p>
 
       <p v-if="error" class="subst-error" role="alert">{{ error }}</p>
 
@@ -121,40 +72,30 @@
         :disabled="loading || !canSubmit"
         @click="handleCalculate"
       >
-        {{ loading ? 'Calculando...' : 'Ver opções de substituição' }}
+        {{ loading ? 'Calculando…' : 'Calcular troca em kcal' }}
       </button>
     </section>
 
     <section v-if="result" class="subst-results">
-      <h2 class="subst-results-title">Referência</h2>
       <article class="cf-card subst-result-card subst-result-card--original">
+        <p class="subst-result-kicker">Você comeu</p>
         <strong>{{ result.original.name }}</strong>
-        <p>{{ formatMacros(result.original.macros) }}</p>
+        <p class="subst-result-macros">{{ formatMacros(result.original.macros) }}</p>
       </article>
 
-      <h2 class="subst-results-title">
-        {{ mode === 'specific' ? 'Equivalência calculada' : 'Opções equivalentes' }}
-      </h2>
-
-      <p v-if="!result.suggestions.length" class="subst-empty">
-        Nenhuma opção encontrada para os filtros selecionados.
-      </p>
-
-      <article
-        v-for="(item, index) in result.suggestions"
-        :key="item.id"
-        class="cf-card subst-result-card"
-      >
-        <div class="subst-result-head">
-          <span class="subst-rank">{{ index + 1 }}</span>
-          <div>
-            <strong>{{ item.name }}</strong>
-            <p v-if="item.category" class="subst-result-cat">{{ item.category }}</p>
-          </div>
-          <span class="subst-similarity">{{ item.similarityPercent }}%</span>
-        </div>
-        <p class="subst-result-macros">{{ formatMacros(item.macros) }}</p>
+      <article v-if="result.suggestions[0]" class="cf-card subst-result-card subst-result-card--swap">
+        <p class="subst-result-kicker">Equivalente em calorias</p>
+        <strong>{{ result.suggestions[0].name }}</strong>
+        <p class="subst-result-highlight">
+          Coma <strong>{{ result.suggestions[0].macros.grams }} g</strong>
+          para ficar com
+          <strong>{{ result.suggestions[0].macros.caloriesKcal }} kcal</strong>
+          (mesma energia do alimento original).
+        </p>
+        <p class="subst-result-macros">{{ formatMacros(result.suggestions[0].macros) }}</p>
       </article>
+
+      <p v-else class="subst-empty">Não encontramos equivalência para essa combinação.</p>
     </section>
   </div>
 </template>
@@ -164,9 +105,6 @@ definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
 const { searchFoods, calculateSubstitution } = useFoodSubstitution()
 
-const mode = ref('multiple')
-const criterion = ref('calories')
-const groupFilter = ref('all')
 const grams = ref(100)
 const foodQuery = ref('')
 const replacementQuery = ref('')
@@ -181,24 +119,13 @@ const error = ref('')
 let foodSearchTimer = null
 let replacementSearchTimer = null
 
-const criterionOptions = [
-  { id: 'calories', label: 'Calorias' },
-  { id: 'protein', label: 'Proteína' },
-  { id: 'carbs', label: 'Carboidratos' },
-  { id: 'fat', label: 'Gordura' },
-]
-
-const groupOptions = [
-  { id: 'all', label: 'Todos os alimentos' },
-  { id: 'protein_rich', label: 'Proteínas' },
-  { id: 'carb_rich', label: 'Carboidratos' },
-  { id: 'fat_rich', label: 'Gorduras' },
-]
-
 const canSubmit = computed(() => {
-  if (!selectedFood.value || !grams.value || grams.value <= 0) return false
-  if (mode.value === 'specific' && !selectedReplacement.value) return false
-  return true
+  return Boolean(
+    selectedFood.value
+    && selectedReplacement.value
+    && grams.value
+    && grams.value > 0,
+  )
 })
 
 function formatMacros(macros) {
@@ -252,14 +179,14 @@ async function handleCalculate() {
     result.value = await calculateSubstitution({
       foodId: selectedFood.value.id,
       grams: grams.value,
-      mode: mode.value,
-      criterion: criterion.value,
-      groupFilter: groupFilter.value,
-      replacementId: selectedReplacement.value?.id,
-      limit: 12,
+      mode: 'specific',
+      criterion: 'calories',
+      groupFilter: 'all',
+      replacementId: selectedReplacement.value.id,
+      limit: 1,
     })
   } catch (err) {
-    error.value = err?.data?.message || 'Não foi possível calcular as substituições.'
+    error.value = err?.data?.message || 'Não foi possível calcular a substituição.'
   } finally {
     loading.value = false
   }
@@ -270,7 +197,6 @@ onUnmounted(() => {
   clearTimeout(replacementSearchTimer)
 })
 </script>
-
 <style scoped>
 .subst-page {
   padding-top: 0;
@@ -463,6 +389,27 @@ onUnmounted(() => {
 
 .subst-result-card--original {
   border: 1px solid var(--cf-pink-soft, var(--cf-border));
+}
+
+.subst-result-card--swap {
+  border: 1px solid var(--cf-green-soft, var(--cf-border));
+  background: color-mix(in srgb, var(--cf-green-soft, #eef4ea) 40%, var(--cf-surface) 60%);
+}
+
+.subst-result-kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cf-text-muted);
+}
+
+.subst-result-highlight {
+  margin: 0.55rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--cf-text);
 }
 
 .subst-result-head {

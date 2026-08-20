@@ -4,7 +4,7 @@ import { normalizeMealItemsForSave } from '~/utils/meal-diary'
 export function useDietaDiarySync() {
   const config = useRuntimeConfig()
   const apiBase = config.public.apiBase
-  const { patientFetchInit } = usePatientLocalTime()
+  const { diaryFetchInit, foodDiaryPath } = useDiaryDate()
   const syncing = ref(false)
   const syncError = ref('')
 
@@ -19,7 +19,7 @@ export function useDietaDiarySync() {
 
     try {
       const items = buildPlanDiaryItems(meal, checkedStates)
-      const res = await $fetch(`${apiBase}/food-diary/plan-check`, patientFetchInit({
+      const res = await $fetch(`${apiBase}${foodDiaryPath('/food-diary/plan-check')}`, diaryFetchInit({
         method: 'PUT',
         body: {
           mealType: mealId,

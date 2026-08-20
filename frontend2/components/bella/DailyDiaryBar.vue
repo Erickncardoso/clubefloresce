@@ -16,7 +16,7 @@
       @click="toggleExpanded"
     >
       <span class="diary-bar-toggle-copy">
-        <span class="diary-bar-title">Diário de hoje</span>
+        <span class="diary-bar-title">{{ diaryTitle }}</span>
         <span class="diary-bar-compact">
           <span class="diary-bar-compact-cal">{{ summary.consumed.caloriesKcal }} / {{ summary.targets.caloriesKcal }} kcal</span>
         </span>
@@ -25,7 +25,7 @@
     </button>
 
     <div v-else class="diary-bar-heading">
-      <p class="diary-bar-title">Nutrição de hoje</p>
+      <p class="diary-bar-title">{{ diaryTitle }}</p>
       <span class="diary-bar-percent">{{ caloriePercent }}% da meta</span>
     </div>
 
@@ -112,6 +112,7 @@ import { ChevronDown, Pencil, Trash2, Utensils } from 'lucide-vue-next'
 
 const props = defineProps({
   summary: { type: Object, default: null },
+  diaryTitle: { type: String, default: 'Diário de hoje' },
   collapsible: { type: Boolean, default: false },
   manageable: { type: Boolean, default: false },
 })

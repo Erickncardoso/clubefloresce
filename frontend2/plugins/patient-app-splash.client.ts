@@ -3,7 +3,7 @@ import {
   syncPatientAppThemeColor,
 } from '~/utils/patient-app-splash.mjs'
 
-const MIN_VISIBLE_MS = 480
+const MIN_VISIBLE_MS = 2300
 const FADE_MS = 380
 
 let splashShownAt = 0

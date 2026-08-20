@@ -339,7 +339,6 @@
 
 <script setup>
 import {
-  Camera,
   Film,
   Image as ImageIcon,
   Link,
@@ -349,6 +348,7 @@ import {
   Upload,
   X,
 } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 import { buildLessonLocationPath, formatCloudinaryVideoPath } from '~/utils/video-upload-path'
 import { isVideoFile } from '~/utils/upload-file-kind'
 import { normalizeFileUploadError, normalizeVideoUploadError, resolveUploadApiUrl } from '~/utils/resolve-api-base.mjs'

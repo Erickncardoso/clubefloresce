@@ -432,7 +432,6 @@ import {
   Upload,
   Film,
   Image as ImageIcon,
-  Camera,
   ChevronRight,
   Clock3,
   Users,
@@ -448,6 +447,7 @@ import {
   Code2,
   CircleHelp
 } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 import { buildModuleUrl } from '~/utils/course-slug'
 import { openPatientCourse } from '~/utils/open-patient-course'
 import { authFetchInit } from '~/composables/useAuthSession.js'

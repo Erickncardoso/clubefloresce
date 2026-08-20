@@ -682,7 +682,7 @@
 </template>
 
 <script setup>
-import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText, Monitor, Smartphone } from 'lucide-vue-next'
+import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, FileText, Monitor, Smartphone } from 'lucide-vue-next'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'
 import { buildModuleUrl } from '~/utils/course-slug'
 import { isPdfFile } from '~/utils/upload-file-kind'

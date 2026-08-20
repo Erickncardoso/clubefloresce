@@ -2,9 +2,12 @@
   <div class="patient-page dieta-page">
     <PatientHeader />
 
+    <DiaryDatePicker variant="pill" />
+
     <BellaDailyDiaryBar
       v-if="dailySummary"
       :summary="dailySummary"
+      :diary-title="diaryTitle"
       manageable
       class="dieta-diary-bar"
       @edit-entry="editDiaryEntry"
@@ -12,7 +15,7 @@
     />
     <div v-else-if="diaryLoading" class="dieta-diary-loading" aria-busy="true">
       <span class="dieta-diary-loading__spinner" aria-hidden="true" />
-      <span>Carregando diário de hoje…</span>
+      <span>Carregando diário…</span>
     </div>
 
     <PatientPageSkeleton v-if="planFetchLoading && !hasPlan" layout="plan" />
@@ -147,23 +150,6 @@
           </NuxtLink>
         </div>
 
-        <div class="dieta-register">
-          <div class="dieta-register-copy">
-            <p>Registrar refeição</p>
-            <span>Envie uma foto para a Bella analisar.</span>
-          </div>
-          <div class="dieta-actions">
-            <button type="button" class="dieta-action-btn dieta-action-btn--primary" @click="takePhotoNow">
-              <Camera class="dieta-action-icon" aria-hidden="true" />
-              Tirar foto
-            </button>
-            <NuxtLink :to="bellaMealLink" class="dieta-action-btn dieta-action-btn--outline">
-              <ImagePlus class="dieta-action-icon" aria-hidden="true" />
-              Galeria
-            </NuxtLink>
-          </div>
-        </div>
-
         <button type="button" class="dieta-plan-link" @click="setView('week')">
           Ver todas as refeições
           <ChevronRight aria-hidden="true" />
@@ -255,10 +241,8 @@
 import {
   ArrowLeftRight,
   Calculator,
-  Camera,
   ChevronRight,
   CircleCheck,
-  ImagePlus,
   Layers,
   Plus,
   Trash2,
@@ -313,6 +297,7 @@ const {
 } = useMealPlanOptionSelections()
 
 const { patientFetchInit } = usePatientLocalTime()
+const { diaryTitle, selectedDateKey, diaryFetchInit, foodDiaryPath } = useDiaryDate()
 
 const diaryLoading = ref(true)
 const substitutionsOpen = ref(false)
@@ -351,15 +336,6 @@ const progressLabel = computed(() => {
   if (done === total) return 'Refeição concluída hoje'
   return `${done} de ${total} itens marcados`
 })
-
-const bellaMealLink = computed(() => ({
-  path: '/bella/chat/meal',
-  query: {
-    from: 'dieta',
-    meal: activeMeal.value,
-    label: currentMeal.value?.label || 'Refeição',
-  },
-}))
 
 function syncChecked(mealId, options = {}) {
   const { preserveChecked = false } = options
@@ -583,23 +559,10 @@ function openMealFromWeek(mealId) {
   setView('today')
 }
 
-function takePhotoNow() {
-  if (!currentMeal.value) return
-  navigateTo({
-    path: '/bella/chat/meal',
-    query: {
-      from: 'dieta',
-      meal: activeMeal.value,
-      label: currentMeal.value.label,
-      camera: '1',
-    },
-  })
-}
-
 async function loadDailySummary() {
   diaryLoading.value = true
   try {
-    dailySummary.value = await $fetch(`${apiBase}/food-diary/today`, patientFetchInit())
+    dailySummary.value = await $fetch(`${apiBase}${foodDiaryPath('/food-diary/today')}`, diaryFetchInit())
   } catch {
     dailySummary.value = null
   } finally {
@@ -681,6 +644,11 @@ const nutritionRefresh = useState('patient-nutrition-refresh', () => 0)
 
 watch(nutritionRefresh, () => {
   loadDailySummary()
+})
+
+watch(selectedDateKey, () => {
+  void loadDailySummary()
+  if (activeMeal.value) syncChecked(activeMeal.value)
 })
 
 async function syncAllCheckedMealsIfNeeded() {
@@ -1135,59 +1103,6 @@ watch(
 .dieta-subs-btn-icon {
   width: 1rem;
   height: 1rem;
-  flex-shrink: 0;
-}
-
-.dieta-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-}
-
-.dieta-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  width: 100%;
-  max-width: 100%;
-  min-height: 2.35rem;
-  padding: 0.5rem 0.85rem;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-decoration: none;
-  cursor: pointer;
-  box-sizing: border-box;
-  transition: background 0.18s ease, border-color 0.18s ease;
-}
-
-.dieta-action-btn--primary {
-  border: none;
-  background: var(--cf-pink);
-  color: #fff;
-}
-
-.dieta-action-btn--primary:hover {
-  background: var(--cf-pink-dark);
-}
-
-.dieta-action-btn--outline {
-  background: var(--cf-surface);
-  color: var(--cf-pink);
-  border: 1.5px solid var(--cf-pink-soft);
-}
-
-.dieta-action-btn--outline:hover {
-  background: var(--cf-pink-soft);
-}
-
-.dieta-action-icon {
-  width: 0.95rem;
-  height: 0.95rem;
   flex-shrink: 0;
 }
 
@@ -1700,64 +1615,6 @@ watch(
   height: 0.875rem;
   flex: 0 0 auto;
   color: #7e8b76;
-}
-
-.dieta-register {
-  padding: 0.875rem 1rem 1rem;
-  border-top: 1px solid #e8eae6;
-  background: #f8f9f7;
-}
-
-.dieta-register-copy p {
-  margin: 0;
-  color: #2b2e2a;
-  font-size: 0.8125rem;
-  font-weight: 500;
-}
-
-.dieta-register-copy span {
-  display: block;
-  margin-top: 0.125rem;
-  color: #888d85;
-  font-size: 0.6875rem;
-  font-weight: 400;
-}
-
-.dieta-actions {
-  display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.dieta-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  min-height: 2.75rem;
-  padding: 0.625rem 0.75rem;
-  border-radius: 0.75rem;
-  font: 500 0.75rem/1.2 inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.dieta-action-btn--primary {
-  border: 1px solid #798a70;
-  background: #798a70;
-  color: #fff;
-}
-
-.dieta-action-btn--outline {
-  border: 1px solid #dfe2dd;
-  background: #fff;
-  color: #555b53;
-}
-
-.dieta-action-icon {
-  width: 0.9375rem;
-  height: 0.9375rem;
 }
 
 .dieta-plan-link {

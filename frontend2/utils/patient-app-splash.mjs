@@ -1,3 +1,5 @@
+import { FLORESCER_LOGO_COLOR, FLORESCER_LOGO_PATH, FLORESCER_LOGO_STROKES } from './florescer-logo-path.js'
+
 /** Splash / tela de abertura — HTML + CSS inline (antes do Vue hidratar). */
 
 export const PATIENT_APP_SPLASH_BG = '#f8f9f6'
@@ -61,37 +63,55 @@ html.cf-mobile-app-splash-pending body {
 .cf-app-splash__logo {
   display: block;
   width: auto;
-  height: 4.5rem;
-  object-fit: contain;
-  animation: cf-app-splash-pulse 1.55s ease-in-out infinite;
-  will-change: opacity;
+  height: 8.25rem;
+  overflow: visible;
 }
 
-.cf-app-splash__title {
-  margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #6f7863;
+.cf-app-splash__trace {
+  fill: none;
+  stroke: ${FLORESCER_LOGO_COLOR};
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
 }
 
-.cf-app-splash__subtitle {
-  margin: -0.35rem 0 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: #8b967c;
+.cf-app-splash__trace--0 {
+  animation: cf-logo-draw 1.05s linear forwards;
 }
 
-@keyframes cf-app-splash-pulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
+.cf-app-splash__trace--1 {
+  animation: cf-logo-draw 0.65s linear 0.92s forwards;
+}
+
+.cf-app-splash__trace--2 {
+  animation: cf-logo-draw 0.28s linear 1.5s forwards;
+}
+
+.cf-app-splash__paint {
+  fill: ${FLORESCER_LOGO_COLOR};
+  opacity: 0;
+  animation: cf-logo-fill 0.42s ease 1.78s forwards;
+}
+
+@keyframes cf-logo-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes cf-logo-fill {
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cf-app-splash__logo {
-    animation: cf-app-splash-pulse 2.2s ease-in-out infinite;
+  .cf-app-splash__trace {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .cf-app-splash__paint {
+    animation: none;
+    opacity: 1;
   }
 }
 `.trim()
@@ -99,17 +119,10 @@ html.cf-mobile-app-splash-pending body {
 export const PATIENT_APP_SPLASH_HTML = `
 <div id="cf-app-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando Clube Florescer">
   <div class="cf-app-splash__inner">
-    <img
-      src="/icons/logovetorcarregamento.svg"
-      alt=""
-      width="59"
-      height="83"
-      class="cf-app-splash__logo"
-      decoding="async"
-      fetchpriority="high"
-    />
-    <p class="cf-app-splash__title">Clube Florescer</p>
-    <p class="cf-app-splash__subtitle">Carregando…</p>
+    <svg class="cf-app-splash__logo" viewBox="0 0 295 415" width="93" height="132" fill="none" aria-hidden="true">
+      ${FLORESCER_LOGO_STROKES.map((d, i) => `<path class="cf-app-splash__trace cf-app-splash__trace--${i}" pathLength="1" d="${d}" />`).join('\n      ')}
+      <path class="cf-app-splash__paint" d="${FLORESCER_LOGO_PATH}" />
+    </svg>
   </div>
 </div>
 `.trim()

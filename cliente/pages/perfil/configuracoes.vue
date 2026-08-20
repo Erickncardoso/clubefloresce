@@ -179,7 +179,6 @@
 <script setup>
 import {
   Bell,
-  Camera,
   ChevronRight,
   Loader2,
   Pencil,
@@ -187,6 +186,7 @@ import {
   SlidersHorizontal,
   Smartphone,
 } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 

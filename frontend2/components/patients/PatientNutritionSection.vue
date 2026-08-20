@@ -65,7 +65,8 @@
 </template>
 
 <script setup>
-import { ArrowRight, Camera, LineChart, Target } from 'lucide-vue-next'
+import { ArrowRight, LineChart, Target } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 import { buildPatientEvolucaoLink } from '~/utils/patient-slug.js'
 
 const props = defineProps({

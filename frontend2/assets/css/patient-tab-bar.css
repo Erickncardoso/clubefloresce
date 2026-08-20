@@ -114,7 +114,7 @@ html.cf-mobile-app #cf-tab-bar-root .patient-nav {
   gap: 4px;
   margin: 0;
   padding: 4px 2px;
-  border-radius: 20px;
+  border-radius: 24px;
   border: 0;
   background: transparent;
   color: #aeaeb2;
@@ -190,11 +190,13 @@ html.cf-mobile-app #cf-tab-bar-root .patient-nav {
 .patient-nav__item.is-active {
   background: #f0f0f3;
   color: #1c1c1e;
+  justify-content: center;
 }
 
 .patient-nav__item.is-active .patient-nav__label {
-  color: var(--cf-text, #1c1c1e);
-  font-weight: 600;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .patient-nav__item:active {
@@ -339,8 +341,9 @@ html.cf-mobile-app #cf-tab-bar-root .patient-nav {
 
 .patient-nav__item--bella.is-open .patient-nav__label,
 .patient-nav__item--bella.is-active .patient-nav__label {
-  color: var(--cf-text, #1c1c1e);
-  font-weight: 600;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
 html.vk-open .patient-nav,

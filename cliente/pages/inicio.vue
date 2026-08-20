@@ -21,6 +21,8 @@
         </NuxtLink>
       </section>
 
+      <DiaryDatePicker />
+
       <section v-if="hasMealPlan" class="home-section" aria-labelledby="meal-title">
         <div class="home-section-head">
           <h2 id="meal-title">Próxima refeição</h2>
@@ -34,7 +36,7 @@
 
       <section class="home-section" aria-labelledby="nutrition-title">
         <div class="home-section-head">
-          <h2 id="nutrition-title">Nutrição de hoje</h2>
+          <h2 id="nutrition-title">{{ nutritionSectionTitle }}</h2>
           <NuxtLink to="/evolucao/nutricao" class="home-section-link">
             Detalhes
             <ChevronRight class="home-section-link-icon" aria-hidden="true" />
@@ -140,6 +142,13 @@ const {
   bootstrapDailyHeader,
   refreshActivityForToday,
 } = usePatientDailyHeader()
+const { diaryTitle, isToday, formatDiaryDateLabel, selectedDateKey } = useDiaryDate()
+
+const nutritionSectionTitle = computed(() =>
+  isToday.value
+    ? 'Nutrição de hoje'
+    : `Nutrição de ${formatDiaryDateLabel(selectedDateKey.value).toLowerCase()}`,
+)
 
 const config = useRuntimeConfig()
 const { userName, userFullName, userAvatar } = usePatientApp()

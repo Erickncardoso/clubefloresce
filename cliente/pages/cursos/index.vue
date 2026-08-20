@@ -758,7 +758,8 @@
 </template>
 
 <script setup>
-import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, Camera, FileText } from 'lucide-vue-next'
+import { BookOpen, Plus, ChevronDown, Layers, PlayCircle, Trash2, X, Image as ImageIcon, Play, Info, Edit2, Upload, Film, Link, FileText } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 import { isPdfFile } from '~/utils/upload-file-kind'
 import { useDocumentUploadLimits } from '~/composables/useUploadConfig'
 import { mapCourseToTile, mapEbookToTile } from '~/utils/course-tile'

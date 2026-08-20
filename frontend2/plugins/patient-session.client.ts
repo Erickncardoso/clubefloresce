@@ -1,8 +1,10 @@
 /** Mantém a sessão do app paciente ativa entre aberturas do PWA. */
 import {
   isPatientCheckoutPath,
+  isPatientPremiumRequiredError,
   shouldKeepPatientSessionOnError,
 } from '~/utils/patient-access'
+import { notifyPatientAccessBlocked } from '~/utils/patient-access-sync'
 
 const PUBLIC_PATHS = ['/', '/register', '/documento', '/esqueci-senha', '/redefinir-senha', '/abrir']
 
@@ -51,6 +53,9 @@ export default defineNuxtPlugin({
 
       // Upgrade / downgrade / expiração / premium: NUNCA desloga.
       if (shouldKeepPatientSessionOnError(err)) {
+        if (isPatientAccessRevokedError(err) || isPatientPremiumRequiredError(err)) {
+          notifyPatientAccessBlocked()
+        }
         if (isPatientAccessRevokedError(err)) {
           redirectForAccessChange()
         }

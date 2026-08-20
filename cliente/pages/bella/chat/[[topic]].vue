@@ -3,9 +3,12 @@
     <div class="bella-chat-sticky">
       <PatientHeader />
 
+      <DiaryDatePicker v-if="chatTopic === 'meal'" />
+
       <BellaDailyDiaryBar
         v-if="chatTopic === 'meal' && dailySummary"
         :summary="dailySummary"
+        :diary-title="diaryTitle"
         collapsible
         manageable
         class="bella-diary-bar"
@@ -301,7 +304,8 @@
 </template>
 
 <script setup>
-import { Camera, FileText, ImagePlus, Send, X } from 'lucide-vue-next'
+import { FileText, ImagePlus, Send, X } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { apiConnectionErrorMessage, isApiConnectionError } from '~/utils/resolve-api-base.mjs'
 import { getBellaTopicConfig, normalizeBellaTopic } from '~/config/bella-topics'
@@ -405,6 +409,7 @@ const mealSelectOptions = computed(() =>
 )
 
 const { patientFetchInit } = usePatientLocalTime()
+const { diaryTitle, diaryFetchInit, foodDiaryPath } = useDiaryDate()
 const { hasPatientSession } = usePatientAuth()
 
 const showCameraButton = computed(() => topicConfig.value.acceptImages)
@@ -1353,7 +1358,7 @@ const onFileSelected = (event) => {
 const loadDailySummary = async () => {
   if (chatTopic.value !== 'meal') return
   try {
-    dailySummary.value = await $fetch(`${apiBase}/food-diary/today`, patientFetchInit())
+    dailySummary.value = await $fetch(`${apiBase}${foodDiaryPath('/food-diary/today')}`, diaryFetchInit())
   } catch {
     /* ignore */
   }
@@ -1431,7 +1436,7 @@ const confirmMeal = async (items) => {
         body,
       }))
     } else {
-      res = await $fetch(`${apiBase}/food-diary/confirm`, patientFetchInit({
+      res = await $fetch(`${apiBase}${foodDiaryPath('/food-diary/confirm')}`, diaryFetchInit({
         method: 'POST',
         body: {
           ...body,

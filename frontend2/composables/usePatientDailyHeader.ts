@@ -19,7 +19,7 @@ const DEFAULT_TARGETS = {
 
 export function usePatientDailyHeader() {
   const config = useRuntimeConfig()
-  const { patientFetchInit } = usePatientLocalTime()
+  const { foodDiaryPath, diaryFetchInit, selectedDateKey: diaryDateKey } = useDiaryDate()
   const { hydrate: hydrateGoals } = usePatientGoals()
   const nutritionRefresh = useState('patient-nutrition-refresh', () => 0)
 
@@ -117,8 +117,8 @@ export function usePatientDailyHeader() {
   async function loadDailyNutrition() {
     try {
       dailySummary.value = await $fetch(
-        `${config.public.apiBase}/food-diary/today`,
-        patientFetchInit(),
+        `${config.public.apiBase}${foodDiaryPath('/food-diary/today')}`,
+        diaryFetchInit(),
       )
     } catch {
       dailySummary.value = null
@@ -255,6 +255,10 @@ export function usePatientDailyHeader() {
     void loadDailyNutrition().then(() => {
       void loadMonthActivity(viewYear.value, viewMonth.value)
     })
+  })
+
+  watch(diaryDateKey, () => {
+    void loadDailyNutrition()
   })
 
   return {

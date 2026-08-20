@@ -26,6 +26,7 @@ import PatientPremiumGateModal from '~/components/PatientPremiumGateModal.vue'
 import PatientQuickAccessFab from '~/components/PatientQuickAccessFab.vue'
 import PatientScreenDim from '~/components/PatientScreenDim.vue'
 import { usePatientTabBar } from '~/composables/usePatientTabBar'
+import { usePatientAccessSync } from '~/composables/usePatientAccessSync'
 import { isPatientAppAccessBlocked } from '~/utils/patient-access'
 import { dismissPushPrompt, isPushPromptDismissed } from '~/utils/push-prompt-dismiss'
 import { isPrivateLanHostname, isPushSecureContext } from '~/utils/resolve-api-base.mjs'
@@ -33,6 +34,10 @@ import { isPrivateLanHostname, isPushSecureContext } from '~/utils/resolve-api-b
 const route = useRoute()
 const config = useRuntimeConfig()
 useVirtualKeyboard()
+
+if (config.public.mobileApp) {
+  usePatientAccessSync()
+}
 
 if (import.meta.client && config.public.mobileApp) {
   document.documentElement.classList.add('cf-mobile-app')

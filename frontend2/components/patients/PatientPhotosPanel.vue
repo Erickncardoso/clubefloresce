@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { Camera } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 
 const props = defineProps({
   patientId: { type: String, required: true },

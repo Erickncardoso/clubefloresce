@@ -1,14 +1,11 @@
 import { getLocalDateKey } from '~/utils/local-date'
 
-function todayKey() {
-  return getLocalDateKey()
-}
-
-function storageKey(mealId) {
-  return `dieta_checks_${todayKey()}_${mealId}`
-}
-
 export function useDietaProgress() {
+  const { selectedDateKey } = useDiaryDate()
+
+  function storageKey(mealId) {
+    return `dieta_checks_${selectedDateKey.value}_${mealId}`
+  }
   function loadChecked(mealId, itemCount) {
     if (import.meta.server) return Array(itemCount).fill(false)
     try {

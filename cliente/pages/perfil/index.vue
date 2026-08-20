@@ -252,7 +252,6 @@ import {
   BarChart3,
   Bell,
   CalendarCheck,
-  Camera,
   ChevronRight,
   CircleHelp,
   CreditCard,
@@ -268,6 +267,7 @@ import {
   UtensilsCrossed,
   X,
 } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 import { logoutAuthSession } from '~/composables/useAuthSession.js'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })

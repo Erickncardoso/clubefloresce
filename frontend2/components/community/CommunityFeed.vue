@@ -193,13 +193,13 @@ import {
   Users,
   Heart,
   X,
-  Camera,
   MoreHorizontal,
   Star,
   HelpCircle,
   UtensilsCrossed,
   Sparkles,
 } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 
 const props = defineProps({
   isNutri: { type: Boolean, default: false },

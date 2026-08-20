@@ -225,7 +225,6 @@ import {
   Loader,
   Send,
   Plus,
-  Camera,
   Headphones,
   ContactRound,
   Vote,
@@ -236,6 +235,7 @@ import {
   Zap,
   Pause,
 } from 'lucide-vue-next'
+import Camera from '~/components/icons/CameraIcon.vue'
 
 import QuickRepliesPickerPopover from './QuickRepliesPickerPopover.vue'
 import WhatsappEmojiPickerPanel from './WhatsappEmojiPickerPanel.vue'
