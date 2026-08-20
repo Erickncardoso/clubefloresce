@@ -138,6 +138,7 @@ export class FoodController {
         replacementId: body.replacementId,
         replacementName: body.replacementName,
         limit: body.limit ? Number(body.limit) : undefined,
+        mealLabel: typeof body.mealLabel === "string" ? body.mealLabel : undefined,
       });
 
       if (!result) {

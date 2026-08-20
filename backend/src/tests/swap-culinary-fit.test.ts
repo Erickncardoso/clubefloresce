@@ -55,6 +55,30 @@ test("isCulinarySwapAllowed: permite arroz por feijão no almoço", () => {
   );
 });
 
+test("isCulinarySwapAllowed: bloqueia arroz por baunilha", () => {
+  assert.equal(
+    isCulinarySwapAllowed(
+      "Arroz, branco, cozido",
+      "Baunilha, essência",
+      "any",
+      "carb_rich",
+    ),
+    false,
+  );
+});
+
+test("isCulinarySwapAllowed: bloqueia arroz por item sem papel culinário", () => {
+  assert.equal(
+    isCulinarySwapAllowed(
+      "Arroz, branco, cozido",
+      "Açúcar, refinado",
+      "lunch",
+      "carb_rich",
+    ),
+    false,
+  );
+});
+
 test("scoreCulinarySwapFit: prioriza batata sobre canjica para arroz no almoço", () => {
   const batata = scoreCulinarySwapFit(
     "Arroz, branco",

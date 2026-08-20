@@ -10,7 +10,7 @@ export type CarbRole =
   | "other";
 
 const MEAL_STAPLE_PATTERN =
-  /\b(arroz|macarr[aã]o|batata|mandioca|aipim|macaxeira|inhame|baroa|cara\b|quinoa|polenta|cuscuz(?!\s+doce)|pur[eê]|nhoque|massa\b)\b/i;
+  /\b(arroz|macarr[aã]o|batata|mandioca|aipim|macaxeira|inhame|baroa|cara\b|quinoa|polenta|cuscuz(?!\s+doce)|pur[eê]|nhoque|massa\b|milho(?!\s+de\s+pipoca)|tapioca(?!\s+cremosa))\b/i;
 
 const LEGUME_PATTERN =
   /\b(feij[aã]o|lentilha|gr[aã]o[- ]de[- ]bico|ervilha|soja\b|edamame)\b/i;
@@ -23,6 +23,10 @@ const BREAD_PATTERN =
 
 const DESSERT_OR_TREAT_PATTERN =
   /\b(picol[eé]|sorvete|brigadeiro|pudim|doce\s+de\s+leite|bolo\b|brownie|cookie|biscoito\s+recheado)\b/i;
+
+/** Essências, aromas e itens que não são carboidrato de prato (ex.: baunilha). */
+const FLAVORING_OR_NON_STAPLE_PATTERN =
+  /\b(baunilha|vanilla|ess[eê]ncia|extrato|aroma|flavor|corante|fermento|levedura|gelatina\s+em\s+p[oó]|whey|creatina|col[aá]geno)\b/i;
 
 const MAIN_MEAL_PERIODS = new Set<MealPeriod>(["lunch", "dinner"]);
 
@@ -38,6 +42,7 @@ export function resolveMealPeriod(mealLabel: string, mealId = ""): MealPeriod {
 export function resolveCarbRole(name: string): CarbRole {
   const text = name.trim();
   if (!text) return "other";
+  if (FLAVORING_OR_NON_STAPLE_PATTERN.test(text)) return "other";
   if (BREAKFAST_CARB_PATTERN.test(text)) return "breakfast_cereal";
   if (BREAD_PATTERN.test(text)) return "bread";
   if (LEGUME_PATTERN.test(text)) return "legume";
@@ -50,36 +55,56 @@ function rolesCompatibleAtMeal(
   substituteRole: CarbRole,
   mealPeriod: MealPeriod,
 ): boolean {
+  // Papel conhecido: só troca por papel compatível — nunca por "other" (baunilha, pó, aroma…).
   if (originalRole === substituteRole && originalRole !== "other") return true;
 
   const isMainMeal = MAIN_MEAL_PERIODS.has(mealPeriod) || mealPeriod === "any";
 
   if (isMainMeal) {
+    // Café da manhã não entra como troca de prato principal (mesmo papel já passou acima).
     if (substituteRole === "breakfast_cereal") return false;
     if (originalRole === "meal_staple" && substituteRole === "bread") return false;
 
     if (originalRole === "meal_staple") {
-      return substituteRole === "legume" || substituteRole === "meal_staple" || substituteRole === "other";
+      return substituteRole === "legume" || substituteRole === "meal_staple";
     }
 
     if (originalRole === "legume") {
-      return substituteRole === "meal_staple" || substituteRole === "legume" || substituteRole === "other";
+      return substituteRole === "meal_staple" || substituteRole === "legume";
     }
 
     if (originalRole === "breakfast_cereal") {
-      return substituteRole === "bread" || substituteRole === "other";
+      return substituteRole === "bread";
+    }
+
+    if (originalRole === "bread") {
+      return substituteRole === "bread";
     }
   }
 
   if (mealPeriod === "breakfast") {
-    if (originalRole === "breakfast_cereal" && substituteRole === "meal_staple") return false;
-    if (originalRole === "breakfast_cereal" && substituteRole === "legume") return false;
-    if (substituteRole === "meal_staple" && originalRole !== "meal_staple") return false;
-    if (substituteRole === "legume") return false;
+    if (originalRole === "breakfast_cereal") {
+      return substituteRole === "breakfast_cereal" || substituteRole === "bread";
+    }
+    if (originalRole === "bread") {
+      return substituteRole === "bread" || substituteRole === "breakfast_cereal";
+    }
+    if (originalRole === "meal_staple") {
+      return substituteRole === "meal_staple" || substituteRole === "bread";
+    }
+    return false;
   }
 
-  if (originalRole === "other" || substituteRole === "other") return true;
+  if (mealPeriod === "snack") {
+    if (originalRole === "bread" || originalRole === "breakfast_cereal") {
+      return substituteRole === "bread" || substituteRole === "breakfast_cereal";
+    }
+    if (originalRole === "meal_staple" || originalRole === "legume") {
+      return substituteRole === "meal_staple" || substituteRole === "legume";
+    }
+  }
 
+  // Sem papel culinário claro → não sugerir troca automática
   return false;
 }
 
@@ -90,6 +115,8 @@ export function isCulinarySwapAllowed(
   swapGroup: SwapGroup,
 ): boolean {
   if (DESSERT_OR_TREAT_PATTERN.test(substituteName)) return false;
+  if (FLAVORING_OR_NON_STAPLE_PATTERN.test(substituteName)) return false;
+  if (FLAVORING_OR_NON_STAPLE_PATTERN.test(originalName)) return false;
   if (swapGroup !== "carb_rich") return true;
 
   return rolesCompatibleAtMeal(

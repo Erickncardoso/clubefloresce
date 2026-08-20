@@ -62,11 +62,11 @@ export function getSwapGroupLabel(group: SwapGroup | null): string {
 export function getCategoriesForSwapGroup(group: SwapGroup): string[] {
   switch (group) {
     case "carb_rich":
+      // Sem Miscelâneas: evita aromas/essências (ex. baunilha) entrarem no pool de trocas.
       return [
         "Cereais e derivados",
         "Leguminosas e derivados",
         "Verduras, hortaliças e derivados",
-        "Miscelâneas",
       ];
     case "protein_rich":
       return [

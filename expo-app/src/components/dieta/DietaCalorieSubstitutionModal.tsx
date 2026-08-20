@@ -414,6 +414,13 @@ function SheetBody({ mealLabel }: { mealLabel: string }) {
         return;
       }
 
+      if (!data.suggestions?.length) {
+        setError(
+          'Essa troca não faz sentido no mesmo tipo de alimento (ex.: cereal com cereal). Escolha outro substituto.',
+        );
+        return;
+      }
+
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setResult(data);
     } catch (err) {
@@ -437,18 +444,18 @@ function SheetBody({ mealLabel }: { mealLabel: string }) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <DietaSheetSteps steps={['Comeu', 'Porção', 'Substituto', 'Resultado']} activeIndex={stepIndex} />
+        <DietaSheetSteps steps={['Mudar', 'Porção', 'Substituto', 'Resultado']} activeIndex={stepIndex} />
 
         <Text style={styles.lead}>
-          Escolha os dois alimentos — calculamos a porção equivalente em calorias para você.
+          Escolha o que gostaria de mudar e por qual alimento trocar — calculamos a porção equivalente em calorias, no mesmo tipo de alimento.
         </Text>
 
         {!result ? (
           <>
-            <Text style={styles.fieldLabel}>Alimento que você comeu</Text>
+            <Text style={styles.fieldLabel}>Alimento que gostaria de mudar</Text>
             {selectedFood ? (
               <SelectedFoodCard
-                kicker="Você comeu"
+                kicker="Você quer mudar"
                 label={originalLabel}
                 onChange={clearFood}
               />
@@ -478,7 +485,7 @@ function SheetBody({ mealLabel }: { mealLabel: string }) {
 
             {selectedFood ? (
               <>
-                <Text style={styles.fieldLabel}>Quantidade que comeu (g)</Text>
+                <Text style={styles.fieldLabel}>Quantidade a mudar (g)</Text>
                 <DietaQuantityStepper
                   value={grams}
                   onChange={onGramsChange}
@@ -580,7 +587,7 @@ function SheetBody({ mealLabel }: { mealLabel: string }) {
         ) : (
           <View style={styles.results}>
             <View style={[styles.resultCard, styles.resultOriginal]}>
-              <Text style={styles.resultKicker}>Você comeu</Text>
+              <Text style={styles.resultKicker}>Você quer mudar</Text>
               <Text style={styles.resultName}>{originalLabel}</Text>
               <Text style={styles.resultMacros}>{formatMacros(result.original.macros)}</Text>
             </View>
@@ -595,7 +602,7 @@ function SheetBody({ mealLabel }: { mealLabel: string }) {
                 <Text style={styles.resultKicker}>Equivalente em calorias</Text>
                 <Text style={styles.resultName}>{replacementLabel}</Text>
                 <Text style={styles.resultHighlight}>
-                  Coma <Text style={styles.resultStrong}>{swap.macros.grams} g</Text>
+                  Use <Text style={styles.resultStrong}>{swap.macros.grams} g</Text>
                   {' '}para ficar com{' '}
                   <Text style={styles.resultStrong}>{swap.macros.caloriesKcal} kcal</Text>
                   {' '}(mesma energia do alimento original).
@@ -603,7 +610,9 @@ function SheetBody({ mealLabel }: { mealLabel: string }) {
                 <Text style={styles.resultMacros}>{formatMacros(swap.macros)}</Text>
               </View>
             ) : (
-              <Text style={styles.emptyHint}>Não encontramos equivalência para essa combinação.</Text>
+              <Text style={styles.emptyHint}>
+                Não encontramos equivalência no mesmo tipo de alimento. Tente outro substituto (ex.: cereal por cereal).
+              </Text>
             )}
 
             <Pressable

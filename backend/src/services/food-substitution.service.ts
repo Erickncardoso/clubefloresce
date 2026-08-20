@@ -1,7 +1,11 @@
 import type { FoodItemDto } from "../types/food.types";
 import { FoodRepository } from "../repositories/food.repository";
-import type { SwapGroup } from "./bella/food-category";
-import { resolveSwapGroup } from "./bella/food-category";
+import {
+  canSwapWithinGroup,
+  isAbsurdSwap,
+  resolveSwapGroup,
+  type SwapGroup,
+} from "./bella/food-category";
 import {
   buildEquivalentPortion,
   type PortionMacros,
@@ -23,7 +27,11 @@ import {
   resolveSubstitutionGroupFilter,
   resolveSubstitutionMealPeriod,
 } from "../utils/calorie-substitution-ranking";
-import type { MealPeriod } from "./bella/swap-culinary-fit";
+import {
+  isCulinarySwapAllowed,
+  type MealPeriod,
+} from "./bella/swap-culinary-fit";
+import { isPreparationSwapAllowed } from "./bella/swap-prep-state";
 
 const foodRepository = new FoodRepository();
 
@@ -134,13 +142,14 @@ function toResult(
 async function loadCandidates(
   filter: SubstitutionGroupFilter,
   excludeIds: string[],
+  originalFood?: FoodItemDto,
 ): Promise<FoodItemDto[]> {
   const merged = new Map<string, FoodItemDto>();
 
   for (const group of groupsForFilter(filter)) {
     const items = await foodRepository.findForSwapGroup(group, {
       excludeNames: [],
-      limit: 220,
+      limit: 280,
     });
     for (const item of items) {
       if (excludeIds.includes(item.id)) continue;
@@ -151,6 +160,40 @@ async function loadCandidates(
       });
       if (filter !== "all" && itemGroup !== filter) continue;
       merged.set(item.id, item);
+    }
+  }
+
+  // Sementes clássicas de troca isocalórica (garante batata/feijão mesmo se o pool geral falhar).
+  if (originalFood && (filter === "carb_rich" || filter === "all")) {
+    const originalGroup = resolveSwapGroup({
+      category: originalFood.category,
+      name: originalFood.name,
+      per100g: normalizePer100gMacros(originalFood),
+    });
+    if (originalGroup === "carb_rich") {
+      const seedQueries = [
+        "batata inglesa cozida",
+        "mandioca cozida",
+        "macarrão trigo cozido",
+        "feijão carioca cozido",
+        "lentilha cozida",
+        "quinoa cozida",
+        "inhame cozido",
+        "polenta cozida",
+        "cuscuz de milho",
+        "milho verde cozido",
+      ];
+      for (const query of seedQueries) {
+        const hit = await smartMatchFood(query);
+        if (!hit || excludeIds.includes(hit.id)) continue;
+        const hitGroup = resolveSwapGroup({
+          category: hit.category,
+          name: hit.name,
+          per100g: normalizePer100gMacros(hit),
+        });
+        if (hitGroup !== "carb_rich") continue;
+        merged.set(hit.id, hit);
+      }
     }
   }
 
@@ -232,6 +275,39 @@ export async function calculateFoodSubstitution(
       };
     }
 
+    const originalPer100g = normalizePer100gMacros(originalFood);
+    const originalGroup = resolveSwapGroup({
+      category: originalFood.category,
+      name: originalFood.name,
+      per100g: originalPer100g,
+    });
+    const replacementGroup = resolveSwapGroup({
+      category: replacement.category,
+      name: replacement.name,
+      per100g: normalizePer100gMacros(replacement),
+    });
+
+    const sameGroup =
+      canSwapWithinGroup(originalGroup, replacementGroup) &&
+      !isAbsurdSwap(originalGroup, replacementGroup);
+    const culinaryOk = isCulinarySwapAllowed(
+      originalFood.name,
+      replacement.name,
+      mealPeriod,
+      originalGroup,
+    );
+    const prepOk = isPreparationSwapAllowed(originalFood.name, replacement.name);
+
+    if (!sameGroup || !culinaryOk || !prepOk) {
+      return {
+        criterion,
+        groupFilter,
+        mode,
+        original: originalResult,
+        suggestions: [],
+      };
+    }
+
     const per100g = normalizePer100gMacros(replacement);
     const equivalent = buildEquivalentPortion(
       per100g,
@@ -239,7 +315,7 @@ export async function calculateFoodSubstitution(
       criterionToAnchor(criterion),
     );
     const originalVector = buildNutrientVector(
-      normalizePer100gMacros(originalFood),
+      originalPer100g,
       originalMacros.grams,
       readFiberG(originalFood),
     );
@@ -259,7 +335,7 @@ export async function calculateFoodSubstitution(
     };
   }
 
-  const candidates = await loadCandidates(groupFilter, [originalFood.id]);
+  const candidates = await loadCandidates(groupFilter, [originalFood.id], originalFood);
   const ranked = rankCandidates(originalFood, originalMacros, candidates, criterion, mealPeriod);
   const suggestions = pickDiverseSubstitutionSuggestions(ranked, originalFood.name, limit);
 

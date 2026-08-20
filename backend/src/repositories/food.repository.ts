@@ -473,37 +473,52 @@ export class FoodRepository {
     const categories = getCategoriesForSwapGroup(group);
     if (!categories.length) return [];
 
-    const limit = Math.min(Math.max(options?.limit ?? 80, 1), 200);
+    const limit = Math.min(Math.max(options?.limit ?? 80, 1), 300);
     const excludeNames = (options?.excludeNames || [])
       .map((name) => name.trim())
       .filter(Boolean);
 
-    const rows = await prisma.foodItem.findMany({
-      where: {
-        category: { in: categories },
-        ...(excludeNames.length
-          ? {
-              NOT: {
-                OR: excludeNames.map((name) => ({
-                  name: { equals: name, mode: "insensitive" as const },
-                })),
-              },
-            }
-          : {}),
-      },
-      orderBy: [{ source: "desc" }, { name: "asc" }],
-      take: limit,
-    });
+    // Busca por categoria com cota própria — evita o take global
+    // ficar só com cereais A–C e nunca chegar em batata/feijão/mandioca.
+    const perCategory = Math.max(40, Math.ceil(limit / categories.length));
+    const rowsNested = await Promise.all(
+      categories.map((category) =>
+        prisma.foodItem.findMany({
+          where: {
+            category,
+            ...(excludeNames.length
+              ? {
+                  NOT: {
+                    OR: excludeNames.map((name) => ({
+                      name: { equals: name, mode: "insensitive" as const },
+                    })),
+                  },
+                }
+              : {}),
+          },
+          orderBy: [{ source: "desc" }, { name: "asc" }],
+          take: perCategory,
+        }),
+      ),
+    );
 
-    return rows
-      .map(mapFood)
-      .filter(
-        (food) =>
+    const merged = new Map<string, ReturnType<typeof mapFood>>();
+    for (const rows of rowsNested) {
+      for (const row of rows) {
+        const food = mapFood(row);
+        if (
           resolveSwapGroup({
             category: food.category,
             name: food.name,
             per100g: normalizePer100gMacros(food),
-          }) === group,
-      );
+          }) !== group
+        ) {
+          continue;
+        }
+        merged.set(food.id, food);
+      }
+    }
+
+    return [...merged.values()].slice(0, limit);
   }
 }

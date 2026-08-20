@@ -3,14 +3,14 @@
     <PatientHeader />
 
     <p class="subst-lead">
-      Escolha o que você comeu e por qual alimento quer trocar. Calculamos a quantidade equivalente em calorias (TBCA/TACO).
+      Escolha o que gostaria de mudar e por qual alimento quer trocar. Calculamos a quantidade equivalente em calorias no mesmo tipo de alimento (TBCA/TACO).
     </p>
 
     <section class="cf-card subst-form">
       <h2 class="subst-form-title">Troca por calorias</h2>
 
       <label class="subst-label">
-        Alimento que você comeu
+        Alimento que gostaria de mudar
         <input
           v-model="foodQuery"
           type="search"
@@ -35,7 +35,7 @@
       </p>
 
       <label class="subst-label">
-        Quantidade que comeu (g)
+        Quantidade a mudar (g)
         <input v-model.number="grams" type="number" min="1" step="1" class="subst-input" />
       </label>
 
@@ -78,7 +78,7 @@
 
     <section v-if="result" class="subst-results">
       <article class="cf-card subst-result-card subst-result-card--original">
-        <p class="subst-result-kicker">Você comeu</p>
+        <p class="subst-result-kicker">Você quer mudar</p>
         <strong>{{ result.original.name }}</strong>
         <p class="subst-result-macros">{{ formatMacros(result.original.macros) }}</p>
       </article>
@@ -87,7 +87,7 @@
         <p class="subst-result-kicker">Equivalente em calorias</p>
         <strong>{{ result.suggestions[0].name }}</strong>
         <p class="subst-result-highlight">
-          Coma <strong>{{ result.suggestions[0].macros.grams }} g</strong>
+          Use <strong>{{ result.suggestions[0].macros.grams }} g</strong>
           para ficar com
           <strong>{{ result.suggestions[0].macros.caloriesKcal }} kcal</strong>
           (mesma energia do alimento original).
@@ -95,7 +95,9 @@
         <p class="subst-result-macros">{{ formatMacros(result.suggestions[0].macros) }}</p>
       </article>
 
-      <p v-else class="subst-empty">Não encontramos equivalência para essa combinação.</p>
+      <p v-else class="subst-empty">
+        Não encontramos equivalência no mesmo tipo de alimento. Tente outro substituto (ex.: cereal por cereal).
+      </p>
     </section>
   </div>
 </template>
@@ -184,7 +186,13 @@ async function handleCalculate() {
       groupFilter: 'all',
       replacementId: selectedReplacement.value.id,
       limit: 1,
+      mealLabel: 'Calculadora de trocas',
     })
+    if (!result.value?.suggestions?.length) {
+      error.value =
+        'Essa troca não faz sentido no mesmo tipo de alimento (ex.: cereal com cereal). Escolha outro substituto.'
+      result.value = null
+    }
   } catch (err) {
     error.value = err?.data?.message || 'Não foi possível calcular a substituição.'
   } finally {

@@ -90,3 +90,61 @@ test("isCalorieSubstitutionCandidateAllowed: bloqueia outra variedade de arroz",
     false,
   );
 });
+
+test("isCalorieSubstitutionCandidateAllowed: permite batata e feijão para arroz", () => {
+  const original = {
+    id: "orig",
+    name: "Arroz, branco, cozido",
+    category: "Cereais e derivados",
+    source: "TBCA" as const,
+    sourceCode: "X",
+    nutrients: { per100g: {} },
+    per100g: { caloriesKcal: 130, carbsG: 28, proteinG: 2, fatG: 0, fiberG: 1, sodiumMg: 0 },
+  };
+  const batata = {
+    ...original,
+    id: "bat",
+    name: "Batata, inglesa, cozida",
+    category: "Verduras, hortaliças e derivados",
+    per100g: { caloriesKcal: 80, carbsG: 18, proteinG: 2, fatG: 0, fiberG: 2, sodiumMg: 0 },
+  };
+  const feijao = {
+    ...original,
+    id: "fej",
+    name: "Feijão, carioca, cozido",
+    category: "Leguminosas e derivados",
+    per100g: { caloriesKcal: 120, carbsG: 20, proteinG: 8, fatG: 0, fiberG: 6, sodiumMg: 0 },
+  };
+
+  assert.equal(
+    isCalorieSubstitutionCandidateAllowed(original, batata, "any", "carb_rich"),
+    true,
+  );
+  assert.equal(
+    isCalorieSubstitutionCandidateAllowed(original, feijao, "any", "carb_rich"),
+    true,
+  );
+});
+
+test("isCalorieSubstitutionCandidateAllowed: bloqueia baunilha para arroz", () => {
+  const original = {
+    id: "orig",
+    name: "Arroz, branco, cozido",
+    category: "Cereais e derivados",
+    source: "TBCA" as const,
+    sourceCode: "X",
+    nutrients: { per100g: {} },
+    per100g: { caloriesKcal: 130, carbsG: 28, proteinG: 2, fatG: 0, fiberG: 1, sodiumMg: 0 },
+  };
+  const baunilha = {
+    ...original,
+    id: "van",
+    name: "Essência de baunilha",
+    category: "Miscelâneas",
+  };
+
+  assert.equal(
+    isCalorieSubstitutionCandidateAllowed(original, baunilha, "any", "carb_rich"),
+    false,
+  );
+});

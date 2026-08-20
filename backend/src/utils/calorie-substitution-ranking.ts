@@ -1,6 +1,11 @@
 import type { SubstitutionFoodResult } from "../services/food-substitution.service";
 import type { FoodItemDto } from "../types/food.types";
-import { resolveSwapGroup, type SwapGroup } from "../services/bella/food-category";
+import {
+  canSwapWithinGroup,
+  isAbsurdSwap,
+  resolveSwapGroup,
+  type SwapGroup,
+} from "../services/bella/food-category";
 import {
   isCulinarySwapAllowed,
   resolveMealPeriod,
@@ -70,6 +75,15 @@ export function isCalorieSubstitutionCandidateAllowed(
   if (candidate.id === originalFood.id) return false;
   if (isCompoundDishName(candidate.name)) return false;
   if (/sandu[ií]che|picol[eé]|sorvete|hamb[uú]rguer.*p[aã]o/i.test(candidate.name)) return false;
+
+  const candidateGroup = resolveSwapGroup({
+    category: candidate.category,
+    name: candidate.name,
+    per100g: normalizePer100gMacros(candidate),
+  });
+  if (!canSwapWithinGroup(swapGroup, candidateGroup) || isAbsurdSwap(swapGroup, candidateGroup)) {
+    return false;
+  }
 
   if (
     !isCulinarySwapAllowed(originalFood.name, candidate.name, mealPeriod, swapGroup)
