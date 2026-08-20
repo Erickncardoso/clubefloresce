@@ -69,6 +69,10 @@
 <script setup>
 import { CheckCircle2, Sparkles } from 'lucide-vue-next'
 import { isPatientPaidAccessActive } from '~/utils/patient-access'
+import {
+  appleItunesAppMetaContent,
+  openNativeAppOrStore,
+} from '~/utils/native-app-links'
 
 definePageMeta({ layout: 'patient' })
 
@@ -80,6 +84,15 @@ const { fetchMySubscription, subscription } = useBillingCheckout()
 const loading = ref(false)
 const showAppModal = ref(false)
 const sessionUser = ref(null)
+
+useHead(() => ({
+  meta: [{
+    key: 'apple-itunes-app',
+    name: 'apple-itunes-app',
+    content: appleItunesAppMetaContent('/assinatura/obrigado'),
+  }],
+  title: 'Pagamento confirmado — Clube Florescer',
+}))
 
 const guestEmail = computed(() => String(route.query.email || '').trim().toLowerCase())
 const isGuest = computed(() => !sessionUser.value?.id)
@@ -109,7 +122,7 @@ onMounted(async () => {
 })
 
 function openApp() {
-  window.location.href = 'clubeflorescer://inicio'
+  openNativeAppOrStore()
 }
 
 function formatDate(value) {

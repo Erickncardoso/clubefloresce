@@ -236,6 +236,11 @@ export default defineNuxtConfig({
           url: '/manifest.webmanifest',
           id: 'clube-florescer-paciente',
         },
+        {
+          platform: 'itunes',
+          url: 'https://apps.apple.com/app/id6795381418',
+          id: '6795381418',
+        },
       ],
       icons: [
         { src: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -255,7 +260,7 @@ export default defineNuxtConfig({
       importScripts: ['/push-sw.js'],
     },
     client: {
-      installPrompt: pwaSwEnabled,
+      installPrompt: false,
       periodicSyncForUpdates: pwaSwEnabled ? 300 : 0,
     },
     devOptions: {

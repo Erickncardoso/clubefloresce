@@ -2,6 +2,7 @@
   <div class="patient-app-shell" :class="{ 'patient-app-shell--gated': showAppGate }">
     <NuxtPwaManifest />
     <div class="patient-app-shell__main" :inert="showAppGate">
+      <PatientIosAppBanner />
       <NuxtPage />
     </div>
     <PatientScreenDim v-if="config.public.mobileApp" />
@@ -9,7 +10,6 @@
     <PatientTabBar v-if="showTabBar" />
     <PatientQuickAccessFab v-if="showQuickAccessFab" />
     <PatientPwaUpdate />
-    <PatientPwaPrompt />
     <CfConfirmModal />
     <AppToast />
     <PatientMealPlanUploadOverlay />
@@ -30,10 +30,30 @@ import { usePatientAccessSync } from '~/composables/usePatientAccessSync'
 import { isPatientAppAccessBlocked } from '~/utils/patient-access'
 import { dismissPushPrompt, isPushPromptDismissed } from '~/utils/push-prompt-dismiss'
 import { isPrivateLanHostname, isPushSecureContext } from '~/utils/resolve-api-base.mjs'
+import { appleItunesAppMetaContent } from '~/utils/native-app-links'
 
 const route = useRoute()
 const config = useRuntimeConfig()
 useVirtualKeyboard()
+
+/** Safari Smart App Banner + card: PWA (login e logada); checkout só em /obrigado. */
+const enableIosSmartAppBanner = computed(() => {
+  if (!config.public.mobileApp) return false
+  const path = route.path
+  if (path === '/assinatura/obrigado') return true
+  if (path === '/assinatura' || path.startsWith('/assinatura/')) return false
+  return true
+})
+
+useHead(() => ({
+  meta: [{
+    key: 'apple-itunes-app',
+    name: 'apple-itunes-app',
+    content: enableIosSmartAppBanner.value
+      ? appleItunesAppMetaContent(route.fullPath || '/')
+      : null,
+  }],
+}))
 
 if (config.public.mobileApp) {
   usePatientAccessSync()
