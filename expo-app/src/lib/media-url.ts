@@ -3,7 +3,7 @@ import { getApiBase } from '@/config/env';
 export function resolveMediaUrl(url?: string | null): string {
   const value = String(url || '').trim();
   if (!value) return '';
-  if (/^https?:\/\//i.test(value)) return value;
+  if (/^(https?|file|content|ph|assets-library|data):/i.test(value)) return value;
 
   const apiBase = getApiBase().replace(/\/$/, '');
   const path = value.startsWith('/') ? value : `/${value}`;

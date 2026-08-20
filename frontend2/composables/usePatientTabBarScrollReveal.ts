@@ -6,6 +6,7 @@ const MIN_SCROLL_DELTA = 6
 /** Menu inferior some ao rolar para baixo e reaparece ao rolar para cima. */
 export function usePatientTabBarScrollReveal() {
   const hidden = useState('patient-tab-bar-scroll-hidden', () => false)
+  const revealFromBottom = useState('patient-tab-bar-scroll-from-bottom', () => true)
 
   let lastScrollTop = 0
   let scrollRoot: HTMLElement | null = null
@@ -13,6 +14,7 @@ export function usePatientTabBarScrollReveal() {
 
   function reveal() {
     hidden.value = false
+    revealFromBottom.value = true
   }
 
   function onScroll() {
@@ -24,7 +26,13 @@ export function usePatientTabBarScrollReveal() {
     if (scrollTop <= TOP_REVEAL_PX) {
       reveal()
     } else if (Math.abs(delta) >= MIN_SCROLL_DELTA) {
-      hidden.value = delta > 0
+      if (delta > 0) {
+        revealFromBottom.value = false
+        hidden.value = true
+      } else {
+        revealFromBottom.value = true
+        hidden.value = false
+      }
     }
 
     lastScrollTop = scrollTop
@@ -55,5 +63,5 @@ export function usePatientTabBarScrollReveal() {
     reveal()
   })
 
-  return { hidden, reveal }
+  return { hidden, revealFromBottom, reveal }
 }

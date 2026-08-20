@@ -1,7 +1,14 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { ArrowUp, Paperclip, Sparkles } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import { BELLA_ACTIONS } from '@/lib/bella-actions';
 import { firstNameFrom } from '@/lib/format';
@@ -24,8 +31,8 @@ export default function BellaHomeScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Bella" showBack={false} showBell={false} showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
           <View style={styles.avatarWrap}>
             <View style={styles.avatar}>
@@ -62,7 +69,7 @@ export default function BellaHomeScreen() {
             </View>
           </Pressable>
         </Link>
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

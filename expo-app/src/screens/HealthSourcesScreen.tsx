@@ -1,6 +1,13 @@
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { ExternalLink } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import { HEALTH_SOURCES, HEALTH_SOURCES_NOTE } from '@/content/health-sources';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -8,8 +15,8 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 export default function HealthSourcesScreen() {
   return (
     <PatientShell withTabClearance={false}>
-      <PatientHeader title="Fontes e avisos de saúde" showBack showBell={false} showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.intro}>
           As orientações de alimentação e bem-estar do Clube Florescer se baseiam nas seguintes fontes:
         </Text>
@@ -31,7 +38,7 @@ export default function HealthSourcesScreen() {
         ))}
 
         <Text style={styles.note}>{HEALTH_SOURCES_NOTE}</Text>
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

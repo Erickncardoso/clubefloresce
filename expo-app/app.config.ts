@@ -15,9 +15,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...(config as ExpoConfig),
-    name: 'Clube Florescer',
+    name: 'Florescer',
     slug: 'clube-florescer',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     scheme: 'clubeflorescer',
     icon: './assets/icon.png',
@@ -38,7 +38,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       associatedDomains: ['applinks:app.nutrisabellajardim.com.br'],
       infoPlist: {
         NSCameraUsageDescription:
-          'A câmera é usada nas consultas por vídeo com sua nutricionista e para anexar fotos na comunidade.',
+          'A câmera é usada nas consultas por vídeo, para registrar refeições com a Bella e para anexar fotos na comunidade.',
         NSMicrophoneUsageDescription:
           'O microfone é usado nas consultas por vídeo com sua nutricionista.',
         NSPhotoLibraryUsageDescription:
@@ -84,12 +84,20 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
       ],
       [
+        'expo-camera',
+        {
+          cameraPermission:
+            'A câmera é usada nas consultas por vídeo, para registrar refeições com a Bella e para anexar fotos na comunidade.',
+          recordAudioAndroid: false,
+        },
+      ],
+      [
         'expo-image-picker',
         {
           photosPermission:
-            'Permite escolher fotos da galeria para publicar na comunidade do Clube Florescer.',
+            'Permite escolher fotos da galeria para registrar refeições e publicar na comunidade.',
           cameraPermission:
-            'Permite tirar fotos para publicar na comunidade do Clube Florescer.',
+            'Permite tirar fotos para registrar refeições e publicar na comunidade.',
         },
       ],
       [

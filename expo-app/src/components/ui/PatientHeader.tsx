@@ -1,94 +1,33 @@
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import { useState, type ReactNode } from 'react';
-import { useRouter } from 'expo-router';
-import { Bell, ChevronLeft, Menu } from 'lucide-react-native';
+import { useEffect } from 'react';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Link, useRouter } from 'expo-router';
+import { Menu } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import PatientMenuDrawer from '@/components/PatientMenuDrawer';
-import { colors, fonts, spacing } from '@/theme/tokens';
+import PatientHeaderDailyChip from '@/components/home/PatientHeaderDailyChip';
+import PatientAvatar from '@/components/ui/PatientAvatar';
+import { usePatientDailyHeader } from '@/hooks/usePatientDailyHeader';
+import { resolveMediaUrl } from '@/lib/media-url';
+import { useAuth } from '@/providers/AuthProvider';
+import { colors, spacing } from '@/theme/tokens';
 
 type Props = {
-  title?: string;
-  showBack?: boolean;
-  backTo?: string;
-  showBell?: boolean;
-  showMenu?: boolean;
-  menuLeft?: boolean;
-  light?: boolean;
-  hideBrand?: boolean;
   style?: ViewStyle;
-  /** Conteúdo à esquerda, após menu/voltar (ex.: streak na home). */
-  leadingActions?: ReactNode;
-  /** Conteúdo à direita, antes do sino (ex.: avatar). */
-  actions?: ReactNode;
-  subtitle?: string;
 };
 
-/** Espelha `frontend/components/PatientHeader.vue` — voltar estilo iOS (chevron + pill verde). */
-export default function PatientHeader({
-  title,
-  showBack = false,
-  backTo = '',
-  showBell = true,
-  showMenu = true,
-  menuLeft = false,
-  light = false,
-  hideBrand = false,
-  style,
-  leadingActions,
-  actions,
-  subtitle,
-}: Props) {
+/** Header padrão do app paciente: menu + streak à esquerda, avatar à direita. */
+export default function PatientHeader({ style }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const fg = light ? '#fff' : colors.text;
-  const muted = light ? 'rgba(255,255,255,0.7)' : colors.textMuted;
-  const showMenuLeft = showMenu && menuLeft;
-  const showMenuRight = showMenu && !menuLeft;
-  const showBackButton = showBack && !menuLeft;
+  const { user } = useAuth();
+  const { activeStreak, bootstrapDailyHeader } = usePatientDailyHeader();
+  const avatarUrl = resolveMediaUrl(user?.avatar);
 
-  function goBack() {
-    if (backTo) {
-      router.push(backTo as never);
-      return;
-    }
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.push('/inicio' as never);
-  }
+  useEffect(() => {
+    void bootstrapDailyHeader();
+  }, [bootstrapDailyHeader]);
 
   function openMenu() {
-    setMenuOpen(true);
-  }
-
-  function renderStart() {
-    if (showMenuLeft) {
-      return (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Menu"
-          style={styles.iconBtn}
-          onPress={openMenu}
-        >
-          <Menu color={fg} size={20} strokeWidth={1.75} />
-        </Pressable>
-      );
-    }
-    if (showBackButton) {
-      return (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-          style={styles.backBtn}
-          onPress={goBack}
-        >
-          <ChevronLeft color={colors.text} size={18} strokeWidth={2.1} />
-        </Pressable>
-      );
-    }
-    return <View style={styles.startSpacer} />;
+    router.push('/menu' as never);
   }
 
   return (
@@ -96,53 +35,32 @@ export default function PatientHeader({
       style={[
         styles.wrap,
         { paddingTop: insets.top + spacing[2] },
-        !light && styles.wrapSolid,
         style,
       ]}
     >
       <View style={styles.row}>
         <View style={styles.start}>
-          {renderStart()}
-          {leadingActions ? <View style={styles.leadingActions}>{leadingActions}</View> : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Menu"
+            style={styles.iconBtn}
+            onPress={openMenu}
+          >
+            <Menu color={colors.text} size={22} strokeWidth={1.75} />
+          </Pressable>
+          <PatientHeaderDailyChip activeStreak={activeStreak} />
         </View>
 
-        <View style={styles.brand} pointerEvents="none">
-          {title ? (
-            <Text style={[styles.title, { color: fg }]} numberOfLines={1}>{title}</Text>
-          ) : hideBrand ? null : (
-            <Text style={[styles.brandMark, { color: muted }]}>Clube Florescer</Text>
-          )}
-        </View>
-
-        <View style={styles.end}>
-          {actions ? <View style={styles.endActions}>{actions}</View> : null}
-          {showBell ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notificações"
-              style={styles.iconBtn}
-              onPress={() => router.push('/perfil/notificacoes' as never)}
-            >
-              <Bell color={fg} size={20} strokeWidth={1.75} />
-            </Pressable>
-          ) : showMenuRight ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Menu"
-              style={styles.iconBtn}
-              onPress={openMenu}
-            >
-              <Menu color={fg} size={20} strokeWidth={1.75} />
-            </Pressable>
-          ) : !actions ? (
-            <View style={styles.startSpacer} />
-          ) : null}
-        </View>
+        <Link href="/perfil/configuracoes" asChild>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Abrir configurações"
+            style={styles.avatarBtn}
+          >
+            <PatientAvatar src={avatarUrl} name={user?.name} size="sm" />
+          </Pressable>
+        </Link>
       </View>
-      {subtitle ? <Text style={[styles.subtitle, { color: muted }]}>{subtitle}</Text> : null}
-      {showMenu ? (
-        <PatientMenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
-      ) : null}
     </View>
   );
 }
@@ -150,10 +68,7 @@ export default function PatientHeader({
 const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: spacing[4],
-    paddingBottom: spacing[3],
-    backgroundColor: 'transparent',
-  },
-  wrapSolid: {
+    paddingBottom: spacing[2],
     backgroundColor: colors.surface,
   },
   row: {
@@ -166,61 +81,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 0,
-    zIndex: 1,
-  },
-  leadingActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  end: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    flexShrink: 0,
-    marginLeft: 'auto',
-    zIndex: 1,
-  },
-  endActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  brand: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 88,
-  },
-  title: {
-    fontFamily: fonts.semibold,
-    fontSize: 15,
-    textAlign: 'center',
-  },
-  brandMark: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  subtitle: {
-    marginTop: 2,
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    textAlign: 'center',
   },
   iconBtn: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: -6,
   },
-  startSpacer: {
+  avatarBtn: {
     width: 44,
     height: 44,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

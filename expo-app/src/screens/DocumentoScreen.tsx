@@ -28,7 +28,7 @@ export default function DocumentoScreen() {
   if (!documentSrc) {
     return (
       <PatientShell withTabClearance={false}>
-        <PatientHeader title={pageTitle} showBack backTo={backTo} showBell={false} />
+        <PatientHeader />
         <View style={styles.state}>
           <Text style={styles.stateText}>Documento indisponível.</Text>
           <CfButton label="Voltar" variant="ghost" onPress={() => router.replace(backTo as never)} />
@@ -39,7 +39,7 @@ export default function DocumentoScreen() {
 
   return (
     <PatientShell withTabClearance={false}>
-      <PatientHeader title={pageTitle} showBack backTo={backTo} showBell={false} />
+      <PatientHeader />
       <DocumentViewer documentSrc={documentSrc} title={pageTitle} />
     </PatientShell>
   );

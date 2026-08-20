@@ -3,6 +3,7 @@
   <Teleport to="#cf-tab-bar-root">
     <nav
       class="patient-nav"
+      :class="{ 'is-scroll-hidden': scrollHidden }"
       role="navigation"
       aria-label="Navegação principal"
       :style="{ '--patient-nav-columns': navItems.length }"
@@ -21,10 +22,35 @@
         :aria-current="isItemActive(item) ? 'page' : undefined"
         @click="onItemClick(item)"
       >
-        <span v-if="item.key === 'bella'" class="patient-nav__bella-icon" aria-hidden="true">
-          <component :is="item.icon" />
+        <span v-if="item.key === 'bella'" class="patient-nav__bella-wrap">
+          <span class="patient-nav__icon-row">
+            <span class="patient-nav__bella-stage" aria-hidden="true">
+              <span
+                class="patient-nav__bella-glow"
+                :class="{ 'is-active': isItemActive(item) }"
+              >
+                <span class="patient-nav__bella-blob patient-nav__bella-blob--green" />
+                <span class="patient-nav__bella-blob patient-nav__bella-blob--purple" />
+                <span class="patient-nav__bella-blob patient-nav__bella-blob--coral" />
+              </span>
+              <span
+                class="patient-nav__bella-icon"
+                :class="{ 'is-active': isItemActive(item) }"
+              >
+                <component :is="item.icon" />
+              </span>
+            </span>
+          </span>
+          <span class="patient-nav__label">{{ item.label }}</span>
         </span>
-        <component v-else :is="item.icon" />
+        <span v-else class="patient-nav__route-wrap">
+          <span class="patient-nav__icon-row">
+            <span class="patient-nav__icon-slot" aria-hidden="true">
+              <component :is="item.icon" />
+            </span>
+          </span>
+          <span class="patient-nav__label">{{ item.label }}</span>
+        </span>
       </button>
     </nav>
   </Teleport>
@@ -40,6 +66,7 @@ import NavHomeIcon from '~/components/icons/nav/NavHomeIcon.vue'
 import NavLibraryIcon from '~/components/icons/nav/NavLibraryIcon.vue'
 import { usePatientMealPlan } from '~/composables/usePatientMealPlan'
 import { usePatientNavigationLoading } from '~/composables/usePatientNavigationLoading'
+import { usePatientTabBarScrollReveal } from '~/composables/usePatientTabBarScrollReveal'
 import { isPatientFullAccessActive } from '~/utils/patient-access'
 
 const route = useRoute()
@@ -48,6 +75,7 @@ const { startNavigation, finishNavigation } = usePatientNavigationLoading()
 const { planChecked } = usePatientMealPlan()
 const { verifiedUser } = useAuthSession()
 const { navigateOrGate } = usePatientPremiumGate()
+const { hidden: scrollHidden } = usePatientTabBarScrollReveal()
 const navigating = ref(false)
 const evolucaoLastTab = useState('evolucao-last-tab', () => 'metas')
 

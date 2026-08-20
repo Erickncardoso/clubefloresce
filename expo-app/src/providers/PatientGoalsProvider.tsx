@@ -115,33 +115,40 @@ export function PatientGoalsProvider({ children }: { children: ReactNode }) {
   }, [request]);
 
   const hydrate = useCallback(async () => {
+    let next = readGoalsStore(null);
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      let next = readGoalsStore(raw);
+      next = readGoalsStore(raw);
       next = stripOrphanAutoSleepProgress(next);
       next = repairSleepScheduleInStore(next);
-      if (token) {
-        try {
-          const data = await withTimeout(
-            request<{ goals?: PatientGoal[]; progress?: Record<string, number> }>(
-              '/patient-goals/me',
-            ),
-            HYDRATE_API_TIMEOUT_MS,
-          );
-          if (Array.isArray(data?.goals) && data.goals.length) {
-            next = readGoalsStore(JSON.stringify({ goals: data.goals, progress: data.progress || {} }));
-            next = repairSleepScheduleInStore(next);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-          }
-        } catch {
-          /* local only */
-        }
+    } catch {
+      /* defaults locais */
+    }
+
+    setStore(next);
+    storeRef.current = next;
+    syncWaterLiveActivity(next);
+    setReady(true);
+
+    if (!token) return;
+
+    try {
+      const data = await withTimeout(
+        request<{ goals?: PatientGoal[]; progress?: Record<string, number> }>(
+          '/patient-goals/me',
+        ),
+        HYDRATE_API_TIMEOUT_MS,
+      );
+      if (Array.isArray(data?.goals) && data.goals.length) {
+        next = readGoalsStore(JSON.stringify({ goals: data.goals, progress: data.progress || {} }));
+        next = repairSleepScheduleInStore(next);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        setStore(next);
+        storeRef.current = next;
+        syncWaterLiveActivity(next);
       }
-      setStore(next);
-      storeRef.current = next;
-      syncWaterLiveActivity(next);
-    } finally {
-      setReady(true);
+    } catch {
+      /* mantém cache local */
     }
   }, [request, token]);
 

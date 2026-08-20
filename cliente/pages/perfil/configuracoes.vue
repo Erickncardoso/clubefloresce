@@ -1,12 +1,6 @@
 <template>
   <div class="patient-page config-page">
-    <PatientHeader
-      title="Configurações"
-      show-back
-      back-to="/perfil"
-      :show-bell="false"
-      :show-menu="false"
-    />
+    <PatientHeader />
 
     <section class="config-profile" aria-labelledby="config-profile-title">
       <label

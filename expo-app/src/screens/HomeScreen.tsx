@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 import { Link } from 'expo-router';
 import { ChevronRight, Lightbulb, Sparkles } from 'lucide-react-native';
@@ -14,9 +13,8 @@ import HomeGoalQuickAddSheet from '@/components/home/HomeGoalQuickAddSheet';
 import HomeGoalsGrid, { type HomeGoalMetric } from '@/components/home/HomeGoalsGrid';
 import HomeNutritionPanel from '@/components/home/HomeNutritionPanel';
 import HomeRecentMealUploads from '@/components/home/HomeRecentMealUploads';
-import PatientHeaderDailyChip from '@/components/home/PatientHeaderDailyChip';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
-import LoadingScreen from '@/components/ui/LoadingScreen';
 import PatientAvatar from '@/components/ui/PatientAvatar';
 import PatientHeader from '@/components/ui/PatientHeader';
 import { useDietaDiarySync } from '@/hooks/useDietaDiarySync';
@@ -31,7 +29,7 @@ import { countDone, loadChecked } from '@/lib/dieta-progress';
 import { firstNameFrom, timeGreeting, todayLabel } from '@/lib/format';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { DEFAULT_GOALS } from '@/lib/patient-goals-core';
-import { extractMealPlanMeals, getMealById } from '@/lib/meal-plan-api';
+import { getMealById } from '@/lib/meal-plan-api';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -109,8 +107,8 @@ export default function HomeScreen() {
   const { hasPaidAccess } = usePatientPlanAccess();
   const readOnlyHome = !hasPaidAccess;
   const { request } = usePatientApi();
-  const { todaySummary, hydrate: hydrateGoals } = usePatientGoals();
-  const { fetchPlan, hasPlan: hasMealPlan, meals } = usePatientMealPlan();
+  const { todaySummary } = usePatientGoals();
+  const { hasPlan: hasMealPlan, meals } = usePatientMealPlan();
   const { resyncAllCheckedMeals } = useDietaDiarySync();
   const {
     dailySummary,
@@ -118,7 +116,6 @@ export default function HomeScreen() {
     targets,
     consumed,
     caloriePercent,
-    activeStreak,
     bootstrapDailyHeader,
     refreshActivityForToday,
     loadDailyNutrition,
@@ -131,7 +128,6 @@ export default function HomeScreen() {
     goToCheckIn,
   } = useWeeklyCheckInPrompt();
 
-  const [pageLoading, setPageLoading] = useState(true);
   const [quickGoalId, setQuickGoalId] = useState('');
   const [featuredCourseId, setFeaturedCourseId] = useState<string | null>(null);
 
@@ -181,96 +177,43 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!token) return;
 
-    let cancelled = false;
-
-    const runWithTimeout = async (task: () => Promise<void>, ms = 8000) => {
-      let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      const timeout = new Promise<void>((resolve) => {
-        timeoutId = setTimeout(resolve, ms);
-      });
-      try {
-        await Promise.race([task(), timeout]);
-      } catch {
-        /* defaults abaixo */
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    };
-
-    setPageLoading(true);
-    hydrateGoals();
     void loadCheckInAccess();
+    void bootstrapDailyHeader();
+    void request<Array<{ id?: string }>>('/courses')
+      .then((courses) => setFeaturedCourseId(courses?.[0]?.id || null))
+      .catch(() => {});
+  }, [bootstrapDailyHeader, loadCheckInAccess, request, token]);
 
-    void fetchPlan().then(async (planRecord) => {
-      if (cancelled || !planRecord || !extractMealPlanMeals(planRecord).length) return;
-      const mappedMeals = extractMealPlanMeals(planRecord);
-      const mealOrder = mappedMeals.map((meal) => meal.id);
+  useEffect(() => {
+    if (!token || !hasMealPlan || !meals.length) return;
+
+    let cancelled = false;
+    const mealOrder = meals.map((meal) => meal.id);
+
+    void (async () => {
       try {
         const summary = await resyncAllCheckedMeals(
-          (mealId) => getMealById(mappedMeals, mealId),
+          (mealId) => getMealById(meals, mealId),
           mealOrder,
           loadChecked,
           countDone,
         );
         if (summary && !cancelled) setDailySummary(summary);
       } catch {
-        /* resync opcional — não bloqueia a home */
-      }
-    });
-
-    const finishLoading = () => {
-      if (!cancelled) setPageLoading(false);
-    };
-
-    const safetyTimer = setTimeout(finishLoading, 10000);
-
-    void (async () => {
-      try {
-        await Promise.allSettled([
-          runWithTimeout(async () => {
-            const courses = await request<Array<{ id?: string }>>('/courses');
-            if (!cancelled) setFeaturedCourseId(courses?.[0]?.id || null);
-          }),
-          runWithTimeout(bootstrapDailyHeader),
-        ]);
-      } finally {
-        clearTimeout(safetyTimer);
-        finishLoading();
+        /* resync opcional */
       }
     })();
 
     return () => {
       cancelled = true;
-      clearTimeout(safetyTimer);
     };
-    // Só re-bootstrap quando a sessão muda — evita loop por callbacks instáveis.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [hasMealPlan, meals, resyncAllCheckedMeals, setDailySummary, token]);
 
   return (
     <PatientShell>
-      <PatientHeader
-        menuLeft
-        showMenu
-        showBell={false}
-        hideBrand
-        leadingActions={<PatientHeaderDailyChip activeStreak={activeStreak} />}
-        actions={(
-          <Link href="/perfil/configuracoes" asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Abrir configurações"
-              style={styles.headerAvatarBtn}
-            >
-              <PatientAvatar src={avatarUrl} name={user?.name} size="sm" />
-            </Pressable>
-          </Link>
-        )}
-      />
+      <PatientHeader />
 
-      {pageLoading ? (
-        <LoadingScreen />
-      ) : readOnlyHome ? (
+      {readOnlyHome ? (
         <View style={styles.lockedWrap}>
           <View style={styles.lockedIcon}>
             <Sparkles color={colors.primaryDark} size={26} strokeWidth={2} />
@@ -286,7 +229,7 @@ export default function HomeScreen() {
           </Link>
         </View>
       ) : (
-        <ScrollView
+        <PatientScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.page}
         >
@@ -404,7 +347,7 @@ export default function HomeScreen() {
               )}
             </View>
           </View>
-        </ScrollView>
+        </PatientScrollView>
       )}
 
       {hasPaidAccess ? (
@@ -476,12 +419,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   welcome: { marginTop: 6, marginBottom: 20 },
-  headerAvatarBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   greetingProfile: {
     flexDirection: 'row',
     alignItems: 'center',

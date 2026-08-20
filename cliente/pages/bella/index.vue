@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page bella-page patient-page--with-tab">
-    <PatientHeader show-back back-to="/inicio" :show-bell="false" />
+    <PatientHeader />
 
     <main class="bella-landing">
       <header class="bella-hero">
@@ -90,7 +90,6 @@ const actions = BELLA_ACTIONS
 const actionDescriptions = {
   label: 'Entenda os ingredientes',
   meal: 'Analise uma foto',
-  receipt: 'Leia sua compra',
   restaurant: 'Escolha melhor',
   swap: 'Veja opções equivalentes',
   diet: 'Consulte seu plano',

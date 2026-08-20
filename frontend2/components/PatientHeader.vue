@@ -1,8 +1,7 @@
 <template>
-  <header class="cf-header" :class="{ 'cf-header--menu-left': menuLeft }">
+  <header class="cf-header">
     <div class="cf-header-start">
       <button
-        v-if="showMenu && menuLeft"
         type="button"
         class="cf-header-btn"
         aria-label="Menu"
@@ -10,122 +9,45 @@
       >
         <Menu class="cf-header-icon" />
       </button>
-      <button
-        v-else-if="showBack"
-        type="button"
-        class="cf-header-btn cf-header-btn--back"
-        aria-label="Voltar"
-        @click="goBack"
-      >
-        <ChevronLeft class="cf-header-icon" />
-      </button>
-    </div>
-
-    <div class="cf-header-brand" :class="{ 'cf-header-brand--interactive': $slots.brand }">
-      <slot name="brand">
-        <template v-if="title">
-          <span class="cf-header-title">{{ title }}</span>
-        </template>
-        <template v-else>
-          <PatientBrandMark size="sm" />
-        </template>
-      </slot>
+      <PatientHeaderDailyChip />
     </div>
 
     <div class="cf-header-actions">
-      <slot name="actions" />
-      <button
-        v-if="showBell"
-        ref="notifAnchorRef"
-        type="button"
-        class="cf-header-btn"
-        aria-label="Notificações"
-        :aria-expanded="notifOpen"
-        @click="toggleNotifications"
+      <NuxtLink
+        to="/perfil/configuracoes"
+        class="cf-header-avatar"
+        aria-label="Abrir configurações"
       >
-        <Bell class="cf-header-icon" />
-        <span
-          v-if="badgeText"
-          class="cf-header-badge"
-          :class="{ 'cf-header-badge--wide': badgeText.length > 1 }"
-          aria-hidden="true"
-        >{{ badgeText }}</span>
-      </button>
-      <button
-        v-if="showMenu && !menuLeft"
-        type="button"
-        class="cf-header-btn"
-        aria-label="Menu"
-        @click="openMenu"
-      >
-        <Menu class="cf-header-icon" />
-      </button>
+        <PatientAvatar
+          size="sm"
+          :src="avatarUrl"
+          :name="fullName"
+        />
+      </NuxtLink>
     </div>
-
-    <PatientMenuDrawer v-if="showMenu" :open="menuOpen" @close="menuOpen = false" />
-    <PatientNotificationsPanel
-      :open="notifOpen"
-      :anchor-el="notifAnchorRef"
-      @close="notifOpen = false"
-    />
   </header>
 </template>
 
 <script setup>
-import { Bell, ChevronLeft, Menu } from 'lucide-vue-next'
-
-const props = defineProps({
-  title: { type: String, default: '' },
-  subtitle: { type: String, default: '' },
-  showBack: { type: Boolean, default: true },
-  showBell: { type: Boolean, default: true },
-  showMenu: { type: Boolean, default: true },
-  menuLeft: { type: Boolean, default: false },
-  hasNotifications: { type: Boolean, default: false },
-  backTo: { type: String, default: '' },
-})
-
-const router = useRouter()
-const menuOpen = ref(false)
-const notifOpen = ref(false)
-const notifAnchorRef = ref(null)
-const { unreadCount, fetchNotifications } = usePatientNotifications()
+import { Menu } from 'lucide-vue-next'
 import { releasePatientInteractionLock } from '~/utils/patient-interaction-lock.mjs'
 
+const { userFullName, userAvatar } = usePatientApp()
+const { bootstrapDailyHeader } = usePatientDailyHeader()
 const { close: closeQuickDial } = usePatientQuickAccess()
 
-const badgeText = computed(() => {
-  if (!props.hasNotifications && unreadCount.value <= 0) return ''
-  const count = props.hasNotifications ? Math.max(unreadCount.value, 1) : unreadCount.value
-  if (count <= 0) return ''
-  return count > 9 ? '9+' : String(count)
-})
+const fullName = computed(() => userFullName())
+const avatarUrl = computed(() => userAvatar())
 
 function openMenu() {
-  notifOpen.value = false
   closeQuickDial()
   releasePatientInteractionLock()
-  menuOpen.value = true
-}
-
-function toggleNotifications() {
-  closeQuickDial()
-  menuOpen.value = false
-  notifOpen.value = !notifOpen.value
-}
-
-function goBack() {
-  if (props.backTo) {
-    navigateTo(props.backTo)
-    return
-  }
-  if (import.meta.client && window.history.length > 1) router.back()
-  else navigateTo('/inicio')
+  navigateTo('/menu')
 }
 
 onMounted(() => {
-  if (!props.showBell || !import.meta.client) return
-  void fetchNotifications()
+  if (!import.meta.client) return
+  void bootstrapDailyHeader()
 })
 </script>
 
@@ -136,7 +58,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: calc(0.5rem + env(safe-area-inset-top)) 1rem 0.75rem;
+  padding: calc(0.5rem + env(safe-area-inset-top)) 1rem 0.5rem;
   background: var(--cf-bg);
 }
 
@@ -144,13 +66,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  min-width: 2.75rem;
   flex-shrink: 0;
   z-index: 1;
+  margin-left: -0.35rem;
 }
 
 .cf-header-btn {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -168,101 +89,39 @@ onMounted(() => {
   background: var(--cf-border);
 }
 
-.cf-header-btn--back {
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 0.75rem;
-  background: var(--cf-green-soft, #eef0eb);
-}
-
-.cf-header-btn--back:hover {
-  background: color-mix(in srgb, var(--cf-green-soft, #eef0eb) 72%, var(--cf-border));
-}
-
-.cf-header-btn--back:active {
-  background: color-mix(in srgb, var(--cf-green-soft, #eef0eb) 55%, var(--cf-border));
-}
-
-.cf-header-btn--back .cf-header-icon {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-
 .cf-header-btn:focus-visible {
   outline: 2px solid var(--cf-pink);
   outline-offset: 2px;
 }
 
 .cf-header-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.35rem;
+  height: 1.35rem;
   stroke-width: 1.75;
   color: var(--cf-text);
-}
-
-.cf-header-brand {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  max-width: calc(100% - 8.5rem);
-  pointer-events: none;
-}
-
-.cf-header-brand--interactive {
-  pointer-events: auto;
-  max-width: calc(100% - 6.5rem);
-}
-
-.cf-header-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
 }
 
 .cf-header-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 0.15rem;
   flex-shrink: 0;
   z-index: 1;
 }
 
-.cf-header-badge {
-  position: absolute;
-  top: 0.42rem;
-  right: 0.38rem;
-  display: inline-flex;
+.cf-header-avatar {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 0.8rem;
-  height: 0.8rem;
-  padding: 0;
+  width: 2.75rem;
+  height: 2.75rem;
   border-radius: 50%;
-  background: var(--cf-green);
-  color: #fff;
-  font-size: 0.5rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  border: 1.5px solid var(--cf-bg);
-  pointer-events: none;
-  box-sizing: border-box;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.cf-header-badge--wide {
-  width: auto;
-  min-width: 0.8rem;
-  height: 0.8rem;
-  padding: 0 0.18rem;
-  border-radius: 999px;
+.cf-header-avatar:focus-visible {
+  outline: 2px solid var(--cf-pink);
+  outline-offset: 2px;
 }
 </style>

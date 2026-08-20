@@ -4,7 +4,7 @@
     class="patient-page checkin-page checkin-page--typeform"
     :class="{ 'checkin-page--flow': view === 'flow' }"
   >
-    <PatientHeader v-if="view === 'list'" title="Check-ins" show-back back-to="/inicio" />
+    <PatientHeader />
 
     <div v-if="loadingTemplates" class="checkin-loading">
       <PatientPageSkeleton layout="checkin" />

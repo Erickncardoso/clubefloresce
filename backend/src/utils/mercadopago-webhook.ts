@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getMercadoPagoWebhookSecret } from "./mercadopago-config";
+import { addBillingPeriod } from "./billing-renewal-dates";
 
 type WebhookHeaders = {
   "x-signature"?: string;
@@ -87,9 +88,11 @@ export function verifyMercadoPagoWebhookSignature(
 }
 
 export function addBillingPeriodDays(from = new Date(), days = 30): Date {
-  const next = new Date(from);
-  next.setDate(next.getDate() + days);
-  return next;
+  const n = Math.max(1, Math.round(Number(days) || 30));
+  if (n % 30 === 0) {
+    return addBillingPeriod(from, n / 30, "months");
+  }
+  return addBillingPeriod(from, n, "days");
 }
 
 /** Só libera acesso quando o pagamento acaba de ser confirmado (evita somar meses em webhooks repetidos). */

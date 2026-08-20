@@ -47,7 +47,7 @@ export function mapBillingErrorMessage(raw?: string | null): string {
     || lower.includes("debito")
     || lower.includes("debit")
   ) {
-    return "Aceitamos só cartão de crédito (Visa, Mastercard, Elo ou Amex) ou Pix.";
+    return "Aceitamos só cartão de crédito (Visa, Mastercard, Elo, Amex ou Diners) ou Pix.";
   }
 
   if (
@@ -56,7 +56,7 @@ export function mapBillingErrorMessage(raw?: string | null): string {
     || lower.includes("bandeira")
     || lower.includes("cannot get payment method")
   ) {
-    return "Use um cartão de crédito Visa, Mastercard, Elo ou Amex, ou pague com Pix.";
+    return "Use um cartão de crédito Visa, Mastercard, Elo, Amex ou Diners, ou pague com Pix.";
   }
 
   if (lower.includes("recusad") || lower.includes("rejected") || lower.includes("cc_rejected")) {

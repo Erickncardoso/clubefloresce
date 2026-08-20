@@ -39,10 +39,31 @@ test("extractMercadoPagoWebhookResourceId: falha sem id", () => {
   );
 });
 
-test("addBillingPeriodDays: adiciona 30 dias por padrão", () => {
-  const base = new Date("2026-01-01T12:00:00.000Z");
+test("addBillingPeriodDays: 30 dias vira o mesmo dia no mês seguinte", () => {
+  const base = new Date("2026-08-19T17:00:00.000-03:00");
   const next = addBillingPeriodDays(base, 30);
-  assert.equal(next.getUTCDate(), 31);
+  assert.equal(
+    next.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+    "2026-09-19",
+  );
+});
+
+test("addBillingPeriodDays: pagamento atrasado no dia 25 vence no próximo 25", () => {
+  const paidAt = new Date("2026-09-25T11:00:00.000-03:00");
+  const next = addBillingPeriodDays(paidAt, 30);
+  assert.equal(
+    next.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+    "2026-10-25",
+  );
+});
+
+test("addBillingPeriodDays: 10 dias continua em dias corridos", () => {
+  const base = new Date("2026-08-19T17:00:00.000-03:00");
+  const next = addBillingPeriodDays(base, 10);
+  assert.equal(
+    next.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+    "2026-08-29",
+  );
 });
 
 test("shouldGrantAccessOnPaymentTransition: só na primeira confirmação", () => {

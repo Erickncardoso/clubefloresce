@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from 'react-native';
 import { Bell, Plus, Trash2 } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import CfButton from '@/components/ui/CfButton';
 import {
@@ -128,9 +128,9 @@ export default function PerfilLembretesScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Lembretes" showBack backTo="/perfil/configuracoes/preferencias" showBell={false} showMenu={false} />
+      <PatientHeader />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.permissionCard}>
           <Bell size={18} color={colors.primaryDark} />
           <Text style={styles.permissionText}>{permissionBlockedMessage(permission)}</Text>
@@ -217,7 +217,7 @@ export default function PerfilLembretesScreen() {
             </View>
           ))
         )}
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

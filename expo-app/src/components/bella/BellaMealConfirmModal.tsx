@@ -3,21 +3,39 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollView,
-  StyleSheet,
+  Share,
   Text,
-  TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  interpolateColor,
+  runOnJS,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { Beef, Bookmark, Droplets, Heart, Minus, Plus, Wheat } from 'lucide-react-native';
+import MealConfirmHeaderBar from '@/components/bella/MealConfirmHeaderBar';
+import MealConfirmMacroGrid from '@/components/bella/MealConfirmMacroGrid';
+import MealConfirmMoreMenu from '@/components/bella/MealConfirmMoreMenu';
+import MealDishEditSheet from '@/components/bella/MealDishEditSheet';
+import MealIngredientEditSheet from '@/components/bella/MealIngredientEditSheet';
+import MealWhenAteSheet from '@/components/bella/MealWhenAteSheet';
+import { mealConfirmStyles as styles } from '@/components/bella/mealConfirmStyles';
 import {
-  normalizeMealItemsForSave,
-  sumMealItems,
-  type MealDiaryItem,
-} from '@/lib/meal-diary';
-import { patientAssets } from '@/lib/patient-assets';
+  formatMacro,
+  formatMealCapturedAt,
+  mealDishTitle,
+  mealGramsTotal,
+  mealHealthScore,
+} from '@/lib/meal-confirm-display';
+import { createMealItemId, sumMealItems, type MealDiaryItem } from '@/lib/meal-diary';
 import { resolveMediaUrl } from '@/lib/media-url';
-import { colors, fonts, radii, spacing } from '@/theme/tokens';
+import { colors } from '@/theme/tokens';
 
 export type MealDraft = {
   items: MealDiaryItem[];
@@ -40,262 +58,304 @@ type Props = {
   draft: MealDraft | null;
   saving: boolean;
   error?: string;
+  embedded?: boolean;
+  photoHeight?: number;
   onCancel: () => void;
   onConfirm: (items: MealDiaryItem[]) => void;
+  onCorrect?: () => void;
 };
-
-function scaleItems(items: MealDiaryItem[], servings: number): MealDiaryItem[] {
-  if (servings === 1) return items;
-  return items.map((item) => ({
-    ...item,
-    grams: Math.max(1, Math.round((item.grams || 1) * servings)),
-    caloriesKcal: Math.max(0, Math.round((item.caloriesKcal || 0) * servings)),
-    carbsG: Math.round(((item.carbsG || 0) * servings) * 10) / 10,
-    proteinG: Math.round(((item.proteinG || 0) * servings) * 10) / 10,
-    fatG: Math.round(((item.fatG || 0) * servings) * 10) / 10,
-  }));
-}
 
 export default function BellaMealConfirmModal({
   open,
   draft,
   saving,
   error = '',
+  embedded = false,
+  photoHeight,
   onCancel,
   onConfirm,
+  onCorrect,
 }: Props) {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const heroH = photoHeight ?? Math.round(height * 0.48);
   const [items, setItems] = useState<MealDiaryItem[]>([]);
-  const [servings, setServings] = useState('1');
+  const [dishTitle, setDishTitle] = useState('');
+  const [ateAt, setAteAt] = useState(() => new Date());
+  const [whenOpen, setWhenOpen] = useState(false);
+  const [editing, setEditing] = useState<MealDiaryItem | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [dishEditOpen, setDishEditOpen] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [elevated, setElevated] = useState(false);
+  const scrollY = useSharedValue(0);
+  const lastElevated = useSharedValue(0);
 
   useEffect(() => {
     if (!open || !draft) return;
-    setItems(Array.isArray(draft.items) ? draft.items.map((item) => ({ ...item })) : []);
-    setServings('1');
-  }, [draft, open]);
+    setItems(
+      Array.isArray(draft.items)
+        ? draft.items.map((item) => ({ ...item, id: item.id || createMealItemId() }))
+        : [],
+    );
+    setAteAt(new Date());
+    setWhenOpen(false);
+    setDishTitle('');
+    setMenuOpen(false);
+    setDishEditOpen(false);
+    setBookmarked(false);
+    setElevated(false);
+    scrollY.value = 0;
+    lastElevated.value = 0;
+  }, [draft, lastElevated, open, scrollY]);
 
-  const scaledItems = useMemo(() => {
-    const qty = Math.max(0.5, Number(servings) || 1);
-    return scaleItems(items, qty);
-  }, [items, servings]);
+  const totals = useMemo(() => sumMealItems(items), [items]);
+  const grams = mealGramsTotal(items);
+  const title = dishTitle || mealDishTitle(items, draft?.mealLabel || 'Sua refeição');
+  const capturedAt = formatMealCapturedAt(ateAt);
+  const health = mealHealthScore(totals.caloriesKcal, grams, totals.proteinG, totals.fatG);
+  const imageUri = draft?.imageUrl ? resolveMediaUrl(draft.imageUrl) : null;
 
-  const totals = useMemo(() => sumMealItems(scaledItems), [scaledItems]);
+  const fadeDistance = heroH - 36;
 
-  function updateItemName(index: number, name: string) {
-    setItems((prev) => prev.map((item, i) => (i === index ? { ...item, name } : item)));
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+      const next = event.contentOffset.y > fadeDistance * 0.32 ? 1 : 0;
+      if (next !== lastElevated.value) {
+        lastElevated.value = next;
+        runOnJS(setElevated)(next === 1);
+      }
+    },
+  });
+
+  const photoFadeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, fadeDistance * 0.75], [0, 1], Extrapolation.CLAMP),
+  }));
+
+  const headerBgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      scrollY.value,
+      [0, fadeDistance * 0.4],
+      ['rgba(232,232,234,0)', 'rgb(232,232,234)'],
+    ),
+  }));
+
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, fadeDistance * 0.4], [1, 0], Extrapolation.CLAMP),
+  }));
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    borderTopLeftRadius: interpolate(scrollY.value, [fadeDistance * 0.7, fadeDistance], [36, 0], Extrapolation.CLAMP),
+    borderTopRightRadius: interpolate(scrollY.value, [fadeDistance * 0.7, fadeDistance], [36, 0], Extrapolation.CLAMP),
+  }));
+
+  function saveItem(next: MealDiaryItem) {
+    setItems((prev) => {
+      const index = prev.findIndex((item) => item.id === next.id);
+      if (index < 0) return [...prev, next];
+      return prev.map((item, i) => (i === index ? next : item));
+    });
+    setEditing(null);
   }
 
-  function handleConfirm() {
-    onConfirm(normalizeMealItemsForSave(scaledItems));
+  async function shareMeal() {
+    try {
+      await Share.share({
+        title,
+        message: `${title}\n${grams} g · ${Math.round(totals.caloriesKcal)} kcal`,
+        url: imageUri || undefined,
+      });
+    } catch {
+      // usuário cancelou
+    }
   }
 
   if (!draft) return null;
 
-  const imageUri = draft.imageUrl ? resolveMediaUrl(draft.imageUrl) : null;
+  const headerPad = { paddingTop: insets.top + 8 };
 
-  return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onCancel}>
-      <Pressable style={styles.backdrop} onPress={onCancel} />
-      <View style={styles.sheet}>
-        <View style={styles.handle} />
-        <View style={styles.head}>
-          <Image source={patientAssets.bellaAvatar} style={styles.bellaAvatar} />
-          <View style={styles.headCopy}>
-            <Text style={styles.kicker}>Bella · {draft.mealLabel || 'Refeição'}</Text>
-            <Text style={styles.title}>O que tem no seu prato</Text>
-          </View>
-          <Pressable onPress={onCancel} hitSlop={8} style={styles.closeBtn}>
-            <X color={colors.textMuted} size={18} />
-          </Pressable>
+  const body = (
+    <>
+      <View style={[styles.screen, embedded && styles.screenEmbedded]}>
+        <View style={[styles.hero, { height: heroH }, embedded && styles.heroEmbedded]}>
+          {embedded ? null : imageUri ? (
+            <Image source={{ uri: imageUri }} style={styles.heroImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.heroFallback} />
+          )}
+          <View style={styles.heroFade} />
+          <Animated.View style={[styles.heroCopy, titleStyle]} pointerEvents="none">
+            <View style={styles.healthPill}>
+              <Heart color="#ff6b6b" size={12} fill="#ff6b6b" strokeWidth={0} />
+              <Text style={styles.healthText}>Saudabilidade: {formatMacro(health)} / 10</Text>
+            </View>
+            <Text style={styles.heroTitle} numberOfLines={3}>{title}</Text>
+          </Animated.View>
+          <Animated.View style={[styles.heroWhite, photoFadeStyle]} pointerEvents="none" />
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.photo} resizeMode="cover" />
-          ) : null}
+        <Animated.View style={[styles.headerLayer, headerPad, headerBgStyle]} pointerEvents="box-none">
+          <MealConfirmHeaderBar
+            light={!elevated}
+            capturedAt={capturedAt}
+            onCancel={onCancel}
+            onWhen={() => setWhenOpen(true)}
+            onMore={() => setMenuOpen(true)}
+          />
+        </Animated.View>
 
-          <View style={styles.servingsRow}>
-            <Text style={styles.servingsLabel}>Porção(ões)</Text>
-            <TextInput
-              value={servings}
-              onChangeText={setServings}
-              keyboardType="decimal-pad"
-              style={styles.servingsInput}
-            />
-          </View>
-
-          <Text style={styles.sectionLabel}>A Bella encontrou</Text>
-          {items.map((item, index) => (
-            <View key={item.id || `${item.name}-${index}`} style={styles.itemRow}>
-              <TextInput
-                value={item.name}
-                onChangeText={(value) => updateItemName(index, value)}
-                style={styles.itemName}
+        <Animated.ScrollView
+          style={styles.scroll}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+          bounces
+          automaticallyAdjustContentInsets={false}
+          contentInsetAdjustmentBehavior="never"
+          contentContainerStyle={{ paddingTop: heroH - 28, paddingBottom: 20 }}
+        >
+          <Animated.View style={[styles.sheet, sheetStyle, { minHeight: height - 72 }]}>
+            <View style={styles.handle} />
+            <View style={styles.body}>
+              <MealConfirmMacroGrid
+                grams={grams}
+                caloriesKcal={totals.caloriesKcal}
+                carbsG={totals.carbsG}
+                proteinG={totals.proteinG}
+                fatG={totals.fatG}
               />
-              <Text style={styles.itemMeta}>
-                {Math.round(item.grams || 0)}g · {Math.round(item.caloriesKcal || 0)} kcal
+
+              <Text style={styles.sectionLabel}>Ingredientes</Text>
+              {items.map((item, index) => (
+                <Pressable
+                  key={item.id || `${item.name}-${index}`}
+                  style={styles.itemRow}
+                  onPress={() => setEditing(item)}
+                >
+                  <View style={styles.itemCopy}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemMeta}>
+                      {Math.round(item.grams || 0)} g • {Math.round(item.caloriesKcal || 0)} kcal
+                    </Text>
+                    <View style={styles.itemMacros}>
+                      <Wheat color="#c9842a" size={12} strokeWidth={1.8} />
+                      <Text style={styles.itemMacro}>{formatMacro(item.carbsG || 0)}</Text>
+                      <Beef color="#c45c4a" size={12} strokeWidth={1.8} />
+                      <Text style={styles.itemMacro}>{formatMacro(item.proteinG || 0)}</Text>
+                      <Droplets color="#5a9a4a" size={12} strokeWidth={1.8} />
+                      <Text style={styles.itemMacro}>{formatMacro(item.fatG || 0)}</Text>
+                    </View>
+                  </View>
+                  <Pressable
+                    style={styles.removeBtn}
+                    onPress={() => setItems((prev) => prev.filter((_, i) => i !== index))}
+                    accessibilityLabel={`Remover ${item.name}`}
+                  >
+                    <Minus color={colors.textMuted} size={16} strokeWidth={2.2} />
+                  </Pressable>
+                </Pressable>
+              ))}
+
+              <Pressable
+                style={styles.addBtn}
+                onPress={() => setEditing({
+                  id: createMealItemId(),
+                  name: '',
+                  grams: 100,
+                  caloriesKcal: 0,
+                  carbsG: 0,
+                  proteinG: 0,
+                  fatG: 0,
+                  source: 'manual',
+                })}
+              >
+                <Plus color={colors.text} size={16} />
+                <Text style={styles.addText}>Adicionar novo ingrediente</Text>
+              </Pressable>
+
+              <Text style={styles.hint}>
+                Quer melhorar o resultado? Toque em “Corrigir resultado” e conte pra gente!
               </Text>
+              <Pressable
+                style={styles.correctBtn}
+                disabled={saving}
+                onPress={onCorrect || onCancel}
+              >
+                <Text style={styles.correctText}>Corrigir resultado</Text>
+              </Pressable>
+
+              {draft.notes ? <Text style={styles.notes}>{draft.notes}</Text> : null}
+              {error ? <Text style={styles.error}>{error}</Text> : null}
             </View>
-          ))}
+          </Animated.View>
+        </Animated.ScrollView>
 
-          <View style={styles.totals}>
-            <Text style={styles.totalsLabel}>Total estimado</Text>
-            <Text style={styles.totalsValue}>
-              {Math.round(totals.caloriesKcal)} kcal · C {totals.carbsG}g · P {totals.proteinG}g · G {totals.fatG}g
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <Pressable
+            style={[styles.confirmBtn, (saving || items.length === 0) && styles.confirmDisabled]}
+            disabled={saving || items.length === 0}
+            onPress={() => onConfirm(items)}
+          >
+            <Text style={styles.confirmText}>
+              {saving ? 'Salvando...' : 'Registrar alimento'}
             </Text>
-          </View>
-
-          {draft.notes ? <Text style={styles.notes}>{draft.notes}</Text> : null}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-        </ScrollView>
-
-        <View style={styles.actions}>
-          <Pressable style={styles.cancelBtn} disabled={saving} onPress={onCancel}>
-            <Text style={styles.cancelText}>Cancelar</Text>
           </Pressable>
           <Pressable
-            style={[styles.confirmBtn, saving && styles.confirmBtnDisabled]}
-            disabled={saving || scaledItems.length === 0}
-            onPress={handleConfirm}
+            style={styles.bookmarkBtn}
+            onPress={() => setBookmarked((value) => !value)}
+            accessibilityLabel={bookmarked ? 'Remover dos salvos' : 'Salvar refeição'}
           >
-            <Text style={styles.confirmText}>{saving ? 'Salvando...' : 'Registrar no diário'}</Text>
+            <Bookmark
+              color="#fff"
+              size={20}
+              fill={bookmarked ? '#fff' : 'transparent'}
+              strokeWidth={1.8}
+            />
           </Pressable>
         </View>
       </View>
+
+      <MealIngredientEditSheet
+        item={editing}
+        onClose={() => setEditing(null)}
+        onSave={saveItem}
+      />
+      <MealDishEditSheet
+        open={dishEditOpen}
+        title={title}
+        items={items}
+        onClose={() => setDishEditOpen(false)}
+        onSave={({ title: nextTitle, items: nextItems }) => {
+          setDishTitle(nextTitle);
+          setItems(nextItems);
+          setDishEditOpen(false);
+        }}
+      />
+      <MealWhenAteSheet
+        open={whenOpen}
+        value={ateAt}
+        onClose={() => setWhenOpen(false)}
+        onConfirm={(next) => {
+          setAteAt(next);
+          setWhenOpen(false);
+        }}
+      />
+      <MealConfirmMoreMenu
+        open={menuOpen}
+        top={insets.top + 52}
+        onClose={() => setMenuOpen(false)}
+        onEdit={() => setTimeout(() => setDishEditOpen(true), 280)}
+        onShare={shareMeal}
+      />
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <Modal visible={open} animationType="slide" onRequestClose={onCancel}>
+      {body}
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(20,20,20,0.42)',
-  },
-  sheet: {
-    maxHeight: '88%',
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radii.surface,
-    borderTopRightRadius: radii.surface,
-    paddingBottom: spacing[6],
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.track,
-    marginTop: spacing[2],
-    marginBottom: spacing[3],
-  },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing[5],
-    marginBottom: spacing[3],
-  },
-  headCopy: { flex: 1 },
-  bellaAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primarySoft,
-    marginRight: spacing[3],
-  },
-  kicker: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
-  title: { fontFamily: fonts.bold, fontSize: 18, color: colors.text, marginTop: 2 },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.track,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  body: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[4],
-    gap: spacing[3],
-  },
-  photo: {
-    width: '100%',
-    height: 180,
-    borderRadius: radii.control,
-    backgroundColor: colors.track,
-  },
-  servingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing[3],
-  },
-  servingsLabel: { fontFamily: fonts.medium, fontSize: 14, color: colors.text },
-  servingsInput: {
-    minWidth: 72,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.control,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
-    fontFamily: fonts.medium,
-    textAlign: 'center',
-    backgroundColor: '#fff',
-  },
-  sectionLabel: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  itemRow: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.control,
-    padding: spacing[3],
-    backgroundColor: '#fff',
-    gap: 4,
-  },
-  itemName: {
-    fontFamily: fonts.medium,
-    fontSize: 15,
-    color: colors.text,
-    padding: 0,
-  },
-  itemMeta: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted },
-  totals: {
-    borderRadius: radii.control,
-    backgroundColor: colors.primarySoft,
-    padding: spacing[3],
-    gap: 4,
-  },
-  totalsLabel: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted },
-  totalsValue: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
-  notes: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, lineHeight: 18 },
-  error: { fontFamily: fonts.medium, fontSize: 13, color: colors.error },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing[3],
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[2],
-  },
-  cancelBtn: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: radii.control,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  cancelText: { fontFamily: fonts.semibold, color: colors.text },
-  confirmBtn: {
-    flex: 1.4,
-    minHeight: 48,
-    borderRadius: radii.control,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmBtnDisabled: { opacity: 0.6 },
-  confirmText: { fontFamily: fonts.bold, color: '#fff' },
-});

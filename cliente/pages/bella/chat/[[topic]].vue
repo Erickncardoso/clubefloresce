@@ -1,13 +1,7 @@
 <template>
   <div ref="chatPageEl" class="bella-chat-page">
     <div class="bella-chat-sticky">
-      <PatientHeader
-        :title="topicConfig.title"
-        :subtitle="topicConfig.subtitle"
-        show-back
-        back-to="/bella"
-        :show-bell="false"
-      />
+      <PatientHeader />
 
       <BellaDailyDiaryBar
         v-if="chatTopic === 'meal' && dailySummary"

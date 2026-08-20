@@ -27,7 +27,7 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 /** Porta `cliente/pages/index.vue` (login). */
 export default function LoginScreen() {
   const router = useRouter();
-  const { booting, login, resolvePostLoginRoute, changeFirstAccessPassword } = useAuth();
+  const { booting, hasSession, login, resolvePostLoginRoute, changeFirstAccessPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -93,7 +93,9 @@ export default function LoginScreen() {
     return (
       <SafeAreaView style={styles.boot}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.bootText}>Carregando sua conta…</Text>
+        {!hasSession ? (
+          <Text style={styles.bootText}>Carregando sua conta…</Text>
+        ) : null}
       </SafeAreaView>
     );
   }

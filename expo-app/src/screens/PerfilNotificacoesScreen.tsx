@@ -1,7 +1,14 @@
 import { useEffect } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { Bell, BookOpen, CalendarCheck, Sparkles, UtensilsCrossed, Users } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { usePatientNotifications } from '@/hooks/usePatientNotifications';
@@ -43,7 +50,7 @@ export default function PerfilNotificacoesScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Notificações" showBack backTo="/perfil" showBell={false} showMenu={false} />
+      <PatientHeader />
       {hasUnread ? (
         <View style={styles.toolbar}>
           <Pressable onPress={() => void markAllRead()}>
@@ -59,7 +66,7 @@ export default function PerfilNotificacoesScreen() {
       ) : !grouped.length ? (
         <Text style={styles.empty}>Nenhuma notificação por enquanto.</Text>
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <PatientScrollView contentContainerStyle={styles.scroll}>
           {grouped.map((group) => (
             <View key={group.label} style={styles.group}>
               <Text style={styles.groupTitle}>{group.label}</Text>
@@ -89,7 +96,7 @@ export default function PerfilNotificacoesScreen() {
               })}
             </View>
           ))}
-        </ScrollView>
+        </PatientScrollView>
       )}
     </PatientShell>
   );

@@ -2,10 +2,23 @@ import { isPatientCheckoutPath } from '@/lib/patient-access';
 import { isPatientPublicPath } from '@/lib/patient-routes';
 
 /** Espelha `--patient-nav-height` / `--patient-nav-content-gap` do PWA. */
-/** Altura da fileira de ícones (sem o safe area do iPhone). */
-export const PATIENT_NAV_HEIGHT = 48;
-/** Bolinha da Bella sobe isso; o conteúdo só precisa desse folgo extra. */
-export const PATIENT_NAV_CONTENT_GAP = 8;
+/** Altura da cápsula flutuante (ícone + rótulo). */
+export const PATIENT_NAV_HEIGHT = 58;
+/** Margem da cápsula acima do home indicator (efeito flutuante). */
+export const PATIENT_NAV_FLOAT_MARGIN = 0;
+/** Folga entre conteúdo e tab bar flutuante. */
+export const PATIENT_NAV_CONTENT_GAP = 14;
+
+/** Clearance total (tab + margem flutuante + folga + safe area inferior). */
+export function getPatientTabClearance(bottomInset = 0, withTab = true) {
+  if (!withTab) return Math.max(bottomInset, 0);
+  return (
+    PATIENT_NAV_HEIGHT
+    + PATIENT_NAV_FLOAT_MARGIN
+    + PATIENT_NAV_CONTENT_GAP
+    + Math.max(bottomInset, 0)
+  );
+}
 
 const HIDE_TAB_BAR_PATHS = new Set([
   '/',

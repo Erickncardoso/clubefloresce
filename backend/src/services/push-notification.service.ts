@@ -86,13 +86,41 @@ export class PushNotificationService {
       throw new Error("Token Expo inválido.");
     }
 
-    return repo.upsert({
+    const ua = userAgent?.trim() || "expo-ios";
+    const endpoint = expoEndpointFromToken(normalized);
+
+    const subscription = await repo.upsert({
       userId,
-      endpoint: expoEndpointFromToken(normalized),
+      endpoint,
       p256dh: "expo",
       auth: "expo",
-      userAgent: userAgent?.trim() || "expo-ios",
+      userAgent: ua,
     });
+
+    if (this.isProductionExpoClient(ua)) {
+      await this.pruneDevExpoTokens(userId, endpoint);
+    }
+
+    return subscription;
+  }
+
+  /** App Store / dev client nativo — não Expo Go. */
+  private isProductionExpoClient(userAgent: string): boolean {
+    const ua = String(userAgent || "").trim();
+    if (!ua || ua === "expo-ios") return false;
+    if (/^Expo\//i.test(ua)) return false;
+    return /ClubeFlorescer|Florescer|CFNetwork/i.test(ua);
+  }
+
+  /** Evita push indo só pro Expo Go quando o app da loja já está instalado. */
+  private async pruneDevExpoTokens(userId: string, keepEndpoint: string) {
+    const subs = await repo.listByUser(userId);
+    await Promise.all(
+      subs
+        .filter((sub) => isExpoPushEndpoint(sub.endpoint) && sub.endpoint !== keepEndpoint)
+        .filter((sub) => /^Expo\//i.test(String(sub.userAgent || "")))
+        .map((sub) => repo.deleteByEndpoint(userId, sub.endpoint)),
+    );
   }
 
   async unsubscribeExpoToken(userId: string, token: string) {

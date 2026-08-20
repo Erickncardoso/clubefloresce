@@ -1,14 +1,13 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   Modal,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -16,6 +15,7 @@ import { Camera } from 'lucide-react-native';
 import DiarioFeedCard from '@/components/diario/DiarioFeedCard';
 import DiarioSocialModal from '@/components/diario/DiarioSocialModal';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientFlatList from '@/components/ui/PatientFlatList';
 import PatientShell from '@/components/PatientShell';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { DIARY_LIKE_VIEWABILITY, useDiaryNewLikes } from '@/hooks/useDiaryNewLikes';
@@ -159,13 +159,13 @@ export default function DiarioAlimentarScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Diário" showBack={false} showBell={false} showMenu={false} />
+      <PatientHeader />
       {loading && !entries.length ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
-        <FlatList
+        <PatientFlatList
           data={entries}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}

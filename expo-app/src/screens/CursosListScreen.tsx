@@ -1,19 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-
   Image,
-
   Pressable,
-
-  ScrollView,
-
   StyleSheet,
-
   Text,
-
-  View,
-
+  View
 } from 'react-native';
 
 import { useRouter } from 'expo-router';
@@ -24,6 +16,7 @@ import BibliotecaScrollRow from '@/components/biblioteca/BibliotecaScrollRow';
 
 import PatientHeader from '@/components/ui/PatientHeader';
 
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -126,7 +119,7 @@ export default function CursosListScreen() {
 
     <PatientShell>
 
-      <PatientHeader title="Vídeos" showBack backTo="/conteudo" showBell={false} showMenu={false} />
+      <PatientHeader />
 
       {loading ? (
 
@@ -134,7 +127,7 @@ export default function CursosListScreen() {
 
       ) : (
 
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <PatientScrollView contentContainerStyle={styles.scroll}>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -206,7 +199,7 @@ export default function CursosListScreen() {
 
           )}
 
-        </ScrollView>
+        </PatientScrollView>
 
       )}
 

@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page notif-page">
-    <PatientHeader title="Notificações" show-back back-to="/perfil" />
+    <PatientHeader />
 
     <div v-if="hasUnread" class="notif-toolbar">
       <button type="button" class="notif-mark-all" :disabled="markingAll" @click="handleMarkAllRead">

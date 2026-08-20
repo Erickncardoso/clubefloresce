@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page resumo-page">
-    <PatientHeader title="Resumo da Semana" :subtitle="weekRange" show-back back-to="/check-in" />
+    <PatientHeader />
 
     <div v-if="loading" class="resumo-loading">
       <PatientPageSkeleton layout="checkin" />

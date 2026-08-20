@@ -3,10 +3,9 @@ import {
   Alert,
   Linking,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -22,6 +21,7 @@ import {
   UserRoundPlus,
   type LucideIcon,
 } from 'lucide-react-native';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import PatientAvatar from '@/components/ui/PatientAvatar';
 import PatientHeader from '@/components/ui/PatientHeader';
@@ -32,6 +32,9 @@ import {
 } from '@/config/patient-brand';
 import { getAppVersion } from '@/config/env';
 import { LEGAL_CONTACT_EMAIL } from '@/config/legal';
+import { usePatientPlanAccess } from '@/hooks/usePatientPlanAccess';
+import { isPatientAccessExpired } from '@/lib/patient-access';
+import { getAccessStatusLabel } from '@/lib/platform-billing';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -48,6 +51,7 @@ type MenuItem = {
 export default function PerfilConfiguracoesScreen() {
   const router = useRouter();
   const { user, logout, refreshUser } = useAuth();
+  const { hasPaidAccess } = usePatientPlanAccess();
 
   useEffect(() => {
     void refreshUser();
@@ -55,6 +59,12 @@ export default function PerfilConfiguracoesScreen() {
 
   const avatarUrl = resolveMediaUrl(user?.avatar);
   const profileSubtitle = PATIENT_NUTRITIONIST_TITLE;
+  const accessLabel = getAccessStatusLabel(
+    user?.plan,
+    user?.accessExpiresAt,
+    user?.approvalEmailSentAt,
+  );
+  const accessExpired = isPatientAccessExpired(user?.accessExpiresAt);
 
   function openNutritionistInfo() {
     Alert.alert(
@@ -145,15 +155,9 @@ export default function PerfilConfiguracoesScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader
-        title="Configurações"
-        showBack
-        backTo="/inicio"
-        showBell={false}
-        showMenu={false}
-      />
+      <PatientHeader />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <PatientScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Pressable
           style={styles.profileCard}
           accessibilityRole="button"
@@ -167,6 +171,16 @@ export default function PerfilConfiguracoesScreen() {
             </Text>
             <Text style={styles.profileSubtitle} numberOfLines={1}>
               {profileSubtitle}
+            </Text>
+            <Text
+              style={[
+                styles.profileAccess,
+                hasPaidAccess && !accessExpired && styles.profileAccessOk,
+                accessExpired && styles.profileAccessExpired,
+              ]}
+              numberOfLines={2}
+            >
+              {accessLabel}
             </Text>
             {user?.email ? (
               <Text style={styles.profileEmail} numberOfLines={1}>
@@ -229,7 +243,7 @@ export default function PerfilConfiguracoesScreen() {
         <Text style={styles.supportHint}>
           Suporte: {LEGAL_CONTACT_EMAIL}
         </Text>
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }
@@ -264,6 +278,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 12,
     color: '#8e8e93',
+  },
+  profileAccess: {
+    marginTop: 4,
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#8e8e93',
+  },
+  profileAccessOk: {
+    color: colors.primaryDark,
+  },
+  profileAccessExpired: {
+    color: '#b42318',
   },
   profileEmail: {
     marginTop: 2,

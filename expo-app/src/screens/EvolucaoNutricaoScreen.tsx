@@ -1,5 +1,8 @@
-import { ScrollView, StyleSheet } from 'react-native';
+import {
+  StyleSheet
+} from 'react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import NutritionMonthView from '@/components/evolucao/NutritionMonthView';
 import { spacing } from '@/theme/tokens';
@@ -7,10 +10,10 @@ import { spacing } from '@/theme/tokens';
 export default function EvolucaoNutricaoScreen() {
   return (
     <PatientShell>
-      <PatientHeader title="Nutrição do mês" showBack backTo="/inicio" showBell={false} showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll}>
         <NutritionMonthView />
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

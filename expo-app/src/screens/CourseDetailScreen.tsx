@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronDown, LayoutGrid, Library, Play, Star } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { buildModuleUrl } from '@/lib/course-slug';
@@ -147,7 +147,7 @@ export default function CourseDetailScreen() {
   if (loading) {
     return (
       <PatientShell>
-        <PatientHeader title="Curso" showBack backTo="/cursos" showBell={false} showMenu={false} />
+        <PatientHeader />
         <LoadingScreen />
       </PatientShell>
     );
@@ -156,7 +156,7 @@ export default function CourseDetailScreen() {
   if (!course) {
     return (
       <PatientShell>
-        <PatientHeader title="Curso" showBack backTo="/cursos" showBell={false} showMenu={false} />
+        <PatientHeader />
         <View style={styles.center}>
           <Text style={styles.error}>{error || 'Curso não encontrado.'}</Text>
         </View>
@@ -166,8 +166,8 @@ export default function CourseDetailScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title={course.title} showBack backTo="/cursos" showBell={false} showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
           {cover ? (
             <Image source={{ uri: cover }} style={styles.heroCover} resizeMode="cover" />
@@ -312,7 +312,7 @@ export default function CourseDetailScreen() {
             </View>
           );
         })}
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

@@ -3,16 +3,16 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 import { ChevronRight, Pencil } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import ProfileAvatarPickerSheet from '@/components/profile/ProfileAvatarPickerSheet';
 import ProfileFieldEditSheet, { type ProfileEditField } from '@/components/profile/ProfileFieldEditSheet';
 import DeleteAccountAction from '@/components/account/DeleteAccountAction';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import PatientAvatar from '@/components/ui/PatientAvatar';
 import PatientHeader from '@/components/ui/PatientHeader';
@@ -207,18 +207,12 @@ export default function PerfilScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader
-        title="Meu Perfil"
-        showBack
-        backTo="/perfil/configuracoes"
-        showBell={false}
-        showMenu={false}
-      />
+      <PatientHeader />
 
       {loading ? (
         <LoadingScreen />
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <PatientScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.summary}>
             <View style={styles.avatarWrap}>
               <PatientAvatar src={avatarUrl} name={user?.name} size="lg" />
@@ -328,7 +322,7 @@ export default function PerfilScreen() {
               )}
             />
           </View>
-        </ScrollView>
+        </PatientScrollView>
       )}
 
       <ProfileAvatarPickerSheet

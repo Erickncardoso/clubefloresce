@@ -1,12 +1,6 @@
 <template>
   <div class="patient-page doc-page patient-page--no-tab">
-    <PatientHeader
-      class="doc-page__header"
-      :title="pageTitle"
-      show-back
-      :back-to="backTo"
-      :show-bell="false"
-    />
+    <PatientHeader />
 
     <div class="doc-page__body">
       <div v-if="loadError" class="doc-state cf-squircle" role="alert">

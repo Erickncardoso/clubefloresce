@@ -1,10 +1,6 @@
 <template>
   <div class="patient-page home-page">
-    <PatientHeader class="home-header" menu-left>
-      <template #actions>
-        <PatientHeaderDailyChip />
-      </template>
-    </PatientHeader>
+    <PatientHeader />
 
     <PatientPageSkeleton v-if="pageLoading" layout="home" />
 
@@ -318,18 +314,6 @@ onMounted(async () => {
   padding-top: 0;
   background: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', var(--cf-font);
-}
-
-.home-page :deep(.home-header.cf-header) {
-  margin-inline: calc(-1 * var(--cf-page-pad-x));
-  padding-inline: calc(var(--cf-page-pad-x) + 0.15rem);
-  padding-top: calc(0.35rem + env(safe-area-inset-top, 0px));
-  padding-bottom: 0.5rem;
-  background: #fff;
-}
-
-.home-page :deep(.home-header .cf-header-brand) {
-  display: none;
 }
 
 .home-welcome {

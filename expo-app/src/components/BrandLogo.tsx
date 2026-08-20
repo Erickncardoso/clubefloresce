@@ -57,7 +57,7 @@ export function BrandLogo({ size = 'xl', animated = false, style }: BrandLogoPro
   );
 
   return (
-    <View style={[styles.wrap, style]} accessibilityRole="image" accessibilityLabel="Clube Florescer">
+    <View style={[styles.wrap, style]} accessibilityRole="image" accessibilityLabel="Florescer">
       {animated ? <Animated.View style={{ opacity: pulse }}>{logo}</Animated.View> : logo}
     </View>
   );

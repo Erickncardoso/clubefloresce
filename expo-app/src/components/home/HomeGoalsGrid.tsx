@@ -30,8 +30,8 @@ type Props = {
 const PANEL_RADIUS = 16;
 const GOAL_MIN_HEIGHT = 118;
 const CHART_SIZE = 100;
-const CHART_RIGHT = -26;
-const CHART_VISIBLE = 74;
+const CHART_RIGHT = -50;
+const CHART_VISIBLE = 52;
 const GOAL_LINK_PAD = { top: 13, right: CHART_VISIBLE, bottom: 42, left: 16 };
 const HEADING_GAP = 8;
 const ICON_WRAP = 28;
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   chartValue: {
     position: 'absolute',
     top: '50%',
-    right: 2,
+    right: 0,
     zIndex: 2,
     width: CHART_VALUE_W,
     fontFamily: fonts.medium,

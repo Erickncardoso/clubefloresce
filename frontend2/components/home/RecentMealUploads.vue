@@ -8,13 +8,15 @@
       role="listitem"
     >
       <img
+        v-if="entry.imageUrl"
         :src="entry.imageUrl"
         :alt="`Foto de ${entryLabel(entry)}`"
         class="home-recent-upload-image"
-        width="72"
-        height="72"
+        width="64"
+        height="64"
         loading="lazy"
       >
+      <span v-else class="home-recent-upload-image home-recent-upload-image--empty" aria-hidden="true" />
 
       <span class="home-recent-upload-body">
         <span class="home-recent-upload-head">
@@ -33,9 +35,9 @@
         </span>
 
         <span class="home-recent-upload-macros">
-          <span>Proteína {{ formatNumber(entry.proteinG) }}g</span>
-          <span>Carboidrato {{ formatNumber(entry.carbsG) }}g</span>
-          <span>Gordura {{ formatNumber(entry.fatG) }}g</span>
+          <span><strong>{{ formatNumber(entry.proteinG) }}g</strong> prot</span>
+          <span><strong>{{ formatNumber(entry.carbsG) }}g</strong> carb</span>
+          <span><strong>{{ formatNumber(entry.fatG) }}g</strong> gord</span>
         </span>
       </span>
 
@@ -87,7 +89,7 @@ function formatTime(value) {
 .home-recent-uploads {
   overflow: hidden;
   border: 1px solid #e5e5ea;
-  border-radius: 1.25rem;
+  border-radius: 1rem;
   background: #fff;
   box-shadow: none;
 }
@@ -95,10 +97,10 @@ function formatTime(value) {
 .home-recent-upload {
   position: relative;
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  grid-template-columns: 4rem minmax(0, 1fr) 1rem;
   align-items: center;
-  gap: 0.8rem;
-  min-height: 6rem;
+  gap: 0.75rem;
+  min-height: 0;
   padding: 0.75rem;
   color: inherit;
   text-decoration: none;
@@ -111,7 +113,7 @@ function formatTime(value) {
   position: absolute;
   right: 0;
   bottom: 0;
-  left: 6.05rem;
+  left: 5.5rem;
   height: 1px;
   background: rgba(60, 60, 67, 0.1);
   content: '';
@@ -137,31 +139,37 @@ function formatTime(value) {
 
 .home-recent-upload-image {
   display: block;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 0.9rem;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 0.85rem;
   background: #e9e9ed;
   object-fit: cover;
+}
+
+.home-recent-upload-image--empty {
+  flex-shrink: 0;
 }
 
 .home-recent-upload-body {
   display: flex;
   min-width: 0;
   flex-direction: column;
+  gap: 0.15rem;
 }
 
 .home-recent-upload-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .home-recent-upload-title {
   overflow: hidden;
   flex: 1;
-  font-size: 0.86rem;
+  font-size: 0.9375rem;
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.3;
   color: var(--cf-text);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -169,15 +177,14 @@ function formatTime(value) {
 
 .home-recent-upload-time {
   flex-shrink: 0;
-  font-size: 0.62rem;
-  font-weight: 400;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: #8e8e93;
   font-variant-numeric: tabular-nums;
 }
 
 .home-recent-upload-summary {
-  margin-top: 0.2rem;
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--cf-green-dark);
   font-variant-numeric: tabular-nums;
@@ -186,39 +193,37 @@ function formatTime(value) {
 .home-recent-upload-macros {
   display: flex;
   min-width: 0;
-  gap: 0.5rem;
-  margin-top: 0.42rem;
-  overflow: hidden;
-  color: #6e6e73;
+  gap: 0.75rem;
+  margin-top: 0.1rem;
+  color: #8e8e93;
 }
 
 .home-recent-upload-macros span {
-  overflow: hidden;
-  font-size: 0.6rem;
+  flex-shrink: 0;
+  font-size: 0.6875rem;
   font-weight: 400;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.home-recent-upload-macros strong {
+  font-weight: 500;
+  color: var(--cf-text);
+}
+
 .home-recent-upload-arrow {
-  width: 0.85rem;
-  height: 0.85rem;
-  color: #aeaeb2;
+  width: 1rem;
+  height: 1rem;
+  color: #c7c7cc;
+  justify-self: end;
 }
 
 @media (max-width: 355px) {
   .home-recent-upload {
-    grid-template-columns: 4rem minmax(0, 1fr) auto;
     gap: 0.65rem;
   }
 
-  .home-recent-upload-image {
-    width: 4rem;
-    height: 4rem;
-  }
-
-  .home-recent-upload-macros span:last-child {
-    display: none;
+  .home-recent-upload-macros {
+    gap: 0.5rem;
   }
 }
 

@@ -205,6 +205,8 @@ html.meal-sheet-keyboard .bella-composer-dock {
 }
 
 html:has(.patient-nav) .patient-shell-body {
+  margin-bottom: calc(-1 * var(--cf-page-pad-bottom-tab, var(--cf-tab-clearance)));
+  padding-bottom: var(--cf-page-pad-bottom-tab, var(--cf-tab-clearance));
   scroll-padding-bottom: var(--cf-page-pad-bottom-tab, var(--cf-tab-clearance));
   scroll-padding-top: calc(3.25rem + env(safe-area-inset-top, 0px));
 }
@@ -306,7 +308,8 @@ html:has(.patient-nav) .patient-page {
 
 html:has(.patient-nav) .patient-shell .patient-page:not(.patient-page--no-tab),
 html:has(.patient-nav) .patient-page:not(.patient-page--no-tab) {
-  padding-bottom: var(--cf-page-pad-bottom-tab);
+  margin-bottom: calc(-1 * var(--cf-page-pad-bottom-tab, var(--cf-tab-clearance)));
+  padding-bottom: var(--cf-page-pad-bottom-tab, var(--cf-tab-clearance));
 }
 
 .patient-page--with-tab {

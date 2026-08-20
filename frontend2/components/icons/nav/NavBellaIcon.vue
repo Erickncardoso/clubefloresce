@@ -1,17 +1,27 @@
 <template>
   <svg
-    class="patient-nav__icon"
+    class="patient-nav__icon patient-nav__icon--ai"
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
-    stroke-width="1.7"
-    stroke-linecap="round"
-    stroke-linejoin="round"
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
   >
-    <path d="M6.35 5.1h11.3a2.85 2.85 0 0 1 2.85 2.85v6.2A2.85 2.85 0 0 1 17.65 17H11l-4.15 2.55V17h-.5a2.85 2.85 0 0 1-2.85-2.85v-6.2A2.85 2.85 0 0 1 6.35 5.1Z" />
-    <path d="M12 7.65c.22 1.58 1.1 2.46 2.68 2.68-1.58.22-2.46 1.1-2.68 2.68-.22-1.58-1.1-2.46-2.68-2.68 1.58-.22 2.46-1.1 2.68-2.68Z" fill="currentColor" stroke="none" />
-    <path d="M16.7 7.05c.1.72.5 1.12 1.22 1.22-.72.1-1.12.5-1.22 1.22-.1-.72-.5-1.12-1.22-1.22.72-.1 1.12-.5 1.22-1.22Z" fill="currentColor" stroke="none" opacity="0.8" />
+    <path
+      d="M12 2.8 13.55 8.15 18.9 9.7 13.55 11.25 12 16.6 10.45 11.25 5.1 9.7 10.45 8.15Z"
+      fill="currentColor"
+    />
+    <path
+      d="M19.1 4.35 19.72 6.22 21.6 6.84 19.72 7.46 19.1 9.33 18.48 7.46 16.6 6.84 18.48 6.22Z"
+      fill="currentColor"
+      opacity="0.88"
+    />
+    <path
+      d="M5.4 14.95 5.88 16.42 7.35 16.9 5.88 17.38 5.4 18.85 4.92 17.38 3.45 16.9 4.92 16.42Z"
+      fill="currentColor"
+      opacity="0.72"
+    />
+    <circle cx="12" cy="9.7" r="1.15" fill="currentColor" opacity="0.95" />
+    <circle cx="15.8" cy="13.2" r="0.75" fill="currentColor" opacity="0.55" />
+    <circle cx="8.4" cy="12.5" r="0.65" fill="currentColor" opacity="0.5" />
   </svg>
 </template>

@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { BookOpen } from 'lucide-react-native';
 import CfTileCarousel from '@/components/shared/CfTileCarousel';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { usePatientApi } from '@/hooks/usePatientApi';
@@ -48,12 +54,12 @@ export default function EbooksScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="E-books" showBack backTo="/conteudo" showBell={false} />
+      <PatientHeader />
 
       {loading ? (
         <LoadingScreen />
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <PatientScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.hero}>
             <Text style={styles.heroTitle}>Biblioteca Digital</Text>
             <Text style={styles.heroDesc}>Guias, receitas e materiais exclusivos para leitura.</Text>
@@ -70,7 +76,7 @@ export default function EbooksScreen() {
           ) : (
             <CfTileCarousel items={tiles} onSelect={openEbook} />
           )}
-        </ScrollView>
+        </PatientScrollView>
       )}
     </PatientShell>
   );

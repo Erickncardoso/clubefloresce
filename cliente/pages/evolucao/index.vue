@@ -1,12 +1,6 @@
 <template>
   <div class="patient-page evo-page patient-page--with-tab">
-    <PatientHeader
-      class="evo-header"
-      title="Evolução"
-      show-back
-      back-to="/inicio"
-      :show-bell="false"
-    />
+    <PatientHeader />
 
     <main class="evo-content">
       <section class="evo-overview" aria-labelledby="evo-overview-title">
@@ -96,13 +90,7 @@
         <EvolucaoGoalsPanel />
       </section>
 
-      <section v-else aria-label="Peso e medidas">
-        <div class="evo-section-head">
-          <div>
-            <p class="evo-section-kicker">Histórico corporal</p>
-            <h2>Peso e medidas</h2>
-          </div>
-        </div>
+      <section v-else aria-label="Peso">
         <EvolucaoWeightPanel />
       </section>
     </main>
@@ -177,17 +165,6 @@ onMounted(() => {
   padding: 0;
   background: #fff;
   color: var(--cf-text);
-}
-
-.evo-page :deep(.evo-header.cf-header) {
-  padding: calc(env(safe-area-inset-top, 0px) + 0.55rem) 1rem 0.6rem;
-  background: #fff;
-  border-bottom: 1px solid #ededf0;
-}
-
-.evo-page :deep(.evo-header .cf-header-title) {
-  font-weight: 600;
-  letter-spacing: -0.015em;
 }
 
 .evo-content {

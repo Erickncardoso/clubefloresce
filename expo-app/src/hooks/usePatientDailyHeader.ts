@@ -1,6 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { usePatientGoals } from '@/hooks/usePatientGoals';
+import {
+  getCachedDailySummary,
+  saveCachedDailySummary,
+} from '@/lib/patient-session-cache';
 import {
   buildMonthActivityMap,
   computeBestStreak,
@@ -11,7 +15,7 @@ import {
   getWeekDateKeys,
   isActivityDay,
 } from '@/lib/patient-activity-days';
-import type { DailySummary } from '@/hooks/useDietaDiarySync';
+import type { DailySummary } from '@/types/daily-summary';
 
 const DEFAULT_TARGETS = {
   caloriesKcal: 2000,
@@ -22,14 +26,25 @@ const DEFAULT_TARGETS = {
 
 export function usePatientDailyHeader() {
   const { request } = usePatientApi();
-  const { goals, progress, hydrate: hydrateGoals, ready: goalsReady } = usePatientGoals();
+  const { goals, progress, ready: goalsReady } = usePatientGoals();
 
-  const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
+  const [dailySummary, setDailySummaryState] = useState<DailySummary | null>(null);
   const [streakDays, setStreakDays] = useState(1);
   const [monthActivityMap, setMonthActivityMap] = useState<Map<string, boolean>>(() => new Map());
   const [monthDiaryDays, setMonthDiaryDays] = useState<Array<{ date: string; entryCount?: number }>>([]);
   const [monthLoading, setMonthLoading] = useState(false);
   const monthCacheKey = useRef('');
+
+  const setDailySummary = useCallback((summary: DailySummary | null) => {
+    setDailySummaryState(summary);
+    void saveCachedDailySummary(summary);
+  }, []);
+
+  useEffect(() => {
+    void getCachedDailySummary().then((cached) => {
+      if (cached) setDailySummaryState(cached);
+    });
+  }, []);
 
   const targets = useMemo(
     () => dailySummary?.targets ?? DEFAULT_TARGETS,
@@ -101,9 +116,9 @@ export function usePatientDailyHeader() {
       const summary = await request<DailySummary>('/food-diary/today');
       setDailySummary(summary);
     } catch {
-      setDailySummary(null);
+      /* mantém cache do dia se existir */
     }
-  }, [request]);
+  }, [request, setDailySummary]);
 
   const loadCheckInStreak = useCallback(async () => {
     try {
@@ -157,13 +172,12 @@ export function usePatientDailyHeader() {
   }, [goals, monthDiaryDays, progress]);
 
   const bootstrapDailyHeader = useCallback(async () => {
-    await hydrateGoals();
     await Promise.allSettled([
       loadDailyNutrition(),
       loadCheckInStreak(),
       loadMonthActivity(),
     ]);
-  }, [hydrateGoals, loadCheckInStreak, loadDailyNutrition, loadMonthActivity]);
+  }, [loadCheckInStreak, loadDailyNutrition, loadMonthActivity]);
 
   const monthActiveCount = useMemo(() => {
     const now = new Date();

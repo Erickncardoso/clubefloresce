@@ -74,10 +74,18 @@ export default function BellaDailyDiaryBar({
                     <Text style={styles.entryKcal}>{entry.caloriesKcal || 0} kcal</Text>
                   </View>
                   <View style={styles.entryActions}>
-                    <Pressable style={styles.entryBtn} onPress={() => onEditEntry?.(entry)}>
+                    <Pressable
+                      style={styles.entryBtn}
+                      hitSlop={8}
+                      onPress={() => onEditEntry?.(entry)}
+                    >
                       <Pencil size={14} color={colors.textMuted} />
                     </Pressable>
-                    <Pressable style={[styles.entryBtn, styles.entryBtnDanger]} onPress={() => onDeleteEntry?.(entry)}>
+                    <Pressable
+                      style={[styles.entryBtn, styles.entryBtnDanger]}
+                      hitSlop={8}
+                      onPress={() => onDeleteEntry?.(entry)}
+                    >
                       <Trash2 size={14} color={colors.error} />
                     </Pressable>
                   </View>

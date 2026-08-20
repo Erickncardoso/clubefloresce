@@ -19,6 +19,7 @@ import {
   extractMercadoPagoWebhookResourceId,
   shouldGrantAccessOnPaymentTransition,
 } from "../utils/mercadopago-webhook";
+import { cpfDigits, cpfFromPatientProfileData, persistCheckoutCpfIfMissing } from "../utils/billing-payment-method";
 import { billingPlanConfigService } from "./billing-plan-config.service";
 import { billingNotificationService } from "./billing-notification.service";
 import { invalidateAuthUserCache } from "../middleware/auth.middleware";
@@ -49,7 +50,8 @@ type SubscribePixInput = {
   identification?: PayerIdentification;
   /** Validade do QR Pix (padrão 30 min no checkout; 24h em lembretes WhatsApp). */
   expirationMinutes?: number;
-  flow?: "pix_one_time" | "pix_monthly";
+  flow?: "pix_one_time" | "pix_monthly" | "pix_renewal";
+  expiryKey?: string;
 };
 
 function getMpClient(): MercadoPagoConfig {
@@ -113,7 +115,7 @@ function mapPreapprovalStatus(status?: string | null): string {
   return "pending";
 }
 
-const ALLOWED_CREDIT_PAYMENT_METHODS = new Set(["visa", "master", "elo", "amex"]);
+const ALLOWED_CREDIT_PAYMENT_METHODS = new Set(["visa", "master", "elo", "amex", "diners"]);
 
 function resolveCardPaymentMethodId(input: SubscribeCardInput): string {
   const method = String(input.paymentMethodId || "").trim().toLowerCase();
@@ -125,7 +127,7 @@ function resolveCardPaymentMethodId(input: SubscribeCardInput): string {
     || method === "maestro"
     || !ALLOWED_CREDIT_PAYMENT_METHODS.has(method)
   ) {
-    throw new Error("Aceitamos só cartão de crédito (Visa, Mastercard, Elo ou Amex) ou Pix.");
+    throw new Error("Aceitamos só cartão de crédito (Visa, Mastercard, Elo, Amex ou Diners) ou Pix.");
   }
   return method;
 }
@@ -412,7 +414,7 @@ function isCardLockedPlan(plan: Record<string, unknown>): boolean {
   const raw = JSON.stringify(plan.payment_methods_allowed || "").toLowerCase();
   if (!raw || raw === '""' || raw === "{}") return false;
   const hasPix = raw.includes("pix") || raw.includes("bank_transfer");
-  const hasCard = /visa|master|amex|elo|credit_card|debit_card/.test(raw);
+  const hasCard = /visa|master|amex|elo|diners|credit_card|debit_card/.test(raw);
   return hasCard && !hasPix;
 }
 
@@ -593,6 +595,8 @@ export class MercadoPagoBillingService {
       },
     });
 
+    await persistCheckoutCpfIfMissing(input.userId, input.identification);
+
     if (paymentStatus === "PAID") {
       await this.activateUserAccess(input.userId, userPlan, accessDays, "card");
     } else {
@@ -765,6 +769,8 @@ export class MercadoPagoBillingService {
       },
     });
 
+    await persistCheckoutCpfIfMissing(input.userId, input.identification);
+
     if (paymentStatus === "PAID") {
       await this.activateUserAccess(input.userId, userPlan, accessDays, "card");
     } else {
@@ -848,6 +854,8 @@ export class MercadoPagoBillingService {
         },
       },
     });
+
+    await persistCheckoutCpfIfMissing(input.userId, input.identification);
 
     if (status === "authorized") {
       await this.activateUserAccess(input.userId, userPlan, accessDays, "card");
@@ -946,6 +954,8 @@ export class MercadoPagoBillingService {
       },
     });
 
+    await persistCheckoutCpfIfMissing(input.userId, input.identification);
+
     return {
       subscription,
       initPoint,
@@ -955,6 +965,15 @@ export class MercadoPagoBillingService {
   }
 
   async resolveStoredPayerIdentification(userId: string): Promise<PayerIdentification | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { patientProfileData: true },
+    });
+    const fromProfile = cpfFromPatientProfileData(user?.patientProfileData);
+    if (fromProfile) {
+      return { type: "CPF", number: fromProfile };
+    }
+
     const transactions = await prisma.transaction.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -965,8 +984,8 @@ export class MercadoPagoBillingService {
     for (const transaction of transactions) {
       const metadata = transaction.metadata as Record<string, unknown> | null;
       const stored = metadata?.payerIdentification as PayerIdentification | undefined;
-      const number = String(stored?.number || "").replace(/\D/g, "");
-      if (number.length === 11) {
+      const number = cpfDigits(stored?.number);
+      if (number) {
         return { type: stored?.type || "CPF", number };
       }
     }
@@ -980,8 +999,42 @@ export class MercadoPagoBillingService {
     return "PREMIUM";
   }
 
+  private async reuseOpenRenewalPix(userId: string, expiryKey: string) {
+    const transaction = await prisma.transaction.findFirst({
+      where: {
+        userId,
+        paymentMethod: "pix",
+        status: "PENDING",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!transaction) return null;
+
+    const metadata = (transaction.metadata || {}) as Record<string, unknown>;
+    if (metadata.flow !== "pix_renewal" || String(metadata.expiryKey || "") !== expiryKey) {
+      return null;
+    }
+    const qrCode = String(metadata.qrCode || "").trim();
+    if (!qrCode) return null;
+    const expiresAt = metadata.expiresAt ? new Date(String(metadata.expiresAt)) : null;
+    if (expiresAt && Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() <= Date.now() + 5 * 60_000) {
+      return null;
+    }
+
+    return {
+      pix: {
+        qrCode,
+        qrCodeBase64: metadata.qrCodeBase64 ? String(metadata.qrCodeBase64) : null,
+        ticketUrl: metadata.ticketUrl ? String(metadata.ticketUrl) : null,
+        expiresAt: metadata.expiresAt ? String(metadata.expiresAt) : null,
+      },
+      paymentId: transaction.mercadoPagoPaymentId || transaction.id,
+      amount: transaction.amount,
+    };
+  }
+
   /** Gera Pix avulso para renovação automática (WhatsApp). */
-  async generateRenewalPixForUser(userId: string, planId?: string) {
+  async generateRenewalPixForUser(userId: string, planId?: string, expiryKey?: string) {
     this.ensureConfigured();
 
     const user = await prisma.user.findUnique({
@@ -993,13 +1046,28 @@ export class MercadoPagoBillingService {
     }
 
     const resolvedPlanId = planId || this.resolveRenewalPlanId(user.plan);
+    const { product } = await billingPlanConfigService.resolvePlanAmount(resolvedPlanId);
+
+    if (expiryKey) {
+      const reused = await this.reuseOpenRenewalPix(userId, expiryKey);
+      if (reused) {
+        return {
+          ok: true as const,
+          pix: reused.pix,
+          amount: reused.amount || product.amount,
+          planName: product.name,
+          paymentId: reused.paymentId,
+          reused: true as const,
+        };
+      }
+    }
+
     const identification = await this.resolveStoredPayerIdentification(userId);
 
     if (!identification?.number && !isMercadoPagoTestMode()) {
       return { ok: false as const, reason: "missing_cpf" as const };
     }
 
-    const { product } = await billingPlanConfigService.resolvePlanAmount(resolvedPlanId);
     const result = await this.subscribeWithPixOneTime({
       userId,
       planId: resolvedPlanId,
@@ -1009,6 +1077,8 @@ export class MercadoPagoBillingService {
         ? { type: "CPF", number: "12345678909" }
         : undefined),
       expirationMinutes: 24 * 60,
+      flow: "pix_renewal",
+      expiryKey,
     });
 
     return {
@@ -1017,6 +1087,7 @@ export class MercadoPagoBillingService {
       amount: product.amount,
       planName: product.name,
       paymentId: result.paymentId,
+      reused: false as const,
     };
   }
 
@@ -1041,16 +1112,19 @@ export class MercadoPagoBillingService {
     const pix = assertPixQrGenerated(payment);
     const paymentStatus = mapPaymentStatus(String(payment?.status || ""));
 
-    const subscription = await prisma.billingSubscription.create({
-      data: {
-        userId: input.userId,
-        plan: userPlan,
-        status: paymentStatus === "PAID" ? "authorized" : "pending",
-        paymentMethod: "pix",
-        amount,
-        rawPayload: payment as any,
-      },
-    });
+    const isRenewal = input.flow === "pix_renewal";
+    const subscription = isRenewal
+      ? null
+      : await prisma.billingSubscription.create({
+        data: {
+          userId: input.userId,
+          plan: userPlan,
+          status: paymentStatus === "PAID" ? "authorized" : "pending",
+          paymentMethod: "pix",
+          amount,
+          rawPayload: payment as any,
+        },
+      });
 
     await prisma.transaction.create({
       data: {
@@ -1065,6 +1139,7 @@ export class MercadoPagoBillingService {
           ...pix,
           accessDays,
           flow: input.flow || "pix_one_time",
+          expiryKey: input.expiryKey || null,
           payerIdentification: input.identification?.number
             ? {
                 type: input.identification.type || "CPF",
@@ -1074,6 +1149,8 @@ export class MercadoPagoBillingService {
         } as any,
       },
     });
+
+    await persistCheckoutCpfIfMissing(input.userId, input.identification);
 
     if (paymentStatus === "PAID") {
       await this.activateUserAccess(input.userId, userPlan, accessDays, "pix");
@@ -1092,6 +1169,7 @@ export class MercadoPagoBillingService {
     };
   }
 
+  /** 1 mês civil a partir de agora (dia 25 → próximo 25). Não herda o vencimento anterior. */
   async activateUserAccess(
     userId: string,
     plan: UserPlan,
@@ -1113,34 +1191,14 @@ export class MercadoPagoBillingService {
     });
   }
 
+  /** Mesmo que activate: 1 mês a partir do dia do pagamento, sem somar em cima do vencimento antigo. */
   async extendUserAccess(
     userId: string,
     plan: UserPlan,
     periodDays = 30,
     billingPaymentMethod?: string | null,
   ) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { accessExpiresAt: true },
-    });
-
-    const base = user?.accessExpiresAt && user.accessExpiresAt.getTime() > Date.now()
-      ? user.accessExpiresAt
-      : new Date();
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        plan,
-        status: UserStatus.ATIVO,
-        accessExpiresAt: addBillingPeriodDays(base, periodDays),
-        ...(billingPaymentMethod ? { billingPaymentMethod } : {}),
-      },
-    });
-    invalidateAuthUserCache(userId);
-    void billingNotificationService.notifyPaymentSuccess(userId).catch((err) => {
-      console.warn("[Billing] notifyPaymentSuccess:", err?.message || err);
-    });
+    return this.activateUserAccess(userId, plan, periodDays, billingPaymentMethod);
   }
 
   async processWebhookNotification(payload: {

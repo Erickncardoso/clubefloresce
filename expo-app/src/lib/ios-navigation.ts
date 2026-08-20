@@ -9,6 +9,7 @@ const iosTint =
 /** Sem header — tabs e telas com UI própria. */
 export const iosHiddenHeaderOptions: NativeStackNavigationOptions = {
   headerShown: false,
+  contentStyle: { backgroundColor: '#ffffff' },
 };
 
 /** Header compacto iOS (sem Large Title). */

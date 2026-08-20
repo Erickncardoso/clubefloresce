@@ -1,21 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-
   Image,
-
   Pressable,
-
-  ScrollView,
-
   StyleSheet,
-
   Text,
-
   TextInput,
-
-  View,
-
+  View
 } from 'react-native';
 
 import { useRouter } from 'expo-router';
@@ -44,11 +35,16 @@ import BibliotecaScrollRow from '@/components/biblioteca/BibliotecaScrollRow';
 
 import PatientHeader from '@/components/ui/PatientHeader';
 
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 
 import LoadingScreen from '@/components/ui/LoadingScreen';
 
 import { usePatientApi } from '@/hooks/usePatientApi';
+import {
+  getCachedLibrary,
+  saveCachedLibrary,
+} from '@/lib/patient-session-cache';
 
 import {
 
@@ -119,7 +115,16 @@ export default function ConteudoScreen() {
 
   useEffect(() => {
 
-    (async () => {
+    let cancelled = false;
+
+    void (async () => {
+
+      const cached = await getCachedLibrary();
+      if (cached && !cancelled) {
+        setCourses(cached.courses);
+        setEbooks(cached.ebooks);
+        setLoading(false);
+      }
 
       try {
 
@@ -131,21 +136,34 @@ export default function ConteudoScreen() {
 
         ]);
 
-        setCourses(Array.isArray(coursesData) ? coursesData : []);
+        if (cancelled) return;
 
-        setEbooks(Array.isArray(ebooksData) ? ebooksData : []);
+        const nextCourses = Array.isArray(coursesData) ? coursesData : [];
+        const nextEbooks = Array.isArray(ebooksData) ? ebooksData : [];
+
+        setCourses(nextCourses);
+
+        setEbooks(nextEbooks);
+
+        await saveCachedLibrary({ courses: nextCourses, ebooks: nextEbooks });
 
       } catch (err) {
 
-        setError((err as Error).message || 'Não foi possível carregar a biblioteca.');
+        if (!cancelled) {
+          setError((err as Error).message || 'Não foi possível carregar a biblioteca.');
+        }
 
       } finally {
 
-        setLoading(false);
+        if (!cancelled) setLoading(false);
 
       }
 
     })();
+
+    return () => {
+      cancelled = true;
+    };
 
   }, [request]);
 
@@ -335,9 +353,9 @@ export default function ConteudoScreen() {
 
     <PatientShell>
 
-      <PatientHeader title="Biblioteca" showBack backTo="/inicio" showBell={false} />
+      <PatientHeader />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientScrollView contentContainerStyle={styles.scroll}>
 
         <View style={styles.hero}>
 
@@ -375,7 +393,7 @@ export default function ConteudoScreen() {
 
 
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        <PatientScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
 
           {CHIPS.map((c) => (
 
@@ -399,7 +417,7 @@ export default function ConteudoScreen() {
 
           ))}
 
-        </ScrollView>
+        </PatientScrollView>
 
 
 
@@ -543,7 +561,7 @@ export default function ConteudoScreen() {
 
         ) : null}
 
-      </ScrollView>
+      </PatientScrollView>
 
     </PatientShell>
 

@@ -1,24 +1,16 @@
-import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Modal,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
+import { useCallback, useRef, useState } from 'react';
+import type { MealDraft } from '@/components/bella/BellaMealConfirmModal';
+import MealPhotoCaptureOverlays from '@/components/bella/MealPhotoCaptureOverlays';
 import ProfileAvatarPickerSheet from '@/components/profile/ProfileAvatarPickerSheet';
+import { useMealPhotoTips } from '@/hooks/useMealPhotoTips';
 import { getApiBase, NATIVE_CLIENT_HEADER } from '@/config/env';
 import { useAppToast } from '@/hooks/useAppToast';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { toastError, toastSuccess } from '@/lib/app-toast';
 import type { MealDiaryItem } from '@/lib/meal-diary';
 import { normalizeMealItemsForSave } from '@/lib/meal-diary';
-import { pickMealPhoto } from '@/lib/meal-photo-pick';
-import { patientAssets } from '@/lib/patient-assets';
+import { pickMealPhoto, type PickedMealPhoto } from '@/lib/meal-photo-pick';
 import { patientTimeHeaders } from '@/lib/patient-local-time';
-import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const ANALYZE_TIMEOUT_MS = 120_000;
 
@@ -38,12 +30,35 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
   const { token, request } = usePatientApi();
   const { showToast } = useAppToast();
   const [analyzing, setAnalyzing] = useState(false);
+  const [freezeUri, setFreezeUri] = useState<string | null>(null);
   const [draft, setDraft] = useState<MealDraft | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmError, setConfirmError] = useState('');
 
-  const analyzePhoto = useCallback(async (fromCamera: boolean) => {
+  const analyzeRef = useRef<(fromCamera: boolean, photo?: PickedMealPhoto) => void>(() => {});
+  const {
+    tipsOpen,
+    stageOpen,
+    requestPhoto,
+    confirmTips,
+    dismissTips,
+    dismissStage,
+    captureFromStage,
+    onStageCaptured,
+    reopenTips,
+  } = useMealPhotoTips((fromCamera, photo) => {
+    analyzeRef.current(fromCamera, photo);
+  });
+
+  const closeResult = useCallback(() => {
+    setDraft(null);
+    setConfirmError('');
+    setFreezeUri(null);
+    setAnalyzing(false);
+    dismissStage();
+  }, [dismissStage]);
+
+  const analyzePhoto = useCallback(async (fromCamera: boolean, readyPhoto?: PickedMealPhoto) => {
     const target = meal;
     if (!target?.id) {
       showToast(toastError('Refeição indisponível', 'Abra de novo a refeição e tire a foto.'));
@@ -54,18 +69,26 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
       return;
     }
 
-    let photo;
+    let photo = readyPhoto;
     try {
-      photo = await pickMealPhoto(fromCamera);
+      if (!photo) {
+        const picked = await pickMealPhoto(fromCamera);
+        if (!picked) return;
+        photo = picked;
+      }
     } catch (err) {
       showToast(toastError('Não foi possível abrir a foto', (err as Error).message));
       return;
     }
     if (!photo) return;
 
+    setDraft(null);
+    setConfirmError('');
+    setFreezeUri(photo.uri);
     setAnalyzing(true);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
+    let keepFreeze = false;
 
     try {
       const form = new FormData();
@@ -100,9 +123,10 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
       }
 
       if (body.requiresMealConfirmation && body.mealDraft) {
-        setDraft(body.mealDraft as MealDraft);
+        const next = body.mealDraft as MealDraft;
+        keepFreeze = true;
+        setDraft({ ...next, imageUrl: next.imageUrl || photo?.uri });
         setConfirmError('');
-        setConfirmOpen(true);
         return;
       }
 
@@ -120,8 +144,16 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
     } finally {
       clearTimeout(timer);
       setAnalyzing(false);
+      if (!keepFreeze) {
+        setFreezeUri(null);
+        dismissStage();
+      }
     }
-  }, [meal, showToast, token]);
+  }, [dismissStage, meal, showToast, token]);
+
+  analyzeRef.current = (fromCamera, photo) => {
+    void analyzePhoto(fromCamera, photo);
+  };
 
   async function confirmMeal(items: MealDiaryItem[]) {
     if (!draft || saving) return;
@@ -140,8 +172,7 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
           topic: 'meal',
         }),
       });
-      setConfirmOpen(false);
-      setDraft(null);
+      closeResult();
       showToast(toastSuccess('Refeição no diário', 'A Bella registrou o que tinha no prato.'));
       onSaved?.();
     } catch (err) {
@@ -157,70 +188,32 @@ export default function MealPhotoFlow({ meal, pickerOpen, onPickerClose, onSaved
         visible={pickerOpen}
         title="Registrar refeição"
         onClose={onPickerClose}
-        onPickGallery={() => void analyzePhoto(false)}
-        onTakePhoto={() => void analyzePhoto(true)}
+        onPickGallery={() => void requestPhoto(false)}
+        onTakePhoto={() => void requestPhoto(true)}
       />
 
-      <Modal visible={analyzing} transparent animationType="fade">
-        <View style={styles.analyzingWrap}>
-          <View style={styles.analyzingCard}>
-            <Image source={patientAssets.bellaAvatar} style={styles.bellaAvatar} />
-            <ActivityIndicator color={colors.primaryDark} />
-            <Text style={styles.analyzingTitle}>A Bella está olhando seu prato</Text>
-            <Text style={styles.analyzingSub}>Isso leva alguns segundos.</Text>
-          </View>
-        </View>
-      </Modal>
-
-      <BellaMealConfirmModal
-        open={confirmOpen}
+      <MealPhotoCaptureOverlays
+        tipsOpen={tipsOpen}
+        stageOpen={stageOpen}
+        analyzing={analyzing}
+        freezeUri={freezeUri}
         draft={draft}
         saving={saving}
         error={confirmError}
-        onCancel={() => {
-          setConfirmOpen(false);
-          setDraft(null);
-          setConfirmError('');
+        onDismissTips={dismissTips}
+        onConfirmTips={confirmTips}
+        onDismissStage={closeResult}
+        onShutter={() => captureFromStage(true)}
+        onGallery={() => captureFromStage(false)}
+        onInfo={reopenTips}
+        onCaptured={onStageCaptured}
+        onConfirmMeal={confirmMeal}
+        onCancelResult={closeResult}
+        onCorrectResult={() => {
+          closeResult();
+          void requestPhoto(true);
         }}
-        onConfirm={confirmMeal}
       />
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  analyzingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(20,20,20,0.42)',
-    padding: spacing[6],
-  },
-  analyzingCard: {
-    width: '100%',
-    maxWidth: 320,
-    alignItems: 'center',
-    gap: spacing[3],
-    padding: spacing[5],
-    borderRadius: radii.surface,
-    backgroundColor: '#fff',
-  },
-  bellaAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primarySoft,
-  },
-  analyzingTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: 16,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  analyzingSub: {
-    fontFamily: fonts.regular,
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-});

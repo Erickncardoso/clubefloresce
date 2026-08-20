@@ -41,11 +41,13 @@ export async function sendExpoPushMessage(input: {
       route: input.url || "/diario",
       tag: input.tag || undefined,
       imageUrl: imageUrl || undefined,
+      image: imageUrl || undefined,
     },
   };
   if (categoryId) payload.categoryId = categoryId;
   if (imageUrl) {
     payload.mutableContent = true;
+    payload.priority = "high";
     payload.richContent = { image: imageUrl };
   }
 

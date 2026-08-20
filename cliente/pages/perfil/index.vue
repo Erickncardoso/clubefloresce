@@ -1,17 +1,6 @@
 <template>
   <div class="patient-page perfil-page">
-    <PatientHeader title="Meu perfil" show-back back-to="/inicio" :show-bell="false">
-      <template #actions>
-        <button
-          type="button"
-          class="perfil-settings"
-          aria-label="Abrir configurações"
-          @click="navigateTo('/perfil/configuracoes')"
-        >
-          <Settings aria-hidden="true" />
-        </button>
-      </template>
-    </PatientHeader>
+    <PatientHeader />
 
     <PatientPageSkeleton v-if="pageLoading" layout="profile" />
 

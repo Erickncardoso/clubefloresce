@@ -19,7 +19,7 @@
           "check-in",
           "bem-estar"
         ],
-        "releaseNotes": "Primeira versão do Clube Florescer para iPhone.",
+        "releaseNotes": "O que há de novo:\n\n• App mais estável e rápido ao abrir\n• Fotografe sua refeição com a câmera — a Bella analisa o prato na hora\n• Notificações com foto e botões de atalho\n• Acompanhe sua meta de água na Live Activity (iOS 16.2+)\n• Melhorias gerais para deixar seu dia a dia mais leve",
         "marketingUrl": "https://app.nutrisabellajardim.com.br",
         "supportUrl": "https://app.nutrisabellajardim.com.br/perfil",
         "privacyPolicyUrl": "https://app.nutrisabellajardim.com.br/legal/privacidade"
@@ -33,7 +33,7 @@
       "demoRequired": true,
       "demoUsername": "review.full@clubeflorescer.app",
       "demoPassword": "AppleReview2026!",
-      "notes": "USE A CONTA COMPLETA PARA TESTAR: review.full@clubeflorescer.app / AppleReview2026!\n\nConta preview (acesso limitado): review.limited@clubeflorescer.app / mesma senha. Onboarding já concluído.\n\nMODELO DE NEGÓCIO (3.1.1): portal de paciente de consultório nutricional. Não há compra, preço ou pagamento no app iOS. O acesso completo é liberado manualmente pela nutricionista. Avatar (header) → Configurações → Meu acesso → Sincronizar. Sem links de checkout externo. Sem IAP.\n\nCITAÇÕES DE SAÚDE (1.4.1): Avatar → Configurações → Fontes e referências (TBCA, TACO, Guia Alimentar MS, OMS, CFN, NIH). Também visível em Início, Dieta, Bella chat, Substituir alimento e Evolução.\n\nComunidade: menu ⋮ → Denunciar publicação ou Bloquear membro. Regras visíveis no topo do feed.\n\nExclusão de conta: Avatar → Configurações → Meu Perfil → Apagar minha conta.\n\nContato: contato@nutrisabellajardim.com.br"
+      "notes": "CORREÇÃO CRÍTICA (prioridade revisão): build 14 podia crashar na abertura (módulo nativo de câmera ausente). Build 15 corrige estabilidade e inclui expo-camera nativo.\n\nTESTAR CÂMERA DE REFEIÇÕES: login review.full@clubeflorescer.app → Início → card \"Sua refeição\" ou similar → toque no ícone de câmera → conceda permissão de câmera → preview ao vivo e captura. Alternativa: galeria no mesmo fluxo.\n\nUSE A CONTA COMPLETA: review.full@clubeflorescer.app / AppleReview2026!\n\nConta preview (acesso limitado): review.limited@clubeflorescer.app / mesma senha. Onboarding já concluído.\n\nMODELO DE NEGÓCIO (3.1.1): portal de paciente de consultório nutricional. Não há compra, preço ou pagamento no app iOS. O acesso completo é liberado manualmente pela nutricionista. Avatar (header) → Configurações → Meu acesso → Sincronizar. Sem links de checkout externo. Sem IAP.\n\nCITAÇÕES DE SAÚDE (1.4.1): Avatar → Configurações → Fontes e referências (TBCA, TACO, Guia Alimentar MS, OMS, CFN, NIH). Também visível em Início, Dieta, Bella chat, Substituir alimento e Evolução.\n\nComunidade: menu ⋮ → Denunciar publicação ou Bloquear membro. Regras visíveis no topo do feed.\n\nExclusão de conta: Avatar → Configurações → Meu Perfil → Apagar minha conta.\n\nContato: contato@nutrisabellajardim.com.br"
     }
   },
   "android": {

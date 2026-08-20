@@ -223,7 +223,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
       <View style={styles.root}>
         {children}
         <View style={styles.overlay} pointerEvents="box-none">
-          <AppToastBanner toast={toast} onAction={runAction} />
+          {toast ? <AppToastBanner toast={toast} onAction={runAction} /> : null}
         </View>
       </View>
     </AppToastContext.Provider>
@@ -243,18 +243,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 99999,
-    elevation: 99999,
-  },
-  host: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 99999,
+  },
+  host: {
     width: '100%',
     zIndex: 99999,
-    elevation: 99999,
+    elevation: 24,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

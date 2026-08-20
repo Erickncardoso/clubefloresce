@@ -106,15 +106,6 @@ export function useBillingCheckout() {
     )
   }
 
-  async function subscribeWithPixAutomatic(payload, { asGuest = false } = {}) {
-    return $fetch(
-      `${apiBase}/billing/subscribe/pix-automatic`,
-      asGuest
-        ? guestFetchInit({ method: 'POST', body: payload })
-        : authFetchInit({ method: 'POST', body: payload }),
-    )
-  }
-
   return {
     billingConfig,
     subscription,
@@ -126,7 +117,6 @@ export function useBillingCheckout() {
     subscribeWithCard,
     subscribeWithCardForm,
     subscribeWithPix,
-    subscribeWithPixAutomatic,
   }
 }
 

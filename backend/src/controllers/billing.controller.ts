@@ -29,14 +29,20 @@ export class BillingController {
         void billingNotificationService.touchCheckout(req.user.id).catch(() => {});
       }
       const config = await mercadoPagoBillingService.getPublicConfig();
-      let payer: { id: string; email: string; name: string } | undefined;
+      let payer: { id: string; email: string; name: string; cpf?: string } | undefined;
       if (req.user?.id) {
         const user = await prisma.user.findUnique({
           where: { id: req.user.id },
           select: { id: true, email: true, name: true },
         });
         if (user) {
-          payer = { id: user.id, email: user.email, name: user.name };
+          const stored = await mercadoPagoBillingService.resolveStoredPayerIdentification(user.id);
+          payer = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            ...(stored?.number ? { cpf: stored.number } : {}),
+          };
         }
       }
       res.json({

@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page subst-page">
-    <PatientHeader title="Substituir alimento" show-back back-to="/dieta" :show-bell="false" />
+    <PatientHeader />
 
     <p class="subst-lead">
       Encontre substitutos nutricionalmente equivalentes com base na TBCA/TACO, por similaridade de cossenos.

@@ -1,0 +1,104 @@
+#!/usr/bin/expect -f
+set timeout 1800
+cd /Users/erickcardoso/Desktop/Dev/clubefloresce/expo-app
+set env(EXPO_PUBLIC_API_BASE) "https://apiclube.nutrisabellajardim.com.br/api"
+set env(EXPO_ASC_API_KEY_PATH) "/Users/erickcardoso/Desktop/Dev/clubefloresce/expo-app/credentials/asc-api-key.p8"
+set env(EXPO_ASC_KEY_ID) "FML385PGPZ"
+set env(EXPO_ASC_ISSUER_ID) "f800fd31-89d4-4b7d-af7d-20f800cbd63e"
+
+set team_id_done 0
+
+spawn ./node_modules/.bin/eas build --platform ios --profile production --wait
+
+expect {
+  -re {Select your Apple Team Type} {
+    sleep 0.3
+    send "\033\[B"
+    sleep 0.2
+    send "\r"
+    exp_continue
+  }
+  -re {\? Apple Team ID: › } {
+    if {!$team_id_done} {
+      set team_id_done 1
+      send "SNN39LT7C8\r"
+    }
+    exp_continue
+  }
+  -re {log in to your Apple account} {
+    send "y\r"
+    exp_continue
+  }
+  -re {App Store Connect API Key} {
+    send "\r"
+    exp_continue
+  }
+  -re {Path to Key} {
+    send "./credentials/asc-api-key.p8\r"
+    exp_continue
+  }
+  -re {\? Key ID: › } {
+    send "FML385PGPZ\r"
+    exp_continue
+  }
+  -re {\? Issuer ID: › } {
+    send "f800fd31-89d4-4b7d-af7d-20f800cbd63e\r"
+    exp_continue
+  }
+  -re {Generate a new Apple Distribution Certificate} {
+    send "Y\r"
+    exp_continue
+  }
+  -re {Generate a new Apple Provisioning Profile} {
+    send "Y\r"
+    exp_continue
+  }
+  -re {Generate a new [Pp]rovisioning Profile} {
+    send "Y\r"
+    exp_continue
+  }
+  -re {Generate a new [Pp]rofile} {
+    send "Y\r"
+    exp_continue
+  }
+  -re {Use existing} {
+    send "\r"
+    exp_continue
+  }
+  -re {Reuse this distribution certificate} {
+    send "\r"
+    exp_continue
+  }
+  -re {All credentials are ready} {
+    exp_continue
+  }
+  -re {See logs: https://expo.dev/accounts/.+/builds/} {
+    puts "\n\n=== BUILD ENVIADO PARA EAS — AGUARDANDO CONCLUSÃO ===\n"
+    exp_continue
+  }
+  -re {Waiting for build to complete} {
+    exp_continue
+  }
+  -re {Build finished} {
+    puts "\n\n=== BUILD CONCLUÍDO COM SUCESSO ===\n"
+    exp_continue
+  }
+  -re {Build failed} {
+    puts "\n\n=== BUILD FALHOU ===\n"
+    exit 1
+  }
+  -re {https://expo.dev/artifacts/eas/} {
+    puts "\n\n=== IPA PRONTO ===\n"
+    exp_continue
+  }
+  eof {
+    catch wait result
+    set code [lindex $result 3]
+    if {$code eq ""} { set code 0 }
+    exit $code
+  }
+  timeout {
+    puts "\n\n=== TIMEOUT AGUARDANDO BUILD ===\n"
+    exit 1
+  }
+}

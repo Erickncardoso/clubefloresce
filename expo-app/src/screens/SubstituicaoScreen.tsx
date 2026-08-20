@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from 'react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import CfButton from '@/components/ui/CfButton';
 import { useFoodSubstitution } from '@/hooks/useFoodSubstitution';
@@ -107,8 +107,8 @@ export default function SubstituicaoScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Substituir alimento" showBack backTo="/dieta" showBell={false} showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.lead}>
           Encontre substitutos nutricionalmente equivalentes com base na TBCA/TACO.
         </Text>
@@ -210,7 +210,7 @@ export default function SubstituicaoScreen() {
             ))}
           </View>
         ) : null}
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

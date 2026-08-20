@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { AlertCircle, CheckCircle2, Shield, Sparkles } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import CfButton from '@/components/ui/CfButton';
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -69,7 +75,7 @@ export default function SubscriptionScreen() {
   if (pageLoading) {
     return (
       <PatientShell withTabClearance={false}>
-        <PatientHeader title={screenTitle} showBack backTo="/perfil" showBell={false} showMenu={false} />
+        <PatientHeader />
         <LoadingScreen />
       </PatientShell>
     );
@@ -84,14 +90,8 @@ export default function SubscriptionScreen() {
 
   return (
     <PatientShell withTabClearance={false}>
-      <PatientHeader
-        title={screenTitle}
-        showBack
-        backTo="/perfil"
-        showBell={false}
-        showMenu={false}
-      />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
           <Sparkles color={colors.primary} size={28} />
           <Text style={styles.eyebrow}>Clube Florescer</Text>
@@ -134,7 +134,7 @@ export default function SubscriptionScreen() {
           />
           <CfButton variant="ghost" label="Fale conosco" onPress={openSupportEmail} />
         </View>
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

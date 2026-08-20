@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page legal-page patient-page--no-tab">
-    <PatientHeader title="Política de Privacidade" show-back back-to="/perfil/configuracoes" :show-bell="false" />
+    <PatientHeader />
     <article class="legal-page__body">
       <p class="legal-page__updated">Atualizado em 18 de julho de 2026</p>
       <section v-for="section in sections" :key="section.heading">

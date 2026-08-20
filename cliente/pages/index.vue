@@ -166,6 +166,19 @@ const firstAccessForm = reactive({ newPassword: '', confirmPassword: '' })
 const route = useRoute()
 const guestResolving = useState('patient-guest-resolving', () => false)
 
+function checkoutRedirectFromQuery() {
+  const value = String(route.query.redirect || '')
+  if (value === '/assinatura' || value.startsWith('/assinatura?')) return '/assinatura'
+  return ''
+}
+
+async function resolveLoginDestination() {
+  const checkoutRedirect = checkoutRedirectFromQuery()
+  if (checkoutRedirect) return checkoutRedirect
+  const { resolvePostLoginRoute } = usePatientOnboarding()
+  return resolvePostLoginRoute()
+}
+
 onMounted(async () => {
   const emailFromQuery = String(route.query.email || '').trim()
   if (emailFromQuery) {
@@ -217,8 +230,7 @@ const handleLogin = async () => {
       return
     }
 
-    const { resolvePostLoginRoute } = usePatientOnboarding()
-    await navigateTo(await resolvePostLoginRoute())
+    await navigateTo(await resolveLoginDestination())
   } catch (err) {
     if (isApiConnectionError(err)) {
       error.value = apiConnectionErrorMessage({
@@ -269,8 +281,7 @@ const handleFirstAccessPasswordChange = async () => {
     showFirstAccessModal.value = false
     firstAccessForm.newPassword = ''
     firstAccessForm.confirmPassword = ''
-    const { resolvePostLoginRoute } = usePatientOnboarding()
-    await navigateTo(await resolvePostLoginRoute())
+    await navigateTo(await resolveLoginDestination())
   } catch (err) {
     firstAccessError.value = err.data?.message || 'Não foi possível atualizar a senha.'
   } finally {

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -22,8 +23,9 @@ import {
   Upload,
 } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
-import LoadingScreen from '@/components/ui/LoadingScreen';
+import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
 import DietaAddExtraFoodModal from '@/components/dieta/DietaAddExtraFoodModal';
 import DietaCheckIcon from '@/components/dieta/DietaCheckIcon';
@@ -44,6 +46,7 @@ import { useMealSubstitutions } from '@/hooks/useMealSubstitutions';
 import { usePatientApi } from '@/hooks/usePatientApi';
 import { usePatientMealPlan } from '@/hooks/usePatientMealPlan';
 import { countDone, loadChecked, saveChecked } from '@/lib/dieta-progress';
+import { createMealItemId, normalizeMealItemsForSave, type MealDiaryItem } from '@/lib/meal-diary';
 import { applyOptimisticPlanCheck } from '@/lib/plan-diary-sync';
 import type { MealPlanRecipe } from '@/lib/meal-plan-api';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -63,7 +66,6 @@ export default function DietaScreen() {
     loading: planFetchLoading,
     uploading: planUploading,
     error: planError,
-    fetchPlan,
     uploadPdf,
   } = usePatientMealPlan();
 
@@ -89,7 +91,11 @@ export default function DietaScreen() {
   const [activeMealId, setActiveMealId] = useState('');
   const [checkedItems, setCheckedItems] = useState<boolean[]>([]);
   const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
-  const [planLoading, setPlanLoading] = useState(!planChecked);
+  const [diaryLoading, setDiaryLoading] = useState(true);
+  const [mealDraft, setMealDraft] = useState<MealDraft | null>(null);
+  const [mealConfirmOpen, setMealConfirmOpen] = useState(false);
+  const [confirmingMeal, setConfirmingMeal] = useState(false);
+  const [mealConfirmError, setMealConfirmError] = useState('');
 
   const [substitutionsOpen, setSubstitutionsOpen] = useState(false);
   const [optionPickerOpen, setOptionPickerOpen] = useState(false);
@@ -156,18 +162,24 @@ export default function DietaScreen() {
     let cancelled = false;
 
     async function loadOtherMealsProgress() {
+      const rows = await Promise.all(
+        mealList.map(async (meal) => {
+          const entry = getMealById(meal.id);
+          if (!entry) return null;
+          const total = entry.itemLabels.length;
+          if (meal.id === activeMealId) {
+            return { id: meal.id, done: countDone(checkedItemsRef.current), total };
+          }
+          const states = await loadChecked(meal.id, total);
+          return { id: meal.id, done: countDone(states), total };
+        }),
+      );
+
       const next: Record<string, { done: number; total: number }> = {};
-      for (const meal of mealList) {
-        const entry = getMealById(meal.id);
-        if (!entry) continue;
-        const total = entry.itemLabels.length;
-        if (meal.id === activeMealId) {
-          next[meal.id] = { done: countDone(checkedItemsRef.current), total };
-          continue;
-        }
-        const states = await loadChecked(meal.id, total);
-        next[meal.id] = { done: countDone(states), total };
+      for (const row of rows) {
+        if (row) next[row.id] = { done: row.done, total: row.total };
       }
+
       if (cancelled) return;
       setMealProgressById((prev) => ({
         ...next,
@@ -191,13 +203,22 @@ export default function DietaScreen() {
   }, [checkedItems, currentMeal]);
 
   const loadDailySummary = useCallback(async () => {
+    setDiaryLoading(true);
     try {
       const summary = await request<DailySummary>('/food-diary/today');
       setDailySummary(summary);
     } catch {
       setDailySummary(null);
+    } finally {
+      setDiaryLoading(false);
     }
   }, [request]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadDailySummary();
+    }, [loadDailySummary]),
+  );
 
   const syncChecked = useCallback(async (mealId: string, preserveChecked = false) => {
     const meal = getMealById(mealId);
@@ -297,61 +318,21 @@ export default function DietaScreen() {
         countDone,
       );
       if (summary) setDailySummary(summary);
-      else await loadDailySummary();
     } catch {
-      await loadDailySummary();
+      /* diário já carregado em paralelo */
     }
-  }, [getMealById, loadDailySummary, mealOrder, resyncAllCheckedMeals]);
+  }, [getMealById, mealOrder, resyncAllCheckedMeals]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function init() {
-      if (planChecked) {
-        if (hydrateDietaFromPlan()) {
-          if (!cancelled) setPlanLoading(false);
-          void syncAllCheckedMealsIfNeeded();
-          return;
-        }
-        if (!cancelled) setPlanLoading(false);
-        void loadDailySummary();
-        return;
-      }
-
-      try {
-        await fetchPlan();
-        if (cancelled) return;
-        if (hydrateDietaFromPlan()) {
-          void syncAllCheckedMealsIfNeeded();
-        } else {
-          void loadDailySummary();
-        }
-      } finally {
-        if (!cancelled) setPlanLoading(false);
-      }
-    }
-
-    void init();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (!planChecked || planFetchLoading) return;
+    hydrateDietaFromPlan();
+    void syncAllCheckedMealsIfNeeded();
+  }, [planChecked, planFetchLoading, overridesRevision]);
 
   useEffect(() => {
-    if (!planChecked || planFetchLoading || planLoading) return;
-    if (hydrateDietaFromPlan()) {
-      setPlanLoading(false);
-      void syncAllCheckedMealsIfNeeded();
-    } else {
-      setPlanLoading(false);
-      void loadDailySummary();
-    }
-  }, [planChecked, planFetchLoading]);
-
-  useEffect(() => {
-    if (!needsOptionSelection || planLoading || optionPickerOpen || optionIntroOpen) return;
+    if (!needsOptionSelection || planFetchLoading || optionPickerOpen || optionIntroOpen) return;
     openOptionIntroIfNeeded();
-  }, [needsOptionSelection, planLoading, optionPickerOpen, optionIntroOpen]);
+  }, [needsOptionSelection, planFetchLoading, optionPickerOpen, optionIntroOpen]);
 
   useEffect(() => {
     void syncChecked(activeMealId, true);
@@ -494,6 +475,78 @@ export default function DietaScreen() {
     openPhotoPicker(currentMeal);
   }
 
+  function normalizeEntryItems(items: unknown): MealDiaryItem[] {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((raw) => {
+        const item = raw as Record<string, unknown>;
+        return {
+          id: typeof item.id === 'string' ? item.id : createMealItemId(),
+          name: String(item.name || '').trim(),
+          grams: Number(item.grams) || undefined,
+          caloriesKcal: Number(item.caloriesKcal) || 0,
+          carbsG: Number(item.carbsG) || 0,
+          proteinG: Number(item.proteinG) || 0,
+          fatG: Number(item.fatG) || 0,
+          foodId: typeof item.foodId === 'string' ? item.foodId : null,
+          source: typeof item.source === 'string' ? item.source : undefined,
+          originalName: typeof item.originalName === 'string' ? item.originalName : null,
+        };
+      })
+      .filter((item) => item.name);
+  }
+
+  function editDiaryEntry(entry: NonNullable<DailySummary['entries']>[number]) {
+    if (!entry?.id) return;
+    setMealDraft({
+      mealType: entry.mealType || 'other',
+      mealLabel: entry.mealLabel || 'Refeição',
+      imageUrl: entry.imageUrl || undefined,
+      items: normalizeEntryItems(entry.items),
+      editingEntryId: entry.id,
+    });
+    setMealConfirmError('');
+    setMealConfirmOpen(true);
+  }
+
+  function cancelMealConfirm() {
+    setMealConfirmOpen(false);
+    setMealDraft(null);
+    setMealConfirmError('');
+  }
+
+  async function confirmMealEdit(items: MealDiaryItem[]) {
+    if (!mealDraft?.editingEntryId || confirmingMeal) return;
+
+    setConfirmingMeal(true);
+    setMealConfirmError('');
+
+    try {
+      const res = await request<{ dailySummary?: DailySummary }>(
+        `/food-diary/entries/${mealDraft.editingEntryId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            items: normalizeMealItemsForSave(items),
+            mealType: mealDraft.mealType,
+            mealLabel: mealDraft.mealLabel,
+            imageUrl: mealDraft.imageUrl,
+          }),
+        },
+      );
+      if (res.dailySummary) setDailySummary(res.dailySummary);
+      else await loadDailySummary();
+      cancelMealConfirm();
+      showToast(toastSuccess('Refeição atualizada', mealDraft.mealLabel || 'Diário'));
+    } catch (err) {
+      setMealConfirmError(
+        (err as Error).message || 'Não foi possível atualizar a refeição.',
+      );
+    } finally {
+      setConfirmingMeal(false);
+    }
+  }
+
   async function deleteDiaryEntry(entry: NonNullable<DailySummary['entries']>[number]) {
     if (!entry?.id) return;
     Alert.alert(
@@ -521,26 +574,30 @@ export default function DietaScreen() {
     );
   }
 
-  if (planLoading || (planFetchLoading && !planChecked)) {
-    return (
-      <PatientShell>
-        <PatientHeader title="Minha dieta" showBack backTo="/inicio" showBell={false} showMenu={false} />
-        <LoadingScreen />
-      </PatientShell>
-    );
-  }
-
   return (
     <PatientShell>
-      <PatientHeader title="Minha dieta" showBack backTo="/inicio" showBell={false} showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <BellaDailyDiaryBar
-          summary={dailySummary}
-          manageable
-          onDeleteEntry={deleteDiaryEntry}
-        />
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll}>
+        {diaryLoading && !dailySummary ? (
+          <View style={styles.diaryLoading}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.diaryLoadingText}>Carregando diário de hoje…</Text>
+          </View>
+        ) : (
+          <BellaDailyDiaryBar
+            summary={dailySummary}
+            manageable
+            onEditEntry={editDiaryEntry}
+            onDeleteEntry={deleteDiaryEntry}
+          />
+        )}
 
-        {!hasPlan ? (
+        {planFetchLoading && !hasPlan ? (
+          <View style={styles.planLoading}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.planLoadingText}>Carregando plano alimentar…</Text>
+          </View>
+        ) : !hasPlan ? (
           <DietaMealPlanUploadCard
             uploading={planUploading}
             error={planError}
@@ -590,7 +647,7 @@ export default function DietaScreen() {
                   </Pressable>
                 ) : null}
 
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mealsRow}>
+                <PatientScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mealsRow}>
                   {mealList.map((meal) => {
                     const Icon = meal.icon;
                     const active = activeMealId === meal.id;
@@ -609,7 +666,7 @@ export default function DietaScreen() {
                       </Pressable>
                     );
                   })}
-                </ScrollView>
+                </PatientScrollView>
 
                 {currentMeal ? (
                   <View style={styles.card}>
@@ -791,7 +848,7 @@ export default function DietaScreen() {
             </View>
           </>
         )}
-      </ScrollView>
+      </PatientScrollView>
 
       {currentMeal ? (
         <>
@@ -840,12 +897,47 @@ export default function DietaScreen() {
         onPickerClose={() => setPhotoPickerOpen(false)}
         onSaved={() => void loadDailySummary()}
       />
+
+      <BellaMealConfirmModal
+        open={mealConfirmOpen}
+        draft={mealDraft}
+        saving={confirmingMeal}
+        error={mealConfirmError}
+        onCancel={cancelMealConfirm}
+        onConfirm={confirmMealEdit}
+      />
     </PatientShell>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { padding: spacing[4], paddingBottom: spacing[6], gap: spacing[3] },
+  diaryLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    paddingVertical: spacing[5],
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.control,
+  },
+  diaryLoadingText: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  planLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    paddingVertical: spacing[6],
+  },
+  planLoadingText: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
   tabs: {
     flexDirection: 'row',
     padding: 3,

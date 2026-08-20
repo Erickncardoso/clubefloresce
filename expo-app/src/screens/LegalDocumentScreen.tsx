@@ -1,6 +1,11 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { usePathname } from 'expo-router';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import { LEGAL_DOCUMENTS, type LegalDocumentKey } from '@/content/legal-pt';
 import { colors, fonts, spacing } from '@/theme/tokens';
@@ -12,8 +17,8 @@ export default function LegalDocumentScreen() {
 
   return (
     <PatientShell withTabClearance={false}>
-      <PatientHeader title={document.title} showBack showBell={false} showMenu={false} />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll}>
+      <PatientHeader />
+      <PatientScrollView style={styles.scrollView} contentContainerStyle={styles.scroll}>
         <Text style={styles.updated}>Atualizado em {document.updatedAt}</Text>
         {document.sections.map((section) => (
           <View key={section.heading} style={styles.section}>
@@ -21,7 +26,7 @@ export default function LegalDocumentScreen() {
             <Text style={styles.body}>{section.body}</Text>
           </View>
         ))}
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

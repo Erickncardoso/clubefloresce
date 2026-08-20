@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page dieta-page">
-    <PatientHeader title="Minha dieta" show-back back-to="/inicio" :show-bell="false" />
+    <PatientHeader />
 
     <BellaDailyDiaryBar
       v-if="dailySummary"
@@ -10,8 +10,12 @@
       @edit-entry="editDiaryEntry"
       @delete-entry="deleteDiaryEntry"
     />
+    <div v-else-if="diaryLoading" class="dieta-diary-loading" aria-busy="true">
+      <span class="dieta-diary-loading__spinner" aria-hidden="true" />
+      <span>Carregando diário de hoje…</span>
+    </div>
 
-    <PatientPageSkeleton v-if="planLoading" layout="plan" />
+    <PatientPageSkeleton v-if="planFetchLoading && !hasPlan" layout="plan" />
 
     <DietaMealPlanUploadCard v-else-if="!hasPlan" @uploaded="onPlanUploaded" />
 
@@ -310,7 +314,7 @@ const {
 
 const { patientFetchInit } = usePatientLocalTime()
 
-const planLoading = ref(!planChecked.value)
+const diaryLoading = ref(true)
 const substitutionsOpen = ref(false)
 const optionPickerOpen = ref(false)
 const optionPickerRequired = ref(false)
@@ -593,10 +597,13 @@ function takePhotoNow() {
 }
 
 async function loadDailySummary() {
+  diaryLoading.value = true
   try {
     dailySummary.value = await $fetch(`${apiBase}/food-diary/today`, patientFetchInit())
   } catch {
     dailySummary.value = null
+  } finally {
+    diaryLoading.value = false
   }
 }
 
@@ -685,9 +692,8 @@ async function syncAllCheckedMealsIfNeeded() {
       countDone,
     )
     if (summary) dailySummary.value = summary
-    else await loadDailySummary()
   } catch {
-    await loadDailySummary()
+    /* diário já carregado em paralelo */
   }
 }
 
@@ -708,15 +714,12 @@ function hydrateDietaFromPlan() {
 
 onMounted(async () => {
   view.value = route.query.view === 'week' ? 'week' : 'today'
+  void loadDailySummary()
 
   if (planChecked.value) {
     if (hydrateDietaFromPlan()) {
-      planLoading.value = false
       void syncAllCheckedMealsIfNeeded()
-      return
     }
-    planLoading.value = false
-    void loadDailySummary()
     return
   }
 
@@ -724,22 +727,16 @@ onMounted(async () => {
     await fetchPlan()
     if (hydrateDietaFromPlan()) {
       void syncAllCheckedMealsIfNeeded()
-    } else {
-      void loadDailySummary()
     }
-  } finally {
-    planLoading.value = false
+  } catch {
+    /* plano indisponível — upload card aparece */
   }
 })
 
 watch(planChecked, (checked) => {
-  if (!checked || planFetchLoading.value || !planLoading.value) return
+  if (!checked || planFetchLoading.value) return
   if (hydrateDietaFromPlan()) {
-    planLoading.value = false
     void syncAllCheckedMealsIfNeeded()
-  } else {
-    planLoading.value = false
-    void loadDailySummary()
   }
 })
 
@@ -782,7 +779,7 @@ watch(
 )
 
 watch(
-  [needsOptionSelection, planLoading],
+  [needsOptionSelection, planFetchLoading],
   ([needs, loading]) => {
     if (loading || optionPickerOpen.value || optionIntroOpen.value) return
     if (shouldDeferOptionIntro()) return
@@ -845,6 +842,33 @@ watch(
 
 .dieta-diary-bar {
   margin: 0 0 0.85rem !important;
+}
+
+.dieta-diary-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+  padding: 1.1rem 1rem;
+  border-radius: var(--cf-radius-sm);
+  border: 1px solid var(--cf-border);
+  background: var(--cf-surface);
+  color: var(--cf-text-muted);
+  font-size: 0.8125rem;
+}
+
+.dieta-diary-loading__spinner {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 2px solid var(--cf-track);
+  border-top-color: var(--cf-primary);
+  animation: dieta-diary-spin 0.7s linear infinite;
+}
+
+@keyframes dieta-diary-spin {
+  to { transform: rotate(360deg); }
 }
 
 .dieta-tabs {

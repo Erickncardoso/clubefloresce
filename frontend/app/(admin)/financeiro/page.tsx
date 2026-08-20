@@ -206,6 +206,7 @@ function formatNotificationType(type: string): string {
     cart_abandoned_15m: 'Carrinho — 15 min',
     renewal_3d: 'Renovação em 3 dias',
     renewal_1d_before: 'Renovação — 1 dia antes (WhatsApp)',
+    renewal_pix: 'Renovação — Pix no vencimento (WhatsApp)',
     renewal_1d_after: 'Renovação — 1 dia expirado (e-mail)',
   }
   return map[type] ?? type

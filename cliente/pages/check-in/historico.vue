@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page historico-page">
-    <PatientHeader title="Histórico" show-back back-to="/check-in" />
+    <PatientHeader />
 
     <PatientPageSkeleton v-if="pageLoading" layout="checkin" />
 

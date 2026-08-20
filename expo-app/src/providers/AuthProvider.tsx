@@ -16,6 +16,13 @@ import {
   saveStoredUserId,
 } from '@/lib/auth-storage';
 import {
+  clearPatientSessionCache,
+  getCachedOnboarding,
+  getCachedPatientUser,
+  saveCachedOnboarding,
+  saveCachedPatientUser,
+} from '@/lib/patient-session-cache';
+import {
   isPatientAppAccessBlocked,
   isPatientAccessBlockedError,
 } from '@/lib/patient-access';
@@ -91,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await apiFetch<PatientUser>('/auth/me', { token: activeToken });
       if (me.role !== 'PACIENTE') {
         await clearStoredSession();
+        await clearPatientSessionCache();
         setToken(null);
         setUser(null);
         userRef.current = null;
@@ -99,11 +107,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me);
       userRef.current = me;
       if (me.id) await saveStoredUserId(me.id);
+      await saveCachedPatientUser(me);
       return me;
     } catch (err) {
       const status = (err as ApiError)?.status;
       if (status === 401 || status === 403) {
         await clearStoredSession();
+        await clearPatientSessionCache();
         setToken(null);
         setUser(null);
         userRef.current = null;
@@ -125,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
     userRef.current = me;
     if (me.id) await saveStoredUserId(me.id);
+    await saveCachedPatientUser(me);
     return me;
   }, [token]);
 
@@ -152,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         missingFields: data.missingFields || [],
       };
       setOnboarding(status);
+      await saveCachedOnboarding(status);
       return status;
     } catch (err) {
       if (isPatientAccessBlockedError(err)) throw err;
@@ -179,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       missingFields: data.missingFields || [],
     };
     setOnboarding(status);
+    await saveCachedOnboarding(status);
     return status;
   }, [token]);
 
@@ -198,31 +211,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const stored = await getStoredToken();
-      if (!stored) {
-        if (!cancelled) setBooting(false);
-        return;
-      }
-      setToken(stored);
       try {
-        const me = await apiFetch<PatientUser>('/auth/me', { token: stored });
-        if (cancelled) return;
-        if (me.role === 'PACIENTE') {
-          setUser(me);
-          userRef.current = me;
-          if (me.id) await saveStoredUserId(me.id);
-        } else {
-          await clearStoredSession();
-          setToken(null);
+        const stored = await getStoredToken();
+        if (!stored) {
+          if (!cancelled) setBooting(false);
+          return;
         }
-      } catch (err) {
-        const status = (err as ApiError)?.status;
-        if (status === 401 || status === 403) {
-          await clearStoredSession();
-          setToken(null);
-          setUser(null);
-          userRef.current = null;
+
+        setToken(stored);
+
+        const [cachedUser, cachedOnboarding] = await Promise.all([
+          getCachedPatientUser(),
+          getCachedOnboarding(),
+        ]);
+
+        if (cachedUser && !cancelled) {
+          setUser(cachedUser);
+          userRef.current = cachedUser;
+          if (cachedOnboarding) setOnboarding(cachedOnboarding);
+          setBooting(false);
         }
+
+        const refreshOnboarding = async (activeToken: string) => {
+          try {
+            const data = await apiFetch<OnboardingStatus & { profile?: unknown }>(
+              '/patient-profile/me',
+              { token: activeToken },
+            );
+            if (cancelled) return;
+            const status: OnboardingStatus = {
+              isComplete: Boolean(data.isComplete),
+              missingFields: data.missingFields || [],
+            };
+            setOnboarding(status);
+            await saveCachedOnboarding(status);
+          } catch {
+            /* cache/local permanece */
+          }
+        };
+
+        try {
+          const me = await apiFetch<PatientUser>('/auth/me', { token: stored });
+          if (cancelled) return;
+          if (me.role === 'PACIENTE') {
+            setUser(me);
+            userRef.current = me;
+            if (me.id) await saveStoredUserId(me.id);
+            await saveCachedPatientUser(me);
+            void refreshOnboarding(stored);
+          } else {
+            await clearStoredSession();
+            await clearPatientSessionCache();
+            setToken(null);
+            setUser(null);
+            userRef.current = null;
+          }
+        } catch (err) {
+          const status = (err as ApiError)?.status;
+          if (status === 401 || status === 403) {
+            await clearStoredSession();
+            await clearPatientSessionCache();
+            setToken(null);
+            setUser(null);
+            userRef.current = null;
+          }
+        }
+      } catch {
+        /* boot seguro — login manual */
       } finally {
         if (!cancelled) setBooting(false);
       }
@@ -240,6 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const session = await applySessionFromLogin(data);
     setToken(session.token!);
     setUser(session.user);
+    await saveCachedPatientUser(session.user);
     setOnboarding(null);
     return session;
   }, []);
@@ -259,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await saveStoredUserId(data.user.id);
       setToken(data.token);
       setUser(data.user);
+      await saveCachedPatientUser(data.user);
       setOnboarding(null);
     }
 
@@ -275,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
     await clearStoredSession();
+    await clearPatientSessionCache();
     setToken(null);
     setUser(null);
     setOnboarding(null);
@@ -292,7 +350,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ newPassword }),
       },
     );
-    if (data.user) setUser(data.user);
+    if (data.user) {
+      setUser(data.user);
+      await saveCachedPatientUser(data.user);
+    }
   }, [token]);
 
   const deleteAccount = useCallback(async (password: string) => {
@@ -305,6 +366,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ password }),
     });
     await clearStoredSession();
+    await clearPatientSessionCache();
     setToken(null);
     setUser(null);
     setOnboarding(null);

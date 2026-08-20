@@ -100,6 +100,7 @@ export function isPatientSelfServicePath(path?: string | null): boolean {
 /** Rotas liberadas no plano Gratuito (só início + conta/checkout + legal). */
 export const PATIENT_LIMITED_APP_PATHS = [
   '/inicio',
+  '/menu',
   '/perfil',
   '/onboarding',
   '/assinatura',

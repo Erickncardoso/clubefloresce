@@ -5,4 +5,4 @@ export const PATIENT_NUTRITIONIST_TITLE = `Nutricionista ${PATIENT_NUTRITIONIST_
 
 export const PATIENT_CLINIC_NAME = 'Nutri Sabella Jardim';
 
-export const PATIENT_APP_NAME = 'Clube Florescer';
+export const PATIENT_APP_NAME = 'Florescer';

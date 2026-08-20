@@ -17,6 +17,10 @@ import {
   type MealPlanApiResponse,
   type PatientMealPlanRecord,
 } from '@/lib/meal-plan-api';
+import {
+  getCachedMealPlan,
+  saveCachedMealPlan,
+} from '@/lib/patient-session-cache';
 import { useAuth } from '@/providers/AuthProvider';
 
 type PatientMealPlanContextValue = {
@@ -45,6 +49,12 @@ export function PatientMealPlanProvider({ children }: { children: ReactNode }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const fetchPromiseRef = useRef<Promise<PatientMealPlanRecord | null> | null>(null);
+  const hasCachedPlanRef = useRef(false);
+  const planRecordRef = useRef<PatientMealPlanRecord | null>(null);
+
+  useEffect(() => {
+    planRecordRef.current = planRecord;
+  }, [planRecord]);
 
   const resetPlan = useCallback(() => {
     setPlanRecord(null);
@@ -52,6 +62,7 @@ export function PatientMealPlanProvider({ children }: { children: ReactNode }) {
     setError('');
     setUploading(false);
     fetchPromiseRef.current = null;
+    hasCachedPlanRef.current = false;
   }, []);
 
   const fetchPlan = useCallback(async () => {
@@ -64,16 +75,21 @@ export function PatientMealPlanProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      setLoading(true);
+      if (!hasCachedPlanRef.current) setLoading(true);
       setError('');
       try {
         const res = await apiFetch<MealPlanApiResponse>('/meal-plan/me', { token });
-        setPlanRecord(res.plan ?? null);
-        return res.plan ?? null;
+        const plan = res.plan ?? null;
+        setPlanRecord(plan);
+        await saveCachedMealPlan(plan);
+        hasCachedPlanRef.current = Boolean(plan);
+        return plan;
       } catch (err) {
-        setPlanRecord(null);
+        if (!hasCachedPlanRef.current) {
+          setPlanRecord(null);
+        }
         setError((err as Error).message || 'Não foi possível carregar o plano alimentar.');
-        return null;
+        return hasCachedPlanRef.current ? planRecordRef.current : null;
       } finally {
         setLoading(false);
         setPlanChecked(true);
@@ -120,6 +136,8 @@ export function PatientMealPlanProvider({ children }: { children: ReactNode }) {
 
       setPlanRecord(data?.plan ?? null);
       setPlanChecked(true);
+      await saveCachedMealPlan(data?.plan ?? null);
+      hasCachedPlanRef.current = Boolean(data?.plan);
       return data?.plan ?? null;
     } catch (err) {
       const message = (err as Error).message || 'Não foi possível importar o PDF.';
@@ -135,7 +153,22 @@ export function PatientMealPlanProvider({ children }: { children: ReactNode }) {
       resetPlan();
       return;
     }
-    void fetchPlan();
+
+    let cancelled = false;
+    void (async () => {
+      const cached = await getCachedMealPlan();
+      if (cancelled) return;
+      if (cached) {
+        setPlanRecord(cached);
+        setPlanChecked(true);
+        hasCachedPlanRef.current = true;
+      }
+      void fetchPlan();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [fetchPlan, resetPlan, token]);
 
   const normalized = useMemo(() => normalizeMealPlanResponse({ plan: planRecord }), [planRecord]);

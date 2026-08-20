@@ -1,4 +1,5 @@
 import { BillingNotificationService } from "../services/billing-notification.service";
+import { billingRenewalPixService } from "../services/billing-renewal-pix.service";
 import { formatDateKeyInTimeZone } from "../utils/billing-renewal-dates";
 
 const service = new BillingNotificationService();
@@ -21,6 +22,12 @@ export async function runBillingNotificationJobs(now = new Date()): Promise<void
       console.error("[BillingNotify] Falha em lembrete de renovação:", error);
       lastRenewalDayKey = "";
     }
+  }
+
+  try {
+    await billingRenewalPixService.processDuePixRenewals(now);
+  } catch (error) {
+    console.error("[BillingNotify] Falha no Pix de renovação:", error);
   }
 }
 

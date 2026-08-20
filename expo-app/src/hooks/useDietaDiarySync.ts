@@ -3,33 +3,9 @@ import { usePatientApi } from '@/hooks/usePatientApi';
 import { buildPlanDiaryItems } from '@/lib/plan-diary-sync';
 import { normalizeMealItemsForSave } from '@/lib/meal-diary';
 import type { MappedMealPlanMeal } from '@/lib/meal-plan-api';
+import type { DailySummary } from '@/types/daily-summary';
 
-export type DailySummary = {
-  targets?: {
-    caloriesKcal?: number;
-    proteinG?: number;
-    carbsG?: number;
-    fatG?: number;
-  };
-  consumed?: {
-    caloriesKcal?: number;
-    proteinG?: number;
-    carbsG?: number;
-    fatG?: number;
-  };
-  entries?: Array<{
-    id: string;
-    mealType?: string;
-    mealLabel?: string;
-    caloriesKcal?: number;
-    carbsG?: number;
-    proteinG?: number;
-    fatG?: number;
-    imageUrl?: string | null;
-    createdAt?: string;
-    items?: unknown[];
-  }>;
-};
+export type { DailySummary } from '@/types/daily-summary';
 
 export function useDietaDiarySync() {
   const { request } = usePatientApi();
@@ -86,21 +62,22 @@ export function useDietaDiarySync() {
     loadCheckedFn: (mealId: string, count: number) => Promise<boolean[]> | boolean[],
     countDoneFn: (states: boolean[]) => number,
   ) => {
-    let lastSummary: DailySummary | null = null;
-
-    for (const mealId of mealIds) {
+    const jobs = mealIds.map(async (mealId) => {
       const meal = getMealById(mealId);
-      if (!meal?.items?.length && !meal?.itemLabels?.length) continue;
+      if (!meal?.items?.length && !meal?.itemLabels?.length) return null;
 
       const count = meal.itemLabels?.length || meal.items?.length || 0;
       const states = await Promise.resolve(loadCheckedFn(mealId, count));
-      if (!countDoneFn(states)) continue;
+      if (!countDoneFn(states)) return null;
 
-      const summary = await syncMealCheck(mealId, meal, states);
-      if (summary) lastSummary = summary;
+      return syncMealCheck(mealId, meal, states);
+    });
+
+    const results = await Promise.all(jobs);
+    for (let i = results.length - 1; i >= 0; i -= 1) {
+      if (results[i]) return results[i];
     }
-
-    return lastSummary;
+    return null;
   }, [syncMealCheck]);
 
   return { syncMealCheck, queueSyncMealCheck, resyncAllCheckedMeals };

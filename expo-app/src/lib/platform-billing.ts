@@ -9,7 +9,7 @@ export function formatAccessUntilDate(accessExpiresAt?: Date | string | null): s
   if (!accessExpiresAt) return null;
   const date = new Date(accessExpiresAt);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString('pt-BR');
+  return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 }
 
 export function getNutritionistAccessMessage(

@@ -2,7 +2,7 @@
 module.exports = config => ({
   type: "widget",
   name: "ClubeFlorescerWidget",
-  displayName: "Clube Florescer",
+  displayName: "Florescer",
   icon: "../../assets/icon.png",
   deploymentTarget: "16.2",
   frameworks: ["SwiftUI", "ActivityKit", "WidgetKit"],

@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -8,6 +13,7 @@ import CheckinTypeformFlow, { type CheckinFlowStep } from '@/components/checkin/
 
 import PatientHeader from '@/components/ui/PatientHeader';
 
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -163,7 +169,7 @@ export default function CheckInScreen() {
 
       <PatientShell>
 
-        <PatientHeader title="Check-ins" showBack backTo="/inicio" showBell={false} showMenu={false} />
+        <PatientHeader />
 
         <LoadingScreen />
 
@@ -198,9 +204,9 @@ export default function CheckInScreen() {
 
     <PatientShell>
 
-      <PatientHeader title="Check-ins" showBack backTo="/inicio" showBell={false} showMenu={false} />
+      <PatientHeader />
 
-      <ScrollView contentContainerStyle={styles.list}>
+      <PatientScrollView contentContainerStyle={styles.list}>
 
         {!templates.length ? (
 
@@ -254,7 +260,7 @@ export default function CheckInScreen() {
 
         {waitMessage ? <Text style={styles.waitMessage}>{waitMessage}</Text> : null}
 
-      </ScrollView>
+      </PatientScrollView>
 
     </PatientShell>
 

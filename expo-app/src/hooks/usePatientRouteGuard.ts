@@ -72,9 +72,12 @@ export function usePatientRouteGuard() {
               return;
             }
 
-            const status = onboarding ?? (await fetchOnboarding(true));
+            const status = onboarding ?? (await fetchOnboarding());
             if (cancelled || guardRunRef.current !== runId) return;
-            if (!status) return;
+            if (!status) {
+              replaceIfNeeded('/inicio');
+              return;
+            }
 
             replaceIfNeeded(status.isComplete ? '/inicio' : '/onboarding');
           } catch {

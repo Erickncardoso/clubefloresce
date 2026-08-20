@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import {
@@ -84,12 +90,12 @@ export default function CheckInHistoricoScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Histórico" showBack backTo="/check-in" showBell={false} showMenu={false} />
+      <PatientHeader />
       {loading ? (
         <LoadingScreen />
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        <PatientScrollView contentContainerStyle={styles.scroll}>
+          <PatientScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {FILTERS.map((chip) => (
               <Pressable
                 key={chip.id}
@@ -99,7 +105,7 @@ export default function CheckInHistoricoScreen() {
                 <Text style={[styles.chipText, activeFilter === chip.id && styles.chipTextActive]}>{chip.label}</Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </PatientScrollView>
 
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Seu progresso de check-ins</Text>
@@ -134,7 +140,7 @@ export default function CheckInHistoricoScreen() {
               <Text style={styles.empty}>Nenhum registro neste período.</Text>
             ) : null}
           </View>
-        </ScrollView>
+        </PatientScrollView>
       )}
     </PatientShell>
   );

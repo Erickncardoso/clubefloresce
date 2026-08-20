@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page legal-page patient-page--no-tab">
-    <PatientHeader title="Ajuda e Suporte" show-back back-to="/perfil/configuracoes" :show-bell="false" />
+    <PatientHeader />
     <article class="legal-page__body">
       <section>
         <h2>Fale com a gente</h2>

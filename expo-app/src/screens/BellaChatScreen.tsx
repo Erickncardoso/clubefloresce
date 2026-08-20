@@ -1,34 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-
   ActivityIndicator,
-
   Alert,
-
   Image,
-
   KeyboardAvoidingView,
-
   Platform,
-
   Pressable,
-
-  ScrollView,
-
   StyleSheet,
-
   Text,
-
   TextInput,
-
-  View,
-
+  View
 } from 'react-native';
 
 import * as DocumentPicker from 'expo-document-picker';
 
-import { pickMealPhoto } from '@/lib/meal-photo-pick';
+import { pickMealPhoto, type PickedMealPhoto } from '@/lib/meal-photo-pick';
+import { useMealPhotoTips } from '@/hooks/useMealPhotoTips';
 
 import { useLocalSearchParams } from 'expo-router';
 
@@ -49,9 +37,11 @@ import {
 } from 'lucide-react-native';
 
 import BellaMealConfirmModal, { type MealDraft } from '@/components/bella/BellaMealConfirmModal';
+import MealPhotoCaptureOverlays from '@/components/bella/MealPhotoCaptureOverlays';
 import BellaDailyDiaryBar from '@/components/dieta/BellaDailyDiaryBar';
 import PatientHeader from '@/components/ui/PatientHeader';
 
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 
 import { getApiBase, NATIVE_CLIENT_HEADER } from '@/config/env';
@@ -218,9 +208,14 @@ export default function BellaChatScreen() {
 
   const { meals, fetchPlan } = usePatientMealPlan();
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ElementRef<typeof PatientScrollView>>(null);
   const bootstrapTokenRef = useRef(0);
   const autoCameraRef = useRef(false);
+  const pickImageRef = useRef<(fromCamera: boolean, photo?: PickedMealPhoto) => void>(() => {});
+  const lastMealPhotoUri = useRef<string | null>(null);
+  const mealFreezeUriRef = useRef<string | null>(null);
+
+  const [mealFreezeUri, setMealFreezeUri] = useState<string | null>(null);
 
 
 
@@ -251,6 +246,9 @@ export default function BellaChatScreen() {
   const [mealDraft, setMealDraft] = useState<MealDraft | null>(null);
   const [confirmingMeal, setConfirmingMeal] = useState(false);
   const [mealConfirmError, setMealConfirmError] = useState('');
+  const { tipsOpen, stageOpen, requestPhoto, confirmTips, dismissTips, dismissStage, captureFromStage, onStageCaptured, reopenTips } = useMealPhotoTips((fromCamera, photo) => {
+    pickImageRef.current(fromCamera, photo);
+  });
 
   const userName = user?.name?.split(' ')[0] || 'você';
 
@@ -443,7 +441,8 @@ export default function BellaChatScreen() {
 
   const applyChatResponse = useCallback((res: Record<string, unknown>) => {
     if (res.requiresMealConfirmation && res.mealDraft) {
-      setMealDraft(res.mealDraft as MealDraft);
+      const next = res.mealDraft as MealDraft;
+      setMealDraft({ ...next, imageUrl: next.imageUrl || lastMealPhotoUri.current || undefined });
       if (res.dailySummary) setDailySummary(res.dailySummary as DailySummary);
       if (res.message) {
         const [assistantMessage] = normalizeMessages([res.message as ChatMessage]);
@@ -452,7 +451,7 @@ export default function BellaChatScreen() {
         }
       }
       setMealConfirmError('');
-      setShowMealModal(true);
+      setShowMealModal(!mealFreezeUriRef.current);
       return;
     }
 
@@ -638,6 +637,8 @@ export default function BellaChatScreen() {
       setShowMealModal(false);
       setMealDraft(null);
       setMealConfirmError('');
+      mealFreezeUriRef.current = null;
+      setMealFreezeUri(null);
 
       try {
         if (chatTopic === 'meal') {
@@ -694,11 +695,16 @@ export default function BellaChatScreen() {
 
 
 
-  async function pickImage(fromCamera: boolean) {
+  async function pickImage(fromCamera: boolean, readyPhoto?: PickedMealPhoto) {
     try {
-      const photo = await pickMealPhoto(fromCamera);
+      const photo = readyPhoto ?? await pickMealPhoto(fromCamera);
       if (!photo) return;
 
+      lastMealPhotoUri.current = photo.uri;
+      if (chatTopic === 'meal') {
+        mealFreezeUriRef.current = photo.uri;
+        setMealFreezeUri(photo.uri);
+      }
       setError('');
       setPendingFile({
         uri: photo.uri,
@@ -715,13 +721,25 @@ export default function BellaChatScreen() {
     }
   }
 
+  pickImageRef.current = (fromCamera, photo) => {
+    void pickImage(fromCamera, photo);
+  };
+
+  function requestChatPhoto(fromCamera: boolean) {
+    if (chatTopic === 'meal') {
+      void requestPhoto(fromCamera);
+      return;
+    }
+    void pickImage(fromCamera);
+  }
+
   useEffect(() => {
     if (autoCameraRef.current) return;
     if (chatTopic !== 'meal' || loadingMessages || !selectedMealId) return;
     if (params.camera !== '1') return;
     autoCameraRef.current = true;
     const timer = setTimeout(() => {
-      void pickImage(true);
+      void requestChatPhoto(true);
     }, 450);
     return () => clearTimeout(timer);
   }, [chatTopic, loadingMessages, params.camera, selectedMealId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -918,6 +936,14 @@ export default function BellaChatScreen() {
     setShowMealModal(false);
     setMealDraft(null);
     setMealConfirmError('');
+    mealFreezeUriRef.current = null;
+    setMealFreezeUri(null);
+    dismissStage();
+  }
+
+  function correctMealResult() {
+    cancelMealConfirm();
+    setDraft('A análise do prato não ficou certa. O que eu comi de verdade foi: ');
   }
 
   async function confirmMeal(items: MealDiaryItem[]) {
@@ -1219,21 +1245,7 @@ export default function BellaChatScreen() {
 
     <PatientShell withTabClearance={false}>
 
-      <PatientHeader
-
-        title={topicConfig.title}
-
-        subtitle={topicConfig.subtitle}
-
-        showBack
-
-        backTo="/bella"
-
-        showBell={false}
-
-        showMenu={false}
-
-      />
+      <PatientHeader />
 
       {chatTopic === 'meal' && dailySummary ? (
 
@@ -1265,7 +1277,7 @@ export default function BellaChatScreen() {
 
       >
 
-        <ScrollView
+        <PatientScrollView
 
           ref={scrollRef}
 
@@ -1460,7 +1472,7 @@ export default function BellaChatScreen() {
 
             ) : null}
 
-          </ScrollView>
+          </PatientScrollView>
 
 
 
@@ -1468,7 +1480,7 @@ export default function BellaChatScreen() {
 
           {chatTopic === 'meal' && mealOptions.length ? (
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mealRow}>
+            <PatientScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mealRow}>
 
               <Text style={styles.mealLabel}>Refeição</Text>
 
@@ -1494,7 +1506,7 @@ export default function BellaChatScreen() {
 
               ))}
 
-            </ScrollView>
+            </PatientScrollView>
 
           ) : null}
 
@@ -1540,7 +1552,7 @@ export default function BellaChatScreen() {
 
                 {topicConfig.acceptImages ? (
 
-                  <Pressable style={styles.toolBtn} disabled={sending} onPress={() => pickImage(true)}>
+                  <Pressable style={styles.toolBtn} disabled={sending} onPress={() => requestChatPhoto(true)}>
 
                     <Camera size={20} color={colors.textMuted} />
 
@@ -1550,7 +1562,7 @@ export default function BellaChatScreen() {
 
                 {topicConfig.acceptImages ? (
 
-                  <Pressable style={styles.toolBtn} disabled={sending} onPress={() => pickImage(false)}>
+                  <Pressable style={styles.toolBtn} disabled={sending} onPress={() => requestChatPhoto(false)}>
 
                     <ImagePlus size={20} color={colors.textMuted} />
 
@@ -1612,13 +1624,33 @@ export default function BellaChatScreen() {
 
       </KeyboardAvoidingView>
 
+      <MealPhotoCaptureOverlays
+        tipsOpen={tipsOpen}
+        stageOpen={stageOpen}
+        analyzing={sending && Boolean(mealFreezeUri) && !mealDraft}
+        freezeUri={mealFreezeUri}
+        draft={mealFreezeUri ? mealDraft : null}
+        saving={confirmingMeal}
+        error={mealConfirmError}
+        onDismissTips={dismissTips}
+        onConfirmTips={confirmTips}
+        onDismissStage={dismissStage}
+        onShutter={() => captureFromStage(true)}
+        onGallery={() => captureFromStage(false)}
+        onInfo={reopenTips}
+        onCaptured={onStageCaptured}
+        onConfirmMeal={confirmMeal}
+        onCancelResult={cancelMealConfirm}
+        onCorrectResult={correctMealResult}
+      />
       <BellaMealConfirmModal
-        open={showMealModal}
-        draft={mealDraft}
+        open={showMealModal && !mealFreezeUri}
+        draft={showMealModal && !mealFreezeUri ? mealDraft : null}
         saving={confirmingMeal}
         error={mealConfirmError}
         onCancel={cancelMealConfirm}
         onConfirm={confirmMeal}
+        onCorrect={correctMealResult}
       />
     </PatientShell>
 

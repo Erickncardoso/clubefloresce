@@ -2,10 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -30,6 +29,7 @@ import {
 
 import PlayerNavigationDrawer from '@/components/courses/lesson-player/PlayerNavigationDrawer';
 
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -428,7 +428,7 @@ export default function ModulePlayerScreen() {
 
     <PatientShell withTabClearance={false}>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <PatientScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         <LessonMobileBar
 
@@ -507,7 +507,7 @@ export default function ModulePlayerScreen() {
 
         ) : null}
 
-      </ScrollView>
+      </PatientScrollView>
 
 
 

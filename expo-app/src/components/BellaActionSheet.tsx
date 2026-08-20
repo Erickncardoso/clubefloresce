@@ -1,10 +1,12 @@
-import { Modal, Pressable, StyleSheet, Text, View, Image } from 'react-native';
+import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
-import { BELLA_ACTIONS } from '@/lib/bella-actions';
+import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
 import { usePatientPlanAccess } from '@/hooks/usePatientPlanAccess';
+import { BELLA_ACTIONS } from '@/lib/bella-actions';
 import { patientAssets } from '@/lib/patient-assets';
+import { triggerImpactHaptic } from '@/lib/picker-haptics';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type Props = {
@@ -12,8 +14,15 @@ type Props = {
   onClose: () => void;
 };
 
-export default function BellaActionSheet({ open, onClose }: Props) {
+function runAfterSheetClosed(action: () => void) {
+  InteractionManager.runAfterInteractions(() => {
+    setTimeout(action, 320);
+  });
+}
+
+function SheetBody() {
   const router = useRouter();
+  const { dismiss, dismissThen } = useBottomSheetDismiss();
   const { hasPaidAccess } = usePatientPlanAccess();
 
   const actions = useMemo(
@@ -23,82 +32,82 @@ export default function BellaActionSheet({ open, onClose }: Props) {
     [hasPaidAccess],
   );
 
+  function navigateAfterClose(path: string) {
+    dismissThen(() => runAfterSheetClosed(() => {
+      router.push(path as never);
+    }));
+  }
+
   function selectAction(action: (typeof BELLA_ACTIONS)[number]) {
-    onClose();
+    triggerImpactHaptic();
     if (action.route) {
-      router.push(action.route as never);
+      navigateAfterClose(action.route);
       return;
     }
-    router.push(`/bella/chat/${action.id}` as never);
+    navigateAfterClose(`/bella/chat/${action.id}`);
   }
 
   function startChat() {
-    onClose();
-    router.push('/bella/chat/general' as never);
+    triggerImpactHaptic();
+    navigateAfterClose('/bella/chat/general');
   }
 
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.sheet}>
-        <View style={styles.handle} />
-        <View style={styles.head}>
-          <View style={styles.heroIcon}>
-            <Image source={patientAssets.bellaAvatar} style={styles.heroImg} resizeMode="cover" />
-          </View>
-          <View style={styles.headCopy}>
-            <Text style={styles.title}>Bella IA</Text>
-            <Text style={styles.subtitle}>Como posso te ajudar hoje?</Text>
-          </View>
-          <Pressable onPress={onClose} hitSlop={8} style={styles.closeBtn}>
-            <X color={colors.textMuted} size={18} />
-          </Pressable>
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.head}>
+        <View style={styles.heroIcon}>
+          <Image source={patientAssets.bellaAvatar} style={styles.heroImg} resizeMode="cover" />
         </View>
-
-        <View style={styles.grid}>
-          {actions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Pressable key={action.id} style={styles.action} onPress={() => selectAction(action)}>
-                <View style={styles.actionIcon}>
-                  <Icon color={colors.primaryDark} size={18} />
-                </View>
-                <Text style={styles.actionLabel}>{action.label}</Text>
-              </Pressable>
-            );
-          })}
+        <View style={styles.headCopy}>
+          <Text style={styles.title}>Bella IA</Text>
+          <Text style={styles.subtitle}>Como posso te ajudar hoje?</Text>
         </View>
-
-        <Pressable style={styles.chatBtn} onPress={startChat}>
-          <Text style={styles.chatBtnText}>Iniciar conversa</Text>
+        <Pressable onPress={dismiss} hitSlop={8} style={styles.closeBtn} accessibilityLabel="Fechar">
+          <X color={colors.textMuted} size={18} />
         </Pressable>
       </View>
-    </Modal>
+
+      <View style={styles.grid}>
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <Pressable
+              key={action.id}
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              onPress={() => selectAction(action)}
+            >
+              <View style={styles.actionIcon}>
+                <Icon color={colors.text} size={18} strokeWidth={1.85} />
+              </View>
+              <Text style={styles.actionLabel}>{action.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.chatBtn, pressed && styles.chatBtnPressed]}
+        onPress={startChat}
+      >
+        <Text style={styles.chatBtnText}>Iniciar conversa</Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
+export default function BellaActionSheet({ open, onClose }: Props) {
+  return (
+    <AppleBottomSheet visible={open} onClose={onClose} maxHeightRatio={0.72} contentPadding={20}>
+      <SheetBody />
+    </AppleBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(20,20,20,0.42)',
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radii.surface,
-    borderTopRightRadius: radii.surface,
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[8],
-    paddingTop: spacing[2],
-    maxHeight: '82%',
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.track,
-    marginBottom: spacing[4],
-  },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -122,7 +131,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.track,
+    backgroundColor: '#f2f2f7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -144,11 +153,15 @@ const styles = StyleSheet.create({
     padding: spacing[3],
     backgroundColor: colors.surface,
   },
+  actionPressed: {
+    backgroundColor: '#f2f2f7',
+    transform: [{ scale: 0.98 }],
+  },
   actionIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#f2f2f7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -159,11 +172,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   chatBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     borderRadius: radii.control,
-    minHeight: 48,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing[2],
+  },
+  chatBtnPressed: {
+    opacity: 0.88,
   },
   chatBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 16 },
 });

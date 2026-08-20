@@ -53,7 +53,7 @@ function parseMpError(error) {
 }
 
 const DEBIT_CARD_MESSAGE =
-  'Aceitamos só cartão de crédito (Visa, Mastercard, Elo ou Amex) ou Pix. Este número é de débito.'
+  'Aceitamos só cartão de crédito (Visa, Mastercard, Elo, Amex ou Diners) ou Pix. Este número é de débito.'
 
 function listPaymentMethods(payload) {
   if (Array.isArray(payload?.results)) return payload.results
@@ -176,7 +176,7 @@ export async function createMercadoPagoCardToken(publicKey, card, amount = '19.9
 
   const detected = await detectCardPaymentMethod(mp, card.cardNumber)
   if (!detected.paymentMethodId) {
-    throw new Error('Use um cartão de crédito Visa, Mastercard, Elo ou Amex, ou pague com Pix.')
+    throw new Error('Use um cartão de crédito Visa, Mastercard, Elo, Amex ou Diners, ou pague com Pix.')
   }
   fillBridgeForm(card, detected)
 

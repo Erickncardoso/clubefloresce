@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page biblioteca-page patient-page--with-tab">
-    <PatientHeader title="Biblioteca" show-back back-to="/inicio" :show-bell="false" />
+    <PatientHeader />
 
     <header class="bib-hero">
       <p class="bib-hero-eyebrow">Aprenda no seu ritmo</p>

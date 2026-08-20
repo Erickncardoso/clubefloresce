@@ -14,6 +14,7 @@ export const CLIENTE_SCREEN_MAP: ClienteScreenMeta[] = [
   { route: '/abrir', sourceFile: 'cliente/pages/abrir.vue', layout: 'none', middleware: ['patient-guest'] },
   { route: '/documento', sourceFile: 'cliente/pages/documento.vue', layout: 'patient' },
   { route: '/inicio', sourceFile: 'cliente/pages/inicio.vue', layout: 'patient', middleware: ['patient-only'] },
+  { route: '/menu', sourceFile: 'cliente/pages/menu.vue', layout: 'patient', middleware: ['patient-only'] },
   { route: '/onboarding', sourceFile: 'cliente/pages/onboarding/index.vue', layout: 'onboarding', middleware: ['patient-onboarding'] },
   { route: '/assinatura', sourceFile: 'cliente/pages/assinatura/index.vue', layout: 'patient', middleware: ['patient-only'] },
   { route: '/assinatura/obrigado', sourceFile: 'cliente/pages/assinatura/obrigado.vue', layout: 'patient', middleware: ['patient-only'] },

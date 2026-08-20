@@ -2,6 +2,7 @@ import { ActivityIndicator, InteractionManager, Pressable, StyleSheet, Text, Vie
 import * as Device from 'expo-device';
 import { Camera, ImagePlus } from 'lucide-react-native';
 import AppleBottomSheet, { useBottomSheetDismiss } from '@/components/ui/AppleBottomSheet';
+import { triggerImpactHaptic } from '@/lib/picker-haptics';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type Props = {
@@ -55,10 +56,12 @@ function SheetBody({
   const { dismiss, dismissThen } = useBottomSheetDismiss();
 
   function handleGallery() {
+    triggerImpactHaptic();
     dismissThen(() => runAfterSheetClosed(onPickGallery));
   }
 
   function handleCamera() {
+    triggerImpactHaptic();
     dismissThen(() => runAfterSheetClosed(onTakePhoto));
   }
 

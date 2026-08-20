@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import CfButton from '@/components/ui/CfButton';
 import LoadingScreen from '@/components/ui/LoadingScreen';
@@ -68,7 +73,7 @@ export default function CheckInResumoScreen() {
   if (loading) {
     return (
       <PatientShell>
-        <PatientHeader title="Resumo da Semana" subtitle={weekRange} showBack backTo="/check-in" showBell={false} showMenu={false} />
+        <PatientHeader />
         <LoadingScreen />
       </PatientShell>
     );
@@ -76,8 +81,8 @@ export default function CheckInResumoScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Resumo da Semana" subtitle={weekRange} showBack backTo="/check-in" showBell={false} showMenu={false} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll}>
         {!current ? (
           <Text style={styles.empty}>Você ainda não respondeu o check-in desta semana.</Text>
         ) : (
@@ -100,7 +105,7 @@ export default function CheckInResumoScreen() {
           </>
         )}
         <CfButton label="Ver histórico completo" onPress={() => router.push('/check-in/historico' as never)} />
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

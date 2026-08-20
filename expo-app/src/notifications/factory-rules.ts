@@ -61,7 +61,7 @@ export const FACTORY_MESSAGES = {
     channelId: 'reminders',
   },
   onboardingComplete: {
-    title: 'Clube Florescer',
+    title: 'Florescer',
     body: 'Notificações ativas! Este é um aviso de teste — em breve você recebe lembretes por aqui.',
     route: '/inicio',
     channelId: 'motivation',

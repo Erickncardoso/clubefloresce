@@ -1,16 +1,16 @@
 import { useCallback, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
-  View,
+  View
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { ChevronRight } from 'lucide-react-native';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import {
   PREFERENCE_GROUPS,
@@ -84,14 +84,8 @@ export default function PerfilConfiguracoesPreferenciasScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader
-        title="Notificações"
-        showBack
-        backTo="/perfil/configuracoes"
-        showBell={false}
-        showMenu={false}
-      />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <PatientHeader />
+      <PatientScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.groupTitle}>Permissão do Sistema</Text>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Receber notificações</Text>
@@ -144,7 +138,7 @@ export default function PerfilConfiguracoesPreferenciasScreen() {
           <Text style={styles.rowLabel}>Lembretes personalizados</Text>
           <ChevronRight color="#c7c7cc" size={16} strokeWidth={2} />
         </Pressable>
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

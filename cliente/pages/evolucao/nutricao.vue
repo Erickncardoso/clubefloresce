@@ -1,6 +1,6 @@
 <template>
   <div class="patient-page evo-nutricao-page patient-page--with-tab">
-    <PatientHeader title="Nutrição do mês" show-back back-to="/inicio" :show-bell="false" />
+    <PatientHeader />
     <EvolucaoNutritionMonthView />
   </div>
 </template>

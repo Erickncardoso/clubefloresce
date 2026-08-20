@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { CalendarCheck, ChevronRight, LineChart, Target } from 'lucide-react-native';
 import EvolucaoGoalsPanel from '@/components/evolucao/EvolucaoGoalsPanel';
 import EvolucaoWeightPanel from '@/components/evolucao/EvolucaoWeightPanel';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
-import LoadingScreen from '@/components/ui/LoadingScreen';
 import { usePatientGoals } from '@/hooks/usePatientGoals';
 import { useWeeklyCheckInPrompt } from '@/hooks/useWeeklyCheckInPrompt';
 import { colors, fonts } from '@/theme/tokens';
@@ -16,7 +21,7 @@ type TabId = 'metas' | 'peso';
 export default function EvolucaoScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const { todaySummary, goalsAverage, ready, hydrate } = usePatientGoals();
+  const { todaySummary, goalsAverage } = usePatientGoals();
   const { pendingCheckIn, checkInStatus, loadCheckInAccess } = useWeeklyCheckInPrompt();
   const [activeTab, setActiveTab] = useState<TabId>('metas');
 
@@ -29,8 +34,7 @@ export default function EvolucaoScreen() {
 
   useEffect(() => {
     loadCheckInAccess();
-    hydrate();
-  }, [hydrate, loadCheckInAccess]);
+  }, [loadCheckInAccess]);
 
   useEffect(() => {
     if (params.tab === 'dieta') {
@@ -45,26 +49,11 @@ export default function EvolucaoScreen() {
     router.setParams({ tab: id });
   }
 
-  if (!ready) {
-    return (
-      <PatientShell>
-        <PatientHeader title="Evolução" showBack backTo="/inicio" showBell={false} />
-        <LoadingScreen />
-      </PatientShell>
-    );
-  }
-
   return (
     <PatientShell>
-      <PatientHeader
-        title="Evolução"
-        showBack
-        backTo="/inicio"
-        showBell={false}
-        style={styles.header}
-      />
+      <PatientHeader />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <PatientScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.overview} accessibilityRole="summary">
           <View style={styles.overviewHead}>
             <View style={styles.overviewCopy}>
@@ -160,17 +149,11 @@ export default function EvolucaoScreen() {
             <EvolucaoGoalsPanel />
           </View>
         ) : (
-          <View accessibilityLabel="Peso e medidas">
-            <View style={styles.sectionHead}>
-              <View>
-                <Text style={styles.sectionKicker}>Histórico corporal</Text>
-                <Text style={styles.sectionTitle}>Peso e medidas</Text>
-              </View>
-            </View>
+          <View accessibilityLabel="Peso">
             <EvolucaoWeightPanel />
           </View>
         )}
-      </ScrollView>
+      </PatientScrollView>
     </PatientShell>
   );
 }

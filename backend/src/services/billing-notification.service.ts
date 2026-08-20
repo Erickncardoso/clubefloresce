@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { getPatientAppOpenUrl } from "../utils/email-config";
 import { normalizePhoneForWhatsapp } from "../utils/phone";
 import { isPatientPaidAccessActive } from "../utils/patient-paid-access";
+import { isPixBillingPayer } from "../utils/billing-payment-method";
 import {
   accessExpiresDateKey,
   renewalDateWindowKeys,
@@ -20,6 +21,7 @@ export type BillingNotificationType =
   | "cart_abandoned_15m"
   | "renewal_1d_before"
   | "renewal_1d_after"
+  | "renewal_pix"
   | "payment_failed";
 
 type NotifyUser = {
@@ -28,6 +30,7 @@ type NotifyUser = {
   email: string;
   phone?: string | null;
   plan?: string | null;
+  billingPaymentMethod?: string | null;
   accessExpiresAt?: Date | null;
 };
 
@@ -84,6 +87,7 @@ export class BillingNotificationService {
         email: true,
         phone: true,
         plan: true,
+        billingPaymentMethod: true,
         accessExpiresAt: true,
       },
     });
@@ -158,8 +162,14 @@ export class BillingNotificationService {
     const renewDate = this.formatAccessDate(user.accessExpiresAt);
     const checkout = this.checkoutUrl();
 
-    // WhatsApp: apenas 1 lembrete (1 dia antes), sem Pix automático — evita spam.
-    if (type === "renewal_1d_before" && !(await this.wasRenewalNotified(user.id, "whatsapp", type, expiryKey))) {
+    // Pix: no vencimento o job envia o copia e cola. Cartão: lembrete com link 1 dia antes.
+    const skipWhatsappForPix = type === "renewal_1d_before"
+      && await isPixBillingPayer(user.id, user.billingPaymentMethod);
+    if (
+      type === "renewal_1d_before"
+      && !skipWhatsappForPix
+      && !(await this.wasRenewalNotified(user.id, "whatsapp", type, expiryKey))
+    ) {
       const whatsappText = this.buildRenewalWhatsappText({ first, renewDate, checkout });
       const nutriUserId = await this.getPrimaryNutritionistId();
 
@@ -494,6 +504,7 @@ export class BillingNotificationService {
         email: true,
         phone: true,
         plan: true,
+        billingPaymentMethod: true,
         accessExpiresAt: true,
       },
       take: 120,

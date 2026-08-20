@@ -1,12 +1,6 @@
 <template>
   <div class="patient-page assinatura-page patient-page--no-tab">
-    <PatientHeader
-      title="Assinatura"
-      :show-back="!needsFirstPayment"
-      :back-to="needsFirstPayment ? undefined : '/perfil'"
-      :show-bell="false"
-      :show-menu="false"
-    />
+    <PatientHeader />
 
     <PatientPageSkeleton v-if="pageLoading" layout="profile" />
 
@@ -114,18 +108,6 @@
               <QrCode class="checkout-tab-icon" />
               Pix
             </button>
-            <button
-              type="button"
-              role="tab"
-              class="checkout-tab cf-squircle--control"
-              :class="{ 'checkout-tab--active': paymentMethod === 'pix_auto' }"
-              :aria-selected="paymentMethod === 'pix_auto'"
-              aria-label="Pix mensal automático"
-              @click="setPaymentMethod('pix_auto')"
-            >
-              <Repeat class="checkout-tab-icon" />
-              Mensal
-            </button>
           </div>
 
           <div
@@ -221,11 +203,14 @@
             </template>
 
             <p v-else-if="guestEmailExists" class="checkout-guest-hint">
-              Conta encontrada. Use este e-mail no pagamento e entre depois com a senha (ou
-              <NuxtLink to="/esqueci-senha" class="checkout-guest-link">esqueci a senha</NuxtLink>).
+              Conta encontrada.
+              <button type="button" class="checkout-guest-link" @click="openLoginModal">Entrar</button>
+              ou
+              <NuxtLink to="/esqueci-senha" class="checkout-guest-link">esqueci a senha</NuxtLink>.
             </p>
             <p v-else class="checkout-guest-hint">
-              Sem login: informe o e-mail que deseja usar no Clube Florescer.
+              Já tem conta?
+              <button type="button" class="checkout-guest-link" @click="openLoginModal">Entrar</button>
             </p>
             <p v-if="guestLookupError" class="checkout-error cf-squircle cf-squircle--control" role="alert">
               {{ guestLookupError }}
@@ -236,7 +221,17 @@
             v-else-if="!isGuestCheckout && payerEmail && checkoutStep !== 'pix-waiting'"
             class="checkout-account cf-squircle cf-squircle--control"
           >
-            <span class="checkout-account-label">Conta</span>
+            <div class="checkout-account-top">
+              <span class="checkout-account-label">Conta</span>
+              <button
+                type="button"
+                class="checkout-account-logout"
+                :disabled="loggingOut"
+                @click="logoutCheckout"
+              >
+                {{ loggingOut ? 'Saindo…' : 'Sair' }}
+              </button>
+            </div>
             <strong>{{ payerName }}</strong>
             <span>{{ payerEmail }}</span>
           </div>
@@ -284,10 +279,7 @@
           </div>
 
           <div v-else-if="paymentMethod === 'card'" class="checkout-card">
-            <p class="checkout-card-hint">
-              Cobrança de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> no cartão de crédito agora.
-              Aceitamos Visa, Mastercard, Elo e Amex — sem débito.
-            </p>
+            <CheckoutCardBrands />
 
             <details v-if="billingConfig?.testMode" class="checkout-sandbox cf-squircle cf-squircle--control">
               <summary>Cartão de teste (sandbox)</summary>
@@ -385,7 +377,7 @@
 
               <div
                 class="form-group field--float"
-                :class="{ focused: focusedField === 'cpf' }"
+                :class="{ focused: focusedField === 'cpf' || Boolean(cardCpfDisplay) }"
               >
                 <label for="cf-id-number">CPF</label>
                 <div class="input-wrapper cf-squircle--control">
@@ -418,12 +410,12 @@
               Mensalidade de <strong>{{ formatCurrency(selectedPlanAmount) }}</strong> via <strong>Pix</strong> avulso.
             </p>
             <p class="checkout-pix-start-note">
-              Você paga este mês agora. No próximo ciclo, gere um novo Pix ou use Pix mensal.
+              Você paga este mês agora. No próximo ciclo, gere um novo Pix nesta mesma tela.
             </p>
             <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixCheckout">
               <div
                 class="form-group field--float"
-                :class="{ focused: focusedField === 'pix-cpf' }"
+                :class="{ focused: focusedField === 'pix-cpf' || Boolean(pixCpfDisplay) }"
               >
                 <label for="cf-pix-cpf">CPF</label>
                 <div class="input-wrapper cf-squircle--control">
@@ -449,46 +441,16 @@
               </button>
             </form>
           </div>
-
-          <div v-else class="checkout-pix-start">
-            <p class="checkout-pix-start-lead">
-              <strong>Pix mensal</strong> de {{ formatCurrency(selectedPlanAmount) }} — você autoriza uma vez no app do seu banco (Nubank, Itaú, etc.).
-            </p>
-            <p class="checkout-pix-start-note">
-              Vamos abrir o plano Pix do Mercado Pago. Não use cartão nessa tela: escolha Pix e confirme no banco. Os próximos meses saem sozinhos.
-            </p>
-            <form class="checkout-form checkout-float-fields patient-auth-form" @submit.prevent="startPixAutomaticCheckout">
-              <div
-                class="form-group field--float"
-                :class="{ focused: focusedField === 'pix-auto-cpf' }"
-              >
-                <label for="cf-pix-auto-cpf">CPF</label>
-                <div class="input-wrapper cf-squircle--control">
-                  <input
-                    id="cf-pix-auto-cpf"
-                    :value="pixCpfDisplay"
-                    type="text"
-                    inputmode="numeric"
-                    placeholder="000.000.000-00"
-                    required
-                    @input="onPixCpfInput"
-                    @focus="focusedField = 'pix-auto-cpf'"
-                    @blur="focusedField = ''"
-                  >
-                </div>
-              </div>
-              <button
-                type="submit"
-                class="btn-auth-submit patient-auth-submit cf-squircle--control"
-                :disabled="processing"
-              >
-                {{ processing ? 'Abrindo o plano…' : `Continuar no Pix mensal — ${formatCurrency(selectedPlanAmount)}` }}
-              </button>
-            </form>
-          </div>
         </section>
       </template>
     </div>
+
+    <CheckoutLoginModal
+      :open="showLoginModal"
+      :email="guestForm.email"
+      @close="showLoginModal = false"
+      @success="onCheckoutLoggedIn"
+    />
   </div>
 </template>
 
@@ -499,12 +461,12 @@ import {
   CheckCircle2,
   CreditCard,
   QrCode,
-  Repeat,
   Salad,
   Sparkles,
 } from 'lucide-vue-next'
 import { isPatientAccessExpired, isPatientPaidAccessActive } from '~/utils/patient-access'
 import { parseInternationalPhone } from '~/utils/phone-countries.js'
+import { logoutAuthSession } from '~/composables/useAuthSession.js'
 import {
   maskCardExpiry,
   maskCardNumber,
@@ -515,8 +477,9 @@ import {
 
 definePageMeta({ layout: 'patient' })
 
-const { userFullName, syncPatientProfile } = usePatientApp()
+const { userFullName, syncPatientProfile, clearPatientSession } = usePatientApp()
 const { verifiedUser, verifyAuthSession } = useAuthSession()
+const apiBase = useApiBase()
 const {
   billingConfig,
   subscription,
@@ -526,10 +489,10 @@ const {
   lookupGuestEmail,
   subscribeWithCardForm,
   subscribeWithPix,
-  subscribeWithPixAutomatic,
 } = useBillingCheckout()
 
 const route = useRoute()
+const router = useRouter()
 
 const pageLoading = ref(true)
 const configLoadFailed = ref(false)
@@ -539,6 +502,8 @@ const checkoutStep = ref('idle')
 const processing = ref(false)
 const pixData = ref({ qrCode: '', qrCodeBase64: '', ticketUrl: '', expiresAt: null })
 const pixCopied = ref(false)
+const showLoginModal = ref(false)
+const loggingOut = ref(false)
 const pollingPix = ref(false)
 const focusedField = ref('')
 
@@ -679,6 +644,11 @@ onMounted(async () => {
   await loadBillingData()
 })
 
+function storedPayerCpf() {
+  if (isGuestCheckout.value) return ''
+  return onlyDigits(billingConfig.value?.payer?.cpf, 11)
+}
+
 function syncCardFormFromSession() {
   if (billingConfig.value?.testMode) {
     cardForm.value.cardholderName = SANDBOX_CARD_DEFAULTS.cardholderName
@@ -691,6 +661,11 @@ function syncCardFormFromSession() {
 
   if (!cardForm.value.cardholderName) {
     cardForm.value.cardholderName = payerName.value
+  }
+
+  const cpf = storedPayerCpf()
+  if (cpf.length === 11) {
+    cardForm.value.identificationNumber = cpf
   }
 }
 
@@ -767,6 +742,39 @@ async function reloadBilling() {
   await loadBillingData()
 }
 
+function openLoginModal() {
+  showLoginModal.value = true
+}
+
+async function onCheckoutLoggedIn() {
+  showLoginModal.value = false
+  const query = { ...route.query }
+  delete query.guest
+  delete query.source
+  await router.replace({ path: '/assinatura', query })
+  pageLoading.value = true
+  await loadBillingData()
+}
+
+async function logoutCheckout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await logoutAuthSession(apiBase.value)
+    clearPatientSession()
+    guestForm.value = { email: '', name: '', phone: '', password: '', passwordConfirm: '' }
+    guestEmailExists.value = false
+    guestNeedsPassword.value = false
+    guestLookupError.value = ''
+    if (!billingConfig.value?.testMode) {
+      cardForm.value.identificationNumber = ''
+    }
+    await fetchConfig({ asGuest: true })
+  } finally {
+    loggingOut.value = false
+  }
+}
+
 let pixPollTimer = null
 
 function stopPixPolling() {
@@ -807,7 +815,9 @@ function formatCurrency(value) {
 }
 
 function formatDate(value) {
-  return new Date(value).toLocaleDateString('pt-BR')
+  return new Date(value).toLocaleDateString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+  })
 }
 
 async function selectPlan(planId) {
@@ -1002,45 +1012,6 @@ async function startPixCheckout() {
     startPixPolling()
   } catch (err) {
     checkoutError.value = err?.data?.message || 'Não foi possível gerar o Pix.'
-  } finally {
-    processing.value = false
-  }
-}
-
-async function startPixAutomaticCheckout() {
-  processing.value = true
-  checkoutError.value = ''
-  if (!(await assertGuestPayerReady())) {
-    processing.value = false
-    return
-  }
-  const cpf = onlyDigits(cardForm.value.identificationNumber, 11)
-  if (!billingConfig.value?.testMode && cpf.length !== 11) {
-    checkoutError.value = 'Informe um CPF válido para continuar.'
-    processing.value = false
-    return
-  }
-  try {
-    const result = await subscribeWithPixAutomatic({
-      planId: selectedPlanId.value,
-      payerEmail: payerEmail.value,
-      payerName: payerName.value || userFullName(),
-      password: guestNeedsPassword.value ? guestForm.value.password : undefined,
-      phone: guestNeedsPassword.value ? String(guestForm.value.phone || '').trim() : undefined,
-      identification: {
-        type: 'CPF',
-        number: cpf,
-      },
-    }, { asGuest: forceGuestCheckout.value || isGuestCheckout.value })
-
-    const initPoint = String(result?.initPoint || '').trim()
-    if (!initPoint) {
-      checkoutError.value = 'Não foi possível abrir o plano Pix mensal. Tente a aba Pix.'
-      return
-    }
-    window.location.assign(initPoint)
-  } catch (err) {
-    checkoutError.value = err?.data?.message || err?.message || 'Não foi possível abrir o Pix mensal.'
   } finally {
     processing.value = false
   }
@@ -1393,7 +1364,7 @@ async function refreshSubscription() {
 
 .checkout-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 0.28rem;
   width: 100%;
   flex-shrink: 0;
@@ -1434,7 +1405,6 @@ async function refreshSubscription() {
   box-shadow: 0 2px 8px rgba(20, 20, 20, 0.06);
 }
 
-.checkout-card-hint,
 .checkout-pix-recurring,
 .checkout-pix-start-lead {
   margin: 0 0 0.85rem;
@@ -1443,7 +1413,6 @@ async function refreshSubscription() {
   color: var(--cf-text-muted);
 }
 
-.checkout-card-hint strong,
 .checkout-pix-recurring strong,
 .checkout-pix-start-lead strong {
   color: var(--cf-text);
@@ -1501,9 +1470,15 @@ async function refreshSubscription() {
 }
 
 .checkout-guest-link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--cf-pink, #8b967c);
+  font: inherit;
   font-weight: 700;
   text-decoration: underline;
+  cursor: pointer;
 }
 
 .checkout-account {
@@ -1519,12 +1494,35 @@ async function refreshSubscription() {
   color: var(--cf-text-muted);
 }
 
+.checkout-account-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .checkout-account-label {
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--cf-green-dark, #6f7863);
+}
+
+.checkout-account-logout {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--cf-pink, #c17b80);
+  cursor: pointer;
+}
+
+.checkout-account-logout:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .checkout-account strong {

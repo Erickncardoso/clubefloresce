@@ -197,8 +197,8 @@ export function AdminPushComposer({ patients, initialUserId, onSubmitted }: Prop
           </div>
         ) : (
           <p className={styles.hint}>
-            A imagem aparece na lista do app e no Android. No iOS o banner remoto com foto precisa de
-            extensão nativa — o toque e a inbox continuam funcionando.
+            A imagem e o botão extra aparecem no Android agora. No iPhone, o botão já funciona; a foto
+            no banner entra no próximo build da App Store.
           </p>
         )}
       </div>

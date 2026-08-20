@@ -35,6 +35,7 @@ type Props = {
   contentPadding?: number;
   /** false = não fecha no swipe/backdrop (ex.: escolha obrigatória). */
   dismissible?: boolean;
+  topRadius?: number;
 };
 
 const DISMISS_DRAG = 110;
@@ -69,6 +70,7 @@ export default function AppleBottomSheet({
   maxHeightRatio = 0.78,
   contentPadding = 16,
   dismissible = true,
+  topRadius = 20,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -199,6 +201,8 @@ export default function AppleBottomSheet({
               maxHeight: sheetHeight,
               paddingBottom: Math.max(insets.bottom, 16) + 8,
               paddingHorizontal: contentPadding,
+              borderTopLeftRadius: topRadius,
+              borderTopRightRadius: topRadius,
             },
           ]}
         >

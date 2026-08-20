@@ -3,11 +3,10 @@ import {
   Alert,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,6 +26,7 @@ import {
 } from 'lucide-react-native';
 import CommunityGuidelinesBanner from '@/components/comunidade/CommunityGuidelinesBanner';
 import PatientHeader from '@/components/ui/PatientHeader';
+import PatientScrollView from '@/components/ui/PatientScrollView';
 import PatientShell from '@/components/PatientShell';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { LEGAL_CONTACT_EMAIL } from '@/config/legal';
@@ -312,11 +312,11 @@ export default function ComunidadeScreen() {
 
   return (
     <PatientShell>
-      <PatientHeader title="Comunidade" showBack={false} showBell={false} showMenu={false} />
+      <PatientHeader />
       {loading ? (
         <LoadingScreen />
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <PatientScrollView contentContainerStyle={styles.scroll}>
           <CommunityGuidelinesBanner />
           <View style={styles.tabs}>
             {TABS.map((tab) => (
@@ -361,7 +361,7 @@ export default function ComunidadeScreen() {
                     </Pressable>
                   </View>
                 ) : null}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeChips}>
+                <PatientScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeChips}>
                   {COMPOSE_CHIPS.map(({ id, label, Icon }) => (
                     <Pressable
                       key={id}
@@ -374,7 +374,7 @@ export default function ComunidadeScreen() {
                       </Text>
                     </Pressable>
                   ))}
-                </ScrollView>
+                </PatientScrollView>
                 {(newPost.trim() || imageUri) ? (
                   <Pressable style={styles.publishBtn} onPress={createPost} disabled={posting}>
                     <Text style={styles.publishBtnText}>{posting ? 'Publicando...' : 'Publicar'}</Text>
@@ -489,7 +489,7 @@ export default function ComunidadeScreen() {
               </Text>
             </View>
           )}
-        </ScrollView>
+        </PatientScrollView>
       )}
     </PatientShell>
   );

@@ -37,7 +37,7 @@ export default function NotificationBootstrap() {
             // Categorias opcionais — o toque na notificação já abre o destino.
           }
           const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-            handleNotificationResponse(response.notification.request.content.data);
+            handleNotificationResponse(response);
           });
           remove = () => sub.remove();
         } catch {
