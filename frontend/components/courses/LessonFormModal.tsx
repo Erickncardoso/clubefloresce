@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Camera,
   Film,
   ImagePlus,
   Link as LinkIcon,
@@ -12,6 +11,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+import Camera from '@/components/icons/CameraIcon'
 import {
   type CourseLesson,
   type LessonMaterial,

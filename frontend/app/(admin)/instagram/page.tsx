@@ -3,7 +3,8 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AlertTriangle, Camera, Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
+import Camera from '@/components/icons/CameraIcon'
 import {
   ApiError,
   disconnectInstagram,

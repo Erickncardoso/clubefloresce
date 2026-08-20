@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Camera, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import Camera from '@/components/icons/CameraIcon'
 import { fetchFoodDiaryPhotos, type PhotoEntry } from '@/lib/patient-chart/evolucao'
 import styles from './PatientPhotosPanel.module.scss'
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { ArrowRight, Camera, LineChart, Target } from 'lucide-react'
+import { ArrowRight, LineChart, Target } from 'lucide-react'
+import Camera from '@/components/icons/CameraIcon'
 import { useState } from 'react'
 import { NutritionMonthView } from '@/components/evolucao/NutritionMonthView'
 import { PatientGoalsPanel } from '@/components/patients/PatientGoalsPanel'

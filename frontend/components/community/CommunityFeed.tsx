@@ -2,7 +2,6 @@
 
 import { useRef, type ChangeEvent, type KeyboardEvent } from 'react'
 import {
-  Camera,
   Heart,
   HelpCircle,
   MessageCircle,
@@ -15,6 +14,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import Camera from '@/components/icons/CameraIcon'
 import type { CommunityPost } from '@/lib/community'
 import { AnimatedPopover } from '@/components/overlays'
 import styles from './CommunityFeed.module.scss'

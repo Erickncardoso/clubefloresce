@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Camera, Target } from 'lucide-react'
+import { Target } from 'lucide-react'
+import Camera from '@/components/icons/CameraIcon'
 import { ApiError } from '@/lib/api'
 import {
   fetchFoodDiaryPhotos,
