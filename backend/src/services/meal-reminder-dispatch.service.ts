@@ -6,7 +6,7 @@ import type { ParsedMeal, ParsedMealPlan } from "../types/meal-plan.types";
 import type { PatientProfileData } from "../types/patient-profile.types";
 import { getMealsForReminder, parseTimeToMinutes } from "../utils/meal-time";
 import {
-  buildMealReminderBody,
+  buildMealReminderPushContent,
   buildMealReminderTitle,
 } from "../utils/meal-reminder-copy";
 import {
@@ -166,13 +166,15 @@ export class MealReminderDispatchService {
       const fullMeal = mealsById.get(meal.id) || null;
       const sourceKey = mealReminderSourceKey(dateKey, meal.slotKey, patient.id);
       const title = buildMealReminderTitle({ label: meal.label });
-      const body = buildMealReminderBody({ items: fullMeal?.items || [] });
+      const pushContent = buildMealReminderPushContent({ items: fullMeal?.items || [] });
 
       await notificationRepository.upsertBySourceKey({
         userId: patient.id,
         type: "meal",
         title,
-        body,
+        body: pushContent.fullBody,
+        pushBody: pushContent.body,
+        pushSubtitle: pushContent.subtitle,
         actionPath: `/dieta?meal=${encodeURIComponent(meal.id)}`,
         sourceKey,
       });

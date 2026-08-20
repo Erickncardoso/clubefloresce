@@ -51,10 +51,12 @@ import {
   RESTAURANT_INTENT_QUESTION,
   type RestaurantIntent,
 } from "./bella/restaurant-intent";
+import { AnamneseTranscriptionService } from "./anamnese-transcription.service";
 
 const bellaRepository = new BellaRepository();
 const orchestrator = new BellaOrchestratorService();
 const foodDiaryService = new FoodDiaryService();
+const anamneseTranscription = new AnamneseTranscriptionService();
 
 export interface BellaChatPayload {
   message?: string;
@@ -121,8 +123,22 @@ export class BellaService {
       );
     }
 
-    const message = payload.message?.trim() || "";
-    const file = payload.file;
+    let message = payload.message?.trim() || "";
+    let file = payload.file;
+    let audioAttachmentMeta: StoredAttachmentMeta | undefined;
+
+    if (file && isAudioUpload(file)) {
+      const transcribed = await transcribeBellaAudio(file);
+      message = message ? `${message}\n\n${transcribed}` : transcribed;
+      audioAttachmentMeta = {
+        type: "audio",
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+      };
+      file = undefined;
+    }
+
     let contextImageUrl = payload.contextImageUrl?.trim();
     const handoffFromTopic = payload.handoffFromTopic?.trim();
     const taskHint = payload.taskHint?.trim() || getTopicTaskHint(topic);
@@ -164,7 +180,14 @@ export class BellaService {
               sizeBytes: file.size,
             },
           }
-        : reusedImageUrl
+        : audioAttachmentMeta
+          ? {
+              topic,
+              taskType: "chat",
+              attachment: audioAttachmentMeta,
+              transcribedFromAudio: true,
+            }
+          : reusedImageUrl
           ? {
               topic,
               taskType: "image",
@@ -835,6 +858,26 @@ function buildUserDisplayContent(
   if (topic === "receipt") return "Extraia os alimentos deste cupom e vincule à base de alimentos.";
   if (topic === "restaurant") return "Qual a melhor opção para mim neste cardápio?";
   return "Analise esta imagem, por favor.";
+}
+
+function isAudioUpload(file: Express.Multer.File): boolean {
+  const mime = String(file.mimetype || "").toLowerCase();
+  if (mime.startsWith("audio/")) return true;
+  const ext = String(file.originalname || "").toLowerCase();
+  return [".m4a", ".mp3", ".wav", ".aac", ".ogg", ".webm", ".mp4"].some((suffix) => ext.endsWith(suffix));
+}
+
+async function transcribeBellaAudio(file: Express.Multer.File): Promise<string> {
+  const { text } = await anamneseTranscription.transcribeAudio({
+    buffer: file.buffer,
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+  });
+  const normalized = String(text || "").trim();
+  if (!normalized) {
+    throw new Error("Não consegui entender o áudio. Tente falar mais perto do microfone.");
+  }
+  return normalized;
 }
 
 function serializeMeta(meta: OrchestratorMeta) {

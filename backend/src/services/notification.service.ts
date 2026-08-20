@@ -62,27 +62,6 @@ export class NotificationService {
       });
     }
 
-    const recentBella = await prisma.bellaMessage.findFirst({
-      where: {
-        userId,
-        role: "assistant",
-        createdAt: { gte: daysAgo(2) },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (recentBella) {
-      const topic = recentBella.topic || "general";
-      await repo.upsertBySourceKey({
-        userId,
-        type: "bella",
-        title: "BELLA",
-        body: "Nova dica personalizada para você!",
-        actionPath: `/bella/chat/${topic}`,
-        sourceKey: `bella:${recentBella.id}`,
-      });
-    }
-
     const recentComment = await prisma.comment.findFirst({
       where: {
         postId: { not: null },
@@ -170,8 +149,10 @@ export class NotificationService {
     }
   }
 
-  async listForUser(userId: string) {
-    await this.syncForUser(userId);
+  async listForUser(userId: string, options?: { sync?: boolean }) {
+    if (options?.sync !== false) {
+      await this.syncForUser(userId);
+    }
     const items = await repo.listForUser(userId);
     const unreadCount = await repo.countUnread(userId);
     return { items, unreadCount };

@@ -23,6 +23,7 @@ export async function sendExpoPushMessage(input: {
   token: string;
   title: string;
   body: string;
+  subtitle?: string | null;
   url?: string | null;
   tag?: string | null;
   imageUrl?: string | null;
@@ -30,6 +31,7 @@ export async function sendExpoPushMessage(input: {
 }): Promise<{ ok: boolean; deviceNotRegistered?: boolean }> {
   const imageUrl = String(input.imageUrl || "").trim();
   const categoryId = String(input.categoryId || "").trim();
+  const subtitle = String(input.subtitle || "").trim();
   const payload: Record<string, unknown> = {
     to: input.token,
     title: input.title,
@@ -42,8 +44,10 @@ export async function sendExpoPushMessage(input: {
       tag: input.tag || undefined,
       imageUrl: imageUrl || undefined,
       image: imageUrl || undefined,
+      extraItems: subtitle || undefined,
     },
   };
+  if (subtitle) payload.subtitle = subtitle;
   if (categoryId) payload.categoryId = categoryId;
   if (imageUrl) {
     payload.mutableContent = true;

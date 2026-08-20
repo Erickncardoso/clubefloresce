@@ -10,6 +10,7 @@ import { mealReminderSourceKey } from "../services/meal-reminder-dispatch.servic
 import { isMealRemindersEnabled, isDiarySocialPushEnabled, resolvePatientTimezone } from "../services/patient-preferences.service";
 import {
   buildMealReminderBody,
+  buildMealReminderPushContent,
   buildMealReminderTitle,
   formatMealReminderItemLine,
 } from "../utils/meal-reminder-copy";
@@ -101,6 +102,23 @@ test("meal-reminder-copy: corpo lista itens com porção", () => {
   });
   assert.match(body, /Gelatina zero açúcar/);
   assert.match(body, /Chá de camomila/);
+});
+
+test("meal-reminder-copy: push com itens extras usa subtitle", () => {
+  const content = buildMealReminderPushContent({
+    items: [
+      { key: "1", name: "Arroz", amount: 4, unit: "colheres", grams: 80, ml: null, display: "", substitutions: [] },
+      { key: "2", name: "Feijão", amount: 1, unit: "concha", grams: 90, ml: null, display: "", substitutions: [] },
+      { key: "3", name: "Frango", amount: 1, unit: "filé", grams: 120, ml: null, display: "", substitutions: [] },
+      { key: "4", name: "Salada", amount: 1, unit: "porção", grams: 50, ml: null, display: "", substitutions: [] },
+      { key: "5", name: "Suco", amount: 1, unit: "copo", grams: null, ml: 200, display: "", substitutions: [] },
+    ],
+  });
+  assert.match(content.body, /\+2 itens/);
+  assert.match(content.subtitle || "", /Salada/);
+  assert.match(content.subtitle || "", /Suco/);
+  assert.match(content.fullBody, /Arroz/);
+  assert.match(content.fullBody, /Suco/);
 });
 
 test("meal-reminder-copy: sem itens usa CTA genérico", () => {

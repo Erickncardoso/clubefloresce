@@ -10,7 +10,35 @@ export type CreateNotificationInput = {
   actionPath?: string | null;
   imageUrl?: string | null;
   sourceKey?: string | null;
+  /** Texto curto na push (se diferente do body salvo no app). */
+  pushBody?: string | null;
+  /** Itens extras — subtitle iOS ao expandir a notificação. */
+  pushSubtitle?: string | null;
 };
+
+function pushPayload(input: CreateNotificationInput, tag: string) {
+  return {
+    title: input.title,
+    body: input.pushBody?.trim() || input.body,
+    subtitle: input.pushSubtitle?.trim() || null,
+    url: input.actionPath,
+    tag,
+    type: input.type,
+    categoryId: input.type === "meal" ? "meal-reminder" : null,
+  };
+}
+
+function dbData(input: CreateNotificationInput) {
+  return {
+    userId: input.userId,
+    type: input.type,
+    title: input.title,
+    body: input.body,
+    actionPath: input.actionPath ?? null,
+    imageUrl: input.imageUrl ?? null,
+    sourceKey: input.sourceKey ?? null,
+  };
+}
 
 export class NotificationRepository {
   async listForUser(userId: string, limit = 50) {
@@ -28,19 +56,13 @@ export class NotificationRepository {
   }
 
   async createWithoutPush(input: CreateNotificationInput) {
-    return prisma.notification.create({ data: input });
+    return prisma.notification.create({ data: dbData(input) });
   }
 
   async upsertBySourceKey(input: CreateNotificationInput) {
     if (!input.sourceKey) {
-      const notification = await prisma.notification.create({ data: input });
-      dispatchPushToUser(input.userId, {
-        title: input.title,
-        body: input.body,
-        url: input.actionPath,
-        tag: notification.id,
-        type: input.type,
-      });
+      const notification = await prisma.notification.create({ data: dbData(input) });
+      dispatchPushToUser(input.userId, pushPayload(input, notification.id));
       return notification;
     }
 
@@ -54,14 +76,8 @@ export class NotificationRepository {
     });
 
     if (!existing) {
-      const notification = await prisma.notification.create({ data: input });
-      dispatchPushToUser(input.userId, {
-        title: input.title,
-        body: input.body,
-        url: input.actionPath,
-        tag: input.sourceKey,
-        type: input.type,
-      });
+      const notification = await prisma.notification.create({ data: dbData(input) });
+      dispatchPushToUser(input.userId, pushPayload(input, input.sourceKey));
       return notification;
     }
 
@@ -90,13 +106,7 @@ export class NotificationRepository {
 
     // Evita 2º push só porque o mealId da opção ativa mudou
     if (contentChanged) {
-      dispatchPushToUser(input.userId, {
-        title: input.title,
-        body: input.body,
-        url: input.actionPath,
-        tag: input.sourceKey,
-        type: input.type,
-      });
+      dispatchPushToUser(input.userId, pushPayload(input, input.sourceKey!));
     }
 
     return notification;

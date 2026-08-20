@@ -14,7 +14,7 @@ export class BellaController {
       aiEnabled: orchestrator.isAiEnabled(),
       models,
       tasks: {
-        chat: { model: models.chat, accepts: ["text"] },
+        chat: { model: models.chat, accepts: ["text", "audio/*"] },
         image: { model: models.image, accepts: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
         pdf: { model: models.pdf, accepts: ["application/pdf"] },
       },

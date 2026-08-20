@@ -64,28 +64,57 @@ export function buildMealReminderTitle(meal: Pick<ParsedMeal, "label"> | { label
 /**
  * Corpo da push: itens do plano (nome + porção). Sem itens → CTA genérico.
  */
+export function buildMealReminderFullBody(
+  meal: Pick<ParsedMeal, "items"> | { items?: ParsedFoodItem[] | null },
+): string {
+  const lines = mealReminderItemLines(meal);
+  if (!lines.length) return "Registre sua refeição no diário alimentar.";
+  return lines.join(" · ");
+}
+
 export function buildMealReminderBody(
   meal: Pick<ParsedMeal, "items"> | { items?: ParsedFoodItem[] | null },
 ): string {
+  return buildMealReminderPushContent(meal).body;
+}
+
+function mealReminderItemLines(
+  meal: Pick<ParsedMeal, "items"> | { items?: ParsedFoodItem[] | null },
+): string[] {
   const items = Array.isArray(meal?.items) ? meal.items : [];
-  const lines = items
+  return items
     .map((item) => formatMealReminderItemLine(item))
     .filter(Boolean);
+}
+
+/**
+ * Preview na push (+N itens) e itens extras no subtitle (visível ao expandir / pressionar no iOS).
+ */
+export function buildMealReminderPushContent(
+  meal: Pick<ParsedMeal, "items"> | { items?: ParsedFoodItem[] | null },
+): { body: string; subtitle: string | null; fullBody: string } {
+  const lines = mealReminderItemLines(meal);
+  const fullBody = lines.length
+    ? lines.join(" · ")
+    : "Registre sua refeição no diário alimentar.";
 
   if (!lines.length) {
-    return "Registre sua refeição no diário alimentar.";
+    return { body: fullBody, subtitle: null, fullBody };
   }
 
   const shown = lines.slice(0, MAX_PUSH_ITEMS);
-  const remaining = lines.length - shown.length;
+  const hidden = lines.slice(MAX_PUSH_ITEMS);
   let body = shown.join(" · ");
-  if (remaining > 0) {
-    body += ` · +${remaining} ${remaining === 1 ? "item" : "itens"}`;
+  let subtitle: string | null = null;
+
+  if (hidden.length > 0) {
+    body += ` · +${hidden.length} ${hidden.length === 1 ? "item" : "itens"}`;
+    subtitle = hidden.join("\n");
   }
 
   if (body.length > MAX_PUSH_BODY_LENGTH) {
-    return `${body.slice(0, MAX_PUSH_BODY_LENGTH - 1).trimEnd()}…`;
+    body = `${body.slice(0, MAX_PUSH_BODY_LENGTH - 1).trimEnd()}…`;
   }
 
-  return body;
+  return { body, subtitle, fullBody };
 }

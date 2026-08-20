@@ -17,6 +17,7 @@ const preferencesService = new PatientPreferencesService();
 export type PushMessage = {
   title: string;
   body: string;
+  subtitle?: string | null;
   url?: string | null;
   tag?: string | null;
   imageUrl?: string | null;
@@ -97,28 +98,17 @@ export class PushNotificationService {
       userAgent: ua,
     });
 
-    if (this.isProductionExpoClient(ua)) {
-      await this.pruneDevExpoTokens(userId, endpoint);
-    }
+    await this.pruneOtherExpoTokens(userId, endpoint);
 
     return subscription;
   }
 
-  /** App Store / dev client nativo — não Expo Go. */
-  private isProductionExpoClient(userAgent: string): boolean {
-    const ua = String(userAgent || "").trim();
-    if (!ua || ua === "expo-ios") return false;
-    if (/^Expo\//i.test(ua)) return false;
-    return /ClubeFlorescer|Florescer|CFNetwork/i.test(ua);
-  }
-
-  /** Evita push indo só pro Expo Go quando o app da loja já está instalado. */
-  private async pruneDevExpoTokens(userId: string, keepEndpoint: string) {
+  /** Um token Expo por usuário — evita push duplicado no mesmo aparelho. */
+  private async pruneOtherExpoTokens(userId: string, keepEndpoint: string) {
     const subs = await repo.listByUser(userId);
     await Promise.all(
       subs
         .filter((sub) => isExpoPushEndpoint(sub.endpoint) && sub.endpoint !== keepEndpoint)
-        .filter((sub) => /^Expo\//i.test(String(sub.userAgent || "")))
         .map((sub) => repo.deleteByEndpoint(userId, sub.endpoint)),
     );
   }
@@ -180,6 +170,7 @@ export class PushNotificationService {
               token: expoTokenFromEndpoint(sub.endpoint),
               title: message.title,
               body: message.body,
+              subtitle: message.subtitle,
               url: message.url,
               tag: message.tag,
               imageUrl: message.imageUrl,

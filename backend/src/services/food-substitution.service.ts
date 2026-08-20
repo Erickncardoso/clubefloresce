@@ -16,6 +16,14 @@ import {
 } from "../utils/swap-cosine-similarity";
 import { macrosAtGramsFromPer100g, normalizePer100gMacros } from "../utils/food-macros";
 import { smartMatchFood } from "./food-smart-match.service";
+import {
+  buildRankedSubstitutionScore,
+  isCalorieSubstitutionCandidateAllowed,
+  pickDiverseSubstitutionSuggestions,
+  resolveSubstitutionGroupFilter,
+  resolveSubstitutionMealPeriod,
+} from "../utils/calorie-substitution-ranking";
+import type { MealPeriod } from "./bella/swap-culinary-fit";
 
 const foodRepository = new FoodRepository();
 
@@ -32,6 +40,7 @@ export interface SubstitutionRequest {
   replacementId?: string;
   replacementName?: string;
   limit?: number;
+  mealLabel?: string;
 }
 
 export interface SubstitutionFoodResult {
@@ -153,6 +162,7 @@ function rankCandidates(
   originalMacros: PortionMacros,
   candidates: FoodItemDto[],
   criterion: SubstitutionCriterion,
+  mealPeriod: MealPeriod,
 ): SubstitutionFoodResult[] {
   const originalPer100g = normalizePer100gMacros(originalFood);
   const originalVector = buildNutrientVector(
@@ -161,8 +171,14 @@ function rankCandidates(
     readFiberG(originalFood),
   );
   const anchor = criterionToAnchor(criterion);
+  const swapGroup = resolveSwapGroup({
+    category: originalFood.category,
+    name: originalFood.name,
+    per100g: originalPer100g,
+  });
 
   return candidates
+    .filter((food) => isCalorieSubstitutionCandidateAllowed(originalFood, food, mealPeriod, swapGroup))
     .map((food) => {
       const per100g = normalizePer100gMacros(food);
       const equivalent = buildEquivalentPortion(per100g, originalMacros, anchor);
@@ -172,8 +188,17 @@ function rankCandidates(
         readFiberG(food),
       );
       const similarity = scoreNutritionalSimilarity(originalVector, candidateVector, criterion);
+      const similarityPercent = similarityToPercent(similarity);
+      const rankedScore = buildRankedSubstitutionScore(
+        originalFood.name,
+        food.name,
+        similarityPercent,
+        mealPeriod,
+      );
 
-      return toResult(food, equivalent, similarityToPercent(similarity));
+      return {
+        ...toResult(food, equivalent, rankedScore),
+      };
     })
     .sort((a, b) => b.similarityPercent - a.similarityPercent);
 }
@@ -183,12 +208,14 @@ export async function calculateFoodSubstitution(
 ): Promise<SubstitutionResponse | null> {
   const grams = Math.max(1, Math.round(input.grams || 100));
   const criterion = input.criterion || "calories";
-  const groupFilter = input.groupFilter || "all";
   const mode = input.mode || "multiple";
   const limit = Math.min(Math.max(input.limit ?? 12, 1), 30);
+  const mealPeriod = resolveSubstitutionMealPeriod(input.mealLabel);
 
   const originalFood = await resolveOriginalFood(input);
   if (!originalFood) return null;
+
+  const groupFilter = resolveSubstitutionGroupFilter(originalFood, input.groupFilter || "all");
 
   const originalMacros = buildOriginalMacros(originalFood, grams);
   const originalResult = toResult(originalFood, originalMacros, 100);
@@ -233,8 +260,8 @@ export async function calculateFoodSubstitution(
   }
 
   const candidates = await loadCandidates(groupFilter, [originalFood.id]);
-  const suggestions = rankCandidates(originalFood, originalMacros, candidates, criterion)
-    .slice(0, limit);
+  const ranked = rankCandidates(originalFood, originalMacros, candidates, criterion, mealPeriod);
+  const suggestions = pickDiverseSubstitutionSuggestions(ranked, originalFood.name, limit);
 
   return {
     criterion,

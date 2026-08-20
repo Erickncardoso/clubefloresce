@@ -8,7 +8,9 @@ const adminPush = new AdminPushService();
 export class NotificationController {
   async listMine(req: Request, res: Response): Promise<any> {
     try {
-      const data = await service.listForUser(req.user!.id);
+      const syncParam = String(req.query.sync ?? "").trim().toLowerCase();
+      const sync = syncParam !== "0" && syncParam !== "false";
+      const data = await service.listForUser(req.user!.id, { sync });
       return res.json(data);
     } catch (error: any) {
       return res.status(500).json({ message: error.message || "Erro ao carregar notificações." });
