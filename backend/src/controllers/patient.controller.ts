@@ -15,6 +15,7 @@ import { videoCallService } from "../services/video-call.service";
 import { assertPatientUser } from "../utils/patient-access";
 import { mapDatabaseError } from "../utils/db-errors";
 import { prisma } from "../lib/prisma";
+import { FoodDiarySocialRepository } from "../repositories/food-diary-social.repository";
 
 const overviewService = new PatientOverviewService();
 const mealPlanService = new MealPlanService();
@@ -357,9 +358,52 @@ export class PatientController {
           mealLabel: true,
           imageUrl: true,
           caloriesKcal: true,
+          items: true,
           createdAt: true,
         },
       });
+
+      const readItemKcal = (raw: unknown): number | null => {
+        if (!raw || typeof raw !== "object") return null;
+        const row = raw as Record<string, unknown>;
+        const candidates = [row.caloriesKcal, row.calories, row.kcal];
+        for (const value of candidates) {
+          const n = Number(value);
+          if (Number.isFinite(n) && n >= 0) return n;
+        }
+        return null;
+      };
+
+      const exactCalories = (items: unknown, fallback: number | null) => {
+        let fromItems: number | null = null;
+        if (Array.isArray(items) && items.length) {
+          let total = 0;
+          let counted = 0;
+          for (const raw of items) {
+            const kcal = readItemKcal(raw);
+            if (kcal == null) continue;
+            total += kcal;
+            counted += 1;
+          }
+          if (counted) fromItems = Math.round(total);
+        }
+
+        const fb = Number(fallback);
+        const fromEntry = Number.isFinite(fb) && fb >= 0 ? Math.round(fb) : null;
+
+        // Preferência: soma dos itens (fonte mais fiel da refeição); senão o total salvo.
+        if (fromItems != null && fromItems > 0) return fromItems;
+        if (fromEntry != null && fromEntry > 0) return fromEntry;
+        return fromItems ?? fromEntry;
+      };
+
+      const viewerId = req.user?.id || "";
+      const social = new FoodDiarySocialRepository();
+      const { likeCounts, commentCounts, likedIds } = await social.countsForEntries(
+        entries.map((entry) => entry.id),
+        viewerId,
+      );
+
       return res.json({
         photos: entries.map((entry) => ({
           id: entry.id,
@@ -367,8 +411,11 @@ export class PatientController {
           mealType: entry.mealType,
           mealLabel: entry.mealLabel,
           imageUrl: entry.imageUrl,
-          caloriesKcal: entry.caloriesKcal,
+          caloriesKcal: exactCalories(entry.items, entry.caloriesKcal),
           createdAt: entry.createdAt,
+          likesCount: likeCounts.get(entry.id) || 0,
+          likedByMe: likedIds.has(entry.id),
+          commentsCount: commentCounts.get(entry.id) || 0,
         })),
       });
     } catch (error: any) {

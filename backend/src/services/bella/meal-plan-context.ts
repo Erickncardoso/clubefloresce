@@ -134,6 +134,17 @@ export async function buildRestaurantAdvisorContext(
   };
 }
 
+function formatMealLabelForPreview(mealLabel: string) {
+  return String(mealLabel || "refeição")
+    .replace(/\s+-\s+/g, " — ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatMacroLine(carbsG: number, proteinG: number, fatG: number) {
+  return `Carb ${carbsG} g · Prot ${proteinG} g · Gord ${fatG} g`;
+}
+
 export function buildMealAnalysisPreview(
   mealLabel: string,
   items: Array<{
@@ -155,38 +166,44 @@ export function buildMealAnalysisPreview(
   dailySummary: DailyDiarySummary,
   notes?: string,
 ): string {
+  const label = formatMealLabelForPreview(mealLabel);
   const uncounted = items.filter((item) => !item.foodId || item.source !== "food_bank");
 
   const lines = items.map((item) => {
-    const precisionTag =
-      item.foodId && item.source === "food_bank" ? "" : " _(estimativa — busque na base para maior precisão)_";
-    return `- **${item.name}**: ${item.grams} g · ${item.caloriesKcal} kcal · C ${item.carbsG} g · P ${item.proteinG} g · G ${item.fatG} g${precisionTag}`;
+    const fromBank = Boolean(item.foodId && item.source === "food_bank");
+    const precisionTag = fromBank ? "" : " _(estimativa)_";
+    return (
+      `- **${item.name}** — ${item.grams} g · **${item.caloriesKcal} kcal**` +
+      `\n  ${formatMacroLine(item.carbsG, item.proteinG, item.fatG)}${precisionTag}`
+    );
   });
 
-  const projected = dailySummary.consumed.caloriesKcal + totals.caloriesKcal;
+  const projected = Math.round(dailySummary.consumed.caloriesKcal + totals.caloriesKcal);
+  const target = dailySummary.targets.caloriesKcal;
+  const overTarget = projected > target;
 
   let warningBlock = "";
   if (uncounted.length) {
-    const names = uncounted.map((item) => item.name).join(", ");
+    const names = uncounted.map((item) => `**${item.name}**`).join(", ");
     warningBlock =
       `## Atenção\n` +
-      `Estes itens ainda **não estão na nossa base** e usam estimativa da IA: ${names}. ` +
-      `Eles entram no diário com os valores estimados; para maior precisão, escolha o alimento na base. ` +
-      `Se for uma receita ou prato montado, cadastre **ingrediente por ingrediente**.\n\n`;
+      `${names} ainda não ${uncounted.length === 1 ? "está" : "estão"} na base — valores estimados pela IA. ` +
+      `No card de confirmação, busque o alimento na base ou cadastre **ingrediente por ingrediente**.\n\n`;
   }
 
   return (
-    `Analisei seu **${mealLabel}**! Confira os itens abaixo e ajuste se precisar antes de registrar no diário de hoje.\n\n` +
+    `Analisei seu **${label}**.\n\n` +
+    `Confira os itens abaixo e ajuste se precisar antes de registrar no diário de hoje.\n\n` +
     warningBlock +
     `## Itens identificados\n${lines.join("\n")}\n\n` +
     `## Total desta refeição\n` +
-    `- Calorias: ${totals.caloriesKcal} kcal\n` +
-    `- Carboidratos: ${totals.carbsG} g\n` +
-    `- Proteínas: ${totals.proteinG} g\n` +
-    `- Gorduras: ${totals.fatG} g\n\n` +
+    `**${totals.caloriesKcal} kcal**\n` +
+    `${formatMacroLine(totals.carbsG, totals.proteinG, totals.fatG)}\n\n` +
     `## Projeção do dia\n` +
-    `Após confirmar: **${Math.round(projected)}** / ${dailySummary.targets.caloriesKcal} kcal\n\n` +
+    `Após confirmar: **${projected}** / ${target} kcal` +
+    (overTarget ? ` _(acima da meta)_` : "") +
+    `\n\n` +
     (notes ? `${notes}\n\n` : "") +
-    `Toque em **Confirmar e registrar** para salvar no diário alimentar de hoje.`
+    `Toque em **Confirmar e registrar** para salvar no diário.`
   );
 }

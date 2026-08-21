@@ -31,17 +31,6 @@ function isNativeWebView() {
   return Boolean(window.ReactNativeWebView)
 }
 
-/** Safari iOS já mostra o Smart App Banner nativo (com ícone da loja) via meta. */
-function isSafariIos() {
-  if (typeof window === 'undefined') return false
-  const ua = window.navigator.userAgent || ''
-  const iOS = /iPad|iPhone|iPod/.test(ua)
-    || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
-  if (!iOS) return false
-  const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Android/i.test(ua)
-  return isSafari
-}
-
 function isCheckoutPaymentPath(path) {
   if (path === '/assinatura/obrigado') return false
   return path === '/assinatura' || path.startsWith('/assinatura/')
@@ -63,14 +52,15 @@ function evaluateVisibility() {
   if (isStandalonePwa()) return
   if (wasDismissed()) return
   if (!shouldShowOnRoute.value) return
-  // Evita banner duplicado: Safari usa o meta nativo com ícone da App Store.
-  if (isSafariIos()) return
 
   const ua = window.navigator.userAgent || ''
   const isAppleMobile = /iPad|iPhone|iPod/.test(ua)
     || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
   if (!isAppleMobile) return
 
+  // Nosso banner no Safari iOS também: o Smart App Banner nativo (meta) some fácil
+  // se a pessoa já fechou uma vez, está em aba privada, etc. App publicado ou não,
+  // o card "Abrir" garante o caminho pro app / Store.
   visible.value = true
 }
 

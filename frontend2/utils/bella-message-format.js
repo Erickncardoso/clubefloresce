@@ -21,7 +21,9 @@ function inlineFormat(text) {
     return `<a href="/bella/chat/${link.topic}" class="bella-chat-link-inline" data-chat-topic="${link.topic}">${escapeHtml(link.label)}</a>`
   })
 
-  return html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  return html
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/_(.+?)_/g, '<em>$1</em>')
 }
 
 export function getMessageAttachment(msg) {
@@ -94,13 +96,26 @@ function normalizeLabelReply(content) {
   return text.trim()
 }
 
+function withProtectedBold(source, transform) {
+  const stash = []
+  const masked = String(source).replace(/\*\*([\s\S]+?)\*\*/g, (match) => {
+    const key = `\u0000B${stash.length}\u0000`
+    stash.push(match)
+    return key
+  })
+  const next = transform(masked)
+  return next.replace(/\u0000B(\d+)\u0000/g, (_, index) => stash[Number(index)] || '')
+}
+
 export function formatBellaMarkdown(content) {
   if (!content?.trim()) return ''
 
-  const normalized = normalizeLabelReply(content)
-    .replace(/\r\n/g, '\n')
-    .replace(/(\d+\.\s+[A-Za-zÀ-ú])/g, '\n\n$1')
-    .replace(/\s-\s(?=[A-Za-zÀ-ú])/g, '\n- ')
+  const normalized = withProtectedBold(normalizeLabelReply(content), (text) =>
+    text
+      .replace(/\r\n/g, '\n')
+      .replace(/(\d+\.\s+[A-Za-zÀ-ú])/g, '\n\n$1')
+      .replace(/([.!?…:\n])\s+-\s+(?=[A-Za-zÀ-ú*])/g, '$1\n- '),
+  )
 
   const lines = normalized.split('\n')
   const parts = []
@@ -110,7 +125,11 @@ export function formatBellaMarkdown(content) {
   const flushList = () => {
     if (!listItems.length) return
     const tag = listType === 'ol' ? 'ol' : 'ul'
-    parts.push(`<${tag}>${listItems.map((item) => `<li>${inlineFormat(item)}</li>`).join('')}</${tag}>`)
+    parts.push(
+      `<${tag}>${listItems
+        .map((item) => `<li>${inlineFormat(item).replace(/\n/g, '<br>')}</li>`)
+        .join('')}</${tag}>`,
+    )
     listItems = []
     listType = null
   }
@@ -128,7 +147,9 @@ export function formatBellaMarkdown(content) {
       const headingClass =
         heading === 'Classificação do consumo' || heading === 'Semáforo'
           ? 'bella-md-h bella-md-classification'
-          : 'bella-md-h'
+          : heading === 'Atenção'
+            ? 'bella-md-h bella-md-warning'
+            : 'bella-md-h'
       parts.push(`<h3 class="${headingClass}">${inlineFormat(heading)}</h3>`)
       continue
     }
@@ -154,8 +175,13 @@ export function formatBellaMarkdown(content) {
       continue
     }
 
+    if (listType === 'ul' && listItems.length && /^\s/.test(rawLine)) {
+      listItems[listItems.length - 1] = `${listItems[listItems.length - 1]}\n${line}`
+      continue
+    }
+
     flushList()
-    parts.push(`<p>${inlineFormat(line)}</p>`)
+    parts.push(`<p class="bella-md-p">${inlineFormat(line)}</p>`)
   }
 
   flushList()

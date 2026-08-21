@@ -4,16 +4,24 @@ import {
   type BellaContentBlock,
   type BellaInlinePart,
 } from '@/lib/bella-message-format';
-import { colors, fonts, spacing } from '@/theme/tokens';
+import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 type Props = {
   content: string;
   isUser?: boolean;
 };
 
-function InlineParts({ parts, isUser }: { parts: BellaInlinePart[]; isUser?: boolean }) {
+function InlineParts({
+  parts,
+  isUser,
+  style,
+}: {
+  parts: BellaInlinePart[];
+  isUser?: boolean;
+  style?: object;
+}) {
   return (
-    <Text style={[styles.base, isUser && styles.user]}>
+    <Text style={[styles.base, isUser && styles.user, style]}>
       {parts.map((part, index) => (
         <Text
           key={`${part.kind}-${index}`}
@@ -28,12 +36,20 @@ function InlineParts({ parts, isUser }: { parts: BellaInlinePart[]; isUser?: boo
 
 function BlockView({ block, isUser }: { block: BellaContentBlock; isUser?: boolean }) {
   if (block.type === 'heading') {
+    const isWarning = block.text === 'Atenção';
+    const isTotals =
+      block.text === 'Total desta refeição' ||
+      block.text === 'Projeção do dia' ||
+      block.text === 'Seu dia até agora';
+
     return (
       <Text
         style={[
           styles.heading,
           block.level === 3 && styles.subheading,
           block.classification && styles.classification,
+          isWarning && styles.warningHeading,
+          isTotals && styles.totalsHeading,
           isUser && styles.user,
         ]}
       >
@@ -51,10 +67,21 @@ function BlockView({ block, isUser }: { block: BellaContentBlock; isUser?: boole
               {block.ordered ? `${index + 1}.` : '•'}
             </Text>
             <View style={styles.listBody}>
-              <InlineParts parts={item.parts} isUser={isUser} />
+              <InlineParts parts={item.parts} isUser={isUser} style={styles.listText} />
             </View>
           </View>
         ))}
+      </View>
+    );
+  }
+
+  const isCallout =
+    /ainda não (está|estão) na base|ingrediente por ingrediente|acima da meta/i.test(block.text);
+
+  if (isCallout) {
+    return (
+      <View style={styles.callout}>
+        <InlineParts parts={block.parts} isUser={isUser} style={styles.calloutText} />
       </View>
     );
   }
@@ -103,7 +130,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     color: colors.primaryDark,
-    marginTop: 2,
+    marginTop: 6,
   },
   subheading: {
     fontFamily: fonts.semibold,
@@ -113,11 +140,33 @@ const styles = StyleSheet.create({
   classification: {
     color: colors.primaryDark,
   },
+  warningHeading: {
+    color: '#9a6b1f',
+    marginTop: 8,
+  },
+  totalsHeading: {
+    marginTop: 10,
+  },
   paragraph: {
     marginTop: 0,
   },
+  callout: {
+    marginTop: 2,
+    marginBottom: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radii.control,
+    backgroundColor: '#f7f1e4',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#e6d7b8',
+  },
+  calloutText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#6b5428',
+  },
   list: {
-    gap: 6,
+    gap: 10,
   },
   listItem: {
     flexDirection: 'row',
@@ -134,5 +183,8 @@ const styles = StyleSheet.create({
   listBody: {
     flex: 1,
     minWidth: 0,
+  },
+  listText: {
+    lineHeight: 21,
   },
 });

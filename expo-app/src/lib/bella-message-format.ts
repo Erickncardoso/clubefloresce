@@ -116,25 +116,42 @@ function normalizeLabelReply(content: string) {
   return text.trim();
 }
 
+/** Evita quebrar negrito tipo `**Jantar - opção 1**` ao promover hífens a lista. */
+function withProtectedBold(source: string, transform: (text: string) => string) {
+  const stash: string[] = [];
+  const masked = String(source).replace(/\*\*([\s\S]+?)\*\*/g, (match) => {
+    const key = `\u0000B${stash.length}\u0000`;
+    stash.push(match);
+    return key;
+  });
+  const next = transform(masked);
+  return next.replace(/\u0000B(\d+)\u0000/g, (_, index) => stash[Number(index)] || '');
+}
+
 /** Converte markdown leve da Bella em blocos tipados para React Native. */
 export function parseBellaMarkdown(content?: string | null): BellaContentBlock[] {
   if (!content?.trim()) return [];
 
-  const normalized = normalizeLabelReply(content)
-    .replace(/\r\n/g, '\n')
-    .replace(/(\d+\.\s+[A-Za-zÀ-ú])/g, '\n\n$1')
-    .replace(/\s-\s(?=[A-Za-zÀ-ú])/g, '\n- ');
+  const normalized = withProtectedBold(normalizeLabelReply(content), (text) =>
+    text
+      .replace(/\r\n/g, '\n')
+      .replace(/(\d+\.\s+[A-Za-zÀ-ú])/g, '\n\n$1')
+      // Só promove " - Item" a lista após pontuação/quebra — nunca no meio do título.
+      .replace(/([.!?…:\n])\s+-\s+(?=[A-Za-zÀ-ú*])/g, '$1\n- '),
+  );
 
   const lines = normalized.split('\n');
   const blocks: BellaContentBlock[] = [];
   let listOrdered: boolean | null = null;
   let listItems: Array<{ text: string; parts: BellaInlinePart[] }> = [];
+  let pendingListMeta: string | null = null;
 
   const flushList = () => {
     if (!listItems.length || listOrdered == null) return;
     blocks.push({ type: 'list', ordered: listOrdered, items: listItems });
     listItems = [];
     listOrdered = null;
+    pendingListMeta = null;
   };
 
   for (const rawLine of lines) {
@@ -177,6 +194,15 @@ export function parseBellaMarkdown(content?: string | null): BellaContentBlock[]
       listOrdered = false;
       const text = line.replace(/^[-•]\s+/, '');
       listItems.push({ text, parts: parseInline(text) });
+      pendingListMeta = text;
+      continue;
+    }
+
+    // Continuação indentada do item (macros na linha de baixo).
+    if (listOrdered === false && listItems.length && /^\s/.test(rawLine) && pendingListMeta) {
+      const last = listItems[listItems.length - 1];
+      const merged = `${last.text}\n${line}`;
+      listItems[listItems.length - 1] = { text: merged, parts: parseInline(merged) };
       continue;
     }
 
