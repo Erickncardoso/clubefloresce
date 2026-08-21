@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -79,6 +80,7 @@ export function PatientChartProvider({
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const hasLoadedRef = useRef(false)
   const [user, setUser] = useState<PatientUser | null>(null)
   const [overview, setOverview] = useState<PatientOverview | null>(null)
   const [mealPlan, setMealPlan] = useState<unknown>(null)
@@ -114,7 +116,8 @@ export function PatientChartProvider({
 
   const loadAll = useCallback(async () => {
     if (!patientId) return
-    setLoading(true)
+    // Reload silencioso depois do 1º load — evita desmontar a ficha (ex.: modal de anamnese)
+    if (!hasLoadedRef.current) setLoading(true)
     setError('')
     try {
       const nextUser = await fetchPatientUser(patientId)
@@ -170,6 +173,7 @@ export function PatientChartProvider({
           phone: nextUser.phone || nextOverview.patient.phone,
         })
       }
+      hasLoadedRef.current = true
     } catch (err) {
       setError(
         err instanceof ApiError

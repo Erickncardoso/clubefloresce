@@ -1,83 +1,124 @@
 import {
-  Activity,
-  CalendarCheck,
+  Baby,
+  Brain,
+  Calculator,
+  CalendarClock,
+  Camera,
+  ClipboardPlus,
   FileStack,
-  FlaskConical,
-  HeartPulse,
+  FolderOpen,
   Leaf,
-  ListChecks,
+  LineChart,
   NotebookPen,
-  Paperclip,
+  Pill,
   Salad,
   Scale,
   ScrollText,
+  ShoppingBasket,
   Sparkles,
   Stethoscope,
+  Syringe,
+  UserRound,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
+import CheckinIcon from '@/components/icons/CheckinIcon'
+
+export type ChartTabIcon = LucideIcon | typeof CheckinIcon
 
 export const CHART_TAB_IDS = [
+  'farmaco_nutrientes',
+  'acompanhamento',
+  'avaliacao_integrada',
   'visao',
-  'planos',
+  'historico_consultas',
   'anamnese',
-  'orientacoes',
-  'documentos',
-  'antropometria',
-  'gastos',
-  'exames',
-  'prescricoes',
-  'pagamentos',
-  'arquivos',
   'questionarios',
-  'checkin',
+  'exames',
+  'antropometria',
+  'gestacional',
   'evolucao',
+  'gastos',
+  'planos',
+  'suplementos',
+  'prescricoes',
+  'orientacoes',
+  'arquivos',
+  'prontuario',
+  'atestados',
+  'documentos',
+  'pagamentos',
+  'checkin',
 ] as const
 
 export type ChartTabId = (typeof CHART_TAB_IDS)[number]
 
 const LEGACY_TAB_MAP: Record<string, ChartTabId> = {
   resumo: 'visao',
+  perfil: 'visao',
   checkins: 'checkin',
   nutricao: 'evolucao',
   metas: 'evolucao',
   fotos: 'evolucao',
   diario: 'evolucao',
   plano: 'planos',
+  manipulados: 'prescricoes',
 }
 
-export const PATIENT_CHART_TABS: Array<{ id: ChartTabId; label: string }> = [
-  { id: 'visao', label: 'Visão Geral' },
-  { id: 'planos', label: 'Planos Alimentares' },
-  { id: 'anamnese', label: 'Anamnese' },
-  { id: 'orientacoes', label: 'Orientações' },
+export type PatientChartTab = {
+  id: ChartTabId
+  label: string
+  badge?: string
+}
+
+export const PATIENT_CHART_TABS: PatientChartTab[] = [
+  { id: 'farmaco_nutrientes', label: 'Fármaco-nutrientes', badge: 'NOVO' },
+  { id: 'acompanhamento', label: 'Acompanhamento' },
+  { id: 'avaliacao_integrada', label: 'Avaliação integrada' },
+  { id: 'visao', label: 'Perfil do paciente' },
+  { id: 'historico_consultas', label: 'Histórico de consultas' },
+  { id: 'anamnese', label: 'Anamnese geral' },
+  { id: 'questionarios', label: 'Questionários de saúde' },
+  { id: 'exames', label: 'Exames laboratoriais' },
+  { id: 'antropometria', label: 'Antropometria geral' },
+  { id: 'gestacional', label: 'Acompanhamento gestacional' },
+  { id: 'evolucao', label: 'Evolução fotográfica' },
+  { id: 'gastos', label: 'Cálculo energético' },
+  { id: 'planos', label: 'Planejamento alimentar' },
+  { id: 'suplementos', label: 'Suplementos e produtos' },
+  { id: 'prescricoes', label: 'Prescrição de manipulados' },
+  { id: 'orientacoes', label: 'Orientações nutricionais' },
+  { id: 'arquivos', label: 'Arquivos anexos' },
+  { id: 'prontuario', label: 'Prontuário do paciente' },
+  { id: 'atestados', label: 'Atestados e receituários' },
   { id: 'documentos', label: 'Documentos' },
-  { id: 'antropometria', label: 'Avaliações Antropométricas' },
-  { id: 'gastos', label: 'Gastos Energéticos' },
-  { id: 'exames', label: 'Exames' },
-  { id: 'prescricoes', label: 'Prescrições' },
-  { id: 'pagamentos', label: 'Pagamentos' },
-  { id: 'arquivos', label: 'Arquivos' },
-  { id: 'questionarios', label: 'Questionários' },
+  { id: 'pagamentos', label: 'Recibos e financeiro' },
   { id: 'checkin', label: 'Check-in' },
-  { id: 'evolucao', label: 'Evolução' },
 ]
 
-export const PATIENT_CHART_TAB_ICONS: Record<ChartTabId, LucideIcon> = {
-  visao: Sparkles,
-  planos: Salad,
+export const PATIENT_CHART_TAB_ICONS: Record<ChartTabId, ChartTabIcon> = {
+  farmaco_nutrientes: Pill,
+  acompanhamento: LineChart,
+  avaliacao_integrada: Sparkles,
+  visao: UserRound,
+  historico_consultas: CalendarClock,
   anamnese: Stethoscope,
-  orientacoes: NotebookPen,
-  documentos: ScrollText,
+  questionarios: Brain,
+  exames: Syringe,
   antropometria: Scale,
-  gastos: HeartPulse,
-  exames: FlaskConical,
+  gestacional: Baby,
+  evolucao: Camera,
+  gastos: Calculator,
+  planos: Salad,
+  suplementos: ShoppingBasket,
   prescricoes: Leaf,
+  orientacoes: NotebookPen,
+  arquivos: FolderOpen,
+  prontuario: ClipboardPlus,
+  atestados: ScrollText,
+  documentos: FileStack,
   pagamentos: Wallet,
-  arquivos: Paperclip,
-  questionarios: ListChecks,
-  checkin: CalendarCheck,
-  evolucao: Activity,
+  checkin: CheckinIcon,
 }
 
 export const PATIENT_EVOLUCAO_SUBS = [
@@ -110,7 +151,7 @@ export function getActiveEvolucaoSub(
   return 'nutricao'
 }
 
-export function chartTabIcon(tabId: string): LucideIcon {
+export function chartTabIcon(tabId: string): ChartTabIcon {
   return PATIENT_CHART_TAB_ICONS[tabId as ChartTabId] || FileStack
 }
 

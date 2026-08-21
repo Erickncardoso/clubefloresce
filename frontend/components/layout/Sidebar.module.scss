@@ -166,6 +166,65 @@
   }
 }
 
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.navBadge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: var(--rail-accent, #8b967c);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--rail-bg, #f3f4f1);
+}
+
+.navBadgeInline {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rail-accent, #8b967c) 16%, #fff);
+  color: var(--rail-accent, #8b967c);
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.iconBtnActive .navBadge {
+  background: #fff;
+  color: var(--rail-accent, #8b967c);
+  box-shadow: 0 0 0 2px var(--rail-accent, #8b967c);
+}
+
+.iconBtnActive .navBadgeInline {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.sidebarCollapsed .navBadgeInline {
+  display: none;
+}
+
 .iconBtnSoft {
   background: transparent;
   color: var(--rail-muted);

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { Bell, CalendarDays, Mail, Phone, Video } from 'lucide-react'
+import { Bell, CalendarDays, Mail } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon'
 import { PatientPushModal } from '@/components/patients/PatientPushModal'
 import {
@@ -19,7 +19,6 @@ type Props = {
   email?: string | null
   patientId?: string
   patientName?: string | null
-  onStartCall?: () => void
   agendaHref?: string
 }
 
@@ -59,7 +58,6 @@ export function PatientCrmTabs({
   email,
   patientId,
   patientName,
-  onStartCall,
   agendaHref = '/agenda',
 }: Props) {
   const [pushOpen, setPushOpen] = useState(false)
@@ -71,11 +69,6 @@ export function PatientCrmTabs({
     if (!digits) return ''
     const withCountry = digits.startsWith('55') ? digits : `55${digits}`
     return `https://wa.me/${withCountry}`
-  }, [phone])
-
-  const telUrl = useMemo(() => {
-    const digits = String(phone || '').replace(/\D/g, '')
-    return digits ? `tel:+${digits.startsWith('55') ? digits : `55${digits}`}` : ''
   }, [phone])
 
   const mailUrl = email ? `mailto:${email}` : ''
@@ -94,15 +87,6 @@ export function PatientCrmTabs({
     <nav className={styles.tabs} aria-label="Seções da ficha">
       <div className={styles.bar}>
         <div className={styles.actions}>
-          {telUrl ? (
-            <a href={telUrl} className={styles.actionBtn} aria-label="Ligar" title="Ligar">
-              <Phone size={16} strokeWidth={1.5} aria-hidden />
-            </a>
-          ) : (
-            <span className={`${styles.actionBtn} ${styles.actionDisabled}`} aria-hidden>
-              <Phone size={16} strokeWidth={1.5} />
-            </span>
-          )}
           {whatsappUrl ? (
             <a
               href={whatsappUrl}
@@ -134,15 +118,6 @@ export function PatientCrmTabs({
           <button
             type="button"
             className={styles.actionBtn}
-            aria-label="Vídeo"
-            title="Ligar por vídeo"
-            onClick={onStartCall}
-          >
-            <Video size={16} strokeWidth={1.5} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className={styles.actionBtn}
             aria-label="Notificação"
             title="Enviar notificação"
             onClick={() => setPushOpen(true)}
@@ -159,6 +134,7 @@ export function PatientCrmTabs({
               <>
                 {active ? <Icon size={16} strokeWidth={1.5} aria-hidden /> : null}
                 <span>{tab.label}</span>
+                {tab.badge ? <em className={styles.tabBadge}>{tab.badge}</em> : null}
               </>
             )
             return (

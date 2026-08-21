@@ -71,6 +71,11 @@ export async function listCheckinResponses() {
   return apiFetch<{ responses?: CheckinResponseItem[] }>('/checkin/responses')
 }
 
+export async function fetchCheckinNewResponsesCount(since?: string | null) {
+  const qs = since ? `?since=${encodeURIComponent(since)}` : ''
+  return apiFetch<{ count?: number }>(`/checkin/responses/new-count${qs}`)
+}
+
 export async function listCheckinTemplates() {
   return apiFetch<{ templates?: CheckinTemplate[] }>('/checkin/templates')
 }
@@ -121,12 +126,26 @@ export async function cancelDispatchSchedule(id: string) {
   })
 }
 
-export async function listPatientsForDispatch() {
-  const users = await apiFetch<Array<{ id: string; name?: string; role?: string }>>('/users')
+export type DispatchPatient = {
+  id: string
+  name: string
+  email?: string | null
+  avatar?: string | null
+}
+
+export async function listPatientsForDispatch(): Promise<DispatchPatient[]> {
+  const users = await apiFetch<
+    Array<{ id: string; name?: string; email?: string | null; avatar?: string | null; role?: string }>
+  >('/users')
   return Array.isArray(users)
     ? users
         .filter((u) => u.role === 'PACIENTE')
-        .map((u) => ({ id: u.id, name: u.name || 'Paciente' }))
+        .map((u) => ({
+          id: u.id,
+          name: u.name || 'Paciente',
+          email: u.email || null,
+          avatar: u.avatar || null,
+        }))
     : []
 }
 

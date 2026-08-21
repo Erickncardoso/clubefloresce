@@ -49,6 +49,47 @@ export class AnamneseTranscriptionService {
     }
   }
 
+  /** Chunk curto para ditado ao vivo — só Whisper, sem diarização/LLM (rápido). */
+  async transcribeLiveChunk(file: {
+    buffer: Buffer;
+    originalname?: string;
+    mimetype?: string;
+  }): Promise<{ text: string }> {
+    const apiKey = readEnv("OPENAI_API_KEY");
+    if (!apiKey) {
+      throw new Error("Transcrição indisponível. Configure OPENAI_API_KEY no servidor.");
+    }
+    if (!file?.buffer?.length) {
+      throw new Error("Áudio vazio.");
+    }
+
+    const form = this.buildUploadForm(file, {
+      model: WHISPER_MODEL,
+      language: "pt",
+      response_format: "json",
+    });
+
+    const data = await this.callOpenAiTranscription(apiKey, form);
+    const text = String(data.text || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return { text };
+  }
+
+  /** Organiza texto corrido da conversa em [Nutricionista]/[Paciente]. */
+  async formatDialogueFromText(raw: string): Promise<{ text: string }> {
+    const apiKey = readEnv("OPENAI_API_KEY");
+    if (!apiKey) {
+      throw new Error("Formatação indisponível. Configure OPENAI_API_KEY no servidor.");
+    }
+    const content = String(raw || "").trim();
+    if (!content) {
+      throw new Error("Nenhum texto para organizar.");
+    }
+    const text = await this.formatPlainTranscript(content, false);
+    return { text };
+  }
+
   async interpretAnamnese(input: {
     userId?: string;
     title?: string;

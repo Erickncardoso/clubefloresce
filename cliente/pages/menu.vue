@@ -32,7 +32,6 @@
 import {
   Bell,
   BookOpen,
-  CalendarCheck,
   Settings,
   ShieldCheck,
   UserRound,
@@ -40,6 +39,7 @@ import {
   UtensilsCrossed,
   Repeat,
 } from 'lucide-vue-next'
+import CheckinIcon from '~/components/icons/CheckinIcon.vue'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 
@@ -50,7 +50,7 @@ const { navigateOrGate } = usePatientPremiumGate()
 const gridItems = computed(() => [
   { to: '/perfil', label: 'Perfil', icon: UserRound },
   { to: '/dieta', label: 'Dieta', icon: UtensilsCrossed },
-  { to: '/check-in', label: 'Check-in', icon: CalendarCheck },
+  { to: '/check-in', label: 'Check-in', icon: CheckinIcon },
   { to: '/assinatura', label: 'Meu acesso', icon: ShieldCheck },
   {
     to: '/perfil/notificacoes',

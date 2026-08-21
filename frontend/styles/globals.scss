@@ -2,6 +2,7 @@
 @use './cf-squircle.scss';
 @use './float-fields.scss';
 @use './admin-rounding.scss';
+@use './admin-checkbox.scss';
 @use './whatsapp-chat.scss';
 /* WhatsApp CSS — paths relativos a styles/ (Turbopack não resolve nested @import da pasta whatsapp/) */
 @import './whatsapp/whatsapp-layout.css';
@@ -21,6 +22,15 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Mesmo visual do underline ondulado nativo do Chrome/Edge */
+::highlight(cf-anamnese-spell) {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: #ee0000;
+  text-decoration-thickness: from-font;
+  text-underline-offset: 2px;
 }
 
 html,
@@ -103,6 +113,19 @@ button[title*='Fechar' i] svg,
   cursor: not-allowed;
 }
 
+/* Placeholders leves em todo o admin */
+.admin-shell input::placeholder,
+.admin-shell textarea::placeholder,
+.auth-page input::placeholder,
+.auth-page textarea::placeholder,
+.modal-card input::placeholder,
+.modal-card textarea::placeholder {
+  color: #b0bab5;
+  font-size: 0.82rem;
+  font-weight: 400;
+  opacity: 1;
+}
+
 .btn-ghost {
   display: inline-flex;
   align-items: center;
@@ -141,6 +164,34 @@ button[title*='Fechar' i] svg,
 
 .btn-danger-ghost:hover:not(:disabled) {
   background: #fef2f2;
+}
+
+/* Excluir: fundo vermelho clarinho + texto vermelho escuro */
+.btn-danger-soft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #fecaca;
+  border-radius: var(--cf-radius-pill);
+  background: #fef2f2;
+  color: #991b1b;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-danger-soft:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #7f1d1d;
+}
+
+.btn-danger-soft:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .btn-sm {

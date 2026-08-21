@@ -50,7 +50,7 @@
         class="evo-checkin-banner"
       >
         <span class="evo-checkin-banner-icon-wrap" aria-hidden="true">
-          <CalendarCheck class="evo-checkin-banner-icon" />
+          <CheckinIcon class="evo-checkin-banner-icon" />
         </span>
         <div class="evo-checkin-banner-copy">
           <strong>Check-in semanal</strong>
@@ -98,7 +98,8 @@
 </template>
 
 <script setup>
-import { CalendarCheck, ChevronRight, LineChart, Target } from 'lucide-vue-next'
+import { ChevronRight, LineChart, Target } from 'lucide-vue-next'
+import CheckinIcon from '~/components/icons/CheckinIcon.vue'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })
 

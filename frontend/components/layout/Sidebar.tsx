@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -8,7 +8,6 @@ import {
   BookOpen,
   BriefcaseBusiness,
   CalendarDays,
-  ClipboardCheck,
   Contact,
   Home,
   LayoutGrid,
@@ -26,26 +25,35 @@ import {
   Workflow,
   type LucideIcon,
 } from 'lucide-react'
+import CheckinIcon from '@/components/icons/CheckinIcon'
 import { AnimatedPopover } from '@/components/overlays'
 import { PatientAvatar } from '@/components/patients/PatientAvatar'
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon'
 import { InstagramIcon } from '@/components/ui/InstagramIcon'
+import { fetchCheckinNewResponsesCount } from '@/lib/checkin'
+import {
+  CHECKIN_UNREAD_EVENT,
+  formatCheckinUnreadBadge,
+  getCheckinResponsesLastSeenAt,
+} from '@/lib/checkin-unread'
 import type { AuthUser } from '@/lib/types'
 import styles from './Sidebar.module.scss'
 
 type Brand = 'whatsapp' | 'instagram'
 
+type NavIcon = LucideIcon | typeof CheckinIcon
+
 type ChildItem = {
   label: string
   path: string
-  icon: LucideIcon
+  icon: NavIcon
   brand?: Brand
 }
 
 type MenuItem = {
   label: string
   path?: string
-  icon?: LucideIcon
+  icon?: NavIcon
   brand?: Brand
   prefix?: string
   children?: ChildItem[]
@@ -59,7 +67,7 @@ const menu: MenuItem[] = [
   { label: 'Agenda', path: '/agenda', icon: CalendarDays },
   { label: 'Cursos', path: '/cursos', icon: BookOpen },
   { label: 'Comunidade', path: '/comunidade', icon: Users },
-  { label: 'Check-ins', path: '/check-in', icon: ClipboardCheck },
+  { label: 'Check-ins', path: '/check-in', icon: CheckinIcon },
   { label: 'Diário', path: '/diario', icon: NotebookPen },
   { label: 'Financeiro', path: '/financeiro', icon: Wallet },
   { label: 'Personalizar', path: '/personalizar', icon: Settings2 },
@@ -99,7 +107,7 @@ function ItemIcon({
   Icon,
 }: {
   brand?: Brand
-  Icon?: LucideIcon
+  Icon?: NavIcon
 }): ReactNode {
   if (brand) return <BrandGlyph brand={brand} size={18} />
   if (Icon) return <Icon {...ICON_PROPS} aria-hidden />
@@ -150,7 +158,39 @@ export function Sidebar({
   const pathname = usePathname()
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const [flyout, setFlyout] = useState<string | null>(null)
+  const [checkinNewCount, setCheckinNewCount] = useState(0)
   const rail = collapsed && !mobileOpen
+
+  const refreshCheckinBadge = useCallback(async () => {
+    try {
+      const since = getCheckinResponsesLastSeenAt()
+      const data = await fetchCheckinNewResponsesCount(since)
+      setCheckinNewCount(Math.max(0, Number(data.count) || 0))
+    } catch {
+      /* silencioso — badge é auxiliar */
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshCheckinBadge()
+    const onUnread = () => {
+      void refreshCheckinBadge()
+    }
+    window.addEventListener(CHECKIN_UNREAD_EVENT, onUnread)
+    window.addEventListener('focus', onUnread)
+    const timer = window.setInterval(onUnread, 60_000)
+    return () => {
+      window.removeEventListener(CHECKIN_UNREAD_EVENT, onUnread)
+      window.removeEventListener('focus', onUnread)
+      window.clearInterval(timer)
+    }
+  }, [refreshCheckinBadge])
+
+  useEffect(() => {
+    if (pathname.startsWith('/check-in')) {
+      void refreshCheckinBadge()
+    }
+  }, [pathname, refreshCheckinBadge])
 
   useEffect(() => {
     if (rail) {
@@ -325,6 +365,8 @@ export function Sidebar({
 
             const Icon = item.icon
             const active = isLeafActive(pathname, item.path)
+            const checkinBadge =
+              item.path === '/check-in' ? formatCheckinUnreadBadge(checkinNewCount) : ''
             return (
               <Link
                 key={item.label}
@@ -333,8 +375,20 @@ export function Sidebar({
                 className={`${styles.iconBtn} ${active ? styles.iconBtnActive : ''}`}
                 onClick={onCloseMobile}
               >
-                {Icon ? <Icon {...ICON_PROPS} aria-hidden /> : null}
+                <span className={styles.iconWrap}>
+                  {Icon ? <Icon {...ICON_PROPS} aria-hidden /> : null}
+                  {checkinBadge ? (
+                    <span className={styles.navBadge} aria-label={`${checkinNewCount} respostas novas`}>
+                      {checkinBadge}
+                    </span>
+                  ) : null}
+                </span>
                 <span className={styles.label}>{item.label}</span>
+                {checkinBadge && !rail ? (
+                  <span className={styles.navBadgeInline} aria-hidden>
+                    {checkinBadge}
+                  </span>
+                ) : null}
               </Link>
             )
           })}

@@ -21,7 +21,7 @@
         <ul v-if="needsFirstPayment" class="checkout-benefits">
           <li><Salad class="checkout-benefit-icon" /> Dieta personalizada</li>
           <li><Sparkles class="checkout-benefit-icon" /> Bella IA</li>
-          <li><CalendarCheck class="checkout-benefit-icon" /> Check-ins</li>
+          <li><CheckinIcon class="checkout-benefit-icon" /> Check-ins</li>
         </ul>
       </section>
 
@@ -457,13 +457,13 @@
 <script setup>
 import {
   AlertCircle,
-  CalendarCheck,
   CheckCircle2,
   CreditCard,
   QrCode,
   Salad,
   Sparkles,
 } from 'lucide-vue-next'
+import CheckinIcon from '~/components/icons/CheckinIcon.vue'
 import { isPatientAccessExpired, isPatientPaidAccessActive } from '~/utils/patient-access'
 import { parseInternationalPhone } from '~/utils/phone-countries.js'
 import { logoutAuthSession } from '~/composables/useAuthSession.js'

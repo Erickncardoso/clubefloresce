@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { FloatField } from '@/components/ui/FloatField'
+import { CfSelect } from '@/components/ui/CfSelect'
 import { AnimatedDialog } from '@/components/overlays'
 import {
   CHECKIN_STEP_TYPE_OPTIONS,
@@ -14,6 +15,17 @@ import {
 import type { CheckinTemplate, TemplatePayload } from '@/lib/checkin'
 import { CheckinTemplateEditorPreview } from './CheckinTemplateEditorPreview'
 import styles from './CheckinTemplateEditorModal.module.scss'
+
+const FREQUENCY_OPTIONS = [
+  { value: 'weekly', label: 'Semanal' },
+  { value: 'daily', label: 'Diário' },
+  { value: 'monthly', label: 'Mensal' },
+]
+
+const STEP_TYPE_OPTIONS = CHECKIN_STEP_TYPE_OPTIONS.map((opt) => ({
+  value: opt.value,
+  label: opt.label,
+}))
 
 export type CheckinTemplateEditorModalProps = {
   open: boolean
@@ -175,17 +187,16 @@ export function CheckinTemplateEditorModal({
               placeholder="Breve explicação para o paciente"
             />
             <div className={styles.rowInline}>
-              <FloatField
-                as="select"
-                label="Frequência"
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value)}
-                className={styles.grow}
-              >
-                <option value="weekly">Semanal</option>
-                <option value="daily">Diário</option>
-                <option value="monthly">Mensal</option>
-              </FloatField>
+              <div className={`field field--float ${styles.grow}`}>
+                <label htmlFor="checkin-editor-frequency">Frequência</label>
+                <CfSelect
+                  id="checkin-editor-frequency"
+                  value={frequency}
+                  onChange={setFrequency}
+                  options={FREQUENCY_OPTIONS}
+                  placeholder="Selecione"
+                />
+              </div>
               <label className={styles.check}>
                 <input
                   type="checkbox"
@@ -216,7 +227,7 @@ export function CheckinTemplateEditorModal({
                     {steps.length > 1 ? (
                       <button
                         type="button"
-                        className="btn-danger-ghost btn-sm"
+                        className="btn-danger-soft btn-sm"
                         onClick={(e) => {
                           e.stopPropagation()
                           removeStep(index)
@@ -227,18 +238,16 @@ export function CheckinTemplateEditorModal({
                     ) : null}
                   </div>
 
-                  <FloatField
-                    as="select"
-                    label="Tipo"
-                    value={step.type}
-                    onChange={(e) => onStepTypeChange(index, e.target.value)}
-                  >
-                    {CHECKIN_STEP_TYPE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </FloatField>
+                  <div className="field field--float">
+                    <label htmlFor={`checkin-step-type-${index}`}>Tipo</label>
+                    <CfSelect
+                      id={`checkin-step-type-${index}`}
+                      value={step.type}
+                      onChange={(type) => onStepTypeChange(index, type)}
+                      options={STEP_TYPE_OPTIONS}
+                      placeholder="Selecione o tipo"
+                    />
+                  </div>
 
                   <FloatField
                     label="Pergunta"

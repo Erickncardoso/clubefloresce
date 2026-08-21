@@ -81,6 +81,12 @@ export class CheckInTemplateRepository {
     });
   }
 
+  async countResponsesSince(since?: Date | null) {
+    return prisma.checkInResponse.count({
+      where: since ? { updatedAt: { gt: since } } : undefined,
+    });
+  }
+
   async findResponsesByUser(userId: string, limit = 24, templateId?: string) {
     return prisma.checkInResponse.findMany({
       where: {

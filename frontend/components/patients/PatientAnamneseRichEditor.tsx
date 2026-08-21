@@ -7,9 +7,14 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  type MouseEvent,
+  type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  Ban,
+  BookPlus,
+  MoreHorizontal,
   ArrowDown,
   ArrowUp,
   BetweenHorizontalEnd,
@@ -35,6 +40,18 @@ import {
   Type,
   Underline,
 } from 'lucide-react'
+import {
+  addToPersonalDictionary,
+  ensureSpellLexicon,
+  getPersonalDictionary,
+  getWordAtClientPoint,
+  ignoreWordThisSession,
+  isIgnoredThisSession,
+  isKnownWord,
+  replaceRangeWithText,
+  suggestForWord,
+  type TextSuggestion,
+} from '@/lib/pt-text-review'
 import s from './PatientAnamneseRichEditor.module.scss'
 import './PatientAnamneseTableBar.scss'
 
@@ -67,7 +84,9 @@ type Props = {
   onChange: (html: string) => void
   placeholder?: string
   ariaLabel?: string
-  actions?: React.ReactNode
+  actions?: ReactNode
+  /** `composer` = sem borda/arredondamento, para modal estilo tarefa */
+  variant?: 'default' | 'composer'
 }
 
 type FormatStates = {
@@ -90,7 +109,14 @@ type TableCtx = {
 
 export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
   function PatientAnamneseRichEditor(
-    { value, onChange, placeholder = 'Escreva aqui…', ariaLabel = 'Editor', actions },
+    {
+      value,
+      onChange,
+      placeholder = 'Escreva aqui…',
+      ariaLabel = 'Editor',
+      actions,
+      variant = 'default',
+    },
     ref,
   ) {
     const editorRef = useRef<HTMLDivElement>(null)
@@ -98,6 +124,8 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
     const sizeMenuRef = useRef<HTMLDivElement>(null)
     const colorMenuRef = useRef<HTMLDivElement>(null)
     const syncing = useRef(false)
+    const lastEmittedHtml = useRef<string | null>(null)
+    const spellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const [sizeOpen, setSizeOpen] = useState(false)
     const [colorOpen, setColorOpen] = useState(false)
@@ -118,6 +146,15 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
       top: 0,
       left: 0,
     })
+    const [ctxMenu, setCtxMenu] = useState<{
+      x: number
+      y: number
+      word: string
+      range: Range
+      suggestions: TextSuggestion[]
+    } | null>(null)
+    const [moreOpen, setMoreOpen] = useState(false)
+    const [dictToast, setDictToast] = useState('')
     const activeTableRef = useRef<HTMLTableElement | null>(null)
     const activeCellRef = useRef<HTMLTableCellElement | null>(null)
 
@@ -130,9 +167,109 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
       editorRef.current?.focus()
     }, [])
 
+    function clearSpellHighlights() {
+      try {
+        if (typeof CSS !== 'undefined' && 'highlights' in CSS) {
+          CSS.highlights.delete('cf-anamnese-spell')
+        }
+      } catch { /* ignore */ }
+    }
+
+    /** Spans de correção antiga engolem typos digitados depois — desfaz. */
+    function unwrapStaleDictSpans(root: HTMLElement): boolean {
+      let changed = false
+      root.querySelectorAll('[data-cf-dict="1"]').forEach((el) => {
+        const text = (el.textContent || '').trim().toLowerCase()
+        if (!text) {
+          el.remove()
+          changed = true
+          return
+        }
+        // Mantém só ignore/dicionário pessoal
+        if (isIgnoredThisSession(text) || getPersonalDictionary().has(text)) return
+        const parent = el.parentNode
+        if (!parent) return
+        while (el.firstChild) parent.insertBefore(el.firstChild, el)
+        parent.removeChild(el)
+        parent.normalize?.()
+        changed = true
+      })
+      return changed
+    }
+
+    function refreshSpellHighlights() {
+      const root = editorRef.current
+      if (!root) return
+      if (typeof CSS === 'undefined' || !('highlights' in CSS) || typeof Highlight === 'undefined') {
+        return
+      }
+
+      const unwrapped = unwrapStaleDictSpans(root)
+      if (unwrapped && !syncing.current) {
+        const html = root.innerHTML
+        lastEmittedHtml.current = html
+        onChange(html)
+      }
+
+      const ranges: Range[] = []
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      let node: Node | null
+      while ((node = walker.nextNode())) {
+        const textNode = node as Text
+        if (textNode.parentElement?.closest('[spellcheck="false"], [data-cf-dict="1"]')) continue
+        const value = textNode.nodeValue || ''
+        if (!value.trim()) continue
+        const re = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu
+        let match: RegExpExecArray | null
+        while ((match = re.exec(value)) !== null) {
+          const word = match[0]
+          if (!suggestForWord(word).length) continue
+          const range = document.createRange()
+          range.setStart(textNode, match.index)
+          range.setEnd(textNode, match.index + word.length)
+          ranges.push(range)
+        }
+      }
+
+      try {
+        if (!ranges.length) {
+          CSS.highlights.delete('cf-anamnese-spell')
+          return
+        }
+        CSS.highlights.set('cf-anamnese-spell', new Highlight(...ranges))
+      } catch {
+        clearSpellHighlights()
+      }
+    }
+
+    function scheduleSpellHighlights(immediate = false) {
+      if (spellTimerRef.current) clearTimeout(spellTimerRef.current)
+      const run = () => {
+        requestAnimationFrame(() => refreshSpellHighlights())
+      }
+      if (immediate) {
+        run()
+        return
+      }
+      spellTimerRef.current = setTimeout(run, 100)
+    }
+
     const emitHtml = useCallback(() => {
       if (!editorRef.current || syncing.current) return
-      onChange(editorRef.current.innerHTML)
+      const el = editorRef.current
+      const text = (el.innerText || '').replace(/\u00a0/g, ' ').trim()
+      if (!text) {
+        if (el.innerHTML !== '') el.innerHTML = ''
+        el.dataset.empty = 'true'
+        lastEmittedHtml.current = ''
+        onChange('')
+        clearSpellHighlights()
+        return
+      }
+      el.dataset.empty = 'false'
+      lastEmittedHtml.current = el.innerHTML
+      onChange(el.innerHTML)
+      scheduleSpellHighlights()
     }, [onChange])
 
     const refreshStates = useCallback(() => {
@@ -481,6 +618,7 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
 
     function onEditorInput() {
       if (syncing.current) return
+      setCtxMenu(null)
       emitHtml()
       refreshStates()
     }
@@ -490,14 +628,126 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
       setTimeout(updateTableToolbar, 0)
     }
 
+    function onEditorContextMenu(e: MouseEvent<HTMLDivElement>) {
+      const hit = getWordAtClientPoint(e.clientX, e.clientY)
+      if (!hit || !editorRef.current?.contains(hit.range.commonAncestorContainer)) {
+        setCtxMenu(null)
+        setMoreOpen(false)
+        return
+      }
+
+      // Palavra já correta / no dicionário → deixa o menu nativo (se houver)
+      if (isKnownWord(hit.word)) {
+        setCtxMenu(null)
+        setMoreOpen(false)
+        return
+      }
+
+      const suggestions = suggestForWord(hit.word)
+      e.preventDefault()
+      const sel = window.getSelection?.()
+      sel?.removeAllRanges()
+      sel?.addRange(hit.range)
+
+      const menuWidth = 220
+      const menuHeight = 200
+      const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8)
+      const y = Math.max(8, e.clientY - menuHeight)
+
+      setMoreOpen(false)
+      setCtxMenu({
+        x,
+        y,
+        word: hit.word,
+        range: hit.range.cloneRange(),
+        suggestions,
+      })
+    }
+
+    function applyContextSuggestion(item: TextSuggestion) {
+      if (!ctxMenu) return
+      try {
+        // Texto puro: span protegido engolia a digitação e sumia o vermelho das outras palavras
+        replaceRangeWithText(ctxMenu.range, item.suggestion, { protectSpellcheck: false })
+        emitHtml()
+        scheduleSpellHighlights(true)
+      } finally {
+        setMoreOpen(false)
+        setCtxMenu(null)
+      }
+    }
+
+    function handleAddToDictionary() {
+      if (!ctxMenu) return
+      addToPersonalDictionary(ctxMenu.word)
+      replaceRangeWithText(ctxMenu.range, ctxMenu.word, { protectSpellcheck: true })
+      emitHtml()
+      scheduleSpellHighlights(true)
+      setDictToast(`“${ctxMenu.word}” adicionado ao dicionário`)
+      window.setTimeout(() => setDictToast(''), 2200)
+      setMoreOpen(false)
+      setCtxMenu(null)
+    }
+
+    function handleIgnoreWord() {
+      if (!ctxMenu) return
+      ignoreWordThisSession(ctxMenu.word)
+      replaceRangeWithText(ctxMenu.range, ctxMenu.word, { protectSpellcheck: true })
+      emitHtml()
+      scheduleSpellHighlights(true)
+      setMoreOpen(false)
+      setCtxMenu(null)
+    }
+
+    function handleCopyWord() {
+      if (!ctxMenu) return
+      void navigator.clipboard?.writeText(ctxMenu.word).catch(() => undefined)
+      setMoreOpen(false)
+      setCtxMenu(null)
+    }
+
+    useEffect(() => {
+      if (!ctxMenu) return
+      function close(e: Event) {
+        const target = e.target as Element | null
+        if (target?.closest?.(`.${s.spellMenu}`)) return
+        setMoreOpen(false)
+        setCtxMenu(null)
+      }
+      function onKey(e: KeyboardEvent) {
+        if (e.key === 'Escape') {
+          setMoreOpen(false)
+          setCtxMenu(null)
+        }
+      }
+      const timer = window.setTimeout(() => {
+        window.addEventListener('mousedown', close)
+      }, 0)
+      window.addEventListener('scroll', close, true)
+      window.addEventListener('keydown', onKey)
+      return () => {
+        window.clearTimeout(timer)
+        window.removeEventListener('mousedown', close)
+        window.removeEventListener('scroll', close, true)
+        window.removeEventListener('keydown', onKey)
+      }
+    }, [ctxMenu])
+
     // ── Imperative handle ─────────────────────────────────────────────────────
 
     useImperativeHandle(ref, () => ({
       setHtml(html: string) {
         if (!editorRef.current) return
         syncing.current = true
-        editorRef.current.innerHTML = html || ''
-        setTimeout(() => { syncing.current = false }, 0)
+        const next = html || ''
+        const empty = !(next.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').trim())
+        editorRef.current.innerHTML = empty ? '' : next
+        editorRef.current.dataset.empty = empty ? 'true' : 'false'
+        lastEmittedHtml.current = empty ? '' : editorRef.current.innerHTML
+        setTimeout(() => {
+          syncing.current = false
+          scheduleSpellHighlights(true)
+        }, 0)
       },
       focus() {
         focusEditor()
@@ -543,11 +793,39 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
     useEffect(() => {
       const el = editorRef.current
       if (!el || syncing.current) return
-      if (el.innerHTML === value) return
+      // Não reescreve o DOM enquanto digita — isso apaga o underline nativo do browser
+      if (value === lastEmittedHtml.current) return
+      if (el === document.activeElement || el.contains(document.activeElement)) return
+
+      const empty = !String(value || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .trim()
+      const nextHtml = empty ? '' : value || ''
+      if (el.innerHTML === nextHtml) {
+        el.dataset.empty = empty ? 'true' : 'false'
+        return
+      }
       syncing.current = true
-      el.innerHTML = value || ''
-      setTimeout(() => { syncing.current = false }, 0)
+      el.innerHTML = nextHtml
+      el.dataset.empty = empty ? 'true' : 'false'
+      lastEmittedHtml.current = nextHtml
+      setTimeout(() => {
+        syncing.current = false
+        refreshSpellHighlights()
+      }, 0)
     }, [value])
+
+    useEffect(() => () => {
+      if (spellTimerRef.current) clearTimeout(spellTimerRef.current)
+      clearSpellHighlights()
+    }, [])
+
+    useEffect(() => {
+      void ensureSpellLexicon().then(() => {
+        scheduleSpellHighlights(true)
+      })
+    }, [])
 
     // ── Click outside for dropdowns & table bar ───────────────────────────────
 
@@ -579,7 +857,7 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
     // ── Render ────────────────────────────────────────────────────────────────
 
     return (
-      <div className={s.pare}>
+      <div className={`${s.pare}${variant === 'composer' ? ` ${s.pareComposer}` : ''}`}>
         {/* Toolbar */}
         <div className={s.toolbar} role="toolbar" aria-label="Formatação de texto">
           <div className={s.toolbarLeft}>
@@ -612,6 +890,34 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
                 </div>
               )}
             </div>
+
+            <button
+              type="button"
+              className={s.iconBtn}
+              title="Diminuir fonte"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                const idx = Math.max(0, SIZE_OPTIONS.findIndex((o) => o.value === currentSize) - 1)
+                applySize(SIZE_OPTIONS[idx].value)
+              }}
+            >
+              <span className={s.fontStep} aria-hidden>A−</span>
+            </button>
+            <button
+              type="button"
+              className={s.iconBtn}
+              title="Aumentar fonte"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                const idx = Math.min(
+                  SIZE_OPTIONS.length - 1,
+                  Math.max(0, SIZE_OPTIONS.findIndex((o) => o.value === currentSize)) + 1,
+                )
+                applySize(SIZE_OPTIONS[idx].value)
+              }}
+            >
+              <span className={s.fontStep} aria-hidden>A+</span>
+            </button>
 
             <span className={s.sep} aria-hidden="true" />
 
@@ -733,17 +1039,124 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
             role="textbox"
             aria-multiline="true"
             aria-label={ariaLabel}
+            lang="pt-BR"
+            spellCheck
             data-placeholder={placeholder}
+            data-empty={
+              !String(value || '')
+                .replace(/<[^>]+>/g, ' ')
+                .replace(/&nbsp;/gi, ' ')
+                .trim()
+                ? 'true'
+                : 'false'
+            }
             onInput={onEditorInput}
             onKeyUp={onEditorInteraction}
             onMouseUp={onEditorInteraction}
             onClick={onEditorInteraction}
+            onContextMenu={onEditorContextMenu}
             onScroll={updateTableToolbar}
             onFocus={refreshStates}
             onBlur={() => setTimeout(emitHtml, 0)}
             suppressContentEditableWarning
           />
         </div>
+
+        {ctxMenu && typeof document !== 'undefined'
+          ? createPortal(
+              <div
+                className={s.spellMenu}
+                style={{ top: ctxMenu.y, left: ctxMenu.x }}
+                role="menu"
+                aria-label={`Ortografia: ${ctxMenu.word}`}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className={s.spellMenuTitle}>Ortografia</div>
+                {ctxMenu.suggestions.length > 0 ? (
+                  <div className={s.spellMenuList}>
+                    {ctxMenu.suggestions.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={s.spellMenuItem}
+                        role="menuitem"
+                        onClick={() => applyContextSuggestion(item)}
+                      >
+                        {item.suggestion}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className={s.spellMenuEmpty}>Nenhuma sugestão</p>
+                )}
+                <div className={s.spellMenuFoot}>
+                  <button
+                    type="button"
+                    className={s.spellMenuIcon}
+                    title="Ignorar nesta sessão"
+                    aria-label="Ignorar nesta sessão"
+                    onClick={handleIgnoreWord}
+                  >
+                    <Ban size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={s.spellMenuIcon}
+                    title="Adicionar ao dicionário"
+                    aria-label="Adicionar ao dicionário"
+                    onClick={handleAddToDictionary}
+                  >
+                    <BookPlus size={15} />
+                  </button>
+                  <div className={s.spellMoreWrap}>
+                    <button
+                      type="button"
+                      className={`${s.spellMenuIcon}${moreOpen ? ` ${s.spellMenuIconActive}` : ''}`}
+                      title="Mais opções"
+                      aria-label="Mais opções"
+                      aria-expanded={moreOpen}
+                      onClick={() => setMoreOpen((v) => !v)}
+                    >
+                      <MoreHorizontal size={15} />
+                    </button>
+                    {moreOpen ? (
+                      <div className={s.spellMoreMenu} role="menu">
+                        <button
+                          type="button"
+                          className={s.spellMoreItem}
+                          role="menuitem"
+                          onClick={handleAddToDictionary}
+                        >
+                          Adicionar ao dicionário
+                        </button>
+                        <button
+                          type="button"
+                          className={s.spellMoreItem}
+                          role="menuitem"
+                          onClick={handleIgnoreWord}
+                        >
+                          Ignorar nesta sessão
+                        </button>
+                        <button
+                          type="button"
+                          className={s.spellMoreItem}
+                          role="menuitem"
+                          onClick={handleCopyWord}
+                        >
+                          Copiar palavra
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
+
+        {dictToast && typeof document !== 'undefined'
+          ? createPortal(<div className={s.dictToast}>{dictToast}</div>, document.body)
+          : null}
       </div>
     )
   },

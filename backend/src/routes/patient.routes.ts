@@ -152,6 +152,19 @@ router.post(
   audioUpload.single("audio"),
   controller.transcribeAnamnese.bind(controller),
 );
+router.post(
+  "/:id/anamnese/transcribe-live",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  audioUpload.single("audio"),
+  controller.transcribeAnamneseLive.bind(controller),
+);
+router.post(
+  "/:id/anamnese/format-dialogue",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  controller.formatAnamneseDialogue.bind(controller),
+);
 router.get(
   "/:id/anamnese/transcribe/:jobId",
   authenticate,

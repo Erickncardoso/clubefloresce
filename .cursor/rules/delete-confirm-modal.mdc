@@ -1,0 +1,41 @@
+---
+description: Exclusão no admin sempre com ConfirmDialog (nunca window.confirm)
+alwaysApply: true
+---
+
+# Exclusão — modal obrigatório
+
+## Regra
+
+Todo botão **Excluir** / ação destrutiva no admin (`frontend/`) **deve** abrir `ConfirmDialog` (`@/components/overlays`).
+
+## Proibido
+
+- `window.confirm`, `confirm()`, `alert()` para confirmar exclusão
+- Excluir direto no `onClick` sem modal
+
+## Padrão
+
+```tsx
+const [deleteTarget, setDeleteTarget] = useState<Item | null>(null)
+
+<button type="button" className="btn-danger-soft" onClick={() => setDeleteTarget(item)}>
+  Excluir
+</button>
+
+<ConfirmDialog
+  open={Boolean(deleteTarget)}
+  onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+  title="Excluir …?"
+  description="…"
+  cancelLabel="Cancelar"
+  confirmLabel="Excluir"
+  tone="danger"
+  onCancel={() => setDeleteTarget(null)}
+  onConfirm={() => void confirmDelete()}
+/>
+```
+
+## Visual do botão Excluir
+
+Usar a classe global **`btn-danger-soft`**: fundo vermelho clarinho (`#fef2f2`), texto vermelho escuro (`#991b1b`). Não usar borda verde/primária em botões de excluir.

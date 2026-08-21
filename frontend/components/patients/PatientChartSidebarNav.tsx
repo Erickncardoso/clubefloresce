@@ -117,6 +117,11 @@ export function PatientChartSidebarNav({ mobile = false, onNavigate }: Props) {
             >
               <Icon size={16} className={styles.linkIcon} aria-hidden />
               <span className={styles.linkLabel}>{tab.label}</span>
+              {tab.badge ? (
+                <span className={`${styles.badge} ${active ? styles.badgeOnActive : ''}`}>
+                  {tab.badge}
+                </span>
+              ) : null}
             </Link>
           )
         })}

@@ -20,7 +20,8 @@ export function TileActionsMenu({ menuKey, children }: Props) {
         onOpenChange={setOpen}
         side="bottom"
         align="end"
-        sideOffset={4}
+        sideOffset={6}
+        animated={false}
         trigger={
           <button
             type="button"

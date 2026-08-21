@@ -124,6 +124,24 @@
 .field.field--float input::placeholder,
 .field.field--float textarea::placeholder {
   color: #b0bab5;
+  font-size: 0.82rem;
+  font-weight: 400;
+  opacity: 1;
+}
+
+.field.field--float input::-webkit-input-placeholder,
+.field.field--float textarea::-webkit-input-placeholder {
+  color: #b0bab5;
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+.field.field--float input::-moz-placeholder,
+.field.field--float textarea::-moz-placeholder {
+  color: #b0bab5;
+  font-size: 0.82rem;
+  font-weight: 400;
+  opacity: 1;
 }
 
 .field.field--float select {

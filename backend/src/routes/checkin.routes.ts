@@ -31,6 +31,12 @@ router.post("/templates", authenticate, authorize(["NUTRICIONISTA"]), templateCo
 router.put("/templates/:id", authenticate, authorize(["NUTRICIONISTA"]), templateController.updateTemplate.bind(templateController));
 router.delete("/templates/:id", authenticate, authorize(["NUTRICIONISTA"]), templateController.deleteTemplate.bind(templateController));
 router.get("/responses", authenticate, authorize(["NUTRICIONISTA"]), templateController.listResponses.bind(templateController));
+router.get(
+  "/responses/new-count",
+  authenticate,
+  authorize(["NUTRICIONISTA"]),
+  templateController.countNewResponses.bind(templateController),
+);
 router.get("/responses/:id", authenticate, authorize(["NUTRICIONISTA"]), templateController.getResponse.bind(templateController));
 router.get(
   "/patients/:userId/responses",

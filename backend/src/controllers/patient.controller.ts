@@ -167,6 +167,55 @@ export class PatientController {
     }
   }
 
+  async transcribeAnamneseLive(req: Request, res: Response): Promise<any> {
+    try {
+      await assertPatientUser(req.params.id);
+      if (!req.file) {
+        return res.status(400).json({ message: "Envie o áudio." });
+      }
+
+      const result = await anamneseTranscriptionService.transcribeLiveChunk({
+        buffer: req.file.buffer,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+      });
+
+      return res.json({
+        text: result.text,
+        message: result.text ? "Trecho transcrito." : "Nenhuma fala detectada.",
+      });
+    } catch (error: any) {
+      console.error("[AnamneseWhisper] live error:", error?.message || error);
+      const message = String(error?.message || "Não foi possível transcrever o áudio.");
+      const status = /OPENAI_API_KEY|indisponível/i.test(message)
+        ? 503
+        : message.includes("não encontrado")
+          ? 404
+          : 400;
+      return res.status(status).json({ message });
+    }
+  }
+
+  async formatAnamneseDialogue(req: Request, res: Response): Promise<any> {
+    try {
+      await assertPatientUser(req.params.id);
+      const raw = typeof req.body?.text === "string" ? req.body.text : "";
+      const result = await anamneseTranscriptionService.formatDialogueFromText(raw);
+      return res.json({
+        text: result.text,
+        message: "Diálogo organizado.",
+      });
+    } catch (error: any) {
+      const message = String(error?.message || "Não foi possível organizar o diálogo.");
+      const status = /OPENAI_API_KEY|indisponível/i.test(message)
+        ? 503
+        : message.includes("não encontrado")
+          ? 404
+          : 400;
+      return res.status(status).json({ message });
+    }
+  }
+
   async getAnamneseTranscriptionJob(req: Request, res: Response): Promise<any> {
     try {
       await assertPatientUser(req.params.id);
@@ -228,7 +277,10 @@ export class PatientController {
       const patient = await assertPatientUser(req.params.id);
       const html = typeof req.body?.html === "string" ? req.body.html : "";
       const modeRaw = typeof req.body?.mode === "string" ? req.body.mode : "formal";
-      const mode = modeRaw === "simple" || modeRaw === "custom" ? modeRaw : "formal";
+      const mode =
+        modeRaw === "simple" || modeRaw === "custom" || modeRaw === "proofread"
+          ? modeRaw
+          : "formal";
       const instruction = typeof req.body?.instruction === "string" ? req.body.instruction : "";
       const documentTitle = typeof req.body?.documentTitle === "string" ? req.body.documentTitle : "";
 
@@ -242,7 +294,7 @@ export class PatientController {
 
       return res.json({
         html: result.html,
-        message: "Reescrita concluída.",
+        message: mode === "proofread" ? "Revisão concluída." : "Reescrita concluída.",
       });
     } catch (error: any) {
       const status = /OPENAI_API_KEY|indisponível/i.test(String(error?.message || ""))

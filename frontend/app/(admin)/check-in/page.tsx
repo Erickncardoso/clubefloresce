@@ -1,6 +1,6 @@
 'use client'
 
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Calendar,
   CalendarDays,
@@ -10,30 +10,35 @@ import {
   LineChart,
   ListChecks,
   MessageSquare,
-  Pencil,
   Plus,
-  Power,
   Search,
   Trash2,
+  Pencil,
+  Power,
 } from 'lucide-react'
 import { ApiError } from '@/lib/api'
 import { PatientAvatar } from '@/components/patients/PatientAvatar'
+import { CheckinResponseMockup } from '@/components/patients/CheckinResponseMockup'
 import {
   PatientNutritionModal,
   type NutritionModalTab,
 } from '@/components/patients/PatientNutritionModal'
 import { FloatField } from '@/components/ui/FloatField'
+import { CfDateInput } from '@/components/ui/CfDateInput'
+import { CfSelect } from '@/components/ui/CfSelect'
+import { ConfirmDialog } from '@/components/overlays'
+import { TileActionsMenu } from '@/components/courses/TileActionsMenu'
 import {
   CheckinTemplateEditorModal,
 } from '@/components/checkin/CheckinTemplateEditorModal'
 import {
-  buildAnswerRows,
   formatCheckinPeriod,
   summarizeCheckinAnswers,
 } from '@/lib/checkin-answers'
 import {
   type CheckinResponseItem,
   type CheckinTemplate,
+  type DispatchPatient,
   type TemplatePayload,
   cancelDispatchSchedule,
   createCheckinTemplate,
@@ -50,6 +55,13 @@ import {
   listPatientsForDispatch,
   updateCheckinTemplate,
 } from '@/lib/checkin'
+import {
+  countNewCheckinResponses,
+  formatCheckinUnreadBadge,
+  getCheckinResponsesLastSeenAt,
+  markCheckinResponsesSeen,
+  sortCheckinResponsesNewestFirst,
+} from '@/lib/checkin-unread'
 import type { CheckinSchedule } from '@/lib/types'
 import { buildPatientPath } from '@/lib/patient-slug'
 import styles from './check-in.module.scss'
@@ -57,7 +69,7 @@ import styles from './check-in.module.scss'
 const DISPATCH_PATIENT_SEARCH_MIN = 2
 const DISPATCH_PATIENT_VISIBLE_LIMIT = 80
 
-type Tab = 'responses' | 'templates'
+type Tab = 'dispatch' | 'responses' | 'templates'
 
 function FrequencyIcon({ freq }: { freq?: string | null }) {
   if (freq === 'daily') return <CalendarDays size={14} aria-hidden />
@@ -66,12 +78,17 @@ function FrequencyIcon({ freq }: { freq?: string | null }) {
 }
 
 export default function CheckInPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('responses')
+  const [activeTab, setActiveTab] = useState<Tab>('dispatch')
   const [loadingResponses, setLoadingResponses] = useState(true)
   const [loadingTemplates, setLoadingTemplates] = useState(true)
   const [responses, setResponses] = useState<CheckinResponseItem[]>([])
+  const [responsesError, setResponsesError] = useState('')
   const [templates, setTemplates] = useState<CheckinTemplate[]>([])
   const [responseSearch, setResponseSearch] = useState('')
+  const [responseTypeFilter, setResponseTypeFilter] = useState('')
+  const [lastSeenAt, setLastSeenAt] = useState<string | null>(null)
+  const [seenBaseline, setSeenBaseline] = useState<string | null>(null)
+  const responsesRequestId = useRef(0)
 
   const [dispatching, setDispatching] = useState(false)
   const [dispatchMessage, setDispatchMessage] = useState('')
@@ -79,7 +96,7 @@ export default function CheckInPage() {
   const [customDispatching, setCustomDispatching] = useState(false)
   const [customDispatchMessage, setCustomDispatchMessage] = useState('')
   const [dispatchSchedules, setDispatchSchedules] = useState<CheckinSchedule[]>([])
-  const [dispatchPatients, setDispatchPatients] = useState<Array<{ id: string; name: string }>>([])
+  const [dispatchPatients, setDispatchPatients] = useState<DispatchPatient[]>([])
   const [dispatchPatientSearch, setDispatchPatientSearch] = useState('')
 
   const [customDispatch, setCustomDispatch] = useState({
@@ -98,22 +115,51 @@ export default function CheckInPage() {
   const [editingTemplate, setEditingTemplate] = useState<CheckinTemplate | null>(null)
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [editorError, setEditorError] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<CheckinTemplate | null>(null)
+  const [deletingTemplate, setDeletingTemplate] = useState(false)
 
   const [viewOpen, setViewOpen] = useState(false)
   const [selectedResponse, setSelectedResponse] = useState<CheckinResponseItem | null>(null)
   const [modalNutritionTab, setModalNutritionTab] = useState<NutritionModalTab>('fotos')
 
   const loadResponses = useCallback(async () => {
+    const requestId = ++responsesRequestId.current
     setLoadingResponses(true)
+    setResponsesError('')
     try {
       const data = await listCheckinResponses()
-      setResponses(data.responses || [])
-    } catch {
-      setResponses([])
+      if (requestId !== responsesRequestId.current) return
+      setResponses(sortCheckinResponsesNewestFirst(data.responses || []))
+    } catch (err) {
+      if (requestId !== responsesRequestId.current) return
+      // Não zera a lista: em Strict Mode / proxy instável um request falho
+      // sobrescrevia outro que já tinha trazido as respostas.
+      setResponsesError(
+        err instanceof ApiError
+          ? err.message
+          : 'Não foi possível carregar as respostas.',
+      )
     } finally {
-      setLoadingResponses(false)
+      if (requestId === responsesRequestId.current) {
+        setLoadingResponses(false)
+      }
     }
   }, [])
+
+  useEffect(() => {
+    setLastSeenAt(getCheckinResponsesLastSeenAt())
+  }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'responses') return
+    if (loadingResponses) return
+    if (!responses.length && responsesError) return
+    const previous = getCheckinResponsesLastSeenAt()
+    setSeenBaseline(previous)
+    const stamp = new Date().toISOString()
+    markCheckinResponsesSeen(stamp)
+    setLastSeenAt(stamp)
+  }, [activeTab, loadingResponses, responses.length, responsesError])
 
   const loadTemplates = useCallback(async () => {
     setLoadingTemplates(true)
@@ -132,7 +178,7 @@ export default function CheckInPage() {
       const [status, schedules, patients] = await Promise.all([
         getDispatchStatus().catch(() => ({ dispatched: false, periodKey: '' })),
         listDispatchSchedules().catch(() => ({ schedules: [] as CheckinSchedule[] })),
-        listPatientsForDispatch().catch(() => [] as Array<{ id: string; name: string }>),
+        listPatientsForDispatch().catch(() => [] as DispatchPatient[]),
       ])
       setDispatchStatus({
         dispatched: Boolean(status.dispatched),
@@ -149,16 +195,48 @@ export default function CheckInPage() {
     void Promise.all([loadResponses(), loadTemplates(), loadDispatch()])
   }, [loadResponses, loadTemplates, loadDispatch])
 
+  const responseTypeOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of responses) {
+      const id = item.template?.id
+      if (!id) continue
+      if (!map.has(id)) map.set(id, item.template?.title || 'Check-in')
+    }
+    for (const tpl of templates) {
+      if (!map.has(tpl.id)) map.set(tpl.id, tpl.title || 'Check-in')
+    }
+    return [
+      { value: '', label: 'Todos os tipos' },
+      ...[...map.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'))
+        .map(([value, label]) => ({ value, label })),
+    ]
+  }, [responses, templates])
+
   const filteredResponses = useMemo(() => {
     const q = responseSearch.trim().toLowerCase()
-    if (!q) return responses
-    return responses.filter((item) => {
+    const sorted = sortCheckinResponsesNewestFirst(responses)
+    return sorted.filter((item) => {
+      if (responseTypeFilter && item.template?.id !== responseTypeFilter) return false
+      if (!q) return true
       const name = item.user?.name?.toLowerCase() || ''
       const title = item.template?.title?.toLowerCase() || ''
       const summary = summarizeCheckinAnswers(item.template?.steps, item.answers).toLowerCase()
       return name.includes(q) || title.includes(q) || summary.includes(q)
     })
-  }, [responses, responseSearch])
+  }, [responses, responseSearch, responseTypeFilter])
+
+  const newResponsesCount = useMemo(
+    () => countNewCheckinResponses(responses, lastSeenAt),
+    [responses, lastSeenAt],
+  )
+
+  const newResponsesBadge = formatCheckinUnreadBadge(newResponsesCount)
+
+  function isNewResponse(item: CheckinResponseItem) {
+    if (activeTab !== 'responses' || !seenBaseline) return false
+    return countNewCheckinResponses([item], seenBaseline) > 0
+  }
 
   const sortedTemplates = useMemo(
     () =>
@@ -181,6 +259,25 @@ export default function CheckInPage() {
     return 'Semana da resposta. Vazio = semana atual.'
   }, [templates, customDispatch.templateId])
 
+  const templateSelectOptions = useMemo(
+    () =>
+      templates
+        .filter((tpl) => tpl.active)
+        .map((tpl) => ({
+          value: tpl.id,
+          label: `${tpl.title} (${frequencyLabel(tpl.frequency)})`,
+        })),
+    [templates],
+  )
+
+  const scheduleModeOptions = useMemo(
+    () => [
+      { value: 'now', label: 'Enviar agora' },
+      { value: 'schedule', label: 'Agendar data e hora' },
+    ],
+    [],
+  )
+
   const filteredDispatchPatients = useMemo(() => {
     const q = dispatchPatientSearch.trim().toLowerCase()
     const all = dispatchPatients
@@ -188,7 +285,11 @@ export default function CheckInPage() {
     if (!q) return needsSearch ? [] : all
     const minLen = needsSearch ? DISPATCH_PATIENT_SEARCH_MIN : 1
     if (q.length < minLen) return []
-    return all.filter((p) => p.name.toLowerCase().includes(q))
+    return all.filter((p) => {
+      const name = p.name.toLowerCase()
+      const email = (p.email || '').toLowerCase()
+      return name.includes(q) || email.includes(q)
+    })
   }, [dispatchPatients, dispatchPatientSearch])
 
   const visibleDispatchPatients = useMemo(
@@ -223,11 +324,6 @@ export default function CheckInPage() {
     const selected = new Set(customDispatch.userIds)
     return dispatchPatients.filter((p) => selected.has(p.id))
   }, [customDispatch.userIds, dispatchPatients])
-
-  const answerRows = useMemo(() => {
-    if (!selectedResponse) return []
-    return buildAnswerRows(selectedResponse.template?.steps, selectedResponse.answers)
-  }, [selectedResponse])
 
   async function handleWeeklyDispatch() {
     setDispatchMessage('')
@@ -319,10 +415,15 @@ export default function CheckInPage() {
   }
 
   function openCreateTemplate() {
+    setActiveTab('templates')
     setEditorMode('create')
     setEditingTemplate(null)
     setEditorError('')
     setEditorOpen(true)
+  }
+
+  function openTemplatesTab() {
+    setActiveTab('templates')
   }
 
   function openEditTemplate(tpl: CheckinTemplate) {
@@ -359,16 +460,21 @@ export default function CheckInPage() {
     }
   }
 
-  async function handleDeleteTemplate(tpl: CheckinTemplate) {
-    const ok = window.confirm(
-      `Excluir "${tpl.title}"? As respostas anteriores também serão removidas.`,
-    )
-    if (!ok) return
+  function requestDeleteTemplate(tpl: CheckinTemplate) {
+    setDeleteTarget(tpl)
+  }
+
+  async function confirmDeleteTemplate() {
+    if (!deleteTarget) return
+    setDeletingTemplate(true)
     try {
-      await deleteCheckinTemplate(tpl.id)
+      await deleteCheckinTemplate(deleteTarget.id)
+      setDeleteTarget(null)
       await loadTemplates()
     } catch (err) {
       alert(err instanceof ApiError ? err.message : 'Erro ao excluir.')
+    } finally {
+      setDeletingTemplate(false)
     }
   }
 
@@ -389,80 +495,128 @@ export default function CheckInPage() {
       <header className={styles.head}>
         <div>
           <h1>Check-ins</h1>
-          <p>Crie tipos de check-in personalizados e acompanhe as respostas dos pacientes.</p>
+          <p>Envie formulários, acompanhe respostas e gerencie os modelos.</p>
+        </div>
+        <div className={styles.headActions}>
+          <button type="button" className="btn-secondary" onClick={openTemplatesTab}>
+            <ListChecks size={16} aria-hidden />
+            Ver modelos
+          </button>
+          <button type="button" className="btn-primary" onClick={openCreateTemplate}>
+            <Plus size={16} aria-hidden />
+            Criar modelo
+          </button>
         </div>
       </header>
 
-      <section className={`admin-shell-card ${styles.dispatchCard}`}>
-        <div className={styles.dispatchCopy}>
-          <h2>Disparos de check-in</h2>
-          <p>
-            O disparo automático semanal ocorre na <strong>sexta às 11h</strong>. Você também pode
-            enviar check-ins individuais, escolher o paciente, o tipo e programar a data do envio.
-          </p>
-          {dispatchStatus.dispatched ? (
-            <p className={styles.dispatchNote}>Disparo em massa desta semana já realizado.</p>
+      <nav className={styles.tabs} aria-label="Seções de check-in">
+        <button
+          type="button"
+          className={`${styles.tab} ${activeTab === 'dispatch' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('dispatch')}
+        >
+          Enviar
+        </button>
+        <button
+          type="button"
+          className={`${styles.tab} ${activeTab === 'responses' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('responses')}
+        >
+          Respostas
+          {newResponsesBadge ? (
+            <span className={`${styles.tabCount} ${styles.tabCountNew}`} aria-label={`${newResponsesCount} novas`}>
+              {newResponsesBadge}
+            </span>
           ) : null}
-        </div>
+        </button>
+        <button
+          type="button"
+          className={`${styles.tab} ${activeTab === 'templates' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('templates')}
+        >
+          Modelos
+          {templates.length ? (
+            <span className={styles.tabCount}>{templates.length}</span>
+          ) : null}
+        </button>
+      </nav>
 
-        <div className={styles.dispatchActions}>
+      {activeTab === 'dispatch' ? (
+      <section className={`admin-shell-card ${styles.dispatchCard}`}>
+        <div className={styles.dispatchTop}>
+          <div className={styles.dispatchCopy}>
+            <p className={styles.dispatchKicker}>Envio</p>
+            <h2>Enviar check-in</h2>
+            <p>
+              Automático toda <strong>sexta às 11h</strong>. Ou monte um disparo
+              personalizado abaixo.
+            </p>
+            {dispatchStatus.dispatched ? (
+              <p className={styles.dispatchNote}>Disparo em massa desta semana já realizado.</p>
+            ) : null}
+          </div>
           <button
             type="button"
             className={`btn-secondary ${styles.dispatchBtn}`}
             disabled={dispatching}
             onClick={() => void handleWeeklyDispatch()}
           >
-            {dispatching ? 'Enviando...' : 'Disparar semanal (todas)'}
+            <CalendarDays size={16} aria-hidden />
+            {dispatching ? 'Enviando...' : 'Disparar semanal'}
           </button>
         </div>
 
-        <form className={styles.customDispatch} onSubmit={handleCustomDispatch}>
-          <h3>Disparo personalizado</h3>
-          <div className={styles.dispatchFields}>
-            <FloatField
-              as="select"
-              label="Tipo de check-in"
-              value={customDispatch.templateId}
-              onChange={(e) =>
-                setCustomDispatch((prev) => ({ ...prev, templateId: e.target.value }))
-              }
-            >
-              <option value="">Selecione o check-in</option>
-              {templates
-                .filter((tpl) => tpl.active)
-                .map((tpl) => (
-                  <option key={tpl.id} value={tpl.id}>
-                    {tpl.title} ({frequencyLabel(tpl.frequency)})
-                  </option>
-                ))}
-            </FloatField>
+        {dispatchMessage ? <p className={styles.feedback}>{dispatchMessage}</p> : null}
 
-            <div>
-              <FloatField
-                label="Período de referência (opcional)"
-                type="date"
-                value={customDispatch.periodDate}
-                onChange={(e) =>
-                  setCustomDispatch((prev) => ({ ...prev, periodDate: e.target.value }))
+        <form className={styles.customDispatch} onSubmit={handleCustomDispatch}>
+          <div className={styles.customDispatchHead}>
+            <h3>Disparo personalizado</h3>
+            <p>Escolha o modelo, o período e se envia agora ou agenda.</p>
+          </div>
+          <div className={styles.dispatchFields}>
+            <div className="field field--float">
+              <label htmlFor="checkin-template">Tipo de check-in</label>
+              <CfSelect
+                id="checkin-template"
+                value={customDispatch.templateId}
+                onChange={(templateId) =>
+                  setCustomDispatch((prev) => ({ ...prev, templateId }))
                 }
+                options={templateSelectOptions}
+                placeholder="Selecione o check-in"
               />
+            </div>
+
+            <div className={styles.periodField}>
+              <div className="field field--float">
+                <label htmlFor="checkin-period-date">Período de referência (opcional)</label>
+                <CfDateInput
+                  id="checkin-period-date"
+                  value={customDispatch.periodDate}
+                  onChange={(periodDate) =>
+                    setCustomDispatch((prev) => ({ ...prev, periodDate }))
+                  }
+                  placeholder="dd/mm/aaaa"
+                />
+              </div>
               <small className={styles.fieldHint}>{dispatchPeriodHint}</small>
             </div>
 
-            <FloatField
-              as="select"
-              label="Enviar"
-              value={customDispatch.mode}
-              onChange={(e) =>
-                setCustomDispatch((prev) => ({
-                  ...prev,
-                  mode: e.target.value as 'now' | 'schedule',
-                }))
-              }
-            >
-              <option value="now">Agora</option>
-              <option value="schedule">Programar data e hora</option>
-            </FloatField>
+            <div className="field field--float">
+              <label htmlFor="checkin-schedule-mode">Programar envio</label>
+              <CfSelect
+                id="checkin-schedule-mode"
+                value={customDispatch.mode}
+                onChange={(mode) =>
+                  setCustomDispatch((prev) => ({
+                    ...prev,
+                    mode: mode as 'now' | 'schedule',
+                  }))
+                }
+                options={scheduleModeOptions}
+                placeholder="Selecione"
+              />
+            </div>
 
             {customDispatch.mode === 'schedule' ? (
               <FloatField
@@ -473,6 +627,7 @@ export default function CheckInPage() {
                 onChange={(e) =>
                   setCustomDispatch((prev) => ({ ...prev, scheduledAt: e.target.value }))
                 }
+                className={styles.fullField}
               />
             ) : null}
 
@@ -524,7 +679,19 @@ export default function CheckInPage() {
                   <div className={styles.chipList} aria-label="Pacientes selecionadas">
                     {selectedDispatchPatients.map((patient) => (
                       <span key={patient.id} className={styles.chip}>
-                        {patient.name}
+                        <PatientAvatar
+                          src={patient.avatar}
+                          name={patient.name}
+                          size="xs"
+                          circle
+                          ring={false}
+                        />
+                        <span className={styles.chipText}>
+                          <span className={styles.chipName}>{patient.name}</span>
+                          {patient.email ? (
+                            <span className={styles.chipEmail}>{patient.email}</span>
+                          ) : null}
+                        </span>
                         <button
                           type="button"
                           aria-label={`Remover ${patient.name}`}
@@ -548,7 +715,7 @@ export default function CheckInPage() {
                     type="search"
                     value={dispatchPatientSearch}
                     onChange={(e) => setDispatchPatientSearch(e.target.value)}
-                    placeholder="Buscar paciente por nome..."
+                    placeholder="Buscar por nome ou e-mail..."
                     aria-label="Buscar paciente para disparo"
                   />
                 </div>
@@ -567,7 +734,19 @@ export default function CheckInPage() {
                               checked={customDispatch.userIds.includes(patient.id)}
                               onChange={() => togglePatient(patient.id)}
                             />
-                            <span>{patient.name}</span>
+                            <PatientAvatar
+                              src={patient.avatar}
+                              name={patient.name}
+                              size="sm"
+                              circle
+                              ring={false}
+                            />
+                            <span className={styles.patientMeta}>
+                              <span className={styles.patientName}>{patient.name}</span>
+                              {patient.email ? (
+                                <span className={styles.patientEmail}>{patient.email}</span>
+                              ) : null}
+                            </span>
                           </label>
                         </li>
                       ))}
@@ -584,7 +763,7 @@ export default function CheckInPage() {
             {customDispatching
               ? 'Processando...'
               : customDispatch.mode === 'schedule'
-                ? 'Agendar disparo'
+                ? 'Programar envio'
                 : 'Enviar agora'}
           </button>
           {customDispatchMessage ? (
@@ -619,26 +798,8 @@ export default function CheckInPage() {
             </ul>
           </div>
         ) : null}
-
-        {dispatchMessage ? <p className={styles.feedback}>{dispatchMessage}</p> : null}
       </section>
-
-      <nav className={styles.tabs} aria-label="Seções de check-in">
-        <button
-          type="button"
-          className={`${styles.tab} ${activeTab === 'responses' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('responses')}
-        >
-          Respostas
-        </button>
-        <button
-          type="button"
-          className={`${styles.tab} ${activeTab === 'templates' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('templates')}
-        >
-          Tipos de check-in
-        </button>
-      </nav>
+      ) : null}
 
       {activeTab === 'responses' ? (
         <section className={styles.section}>
@@ -653,6 +814,15 @@ export default function CheckInPage() {
                 aria-label="Buscar respostas"
               />
             </div>
+            <div className={styles.typeFilter}>
+              <CfSelect
+                id="checkin-response-type"
+                value={responseTypeFilter}
+                options={responseTypeOptions}
+                placeholder="Filtrar por tipo"
+                onChange={setResponseTypeFilter}
+              />
+            </div>
             <span className={styles.count}>
               {filteredResponses.length} resposta{filteredResponses.length === 1 ? '' : 's'}
             </span>
@@ -660,10 +830,26 @@ export default function CheckInPage() {
 
           {loadingResponses ? (
             <div className={styles.loading}>Carregando respostas...</div>
+          ) : responsesError && !filteredResponses.length ? (
+            <div className={`admin-shell-card ${styles.empty}`}>
+              <p>Não foi possível carregar as respostas.</p>
+              <span>{responsesError}</span>
+              <button type="button" className="btn-primary" onClick={() => void loadResponses()}>
+                Tentar de novo
+              </button>
+            </div>
           ) : !filteredResponses.length ? (
             <div className={`admin-shell-card ${styles.empty}`}>
-              <p>Nenhuma resposta ainda.</p>
-              <span>Quando os pacientes responderem os check-ins, os dados aparecem aqui.</span>
+              <p>
+                {responses.length
+                  ? 'Nenhuma resposta neste filtro.'
+                  : 'Nenhuma resposta ainda.'}
+              </p>
+              <span>
+                {responses.length
+                  ? 'Ajuste a busca ou o tipo de check-in para ver outros resultados.'
+                  : 'Quando os pacientes responderem os check-ins, os dados aparecem aqui.'}
+              </span>
             </div>
           ) : (
             <div className={`admin-shell-card ${styles.tableCard}`}>
@@ -683,7 +869,7 @@ export default function CheckInPage() {
                     {filteredResponses.map((item) => (
                       <tr
                         key={item.id}
-                        className={styles.row}
+                        className={`${styles.row} ${isNewResponse(item) ? styles.rowNew : ''}`}
                         onClick={() => openViewModal(item)}
                       >
                         <td>
@@ -696,6 +882,9 @@ export default function CheckInPage() {
                             />
                             <span className={styles.patientName}>
                               {item.user?.name || 'Paciente'}
+                              {isNewResponse(item) ? (
+                                <em className={styles.newTag}>Nova</em>
+                              ) : null}
                             </span>
                           </div>
                         </td>
@@ -708,12 +897,19 @@ export default function CheckInPage() {
                         </td>
                         <td className={styles.muted}>{formatResponseUpdatedAt(item.updatedAt)}</td>
                         <td className={styles.tdActions} onClick={(e) => e.stopPropagation()}>
-                          <div className={styles.rowActions}>
+                          <TileActionsMenu menuKey={`checkin-response-${item.id}`}>
+                            <button
+                              type="button"
+                              className="cf-tile-actions-item"
+                              onClick={() => openViewModal(item, 'fotos')}
+                            >
+                              <Eye size={14} aria-hidden />
+                              Ver respostas
+                            </button>
                             {item.user?.id ? (
                               <button
                                 type="button"
-                                className={styles.actionGhost}
-                                title="Fotos de refeições"
+                                className="cf-tile-actions-item"
                                 onClick={() => openViewModal(item, 'fotos')}
                               >
                                 <ImageIcon size={14} aria-hidden />
@@ -723,23 +919,14 @@ export default function CheckInPage() {
                             {item.user?.id ? (
                               <button
                                 type="button"
-                                className={styles.actionGhost}
-                                title="Gráfico nutricional"
+                                className="cf-tile-actions-item"
                                 onClick={() => openViewModal(item, 'desempenho')}
                               >
                                 <LineChart size={14} aria-hidden />
                                 Nutrição
                               </button>
                             ) : null}
-                            <button
-                              type="button"
-                              className={styles.actionMain}
-                              onClick={() => openViewModal(item)}
-                            >
-                              <Eye size={14} aria-hidden />
-                              Ver
-                            </button>
-                          </div>
+                          </TileActionsMenu>
                         </td>
                       </tr>
                     ))}
@@ -757,26 +944,18 @@ export default function CheckInPage() {
                 {templates.length}
               </span>
               <div>
-                <strong>Tipos cadastrados</strong>
-                <p>Formulários que os pacientes respondem no app — semanal, diário ou mensal.</p>
+                <strong>Modelos cadastrados</strong>
+                <p>Formulários que as pacientes respondem no app — semanal, diário ou mensal.</p>
               </div>
             </div>
-            <button type="button" className="btn-primary" onClick={openCreateTemplate}>
-              <Plus size={16} aria-hidden />
-              Novo check-in
-            </button>
           </div>
 
           {loadingTemplates ? (
-            <div className={styles.loading}>Carregando tipos...</div>
+            <div className={styles.loading}>Carregando modelos...</div>
           ) : !templates.length ? (
             <div className={`admin-shell-card ${styles.empty}`}>
-              <p>Nenhum tipo de check-in</p>
-              <span>Crie o primeiro formulário para seus pacientes começarem a responder.</span>
-              <button type="button" className="btn-primary" onClick={openCreateTemplate}>
-                <Plus size={16} aria-hidden />
-                Criar check-in
-              </button>
+              <p>Nenhum modelo ainda</p>
+              <span>Use “Criar modelo” no topo para montar o primeiro formulário.</span>
             </div>
           ) : (
             <div className={styles.templatesGrid}>
@@ -788,10 +967,6 @@ export default function CheckInPage() {
                     key={tpl.id}
                     className={`admin-shell-card ${styles.templateCard} ${!tpl.active ? styles.templateInactive : ''}`}
                   >
-                    <div
-                      className={`${styles.templateAccent} ${styles[`freq_${tpl.frequency || 'weekly'}`] || ''}`}
-                      aria-hidden
-                    />
                     <div className={styles.templateBody}>
                       <header className={styles.templateHead}>
                         <div>
@@ -802,9 +977,6 @@ export default function CheckInPage() {
                           <h3>{tpl.title}</h3>
                         </div>
                         <div className={styles.badges}>
-                          {tpl.isDefault ? (
-                            <span className={`${styles.badge} ${styles.badgeDefault}`}>Padrão</span>
-                          ) : null}
                           <span
                             className={`${styles.badge} ${!tpl.active ? styles.badgeOff : ''}`}
                           >
@@ -850,16 +1022,14 @@ export default function CheckInPage() {
                         <Power size={14} aria-hidden />
                         {tpl.active ? 'Desativar' : 'Ativar'}
                       </button>
-                      {!tpl.isDefault ? (
-                        <button
-                          type="button"
-                          className={`${styles.templateAction} ${styles.templateActionDanger}`}
-                          onClick={() => void handleDeleteTemplate(tpl)}
-                        >
-                          <Trash2 size={14} aria-hidden />
-                          Excluir
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        className={`btn-danger-soft ${styles.templateActionDanger}`}
+                        onClick={() => requestDeleteTemplate(tpl)}
+                      >
+                        <Trash2 size={14} aria-hidden />
+                        Excluir
+                      </button>
                     </footer>
                   </article>
                 )
@@ -877,6 +1047,25 @@ export default function CheckInPage() {
         error={editorError}
         onClose={() => setEditorOpen(false)}
         onSave={handleSaveTemplate}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deletingTemplate) setDeleteTarget(null)
+        }}
+        title="Excluir modelo?"
+        description={
+          deleteTarget
+            ? `Excluir "${deleteTarget.title}"? As respostas anteriores também serão removidas.`
+            : undefined
+        }
+        cancelLabel="Cancelar"
+        confirmLabel={deletingTemplate ? 'Excluindo...' : 'Excluir'}
+        tone="danger"
+        busy={deletingTemplate}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void confirmDeleteTemplate()}
       />
 
       {selectedResponse ? (
@@ -901,18 +1090,15 @@ export default function CheckInPage() {
               <span>{formatResponseUpdatedAt(selectedResponse.updatedAt)}</span>
             </>
           }
+          leftTitle="Respostas no celular"
           leftPanel={
-            answerRows.length ? (
-              answerRows.map((row) => (
-                <article key={row.id} className={styles.answerRow}>
-                  <span>{row.label}</span>
-                  <strong>{row.value}</strong>
-                  {row.question ? <p>{row.question}</p> : null}
-                </article>
-              ))
-            ) : (
-              <p className={styles.patientEmpty}>Sem respostas neste check-in.</p>
-            )
+            <CheckinResponseMockup
+              title={selectedResponse.template?.title || 'Check-in'}
+              steps={selectedResponse.template?.steps as never}
+              answers={selectedResponse.answers}
+              patientId={selectedResponse.user?.id}
+              showPhotos={false}
+            />
           }
           profileHref={
             selectedResponse.user?.id ? buildPatientPath(selectedResponse.user) : undefined

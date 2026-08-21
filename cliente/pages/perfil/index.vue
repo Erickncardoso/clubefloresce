@@ -54,7 +54,7 @@
           <span>Flores</span>
         </div>
         <div class="perfil-stat">
-          <CalendarCheck aria-hidden="true" />
+          <CheckinIcon aria-hidden="true" />
           <strong>{{ checkInWeeks }}</strong>
           <span>Check-ins</span>
         </div>
@@ -251,7 +251,6 @@ import {
   BadgeCheck,
   BarChart3,
   Bell,
-  CalendarCheck,
   ChevronRight,
   CircleHelp,
   CreditCard,
@@ -268,6 +267,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import Camera from '~/components/icons/CameraIcon.vue'
+import CheckinIcon from '~/components/icons/CheckinIcon.vue'
 import { logoutAuthSession } from '~/composables/useAuthSession.js'
 
 definePageMeta({ layout: 'patient', middleware: 'patient-only' })

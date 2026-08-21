@@ -176,4 +176,14 @@ export class CheckInTemplateController {
       return res.status(500).json({ message: error.message });
     }
   }
+
+  async countNewResponses(req: Request, res: Response): Promise<any> {
+    try {
+      const since = typeof req.query.since === "string" ? req.query.since : null;
+      const count = await service.countNewResponsesSince(since);
+      return res.json({ count });
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
 }

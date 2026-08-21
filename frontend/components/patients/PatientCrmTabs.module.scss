@@ -108,6 +108,20 @@
   }
 }
 
+.tabBadge {
+  margin: 0;
+  padding: 0.1rem 0.32rem;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
 .tabActive {
   z-index: 2;
   color: #141414;
@@ -121,6 +135,10 @@
 
   &:hover {
     color: #141414;
+  }
+
+  .tabBadge {
+    background: color-mix(in srgb, var(--admin-primary, #8b967c) 75%, #ef4444);
   }
 }
 

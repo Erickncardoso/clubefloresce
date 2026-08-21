@@ -23,6 +23,11 @@ type AnimatedPopoverProps = {
   sideOffset?: number;
   collisionPadding?: number;
   modal?: boolean;
+  /**
+   * false = o contentClassName controla a animação
+   * (ex.: drop do menu de ações copiado do dietitian).
+   */
+  animated?: boolean;
 };
 
 /**
@@ -41,6 +46,7 @@ export function AnimatedPopover({
   sideOffset = 4,
   collisionPadding = 12,
   modal = false,
+  animated = true,
 }: AnimatedPopoverProps) {
   return (
     <Popover.Root
@@ -57,7 +63,10 @@ export function AnimatedPopover({
           align={align}
           sideOffset={sideOffset}
           collisionPadding={collisionPadding}
-          className={joinOverlayClassNames(motion.surface, contentClassName)}
+          className={joinOverlayClassNames(
+            animated ? motion.surface : undefined,
+            contentClassName,
+          )}
         >
           {children}
         </Popover.Content>

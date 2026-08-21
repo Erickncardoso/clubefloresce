@@ -15,7 +15,6 @@ type Props = {
   sectionLabel?: string
   compact?: boolean
   onEditPatient?: () => void
-  onStartCall?: () => void
   tabs?: ReactNode
 }
 

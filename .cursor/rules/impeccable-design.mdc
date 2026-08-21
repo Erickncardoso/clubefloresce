@@ -1,0 +1,24 @@
+---
+description: Design admin — usar Impeccable; evitar layouts/estilos genéricos de IA
+alwaysApply: true
+---
+
+# Design — Impeccable (Clube Florescer)
+
+Antes de inventar visual “padrão de IA”, use a skill Impeccable do projeto:
+
+- `.claude/skills/impeccable/SKILL.md`
+- Referências em `.claude/skills/impeccable/reference/` quando fizer sentido (`polish`, `quieter`, `distill`, `typeset`, etc.)
+
+## Evitar
+
+- Faixas/acentos coloridos decorativos no topo de cards sem função
+- Gradientes roxo/indigo genéricos, glow, pills demais, multi-shadow
+- Placeholders grossos; preferir peso 400 e fonte menor
+- `window.confirm` / `alert` no admin (usar `ConfirmDialog`)
+
+## Preferir
+
+- Tokens e classes já existentes (`btn-primary`, `btn-secondary`, `btn-danger-soft`, `field field--float`, `CfDateInput`, `admin-shell-card`)
+- Hierarquia limpa: um propósito por seção
+- Consistência com o painel nutri atual (Next em `frontend/`)

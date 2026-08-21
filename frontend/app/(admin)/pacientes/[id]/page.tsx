@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { HeartPulse, Leaf, ListChecks, Paperclip } from 'lucide-react'
 import { PatientChartPageSkeleton } from '@/components/patients/PatientChartPageSkeleton'
 import { PatientChartHeader } from '@/components/patients/PatientChartHeader'
 import { PatientCrmTabs } from '@/components/patients/PatientCrmTabs'
@@ -16,6 +15,7 @@ import {
   PatientDocumentosWorkspace,
   PatientAntropometriaWorkspace,
   PatientExamesWorkspace,
+  PatientHistoricoConsultasWorkspace,
 } from '@/components/patients/PatientChartWorkspaces'
 import { PatientMealPlanWorkspace } from '@/components/patients/PatientMealPlanWorkspace'
 import { PatientGoalsPanel } from '@/components/patients/PatientGoalsPanel'
@@ -27,9 +27,9 @@ import {
 } from '@/components/patients/PatientNutritionModal'
 import { NutritionMonthView } from '@/components/evolucao/NutritionMonthView'
 import { QuickAddPatientModal } from '@/components/patients/QuickAddPatientModal'
-import { PatientVideoCallModal } from '@/components/patients/PatientVideoCallModal'
 import { usePatientChart } from '@/lib/patient-chart/context'
 import { PATIENT_CHART_TABS, PATIENT_EVOLUCAO_SUBS } from '@/lib/patient-chart/nav'
+import { PATIENT_CHART_EMPTY_TABS } from '@/lib/patient-chart/empty-tabs'
 import { userToQuickAddSeed } from '@/lib/quick-add-patient'
 import { formatCheckinPeriod } from '@/lib/checkin-answers'
 import type { TemplateCheckInResponse } from '@/lib/patient-chart/api'
@@ -57,7 +57,6 @@ export default function PatientChartPage() {
   } = chart
 
   const [editOpen, setEditOpen] = useState(false)
-  const [callOpen, setCallOpen] = useState(false)
   const [checkinModalOpen, setCheckinModalOpen] = useState(false)
   const [selectedCheckin, setSelectedCheckin] = useState<TemplateCheckInResponse | null>(null)
   const [uploadingPlan, setUploadingPlan] = useState(false)
@@ -100,7 +99,6 @@ export default function PatientChartPage() {
             sectionLabel={activeTabLabel}
             compact
             onEditPatient={() => setEditOpen(true)}
-            onStartCall={() => setCallOpen(true)}
             tabs={
               <PatientCrmTabs
                 activeTab={activeTab}
@@ -109,7 +107,6 @@ export default function PatientChartPage() {
                 email={user.email}
                 patientId={user.id}
                 patientName={user.name}
-                onStartCall={() => setCallOpen(true)}
               />
             }
           />
@@ -218,6 +215,17 @@ export default function PatientChartPage() {
             profile={profile as never}
             onSaved={(next) => {
               setUser(next as never)
+            }}
+          />
+        </section>
+      ) : null}
+
+      {activeTab === 'historico_consultas' ? (
+        <section className={styles.panel}>
+          <PatientHistoricoConsultasWorkspace
+            user={user as unknown as PatientUser}
+            onSaved={(next) => {
+              setUser(next as never)
               void reload()
             }}
           />
@@ -275,13 +283,13 @@ export default function PatientChartPage() {
         </section>
       ) : null}
 
-      {activeTab === 'gastos' ? (
+      {PATIENT_CHART_EMPTY_TABS[activeTab] ? (
         <section className={styles.panel}>
           <PatientChartEmptyState
-            icon={HeartPulse}
-            title="Calcule o primeiro gasto energético"
-            description="Registre o gasto energético do paciente para estimar suas necessidades calóricas, definir metas e elaborar planos alimentares mais precisos."
-            actionLabel="+ Novo cálculo"
+            icon={PATIENT_CHART_EMPTY_TABS[activeTab]!.icon}
+            title={PATIENT_CHART_EMPTY_TABS[activeTab]!.title}
+            description={PATIENT_CHART_EMPTY_TABS[activeTab]!.description}
+            actionLabel={PATIENT_CHART_EMPTY_TABS[activeTab]!.actionLabel}
           />
         </section>
       ) : null}
@@ -298,17 +306,6 @@ export default function PatientChartPage() {
         </section>
       ) : null}
 
-      {activeTab === 'prescricoes' ? (
-        <section className={styles.panel}>
-          <PatientChartEmptyState
-            icon={Leaf}
-            title="Nada prescrito por enquanto"
-            description="Cadastre suplementações, orientações e protocolos para compartilhar com o paciente em poucos cliques."
-            actionLabel="+ Nova prescrição"
-          />
-        </section>
-      ) : null}
-
       {activeTab === 'pagamentos' ? (
         <section className={styles.panel}>
           <PatientChartAccountPanel
@@ -319,28 +316,6 @@ export default function PatientChartPage() {
               setUser(next)
               void reload()
             }}
-          />
-        </section>
-      ) : null}
-
-      {activeTab === 'arquivos' ? (
-        <section className={styles.panel}>
-          <PatientChartEmptyState
-            icon={Paperclip}
-            title="Nenhum arquivo enviado ainda"
-            description="Armazene documentos, fotos e relatórios importantes para acompanhar o paciente com segurança e praticidade."
-            actionLabel="+ Adicionar arquivo"
-          />
-        </section>
-      ) : null}
-
-      {activeTab === 'questionarios' ? (
-        <section className={styles.panel}>
-          <PatientChartEmptyState
-            icon={ListChecks}
-            title="Crie questionários para seus pacientes"
-            description="Monte questionários para conduzir o atendimento com contexto completo e acompanhar respostas ao longo do tempo."
-            actionLabel="+ Novo questionário"
           />
         </section>
       ) : null}
@@ -437,13 +412,6 @@ export default function PatientChartPage() {
           setEditOpen(false)
           void reload()
         }}
-      />
-
-      <PatientVideoCallModal
-        open={callOpen}
-        patientId={user.id}
-        patientName={user.name || 'Paciente'}
-        onClose={() => setCallOpen(false)}
       />
     </div>
   )

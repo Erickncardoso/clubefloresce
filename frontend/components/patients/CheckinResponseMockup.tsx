@@ -28,6 +28,8 @@ type Props = {
   answers?: Record<string, unknown> | null
   title?: string
   patientId?: string
+  /** Fotos ao lado do celular (área do paciente). Na lista de check-ins, fica só o mockup. */
+  showPhotos?: boolean
 }
 
 function toFlowSteps(steps: StepLike[]): StepApiPayload[] {
@@ -53,9 +55,11 @@ export function CheckinResponseMockup({
   answers = null,
   title,
   patientId,
+  showPhotos = true,
 }: Props) {
   const [stepIndex, setStepIndex] = useState(0)
   const flowSteps = useMemo(() => toFlowSteps(steps || []), [steps])
+  const withPhotos = Boolean(showPhotos && patientId)
 
   if (!flowSteps.length) {
     return <p className={styles.empty}>Sem perguntas neste check-in.</p>
@@ -68,7 +72,7 @@ export function CheckinResponseMockup({
         <span>Passe as perguntas como a paciente viu no app</span>
       </div>
 
-      <div className={styles.desk}>
+      <div className={`${styles.desk} ${withPhotos ? '' : styles.deskSolo}`.trim()}>
         <div className={styles.phoneShell}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -90,9 +94,9 @@ export function CheckinResponseMockup({
           </div>
         </div>
 
-        {patientId ? (
+        {withPhotos ? (
           <div className={styles.photoDesk} aria-label="Fotos de refeições">
-            <PatientPhotosPanel patientId={patientId} compact limit={12} />
+            <PatientPhotosPanel patientId={patientId!} compact limit={12} />
           </div>
         ) : null}
       </div>

@@ -28,6 +28,13 @@ export type PatientProfileData = Record<string, unknown> & {
   antropometria?: unknown[]
   exames?: unknown[]
   anamneseRecords?: unknown[]
+  consultations?: Array<{
+    id: string
+    date: string
+    notes?: string | null
+    createPlannerTask?: boolean
+    createdAt?: string
+  }> | null
 }
 
 export type PatientUser = AuthUser & {

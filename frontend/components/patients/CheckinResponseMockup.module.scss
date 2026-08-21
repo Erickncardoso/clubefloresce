@@ -42,6 +42,15 @@
   border-radius: var(--cf-radius-control);
 }
 
+.deskSolo {
+  max-width: 22rem;
+  align-items: center;
+
+  .phoneShell {
+    width: min(100%, 260px);
+  }
+}
+
 .phoneShell {
   position: relative;
   width: min(42%, 240px);

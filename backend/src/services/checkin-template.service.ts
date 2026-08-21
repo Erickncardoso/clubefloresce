@@ -302,7 +302,6 @@ export class CheckInTemplateService {
     const existing = await templateRepository.findById(id);
     if (!existing) throw new Error("Check-in não encontrado.");
     if (existing.authorId !== authorId) throw new Error("Acesso negado.");
-    if (existing.isDefault) throw new Error("O check-in padrão não pode ser excluído.");
     return templateRepository.delete(id);
   }
 
@@ -379,5 +378,17 @@ export class CheckInTemplateService {
 
   async listResponsesForNutri() {
     return templateRepository.findResponsesForNutri(120);
+  }
+
+  async countNewResponsesSince(sinceRaw?: string | null) {
+    const trimmed = String(sinceRaw || "").trim();
+    if (!trimmed) {
+      return templateRepository.countResponsesSince(null);
+    }
+    const since = new Date(trimmed);
+    if (Number.isNaN(since.getTime())) {
+      throw new Error("Data inválida para contagem de respostas novas.");
+    }
+    return templateRepository.countResponsesSince(since);
   }
 }

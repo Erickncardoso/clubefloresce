@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MoreVertical, Stethoscope } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import type { Anamnese, PatientUser, PatientProfile } from '@/lib/types'
-import { AnimatedPopover } from '@/components/overlays'
+import { AnimatedPopover, AppModal } from '@/components/overlays'
+import { useAnamneseBackground } from '@/components/patients/AnamneseBackgroundProvider'
 import s from './PatientWorkspace.module.scss'
 
 const ANAMNESE_LIMIT = 5
@@ -12,10 +13,27 @@ const ANAMNESE_LIMIT = 5
 function htmlToPlain(html: string): string {
   const value = String(html || '')
   if (!value.trim()) return ''
+
+  // No browser: innerText já decodifica &nbsp; / &amp; / etc.
+  if (typeof document !== 'undefined') {
+    const el = document.createElement('div')
+    el.innerHTML = value
+    return (el.innerText || el.textContent || '')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
   return value
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -66,6 +84,7 @@ function TileMenu({
       open={open}
       onOpenChange={setOpen}
       align="end"
+      animated={false}
       contentClassName={s.dropdown}
       trigger={
         <button
@@ -105,146 +124,43 @@ function TileMenu({
   )
 }
 
-// ── AnamneseEditorModal ───────────────────────────────────────────────────────
+// ── CreateNewAnamneseModal ────────────────────────────────────────────────────
 
-function AnamneseEditorModal({
-  anamnese,
-  user,
-  onClose,
-  onSave,
+function CreateNewAnamneseModal({
+  open,
+  onOpenChange,
+  onBlank,
+  onImportPreconsulta,
+  importError,
 }: {
-  anamnese: Anamnese | null
-  user: PatientUser
-  onClose: () => void
-  onSave: (item: Anamnese) => Promise<void>
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onBlank: () => void
+  onImportPreconsulta: () => void
+  importError?: string
 }) {
-  const isNew = !anamnese?.id
-  const [title, setTitle] = useState(anamnese?.title || 'Anamnese')
-  const [content, setContent] = useState(anamnese?.content || '')
-  const [status, setStatus] = useState<'draft' | 'completed'>(
-    anamnese?.status === 'completed' ? 'completed' : 'draft',
-  )
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSave(nextStatus: 'draft' | 'completed') {
-    setSaving(true)
-    setError('')
-    try {
-      const now = new Date().toISOString()
-      const item: Anamnese = {
-        id: anamnese?.id || crypto.randomUUID(),
-        title: title.trim() || (nextStatus === 'completed' ? 'Anamnese concluída' : 'Anamnese em andamento'),
-        content,
-        formData: anamnese?.formData ?? null,
-        foodRestrictions: anamnese?.foodRestrictions ?? null,
-        interpretation: anamnese?.interpretation ?? null,
-        status: nextStatus,
-        authorName: anamnese?.authorName || 'Nutricionista',
-        createdAt: anamnese?.createdAt || now,
-        updatedAt: now,
-      }
-      await onSave(item)
-      onClose()
-    } catch (err: unknown) {
-      const msg =
-        (err as { data?: { error?: string; message?: string }; message?: string })?.data?.error ||
-        (err as { data?: { message?: string } })?.data?.message ||
-        (err as { message?: string })?.message ||
-        'Erro ao salvar anamnese.'
-      setError(msg)
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(28,32,28,0.45)',
-        backdropFilter: 'blur(2px)',
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <AppModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Criar nova anamnese"
+      description="Você pode importar as respostas preenchidas previamente pelo paciente ou iniciar uma nova em branco. Saiba mais acessando a aba Consultório → Pré-consulta."
+      contentClassName={s.createModal}
     >
-      <div
-        className="admin-shell-card"
-        style={{
-          width: '100%',
-          maxWidth: '42rem',
-          margin: '1rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem',
-          padding: '1.5rem',
-          maxHeight: '90dvh',
-          overflow: 'auto',
-        }}
-        role="dialog"
-        aria-modal="true"
-        aria-label={isNew ? 'Nova anamnese' : 'Editar anamnese'}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
-            {isNew ? 'Nova anamnese' : 'Editar anamnese'} — {user.name}
-          </h2>
-          <button type="button" className="btn-secondary" style={{ padding: '0.3rem 0.65rem' }} onClick={onClose}>
-            ✕
-          </button>
-        </div>
-
-        <div className="field field--float">
-          <label>Título</label>
-          <input
-            type="text"
-            maxLength={160}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </div>
-
-        <div className="field field--float">
-          <label>Conteúdo</label>
-          <textarea
-            rows={10}
-            maxLength={20000}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Queixa principal, histórico de saúde, hábitos alimentares…"
-            style={{ resize: 'vertical' }}
-          />
-        </div>
-
-        {error && <p className={s.error}>{error}</p>}
-
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          <button type="button" className="btn-secondary" onClick={onClose}>
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={saving}
-            onClick={() => handleSave('draft')}
-          >
-            {saving ? 'Salvando…' : 'Salvar rascunho'}
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={saving}
-            onClick={() => handleSave('completed')}
-          >
-            {saving ? 'Salvando…' : 'Concluir anamnese'}
-          </button>
-        </div>
+      <div className={s.createChoices}>
+        <button type="button" className={`btn-primary ${s.createChoiceBtn}`} onClick={onBlank}>
+          nova anamnese em branco
+        </button>
+        <button
+          type="button"
+          className={`btn-primary ${s.createChoiceBtn}`}
+          onClick={onImportPreconsulta}
+        >
+          importar da pré-consulta
+        </button>
+        {importError ? <p className={s.error}>{importError}</p> : null}
       </div>
-    </div>
+    </AppModal>
   )
 }
 
@@ -258,9 +174,18 @@ export type PatientAnamneseWorkspaceProps = {
 
 export function PatientAnamneseWorkspace({ user, profile: profileProp, onSaved }: PatientAnamneseWorkspaceProps) {
   const profile = profileProp ?? (user?.patientProfileData as PatientProfile | undefined)
+  const {
+    isOpen: editorOpen,
+    activePatientId,
+    openEditor,
+    restoreEditor,
+    registerPatientSync,
+  } = useAnamneseBackground()
   const [listError, setListError] = useState('')
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [editorSeed, setEditorSeed] = useState<Anamnese | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [importError, setImportError] = useState('')
+
+  const editorBusyHere = editorOpen && activePatientId === user.id
 
   const anamneses: Anamnese[] = [...(
     Array.isArray(user?.patientProfileData?.anamneses)
@@ -272,20 +197,83 @@ export function PatientAnamneseWorkspace({ user, profile: profileProp, onSaved }
     String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')),
   )
 
+  useEffect(() => registerPatientSync(user.id, onSaved), [user.id, onSaved, registerPatientSync])
+
+  function launchEditor(seed: Anamnese | null) {
+    openEditor({
+      user,
+      seed,
+      anamneses,
+      onPatientUpdated: onSaved,
+    })
+  }
+
   function startNew() {
+    if (editorBusyHere && restoreEditor()) return
     if (anamneses.length >= ANAMNESE_LIMIT) {
       setListError(`Limite de ${ANAMNESE_LIMIT} anamneses por paciente.`)
       return
     }
     setListError('')
-    setEditorSeed(null)
-    setEditorOpen(true)
+    setImportError('')
+    setCreateOpen(true)
+  }
+
+  function openBlankEditor() {
+    setImportError('')
+    setCreateOpen(false)
+    launchEditor(null)
+  }
+
+  /** Importa respostas da pré-consulta do paciente, quando existirem no perfil. */
+  function importFromPreconsulta() {
+    const source = (profile as PatientProfile & {
+      preconsulta?: Record<string, unknown> | null
+      preConsultation?: Record<string, unknown> | null
+    }) || {}
+    const pre =
+      (source.preconsulta && typeof source.preconsulta === 'object' ? source.preconsulta : null) ||
+      (source.preConsultation && typeof source.preConsultation === 'object'
+        ? source.preConsultation
+        : null)
+
+    if (!pre || !Object.keys(pre).length) {
+      setImportError('Nenhuma pré-consulta preenchida para este paciente.')
+      return
+    }
+
+    const now = new Date().toISOString()
+    const chief = String(
+      (pre as { chiefComplaint?: unknown }).chiefComplaint ||
+        (pre as { queixa?: unknown }).queixa ||
+        '',
+    ).trim()
+    const notes = String(
+      (pre as { notes?: unknown }).notes ||
+        (pre as { content?: unknown }).content ||
+        '',
+    ).trim()
+
+    setImportError('')
+    setCreateOpen(false)
+    launchEditor({
+      id: '',
+      title: 'Anamnese do paciente',
+      content: notes || chief,
+      formData: { ...pre, ...(chief ? { chiefComplaint: chief } : {}) },
+      foodRestrictions: null,
+      interpretation: null,
+      status: 'draft',
+      authorName: 'Nutricionista',
+      createdAt: now,
+      updatedAt: now,
+    })
   }
 
   function editItem(item: Anamnese) {
+    if (editorBusyHere && restoreEditor()) return
     setListError('')
-    setEditorSeed(item)
-    setEditorOpen(true)
+    launchEditor(item)
   }
 
   function nextList(nextItem: Anamnese | null, removeId = ''): Anamnese[] {
@@ -314,10 +302,6 @@ export function PatientAnamneseWorkspace({ user, profile: profileProp, onSaved }
     return updated
   }
 
-  async function handleSave(item: Anamnese) {
-    await patchAnamneses(nextList(item))
-  }
-
   async function removeItem(id: string) {
     if (!confirm('Excluir esta anamnese?')) return
     setListError('')
@@ -343,7 +327,7 @@ export function PatientAnamneseWorkspace({ user, profile: profileProp, onSaved }
           <button
             type="button"
             className={`btn-primary ${s.btn}`}
-            disabled={anamneses.length >= ANAMNESE_LIMIT}
+            disabled={editorBusyHere || anamneses.length >= ANAMNESE_LIMIT}
             onClick={startNew}
           >
             + Nova anamnese
@@ -360,7 +344,12 @@ export function PatientAnamneseWorkspace({ user, profile: profileProp, onSaved }
           <p>
             Inicie a primeira anamnese para documentar queixas, histórico e hábitos do paciente.
           </p>
-          <button type="button" className={`btn-primary ${s.btn}`} onClick={startNew}>
+          <button
+            type="button"
+            className={`btn-primary ${s.btn}`}
+            disabled={editorBusyHere}
+            onClick={startNew}
+          >
             + Nova anamnese
           </button>
         </div>
@@ -395,14 +384,16 @@ export function PatientAnamneseWorkspace({ user, profile: profileProp, onSaved }
         </div>
       )}
 
-      {editorOpen && (
-        <AnamneseEditorModal
-          anamnese={editorSeed}
-          user={user}
-          onClose={() => setEditorOpen(false)}
-          onSave={handleSave}
-        />
-      )}
+      <CreateNewAnamneseModal
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open)
+          if (!open) setImportError('')
+        }}
+        onBlank={openBlankEditor}
+        onImportPreconsulta={importFromPreconsulta}
+        importError={importError}
+      />
     </div>
   )
 }
