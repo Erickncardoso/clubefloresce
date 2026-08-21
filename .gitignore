@@ -35,3 +35,7 @@ Thumbs.db
 
 # Cópia acidental local (não versionar)
 frontend 2/
+
+# Config local do editor/agente
+.claude/settings.local.json
+.cursor/hooks.json
