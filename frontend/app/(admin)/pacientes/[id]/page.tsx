@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { HeartPulse, Leaf, ListChecks, Paperclip } from 'lucide-react'
 import { PatientChartPageSkeleton } from '@/components/patients/PatientChartPageSkeleton'
 import { PatientChartHeader } from '@/components/patients/PatientChartHeader'
+import { PatientCrmTabs } from '@/components/patients/PatientCrmTabs'
 import { PatientChartEmptyState } from '@/components/patients/PatientChartEmptyState'
 import { PatientChartInfoList } from '@/components/patients/PatientChartInfoList'
 import { PatientChartAccountPanel } from '@/components/patients/PatientChartAccountPanel'
@@ -19,16 +20,19 @@ import {
 import { PatientMealPlanWorkspace } from '@/components/patients/PatientMealPlanWorkspace'
 import { PatientGoalsPanel } from '@/components/patients/PatientGoalsPanel'
 import { PatientPhotosPanel } from '@/components/patients/PatientPhotosPanel'
+import { PatientCheckinsPanel } from '@/components/patients/PatientCheckinsPanel'
+import { CheckinResponseMockup } from '@/components/patients/CheckinResponseMockup'
+import {
+  PatientNutritionModal,
+} from '@/components/patients/PatientNutritionModal'
 import { NutritionMonthView } from '@/components/evolucao/NutritionMonthView'
 import { QuickAddPatientModal } from '@/components/patients/QuickAddPatientModal'
 import { PatientVideoCallModal } from '@/components/patients/PatientVideoCallModal'
 import { usePatientChart } from '@/lib/patient-chart/context'
 import { PATIENT_CHART_TABS, PATIENT_EVOLUCAO_SUBS } from '@/lib/patient-chart/nav'
 import { userToQuickAddSeed } from '@/lib/quick-add-patient'
-import {
-  buildAnswerRows,
-  formatCheckinPeriod,
-} from '@/lib/checkin-answers'
+import { formatCheckinPeriod } from '@/lib/checkin-answers'
+import type { TemplateCheckInResponse } from '@/lib/patient-chart/api'
 import type { PatientUser } from '@/lib/types'
 import styles from './patient.module.scss'
 
@@ -42,68 +46,26 @@ export default function PatientChartPage() {
     overview,
     mealPlan,
     foodDiary,
-    checkInHistory,
     templateResponses,
-    currentWeekStart,
     activeTab,
     evolucaoSubTab,
-    tabHref,
     setTab,
     setEvolucaoSubTab,
     reload,
     setUser,
     uploadMealPlan,
-    saveCheckIn,
   } = chart
 
   const [editOpen, setEditOpen] = useState(false)
   const [callOpen, setCallOpen] = useState(false)
+  const [checkinModalOpen, setCheckinModalOpen] = useState(false)
+  const [selectedCheckin, setSelectedCheckin] = useState<TemplateCheckInResponse | null>(null)
   const [uploadingPlan, setUploadingPlan] = useState(false)
-  const [savingCheckIn, setSavingCheckIn] = useState(false)
-  const [checkInMessage, setCheckInMessage] = useState('')
-  const [checkInError, setCheckInError] = useState(false)
-  const [checkInForm, setCheckInForm] = useState({
-    weekStart: '',
-    mood: 3,
-    energy: 3,
-    adherence: 3,
-    weightKg: '',
-    notes: '',
-  })
-
-  useEffect(() => {
-    setCheckInForm((prev) => ({
-      ...prev,
-      weekStart: currentWeekStart || prev.weekStart,
-    }))
-  }, [currentWeekStart])
 
   const activeTabLabel = useMemo(
     () => PATIENT_CHART_TABS.find((t) => t.id === activeTab)?.label || '',
     [activeTab],
   )
-
-  const weekSelectOptions = useMemo(() => {
-    const options: Array<{ value: string; label: string }> = []
-    const raw = String(currentWeekStart || '').trim()
-    const ymd = raw.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]
-    const parsed = ymd ? new Date(`${ymd}T12:00:00`) : new Date()
-    const base = Number.isFinite(parsed.getTime()) ? parsed : new Date()
-
-    for (let i = 0; i < 8; i += 1) {
-      const d = new Date(base.getTime())
-      d.setDate(d.getDate() - i * 7)
-      if (!Number.isFinite(d.getTime())) continue
-      const y = d.getFullYear()
-      const m = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      options.push({
-        value: `${y}-${m}-${day}`,
-        label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
-      })
-    }
-    return options
-  }, [currentWeekStart])
 
   if (loading) return <PatientChartPageSkeleton />
 
@@ -127,41 +89,31 @@ export default function PatientChartPage() {
     }
   }
 
-  async function onSaveCheckIn(e: React.FormEvent) {
-    e.preventDefault()
-    setSavingCheckIn(true)
-    setCheckInMessage('')
-    setCheckInError(false)
-    try {
-      await saveCheckIn({
-        weekStart: checkInForm.weekStart || currentWeekStart,
-        mood: checkInForm.mood,
-        energy: checkInForm.energy,
-        adherence: checkInForm.adherence,
-        weightKg: checkInForm.weightKg ? Number(checkInForm.weightKg) : null,
-        notes: checkInForm.notes || null,
-      })
-      setCheckInMessage('Check-in salvo.')
-    } catch (err) {
-      setCheckInError(true)
-      setCheckInMessage(err instanceof Error ? err.message : 'Erro ao salvar.')
-    } finally {
-      setSavingCheckIn(false)
-    }
-  }
-
   return (
     <div className={styles.page}>
-      <PatientChartHeader
-        user={user}
-        profile={profile}
-        overview={overview}
-        sectionLabel={activeTabLabel}
-        compact
-        onEditPatient={() => setEditOpen(true)}
-        onStartCall={() => setCallOpen(true)}
-      />
-
+      <div className={styles.crmStage}>
+        <div className={styles.crmPanel}>
+          <PatientChartHeader
+            user={user}
+            profile={profile}
+            overview={overview}
+            sectionLabel={activeTabLabel}
+            compact
+            onEditPatient={() => setEditOpen(true)}
+            onStartCall={() => setCallOpen(true)}
+            tabs={
+              <PatientCrmTabs
+                activeTab={activeTab}
+                onSelectTab={(tab) => setTab(tab)}
+                phone={user.phone}
+                email={user.email}
+                patientId={user.id}
+                patientName={user.name}
+                onStartCall={() => setCallOpen(true)}
+              />
+            }
+          />
+          <div className={styles.crmBody}>
       {activeTab === 'visao' ? (
         <section className={styles.panel}>
           <PatientChartInfoList
@@ -183,12 +135,79 @@ export default function PatientChartPage() {
             overview={overview as never}
             templateResponses={templateResponses}
             onNavigateEvolucao={(sub) => {
+              if (sub === 'checkins') {
+                setTab('checkin')
+                return
+              }
               setTab('evolucao')
               setEvolucaoSubTab(sub as never)
             }}
             onNavigateTab={(tab) => setTab(tab)}
             onEditProfile={() => setEditOpen(true)}
           />
+        </section>
+      ) : null}
+
+      {activeTab === 'checkin' ? (
+        <section className={styles.panel}>
+          <div className={styles.card}>
+            <h3>Check-ins desta paciente</h3>
+            <p className={styles.checkinLead}>
+              Toque em um check-in para ver as respostas e as fotos de refeição.
+            </p>
+            <PatientCheckinsPanel
+              responses={templateResponses}
+              limit={50}
+              onSelect={(item) => {
+                setSelectedCheckin(item)
+                setCheckinModalOpen(true)
+              }}
+            />
+          </div>
+
+          {selectedCheckin ? (
+            <PatientNutritionModal
+              open={checkinModalOpen}
+              onOpenChange={(open) => {
+                setCheckinModalOpen(open)
+                if (!open) setSelectedCheckin(null)
+              }}
+              patientId={user.id}
+              patientName={user.name || 'Paciente'}
+              patientAvatar={user.avatar}
+              kicker={selectedCheckin.template?.title || 'Check-in'}
+              initialTab="fotos"
+              meta={
+                <>
+                  <span>
+                    {formatCheckinPeriod(
+                      selectedCheckin.periodKey,
+                      selectedCheckin.template?.frequency,
+                    )}
+                  </span>
+                  <span>
+                    {selectedCheckin.updatedAt
+                      ? new Date(selectedCheckin.updatedAt).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : '—'}
+                  </span>
+                </>
+              }
+              leftTitle="Respostas no celular"
+              leftPanel={
+                <CheckinResponseMockup
+                  title={selectedCheckin.template?.title || 'Check-in'}
+                  steps={selectedCheckin.template?.steps as never}
+                  answers={selectedCheckin.answers}
+                  patientId={user.id}
+                />
+              }
+            />
+          ) : null}
         </section>
       ) : null}
 
@@ -330,175 +349,16 @@ export default function PatientChartPage() {
         <section className={styles.panel}>
           <div className={styles.subtabs}>
             {PATIENT_EVOLUCAO_SUBS.map((sub) => (
-              <Link
+              <button
                 key={sub.id}
-                href={tabHref('evolucao', sub.id)}
+                type="button"
                 className={`${styles.subtab} ${evolucaoSubTab === sub.id ? styles.subtabActive : ''}`}
+                onClick={() => setEvolucaoSubTab(sub.id)}
               >
                 {sub.label}
-              </Link>
+              </button>
             ))}
           </div>
-
-          {evolucaoSubTab === 'checkins' ? (
-            <div className={styles.card}>
-              <h3>Respostas do paciente</h3>
-              {templateResponses.map((item) => (
-                <article key={item.id} className={styles.response}>
-                  <div className={styles.responseHead}>
-                    <strong>{item.template?.title || 'Check-in'}</strong>
-                    <p>
-                      {formatCheckinPeriod(item.periodKey, item.template?.frequency)} ·{' '}
-                      {item.updatedAt
-                        ? new Date(item.updatedAt).toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : '—'}
-                    </p>
-                  </div>
-                  <ul>
-                    {buildAnswerRows(item.template?.steps, item.answers).map((row) => (
-                      <li key={row.id}>
-                        <span>{row.label}</span>
-                        <strong>{row.value}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-              {!templateResponses.length ? (
-                <p className={styles.empty}>Nenhuma resposta de check-in ainda.</p>
-              ) : null}
-
-              <details className={styles.legacy}>
-                <summary>Registro manual (legado)</summary>
-                <form className={styles.checkinForm} onSubmit={onSaveCheckIn}>
-                  <label>
-                    Semana
-                    <select
-                      value={checkInForm.weekStart}
-                      onChange={(e) =>
-                        setCheckInForm((prev) => ({ ...prev, weekStart: e.target.value }))
-                      }
-                    >
-                      {weekSelectOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className={styles.scores}>
-                    <label>
-                      Humor {checkInForm.mood}
-                      <input
-                        type="range"
-                        min={1}
-                        max={5}
-                        value={checkInForm.mood}
-                        onChange={(e) =>
-                          setCheckInForm((prev) => ({ ...prev, mood: Number(e.target.value) }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      Energia {checkInForm.energy}
-                      <input
-                        type="range"
-                        min={1}
-                        max={5}
-                        value={checkInForm.energy}
-                        onChange={(e) =>
-                          setCheckInForm((prev) => ({ ...prev, energy: Number(e.target.value) }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      Aderência {checkInForm.adherence}
-                      <input
-                        type="range"
-                        min={1}
-                        max={5}
-                        value={checkInForm.adherence}
-                        onChange={(e) =>
-                          setCheckInForm((prev) => ({
-                            ...prev,
-                            adherence: Number(e.target.value),
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
-                  <label>
-                    Peso (kg)
-                    <input
-                      type="number"
-                      step="0.1"
-                      min={20}
-                      max={500}
-                      value={checkInForm.weightKg}
-                      onChange={(e) =>
-                        setCheckInForm((prev) => ({ ...prev, weightKg: e.target.value }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Observações
-                    <textarea
-                      rows={3}
-                      value={checkInForm.notes}
-                      onChange={(e) =>
-                        setCheckInForm((prev) => ({ ...prev, notes: e.target.value }))
-                      }
-                    />
-                  </label>
-                  <button type="submit" className="btn-primary" disabled={savingCheckIn}>
-                    {savingCheckIn ? 'Salvando…' : 'Salvar check-in'}
-                  </button>
-                  {checkInMessage ? (
-                    <p className={`${styles.msg} ${checkInError ? styles.msgError : ''}`}>
-                      {checkInMessage}
-                    </p>
-                  ) : null}
-                </form>
-
-                <div className={styles.history}>
-                  {checkInHistory.map((item) => (
-                    <article
-                      key={item.id}
-                      className={styles.historyCard}
-                      onClick={() =>
-                        setCheckInForm({
-                          weekStart: item.weekStart || '',
-                          mood: item.mood || 3,
-                          energy: item.energy || 3,
-                          adherence: item.adherence || 3,
-                          weightKg: item.weightKg != null ? String(item.weightKg) : '',
-                          notes: item.notes || '',
-                        })
-                      }
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <strong>
-                        {item.weekStart
-                          ? new Date(`${item.weekStart}T12:00:00`).toLocaleDateString('pt-BR')
-                          : '—'}
-                      </strong>
-                      <div>
-                        <span>Humor {item.mood}/5</span>
-                        <span>Energia {item.energy}/5</span>
-                        {item.weightKg != null ? <span>{item.weightKg} kg</span> : null}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </details>
-            </div>
-          ) : null}
 
           {evolucaoSubTab === 'nutricao' ? (
             <div className={styles.card}>
@@ -559,6 +419,9 @@ export default function PatientChartPage() {
           ) : null}
         </section>
       ) : null}
+        </div>
+        </div>
+      </div>
 
       <QuickAddPatientModal
         open={editOpen}

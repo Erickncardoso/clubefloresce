@@ -1,0 +1,160 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 0;
+  padding: 0.25rem 0 0.5rem;
+  overflow: auto;
+}
+
+.head {
+  width: 100%;
+  text-align: center;
+
+  strong {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 400;
+    color: #141414;
+  }
+
+  span {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.74rem;
+    font-weight: 400;
+    color: #6b7368;
+  }
+}
+
+.desk {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1.15rem;
+  width: 100%;
+  max-width: 52rem;
+  margin-inline: auto;
+  padding: 0.85rem 0.75rem 1rem;
+  background: linear-gradient(180deg, transparent 0%, rgba(20, 24, 18, 0.04) 55%, rgba(20, 24, 18, 0.07) 100%);
+  border-radius: var(--cf-radius-control);
+}
+
+.phoneShell {
+  position: relative;
+  width: min(42%, 240px);
+  aspect-ratio: 486 / 978;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 14%;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(20, 24, 18, 0.16);
+}
+
+.phoneMockup {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.phoneScreen {
+  position: absolute;
+  top: 5.5%;
+  left: 5.5%;
+  right: 5.5%;
+  bottom: 6.7%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 11%;
+  background: #fff;
+  touch-action: pan-y;
+  --cf-pink: #8b967c;
+  --cf-pink-dark: #6f7863;
+  --cf-pink-soft: #eef0eb;
+  --cf-border: #e8ece9;
+  --cf-text: #1a2e24;
+  --cf-text-muted: #7a8a82;
+  --cf-bg: #ffffff;
+  --cf-track: #eef0eb;
+}
+
+.photoDesk {
+  flex: 1 1 auto;
+  min-width: 14rem;
+  width: min(26rem, 55%);
+  max-width: 26rem;
+  /* Altura do celular (~240 * 978/486), pra não ficar um tirinho fino */
+  height: calc(240px * 978 / 486);
+  max-height: min(30rem, 72vh);
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--cf-radius-control);
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(20, 24, 18, 0.14);
+  background: #111;
+
+  /* Só o card da foto — NÃO usar [class*='slide'] (pega slideUi/slideRail/etc.) */
+  :global([data-cf-photo-feed]) {
+    height: 100%;
+    gap: 0.35rem;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  :global([data-cf-photo-slide]) {
+    flex: 0 0 92%;
+    min-height: 0;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  :global([data-cf-photos-root]) {
+    height: 100%;
+  }
+}
+
+.hint {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-align: center;
+  color: #6b7368;
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.84rem;
+  color: #8a9286;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .desk {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .phoneShell {
+    width: min(58%, 220px);
+  }
+
+  .photoDesk {
+    width: min(100%, 24rem);
+    max-width: none;
+    min-width: 0;
+    height: 26rem;
+  }
+}

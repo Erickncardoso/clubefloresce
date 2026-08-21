@@ -1,5 +1,6 @@
 export { AnimatedDialog } from './AnimatedDialog'
 export { AnimatedPopover } from './AnimatedPopover'
 export { AppModal } from './AppModal'
+export { ConfirmDialog } from './ConfirmDialog'
 export { joinOverlayClassNames } from './overlay-utils'
 export { default as overlayMotion } from './OverlayMotion.module.scss'

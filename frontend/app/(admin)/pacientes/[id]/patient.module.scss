@@ -1,5 +1,45 @@
 .page {
-  padding-bottom: 2rem;
+  padding-bottom: 0;
+  min-height: 100%;
+  height: 100%;
+  width: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.crmStage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  gap: 0;
+}
+
+.crmPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  background: #e4e7e2;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.crmBody {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin: -1px 0 0;
+  padding: 1.15rem 1.35rem 1.35rem;
+  background: #fff;
+  border-radius: var(--cf-radius-xl);
+  overflow: auto;
 }
 
 .panel {
@@ -31,11 +71,15 @@
 
 .subtab {
   padding: 0.5rem 0.9rem;
+  border: none;
+  background: transparent;
   border-radius: var(--cf-radius-control);
+  font: inherit;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--admin-muted);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .subtabActive {
@@ -45,10 +89,11 @@
 }
 
 .card {
-  padding: 1rem 1.1rem;
+  padding: 1.05rem 1.15rem;
   background: #fff;
-  border: 1px solid var(--admin-border);
+  border: 1px solid rgba(20, 20, 20, 0.06);
   border-radius: var(--cf-radius-control);
+  box-shadow: 0 8px 24px rgba(20, 24, 18, 0.06);
 
   h3 {
     margin: 0 0 0.85rem;
@@ -100,86 +145,40 @@
   color: var(--admin-muted);
 }
 
-.legacy {
-  margin-top: 1rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--admin-border);
-
-  summary {
-    cursor: pointer;
-    font-weight: 700;
-    font-size: 0.84rem;
-  }
+.checkinLead {
+  margin: -0.35rem 0 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 400;
+  color: var(--admin-muted);
 }
 
-.checkinForm {
+.checkinAnswerRow {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 0.85rem;
-
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-
-  input,
-  select,
-  textarea {
-    border: 1px solid var(--admin-border);
-    border-radius: var(--cf-radius-control);
-    padding: 0.55rem 0.7rem;
-    font: inherit;
-  }
-}
-
-.scores {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.msg {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--admin-primary);
-}
-
-.msgError {
-  color: #b42318;
-}
-
-.history {
-  display: grid;
-  gap: 0.45rem;
-  margin-top: 0.85rem;
-}
-
-.historyCard {
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--admin-border);
+  gap: 0.15rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(20, 24, 18, 0.06);
   border-radius: var(--cf-radius-control);
-  cursor: pointer;
+  background: #f7f8f5;
+
+  span {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: #8a9286;
+  }
 
   strong {
-    display: block;
-    font-size: 0.82rem;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: #141414;
   }
 
-  div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem 0.75rem;
-    margin-top: 0.25rem;
-    font-size: 0.74rem;
-    color: var(--admin-muted);
-  }
-
-  &:hover {
-    background: #fafbfa;
+  p {
+    margin: 0.15rem 0 0;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: #6b7368;
   }
 }
 

@@ -70,10 +70,20 @@
   border-radius: var(--cf-radius-control);
   overflow: hidden;
   background: #f5f5f5;
-  cursor: pointer;
+  cursor: default;
   scroll-snap-align: center;
   scroll-snap-stop: always;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.slideHit {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 0;
 
   img {
     width: 100%;
@@ -98,6 +108,7 @@
 .slideUi {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -116,7 +127,7 @@
 
   strong {
     font-size: 0.92rem;
-    font-weight: 800;
+    font-weight: 550;
     line-height: 1.2;
     text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
   }
@@ -134,6 +145,43 @@
   align-items: center;
   gap: 0.55rem;
   flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.railAction {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem;
+  min-width: 2.85rem;
+  padding: 0.4rem 0.35rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+
+  span {
+    font-size: 0.68rem;
+    font-weight: 550;
+    line-height: 1;
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: wait;
+  }
+
+  &:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.58);
+  }
+}
+
+.railActionLiked {
+  color: #ff6b8a;
 }
 
 .railPill {
@@ -141,28 +189,28 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 2.65rem;
-  padding: 0.45rem 0.35rem;
+  min-width: 2.85rem;
+  padding: 0.45rem 0.4rem;
   border-radius: var(--cf-radius-control);
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(6px);
   color: #fff;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 550;
   line-height: 1.1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 
   small {
     font-size: 0.58rem;
     font-weight: 600;
-    opacity: 0.85;
-    text-transform: uppercase;
+    opacity: 0.9;
     letter-spacing: 0.04em;
   }
 }
 
 .railIndex {
   font-size: 0.62rem;
-  font-weight: 700;
+  font-weight: 550;
   color: rgba(255, 255, 255, 0.78);
   padding: 0.2rem 0.45rem;
   border-radius: var(--cf-radius-pill);
@@ -218,13 +266,16 @@
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 8000;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
   background: rgba(0, 0, 0, 0.88);
+  /* Radix Dialog desliga pointer-events no body — sem isto o clique passa pelo lightbox */
+  pointer-events: auto;
+  cursor: default;
 
   img {
     max-width: min(100%, 520px);
@@ -244,7 +295,7 @@
   position: absolute;
   top: 1rem;
   right: 1rem;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -257,7 +308,12 @@
   cursor: pointer;
   transition: background 0.15s;
 
+  svg {
+    pointer-events: none;
+  }
+
   &:hover {
     background: rgba(255, 255, 255, 0.25);
+    cursor: pointer;
   }
 }

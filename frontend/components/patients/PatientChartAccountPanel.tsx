@@ -20,11 +20,31 @@ import { CfSelect } from '@/components/ui/CfSelect'
 import styles from './PatientChartAccountPanel.module.scss'
 
 const PLAN_OPTIONS = [
-  { value: 'FREE', label: 'Sem plano / Free' },
-  { value: 'MONTHLY', label: 'Mensal' },
-  { value: 'YEARLY', label: 'Anual' },
-  { value: 'PREMIUM', label: 'Essencial' },
-  { value: 'PLATINUM', label: 'Completo' },
+  {
+    value: 'FREE',
+    label: 'Sem plano / Free',
+    description: 'Acesso limitado ou bloqueado. Sem dieta completa, Bella IA nem check-ins pagos.',
+  },
+  {
+    value: 'MONTHLY',
+    label: 'Mensal',
+    description: 'Cobrança mensal recorrente. Use junto com a data de “Acesso até” para controlar a vigência.',
+  },
+  {
+    value: 'YEARLY',
+    label: 'Anual',
+    description: 'Cobrança anual. Ideal para pacientes com contrato de 12 meses; combine com a data de validade.',
+  },
+  {
+    value: 'PREMIUM',
+    label: 'Essencial',
+    description: 'Dieta personalizada, Bella IA e check-ins para o dia a dia.',
+  },
+  {
+    value: 'PLATINUM',
+    label: 'Completo',
+    description: 'Tudo do Essencial, com prioridade no suporte e conteúdos exclusivos.',
+  },
 ]
 
 type Props = {

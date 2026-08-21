@@ -43,42 +43,13 @@ export function ScheduleSkeleton() {
 
 export function DiarySkeleton() {
   return (
-    <div className={styles.diaryScroll} aria-busy aria-label="Carregando diário">
-      <div className={styles.diaryMasonry}>
-        {[
-          styles.diaryTile1,
-          styles.diaryTile2,
-          styles.diaryTile3,
-          styles.diaryTile4,
-          styles.diaryTile1,
-          styles.diaryTile3,
-        ].map((size, i) => (
-          <div key={i} className={`${styles.diaryTile} ${size}`}>
-            <div className={`${styles.diaryTileHit} ${styles.skelDiaryTile}`}>
-              <Bone className={styles.skelDiaryImg} />
-            </div>
+    <div className={styles.diaryThumbs} aria-busy aria-label="Carregando diário">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className={styles.diaryThumb}>
+          <div className={`${styles.diaryThumbHit} ${styles.skelDiaryTile}`}>
+            <Bone className={styles.skelDiaryImg} />
           </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-export function KpiRowSkeleton() {
-  return (
-    <div className={styles.kpiRow} aria-busy aria-label="Carregando indicadores">
-      {[0, 1, 2].map((i) => (
-        <article key={i} className={styles.kpi}>
-          <div className={styles.kpiHead}>
-            <Bone style={{ width: i === 1 ? '7.5rem' : '8.5rem', height: '0.8rem' }} />
-            <Bone className={styles.skelKpiIcon} />
-          </div>
-          <Bone className={styles.skelKpiValue} />
-          <Bone
-            className={styles.skelKpiFoot}
-            style={{ width: i === 1 ? '70%' : i === 2 ? '55%' : '45%' }}
-          />
-        </article>
+        </div>
       ))}
     </div>
   )
@@ -86,23 +57,17 @@ export function KpiRowSkeleton() {
 
 export function CareStripSkeleton() {
   return (
-    <section className={styles.careStrip} aria-busy aria-label="Carregando alertas">
-      <div className={styles.careStripHead}>
-        <Bone style={{ width: '11rem', height: '0.95rem' }} />
-        <Bone style={{ width: '1.4rem', height: '1.4rem', borderRadius: '999px' }} />
-      </div>
-      <div className={styles.careStripRail}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className={`${styles.careChip} ${styles.skelCareChip}`}>
+    <ul className={styles.focusList} aria-busy aria-label="Carregando alertas">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <li key={i}>
+          <div className={`${styles.focusItem} ${styles.skelCareChip}`}>
             <Bone className={styles.skelAvatar} />
-            <div className={styles.skelPatientCopy}>
-              <Bone style={{ width: `${6.5 - i * 0.35}rem`, height: '0.82rem' }} />
-              <Bone style={{ width: '3.2rem', height: '0.7rem' }} />
-            </div>
+            <Bone style={{ width: `${9 - i * 0.55}rem`, height: '0.88rem' }} />
+            <Bone style={{ width: '3.2rem', height: '0.7rem' }} />
           </div>
-        ))}
-      </div>
-    </section>
+        </li>
+      ))}
+    </ul>
   )
 }
 

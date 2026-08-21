@@ -40,6 +40,9 @@ export type PhotoEntry = {
   entryDate?: string | null
   imageUrl?: string | null
   caloriesKcal?: number | null
+  likesCount?: number
+  likedByMe?: boolean
+  commentsCount?: number
 }
 
 export type GoalItem = {
@@ -85,7 +88,12 @@ export async function fetchFoodDiaryPhotos(
   const data = await apiFetch<{ photos?: PhotoEntry[] }>(
     `/patients/${encodeURIComponent(patientId)}/food-diary/photos?limit=${limit}`,
   )
-  return data.photos || []
+  return (data.photos || []).map((photo) => ({
+    ...photo,
+    likesCount: photo.likesCount ?? 0,
+    likedByMe: Boolean(photo.likedByMe),
+    commentsCount: photo.commentsCount ?? 0,
+  }))
 }
 
 export async function fetchPatientGoals(patientId: string): Promise<GoalsData> {

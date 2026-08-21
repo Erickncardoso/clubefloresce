@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { Menu } from 'lucide-react'
 import { Sidebar } from '@/components/layout/Sidebar'
-import { AdminTopbar } from '@/components/layout/AdminTopbar'
-import { PatientChartSidebarNav } from '@/components/patients/PatientChartSidebarNav'
+import { PatientCrmSideList } from '@/components/patients/PatientCrmSideList'
 import { verifyAuthSession } from '@/lib/auth'
 import {
   isPatientChartPath,
@@ -47,7 +47,6 @@ export function AdminShell({ children }: Props) {
         }
         setUser(session)
       } catch {
-        // Erro de rede sem cache — redireciona para login
         if (!alive) return
         router.replace('/login')
       } finally {
@@ -129,20 +128,25 @@ export function AdminShell({ children }: Props) {
         onToggleCollapsed={toggleCollapsed}
         mobileOpen={mobileOpen}
         onCloseMobile={closeMobile}
+        profile={{ name: user.name, avatar: user.avatar, email: user.email }}
       />
       {showPatientChartSidebar ? (
-        <aside className={styles.patientChartSidebar} aria-label="Ficha do paciente">
-          <PatientChartSidebarNav />
+        <aside className={styles.patientChartSidebar} aria-label="Lista de pacientes">
+          <PatientCrmSideList />
         </aside>
       ) : null}
       <div
         className={`main-content ${styles.main} ${isWhatsappChat ? styles.mainWhatsappChat : ''}`}
       >
         {!fullPageEditor ? (
-          <AdminTopbar
-            profile={{ name: user.name, avatar: user.avatar, email: user.email }}
-            onOpenMobileNav={openMobile}
-          />
+          <button
+            type="button"
+            className={styles.mobileNavBtn}
+            aria-label="Abrir menu"
+            onClick={openMobile}
+          >
+            <Menu size={20} strokeWidth={1.5} aria-hidden />
+          </button>
         ) : null}
         <div
           className={`content-body ${styles.content} ${showPatientChartSidebar ? styles.contentPatientChart : ''} ${fullPageEditor ? styles.contentFullEditor : ''} ${isWhatsappChat ? styles.contentWhatsappChat : ''}`}

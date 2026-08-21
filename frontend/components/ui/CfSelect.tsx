@@ -1,52 +1,55 @@
-"use client";
+'use client'
 
-import { useId, useMemo, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
-import { AnimatedPopover } from "@/components/overlays";
-import styles from "./CfSelect.module.scss";
+import { useId, useMemo, useState } from 'react'
+import { Check, ChevronDown, CircleAlert } from 'lucide-react'
+import { AnimatedPopover } from '@/components/overlays'
+import styles from './CfSelect.module.scss'
 
 export type CfSelectOption = {
-  value: string;
-  label: string;
-};
+  value: string
+  label: string
+  /** Texto do tooltip (ícone !) ao passar o mouse */
+  description?: string
+}
 
 type Props = {
-  value?: string;
-  onChange?: (value: string) => void;
-  options: CfSelectOption[];
-  id?: string;
-  placeholder?: string;
-  disabled?: boolean;
-};
+  value?: string
+  onChange?: (value: string) => void
+  options: CfSelectOption[]
+  id?: string
+  placeholder?: string
+  disabled?: boolean
+}
 
 export function CfSelect({
-  value = "",
+  value = '',
   onChange,
   options,
   id: idProp,
-  placeholder = "Selecionar",
+  placeholder = 'Selecionar',
   disabled = false,
 }: Props) {
-  const autoId = useId();
-  const id = idProp || autoId;
-  const [open, setOpen] = useState(false);
+  const autoId = useId()
+  const id = idProp || autoId
+  const [open, setOpen] = useState(false)
 
   const selected = useMemo(
     () => options.find((option) => option.value === value) || null,
     [options, value],
-  );
+  )
 
   return (
-    <div className={`cf-select ${styles.root} ${open ? styles.open : ""}`}>
+    <div className={`cf-select ${styles.root} ${open ? styles.open : ''}`}>
       <AnimatedPopover
         open={open}
         onOpenChange={(next) => {
-          if (disabled) return;
-          setOpen(next);
+          if (disabled) return
+          setOpen(next)
         }}
         side="bottom"
         align="start"
         sideOffset={6}
+        collisionPadding={28}
         contentClassName={styles.menu}
         trigger={
           <button
@@ -57,37 +60,55 @@ export function CfSelect({
             aria-expanded={open}
             aria-haspopup="listbox"
           >
-            <span className={styles.value}>
-              {selected?.label ?? placeholder}
-            </span>
+            <span className={styles.value}>{selected?.label ?? placeholder}</span>
             <ChevronDown className={styles.chevron} size={16} aria-hidden />
           </button>
         }
       >
         <div role="listbox" aria-labelledby={id}>
           {options.map((option) => {
-            const active = option.value === value;
+            const active = option.value === value
             return (
               <button
                 key={option.value}
                 type="button"
                 role="option"
-                className={`${styles.option} ${active ? styles.optionActive : ""}`}
+                className={`${styles.option} ${active ? styles.optionActive : ''}`}
                 aria-selected={active}
                 onClick={() => {
-                  onChange?.(option.value);
-                  setOpen(false);
+                  onChange?.(option.value)
+                  setOpen(false)
                 }}
               >
-                <span className={styles.optionLabel}>{option.label}</span>
+                <span className={styles.optionMain}>
+                  <span className={styles.optionLabel}>{option.label}</span>
+                  {option.description ? (
+                    <span
+                      className={styles.optionHint}
+                      aria-label={option.description}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <CircleAlert size={14} strokeWidth={2} aria-hidden />
+                    </span>
+                  ) : null}
+                </span>
+                {option.description ? (
+                  <span className={styles.optionHintTip} role="tooltip">
+                    {option.description}
+                  </span>
+                ) : null}
                 {active ? (
                   <Check size={15} className={styles.check} aria-hidden />
                 ) : null}
               </button>
-            );
+            )
           })}
         </div>
       </AnimatedPopover>
     </div>
-  );
+  )
 }

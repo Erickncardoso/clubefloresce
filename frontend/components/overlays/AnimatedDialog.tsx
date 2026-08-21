@@ -6,6 +6,22 @@ import motion from "./OverlayMotion.module.scss";
 import styles from "./AnimatedDialog.module.scss";
 import { joinOverlayClassNames } from "./overlay-utils";
 
+const LIGHTBOX_SELECTOR = "[data-cf-lightbox]";
+
+function getOutsideTarget(event: { target: EventTarget | null; detail?: { originalEvent?: Event } }) {
+  const fromDetail = event.detail?.originalEvent?.target;
+  if (fromDetail instanceof Element) return fromDetail;
+  return event.target instanceof Element ? event.target : null;
+}
+
+function isLightboxTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest(LIGHTBOX_SELECTOR));
+}
+
+function isLightboxOpen() {
+  return Boolean(document.querySelector(LIGHTBOX_SELECTOR));
+}
+
 type AnimatedDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,6 +55,12 @@ export function AnimatedDialog({
   overlayClassName,
   bare = false,
 }: AnimatedDialogProps) {
+  const blockOutsideWhileLightbox = (event: { preventDefault: () => void; target: EventTarget | null; detail?: { originalEvent?: Event } }) => {
+    if (isLightboxOpen() || isLightboxTarget(getOutsideTarget(event))) {
+      event.preventDefault();
+    }
+  };
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -57,6 +79,15 @@ export function AnimatedDialog({
             // Por último: centralização não pode ser sobrescrita por contentClassName
             !bare && styles.content,
           )}
+          onPointerDownOutside={blockOutsideWhileLightbox}
+          onInteractOutside={blockOutsideWhileLightbox}
+          onFocusOutside={(event) => {
+            if (isLightboxOpen() || isLightboxTarget(event.target)) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            // ESC fecha só o lightbox; o modal fica aberto
+            if (isLightboxOpen()) event.preventDefault();
+          }}
         >
           <Dialog.Title className={titleSrOnly ? styles.srOnly : undefined}>
             {title}

@@ -170,15 +170,6 @@ export function PatientChartProvider({
           phone: nextUser.phone || nextOverview.patient.phone,
         })
       }
-
-      if (activeTab === 'planos') {
-        try {
-          const plan = await fetchPatientMealPlan(patientId)
-          setMealPlan(plan)
-        } catch {
-          /* keep overview summary */
-        }
-      }
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -191,7 +182,7 @@ export function PatientChartProvider({
     } finally {
       setLoading(false)
     }
-  }, [patientId, activeTab])
+  }, [patientId])
 
   useEffect(() => {
     void loadAll()

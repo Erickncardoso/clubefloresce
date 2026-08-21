@@ -44,7 +44,7 @@
 .avatarCircle .shape {
   -webkit-mask-image: none;
   mask-image: none;
-  border-radius: var(--cf-radius-xs);
+  border-radius: 999px;
   overflow: hidden;
 }
 

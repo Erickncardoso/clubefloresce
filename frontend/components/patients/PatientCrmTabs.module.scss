@@ -1,0 +1,172 @@
+.tabs {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.bar {
+  --tab-bar: #e4e7e2;
+  --tab-h: 2.65rem;
+  /* caps = fatias do SVG do usuário (54.5 e 59 no viewBox 177×35) */
+  --cap-l: calc(var(--tab-h) * 54.5 / 35);
+  --cap-r: calc(var(--tab-h) * 59 / 35);
+
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  min-height: calc(var(--tab-h) + 1.15rem);
+  padding: 0.5rem 1.35rem 0 6.5rem;
+  background: var(--tab-bar);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding-bottom: 0.45rem;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--admin-primary, #8b967c);
+  color: #141414;
+  cursor: pointer;
+  text-decoration: none;
+  flex-shrink: 0;
+
+  &:hover {
+    filter: brightness(1.05);
+  }
+}
+
+.actionDisabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.wa {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.rail {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: var(--tab-h);
+  padding: 0 1rem;
+  border: none;
+  background: transparent;
+  color: #5f675c;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  z-index: 0;
+  box-sizing: border-box;
+
+  > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &:hover {
+    color: #141414;
+  }
+}
+
+.tabActive {
+  z-index: 2;
+  color: #141414;
+  font-weight: 500;
+  padding: 0;
+  gap: 0;
+  background: transparent;
+  border: none;
+  /* sobe 1px no painel branco e tapa a fresta cinza */
+  margin-bottom: -1px;
+
+  &:hover {
+    color: #141414;
+  }
+}
+
+.tabBg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: var(--cap-l) minmax(0, 1fr) var(--cap-r);
+  align-items: stretch;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.capLeft,
+.capRight {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: hidden;
+}
+
+.mid {
+  background: #fff;
+  min-width: 0;
+}
+
+.tabInner {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 100%;
+  margin-left: var(--cap-l);
+  margin-right: var(--cap-r);
+  padding: 2px 0.85rem 0;
+  box-sizing: border-box;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 980px) {
+  .bar {
+    padding-left: 1.1rem;
+  }
+}

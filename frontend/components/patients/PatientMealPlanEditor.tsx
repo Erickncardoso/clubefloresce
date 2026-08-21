@@ -17,6 +17,7 @@ import {
   MessageSquarePlus,
   Plus,
   Replace,
+  Search,
   ShoppingCart,
   Target,
   Trash2,
@@ -59,12 +60,14 @@ import {
 import { PatientAvatar } from './PatientAvatar'
 import { PatientMealPlanDaySelectConfirmModal } from './PatientMealPlanDaySelectConfirmModal'
 import { MealPlanRecipeEditorModal } from './MealPlanRecipeEditorModal'
+import { CfDateInput } from '@/components/ui/CfDateInput'
+import { ConfirmDialog } from '@/components/overlays'
 import styles from './PatientMealPlanEditor.module.scss'
 
 export interface PatientMealPlanEditorHandle {
   form: MealPlanFormData
   hasUnsavedChanges: boolean
-  confirmLeave: () => boolean
+  confirmLeave: () => Promise<boolean>
 }
 
 interface Props {
@@ -172,6 +175,15 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
     const [recipeEditorItemIndex, setRecipeEditorItemIndex] = useState<number | null>(null)
     const [recipeEditorInitial, setRecipeEditorInitial] = useState<MealPlanRecipe | null>(null)
 
+    // Confirmações (nunca window.confirm)
+    const [draftPrompt, setDraftPrompt] = useState<{
+      form: MealPlanFormData
+      savedAt: string
+    } | null>(null)
+    const [leaveOpen, setLeaveOpen] = useState(false)
+    const leaveResolverRef = useRef<((ok: boolean) => void) | null>(null)
+    const [deleteMealIndex, setDeleteMealIndex] = useState<number | null>(null)
+
     const planKey = prescription.id ?? 'novo'
     const userId = user.id
 
@@ -182,34 +194,40 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
     useEffect(() => {
       const server = prescription
       const local = loadDraftLocally(userId, planKey)
-      if (local?.form && serialize(local.form) !== serialize(server)) {
-        const when = formatLocalDraftDate(local.savedAt)
-        const msg = when
-          ? `Encontramos um rascunho local de ${when} com alterações não salvas. Deseja restaurar?`
-          : 'Encontramos um rascunho local. Deseja restaurar?'
-        if (window.confirm(msg)) {
-          setForm({ ...local.form })
-          setExpandedMeals(new Set((local.form.meals ?? []).map((m) => m.id)))
-          setLocalDraftSavedAt(local.savedAt)
-          baselineRef.current = serialize(server)
-          setHasUnsavedChanges(serialize(local.form) !== serialize(server))
-          return
-        }
-        clearDraftLocally(userId, planKey)
-      } else if (local?.savedAt) {
-        setLocalDraftSavedAt(local.savedAt)
-      }
       setForm({ ...server })
       setExpandedMeals(new Set((server.meals ?? []).map((m) => m.id)))
       baselineRef.current = serialize(server)
       setHasUnsavedChanges(false)
+
+      if (local?.form && serialize(local.form) !== serialize(server)) {
+        setDraftPrompt({ form: local.form, savedAt: local.savedAt })
+      } else if (local?.savedAt) {
+        setLocalDraftSavedAt(local.savedAt)
+      }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [planKey, userId])
+
+    function applyLocalDraft() {
+      if (!draftPrompt) return
+      setForm({ ...draftPrompt.form })
+      setExpandedMeals(new Set((draftPrompt.form.meals ?? []).map((m) => m.id)))
+      setLocalDraftSavedAt(draftPrompt.savedAt)
+      baselineRef.current = serialize(prescription)
+      setHasUnsavedChanges(serialize(draftPrompt.form) !== serialize(prescription))
+      setDraftPrompt(null)
+    }
+
+    function discardLocalDraft() {
+      clearDraftLocally(userId, planKey)
+      setLocalDraftSavedAt('')
+      setDraftPrompt(null)
+    }
 
     // Track unsaved changes + schedule local draft save
     useEffect(() => {
       const current = serialize(form)
       setHasUnsavedChanges(current !== baselineRef.current)
+      if (draftPrompt) return
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
       draftTimerRef.current = setTimeout(() => {
         const savedAt = saveDraftLocally(userId, planKey, form)
@@ -218,7 +236,7 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
       return () => {
         if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
       }
-    }, [form, userId, planKey, serialize])
+    }, [form, userId, planKey, serialize, draftPrompt])
 
     // Reset baseline after successful save/publish
     useEffect(() => {
@@ -245,11 +263,11 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
       form,
       hasUnsavedChanges,
       confirmLeave() {
-        if (!hasUnsavedChanges) return true
-        return window.confirm(
-          'Você tem alterações não salvas neste plano. Deseja sair mesmo assim?\n\n' +
-            'Seu progresso continua guardado como rascunho local neste dispositivo.',
-        )
+        if (!hasUnsavedChanges) return Promise.resolve(true)
+        return new Promise<boolean>((resolve) => {
+          leaveResolverRef.current = resolve
+          setLeaveOpen(true)
+        })
       },
     }))
 
@@ -335,7 +353,13 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
     }
 
     function removeMeal(index: number) {
-      if (!window.confirm('Excluir esta refeição?')) return
+      setDeleteMealIndex(index)
+    }
+
+    function confirmRemoveMeal() {
+      if (deleteMealIndex == null) return
+      const index = deleteMealIndex
+      setDeleteMealIndex(null)
       setForm((prev) => {
         const meals = [...(prev.meals ?? [])]
         meals.splice(index, 1)
@@ -613,26 +637,30 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
               </div>
 
               {/* Start date */}
-              <div className="field field--float">
+              <div className={`field field--float ${styles.configDate}`}>
                 <label htmlFor="mped-start">Início</label>
-                <input
+                <CfDateInput
                   id="mped-start"
-                  type="date"
                   value={form.startDate ?? ''}
-                  onChange={(e) => updateField('startDate', e.target.value)}
+                  onChange={(next) => updateField('startDate', next || null)}
+                  editable
+                  placeholder="dd/mm/aaaa"
                 />
               </div>
 
               {/* End date */}
               <div className={styles.configEnd}>
-                <div className={`field field--float ${form.indefinite ? styles.fieldDisabled : ''}`}>
+                <div
+                  className={`field field--float ${styles.configDate} ${form.indefinite ? styles.fieldDisabled : ''}`}
+                >
                   <label htmlFor="mped-end">Término</label>
-                  <input
+                  <CfDateInput
                     id="mped-end"
-                    type="date"
                     value={form.endDate ?? ''}
+                    onChange={(next) => updateField('endDate', next || null)}
+                    editable
                     disabled={Boolean(form.indefinite)}
-                    onChange={(e) => updateField('endDate', e.target.value)}
+                    placeholder="dd/mm/aaaa"
                   />
                 </div>
                 <label className={styles.checkLabel}>
@@ -881,15 +909,20 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
                             ) : (
                               /* Foods grid */
                               <div className={styles.foodGrid}>
-                                <div className={styles.foodGridHead}>
-                                  <span>Alimento</span>
-                                  <span>Medida</span>
-                                  <span className={styles.macroCel}>CHO</span>
-                                  <span className={styles.macroCel}>PTN</span>
-                                  <span className={styles.macroCel}>LIP</span>
-                                  <span className={styles.kcalCel}>Energia</span>
-                                  <span aria-hidden="true" />
-                                </div>
+                                {(meal.items ?? []).some((item) => {
+                                  if (isRecipeMealItem(item)) return true
+                                  return editingItemId !== item.id
+                                }) ? (
+                                  <div className={styles.foodGridHead}>
+                                    <span>Alimento</span>
+                                    <span>Medida</span>
+                                    <span className={styles.macroCel}>CHO</span>
+                                    <span className={styles.macroCel}>PTN</span>
+                                    <span className={styles.macroCel}>LIP</span>
+                                    <span className={styles.kcalCel}>Energia</span>
+                                    <span aria-hidden="true" />
+                                  </div>
+                                ) : null}
                                 {(meal.items ?? []).map((item, itemIndex) => {
                                   const isRecipe = isRecipeMealItem(item)
                                   let cho = '—'; let ptn = '—'; let fat = '—'; let kcal = '—'
@@ -928,76 +961,111 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
                                   return (
                                     <div key={item.id} className={styles.foodRowWrap}>
                                       {isEditing ? (
-                                        /* ── Edit mode ──────────────────────────────── */
-                                        <div className={`${styles.foodRow} ${styles.foodRowEditing}`}>
-                                          <div className={styles.foodEditCell}>
-                                            <MealPlanFoodSearchPicker
-                                              value={item.name ?? ''}
-                                              placeholder="Alimento (ou $ para receita)"
-                                              autofocus
-                                              onChange={(v) => updateMealItem(mealIndex, itemIndex, { name: v })}
-                                              onSelect={(food) => {
-                                                updateMealItem(mealIndex, itemIndex, {
-                                                  name: food.displayName || food.name,
-                                                  foodId: food.id,
-                                                  per100g: food.per100g,
-                                                  grams: 100,
-                                                  portionMeasure: 'grams',
-                                                  portionAmount: 100,
-                                                })
-                                                setTimeout(() => portionPickerRef.current?.focus(), 80)
-                                              }}
-                                              onRecipeTrigger={() => {
-                                                cancelEditItem()
-                                                addRecipe(mealIndex)
-                                              }}
-                                            />
-                                            {hasTbca ? (
-                                              <span className={styles.tbcaBadge}>
-                                                {item.linkedFoodName || item.name}
-                                              </span>
-                                            ) : item.name?.trim() ? (
-                                              <span className={`${styles.tbcaBadge} ${styles.tbcaBadgeWarn}`}>
-                                                Sem vínculo TBCA
-                                              </span>
-                                            ) : null}
-                                          </div>
-                                          <MealPlanPortionMeasurePicker
-                                            ref={portionPickerRef}
-                                            foodName={item.name ?? ''}
-                                            per100g={item.per100g}
-                                            amount={portionAmount}
-                                            measureId={portionMeasure}
-                                            onAmountChange={(v) => updateMealItem(mealIndex, itemIndex, { portionAmount: v })}
-                                            onMeasureChange={(m) => updateMealItem(mealIndex, itemIndex, { portionMeasure: m })}
-                                            onChange={({ grams: g }) => updateMealItem(mealIndex, itemIndex, { grams: g })}
-                                            onSubmit={() => commitAndAddNext(mealIndex, itemIndex)}
-                                            onCancel={cancelEditItem}
-                                          />
-                                          <span className={`${styles.macroCel} ${styles.macroCho}`}>{cho}</span>
-                                          <span className={`${styles.macroCel} ${styles.macroPtn}`}>{ptn}</span>
-                                          <span className={`${styles.macroCel} ${styles.macroFat}`}>{fat}</span>
-                                          <span className={styles.kcalCel}>{kcal}</span>
-                                          <div className={styles.foodRowActions}>
-                                            <button
-                                              type="button"
-                                              className={`${styles.iconBtn} ${isSubsOpen ? styles.iconBtnActive : ''}`}
-                                              title="Substituições"
-                                              onClick={() => setSubsOpenItemId(isSubsOpen ? null : item.id)}
-                                            >
-                                              <Replace size={13} />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                                              title="Excluir alimento"
-                                              onClick={() => { cancelEditItem(); removeFood(mealIndex, itemIndex) }}
-                                            >
-                                              <Trash2 size={13} />
-                                            </button>
-                                          </div>
-                                          <div className={styles.editHint}>
+                                        /* ── Composer de alimento (fora do grid) ── */
+                                        <div className={styles.foodComposer}>
+                                          <div className={styles.foodComposerHead}>
+                                            <strong>
+                                              {item.name?.trim() ? 'Editar alimento' : 'Novo alimento'}
+                                            </strong>
                                             <span>Enter confirma · Esc cancela</span>
+                                          </div>
+                                          <div className={styles.foodComposerBody}>
+                                            <div className={styles.foodComposerSearch}>
+                                              <label className={styles.foodComposerLabel}>Alimento</label>
+                                              <MealPlanFoodSearchPicker
+                                                value={item.name ?? ''}
+                                                placeholder="Buscar na TBCA / TACO (ou $ para receita)"
+                                                autofocus
+                                                onChange={(v) => updateMealItem(mealIndex, itemIndex, { name: v })}
+                                                onSelect={(food) => {
+                                                  updateMealItem(mealIndex, itemIndex, {
+                                                    name: food.displayName || food.name,
+                                                    foodId: food.id,
+                                                    per100g: food.per100g,
+                                                    grams: 100,
+                                                    portionMeasure: 'grams',
+                                                    portionAmount: 100,
+                                                  })
+                                                  setTimeout(() => portionPickerRef.current?.focus(), 80)
+                                                }}
+                                                onRecipeTrigger={() => {
+                                                  cancelEditItem()
+                                                  addRecipe(mealIndex)
+                                                }}
+                                              />
+                                              {hasTbca ? (
+                                                <span className={styles.tbcaBadge}>
+                                                  Vinculado · {item.linkedFoodName || item.name}
+                                                </span>
+                                              ) : item.name?.trim() ? (
+                                                <span className={`${styles.tbcaBadge} ${styles.tbcaBadgeWarn}`}>
+                                                  Sem vínculo TBCA — macros manuais
+                                                </span>
+                                              ) : (
+                                                <span className={styles.foodComposerHint}>
+                                                  Digite para buscar ou use $ para abrir receita
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className={styles.foodComposerMeasure}>
+                                              <label className={styles.foodComposerLabel}>Medida</label>
+                                              <MealPlanPortionMeasurePicker
+                                                ref={portionPickerRef}
+                                                foodName={item.name ?? ''}
+                                                per100g={item.per100g}
+                                                amount={portionAmount}
+                                                measureId={portionMeasure}
+                                                onAmountChange={(v) =>
+                                                  updateMealItem(mealIndex, itemIndex, { portionAmount: v })
+                                                }
+                                                onMeasureChange={(m) =>
+                                                  updateMealItem(mealIndex, itemIndex, { portionMeasure: m })
+                                                }
+                                                onChange={({ grams: g }) =>
+                                                  updateMealItem(mealIndex, itemIndex, { grams: g })
+                                                }
+                                                onSubmit={() => commitAndAddNext(mealIndex, itemIndex)}
+                                                onCancel={cancelEditItem}
+                                              />
+                                            </div>
+                                            <div className={styles.foodComposerSide}>
+                                              <div className={styles.foodComposerMacros} aria-label="Macros">
+                                                <span className={`${styles.chip} ${styles.chipC}`}>{cho}</span>
+                                                <span className={`${styles.chip} ${styles.chipP}`}>{ptn}</span>
+                                                <span className={`${styles.chip} ${styles.chipF}`}>{fat}</span>
+                                                <span className={`${styles.chip} ${styles.chipKcal}`}>{kcal}</span>
+                                              </div>
+                                              <div className={styles.foodComposerActions}>
+                                                <button
+                                                  type="button"
+                                                  className={`${styles.iconBtn} ${isSubsOpen ? styles.iconBtnActive : ''}`}
+                                                  title="Substituições"
+                                                  onClick={() =>
+                                                    setSubsOpenItemId(isSubsOpen ? null : item.id)
+                                                  }
+                                                >
+                                                  <Replace size={13} />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                                                  title="Excluir alimento"
+                                                  onClick={() => {
+                                                    cancelEditItem()
+                                                    removeFood(mealIndex, itemIndex)
+                                                  }}
+                                                >
+                                                  <Trash2 size={13} />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className={styles.foodComposerDone}
+                                                  onClick={() => commitAndAddNext(mealIndex, itemIndex)}
+                                                >
+                                                  Confirmar
+                                                </button>
+                                              </div>
+                                            </div>
                                           </div>
                                         </div>
                                       ) : isRecipe ? (
@@ -1097,36 +1165,66 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
                             )}
 
                             <div className={styles.mealBodyActions}>
-                              {(meal.items ?? []).length === 0 && (
-                                <p className={styles.mealEmpty}>
-                                  <UtensilsCrossed size={14} aria-hidden="true" />
-                                  <span>
-                                    {form.methodology === 'equivalents'
-                                      ? 'Nenhum equivalente nesta refeição ainda.'
-                                      : 'Nenhum alimento nesta refeição ainda.'}
-                                  </span>
-                                </p>
-                              )}
-                              <div className={styles.mealAdd}>
-                                <button
-                                  type="button"
-                                  className={styles.addFoodBtn}
-                                  onClick={() => addFood(mealIndex)}
-                                >
-                                  <Plus size={14} aria-hidden="true" />
-                                  {form.methodology === 'equivalents' ? 'Adicionar equivalente' : 'Adicionar alimento'}
-                                </button>
-                                {form.methodology === 'foods' && (
+                              {(meal.items ?? []).length === 0 && editingItemId == null ? (
+                                <div className={styles.mealEmptyPanel}>
                                   <button
                                     type="button"
-                                    className={styles.addRecipeBtn}
-                                    onClick={() => addRecipe(mealIndex)}
+                                    className={styles.mealEmptySearch}
+                                    onClick={() => addFood(mealIndex)}
                                   >
-                                    <ChefHat size={14} aria-hidden="true" />
-                                    Inserir receita
+                                    <Search size={16} strokeWidth={1.75} aria-hidden />
+                                    <span className={styles.mealEmptySearchText}>
+                                      {form.methodology === 'equivalents'
+                                        ? 'Buscar equivalente…'
+                                        : 'Buscar alimento na TBCA / TACO…'}
+                                    </span>
+                                    <kbd className={styles.mealEmptyKbd}>Enter</kbd>
                                   </button>
-                                )}
-                              </div>
+                                  <div className={styles.mealEmptyMeta}>
+                                    <div className={styles.mealEmptyTips}>
+                                      <UtensilsCrossed size={14} aria-hidden="true" />
+                                      <span>TBCA / TACO</span>
+                                      <span>Medida em gramas ou unidade</span>
+                                      {form.methodology === 'foods' ? (
+                                        <span>$ abre receita</span>
+                                      ) : null}
+                                    </div>
+                                    {form.methodology === 'foods' ? (
+                                      <button
+                                        type="button"
+                                        className={styles.mealEmptyRecipe}
+                                        onClick={() => addRecipe(mealIndex)}
+                                      >
+                                        <ChefHat size={14} aria-hidden />
+                                        Inserir receita
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className={styles.mealAdd}>
+                                  <button
+                                    type="button"
+                                    className={styles.addFoodBtn}
+                                    onClick={() => addFood(mealIndex)}
+                                  >
+                                    <Plus size={14} aria-hidden="true" />
+                                    {form.methodology === 'equivalents'
+                                      ? 'Adicionar equivalente'
+                                      : 'Adicionar alimento'}
+                                  </button>
+                                  {form.methodology === 'foods' ? (
+                                    <button
+                                      type="button"
+                                      className={styles.addRecipeBtn}
+                                      onClick={() => addRecipe(mealIndex)}
+                                    >
+                                      <ChefHat size={14} aria-hidden="true" />
+                                      Inserir receita
+                                    </button>
+                                  ) : null}
+                                </div>
+                              )}
 
                               {!isNotesOpen(meal) ? (
                                 <button
@@ -1157,10 +1255,15 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
                   })}
                 </div>
 
-                <button type="button" className={styles.newMealBtn} onClick={addMeal}>
-                  <Plus size={16} aria-hidden="true" />
-                  Adicionar refeição
-                </button>
+                <div className={styles.newMealWrap}>
+                  <button type="button" className={styles.newMealBtn} onClick={addMeal}>
+                    <Plus size={16} aria-hidden="true" />
+                    Adicionar refeição
+                  </button>
+                  <p className={styles.newMealHint}>
+                    Cria um novo horário no plano (ex.: lanche, jantar).
+                  </p>
+                </div>
               </div>
             )}
           </section>
@@ -1241,6 +1344,67 @@ export const PatientMealPlanEditor = forwardRef<PatientMealPlanEditorHandle, Pro
         open={daySelectConfirmOpen}
         onConfirm={confirmDaySwitch}
         onCancel={cancelDaySwitch}
+      />
+
+      <ConfirmDialog
+        open={Boolean(draftPrompt)}
+        onOpenChange={(open) => {
+          if (!open) discardLocalDraft()
+        }}
+        title="Rascunho local encontrado"
+        description={
+          draftPrompt
+            ? `Encontramos um rascunho local${
+                formatLocalDraftDate(draftPrompt.savedAt)
+                  ? ` de ${formatLocalDraftDate(draftPrompt.savedAt)}`
+                  : ''
+              } com alterações não salvas no servidor.`
+            : undefined
+        }
+        cancelLabel="Criar novo"
+        confirmLabel="Abrir rascunho"
+        onCancel={discardLocalDraft}
+        onConfirm={applyLocalDraft}
+      />
+
+      <ConfirmDialog
+        open={leaveOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            leaveResolverRef.current?.(false)
+            leaveResolverRef.current = null
+            setLeaveOpen(false)
+          }
+        }}
+        title="Sair sem salvar?"
+        description="Você tem alterações não salvas neste plano. Seu progresso continua guardado como rascunho local neste dispositivo."
+        cancelLabel="Continuar editando"
+        confirmLabel="Sair mesmo assim"
+        tone="danger"
+        onCancel={() => {
+          leaveResolverRef.current?.(false)
+          leaveResolverRef.current = null
+          setLeaveOpen(false)
+        }}
+        onConfirm={() => {
+          leaveResolverRef.current?.(true)
+          leaveResolverRef.current = null
+          setLeaveOpen(false)
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteMealIndex != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteMealIndex(null)
+        }}
+        title="Excluir refeição?"
+        description="Esta refeição e os alimentos dela serão removidos do plano."
+        cancelLabel="Cancelar"
+        confirmLabel="Excluir refeição"
+        tone="danger"
+        onCancel={() => setDeleteMealIndex(null)}
+        onConfirm={confirmRemoveMeal}
       />
 
       {/* Nutrition full modal */}

@@ -37,7 +37,7 @@
   h3 {
     margin: 0;
     font-size: 0.9rem;
-    font-weight: 700;
+    font-weight: 550;
     color: #1f2937;
   }
 
@@ -73,7 +73,7 @@
   color: #374151;
   font-family: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 
   @supports (corner-shape: squircle) {
@@ -120,15 +120,14 @@
   align-items: center;
   gap: 0.3rem;
   font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 550;
+  letter-spacing: 0.01em;
   color: #9ca3af;
 }
 
 .pcapTileValue {
   font-size: 0.92rem;
-  font-weight: 700;
+  font-weight: 550;
   color: #1f2937;
   line-height: 1.25;
 }
@@ -144,14 +143,14 @@
   padding: 0.1rem 0.5rem;
   border-radius: var(--cf-radius-pill);
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 550;
   background: #eef1ee;
   color: #4b5563;
 }
 
 .pcapBadgeOk {
-  background: rgba(47, 107, 58, 0.12);
-  color: #2f6b3a;
+  background: var(--primary, #8b967c);
+  color: #fff;
 }
 
 .pcapBadgeWarn {
@@ -211,7 +210,7 @@
     h4 {
       margin: 0;
       font-size: 0.8rem;
-      font-weight: 700;
+      font-weight: 550;
       color: #374151;
     }
 
@@ -247,7 +246,7 @@
   color: #fff;
   font-family: inherit;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 550;
   cursor: pointer;
 
   @supports (corner-shape: squircle) {
@@ -269,14 +268,14 @@
   margin: 0;
   color: #2f6b3a;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .pcapError {
   margin: 0;
   color: #b42318;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .pcapModalOverlay {
@@ -340,9 +339,8 @@
     display: block;
     margin-bottom: 0.35rem;
     font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-weight: 550;
+    letter-spacing: 0.01em;
     color: #9ca3af;
   }
 

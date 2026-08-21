@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { ArrowRight, Check, ChevronUp, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronUp, Loader2 } from 'lucide-react'
 import {
   normalizeFlowStep,
   type FlowStep,
@@ -19,6 +19,8 @@ import styles from './CheckinTypeformFlow.module.scss'
 type Props = {
   steps?: Array<Partial<StepApiPayload> & Record<string, unknown>>
   preview?: boolean
+  /** Respostas já salvas (revisão no mockup do admin) */
+  initialAnswers?: Record<string, unknown> | null
   initialStepIndex?: number
   saving?: boolean
   submitted?: boolean
@@ -55,6 +57,7 @@ function stepperConfigForStep(step: FlowStep) {
 export function CheckinTypeformFlow({
   steps = [],
   preview = false,
+  initialAnswers = null,
   initialStepIndex = 0,
   saving = false,
   submitted = false,
@@ -149,7 +152,9 @@ export function CheckinTypeformFlow({
     (keepId?: string) => {
       const next: Record<string, unknown> = {}
       for (const step of flowSteps) {
-        if (step.type === 'water' || step.type === 'number') {
+        if (initialAnswers && Object.prototype.hasOwnProperty.call(initialAnswers, step.id)) {
+          next[step.id] = initialAnswers[step.id]
+        } else if (step.type === 'water' || step.type === 'number') {
           next[step.id] = Number.isFinite(Number(step.defaultValue))
             ? Number(step.defaultValue)
             : stepperConfigForStep(step).defaultValue
@@ -170,18 +175,20 @@ export function CheckinTypeformFlow({
         setStepIndex(0)
       }
     },
-    [flowSteps, preview, initialStepIndex],
+    [flowSteps, preview, initialStepIndex, initialAnswers],
   )
 
   useEffect(() => {
     const ids = flowSteps.map((s) => `${s.id}:${s.type}`).join('|')
-    if (ids === prevStepIdsRef.current) return
+    const answersKey = initialAnswers ? JSON.stringify(initialAnswers) : ''
+    const fingerprint = `${ids}::${answersKey}`
+    if (fingerprint === prevStepIdsRef.current) return
     const previousId = flowSteps[stepIndex]?.id
-    prevStepIdsRef.current = ids
+    prevStepIdsRef.current = fingerprint
     if (saving || submitted) return
     initForm(previousId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flowSteps, saving, submitted, initForm])
+  }, [flowSteps, saving, submitted, initForm, initialAnswers])
 
   useEffect(() => {
     if (!preview) return
@@ -215,7 +222,8 @@ export function CheckinTypeformFlow({
   }, [stepIndex, stepType, form, resizeTextAnswer])
 
   function nextStep() {
-    if (!canAdvance || stepIndex >= flowSteps.length - 1) return
+    if (stepIndex >= flowSteps.length - 1) return
+    if (!preview && !canAdvance) return
     setStepIndex((i) => i + 1)
   }
 
@@ -232,7 +240,8 @@ export function CheckinTypeformFlow({
   }
 
   function handleOk() {
-    if (!canAdvance || saving || submitted || submitLocked) return
+    if (saving || submitted || submitLocked) return
+    if (!preview && !canAdvance) return
     if (isLastStep) {
       if (preview) return
       submitNow()
@@ -244,8 +253,9 @@ export function CheckinTypeformFlow({
   function selectValue(id: string, value: unknown, advance = false) {
     if (saving || submitted || submitLocked) return
     setForm((prev) => ({ ...prev, [id]: value }))
+    if (preview) return
     if (isLastStep) {
-      if (!preview) window.setTimeout(() => submitNow(), 280)
+      window.setTimeout(() => submitNow(), 280)
       return
     }
     if (advance) {
@@ -270,6 +280,47 @@ export function CheckinTypeformFlow({
     })
   }
 
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    if (!preview) return
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        if (stepIndex < flowSteps.length - 1) setStepIndex((i) => i + 1)
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (stepIndex > 0) setStepIndex((i) => i - 1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [preview, stepIndex, flowSteps.length])
+
+  function onTouchStart(e: React.TouchEvent) {
+    if (!preview) return
+    const t = e.touches[0]
+    if (!t) return
+    touchStartRef.current = { x: t.clientX, y: t.clientY }
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (!preview || !touchStartRef.current) return
+    const t = e.changedTouches[0]
+    if (!t) return
+    const dx = t.clientX - touchStartRef.current.x
+    const dy = t.clientY - touchStartRef.current.y
+    touchStartRef.current = null
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return
+    if (dx < 0) {
+      if (stepIndex < flowSteps.length - 1) setStepIndex((i) => i + 1)
+    } else if (stepIndex > 0) {
+      setStepIndex((i) => i - 1)
+    }
+  }
+
   if (submitted) {
     return (
       <div className={styles.success}>
@@ -289,7 +340,11 @@ export function CheckinTypeformFlow({
   }
 
   return (
-    <div className={`${styles.checkin} ${preview ? styles.preview : ''}`}>
+    <div
+      className={`${styles.checkin} ${preview ? styles.preview : ''}`}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <div
         className={styles.progress}
         role="progressbar"
@@ -423,24 +478,51 @@ export function CheckinTypeformFlow({
                       setForm((prev) => ({ ...prev, [currentStep.id]: e.target.value }))
                       resizeTextAnswer()
                     }}
+                    readOnly={preview}
                   />
                 </div>
-                <button
-                  type="button"
-                  className={styles.submit}
-                  disabled={submitActionDisabled}
-                  onClick={handleOk}
-                >
-                  {saving ? <Loader2 className={styles.spin} size={12} aria-hidden /> : null}
-                  <span>{okLabel}</span>
-                </button>
+                {!preview ? (
+                  <button
+                    type="button"
+                    className={styles.submit}
+                    disabled={submitActionDisabled}
+                    onClick={handleOk}
+                  >
+                    {saving ? <Loader2 className={styles.spin} size={12} aria-hidden /> : null}
+                    <span>{okLabel}</span>
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
         </section>
       </main>
 
-      {stepIndex > 0 || showFootOkButton ? (
+      {preview ? (
+        <footer className={`${styles.foot} ${styles.footSplit}`}>
+          <button
+            type="button"
+            className={styles.back}
+            aria-label="Voltar"
+            disabled={stepIndex <= 0}
+            onClick={prevStep}
+          >
+            <ArrowLeft size={14} aria-hidden />
+            <span>Voltar</span>
+          </button>
+          <div className={styles.footOk}>
+            <button
+              type="button"
+              className={styles.ok}
+              aria-label={isLastStep ? 'Fim' : 'Avançar'}
+              disabled={isLastStep}
+              onClick={handleOk}
+            >
+              {isLastStep ? <Check size={16} aria-hidden /> : <ArrowRight size={16} aria-hidden />}
+            </button>
+          </div>
+        </footer>
+      ) : stepIndex > 0 || showFootOkButton ? (
         <footer
           className={`${styles.foot} ${stepIndex > 0 && showFootOkButton ? styles.footSplit : ''}`}
         >
@@ -479,8 +561,8 @@ export function CheckinTypeformFlow({
         </footer>
       ) : null}
 
-      {preview && isLastStep && canAdvance ? (
-        <p className={styles.previewNote}>Fim da prévia — no app o paciente envia aqui.</p>
+      {preview && isLastStep ? (
+        <p className={styles.previewNote}>Fim — use Voltar ou ← para rever as perguntas.</p>
       ) : null}
 
       {error ? <p className={styles.error}>{error}</p> : null}

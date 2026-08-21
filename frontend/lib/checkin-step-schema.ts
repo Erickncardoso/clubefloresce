@@ -254,7 +254,7 @@ export function normalizeFlowStep(
     id: String(step.id || `step_${index + 1}`),
     type,
     label: String(step.label || step.question || `Pergunta ${index + 1}`),
-    question: String(step.question || ''),
+    question: String(step.question || step.label || `Pergunta ${index + 1}`),
     hint: String(step.hint || ''),
     min: step.min != null ? Number(step.min) : undefined,
     max: step.max != null ? Number(step.max) : undefined,

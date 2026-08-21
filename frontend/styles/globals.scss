@@ -46,6 +46,22 @@ select {
   font: inherit;
 }
 
+/* X / Fechar — pointer em todos os overlays e modais */
+button[aria-label*='Fechar' i],
+button[aria-label*='fechar' i],
+button[title*='Fechar' i],
+button[title*='Close' i],
+[data-cf-lightbox] > button {
+  cursor: pointer;
+}
+
+button[aria-label*='Fechar' i] svg,
+button[aria-label*='fechar' i] svg,
+button[title*='Fechar' i] svg,
+[data-cf-lightbox] > button svg {
+  pointer-events: none;
+}
+
 .btn-primary,
 .btn-secondary {
   display: inline-flex;

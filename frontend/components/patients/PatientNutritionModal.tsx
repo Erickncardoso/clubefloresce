@@ -8,7 +8,6 @@ import { AnimatedDialog } from '@/components/overlays'
 import { PatientAvatar } from '@/components/patients/PatientAvatar'
 import { PatientCheckinsPanel } from '@/components/patients/PatientCheckinsPanel'
 import { PatientGoalsPanel } from '@/components/patients/PatientGoalsPanel'
-import { PatientNutritionSection } from '@/components/patients/PatientNutritionSection'
 import { PatientPhotosPanel } from '@/components/patients/PatientPhotosPanel'
 import type { TemplateCheckInResponse } from '@/lib/patient-chart/api'
 import styles from './PatientNutritionModal.module.scss'
@@ -66,15 +65,15 @@ export function PatientNutritionModal({
 }: Props) {
   const [activeTab, setActiveTab] = useState<NutritionModalTab>(initialTab)
   const hasCheckin = Boolean(leftPanel)
+  // No review de check-in, sempre o mockup (celular + fotos do lado)
+  const reviewCheckin = hasCheckin && activeTab !== 'metas' && activeTab !== 'desempenho'
 
   useEffect(() => {
-    if (open) setActiveTab(initialTab)
+    if (open) setActiveTab(initialTab === 'checkins' ? 'fotos' : initialTab)
   }, [open, initialTab])
 
-  const leftContent = hasCheckin ? (
+  const leftContent = reviewCheckin ? (
     leftPanel
-  ) : activeTab === 'checkins' || activeTab === 'fotos' ? (
-    <PatientCheckinsPanel responses={checkinResponses} />
   ) : activeTab === 'metas' ? (
     <PatientGoalsPanel patientId={patientId} nutritionTarget={nutritionTarget} compact limit={8} />
   ) : activeTab === 'desempenho' ? (
@@ -111,29 +110,19 @@ export function PatientNutritionModal({
         </button>
       </header>
 
-      <div className={styles.layout}>
+      <div className={`${styles.layout} ${reviewCheckin ? styles.layoutSingle : ''}`}>
         <div className={styles.left}>
-          <h3 className={styles.subtitle}>{leftTitle ?? leftTitleForTab(activeTab, hasCheckin)}</h3>
+          {reviewCheckin ? null : (
+            <h3 className={styles.subtitle}>{leftTitle ?? leftTitleForTab(activeTab, hasCheckin)}</h3>
+          )}
           <div className={styles.leftBody}>{leftContent}</div>
         </div>
 
-        <aside className={styles.right} aria-label="Fotos de refeições">
-          {hasCheckin ? (
-            <PatientNutritionSection
-              patientId={patientId}
-              compact
-              photoLimit={12}
-              nutritionTarget={nutritionTarget}
-              activeTab={
-                activeTab === 'metas' || activeTab === 'desempenho' ? activeTab : 'fotos'
-              }
-              onActiveTabChange={setActiveTab}
-              hideToolbar
-            />
-          ) : (
+        {reviewCheckin ? null : (
+          <aside className={styles.right} aria-label="Fotos de refeições">
             <PatientPhotosPanel patientId={patientId} compact limit={12} />
-          )}
-        </aside>
+          </aside>
+        )}
       </div>
 
       <footer className={styles.foot}>

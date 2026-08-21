@@ -6,27 +6,31 @@ import { usePathname } from 'next/navigation'
 import {
   Bell,
   BookOpen,
-  Calendar,
-  CalendarCheck,
-  ChevronDown,
+  BriefcaseBusiness,
+  CalendarDays,
+  ClipboardCheck,
   Contact,
-  DollarSign,
-  LayoutDashboard,
+  Home,
+  LayoutGrid,
   MessageSquare,
   MessageSquareQuote,
-  Palette,
+  NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
   Radio,
+  Settings2,
   Users,
   UsersRound,
-  UtensilsCrossed,
+  Wallet,
   Workflow,
   type LucideIcon,
 } from 'lucide-react'
+import { AnimatedPopover } from '@/components/overlays'
+import { PatientAvatar } from '@/components/patients/PatientAvatar'
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon'
 import { InstagramIcon } from '@/components/ui/InstagramIcon'
+import type { AuthUser } from '@/lib/types'
 import styles from './Sidebar.module.scss'
 
 type Brand = 'whatsapp' | 'instagram'
@@ -47,16 +51,18 @@ type MenuItem = {
   children?: ChildItem[]
 }
 
+const ICON_PROPS = { size: 18, strokeWidth: 1.5 } as const
+
 const menu: MenuItem[] = [
-  { label: 'Início', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Agenda', path: '/agenda', icon: Calendar },
+  { label: 'Início', path: '/dashboard', icon: Home },
+  { label: 'Pacientes', path: '/pacientes', icon: UsersRound },
+  { label: 'Agenda', path: '/agenda', icon: CalendarDays },
   { label: 'Cursos', path: '/cursos', icon: BookOpen },
   { label: 'Comunidade', path: '/comunidade', icon: Users },
-  { label: 'Check-ins', path: '/check-in', icon: CalendarCheck },
-  { label: 'Push', path: '/notificacoes', icon: Bell },
-  { label: 'Diário', path: '/diario', icon: UtensilsCrossed },
-  { label: 'Financeiro', path: '/financeiro', icon: DollarSign },
-  { label: 'Personalizar', path: '/personalizar', icon: Palette },
+  { label: 'Check-ins', path: '/check-in', icon: ClipboardCheck },
+  { label: 'Diário', path: '/diario', icon: NotebookPen },
+  { label: 'Financeiro', path: '/financeiro', icon: Wallet },
+  { label: 'Personalizar', path: '/personalizar', icon: Settings2 },
   {
     label: 'WhatsApp',
     brand: 'whatsapp',
@@ -81,7 +87,7 @@ const menu: MenuItem[] = [
   },
 ]
 
-function BrandGlyph({ brand, size = 16 }: { brand: Brand; size?: number }) {
+function BrandGlyph({ brand, size = 18 }: { brand: Brand; size?: number }) {
   if (brand === 'whatsapp') {
     return <WhatsAppIcon size={size} className={styles.brandWhatsapp} />
   }
@@ -95,8 +101,8 @@ function ItemIcon({
   brand?: Brand
   Icon?: LucideIcon
 }): ReactNode {
-  if (brand) return <BrandGlyph brand={brand} size={16} />
-  if (Icon) return <Icon size={16} aria-hidden />
+  if (brand) return <BrandGlyph brand={brand} size={18} />
+  if (Icon) return <Icon {...ICON_PROPS} aria-hidden />
   return null
 }
 
@@ -109,9 +115,9 @@ function isPathActive(pathname: string, path: string) {
 function isLeafActive(pathname: string, path?: string) {
   if (!path) return false
   if (path === '/dashboard') return pathname.startsWith('/dashboard')
+  if (path === '/pacientes') return pathname.startsWith('/pacientes')
   if (path === '/agenda') return pathname.startsWith('/agenda')
   if (path === '/check-in') return pathname.startsWith('/check-in')
-  if (path === '/notificacoes') return pathname.startsWith('/notificacoes')
   if (path === '/diario') return pathname.startsWith('/diario')
   if (path === '/financeiro') return pathname.startsWith('/financeiro')
   if (path === '/cursos') {
@@ -131,6 +137,7 @@ type Props = {
   onToggleCollapsed: () => void
   mobileOpen: boolean
   onCloseMobile: () => void
+  profile?: Pick<AuthUser, 'name' | 'avatar' | 'email'>
 }
 
 export function Sidebar({
@@ -138,12 +145,15 @@ export function Sidebar({
   onToggleCollapsed,
   mobileOpen,
   onCloseMobile,
+  profile,
 }: Props) {
   const pathname = usePathname()
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const [flyout, setFlyout] = useState<string | null>(null)
+  const rail = collapsed && !mobileOpen
 
   useEffect(() => {
-    if (collapsed && !mobileOpen) {
+    if (rail) {
       setOpenGroups({})
       return
     }
@@ -153,7 +163,11 @@ export function Sidebar({
       if (pathname.startsWith('/instagram')) next.Instagram = true
       return next
     })
-  }, [pathname, collapsed, mobileOpen])
+  }, [pathname, rail])
+
+  useEffect(() => {
+    setFlyout(null)
+  }, [pathname])
 
   useEffect(() => {
     if (!mobileOpen) return
@@ -163,18 +177,6 @@ export function Sidebar({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [mobileOpen, onCloseMobile])
-
-  function onGroupClick(item: MenuItem) {
-    if (collapsed && !mobileOpen) {
-      onToggleCollapsed()
-      setOpenGroups((prev) => ({ ...prev, [item.label]: true }))
-      return
-    }
-    setOpenGroups((prev) => ({ ...prev, [item.label]: !prev[item.label] }))
-  }
-
-  const showChildren = (label: string) =>
-    Boolean(openGroups[label]) && (!collapsed || mobileOpen)
 
   return (
     <>
@@ -199,7 +201,7 @@ export function Sidebar({
             onClick={onCloseMobile}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/logovetorcarregamento.svg" alt="" width={24} height={34} />
+            <img src="/icons/logovetorcarregamento.svg" alt="" width={28} height={28} />
             <strong className={styles.brandText}>Florescer</strong>
           </Link>
           <button
@@ -210,27 +212,93 @@ export function Sidebar({
             title={collapsed ? 'Expandir menu' : 'Recolher menu'}
             onClick={onToggleCollapsed}
           >
-            {collapsed ? <PanelLeftOpen size={18} aria-hidden /> : <PanelLeftClose size={18} aria-hidden />}
+            {collapsed ? (
+              <PanelLeftOpen {...ICON_PROPS} aria-hidden />
+            ) : (
+              <PanelLeftClose {...ICON_PROPS} aria-hidden />
+            )}
           </button>
         </div>
 
         <nav className={styles.nav}>
+          <Link
+            href="/dashboard"
+            title="Visão geral"
+            className={`${styles.iconBtn} ${pathname.startsWith('/dashboard') ? styles.iconBtnActive : styles.iconBtnSoft}`}
+            onClick={onCloseMobile}
+          >
+            <LayoutGrid {...ICON_PROPS} aria-hidden />
+            <span className={styles.label}>Visão geral</span>
+          </Link>
+
           {menu.map((item) => {
             if (item.children?.length) {
               const groupActive = item.prefix ? pathname.startsWith(item.prefix) : false
-              const open = showChildren(item.label)
+              const open = Boolean(openGroups[item.label]) && !rail
+              const flyoutOpen = rail && flyout === item.label
+              const trigger = (
+                <button
+                  type="button"
+                  className={`${styles.iconBtn} ${groupActive ? styles.iconBtnActive : ''}`}
+                  aria-expanded={flyoutOpen || open}
+                  title={item.label}
+                >
+                  <ItemIcon brand={item.brand} Icon={item.icon || BriefcaseBusiness} />
+                  <span className={styles.label}>{item.label}</span>
+                </button>
+              )
+
+              if (rail) {
+                return (
+                  <div key={item.label} className={styles.group}>
+                    <AnimatedPopover
+                      open={flyoutOpen}
+                      onOpenChange={(next) => setFlyout(next ? item.label : null)}
+                      side="right"
+                      align="start"
+                      sideOffset={10}
+                      trigger={trigger}
+                      contentClassName={styles.flyout}
+                    >
+                      <p className={styles.flyoutTitle}>{item.label}</p>
+                      {item.children.map((child) => {
+                        const childActive = isPathActive(pathname, child.path)
+                        return (
+                          <Link
+                            key={child.path}
+                            href={child.path}
+                            className={`${styles.flyoutLink} ${childActive ? styles.flyoutLinkActive : ''}`}
+                            onClick={() => {
+                              setFlyout(null)
+                              onCloseMobile()
+                            }}
+                          >
+                            <ItemIcon brand={child.brand} Icon={child.icon} />
+                            <span>{child.label}</span>
+                          </Link>
+                        )
+                      })}
+                    </AnimatedPopover>
+                  </div>
+                )
+              }
+
               return (
                 <div key={item.label} className={styles.group}>
                   <button
                     type="button"
-                    className={`${styles.groupToggle} ${groupActive ? styles.groupToggleActive : ''} ${open ? styles.groupToggleOpen : ''}`}
+                    className={`${styles.iconBtn} ${groupActive ? styles.iconBtnActive : ''}`}
                     aria-expanded={open}
                     title={item.label}
-                    onClick={() => onGroupClick(item)}
+                    onClick={() =>
+                      setOpenGroups((prev) => ({
+                        ...prev,
+                        [item.label]: !prev[item.label],
+                      }))
+                    }
                   >
-                    <ItemIcon brand={item.brand} Icon={item.icon} />
-                    <span>{item.label}</span>
-                    <ChevronDown size={14} className={styles.chevron} aria-hidden />
+                    <ItemIcon brand={item.brand} Icon={item.icon || BriefcaseBusiness} />
+                    <span className={styles.label}>{item.label}</span>
                   </button>
                   {open ? (
                     <div className={styles.subnav}>
@@ -241,11 +309,11 @@ export function Sidebar({
                             key={child.path}
                             href={child.path}
                             title={child.label}
-                            className={`admin-sidebar-link ${styles.link} ${styles.linkChild} ${childActive ? styles.linkActive : ''}`}
+                            className={`${styles.iconBtn} ${styles.iconBtnChild} ${childActive ? styles.iconBtnActive : ''}`}
                             onClick={onCloseMobile}
                           >
                             <ItemIcon brand={child.brand} Icon={child.icon} />
-                            <span>{child.label}</span>
+                            <span className={styles.label}>{child.label}</span>
                           </Link>
                         )
                       })}
@@ -262,15 +330,42 @@ export function Sidebar({
                 key={item.label}
                 href={item.path!}
                 title={item.label}
-                className={`admin-sidebar-link ${styles.link} ${active ? styles.linkActive : ''}`}
+                className={`${styles.iconBtn} ${active ? styles.iconBtnActive : ''}`}
                 onClick={onCloseMobile}
               >
-                {Icon ? <Icon size={16} aria-hidden /> : null}
-                <span>{item.label}</span>
+                {Icon ? <Icon {...ICON_PROPS} aria-hidden /> : null}
+                <span className={styles.label}>{item.label}</span>
               </Link>
             )
           })}
         </nav>
+
+        <div className={styles.foot}>
+          <Link
+            href="/notificacoes"
+            title="Notificações"
+            className={`${styles.iconBtn} ${pathname.startsWith('/notificacoes') ? styles.iconBtnActive : ''}`}
+            onClick={onCloseMobile}
+          >
+            <Bell {...ICON_PROPS} aria-hidden />
+            <span className={styles.label}>Notificações</span>
+          </Link>
+          <Link
+            href="/personalizar"
+            title={profile?.name || 'Perfil'}
+            className={styles.avatarLink}
+            onClick={onCloseMobile}
+          >
+            <PatientAvatar
+              src={profile?.avatar}
+              name={profile?.name}
+              size="sm"
+              circle
+              className={styles.avatar}
+            />
+            <span className={styles.label}>{profile?.name || 'Perfil'}</span>
+          </Link>
+        </div>
       </aside>
     </>
   )

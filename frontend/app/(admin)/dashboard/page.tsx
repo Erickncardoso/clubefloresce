@@ -5,15 +5,11 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  ArrowRight,
   CalendarDays,
-  CircleAlert,
-  CircleCheck,
+  CheckSquare,
   Clock3,
   Heart,
-  Palette,
   UserPlus,
-  UsersRound,
   UtensilsCrossed,
 } from 'lucide-react'
 import { apiFetch, ApiError } from '@/lib/api'
@@ -27,12 +23,12 @@ import { fetchDiaryFeed, toggleDiaryLike } from '@/lib/diary-feed'
 import type {
   AuthUser,
   CheckinSchedule,
-  ConsumptionSummary,
   DangerWaJob,
   DiaryFeedEntry,
   EngagementZones,
   RegistrationRequest,
 } from '@/lib/types'
+import { fetchTasks } from '@/lib/tasks'
 import { PatientAvatar } from '@/components/patients/PatientAvatar'
 import { QuickAddPatientModal } from '@/components/patients/QuickAddPatientModal'
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon'
@@ -42,18 +38,11 @@ import {
   CareStripSkeleton,
   DiarySkeleton,
   HeroGreetingSkeleton,
-  KpiRowSkeleton,
   RecentTableSkeleton,
   RequestsSkeleton,
   ScheduleSkeleton,
 } from '@/components/dashboard/DashboardSkeletons'
 import styles from './dashboard.module.scss'
-
-const emptyConsumption: ConsumptionSummary = {
-  date: '',
-  totals: { patients: 0, meals: 0, caloriesKcal: 0 },
-  patients: [],
-}
 
 const DEFAULT_DANGER_WA = `Olá, *{{primeiroNome}}*!
 
@@ -84,7 +73,6 @@ export default function DashboardPage() {
   const [schedules, setSchedules] = useState<CheckinSchedule[]>([])
   const [diaryFeed, setDiaryFeed] = useState<DiaryFeedEntry[]>([])
   const [diaryLikingId, setDiaryLikingId] = useState<string | null>(null)
-  const [consumption, setConsumption] = useState<ConsumptionSummary>(emptyConsumption)
   const [engagement, setEngagement] = useState<EngagementZones>({
     danger: [],
     attention: [],
@@ -101,15 +89,22 @@ export default function DashboardPage() {
     phone?: string
   } | null>(null)
   const [approvingRequestId, setApprovingRequestId] = useState('')
-
-  const [diaryTooltip, setDiaryTooltip] = useState<{ name: string; meal: string; x: number; y: number; side: 'left' | 'right' } | null>(null)
-
+  const [diaryTooltip, setDiaryTooltip] = useState<{
+    name: string
+    meal: string
+    x: number
+    y: number
+    side: 'left' | 'right'
+  } | null>(null)
   const [dangerModalOpen, setDangerModalOpen] = useState(false)
   const [dangerMessage, setDangerMessage] = useState(DEFAULT_DANGER_WA)
   const [dangerStarting, setDangerStarting] = useState(false)
   const [dangerSending, setDangerSending] = useState(false)
   const [dangerStatusText, setDangerStatusText] = useState('')
   const [listTab, setListTab] = useState<'recent' | 'requests'>('recent')
+  const [openTasks, setOpenTasks] = useState(0)
+  const [tasksOpen, setTasksOpen] = useState(false)
+  const [careExpanded, setCareExpanded] = useState(false)
   const dangerPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const carePatients = useMemo(() => {
@@ -121,12 +116,15 @@ export default function DashboardPage() {
       patient,
       zone: 'attention' as const,
     }))
-    return [...danger, ...attention].slice(0, 8)
+    return [...danger, ...attention]
   }, [engagement])
 
   const needCount = engagement.danger.length + engagement.attention.length
   const todayLabel = formatLongDate()
-  const diaryPreview = diaryFeed.filter((e) => Boolean(e.imageUrl)).slice(0, 8)
+  const diaryPreview = diaryFeed.filter((e) => Boolean(e.imageUrl)).slice(0, 3)
+  const FOCUS_PREVIEW = 6
+  const visibleCare = careExpanded ? carePatients : carePatients.slice(0, FOCUS_PREVIEW)
+  const hiddenCareCount = Math.max(0, carePatients.length - FOCUS_PREVIEW)
 
   async function onToggleDiaryLike(entryId: string) {
     if (diaryLikingId) return
@@ -211,20 +209,27 @@ export default function DashboardPage() {
     }
   }, [])
 
+  const loadTaskCount = useCallback(async () => {
+    try {
+      const tasks = await fetchTasks()
+      setOpenTasks(tasks.filter((t) => !t.done).length)
+    } catch {
+      setOpenTasks(0)
+    }
+  }, [])
+
   const loadDashboard = useCallback(async () => {
     setLoading(true)
     try {
       const me = await apiFetch<AuthUser>('/auth/me')
       if (me?.name) setGreetingName(String(me.name).split(' ')[0] || me.name)
 
-      const [usersResult, schedulesResult, feedResult, consumptionResult, engagementResult] =
-        await Promise.allSettled([
-          apiFetch<AuthUser[]>('/users'),
-          apiFetch<{ schedules?: CheckinSchedule[] }>('/checkin/dispatch/schedules'),
-          fetchDiaryFeed(8, 0),
-          apiFetch<ConsumptionSummary>('/food-diary/admin/consumption'),
-          apiFetch<{ zones?: EngagementZones }>('/patients/engagement-zones'),
-        ])
+      const [usersResult, schedulesResult, feedResult, engagementResult] = await Promise.allSettled([
+        apiFetch<AuthUser[]>('/users'),
+        apiFetch<{ schedules?: CheckinSchedule[] }>('/checkin/dispatch/schedules'),
+        fetchDiaryFeed(6, 0),
+        apiFetch<{ zones?: EngagementZones }>('/patients/engagement-zones'),
+      ])
 
       if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
         const patients = usersResult.value.filter((u) => u.role === 'PACIENTE')
@@ -233,27 +238,11 @@ export default function DashboardPage() {
       }
 
       if (schedulesResult.status === 'fulfilled') {
-        setSchedules((schedulesResult.value?.schedules || []).slice(0, 5))
+        setSchedules((schedulesResult.value?.schedules || []).slice(0, 4))
       }
 
       if (feedResult.status === 'fulfilled') {
         setDiaryFeed(feedResult.value.entries || [])
-      }
-
-      if (consumptionResult.status === 'fulfilled') {
-        const data = consumptionResult.value || emptyConsumption
-        setConsumption({
-          date: data.date || '',
-          totals: {
-            patients: data.totals?.patients || 0,
-            meals: data.totals?.meals || 0,
-            caloriesKcal: data.totals?.caloriesKcal || 0,
-            proteinG: data.totals?.proteinG || 0,
-            carbsG: data.totals?.carbsG || 0,
-            fatG: data.totals?.fatG || 0,
-          },
-          patients: data.patients || [],
-        })
       }
 
       if (engagementResult.status === 'fulfilled') {
@@ -274,23 +263,20 @@ export default function DashboardPage() {
   }, [requests.length])
 
   useEffect(() => {
-    void Promise.all([loadDashboard(), loadRequests()])
-    void pollDangerWaStatus().then(() => {
-      /* if already sending, start poll — handled below via state check in another effect */
-    })
+    void Promise.all([loadDashboard(), loadRequests(), loadTaskCount()])
+    void pollDangerWaStatus()
     return () => stopDangerPoll()
-  }, [loadDashboard, loadRequests, pollDangerWaStatus, stopDangerPoll])
+  }, [loadDashboard, loadRequests, loadTaskCount, pollDangerWaStatus, stopDangerPoll])
 
-  // Reconsulta curtidas do diário ao voltar pro dashboard
   useEffect(() => {
     if (pathname !== '/dashboard') return
     let alive = true
-    void fetchDiaryFeed(8, 0)
+    void fetchDiaryFeed(6, 0)
       .then((data) => {
         if (alive) setDiaryFeed(data.entries || [])
       })
       .catch(() => {
-        /* keep current preview */
+        /* keep */
       })
     return () => {
       alive = false
@@ -340,7 +326,8 @@ export default function DashboardPage() {
     setApprovingRequestId('')
     setApproveSeed(null)
     if (user?.id) {
-      setRecentPatients((prev) => [user, ...prev.filter((p) => p.id !== user.id)].slice(0, 6))
+      setRecentPatients((prev) => [user, ...prev.filter((p) => p.id !== user.id)].slice(0, 8))
+      setPatientsTotal((n) => n + 1)
     }
     void loadRequests()
     if (wasApprove) {
@@ -420,6 +407,15 @@ export default function DashboardPage() {
               Olá, {greetingName} <span aria-hidden>·</span> {todayLabel}
             </p>
           )}
+          {!loading ? (
+            <div className={styles.heroMeta}>
+              <span>{patientsTotal} pacientes</span>
+              <button type="button" className={styles.heroMetaBtn} onClick={() => setTasksOpen(true)}>
+                <CheckSquare size={14} aria-hidden />
+                {openTasks} {openTasks === 1 ? 'tarefa' : 'tarefas'}
+              </button>
+            </div>
+          ) : null}
         </div>
         <button type="button" className={styles.heroCta} onClick={openCreate}>
           <UserPlus size={16} strokeWidth={2.25} aria-hidden />
@@ -427,37 +423,98 @@ export default function DashboardPage() {
         </button>
       </header>
 
-      <div className={styles.topGrid}>
-        <Link href="/personalizar" className={`${styles.card} ${styles.promoCard}`}>
-          <div className={styles.promoCopy}>
-            <p className={styles.promoEyebrow}>Marca Florescer</p>
-            <h2>Personalize PDFs e materiais</h2>
-            <p>Deixe planos e documentos com a cara do seu consultório.</p>
-            <span className={styles.promoCta}>
-              Criar modelo
-              <ArrowRight size={15} aria-hidden />
-            </span>
-          </div>
-          <div className={styles.promoArt} aria-hidden>
-            <div className={styles.promoSheet}>
-              <Palette size={22} />
+      <section className={`${styles.card} ${styles.focusCard}`} aria-labelledby="focus-title">
+        <div className={styles.focusHead}>
+          <div className={styles.focusSummary}>
+            {!loading && needCount > 0 ? (
+              <p className={styles.focusCount} aria-hidden>
+                {needCount}
+              </p>
+            ) : null}
+            <div className={styles.focusCopy}>
+              <p className={styles.focusEyebrow}>Prioridade de hoje</p>
+              <h2 id="focus-title" className={styles.focusTitle}>
+                Quem precisa de você
+              </h2>
+              <p className={styles.focusSub}>
+                {loading
+                  ? 'Carregando…'
+                  : needCount > 0
+                    ? (
+                      <>
+                        <span className={styles.focusStatDanger}>{engagement.danger.length} perigo</span>
+                        <span aria-hidden className={styles.focusStatSep}>·</span>
+                        <span className={styles.focusStatAttention}>{engagement.attention.length} atenção</span>
+                      </>
+                    )
+                    : 'Nenhuma paciente em risco agora — ótimo sinal.'}
+              </p>
             </div>
-            <div className={styles.promoSheetAlt} />
           </div>
-        </Link>
+          {!loading && engagement.danger.length > 0 ? (
+            <button
+              type="button"
+              className={styles.focusWa}
+              disabled={dangerSending}
+              onClick={openDangerWaModal}
+            >
+              <WhatsAppIcon className={styles.focusWaIcon} />
+              {dangerSending ? 'Enviando…' : 'WhatsApp em massa'}
+            </button>
+          ) : null}
+        </div>
+        {dangerStatusText ? <p className={styles.dangerStatus}>{dangerStatusText}</p> : null}
 
+        {loading ? (
+          <CareStripSkeleton />
+        ) : needCount > 0 ? (
+          <>
+            <ul className={styles.focusList}>
+              {visibleCare.map(({ patient, zone }) => (
+                <li key={`${zone}-${patient.id}`}>
+                  <Link
+                    href={patientUrl(patient)}
+                    className={`${styles.focusItem} ${zone === 'danger' ? styles.focusItemDanger : styles.focusItemAttention}`}
+                  >
+                    <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
+                    <strong className={styles.focusItemName}>{patient.name}</strong>
+                    <span className={zone === 'danger' ? styles.tagDanger : styles.tagAttention}>
+                      {zone === 'danger' ? 'Perigo' : 'Atenção'}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {hiddenCareCount > 0 ? (
+              <button
+                type="button"
+                className={styles.focusMore}
+                onClick={() => setCareExpanded((v) => !v)}
+              >
+                {careExpanded ? 'Mostrar menos' : `Ver mais ${hiddenCareCount}`}
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <div className={styles.focusEmpty}>
+            <p>Pode seguir para agenda, diário ou pacientes recentes abaixo.</p>
+          </div>
+        )}
+      </section>
+
+      <div className={styles.contextRow}>
         <section className={`${styles.card} ${styles.midCard}`}>
           <div className={styles.cardTop}>
             <h2>Próximos atendimentos</h2>
             <Link href="/check-in" className={styles.quietLink}>
-              Ver detalhes
+              Ver agenda
             </Link>
           </div>
           {loading ? (
             <ScheduleSkeleton />
           ) : schedules.length ? (
             <ul className={styles.scheduleList}>
-              {schedules.slice(0, 4).map((item) => (
+              {schedules.map((item) => (
                 <li key={item.id}>
                   <span className={styles.dot} aria-hidden />
                   <div>
@@ -470,7 +527,7 @@ export default function DashboardPage() {
           ) : (
             <div className={styles.emptyPad}>
               <div className={`${styles.illus} ${styles.illusAgenda}`}>
-                <CalendarDays size={32} strokeWidth={1.5} />
+                <CalendarDays size={28} strokeWidth={1.5} />
               </div>
               <p>Nenhum agendamento futuro</p>
             </div>
@@ -481,180 +538,77 @@ export default function DashboardPage() {
           <div className={styles.cardTop}>
             <h2>
               <Link href="/diario" className={styles.cardTitleLink}>
-                Diário
+                Diário de hoje
               </Link>
             </h2>
-            {loading ? (
-              <span className={styles.bone} style={{ width: '3.6rem', height: '0.78rem' }} aria-hidden />
-            ) : diaryPreview.length ? (
-              <Link href="/diario" className={styles.diaryMoreTop}>
-                Ver mais
-              </Link>
-            ) : null}
+            <Link href="/diario" className={styles.quietLink}>
+              Ver diário
+            </Link>
           </div>
           {loading ? (
             <DiarySkeleton />
           ) : diaryPreview.length ? (
-            <div className={styles.diaryScroll}>
-              <div className={styles.diaryMasonry}>
-                {diaryPreview.map((entry, index) => {
-                  const patient = entry.patient || entry.user
-                  const meal = entry.mealLabel || entry.mealType || 'Refeição'
-                  const liked = Boolean(entry.likedByMe)
-                  const sizeClass = [
-                    styles.diaryTile1,
-                    styles.diaryTile2,
-                    styles.diaryTile3,
-                    styles.diaryTile4,
-                  ][index % 4]
-                  return (
-                    <article
-                      key={entry.id}
-                      className={`${styles.diaryTile} ${sizeClass}`}
-                      onMouseEnter={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        const TOOLTIP_W = 160
-                        const fitsRight = rect.right + 8 + TOOLTIP_W < window.innerWidth
-                        setDiaryTooltip({
-                          name: patient?.name || 'Paciente',
-                          meal,
-                          x: fitsRight ? rect.right + 8 : rect.left - 8,
-                          y: rect.top + rect.height / 2,
-                          side: fitsRight ? 'right' : 'left',
-                        })
-                      }}
-                      onMouseLeave={() => setDiaryTooltip(null)}
+            <div className={styles.diaryThumbs}>
+              {diaryPreview.map((entry) => {
+                const patient = entry.patient || entry.user
+                const meal = entry.mealLabel || entry.mealType || 'Refeição'
+                const liked = Boolean(entry.likedByMe)
+                return (
+                  <article
+                    key={entry.id}
+                    className={styles.diaryThumb}
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const TOOLTIP_W = 160
+                      const fitsRight = rect.right + 8 + TOOLTIP_W < window.innerWidth
+                      setDiaryTooltip({
+                        name: patient?.name || 'Paciente',
+                        meal,
+                        x: fitsRight ? rect.right + 8 : rect.left - 8,
+                        y: rect.top + rect.height / 2,
+                        side: fitsRight ? 'right' : 'left',
+                      })
+                    }}
+                    onMouseLeave={() => setDiaryTooltip(null)}
+                  >
+                    <Link
+                      href={`/diario?post=${encodeURIComponent(entry.id)}`}
+                      className={styles.diaryThumbHit}
+                      aria-label={`Abrir no diário: ${patient?.name || 'paciente'}, ${meal}`}
                     >
-                      <Link
-                        href={`/diario?post=${encodeURIComponent(entry.id)}`}
-                        className={styles.diaryTileHit}
-                        aria-label={`Abrir no diário: ${patient?.name || 'paciente'}, ${meal}`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={entry.imageUrl || ''} alt="" loading="lazy" />
-                        <span className={styles.diaryTileFade} aria-hidden />
-                      </Link>
-                      <button
-                        type="button"
-                        className={`${styles.diaryLike} ${liked ? styles.diaryLiked : ''}`}
-                        aria-label={liked ? 'Remover curtida' : 'Curtir'}
-                        aria-pressed={liked}
-                        disabled={diaryLikingId === entry.id}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          void onToggleDiaryLike(entry.id)
-                        }}
-                      >
-                        <Heart
-                          size={18}
-                          fill={liked ? 'currentColor' : 'none'}
-                          aria-hidden
-                        />
-                      </button>
-                    </article>
-                  )
-                })}
-              </div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={entry.imageUrl || ''} alt="" loading="lazy" />
+                    </Link>
+                    <button
+                      type="button"
+                      className={`${styles.diaryLike} ${liked ? styles.diaryLiked : ''}`}
+                      aria-label={liked ? 'Remover curtida' : 'Curtir'}
+                      aria-pressed={liked}
+                      disabled={diaryLikingId === entry.id}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        void onToggleDiaryLike(entry.id)
+                      }}
+                    >
+                      <Heart size={16} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+                    </button>
+                  </article>
+                )
+              })}
             </div>
           ) : (
             <div className={styles.emptyPad}>
               <div className={`${styles.illus} ${styles.illusDaily}`}>
-                <UtensilsCrossed size={32} strokeWidth={1.5} />
+                <UtensilsCrossed size={28} strokeWidth={1.5} />
               </div>
-              <p>Não há registros do diário</p>
+              <p>Sem fotos no diário ainda</p>
             </div>
           )}
         </section>
       </div>
 
-      {loading ? (
-        <KpiRowSkeleton />
-      ) : (
-        <div className={styles.kpiRow}>
-          <article className={styles.kpi}>
-            <div className={styles.kpiHead}>
-              <span>Total de pacientes</span>
-              <span className={styles.kpiIcon} aria-hidden>
-                <UsersRound size={17} strokeWidth={1.8} />
-              </span>
-            </div>
-            <strong>{patientsTotal}</strong>
-            <p>Ativas no portal</p>
-          </article>
-          <article className={styles.kpi}>
-            <div className={styles.kpiHead}>
-              <span>Precisam de você</span>
-              <span className={`${styles.kpiIcon} ${styles.kpiIconWarn}`} aria-hidden>
-                <CircleAlert size={17} strokeWidth={1.8} />
-              </span>
-            </div>
-            <strong className={needCount ? styles.kpiWarn : undefined}>{needCount}</strong>
-            <div className={styles.kpiActions}>
-              <p>
-                {engagement.danger.length} perigo · {engagement.attention.length} atenção
-              </p>
-              {engagement.danger.length > 0 ? (
-                <button
-                  type="button"
-                  className={styles.miniWa}
-                  disabled={dangerSending}
-                  onClick={openDangerWaModal}
-                >
-                  <WhatsAppIcon className={styles.miniWaIcon} />
-                  {dangerSending ? 'Enviando…' : 'WhatsApp'}
-                </button>
-              ) : null}
-            </div>
-            {dangerStatusText ? <small className={styles.dangerStatus}>{dangerStatusText}</small> : null}
-          </article>
-          <article className={styles.kpi}>
-            <div className={styles.kpiHead}>
-              <span>Engajamento em dia</span>
-              <span className={`${styles.kpiIcon} ${styles.kpiIconOk}`} aria-hidden>
-                <CircleCheck size={17} strokeWidth={1.8} />
-              </span>
-            </div>
-            <strong className={styles.kpiOk}>{engagement.success.length}</strong>
-            <p>
-              {consumption.totals.meals
-                ? `${consumption.totals.meals} refeições hoje`
-                : 'Zona de sucesso'}
-            </p>
-          </article>
-        </div>
-      )}
-
-      <div className={styles.sideRow}>
-        <div className={styles.sideMain}>
-          {loading ? (
-            <CareStripSkeleton />
-          ) : needCount > 0 && carePatients.length > 0 ? (
-            <section className={styles.careStrip}>
-              <div className={styles.careStripHead}>
-                <h2>Quem precisa de atenção</h2>
-                <span>{needCount}</span>
-              </div>
-              <div className={styles.careStripRail}>
-                {carePatients.slice(0, 10).map(({ patient, zone }) => (
-                  <Link
-                    key={`${zone}-${patient.id}`}
-                    href={patientUrl(patient)}
-                    className={styles.careChip}
-                  >
-                    <PatientAvatar src={patient.avatar} name={patient.name} size="sm" />
-                    <div>
-                      <strong>{patient.name}</strong>
-                      <span className={zone === 'danger' ? styles.tagDanger : styles.tagAttention}>
-                        {zone === 'danger' ? 'Perigo' : 'Atenção'}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ) : null}
-          <section className={styles.panel}>
+      <section className={styles.panel}>
         <div className={styles.tabs}>
           <button
             type="button"
@@ -758,11 +712,21 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
-        </div>
-        <div className={styles.sideTasks}>
+
+      <AnimatedDialog
+        open={tasksOpen}
+        onOpenChange={(next) => {
+          setTasksOpen(next)
+          if (!next) void loadTaskCount()
+        }}
+        title="Tarefas"
+        contentClassName={`modal-card cf-squircle cf-squircle--control ${styles.tasksDialog}`}
+      >
+        <h3 id="tasks-dialog-title">Tarefas</h3>
+        <div className={styles.tasksDialogBody}>
           <TaskBoard />
         </div>
-      </div>
+      </AnimatedDialog>
 
       <AnimatedDialog
         open={dangerModalOpen}
@@ -829,14 +793,17 @@ export default function DashboardPage() {
                 position: 'fixed',
                 left: diaryTooltip.x,
                 top: diaryTooltip.y,
-                transform: diaryTooltip.side === 'left' ? 'translateY(-50%) translateX(-100%)' : 'translateY(-50%)',
+                transform:
+                  diaryTooltip.side === 'left'
+                    ? 'translateY(-50%) translateX(-100%)'
+                    : 'translateY(-50%)',
                 zIndex: 9999,
                 pointerEvents: 'none',
                 background: 'rgba(10,12,11,0.88)',
                 backdropFilter: 'blur(8px)',
                 WebkitBackdropFilter: 'blur(8px)',
                 color: '#fff',
-                borderRadius: '0.4rem',
+                borderRadius: 'var(--cf-radius-control)',
                 padding: '0.35rem 0.5rem',
                 display: 'flex',
                 flexDirection: 'column',
@@ -845,7 +812,15 @@ export default function DashboardPage() {
                 boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
               }}
             >
-              <strong style={{ fontSize: '0.72rem', fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <strong
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 650,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
                 {diaryTooltip.name}
               </strong>
               <span style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.78)', whiteSpace: 'nowrap' }}>

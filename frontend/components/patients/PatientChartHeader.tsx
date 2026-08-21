@@ -1,12 +1,11 @@
 'use client'
 
-import Link from 'next/link'
-import { useMemo, useState } from 'react'
-import { Bell, CalendarDays, Video } from 'lucide-react'
-import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon'
-import { PatientPushModal } from '@/components/patients/PatientPushModal'
+import { useMemo, type ReactNode } from 'react'
+import { MoreHorizontal, Pencil } from 'lucide-react'
+import { PatientAvatar } from '@/components/patients/PatientAvatar'
 import type { PatientOverview, PatientProfileData, PatientUser } from '@/lib/patient-chart/api'
 import { isPatientAccessExpired } from '@/lib/patient-chart/billing'
+import { formatPhoneDisplay } from '@/lib/patient-chart/patient-format'
 import styles from './PatientChartHeader.module.scss'
 
 type Props = {
@@ -17,114 +16,98 @@ type Props = {
   compact?: boolean
   onEditPatient?: () => void
   onStartCall?: () => void
+  tabs?: ReactNode
 }
 
 export function PatientChartHeader({
   user,
-  sectionLabel = '',
-  compact = true,
+  profile,
   onEditPatient,
-  onStartCall,
+  tabs,
 }: Props) {
-  const [pushOpen, setPushOpen] = useState(false)
-  const sinceLabel = useMemo(() => {
-    const raw = user?.approvedAt || user?.createdAt
-    if (!raw) return ''
-    return new Date(raw).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
-  }, [user?.approvedAt, user?.createdAt])
-
-  const whatsappUrl = useMemo(() => {
-    const digits = String(user?.phone || '').replace(/\D/g, '')
-    if (!digits) return ''
-    const withCountry = digits.startsWith('55') ? digits : `55${digits}`
-    return `https://wa.me/${withCountry}`
-  }, [user?.phone])
-
   const accessExpired = isPatientAccessExpired(user?.accessExpiresAt)
+  const phoneDisplay = formatPhoneDisplay(user?.phone)
+  const hasPhone = Boolean(String(user?.phone || '').replace(/\D/g, ''))
+
+  const roleLine = useMemo(() => {
+    const bits = [
+      profile?.occupation,
+      profile?.objective,
+      user?.plan ? `Plano ${user.plan}` : null,
+    ].filter(Boolean)
+    return bits.length ? bits.join(' · ') : 'Paciente do Clube Florescer'
+  }, [profile?.occupation, profile?.objective, user?.plan])
+
+  const addressLine = useMemo(() => {
+    const bits = [
+      profile?.street,
+      profile?.streetNumber,
+      profile?.neighborhood,
+      [profile?.city, profile?.state].filter(Boolean).join(', '),
+    ].filter(Boolean)
+    return bits.length ? bits.join(', ') : null
+  }, [profile])
 
   return (
     <header className={styles.header}>
-      <div className={styles.headRow}>
-        <nav className={styles.breadcrumb} aria-label="Navegação">
-          <Link href="/dashboard" className={styles.crumb}>
-            Início
-          </Link>
-          <span className={styles.sep} aria-hidden>
-            ›
-          </span>
-          <span className={`${styles.crumb} ${styles.crumbName}`}>{user?.name || 'Paciente'}</span>
-          {sectionLabel ? (
-            <>
-              <span className={styles.sep} aria-hidden>
-                ›
-              </span>
-              <span className={`${styles.crumb} ${styles.crumbCurrent}`} aria-current="page">
-                {sectionLabel}
-              </span>
-            </>
-          ) : null}
-        </nav>
+      <div className={styles.top}>
+        <PatientAvatar
+          src={user?.avatar}
+          name={user?.name}
+          size="xl"
+          circle
+          className={styles.avatar}
+        />
 
-        <div className={styles.toolbar}>
-          {sinceLabel ? (
-            <p className={styles.since}>
-              <CalendarDays size={14} aria-hidden />
-              <span>Desde {sinceLabel}</span>
+        <div className={styles.middle}>
+          <h1 className={styles.name}>{user?.name || 'Paciente'}</h1>
+          <div className={styles.detailGrid}>
+            <p className={styles.detailLeft}>{roleLine}</p>
+            <p className={styles.detailRight}>
+              {hasPhone ? phoneDisplay : <span className={styles.muted}>Sem telefone</span>}
             </p>
-          ) : null}
-
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.iconBtn}
-              title="Enviar notificação"
-              aria-label="Enviar notificação push"
-              onClick={() => setPushOpen(true)}
-            >
-              <Bell size={16} aria-hidden />
-            </button>
-            <button
-              type="button"
-              className={`${styles.iconBtn} ${styles.callBtn}`}
-              title="Ligar por vídeo"
-              aria-label="Ligar por vídeo"
-              onClick={onStartCall}
-            >
-              <Video size={16} aria-hidden />
-            </button>
-            {whatsappUrl ? (
-              <a
-                href={whatsappUrl}
-                className={`${styles.iconBtn} ${styles.waBtn}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="WhatsApp"
-                aria-label="Abrir WhatsApp"
-              >
-                <WhatsAppIcon />
-              </a>
-            ) : null}
-            <button type="button" className={`btn-primary ${styles.editBtn}`} onClick={onEditPatient}>
-              Editar paciente
-            </button>
+            <p className={styles.detailLeft}>
+              {addressLine || <span className={styles.muted}>Endereço não informado</span>}
+            </p>
+            <p className={styles.detailRight}>
+              {user?.email || <span className={styles.muted}>Sem e-mail</span>}
+            </p>
           </div>
+        </div>
+
+        <div className={styles.aside}>
+          <button type="button" className={styles.managerCard} onClick={onEditPatient}>
+            <PatientAvatar
+              src={user?.avatar}
+              name={user?.name}
+              size="xs"
+              circle
+              className={styles.managerAvatar}
+            />
+            <span className={styles.managerCopy}>
+              <small>Plano</small>
+              <strong>{user?.plan || 'Livre'}</strong>
+            </span>
+            <MoreHorizontal size={16} strokeWidth={1.5} aria-hidden />
+          </button>
+
+          <div className={styles.tags}>
+            {user?.plan ? <span className={`${styles.tag} ${styles.tagPlan}`}>{user.plan}</span> : null}
+            {accessExpired ? (
+              <span className={`${styles.tag} ${styles.tagDanger}`}>Expirado</span>
+            ) : (
+              <span className={`${styles.tag} ${styles.tagOk}`}>Ativo</span>
+            )}
+          </div>
+
+          <button type="button" className={styles.editLink} onClick={onEditPatient}>
+            <Pencil size={13} strokeWidth={1.5} aria-hidden />
+            Editar
+          </button>
         </div>
       </div>
 
-      {compact && sectionLabel ? <h1 className={styles.sectionTitle}>{sectionLabel}</h1> : null}
-
-      {accessExpired ? (
-        <p className={styles.expiredNote}>Acesso expirado</p>
-      ) : null}
-
-      {user?.id ? (
-        <PatientPushModal
-          open={pushOpen}
-          patientId={user.id}
-          patientName={user.name}
-          onOpenChange={setPushOpen}
-        />
-      ) : null}
+      {tabs ? <div className={styles.tabsSlot}>{tabs}</div> : null}
     </header>
   )
 }

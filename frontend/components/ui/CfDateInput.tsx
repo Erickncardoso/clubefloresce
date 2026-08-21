@@ -263,7 +263,7 @@ export function CfDateInput({
   const calendarBtn = (
     <button
       type="button"
-      className={styles.calendarBtn}
+      className={`${styles.calendarBtn} cf-date-calendar-btn`}
       disabled={disabled}
       aria-label="Abrir calendário"
       aria-expanded={open}
@@ -296,6 +296,7 @@ export function CfDateInput({
             textFocused || open ? styles.triggerFocused : "",
             "cf-squircle",
             "cf-squircle--control",
+            "cf-date-input-trigger",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -303,7 +304,7 @@ export function CfDateInput({
           <input
             id={id}
             type="text"
-            className={styles.text}
+            className={`${styles.text} cf-date-input-text`}
             inputMode="numeric"
             autoComplete="bday"
             placeholder={placeholder}

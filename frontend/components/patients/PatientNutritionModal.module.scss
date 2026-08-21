@@ -58,20 +58,20 @@
 }
 
 .kicker {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #9ca3af;
+  font-size: 0.78rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #8a9286;
   line-height: 1.2;
 }
 
 .name {
   margin: 0;
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 400;
   line-height: 1.2;
-  color: #111827;
+  color: #141414;
 }
 
 .meta {
@@ -102,6 +102,13 @@
   cursor: pointer;
   color: #6b7280;
   padding: 0.25rem 0.35rem;
+  border-radius: var(--cf-radius-control);
+
+  &:hover {
+    cursor: pointer;
+    color: #141414;
+    background: #f3f4f2;
+  }
 }
 
 .layout {
@@ -117,6 +124,14 @@
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.layoutSingle {
+  grid-template-columns: minmax(0, 1fr);
+
+  @media (max-width: 900px) {
+    grid-template-rows: minmax(0, 1fr);
   }
 }
 
@@ -140,11 +155,11 @@
 
 .subtitle {
   margin: 0 0 0.75rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #6b7280;
+  font-size: 0.84rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #6b7368;
   line-height: 1.2;
 }
 
@@ -153,6 +168,7 @@
   flex-direction: column;
   gap: 0.65rem;
   min-height: 0;
+  flex: 1;
 }
 
 .answerRow {
@@ -166,15 +182,16 @@
 
   span {
     font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
     color: var(--admin-muted, #6b7280);
   }
 
   strong {
     font-size: 0.92rem;
-    color: var(--admin-ink, #111827);
+    font-weight: 400;
+    color: #141414;
   }
 
   p {

@@ -76,6 +76,18 @@
   border-radius: var(--cf-radius-control);
 }
 
+/* CfDateInput: o input fica DENTRO do trigger — não pode herdar padding horizontal 0 */
+.field.field--float .cf-date-input input:not([type='range']) {
+  padding: 0.8rem 0.5rem 0.8rem 0.9rem;
+  min-height: 2.75rem;
+  text-align: left;
+}
+
+.field.field--float .cf-date-input .cf-date-input-trigger,
+.field.field--float .cf-date-input [class*='triggerEditable'] {
+  min-height: 2.75rem;
+}
+
 .field.field--float:not(:has(.field-control)) > input:not([type='range']),
 .field.field--float:not(:has(.field-control)) > textarea,
 .field.field--float:not(:has(.field-control)) > select {

@@ -19,6 +19,7 @@ import {
 import type { MealPlanMethodology, MealPlanRecord } from '@/lib/meal-plan/types'
 import { PatientChartEmptyState } from '@/components/patients/PatientChartEmptyState'
 import { PatientMealPlanNewModal } from '@/components/patients/PatientMealPlanNewModal'
+import { ConfirmDialog } from '@/components/overlays'
 import styles from './PatientMealPlanWorkspace.module.scss'
 
 type Props = {
@@ -46,6 +47,7 @@ export function PatientMealPlanWorkspace({
   const [listNotice, setListNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [newModalOpen, setNewModalOpen] = useState(false)
+  const [deletePlanId, setDeletePlanId] = useState<string | null>(null)
 
   const prescriptions = useMemo(() => getMealPlansFromUser(user as never), [user])
   const planLimitReached = prescriptions.length >= MAX_MEAL_PLANS
@@ -87,7 +89,6 @@ export function PatientMealPlanWorkspace({
   }
 
   async function removePlan(id: string) {
-    if (!window.confirm('Excluir este plano alimentar?')) return
     setBusy(true)
     setListError('')
     try {
@@ -99,6 +100,7 @@ export function PatientMealPlanWorkspace({
       setListError(err instanceof Error ? err.message : 'Erro ao excluir.')
     } finally {
       setBusy(false)
+      setDeletePlanId(null)
     }
   }
 
@@ -262,7 +264,7 @@ export function PatientMealPlanWorkspace({
                 type="button"
                 className={styles.delete}
                 disabled={busy}
-                onClick={() => void removePlan(plan.id)}
+                onClick={() => setDeletePlanId(plan.id)}
               >
                 Excluir
               </button>
@@ -275,6 +277,23 @@ export function PatientMealPlanWorkspace({
         open={newModalOpen}
         onClose={() => setNewModalOpen(false)}
         onSubmit={startFromModal}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deletePlanId)}
+        onOpenChange={(open) => {
+          if (!open) setDeletePlanId(null)
+        }}
+        title="Excluir plano alimentar?"
+        description="Esta ação remove o plano da lista do paciente. Não dá para desfazer."
+        cancelLabel="Cancelar"
+        confirmLabel="Excluir plano"
+        tone="danger"
+        busy={busy}
+        onCancel={() => setDeletePlanId(null)}
+        onConfirm={() => {
+          if (deletePlanId) void removePlan(deletePlanId)
+        }}
       />
     </div>
   )

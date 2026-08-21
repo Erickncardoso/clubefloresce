@@ -1,6 +1,12 @@
 .sidebar {
   --admin-sidebar-width: 15.5rem;
   --admin-sidebar-collapsed-width: 4.75rem;
+  --rail-bg: #f3f4f1;
+  --rail-btn: #ffffff;
+  --rail-ink: #141414;
+  --rail-muted: #6b7368;
+  --rail-accent: var(--admin-primary, #8b967c);
+  --rail-accent-ink: #ffffff;
 
   position: sticky;
   top: 0;
@@ -10,17 +16,23 @@
   flex-shrink: 0;
   height: 100dvh;
   max-height: 100dvh;
-  padding: 0.85rem 0.85rem 1rem;
+  margin: 0;
+  padding: 0.9rem 0.7rem 1rem;
   box-sizing: border-box;
-  background: #fff;
-  border-right: 1px solid var(--admin-border);
+  background: var(--rail-bg);
+  border: none;
+  border-right: 1px solid rgba(20, 24, 18, 0.025);
+  border-radius: 0;
   overflow: hidden;
   z-index: 70;
+  color: var(--rail-ink);
   transition: width 0.22s ease;
 }
 
 .sidebarCollapsed {
   --admin-sidebar-width: var(--admin-sidebar-collapsed-width);
+  padding-left: 0.55rem;
+  padding-right: 0.55rem;
 }
 
 .brandRow {
@@ -38,120 +50,174 @@
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
-  color: var(--admin-ink);
+  color: var(--rail-ink);
   text-decoration: none;
 
   img {
-    width: 24px;
-    height: 34px;
+    width: 1.75rem;
+    height: 1.75rem;
     object-fit: contain;
     flex-shrink: 0;
+    filter: none;
   }
 }
 
 .brandText {
   font-size: 0.95rem;
   font-weight: 700;
+  color: var(--rail-ink);
 }
 
 .toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 2.5rem;
+  height: 2.5rem;
   margin: 0;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--cf-radius-control);
+  border: none;
+  border-radius: 999px;
   background: transparent;
-  color: var(--admin-muted);
+  color: var(--rail-muted);
   cursor: pointer;
   flex-shrink: 0;
-  /* Sempre clicável — opacity:0 + pointer-events:none no hover quebrava o recolher */
-  opacity: 1;
-  pointer-events: auto;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 
   &:hover,
   &:focus-visible {
-    background: var(--admin-primary-soft);
-    border-color: var(--admin-border);
-    color: var(--admin-primary, #8b967c);
+    background: rgba(20, 24, 18, 0.05);
+    color: var(--rail-ink);
   }
 }
 
 .sidebarCollapsed .brandRow {
   justify-content: center;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 .sidebarCollapsed .logoLink {
+  justify-content: center;
+
+  img {
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+}
+
+.sidebarCollapsed .brandText,
+.sidebarCollapsed .toggle {
   display: none;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  align-items: stretch;
+  gap: 0.45rem;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.sidebarCollapsed .nav {
+  align-items: center;
 }
 
 .group {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.35rem;
+  width: 100%;
 }
 
-.groupToggle {
-  display: flex;
+.sidebarCollapsed .group {
+  width: auto;
   align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  padding: 0.55rem 0.65rem;
-  border: none;
-  border-radius: var(--cf-radius-control);
-  background: transparent;
-  color: #3f4a3a;
-  font-size: var(--admin-font-nav);
-  font-weight: 500;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.15s ease;
+}
 
-  &:hover {
-    background: var(--admin-primary-soft);
-  }
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--rail-ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 550;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, filter 0.15s ease;
 
   svg {
     flex-shrink: 0;
   }
+
+  &:hover {
+    background: rgba(20, 24, 18, 0.05);
+  }
 }
 
-.groupToggleActive {
-  background: var(--admin-primary-soft);
-  color: #2f382c;
-  font-weight: var(--admin-font-nav-weight-active);
+.iconBtnSoft {
+  background: transparent;
+  color: var(--rail-muted);
+
+  &:hover {
+    background: rgba(20, 24, 18, 0.05);
+    color: var(--rail-ink);
+    filter: none;
+  }
 }
 
-.groupToggleOpen .chevron {
-  transform: rotate(180deg);
+.iconBtnActive {
+  background: var(--rail-accent);
+  color: var(--rail-accent-ink);
+  font-weight: 650;
+
+  &:hover {
+    filter: brightness(1.04);
+    background: var(--rail-accent);
+  }
 }
 
-.chevron {
-  margin-left: auto;
-  color: var(--admin-muted);
-  transition: transform 0.18s ease;
+.iconBtnChild {
+  min-height: 2.4rem;
+  padding-left: 0.9rem;
+  background: transparent;
+}
+
+.sidebarCollapsed .iconBtn {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.sidebarCollapsed .label {
+  display: none;
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .subnav {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.35rem;
   padding-left: 0.35rem;
 }
 
@@ -165,52 +231,93 @@
   flex-shrink: 0;
 }
 
-.link {
+.iconBtnActive .brandWhatsapp,
+.iconBtnActive .brandInstagram {
+  color: var(--rail-accent-ink);
+}
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(20, 24, 18, 0.025);
+}
+
+.sidebarCollapsed .foot {
+  align-items: center;
+}
+
+.avatarLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--rail-ink);
+}
+
+.sidebarCollapsed .avatarLink {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  justify-content: center;
+}
+
+.avatar {
+  width: 2.35rem !important;
+  height: 2.35rem !important;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.flyout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 11.5rem;
+  padding: 0.55rem;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  border: 1px solid var(--admin-border, #e8ece9);
+  box-shadow: 0 12px 32px rgba(20, 24, 18, 0.12);
+}
+
+.flyoutTitle {
+  margin: 0 0 0.25rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rail-muted);
+}
+
+.flyoutLink {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.55rem 0.65rem;
+  min-height: 2.15rem;
+  padding: 0.35rem 0.55rem;
   border-radius: var(--cf-radius-control);
-  color: #3f4a3a;
-  font-size: var(--admin-font-nav);
-  font-weight: 500;
-  transition: background 0.15s ease;
+  color: var(--rail-ink);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 550;
 
   &:hover {
-    background: var(--admin-primary-soft);
-  }
-
-  svg {
-    flex-shrink: 0;
+    background: var(--rail-btn);
   }
 }
 
-.linkChild {
-  padding-left: 0.85rem;
-}
-
-.linkActive {
-  background: var(--admin-primary-soft);
-  color: #2f382c;
-  font-weight: var(--admin-font-nav-weight-active);
-}
-
-.sidebarCollapsed .link,
-.sidebarCollapsed .groupToggle {
-  justify-content: center;
-  padding-left: 0.65rem;
-  padding-right: 0.65rem;
-}
-
-.sidebarCollapsed .link span,
-.sidebarCollapsed .groupToggle span,
-.sidebarCollapsed .chevron,
-.sidebarCollapsed .brandText {
-  display: none;
-}
-
-.sidebarCollapsed .linkChild {
-  padding-left: 0.65rem;
+.flyoutLinkActive {
+  background: var(--admin-primary-soft, #eef0eb);
+  color: #3d4a35;
 }
 
 .backdrop {
@@ -238,13 +345,19 @@
     z-index: 90;
     width: min(18rem, 88vw);
     max-width: 18rem;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
     transform: translateX(-105%);
     transition: transform 0.22s ease;
-    box-shadow: 4px 0 24px rgba(20, 24, 22, 0.12);
+    box-shadow: 4px 0 24px rgba(20, 24, 18, 0.12);
   }
 
   .sidebarCollapsed {
     --admin-sidebar-width: min(18rem, 88vw);
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
   }
 
   .sidebarMobileOpen {
@@ -255,23 +368,36 @@
     display: inline-flex;
   }
 
-  .sidebarCollapsed .link span,
-  .sidebarCollapsed .groupToggle span,
-  .sidebarCollapsed .chevron,
-  .sidebarCollapsed .brandText {
+  .sidebarCollapsed .brandText,
+  .sidebarCollapsed .label {
     display: initial;
   }
 
-  .sidebarCollapsed .chevron {
-    display: block;
+  .sidebarCollapsed .toggle {
+    display: none;
   }
 
-  .sidebarCollapsed .link,
-  .sidebarCollapsed .groupToggle {
+  .sidebarCollapsed .brandRow {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .sidebarCollapsed .nav,
+  .sidebarCollapsed .foot,
+  .sidebarCollapsed .group {
+    align-items: stretch;
+  }
+
+  .sidebarCollapsed .iconBtn,
+  .sidebarCollapsed .avatarLink {
+    width: 100%;
+    height: auto;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
     justify-content: flex-start;
   }
 
-  .toggle {
-    display: none;
+  .sidebarCollapsed .avatarLink {
+    padding: 0 0.45rem;
   }
 }

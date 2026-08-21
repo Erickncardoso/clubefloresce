@@ -41,6 +41,44 @@
   }
 }
 
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  margin-top: 0.65rem;
+  font-size: 0.8rem;
+  color: var(--admin-muted);
+  font-weight: 550;
+}
+
+.heroMetaBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--admin-ink);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  text-decoration-color: rgba(115, 135, 107, 0.45);
+
+  &:hover {
+    color: #64785d;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(115, 135, 107, 0.28);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
 .heroCta {
   display: inline-flex;
   align-items: center;
@@ -49,7 +87,7 @@
   min-height: 2.65rem;
   padding: 0.65rem 1rem;
   border: none;
-  border-radius: 0.875rem;
+  border-radius: var(--cf-radius-control);
   background: #73876b;
   color: #fff;
   font-size: 0.875rem;
@@ -75,18 +113,284 @@
 .card {
   background: #fff;
   border: 1px solid #e5eae6;
-  border-radius: 1.35rem;
+  border-radius: var(--cf-radius-control);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
   min-width: 0;
 }
 
-/* ── Top grid ─────────────────────────────────────────────────────────────── */
+/* ── Focus: quem precisa de você ─────────────────────────────────────────── */
 
-.topGrid {
+.focusCard {
+  padding: 1.35rem 1.4rem 1.15rem;
+  margin-bottom: 1rem;
+}
+
+.focusHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(20, 20, 20, 0.06);
+}
+
+.focusSummary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.focusCount {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 2.75rem;
+  font-weight: 750;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  color: var(--admin-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.focusCopy {
+  min-width: 0;
+}
+
+.focusEyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+.focusTitle {
+  margin: 0.2rem 0 0;
+  font-size: 1.2rem;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  color: var(--admin-ink);
+}
+
+.focusSub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.84rem;
+  color: var(--admin-muted);
+}
+
+.focusStatDanger {
+  color: #b42318;
+  font-weight: 650;
+}
+
+.focusStatAttention {
+  color: #a16207;
+  font-weight: 650;
+}
+
+.focusStatSep {
+  color: #c5cbc6;
+}
+
+.focusWa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: #25d366;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: wait;
+  }
+
+  &:hover:not(:disabled) {
+    background: #1ebe57;
+  }
+}
+
+.focusWaIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.focusList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.focusItem {
   display: grid;
-  grid-template-columns: minmax(250px, 0.9fr) minmax(310px, 1.3fr) minmax(290px, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: var(--cf-radius-control);
+  border: 1px solid transparent;
+  border-left-width: 3px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: #f6f8f5;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(115, 135, 107, 0.28);
+    outline-offset: 1px;
+  }
+}
+
+.focusItemDanger {
+  border-left-color: #f04438;
+}
+
+.focusItemAttention {
+  border-left-color: #f59e0b;
+}
+
+.focusItemName {
+  font-size: 0.92rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.focusMore {
+  display: block;
+  width: 100%;
+  margin-top: 0.55rem;
+  padding: 0.65rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: #f4f6f3;
+  color: #566155;
+  font-size: 0.84rem;
+  font-weight: 650;
+  cursor: pointer;
+
+  &:hover {
+    background: #ebeef0;
+    color: var(--admin-ink);
+  }
+}
+
+.focusEmpty {
+  padding: 0.15rem 0 0.25rem;
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--admin-muted);
+  }
+}
+
+/* ── Context: agenda + diário ────────────────────────────────────────────── */
+
+.contextRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.875rem;
   margin-bottom: 0.875rem;
+}
+
+.diaryThumbs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding: 0 1.15rem 1.15rem;
+}
+
+.diaryThumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--cf-radius-control);
+  overflow: hidden;
+  background: #eef0eb;
+}
+
+.diaryThumbHit {
+  display: block;
+  width: 100%;
+  height: 100%;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.diaryThumb .skelDiaryImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tasksDialog {
+  width: min(420px, calc(100vw - 2rem));
+  max-height: min(86vh, 720px);
+  overflow: auto;
+  padding: 1.15rem 1.15rem 1rem;
+
+  h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1.1rem;
+  }
+}
+
+.tasksDialogBody {
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .contextRow {
+    grid-template-columns: 1fr;
+  }
+
+  .focusHead {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .focusWa {
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  .focusCount {
+    font-size: 2.25rem;
+  }
+
+  .diaryThumbs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ── Top grid (legacy promo removed; mid cards reused) ───────────────────── */
+
+.topGrid {
+  display: none;
 }
 
 .promoCard {
@@ -743,7 +1047,7 @@
 .panel {
   background: #fff;
   border: 1px solid #e5eae6;
-  border-radius: 1.35rem;
+  border-radius: var(--cf-radius-control);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
   overflow: hidden;
 }

@@ -2,6 +2,9 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding-bottom: 0.5rem;
 }
 
 /* ── Head ─────────────────────────────────────────────── */
@@ -27,7 +30,7 @@
 .patientName {
   display: block;
   font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--admin-ink, #2c322c);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -63,14 +66,14 @@
 
 .main {
   min-width: 0;
-  padding: 1.1rem;
+  padding: 1.15rem 1.2rem 1.25rem;
   border-radius: var(--cf-radius-control);
   border: 1px solid var(--admin-border, #e8ece9);
   background: #fff;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.15rem;
 }
 
 .sidebar {
@@ -78,22 +81,40 @@
   flex-direction: column;
   gap: 0.75rem;
   position: sticky;
-  top: 0.75rem;
+  top: 0.5rem;
   align-self: start;
+  max-height: calc(100dvh - 1.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 0.25rem;
 }
 
 /* ── Config row ─────────────────────────────────────────── */
 .config {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 0.65rem 0.7rem;
+  grid-template-columns: minmax(11rem, 1.45fr) minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(10.5rem, 0.9fr) minmax(11rem, 1fr);
+  gap: 0.75rem 0.8rem;
   align-items: start;
+  padding-bottom: 0.15rem;
+
+  @media (max-width: 1180px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.configDate {
+  min-width: 0;
 }
 
 .configEnd {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
   min-width: 0;
 }
 
@@ -154,8 +175,10 @@
   align-items: center;
   gap: 0.75rem 1rem;
   flex-wrap: wrap;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #eef1ee;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #eef1ee;
+  border-radius: var(--cf-radius-control);
+  background: #f8faf8;
 }
 
 .toolbarDays {
@@ -168,7 +191,7 @@
 
 .toolbarLabel {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 500;
   color: #8a9288;
   white-space: nowrap;
 }
@@ -180,18 +203,20 @@
 }
 
 .dayPill {
-  border: 1px solid #e2e8e4;
+  border: 1px solid transparent;
   background: #fff;
-  padding: 0.3rem 0.6rem;
+  padding: 0.32rem 0.62rem;
   border-radius: var(--cf-radius-control);
   font: inherit;
   font-size: 0.72rem;
+  font-weight: 500;
   color: #5f675f;
   cursor: pointer;
-  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+  box-shadow: inset 0 0 0 1px #e2e8e4;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 
   &:hover:not(.dayPillActive) {
-    border-color: #c8dcc4;
+    box-shadow: inset 0 0 0 1px #c8dcc4;
     background: #f8faf8;
     color: #2c322c;
   }
@@ -203,10 +228,11 @@
 }
 
 .dayPillActive {
-  border-color: #8b967c;
+  border-color: transparent;
   background: #8b967c;
+  box-shadow: none;
   color: #fff;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .mealsTools {
@@ -275,16 +301,22 @@
   border: 1px solid #e8ece9;
   border-radius: var(--cf-radius-control);
   background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
   overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: #dde3db;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  }
 }
 
 .mealHeader {
   display: flex;
   align-items: center;
   gap: 0.5rem 0.65rem;
-  padding: 0.65rem 0.75rem;
-  background: #fafbfa;
+  padding: 0.7rem 0.85rem;
+  background: linear-gradient(180deg, #fbfcfb 0%, #f7f8f6 100%);
   border-bottom: 1px solid #eef1ee;
   flex-wrap: wrap;
 }
@@ -350,7 +382,7 @@
   background: transparent;
   font: inherit;
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 500;
   color: #2c322c;
   transition: border-color 0.15s ease, background 0.15s ease;
 
@@ -432,11 +464,130 @@
 
 .mealBodyActions {
   min-width: 0;
-  padding: 0.7rem 0.75rem 0;
+  padding: 0.75rem 0.85rem 0.15rem;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.55rem;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+
+.mealEmptyPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid #e4ebe3;
+  border-radius: var(--cf-radius-control);
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(139, 150, 124, 0.1), transparent 55%),
+    #fafbf8;
+}
+
+.mealEmptySearch {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.65rem 0.85rem;
+  border: 1.5px solid #dce4d8;
+  border-radius: var(--cf-radius-control);
+  background: #fff;
+  color: #8a9286;
+  font: inherit;
+  text-align: left;
+  cursor: text;
+  box-shadow: 0 1px 2px rgba(20, 24, 18, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+
+  svg {
+    flex-shrink: 0;
+    color: #8b967c;
+  }
+
+  &:hover {
+    border-color: #b8d4b4;
+    color: #5f675f;
+    box-shadow: 0 0 0 3px rgba(139, 150, 124, 0.1);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: #8b967c;
+    box-shadow: 0 0 0 3px rgba(139, 150, 124, 0.16);
+  }
+}
+
+.mealEmptySearchText {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: inherit;
+}
+
+.mealEmptyKbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.35rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid #e2e8e4;
+  border-radius: 0.35rem;
+  background: #f4f6f3;
+  color: #8a9286;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.mealEmptyMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0 0.15rem;
+}
+
+.mealEmptyTips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.45rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--cf-radius-pill);
+    background: rgba(139, 150, 124, 0.12);
+    color: #5c6758;
+    font-size: 0.68rem;
+    font-weight: 500;
+  }
+}
+
+.mealEmptyRecipe {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.3rem 0.55rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #9a6b1f;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: rgba(217, 119, 6, 0.1);
+    color: #7c4f0e;
+  }
 }
 
 .mealEmpty {
@@ -448,6 +599,18 @@
   color: #8a9288;
 
   svg { flex-shrink: 0; stroke-width: 1.6; }
+}
+
+.mealEmptyCopy {
+  display: none;
+}
+
+.mealEmptyActions {
+  display: none;
+}
+
+.addFoodBtnPrimary {
+  display: none;
 }
 
 .mealAdd {
@@ -462,19 +625,18 @@
   gap: 0.35rem;
   min-height: 2.25rem;
   padding: 0.4rem 0.8rem;
-  border: 1px dashed #c5cdc7;
+  border: 1px solid #d7ddd6;
   border-radius: var(--cf-radius-control);
   background: #fff;
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #5f675f;
+  color: #3f4a38;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 
   &:hover {
     border-color: var(--admin-primary, #8b967c);
-    border-style: solid;
     background: #f7f9f5;
     color: #2c322c;
   }
@@ -575,6 +737,11 @@
   &:last-child .foodRow { border-bottom: none; }
 }
 
+/* Composer não usa a grade — evita largura mínima forçada */
+.foodRowWrap:has(.foodComposer) {
+  min-width: 0;
+}
+
 .foodRowActions {
   display: flex;
   gap: 0.2rem;
@@ -588,18 +755,19 @@
   min-width: 36rem;
 }
 
-/* New 7-col grid: ALIMENTO | MEDIDA | CHO | PTN | LIP | Energia | actions */
+/* New 7-col grid: Alimento | Medida | CHO | PTN | LIP | Energia | actions */
 .foodGridHead {
   display: grid;
   grid-template-columns: minmax(9rem, 2fr) minmax(10rem, 1.5fr) 3.5rem 3.5rem 3.5rem 4.5rem 4.25rem;
   gap: 0.35rem;
-  padding: 0.35rem 0.75rem;
+  padding: 0.45rem 0.75rem;
   border-bottom: 1px solid #eef1ee;
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: #a3aca2;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  background: #fafbfa;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #8a9286;
+  letter-spacing: 0;
+  text-transform: none;
   min-width: 36rem;
 }
 
@@ -616,13 +784,120 @@
   &:hover { background: #fafbfa; }
 }
 
-/* Edit mode row — allow natural height growth */
+/* Edit mode row — legado (composer novo abaixo) */
 .foodRowEditing {
   align-items: start;
   grid-template-rows: auto auto;
   background: #f7fbf5 !important;
   border-left: 2px solid #b8d4b4;
   cursor: default;
+}
+
+.foodComposer {
+  margin: 0.55rem 0.75rem 0.65rem;
+  padding: 0.9rem 0.95rem;
+  border: 1.5px solid #d7e3d3;
+  border-radius: var(--cf-radius-control);
+  background:
+    radial-gradient(100% 90% at 100% 0%, rgba(139, 150, 124, 0.08), transparent 50%),
+    #f7fbf5;
+  box-shadow: 0 1px 2px rgba(20, 24, 18, 0.04);
+}
+
+.foodComposerHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  strong {
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: #2c322c;
+  }
+
+  span {
+    font-size: 0.7rem;
+    color: #8a9288;
+  }
+}
+
+.foodComposerBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(11rem, 0.9fr) auto;
+  gap: 0.75rem 0.85rem;
+  align-items: start;
+
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.foodComposerSearch,
+.foodComposerMeasure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.foodComposerLabel {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #6b7368;
+}
+
+.foodComposerHint {
+  font-size: 0.68rem;
+  color: #8a9288;
+  line-height: 1.35;
+}
+
+.foodComposerSide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.55rem;
+  min-width: 0;
+
+  @media (max-width: 980px) {
+    align-items: stretch;
+  }
+}
+
+.foodComposerMacros {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+.foodComposerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.foodComposerDone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.85rem;
+  padding: 0.3rem 0.7rem;
+  border: none;
+  border-radius: var(--cf-radius-control);
+  background: var(--admin-primary, #8b967c);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(1.04);
+  }
 }
 
 /* Display mode row — pointer cursor, entire row clickable */
@@ -789,30 +1064,46 @@
 }
 
 /* ── Add meal button ──────────────────────────────────── */
-.newMealBtn {
+.newMealWrap {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+  padding: 0.85rem 0.75rem 0.35rem;
+  border-top: 1px dashed #e2e8e4;
+}
+
+.newMealBtn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  width: 100%;
-  margin-top: 0.35rem;
-  min-height: 2.75rem;
-  padding: 0.55rem 1rem;
-  border: 1.5px dashed #cfd6d0;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 1.15rem;
+  border: 1px solid #cfd6d0;
   border-radius: var(--cf-radius-control);
-  background: #fbfcfb;
+  background: #fff;
   font: inherit;
   font-size: 0.875rem;
-  font-weight: 600;
-  color: #5f675f;
+  font-weight: 500;
+  color: #3f4a38;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
     border-color: var(--admin-primary, #8b967c);
     background: #f5f8f2;
     color: #2c322c;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   }
+}
+
+.newMealHint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #8a9288;
+  text-align: center;
 }
 
 /* ── Sidebar cards ────────────────────────────────────── */
@@ -882,7 +1173,6 @@
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: #92400e;
 }
 

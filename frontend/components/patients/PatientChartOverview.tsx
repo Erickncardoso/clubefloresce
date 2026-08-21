@@ -1,18 +1,5 @@
 'use client'
 
-import {
-  BookOpen,
-  CalendarCheck,
-  Flame,
-  HeartPulse,
-  MapPin,
-  Salad,
-  Scale,
-  Sparkles,
-  Target,
-  Wallet,
-} from 'lucide-react'
-import type { ElementType } from 'react'
 import { useState } from 'react'
 import { paymentAccessLabel, paymentMethodLabel } from '@/lib/patient-chart/patient-billing'
 import { formatCepMask, formatCpfMask, formatDateTime, formatWeek } from '@/lib/patient-chart/patient-format'
@@ -33,7 +20,6 @@ type MetricItem = {
   hint?: string
   hintWarn?: boolean
   cta?: string
-  icon: ElementType
   tone?: 'success' | 'warn' | 'danger' | 'neutral'
   action: MetricAction
 }
@@ -59,7 +45,6 @@ function mealPlanMetric(o: PatientOverview): MetricItem {
       hint: 'Nenhum plano enviado',
       hintWarn: true,
       cta: 'Criar plano',
-      icon: Salad,
       tone: 'warn',
       action: { type: 'tab', id: 'planos' },
     }
@@ -74,7 +59,6 @@ function mealPlanMetric(o: PatientOverview): MetricItem {
       hint: 'PDF sem refeições lidas',
       hintWarn: true,
       cta: 'Abrir planos',
-      icon: Salad,
       tone: 'warn',
       action: { type: 'tab', id: 'planos' },
     }
@@ -86,7 +70,6 @@ function mealPlanMetric(o: PatientOverview): MetricItem {
     value: 'Ativo',
     hint: `${count} ${count === 1 ? 'refeição' : 'refeições'}`,
     cta: 'Ver plano',
-    icon: Salad,
     tone: 'success',
     action: { type: 'tab', id: 'planos' },
   }
@@ -106,7 +89,6 @@ function weightMetric(o: PatientOverview, profile: PatientProfile): MetricItem {
       value: `${Number(fromCheckIn)} kg`,
       hint: `Check-in · ${formatWeek(latest?.weekStart || latest?.updatedAt || latest?.createdAt)}`,
       cta: 'Ver antropometria',
-      icon: Scale,
       tone: 'neutral',
       action: { type: 'tab', id: 'antropometria' },
     }
@@ -119,7 +101,6 @@ function weightMetric(o: PatientOverview, profile: PatientProfile): MetricItem {
       value: `${Number(fromProfile)} kg`,
       hint: 'Cadastro do paciente',
       cta: 'Atualizar',
-      icon: Scale,
       tone: 'neutral',
       action: { type: 'tab', id: 'antropometria' },
     }
@@ -132,7 +113,6 @@ function weightMetric(o: PatientOverview, profile: PatientProfile): MetricItem {
     hint: 'Sem registro ainda',
     hintWarn: true,
     cta: 'Registrar',
-    icon: Scale,
     tone: 'warn',
     action: { type: 'tab', id: 'antropometria' },
   }
@@ -153,7 +133,6 @@ function nutritionMetric(o: PatientOverview): MetricItem {
       hint: target > 0 ? `Meta ${target} kcal · nada registrado` : 'Nada registrado hoje',
       hintWarn: true,
       cta: 'Abrir diário',
-      icon: Flame,
       tone: 'warn',
       action: { type: 'evolucao', id: 'diario' },
     }
@@ -165,7 +144,6 @@ function nutritionMetric(o: PatientOverview): MetricItem {
     value: `${consumed} kcal`,
     hint: target > 0 ? `Meta ${target} kcal` : 'Sem meta cadastrada',
     cta: 'Abrir diário',
-    icon: Flame,
     tone: consumed > 0 ? 'neutral' : 'warn',
     hintWarn: consumed <= 0,
     action: { type: 'evolucao', id: 'diario' },
@@ -206,7 +184,6 @@ function buildMetricItems(o: PatientOverview, profile: PatientProfile): MetricIt
       value: payment,
       hint: paymentHint(o.patient),
       cta: 'Ver detalhes',
-      icon: Wallet,
       tone: paymentTone,
       action: { type: 'tab', id: 'pagamentos' },
     },
@@ -216,10 +193,9 @@ function buildMetricItems(o: PatientOverview, profile: PatientProfile): MetricIt
       value: String(o.checkIn?.total || 0),
       hint: o.checkIn?.missingThisWeek ? 'Sem check-in esta semana' : 'Semana em dia',
       hintWarn: Boolean(o.checkIn?.missingThisWeek),
-      cta: 'Abrir Evolução',
-      icon: CalendarCheck,
+      cta: 'Abrir Check-in',
       tone: o.checkIn?.missingThisWeek ? 'warn' : 'success',
-      action: { type: 'evolucao', id: 'checkins' },
+      action: { type: 'tab', id: 'checkin' },
     },
     mealPlanMetric(o),
     {
@@ -227,7 +203,6 @@ function buildMetricItems(o: PatientOverview, profile: PatientProfile): MetricIt
       label: 'Cursos',
       value: totalLessons ? `${o.courseProgress?.percent || 0}%` : '—',
       hint: totalLessons ? `${watched}/${totalLessons} aulas assistidas` : 'Sem aulas no catálogo',
-      icon: BookOpen,
       tone: 'neutral',
       action: null,
     },
@@ -347,10 +322,10 @@ export function PatientChartOverview({
 
   // ── Metric tone helpers ───────────────────────────────────────────────────────
 
-  const metricToneIconClass: Record<string, string> = {
-    success: styles.pcoMetricIconSuccess,
-    warn: styles.pcoMetricIconWarn,
-    danger: styles.pcoMetricIconDanger,
+  const metricValueToneClass: Record<string, string> = {
+    success: styles.pcoMetricValueSuccess,
+    warn: styles.pcoMetricValueWarn,
+    danger: styles.pcoMetricValueDanger,
     neutral: '',
   }
 
@@ -360,45 +335,38 @@ export function PatientChartOverview({
     <div className={styles.pco}>
       {overview && metricItems.length > 0 && (
         <section className={styles.pcoMetrics} aria-label="Indicadores do paciente">
-          {metricItems.map((metric) => {
-            const Icon = metric.icon
-            return (
-              <button
-                key={metric.id}
-                type="button"
+          {metricItems.map((metric) => (
+            <button
+              key={metric.id}
+              type="button"
+              className={[
+                styles.pcoMetric,
+                metric.action ? styles.pcoMetricAction : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              disabled={!metric.action}
+              onClick={() => onMetricClick(metric)}
+            >
+              <span className={styles.pcoMetricLabel}>{metric.label}</span>
+              <strong
                 className={[
-                  styles.pcoMetric,
-                  metric.action ? styles.pcoMetricAction : '',
+                  styles.pcoMetricValue,
+                  metric.tone ? (metricValueToneClass[metric.tone] ?? '') : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                disabled={!metric.action}
-                onClick={() => onMetricClick(metric)}
               >
-                <span
-                  className={[
-                    styles.pcoMetricIcon,
-                    metric.tone ? (metricToneIconClass[metric.tone] ?? '') : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-hidden="true"
-                >
-                  <Icon size={15} />
-                </span>
-                <div className={styles.pcoMetricCopy}>
-                  <span className={styles.pcoMetricLabel}>{metric.label}</span>
-                  <strong className={styles.pcoMetricValue}>{metric.value}</strong>
-                  {metric.hint && (
-                    <small className={metric.hintWarn ? styles.pcoMetricHintWarn : undefined}>
-                      {metric.hint}
-                    </small>
-                  )}
-                  {metric.cta && <span className={styles.pcoMetricCta}>{metric.cta}</span>}
-                </div>
-              </button>
-            )
-          })}
+                {metric.value}
+              </strong>
+              {metric.hint ? (
+                <small className={metric.hintWarn ? styles.pcoMetricHintWarn : undefined}>
+                  {metric.hint}
+                </small>
+              ) : null}
+              {metric.cta ? <span className={styles.pcoMetricCta}>{metric.cta}</span> : null}
+            </button>
+          ))}
         </section>
       )}
 
@@ -406,12 +374,7 @@ export function PatientChartOverview({
         {/* Card: Objetivo e perfil */}
         <article className={styles.pcoCard}>
           <header className={[styles.pcoCardHead, styles.pcoCardHeadSplit].join(' ')}>
-            <div className={styles.pcoCardHeadMain}>
-              <span className={styles.pcoCardIcon} aria-hidden="true">
-                <Target size={14} />
-              </span>
-              <h3>Objetivo e perfil</h3>
-            </div>
+            <h3>Objetivo e perfil</h3>
             <button type="button" className={styles.pcoLinkBtn} onClick={onEditProfile}>
               Editar
             </button>
@@ -441,12 +404,7 @@ export function PatientChartOverview({
         {/* Card: Localização + Flags clínicas */}
         <article className={styles.pcoCard}>
           <header className={[styles.pcoCardHead, styles.pcoCardHeadSplit].join(' ')}>
-            <div className={styles.pcoCardHeadMain}>
-              <span className={styles.pcoCardIcon} aria-hidden="true">
-                <MapPin size={14} />
-              </span>
-              <h3>Localização</h3>
-            </div>
+            <h3>Localização</h3>
             <button type="button" className={styles.pcoLinkBtn} onClick={onEditProfile}>
               {addressLine ? 'Editar' : 'Completar'}
             </button>
@@ -463,9 +421,6 @@ export function PatientChartOverview({
           )}
 
           <header className={[styles.pcoCardHead, styles.pcoCardHeadSpaced].join(' ')}>
-            <span className={[styles.pcoCardIcon, styles.pcoCardIconRose].join(' ')} aria-hidden="true">
-              <HeartPulse size={14} />
-            </span>
             <h3>Flags clínicas</h3>
           </header>
           <div className={styles.pcoFlags}>
@@ -495,12 +450,7 @@ export function PatientChartOverview({
       {/* Card: Evolução nutricional */}
       <article className={[styles.pcoCard, styles.pcoCardWide].join(' ')}>
         <header className={[styles.pcoCardHead, styles.pcoCardHeadSplit].join(' ')}>
-          <div className={styles.pcoCardHeadMain}>
-            <span className={[styles.pcoCardIcon, styles.pcoCardIconGreen].join(' ')} aria-hidden="true">
-              <Salad size={14} />
-            </span>
-            <h3>Evolução nutricional</h3>
-          </div>
+          <h3>Evolução nutricional</h3>
           <button
             type="button"
             className={styles.pcoLinkBtn}
@@ -545,12 +495,7 @@ export function PatientChartOverview({
           {/* Card: Últimos check-ins */}
           <article className={styles.pcoCard}>
             <header className={[styles.pcoCardHead, styles.pcoCardHeadSplit].join(' ')}>
-              <div className={styles.pcoCardHeadMain}>
-                <span className={[styles.pcoCardIcon, styles.pcoCardIconBlue].join(' ')} aria-hidden="true">
-                  <CalendarCheck size={14} />
-                </span>
-                <h3>Últimos check-ins</h3>
-              </div>
+              <h3>Últimos check-ins</h3>
               <button
                 type="button"
                 className={styles.pcoLinkBtn}
@@ -561,7 +506,6 @@ export function PatientChartOverview({
             </header>
             {!overview.checkIn?.recent?.length ? (
               <div className={styles.pcoEmptyBlock}>
-                <CalendarCheck size={22} className={styles.pcoEmptyIcon} aria-hidden="true" />
                 <p>Nenhum check-in registrado ainda.</p>
                 <button
                   type="button"
@@ -596,16 +540,10 @@ export function PatientChartOverview({
           {/* Card: Conversas com Bella */}
           <article className={styles.pcoCard}>
             <header className={[styles.pcoCardHead, styles.pcoCardHeadSplit].join(' ')}>
-              <div className={styles.pcoCardHeadMain}>
-                <span className={[styles.pcoCardIcon, styles.pcoCardIconPurple].join(' ')} aria-hidden="true">
-                  <Sparkles size={14} />
-                </span>
-                <h3>Conversas com Bella</h3>
-              </div>
+              <h3>Conversas com Bella</h3>
             </header>
             {!overview.bella?.recentMessages?.length ? (
               <div className={styles.pcoEmptyBlock}>
-                <Sparkles size={22} className={styles.pcoEmptyIcon} aria-hidden="true" />
                 <p>Sem mensagens recentes da Bella.</p>
               </div>
             ) : (
