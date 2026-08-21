@@ -33,21 +33,25 @@ type Props = {
 }
 
 function toFlowSteps(steps: StepLike[]): StepApiPayload[] {
-  return steps.map((step, index) => ({
-    id: step.id || `step_${index}`,
-    type: step.type || 'text',
-    question: step.question || step.label || `Pergunta ${index + 1}`,
-    hint: step.hint || '',
-    options: step.options as StepApiPayload['options'],
-    min: step.min,
-    max: step.max,
-    step: step.step,
-    defaultValue: step.defaultValue,
-    unit: step.unit,
-    yesLabel: step.yesLabel,
-    noLabel: step.noLabel,
-    placeholder: step.placeholder,
-  }))
+  return steps.map((step, index) => {
+    const question = step.question || step.label || `Pergunta ${index + 1}`
+    return {
+      id: step.id || `step_${index}`,
+      type: step.type || 'text',
+      label: (step.label || question).slice(0, 80),
+      question,
+      hint: step.hint || '',
+      options: step.options as StepApiPayload['options'],
+      min: step.min,
+      max: step.max,
+      step: step.step,
+      defaultValue: step.defaultValue,
+      unit: step.unit,
+      yesLabel: step.yesLabel,
+      noLabel: step.noLabel,
+      placeholder: step.placeholder,
+    }
+  })
 }
 
 export function CheckinResponseMockup({

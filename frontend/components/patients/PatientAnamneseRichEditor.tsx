@@ -830,7 +830,7 @@ export const PatientAnamneseRichEditor = forwardRef<RichEditorHandle, Props>(
     // ── Click outside for dropdowns & table bar ───────────────────────────────
 
     useEffect(() => {
-      function onDocClick(e: MouseEvent) {
+      function onDocClick(e: globalThis.MouseEvent) {
         const target = e.target as Element
         if (sizeMenuRef.current && !sizeMenuRef.current.contains(target)) setSizeOpen(false)
         if (colorMenuRef.current && !colorMenuRef.current.contains(target)) setColorOpen(false)
