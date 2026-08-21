@@ -45,15 +45,25 @@ const enableIosSmartAppBanner = computed(() => {
   return true
 })
 
-useHead(() => ({
-  meta: [{
-    key: 'apple-itunes-app',
-    name: 'apple-itunes-app',
-    content: enableIosSmartAppBanner.value
-      ? appleItunesAppMetaContent(route.fullPath || '/')
-      : null,
-  }],
-}))
+useHead(() => {
+  if (!enableIosSmartAppBanner.value) {
+    return {
+      meta: [{
+        key: 'apple-itunes-app',
+        name: 'apple-itunes-app',
+        content: undefined,
+      }],
+    }
+  }
+  return {
+    meta: [{
+      key: 'apple-itunes-app',
+      name: 'apple-itunes-app',
+      // Formato Apple: app-id + app-argument (scheme nativo). Ícone vem da App Store.
+      content: appleItunesAppMetaContent(route.path || '/inicio'),
+    }],
+  }
+})
 
 if (config.public.mobileApp) {
   usePatientAccessSync()

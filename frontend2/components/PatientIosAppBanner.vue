@@ -31,6 +31,17 @@ function isNativeWebView() {
   return Boolean(window.ReactNativeWebView)
 }
 
+/** Safari iOS já mostra o Smart App Banner nativo (com ícone da loja) via meta. */
+function isSafariIos() {
+  if (typeof window === 'undefined') return false
+  const ua = window.navigator.userAgent || ''
+  const iOS = /iPad|iPhone|iPod/.test(ua)
+    || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+  if (!iOS) return false
+  const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Android/i.test(ua)
+  return isSafari
+}
+
 function isCheckoutPaymentPath(path) {
   if (path === '/assinatura/obrigado') return false
   return path === '/assinatura' || path.startsWith('/assinatura/')
@@ -46,20 +57,25 @@ function openApp() {
   openNativeAppOrStore()
 }
 
-onMounted(() => {
+function evaluateVisibility() {
   if (!import.meta.client) return
   if (isNativeWebView()) return
   if (isStandalonePwa()) return
   if (wasDismissed()) return
   if (!shouldShowOnRoute.value) return
+  // Evita banner duplicado: Safari usa o meta nativo com ícone da App Store.
+  if (isSafariIos()) return
 
   const ua = window.navigator.userAgent || ''
   const isAppleMobile = /iPad|iPhone|iPod/.test(ua)
     || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
-  // Banner pensado para iPhone/iPad; em desktop não insiste.
   if (!isAppleMobile) return
 
   visible.value = true
+}
+
+onMounted(() => {
+  evaluateVisibility()
 })
 
 watch(shouldShowOnRoute, (ok) => {
@@ -67,11 +83,7 @@ watch(shouldShowOnRoute, (ok) => {
     visible.value = false
     return
   }
-  if (wasDismissed() || isNativeWebView() || isStandalonePwa()) return
-  const ua = window.navigator.userAgent || ''
-  const isAppleMobile = /iPad|iPhone|iPod/.test(ua)
-    || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
-  if (isAppleMobile) visible.value = true
+  evaluateVisibility()
 })
 </script>
 
@@ -84,12 +96,20 @@ watch(shouldShowOnRoute, (ok) => {
       aria-live="polite"
       aria-label="App Clube Florescer"
     >
+      <img
+        class="ios-app-banner__icon cf-squircle--control"
+        src="/pwa/icon-192.png"
+        width="40"
+        height="40"
+        alt=""
+        decoding="async"
+      >
       <div class="ios-app-banner__copy">
-        <strong>Clube Florescer no iPhone</strong>
-        <span>Se já tiver o app, abra. Se não, instale na App Store.</span>
+        <strong>Clube Florescer</strong>
+        <span>App · Nutrição com a Isabella</span>
       </div>
       <button type="button" class="ios-app-banner__cta cf-squircle--control" @click="openApp">
-        Abrir / Instalar
+        Abrir
       </button>
       <button
         type="button"
@@ -110,7 +130,7 @@ watch(shouldShowOnRoute, (ok) => {
   z-index: 90;
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.65rem;
   margin: 0;
   padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 0.75rem 0.55rem;
   border-bottom: 1px solid var(--cf-border, #e5e5ea);
@@ -119,37 +139,48 @@ watch(shouldShowOnRoute, (ok) => {
   backdrop-filter: blur(8px);
 }
 
+.ios-app-banner__icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--cf-radius-control, 12px);
+  object-fit: cover;
+  background: #f2f2f7;
+}
+
 .ios-app-banner__copy {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
+  gap: 0.08rem;
 }
 
 .ios-app-banner__copy strong {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 800;
   color: var(--cf-text, #1f211c);
 }
 
 .ios-app-banner__copy span {
-  font-size: 0.7rem;
-  line-height: 1.35;
+  font-size: 0.68rem;
+  line-height: 1.3;
   color: var(--cf-text-muted, #6f7863);
 }
 
 .ios-app-banner__cta {
   flex-shrink: 0;
-  min-height: 2.15rem;
-  padding: 0 0.75rem;
+  min-height: 2rem;
+  padding: 0 0.85rem;
   border: none;
-  border-radius: var(--cf-radius-control, 12px);
-  background: var(--cf-pink, #8b967c);
+  border-radius: 999px;
+  background: #007aff;
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
   font-family: inherit;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
   white-space: nowrap;
 }

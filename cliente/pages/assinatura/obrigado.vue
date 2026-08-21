@@ -89,7 +89,7 @@ useHead(() => ({
   meta: [{
     key: 'apple-itunes-app',
     name: 'apple-itunes-app',
-    content: appleItunesAppMetaContent('/assinatura/obrigado'),
+    content: appleItunesAppMetaContent('/inicio'),
   }],
   title: 'Pagamento confirmado — Clube Florescer',
 }))
