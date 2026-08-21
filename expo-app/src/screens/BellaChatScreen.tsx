@@ -15,6 +15,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 
 import { pickMealPhoto, type PickedMealPhoto } from '@/lib/meal-photo-pick';
+import { persistLocalImageUri } from '@/lib/persist-local-image';
 import { useMealPhotoTips } from '@/hooks/useMealPhotoTips';
 
 import { useLocalSearchParams } from 'expo-router';
@@ -205,6 +206,7 @@ export default function BellaChatScreen() {
   const bootstrapTokenRef = useRef(0);
   const autoCameraRef = useRef(false);
   const pickImageRef = useRef<(fromCamera: boolean, photo?: PickedMealPhoto) => void>(() => {});
+  const sendMessageRef = useRef<() => void>(() => {});
   const lastMealPhotoUri = useRef<string | null>(null);
   const mealFreezeUriRef = useRef<string | null>(null);
   /** Mantém URI local/http da foto mesmo se o metadata vier sem url. */
@@ -253,6 +255,7 @@ export default function BellaChatScreen() {
   const [attachmentPreview, setAttachmentPreview] = useState<AttachmentPreview | null>(null);
 
   const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
+  const pendingFileRef = useRef<PendingFile | null>(null);
 
   const [typingVisible, setTypingVisible] = useState(false);
   const [showMealModal, setShowMealModal] = useState(false);
@@ -453,36 +456,42 @@ export default function BellaChatScreen() {
 
 
 
-  const applyChatResponse = useCallback((res: Record<string, unknown>) => {
+  const applyChatResponse = useCallback((res: Record<string, unknown>, photoFallback?: string | null) => {
     if (res.requiresMealConfirmation && res.mealDraft) {
       const next = res.mealDraft as MealDraft;
-      const photoUrl = next.imageUrl || lastMealPhotoUri.current || undefined;
+      const photoUrl = next.imageUrl || photoFallback || lastMealPhotoUri.current || undefined;
       setMealDraft({ ...next, imageUrl: photoUrl });
       if (res.dailySummary) setDailySummary(res.dailySummary as DailySummary);
-      if (res.message) {
-        const [assistantMessage] = normalizeMessages([res.message as ChatMessage]);
-        if (assistantMessage) {
-          setMessages((prev) => [...prev, assistantMessage]);
-        }
-      }
-      // Garante a foto na bolha do usuário (URL do Cloudinary ou local).
-      const localOrRemote = photoUrl || lastMealPhotoUri.current;
-      if (localOrRemote) {
-        let patchedId: string | undefined;
-        setMessages((prev) => {
-          for (let i = prev.length - 1; i >= 0; i -= 1) {
-            const msg = prev[i];
-            if (msg.role !== 'user') continue;
-            const nextMsgs = [...prev];
-            const merged = patchUserMessageAttachment(msg, localOrRemote);
-            nextMsgs[i] = merged;
-            patchedId = merged.id ? String(merged.id) : undefined;
-            return nextMsgs;
+
+      const assistantRaw = res.message ? normalizeMessages([res.message as ChatMessage])[0] : null;
+      const localOrRemote = photoUrl || photoFallback || lastMealPhotoUri.current || null;
+      const targetUserId = next.userMessageId ? String(next.userMessageId) : null;
+
+      setMessages((prev) => {
+        let nextMsgs = [...prev];
+        if (localOrRemote) {
+          let patched = false;
+          if (targetUserId) {
+            const idx = nextMsgs.findIndex((m) => String(m.id) === targetUserId);
+            if (idx >= 0) {
+              nextMsgs[idx] = patchUserMessageAttachment(nextMsgs[idx], localOrRemote);
+              patched = true;
+            }
           }
-          return prev;
-        });
-        if (patchedId) rememberPhoto(patchedId, localOrRemote);
-        if (next.userMessageId) rememberPhoto(String(next.userMessageId), localOrRemote);
+          if (!patched) {
+            for (let i = nextMsgs.length - 1; i >= 0; i -= 1) {
+              if (nextMsgs[i].role !== 'user') continue;
+              nextMsgs[i] = patchUserMessageAttachment(nextMsgs[i], localOrRemote);
+              break;
+            }
+          }
+        }
+        if (assistantRaw) nextMsgs = [...nextMsgs, assistantRaw];
+        return nextMsgs;
+      });
+
+      if (localOrRemote) {
+        if (targetUserId) rememberPhoto(targetUserId, localOrRemote);
       }
       setMealConfirmError('');
       setShowMealModal(!mealFreezeUriRef.current);
@@ -725,11 +734,9 @@ export default function BellaChatScreen() {
   }, [chatTopic, params.from, params.label]);
 
   function clearAttachment() {
-
     setAttachmentPreview(null);
-
     setPendingFile(null);
-
+    pendingFileRef.current = null;
   }
 
 
@@ -739,22 +746,32 @@ export default function BellaChatScreen() {
       const photo = readyPhoto ?? await pickMealPhoto(fromCamera);
       if (!photo) return;
 
-      lastMealPhotoUri.current = photo.uri;
+      const stableUri = await persistLocalImageUri(photo.uri);
+      lastMealPhotoUri.current = stableUri;
       if (chatTopic === 'meal') {
-        mealFreezeUriRef.current = photo.uri;
-        setMealFreezeUri(photo.uri);
+        mealFreezeUriRef.current = stableUri;
+        setMealFreezeUri(stableUri);
       }
       setError('');
-      setPendingFile({
-        uri: photo.uri,
+      const nextFile = {
+        uri: stableUri,
         name: photo.name,
         mimeType: photo.mimeType,
-      });
+      };
+      pendingFileRef.current = nextFile;
+      setPendingFile(nextFile);
       setAttachmentPreview({
         kind: 'image',
         name: photo.name,
-        uri: photo.uri,
+        uri: stableUri,
       });
+
+      // Mesmo fluxo do PWA: foto de refeição envia sozinha.
+      if (chatTopic === 'meal') {
+        setTimeout(() => {
+          void sendMessageRef.current();
+        }, 80);
+      }
     } catch (err) {
       setError((err as Error).message || 'Permita acesso à câmera ou galeria para enviar fotos.');
     }
@@ -823,7 +840,7 @@ export default function BellaChatScreen() {
 
     setError('');
 
-    setPendingFile({
+    const nextFile = {
 
       uri: asset.uri,
 
@@ -831,7 +848,9 @@ export default function BellaChatScreen() {
 
       mimeType: asset.mimeType || (isPdf ? 'application/pdf' : 'image/jpeg'),
 
-    });
+    };
+    pendingFileRef.current = nextFile;
+    setPendingFile(nextFile);
 
     setAttachmentPreview({
 
@@ -1089,7 +1108,7 @@ export default function BellaChatScreen() {
 
     const text = draft.trim();
 
-    const file = pendingFile;
+    const file = pendingFileRef.current || pendingFile;
 
     if ((!text && !file) || sending) return;
 
@@ -1260,11 +1279,19 @@ export default function BellaChatScreen() {
         const localPreview = file && !isPdf && !isAudio
           ? (file.uri || stickyPhotos.get(tempId) || lastMealPhotoUri.current || null)
           : null;
+        const remotePhoto = typeof (res.mealDraft as { imageUrl?: string } | undefined)?.imageUrl === 'string'
+          ? (res.mealDraft as { imageUrl?: string }).imageUrl
+          : (typeof (res.userMessage as ChatMessage | undefined)?.metadata === 'object'
+            ? getUserMessageImageUrl(res.userMessage as ChatMessage)
+            : null);
+        const bestPhoto = (remotePhoto && remotePhoto.startsWith('http') ? remotePhoto : null)
+          || localPreview;
+
         if (res.userMessage) {
           const [normalized] = normalizeMessages([res.userMessage as ChatMessage]);
-          const merged = mergeUserMessageResponse(tempMsg, normalized, localPreview);
-          next[index] = merged;
-          const stickyUri = getUserMessageImageUrl(merged) || localPreview;
+          const merged = mergeUserMessageResponse(tempMsg, normalized, bestPhoto);
+          next[index] = bestPhoto ? patchUserMessageAttachment(merged, bestPhoto) : merged;
+          const stickyUri = getUserMessageImageUrl(next[index]) || bestPhoto;
           if (stickyUri) {
             rememberPhoto(merged.id, stickyUri);
             if (tempId !== merged.id) {
@@ -1276,13 +1303,17 @@ export default function BellaChatScreen() {
               });
             }
           }
-        } else if (localPreview) {
-          next[index] = patchUserMessageAttachment(tempMsg, localPreview);
+        } else if (bestPhoto) {
+          next[index] = patchUserMessageAttachment(tempMsg, bestPhoto);
         }
         return next;
       });
 
-      applyChatResponse(res);
+      const mealPhotoFallback = typeof (res.mealDraft as { imageUrl?: string } | undefined)?.imageUrl === 'string'
+        ? (res.mealDraft as { imageUrl: string }).imageUrl
+        : (file && !isPdf && !isAudio ? (file.uri || lastMealPhotoUri.current) : null);
+
+      applyChatResponse(res, mealPhotoFallback);
 
       if (chatTopic === 'meal') await loadDailySummary();
 
@@ -1317,6 +1348,10 @@ export default function BellaChatScreen() {
     }
 
   }
+
+  sendMessageRef.current = () => {
+    void sendMessage();
+  };
 
 
 
