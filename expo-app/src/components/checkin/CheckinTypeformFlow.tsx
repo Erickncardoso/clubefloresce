@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight, Check, ChevronUp } from 'lucide-react-native';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -38,6 +37,7 @@ type Props = {
   submitted?: boolean;
   error?: string;
   showHistoryLink?: boolean;
+  onHistoryPress?: () => void;
   onSubmit: (answers: Record<string, unknown>) => void;
 };
 
@@ -86,9 +86,9 @@ export default function CheckinTypeformFlow({
   submitted = false,
   error = '',
   showHistoryLink = false,
+  onHistoryPress,
   onSubmit,
 }: Props) {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const flowSteps = useMemo(
     () => (steps.length ? steps : []).map(normalizeStep),
@@ -340,10 +340,10 @@ export default function CheckinTypeformFlow({
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {showHistoryLink && stepIndex === 0 ? (
+        {showHistoryLink && stepIndex === 0 && onHistoryPress ? (
           <Pressable
             style={styles.historyWrap}
-            onPress={() => router.push('/check-in/historico' as never)}
+            onPress={onHistoryPress}
           >
             <Text style={styles.historyLink}>Ver histórico</Text>
           </Pressable>

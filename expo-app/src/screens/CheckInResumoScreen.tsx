@@ -104,7 +104,7 @@ export default function CheckInResumoScreen() {
             </View>
           </>
         )}
-        <CfButton label="Ver histórico completo" onPress={() => router.push('/check-in/historico' as never)} />
+        <CfButton label="Voltar ao check-in" onPress={() => router.push('/check-in' as never)} />
       </PatientScrollView>
     </PatientShell>
   );

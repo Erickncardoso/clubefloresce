@@ -71,6 +71,24 @@ export function formatCheckinAnswer(step: CheckinStep | undefined, value: unknow
   return String(value);
 }
 
+function shortStepLabel(step: CheckinStep): string {
+  const raw = String(step.label || step.question || '').trim();
+  if (!raw) return 'Resposta';
+  const lower = raw.toLowerCase();
+  if (lower === 'pergunta' || lower.startsWith('pergunta ')) {
+    const typed = String(step.type || '').toLowerCase();
+    if (typed === 'food') return 'Alimentação';
+    if (typed === 'water') return 'Água';
+    if (typed === 'exercise') return 'Exercício';
+    if (typed === 'scale' || typed === 'sleep') return 'Sono';
+    if (typed === 'number') return step.unit ? step.unit : 'Número';
+    if (typed === 'choice') return 'Escolha';
+    if (typed === 'text') return 'Nota';
+    return 'Resposta';
+  }
+  return raw.length > 22 ? `${raw.slice(0, 20)}…` : raw;
+}
+
 export function summarizeCheckinAnswers(
   steps: CheckinStep[] | undefined,
   answers: Record<string, unknown> | undefined,
@@ -81,12 +99,33 @@ export function summarizeCheckinAnswers(
     .map((step) => {
       const value = answers[step.id];
       if (value == null || value === '') return null;
-      return `${step.label || step.question}: ${formatCheckinAnswer(step, value)}`;
+      return `${shortStepLabel(step)}: ${formatCheckinAnswer(step, value)}`;
     })
     .filter(Boolean)
     .slice(0, 3);
 
   return parts.join(' · ') || '—';
+}
+
+/** Chips curtos para cards de histórico (sem “Pergunta:” genérico). */
+export function buildAnswerHighlights(
+  steps: CheckinStep[] | undefined,
+  answers: Record<string, unknown> | undefined,
+  limit = 4,
+) {
+  if (!Array.isArray(steps) || !answers) return [];
+  return steps
+    .map((step) => {
+      const raw = answers[step.id];
+      if (raw == null || raw === '') return null;
+      return {
+        id: step.id,
+        label: shortStepLabel(step),
+        value: formatCheckinAnswer(step, raw),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, limit) as Array<{ id: string; label: string; value: string }>;
 }
 
 export function buildAnswerRows(
