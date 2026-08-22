@@ -137,51 +137,63 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
-          BACKEND_PUBLIC_URL: ${{ secrets.BACKEND_PUBLIC_URL }}
           REDIS_URL: ${{ secrets.REDIS_URL }}
+          PRISMA_CLIENT_ENGINE_TYPE: ${{ secrets.PRISMA_CLIENT_ENGINE_TYPE }}
+          PRISMA_CLI_QUERY_ENGINE_TYPE: ${{ secrets.PRISMA_CLI_QUERY_ENGINE_TYPE }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL_CHAT: ${{ secrets.OPENAI_MODEL_CHAT }}
           OPENAI_MODEL_VISION: ${{ secrets.OPENAI_MODEL_VISION }}
           OPENAI_MODEL_PDF: ${{ secrets.OPENAI_MODEL_PDF }}
-          OPENAI_MODEL_WHISPER: ${{ secrets.OPENAI_MODEL_WHISPER }}
-          OPENAI_MODEL_ANAMNESE_DIARIZE: ${{ secrets.OPENAI_MODEL_ANAMNESE_DIARIZE }}
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          MEDIA_VIDEO_PROVIDER: ${{ secrets.MEDIA_VIDEO_PROVIDER }}
+          MEDIA_DOCUMENT_PROVIDER: ${{ secrets.MEDIA_DOCUMENT_PROVIDER }}
           BUNNY_STREAM_LIBRARY_ID: ${{ secrets.BUNNY_STREAM_LIBRARY_ID }}
           BUNNY_STREAM_API_KEY: ${{ secrets.BUNNY_STREAM_API_KEY }}
           BUNNY_STREAM_CDN_HOSTNAME: ${{ secrets.BUNNY_STREAM_CDN_HOSTNAME }}
+          BUNNY_TRANSCRIPTION_LANG: ${{ secrets.BUNNY_TRANSCRIPTION_LANG }}
           BUNNY_STORAGE_ZONE_NAME: ${{ secrets.BUNNY_STORAGE_ZONE_NAME }}
           BUNNY_STORAGE_API_KEY: ${{ secrets.BUNNY_STORAGE_API_KEY }}
           BUNNY_STORAGE_CDN_HOSTNAME: ${{ secrets.BUNNY_STORAGE_CDN_HOSTNAME }}
+          BUNNY_STORAGE_REGION: ${{ secrets.BUNNY_STORAGE_REGION }}
+          BUNNY_STORAGE_DOCUMENTS_PREFIX: ${{ secrets.BUNNY_STORAGE_DOCUMENTS_PREFIX }}
+          DOCUMENT_UPLOAD_MAX_MB: ${{ secrets.DOCUMENT_UPLOAD_MAX_MB }}
+          WHATSAPP_PROVIDER: ${{ secrets.WHATSAPP_PROVIDER }}
           WUZAPI_SERVER_URL: ${{ secrets.WUZAPI_SERVER_URL }}
           WUZAPI_ADMIN_TOKEN: ${{ secrets.WUZAPI_ADMIN_TOKEN }}
           WUZAPI_USER_TOKEN: ${{ secrets.WUZAPI_USER_TOKEN }}
           WUZAPI_DEFAULT_USER_ID: ${{ secrets.WUZAPI_DEFAULT_USER_ID }}
-          WHATSAPP_WEBHOOK_SECRET: ${{ secrets.WHATSAPP_WEBHOOK_SECRET }}
-          WHATSAPP_WEBHOOK_URL: ${{ secrets.WHATSAPP_WEBHOOK_URL }}
           PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
           PUSHER_KEY: ${{ secrets.PUSHER_KEY }}
           PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
           PUSHER_CLUSTER: ${{ secrets.PUSHER_CLUSTER }}
-          NUTRI_SETUP_KEY: ${{ secrets.NUTRI_SETUP_KEY }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM_CONTACT: ${{ secrets.EMAIL_FROM_CONTACT }}
           EMAIL_FROM_NOREPLY: ${{ secrets.EMAIL_FROM_NOREPLY }}
+          EMAIL_LOGO_URL: ${{ secrets.EMAIL_LOGO_URL }}
           NUTRI_NOTIFICATION_EMAIL: ${{ secrets.NUTRI_NOTIFICATION_EMAIL }}
+          PASSWORD_RESET_TTL_MINUTES: ${{ secrets.PASSWORD_RESET_TTL_MINUTES }}
           PATIENT_APP_URL: ${{ secrets.PATIENT_APP_URL }}
           ADMIN_APP_URL: ${{ secrets.ADMIN_APP_URL }}
           JITSI_BASE_URL: ${{ secrets.JITSI_BASE_URL }}
+          DAILY_API_KEY: ${{ secrets.DAILY_API_KEY }}
           MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
           MERCADOPAGO_PUBLIC_KEY: ${{ secrets.MERCADOPAGO_PUBLIC_KEY }}
           MERCADOPAGO_WEBHOOK_SECRET: ${{ secrets.MERCADOPAGO_WEBHOOK_SECRET }}
+          BILLING_SANDBOX_SIMULATE_CARD: ${{ secrets.BILLING_SANDBOX_SIMULATE_CARD }}
           INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
           INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
-          INSTAGRAM_REDIRECT_URI: ${{ secrets.INSTAGRAM_REDIRECT_URI }}
           INSTAGRAM_WEBHOOK_VERIFY_TOKEN: ${{ secrets.INSTAGRAM_WEBHOOK_VERIFY_TOKEN }}
+          BACKBLAZE_B2_KEY_ID: ${{ secrets.BACKBLAZE_B2_KEY_ID }}
+          BACKBLAZE_B2_APPLICATION_KEY: ${{ secrets.BACKBLAZE_B2_APPLICATION_KEY }}
+          BACKBLAZE_B2_BUCKET_ID: ${{ secrets.BACKBLAZE_B2_BUCKET_ID }}
+          BACKBLAZE_B2_BUCKET_NAME: ${{ secrets.BACKBLAZE_B2_BUCKET_NAME }}
+          BACKBLAZE_B2_PUBLIC_URL: ${{ secrets.BACKBLAZE_B2_PUBLIC_URL }}
+          BACKBLAZE_B2_WHATSAPP_PREFIX: ${{ secrets.BACKBLAZE_B2_WHATSAPP_PREFIX }}
         run: |
           chmod +x ops/coolify/sync-envs.sh ops/coolify/deploy.sh
           ./ops/coolify/sync-envs.sh ops/coolify/backend.env.list backend
