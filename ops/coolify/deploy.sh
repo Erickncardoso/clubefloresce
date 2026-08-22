@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Dispara deploy no Coolify e acompanha até o build/Docker terminar.
+# Dispara deploy no Coolify via API (POST /api/v1/deploy) e acompanha o build.
+# Não usa webhook — o GitHub Actions chama este script após sync de envs.
+#
 #   COOLIFY_URL=... COOLIFY_TOKEN=... COOLIFY_APP_UUID=... ./ops/coolify/deploy.sh [rótulo]
 #
 # Env opcionais:

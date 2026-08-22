@@ -1,5 +1,10 @@
 # Esteira Coolify — Clube Florescer (backend + admin + PWA paciente)
 #
+# Deploy: SOMENTE via API (POST /api/v1/deploy) — NÃO usa webhook do Coolify.
+# Nos apps Coolify, is_auto_deploy_enabled deve estar false (ver disable-auto-deploy.sh).
+#
+# Fluxo: push main → GitHub Actions sync envs → deploy API → poll status
+#
 # Secrets obrigatórios:
 #   COOLIFY_URL, COOLIFY_TOKEN
 #   COOLIFY_BACKEND_UUID  → apiclube.nutrisabellajardim.com.br  (base: backend)
