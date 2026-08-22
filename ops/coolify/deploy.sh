@@ -24,12 +24,23 @@ BASE="${COOLIFY_URL%/}"
 API="$BASE/api/v1"
 
 echo "Deploy Coolify ($APP_LABEL) ..."
-response="$(curl -fsS -X POST \
-  -H "Authorization: Bearer $COOLIFY_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -d "{\"uuid\":\"$COOLIFY_APP_UUID\",\"force\":false}" \
-  "$API/deploy")"
+response=""
+for attempt in 1 2 3 4 5; do
+  if response="$(curl -fsS --connect-timeout 60 --max-time 180 -X POST \
+    -H "Authorization: Bearer $COOLIFY_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d "{\"uuid\":\"$COOLIFY_APP_UUID\",\"force\":false}" \
+    "$API/deploy" 2>&1)"; then
+    break
+  fi
+  echo "POST deploy tentativa $attempt falhou — retry em 15s..."
+  sleep 15
+  if [[ "$attempt" -eq 5 ]]; then
+    echo "::error::$response"
+    exit 28
+  fi
+done
 
 deployment_uuid="$(
   python3 -c 'import json,sys
@@ -55,10 +66,10 @@ elapsed=0
 if [[ "$WAIT" == "true" || "$WAIT" == "1" ]]; then
   echo "Aguardando Coolify (Docker/build) — timeout=${TIMEOUT}s interval=${INTERVAL}s"
   while (( elapsed < TIMEOUT )); do
-    dep_json="$(curl -fsS \
+    dep_json="$(curl -fsS --connect-timeout 30 --max-time 60 \
       -H "Authorization: Bearer $COOLIFY_TOKEN" \
       -H "Accept: application/json" \
-      "$API/deployments/$deployment_uuid")"
+      "$API/deployments/$deployment_uuid" 2>/dev/null || echo '{}')"
     final_status="$(
       python3 -c 'import json,sys
 d=json.loads(sys.argv[1])

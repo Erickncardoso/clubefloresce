@@ -205,8 +205,11 @@ jobs:
 
   sync-frontend:
     name: "2 · Sync frontend"
-    needs: gate
-    if: needs.gate.outputs.sync_envs == 'true'
+    needs: [gate, sync-backend]
+    if: |
+      always() &&
+      needs.gate.result == 'success' &&
+      needs.gate.outputs.sync_envs == 'true'
     runs-on: ubuntu-latest
     outputs:
       synced: ${{ steps.sync.outputs.synced }}
@@ -228,8 +231,11 @@ jobs:
 
   sync-cliente:
     name: "2 · Sync cliente"
-    needs: gate
-    if: needs.gate.outputs.sync_envs == 'true'
+    needs: [gate, sync-frontend]
+    if: |
+      always() &&
+      needs.gate.result == 'success' &&
+      needs.gate.outputs.sync_envs == 'true'
     runs-on: ubuntu-latest
     outputs:
       synced: ${{ steps.sync.outputs.synced }}
@@ -254,7 +260,7 @@ jobs:
       always() &&
       needs.gate.result == 'success' &&
       needs.gate.outputs.deploy_backend == 'true' &&
-      (needs.sync-backend.result == 'success' || needs.sync-backend.result == 'skipped')
+      (needs.sync-backend.result == 'success' || needs.sync-backend.result == 'skipped' || needs.sync-backend.result == 'failure')
     runs-on: ubuntu-latest
     outputs:
       status: ${{ steps.deploy.outputs.status }}
@@ -279,7 +285,7 @@ jobs:
       always() &&
       needs.gate.result == 'success' &&
       needs.gate.outputs.deploy_frontend == 'true' &&
-      (needs.sync-frontend.result == 'success' || needs.sync-frontend.result == 'skipped')
+      (needs.sync-frontend.result == 'success' || needs.sync-frontend.result == 'skipped' || needs.sync-frontend.result == 'failure')
     runs-on: ubuntu-latest
     outputs:
       status: ${{ steps.deploy.outputs.status }}
@@ -304,7 +310,7 @@ jobs:
       always() &&
       needs.gate.result == 'success' &&
       needs.gate.outputs.deploy_cliente == 'true' &&
-      (needs.sync-cliente.result == 'success' || needs.sync-cliente.result == 'skipped')
+      (needs.sync-cliente.result == 'success' || needs.sync-cliente.result == 'skipped' || needs.sync-cliente.result == 'failure')
     runs-on: ubuntu-latest
     outputs:
       status: ${{ steps.deploy.outputs.status }}
