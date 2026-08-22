@@ -22,10 +22,12 @@ BASE="${COOLIFY_URL%/}"
 API="$BASE/api/v1"
 
 echo "Deploy Coolify ($APP_LABEL) ..."
-response="$(curl -fsS -X GET \
+response="$(curl -fsS -X POST \
   -H "Authorization: Bearer $COOLIFY_TOKEN" \
+  -H "Content-Type: application/json" \
   -H "Accept: application/json" \
-  "$API/deploy?uuid=$COOLIFY_APP_UUID&force=false")"
+  -d "{\"uuid\":\"$COOLIFY_APP_UUID\",\"force\":false}" \
+  "$API/deploy")"
 
 deployment_uuid="$(
   python3 -c 'import json,sys

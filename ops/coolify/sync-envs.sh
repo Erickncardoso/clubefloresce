@@ -115,7 +115,7 @@ PY
 )"
 
 echo "Enviando $synced env(s) para app ${APP_LABEL} ..."
-curl -fsS --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 --max-time 120 -X PATCH \
+curl -fsS --retry 8 --retry-delay 10 --retry-all-errors --connect-timeout 60 --max-time 300 -X PATCH \
   -H "Authorization: Bearer $COOLIFY_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
