@@ -4,10 +4,36 @@ import { getBellaModels } from "./bella/model-config";
 import { buildAiKnowledgeContext } from "./ai/ai-knowledge-context";
 import { processPdfBlocksSequentially, splitPlainTextIntoBlocks } from "./ai/pdf-block-reader";
 
-const OPENAI_TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions";
 const OPENAI_TRANSCRIBE_TIMEOUT_MS = Number(process.env.OPENAI_TRANSCRIBE_TIMEOUT_MS || 120_000);
 const DIARIZE_MODEL = process.env.OPENAI_MODEL_ANAMNESE_DIARIZE?.trim() || "gpt-4o-transcribe-diarize";
-const WHISPER_MODEL = process.env.OPENAI_MODEL_WHISPER?.trim() || "whisper-1";
+
+type WhisperConfig = {
+  selfHosted: boolean;
+  transcribeUrl: string;
+  apiKey: string;
+  model: string;
+};
+
+function resolveWhisperConfig(): WhisperConfig {
+  const selfHosted = readEnv("WHISPER_SELF_HOSTED") === "true";
+  const whisperBase = readEnv("WHISPER_API_BASE");
+  const transcribeUrl =
+    readEnv("OPENAI_TRANSCRIBE_URL")
+    || (whisperBase ? `${whisperBase.replace(/\/$/, "")}/v1/audio/transcriptions` : null)
+    || "https://api.openai.com/v1/audio/transcriptions";
+
+  const apiKey =
+    readEnv("WHISPER_API_KEY")
+    || (selfHosted ? "local-whisper" : null)
+    || readEnv("OPENAI_API_KEY")
+    || "";
+
+  const model =
+    readEnv("OPENAI_MODEL_WHISPER")
+    || (selfHosted ? "Systran/faster-whisper-medium" : "whisper-1");
+
+  return { selfHosted, transcribeUrl, apiKey, model };
+}
 
 type DiarizedSegment = {
   speaker?: string;
@@ -29,13 +55,26 @@ export class AnamneseTranscriptionService {
     originalname?: string;
     mimetype?: string;
   }): Promise<{ text: string }> {
-    const apiKey = readEnv("OPENAI_API_KEY");
-    if (!apiKey) {
-      throw new Error("Transcrição indisponível. Configure OPENAI_API_KEY no servidor.");
-    }
+    const whisper = resolveWhisperConfig();
 
     if (!file?.buffer?.length) {
       throw new Error("Áudio vazio.");
+    }
+
+    if (whisper.selfHosted) {
+      const llmKey = readEnv("OPENAI_API_KEY");
+      if (!llmKey) {
+        throw new Error("Formatação indisponível. Configure OPENAI_API_KEY (LLM) no servidor.");
+      }
+      if (!whisper.apiKey) {
+        throw new Error("Transcrição indisponível. Configure WHISPER_API_BASE no servidor.");
+      }
+      return this.transcribePlainAndFormat(file, whisper);
+    }
+
+    const apiKey = readEnv("OPENAI_API_KEY");
+    if (!apiKey) {
+      throw new Error("Transcrição indisponível. Configure OPENAI_API_KEY no servidor.");
     }
 
     try {
@@ -45,7 +84,7 @@ export class AnamneseTranscriptionService {
         "[AnamneseWhisper] diarização indisponível, usando fallback:",
         String(diarizeError?.message || diarizeError).slice(0, 200),
       );
-      return this.transcribePlainAndFormat(file, apiKey);
+      return this.transcribePlainAndFormat(file, whisper);
     }
   }
 
@@ -55,21 +94,25 @@ export class AnamneseTranscriptionService {
     originalname?: string;
     mimetype?: string;
   }): Promise<{ text: string }> {
-    const apiKey = readEnv("OPENAI_API_KEY");
-    if (!apiKey) {
-      throw new Error("Transcrição indisponível. Configure OPENAI_API_KEY no servidor.");
+    const whisper = resolveWhisperConfig();
+    if (!whisper.apiKey) {
+      throw new Error(
+        whisper.selfHosted
+          ? "Transcrição indisponível. Configure WHISPER_API_BASE no servidor."
+          : "Transcrição indisponível. Configure OPENAI_API_KEY no servidor.",
+      );
     }
     if (!file?.buffer?.length) {
       throw new Error("Áudio vazio.");
     }
 
     const form = this.buildUploadForm(file, {
-      model: WHISPER_MODEL,
+      model: whisper.model,
       language: "pt",
       response_format: "json",
     });
 
-    const data = await this.callOpenAiTranscription(apiKey, form);
+    const data = await this.callWhisperTranscription(whisper, form);
     const text = String(data.text || "")
       .replace(/\s+/g, " ")
       .trim();
@@ -230,15 +273,15 @@ export class AnamneseTranscriptionService {
     return form;
   }
 
-  private async callOpenAiTranscription(apiKey: string, form: FormData) {
+  private async callWhisperTranscription(whisper: WhisperConfig, form: FormData) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), OPENAI_TRANSCRIBE_TIMEOUT_MS);
 
     try {
-      const res = await fetch(OPENAI_TRANSCRIBE_URL, {
+      const res = await fetch(whisper.transcribeUrl, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${whisper.apiKey}`,
         },
         body: form,
         signal: controller.signal,
@@ -247,7 +290,7 @@ export class AnamneseTranscriptionService {
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
         console.error("[AnamneseWhisper]", res.status, detail.slice(0, 500));
-        throw new Error(`OpenAI transcription failed (${res.status})`);
+        throw new Error(`Transcrição falhou (${res.status})`);
       }
 
       return await res.json() as {
@@ -262,6 +305,17 @@ export class AnamneseTranscriptionService {
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  private async callOpenAiTranscription(apiKey: string, form: FormData) {
+    return this.callWhisperTranscription(
+      {
+        ...resolveWhisperConfig(),
+        apiKey,
+        transcribeUrl: readEnv("OPENAI_TRANSCRIBE_URL") || "https://api.openai.com/v1/audio/transcriptions",
+      },
+      form,
+    );
   }
 
   private async transcribeDiarized(
@@ -297,15 +351,15 @@ export class AnamneseTranscriptionService {
 
   private async transcribePlainAndFormat(
     file: { buffer: Buffer; originalname?: string; mimetype?: string },
-    apiKey: string,
+    whisper: WhisperConfig,
   ): Promise<{ text: string }> {
     const form = this.buildUploadForm(file, {
-      model: WHISPER_MODEL,
+      model: whisper.model,
       language: "pt",
       response_format: "json",
     });
 
-    const data = await this.callOpenAiTranscription(apiKey, form);
+    const data = await this.callWhisperTranscription(whisper, form);
     const plain = String(data.text || "").trim();
     if (!plain) {
       throw new Error("A transcrição voltou vazia. Grave novamente com mais clareza.");

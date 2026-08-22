@@ -75,6 +75,8 @@ jobs:
               - 'cliente/**'
               - 'frontend2/**'
               - 'ops/coolify/cliente.env.list'
+            whisper:
+              - 'whisper/**'
 
   gate:
     name: "1 · Gate"
@@ -184,6 +186,12 @@ jobs:
           OPENAI_MODEL_CHAT: ${{ secrets.OPENAI_MODEL_CHAT }}
           OPENAI_MODEL_VISION: ${{ secrets.OPENAI_MODEL_VISION }}
           OPENAI_MODEL_PDF: ${{ secrets.OPENAI_MODEL_PDF }}
+          WHISPER_SELF_HOSTED: ${{ secrets.WHISPER_SELF_HOSTED }}
+          WHISPER_API_BASE: ${{ secrets.WHISPER_API_BASE }}
+          WHISPER_API_KEY: ${{ secrets.WHISPER_API_KEY }}
+          OPENAI_TRANSCRIBE_URL: ${{ secrets.OPENAI_TRANSCRIBE_URL }}
+          OPENAI_MODEL_WHISPER: ${{ secrets.OPENAI_MODEL_WHISPER }}
+          OPENAI_TRANSCRIBE_TIMEOUT_MS: ${{ secrets.OPENAI_TRANSCRIBE_TIMEOUT_MS }}
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
