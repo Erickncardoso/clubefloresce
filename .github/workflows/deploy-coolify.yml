@@ -1,0 +1,380 @@
+# Esteira Coolify — Clube Florescer (backend + admin + PWA paciente)
+#
+# Secrets obrigatórios:
+#   COOLIFY_URL, COOLIFY_TOKEN
+#   COOLIFY_BACKEND_UUID  → apiclube.nutrisabellajardim.com.br  (base: backend)
+#   COOLIFY_FRONTEND_UUID → clube.nutrisabellajardim.com.br     (base: frontend)
+#   COOLIFY_CLIENTE_UUID  → app.nutrisabellajardim.com.br      (Dockerfile: cliente/Dockerfile)
+#
+# Secrets de app (opcional): ver ops/coolify/*.env.list
+
+name: Deploy Coolify
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "expo-app/**"
+      - ".github/workflows/security.yml"
+  workflow_dispatch:
+    inputs:
+      sync_envs:
+        description: "Sincronizar envs no Coolify antes do deploy"
+        type: boolean
+        default: true
+      deploy_backend:
+        description: "Deploy backend (API)"
+        type: boolean
+        default: true
+      deploy_frontend:
+        description: "Deploy admin (Next)"
+        type: boolean
+        default: true
+      deploy_cliente:
+        description: "Deploy PWA paciente (Nuxt)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-coolify-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+  COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+
+jobs:
+  gate:
+    name: "1 · Gate"
+    runs-on: ubuntu-latest
+    outputs:
+      sync_envs: ${{ steps.flags.outputs.sync_envs }}
+      deploy_backend: ${{ steps.flags.outputs.deploy_backend }}
+      deploy_frontend: ${{ steps.flags.outputs.deploy_frontend }}
+      deploy_cliente: ${{ steps.flags.outputs.deploy_cliente }}
+    steps:
+      - name: Resolver flags da esteira
+        id: flags
+        env:
+          COOLIFY_BACKEND_UUID: ${{ secrets.COOLIFY_BACKEND_UUID }}
+          COOLIFY_FRONTEND_UUID: ${{ secrets.COOLIFY_FRONTEND_UUID }}
+          COOLIFY_CLIENTE_UUID: ${{ secrets.COOLIFY_CLIENTE_UUID }}
+          EVENT_NAME: ${{ github.event_name }}
+          IN_SYNC: ${{ inputs.sync_envs }}
+          IN_BE: ${{ inputs.deploy_backend }}
+          IN_FE: ${{ inputs.deploy_frontend }}
+          IN_CLI: ${{ inputs.deploy_cliente }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for k in COOLIFY_URL COOLIFY_TOKEN COOLIFY_BACKEND_UUID COOLIFY_FRONTEND_UUID COOLIFY_CLIENTE_UUID; do
+            if [ -z "${!k}" ]; then
+              echo "::error::Secret $k não configurado."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Secrets Coolify OK."
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            sync_envs="${IN_SYNC:-true}"
+            deploy_backend="${IN_BE:-true}"
+            deploy_frontend="${IN_FE:-true}"
+            deploy_cliente="${IN_CLI:-true}"
+          else
+            sync_envs=true
+            deploy_backend=true
+            deploy_frontend=true
+            deploy_cliente=true
+          fi
+
+          {
+            echo "sync_envs=$sync_envs"
+            echo "deploy_backend=$deploy_backend"
+            echo "deploy_frontend=$deploy_frontend"
+            echo "deploy_cliente=$deploy_cliente"
+          } >>"$GITHUB_OUTPUT"
+
+          {
+            echo "## Clube Florescer · Esteira Coolify"
+            echo
+            echo "| Etapa | Vai rodar? |"
+            echo "| --- | --- |"
+            echo "| Sync envs | \`$sync_envs\` |"
+            echo "| Deploy backend | \`$deploy_backend\` |"
+            echo "| Deploy frontend | \`$deploy_frontend\` |"
+            echo "| Deploy cliente | \`$deploy_cliente\` |"
+            echo
+            echo "| Contexto | Valor |"
+            echo "| --- | --- |"
+            echo "| Evento | \`$EVENT_NAME\` |"
+            echo "| Ref | \`${{ github.ref_name }}\` |"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  sync-backend:
+    name: "2 · Sync backend"
+    needs: gate
+    if: needs.gate.outputs.sync_envs == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      synced: ${{ steps.sync.outputs.synced }}
+      skipped: ${{ steps.sync.outputs.skipped }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync envs backend
+        id: sync
+        env:
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_BACKEND_UUID }}
+          NODE_ENV: ${{ secrets.NODE_ENV }}
+          PORT: ${{ secrets.PORT }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+          BACKEND_PUBLIC_URL: ${{ secrets.BACKEND_PUBLIC_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL_CHAT: ${{ secrets.OPENAI_MODEL_CHAT }}
+          OPENAI_MODEL_VISION: ${{ secrets.OPENAI_MODEL_VISION }}
+          OPENAI_MODEL_PDF: ${{ secrets.OPENAI_MODEL_PDF }}
+          OPENAI_MODEL_WHISPER: ${{ secrets.OPENAI_MODEL_WHISPER }}
+          OPENAI_MODEL_ANAMNESE_DIARIZE: ${{ secrets.OPENAI_MODEL_ANAMNESE_DIARIZE }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          BUNNY_STREAM_LIBRARY_ID: ${{ secrets.BUNNY_STREAM_LIBRARY_ID }}
+          BUNNY_STREAM_API_KEY: ${{ secrets.BUNNY_STREAM_API_KEY }}
+          BUNNY_STREAM_CDN_HOSTNAME: ${{ secrets.BUNNY_STREAM_CDN_HOSTNAME }}
+          BUNNY_STORAGE_ZONE_NAME: ${{ secrets.BUNNY_STORAGE_ZONE_NAME }}
+          BUNNY_STORAGE_API_KEY: ${{ secrets.BUNNY_STORAGE_API_KEY }}
+          BUNNY_STORAGE_CDN_HOSTNAME: ${{ secrets.BUNNY_STORAGE_CDN_HOSTNAME }}
+          WUZAPI_SERVER_URL: ${{ secrets.WUZAPI_SERVER_URL }}
+          WUZAPI_ADMIN_TOKEN: ${{ secrets.WUZAPI_ADMIN_TOKEN }}
+          WUZAPI_USER_TOKEN: ${{ secrets.WUZAPI_USER_TOKEN }}
+          WUZAPI_DEFAULT_USER_ID: ${{ secrets.WUZAPI_DEFAULT_USER_ID }}
+          WHATSAPP_WEBHOOK_SECRET: ${{ secrets.WHATSAPP_WEBHOOK_SECRET }}
+          WHATSAPP_WEBHOOK_URL: ${{ secrets.WHATSAPP_WEBHOOK_URL }}
+          PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+          PUSHER_KEY: ${{ secrets.PUSHER_KEY }}
+          PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+          PUSHER_CLUSTER: ${{ secrets.PUSHER_CLUSTER }}
+          NUTRI_SETUP_KEY: ${{ secrets.NUTRI_SETUP_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM_CONTACT: ${{ secrets.EMAIL_FROM_CONTACT }}
+          EMAIL_FROM_NOREPLY: ${{ secrets.EMAIL_FROM_NOREPLY }}
+          NUTRI_NOTIFICATION_EMAIL: ${{ secrets.NUTRI_NOTIFICATION_EMAIL }}
+          PATIENT_APP_URL: ${{ secrets.PATIENT_APP_URL }}
+          ADMIN_APP_URL: ${{ secrets.ADMIN_APP_URL }}
+          JITSI_BASE_URL: ${{ secrets.JITSI_BASE_URL }}
+          MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
+          MERCADOPAGO_PUBLIC_KEY: ${{ secrets.MERCADOPAGO_PUBLIC_KEY }}
+          MERCADOPAGO_WEBHOOK_SECRET: ${{ secrets.MERCADOPAGO_WEBHOOK_SECRET }}
+          INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
+          INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+          INSTAGRAM_REDIRECT_URI: ${{ secrets.INSTAGRAM_REDIRECT_URI }}
+          INSTAGRAM_WEBHOOK_VERIFY_TOKEN: ${{ secrets.INSTAGRAM_WEBHOOK_VERIFY_TOKEN }}
+        run: |
+          chmod +x ops/coolify/sync-envs.sh ops/coolify/deploy.sh
+          ./ops/coolify/sync-envs.sh ops/coolify/backend.env.list backend
+
+  sync-frontend:
+    name: "2 · Sync frontend"
+    needs: gate
+    if: needs.gate.outputs.sync_envs == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      synced: ${{ steps.sync.outputs.synced }}
+      skipped: ${{ steps.sync.outputs.skipped }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync envs frontend
+        id: sync
+        env:
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_FRONTEND_UUID }}
+          NEXT_PUBLIC_API_BASE: ${{ secrets.NEXT_PUBLIC_API_BASE }}
+          NEXT_PUBLIC_WHATSAPP_API_BASE: ${{ secrets.NEXT_PUBLIC_WHATSAPP_API_BASE }}
+          NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID: ${{ secrets.NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID }}
+          NODE_ENV: ${{ secrets.FRONTEND_NODE_ENV }}
+          PORT: ${{ secrets.FRONTEND_PORT }}
+        run: |
+          chmod +x ops/coolify/sync-envs.sh ops/coolify/deploy.sh
+          ./ops/coolify/sync-envs.sh ops/coolify/frontend.env.list frontend
+
+  sync-cliente:
+    name: "2 · Sync cliente"
+    needs: gate
+    if: needs.gate.outputs.sync_envs == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      synced: ${{ steps.sync.outputs.synced }}
+      skipped: ${{ steps.sync.outputs.skipped }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync envs cliente
+        id: sync
+        env:
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_CLIENTE_UUID }}
+          NUXT_PUBLIC_API_BASE: ${{ secrets.NUXT_PUBLIC_API_BASE }}
+          NUXT_PUBLIC_MOBILE_APP: ${{ secrets.NUXT_PUBLIC_MOBILE_APP }}
+          NODE_ENV: ${{ secrets.CLIENTE_NODE_ENV }}
+        run: |
+          chmod +x ops/coolify/sync-envs.sh ops/coolify/deploy.sh
+          ./ops/coolify/sync-envs.sh ops/coolify/cliente.env.list cliente
+
+  deploy-backend:
+    name: "3 · Deploy backend"
+    needs: [gate, sync-backend]
+    if: |
+      always() &&
+      needs.gate.result == 'success' &&
+      needs.gate.outputs.deploy_backend == 'true' &&
+      (needs.sync-backend.result == 'success' || needs.sync-backend.result == 'skipped')
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.deploy.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy + aguardar Coolify
+        id: deploy
+        timeout-minutes: 25
+        env:
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_BACKEND_UUID }}
+          COOLIFY_WAIT: "true"
+          COOLIFY_WAIT_TIMEOUT: "1200"
+          COOLIFY_WAIT_INTERVAL: "15"
+        run: |
+          chmod +x ops/coolify/deploy.sh
+          ./ops/coolify/deploy.sh backend
+
+  deploy-frontend:
+    name: "3 · Deploy frontend"
+    needs: [gate, sync-frontend]
+    if: |
+      always() &&
+      needs.gate.result == 'success' &&
+      needs.gate.outputs.deploy_frontend == 'true' &&
+      (needs.sync-frontend.result == 'success' || needs.sync-frontend.result == 'skipped')
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.deploy.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy + aguardar Coolify
+        id: deploy
+        timeout-minutes: 25
+        env:
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_FRONTEND_UUID }}
+          COOLIFY_WAIT: "true"
+          COOLIFY_WAIT_TIMEOUT: "1200"
+          COOLIFY_WAIT_INTERVAL: "15"
+        run: |
+          chmod +x ops/coolify/deploy.sh
+          ./ops/coolify/deploy.sh frontend
+
+  deploy-cliente:
+    name: "3 · Deploy cliente"
+    needs: [gate, sync-cliente]
+    if: |
+      always() &&
+      needs.gate.result == 'success' &&
+      needs.gate.outputs.deploy_cliente == 'true' &&
+      (needs.sync-cliente.result == 'success' || needs.sync-cliente.result == 'skipped')
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.deploy.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy + aguardar Coolify
+        id: deploy
+        timeout-minutes: 25
+        env:
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_CLIENTE_UUID }}
+          COOLIFY_WAIT: "true"
+          COOLIFY_WAIT_TIMEOUT: "1200"
+          COOLIFY_WAIT_INTERVAL: "15"
+        run: |
+          chmod +x ops/coolify/deploy.sh
+          ./ops/coolify/deploy.sh cliente
+
+  summary:
+    name: "4 · Resumo"
+    needs:
+      - gate
+      - sync-backend
+      - sync-frontend
+      - sync-cliente
+      - deploy-backend
+      - deploy-frontend
+      - deploy-cliente
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Montar painel da esteira
+        env:
+          GATE: ${{ needs.gate.result }}
+          SYNC_BE: ${{ needs.sync-backend.result }}
+          SYNC_FE: ${{ needs.sync-frontend.result }}
+          SYNC_CLI: ${{ needs.sync-cliente.result }}
+          DEP_BE: ${{ needs.deploy-backend.result }}
+          DEP_FE: ${{ needs.deploy-frontend.result }}
+          DEP_CLI: ${{ needs.deploy-cliente.result }}
+          SYNC_BE_N: ${{ needs.sync-backend.outputs.synced }}
+          SYNC_FE_N: ${{ needs.sync-frontend.outputs.synced }}
+          SYNC_CLI_N: ${{ needs.sync-cliente.outputs.synced }}
+          DEP_BE_ST: ${{ needs.deploy-backend.outputs.status }}
+          DEP_FE_ST: ${{ needs.deploy-frontend.outputs.status }}
+          DEP_CLI_ST: ${{ needs.deploy-cliente.outputs.status }}
+          REF: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          icon() {
+            case "$1" in
+              success) echo PASS ;;
+              failure) echo FAIL ;;
+              cancelled) echo CANCEL ;;
+              skipped) echo SKIP ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          overall=success
+          for r in "$GATE" "$SYNC_BE" "$SYNC_FE" "$SYNC_CLI" "$DEP_BE" "$DEP_FE" "$DEP_CLI"; do
+            if [ "$r" = "failure" ]; then overall=failure; fi
+            if [ "$r" = "cancelled" ] && [ "$overall" != "failure" ]; then overall=cancelled; fi
+          done
+
+          {
+            echo "## Resumo da esteira"
+            echo
+            echo "| Job | Status | Detalhe |"
+            echo "| --- | --- | --- |"
+            echo "| 1 · Gate | \`$(icon "$GATE")\` | flags |"
+            echo "| 2 · Sync backend | \`$(icon "$SYNC_BE")\` | enviadas: ${SYNC_BE_N:-—} |"
+            echo "| 2 · Sync frontend | \`$(icon "$SYNC_FE")\` | enviadas: ${SYNC_FE_N:-—} |"
+            echo "| 2 · Sync cliente | \`$(icon "$SYNC_CLI")\` | enviadas: ${SYNC_CLI_N:-—} |"
+            echo "| 3 · Deploy backend | \`$(icon "$DEP_BE")\` | Coolify \`${DEP_BE_ST:-—}\` |"
+            echo "| 3 · Deploy frontend | \`$(icon "$DEP_FE")\` | Coolify \`${DEP_FE_ST:-—}\` |"
+            echo "| 3 · Deploy cliente | \`$(icon "$DEP_CLI")\` | Coolify \`${DEP_CLI_ST:-—}\` |"
+            echo
+            echo "**Resultado geral:** \`$overall\`"
+            echo
+            echo "| Link | |"
+            echo "| --- | --- |"
+            echo "| Actions | $RUN_URL |"
+            echo "| Admin | https://clube.nutrisabellajardim.com.br |"
+            echo "| API | https://apiclube.nutrisabellajardim.com.br |"
+            echo "| Paciente | https://app.nutrisabellajardim.com.br |"
+            echo "| Branch | \`$REF\` |"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+          exit 0
