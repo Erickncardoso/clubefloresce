@@ -1,15 +1,12 @@
 # Esteira Coolify — Clube Florescer (backend + admin + PWA paciente)
 #
 # Deploy: SOMENTE via API (POST /api/v1/deploy) — NÃO usa webhook do Coolify.
-# Nos apps Coolify, is_auto_deploy_enabled deve estar false (ver disable-auto-deploy.sh).
-#
-# Fluxo: push main → GitHub Actions sync envs → deploy API → poll status
+# Push em main: só sincroniza/deploya apps cujos paths mudaram.
+# workflow_dispatch: escolha manual por app.
 #
 # Secrets obrigatórios:
 #   COOLIFY_URL, COOLIFY_TOKEN
-#   COOLIFY_BACKEND_UUID  → apiclube.nutrisabellajardim.com.br  (base: backend)
-#   COOLIFY_FRONTEND_UUID → clube.nutrisabellajardim.com.br     (base: frontend)
-#   COOLIFY_CLIENTE_UUID  → app.nutrisabellajardim.com.br      (Dockerfile: cliente/Dockerfile)
+#   COOLIFY_BACKEND_UUID, COOLIFY_FRONTEND_UUID, COOLIFY_CLIENTE_UUID
 #
 # Secrets de app (opcional): ver ops/coolify/*.env.list
 
@@ -54,8 +51,35 @@ env:
   COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
 
 jobs:
+  changes:
+    name: "0 · Detectar mudanças"
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      cliente: ${{ steps.filter.outputs.cliente }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'ops/coolify/backend.env.list'
+            frontend:
+              - 'frontend/**'
+              - 'ops/coolify/frontend.env.list'
+            cliente:
+              - 'cliente/**'
+              - 'frontend2/**'
+              - 'ops/coolify/cliente.env.list'
+
   gate:
     name: "1 · Gate"
+    needs: changes
+    if: always() && !cancelled() && (needs.changes.result == 'success' || needs.changes.result == 'skipped')
     runs-on: ubuntu-latest
     outputs:
       sync_envs: ${{ steps.flags.outputs.sync_envs }}
@@ -74,6 +98,9 @@ jobs:
           IN_BE: ${{ inputs.deploy_backend }}
           IN_FE: ${{ inputs.deploy_frontend }}
           IN_CLI: ${{ inputs.deploy_cliente }}
+          CHG_BE: ${{ needs.changes.outputs.backend }}
+          CHG_FE: ${{ needs.changes.outputs.frontend }}
+          CHG_CLI: ${{ needs.changes.outputs.cliente }}
         run: |
           set -euo pipefail
           missing=0
@@ -95,9 +122,14 @@ jobs:
             deploy_cliente="${IN_CLI:-true}"
           else
             sync_envs=true
-            deploy_backend=true
-            deploy_frontend=true
-            deploy_cliente=true
+            deploy_backend="${CHG_BE:-false}"
+            deploy_frontend="${CHG_FE:-false}"
+            deploy_cliente="${CHG_CLI:-false}"
+          fi
+
+          if [ "$deploy_backend" != "true" ] && [ "$deploy_frontend" != "true" ] && [ "$deploy_cliente" != "true" ]; then
+            echo "Nenhum app afetado neste push — deploys pulados."
+            sync_envs=false
           fi
 
           {
@@ -110,23 +142,26 @@ jobs:
           {
             echo "## Clube Florescer · Esteira Coolify"
             echo
-            echo "| Etapa | Vai rodar? |"
+            echo "| App | Deploy? |"
             echo "| --- | --- |"
-            echo "| Sync envs | \`$sync_envs\` |"
-            echo "| Deploy backend | \`$deploy_backend\` |"
-            echo "| Deploy frontend | \`$deploy_frontend\` |"
-            echo "| Deploy cliente | \`$deploy_cliente\` |"
+            echo "| Backend | \`$deploy_backend\` |"
+            echo "| Frontend | \`$deploy_frontend\` |"
+            echo "| Cliente | \`$deploy_cliente\` |"
             echo
             echo "| Contexto | Valor |"
             echo "| --- | --- |"
             echo "| Evento | \`$EVENT_NAME\` |"
+            echo "| Sync envs | \`$sync_envs\` |"
             echo "| Ref | \`${{ github.ref_name }}\` |"
           } >>"$GITHUB_STEP_SUMMARY"
 
   sync-backend:
     name: "2 · Sync backend"
     needs: gate
-    if: needs.gate.outputs.sync_envs == 'true'
+    if: |
+      needs.gate.result == 'success' &&
+      needs.gate.outputs.sync_envs == 'true' &&
+      needs.gate.outputs.deploy_backend == 'true'
     runs-on: ubuntu-latest
     outputs:
       synced: ${{ steps.sync.outputs.synced }}
@@ -205,11 +240,11 @@ jobs:
 
   sync-frontend:
     name: "2 · Sync frontend"
-    needs: [gate, sync-backend]
+    needs: gate
     if: |
-      always() &&
       needs.gate.result == 'success' &&
-      needs.gate.outputs.sync_envs == 'true'
+      needs.gate.outputs.sync_envs == 'true' &&
+      needs.gate.outputs.deploy_frontend == 'true'
     runs-on: ubuntu-latest
     outputs:
       synced: ${{ steps.sync.outputs.synced }}
@@ -231,11 +266,11 @@ jobs:
 
   sync-cliente:
     name: "2 · Sync cliente"
-    needs: [gate, sync-frontend]
+    needs: gate
     if: |
-      always() &&
       needs.gate.result == 'success' &&
-      needs.gate.outputs.sync_envs == 'true'
+      needs.gate.outputs.sync_envs == 'true' &&
+      needs.gate.outputs.deploy_cliente == 'true'
     runs-on: ubuntu-latest
     outputs:
       synced: ${{ steps.sync.outputs.synced }}
@@ -280,12 +315,13 @@ jobs:
 
   deploy-frontend:
     name: "3 · Deploy frontend"
-    needs: [gate, sync-frontend]
+    needs: [gate, sync-frontend, deploy-backend]
     if: |
       always() &&
       needs.gate.result == 'success' &&
       needs.gate.outputs.deploy_frontend == 'true' &&
-      (needs.sync-frontend.result == 'success' || needs.sync-frontend.result == 'skipped' || needs.sync-frontend.result == 'failure')
+      (needs.sync-frontend.result == 'success' || needs.sync-frontend.result == 'skipped' || needs.sync-frontend.result == 'failure') &&
+      (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped')
     runs-on: ubuntu-latest
     outputs:
       status: ${{ steps.deploy.outputs.status }}
@@ -305,12 +341,13 @@ jobs:
 
   deploy-cliente:
     name: "3 · Deploy cliente"
-    needs: [gate, sync-cliente]
+    needs: [gate, sync-cliente, deploy-frontend]
     if: |
       always() &&
       needs.gate.result == 'success' &&
       needs.gate.outputs.deploy_cliente == 'true' &&
-      (needs.sync-cliente.result == 'success' || needs.sync-cliente.result == 'skipped' || needs.sync-cliente.result == 'failure')
+      (needs.sync-cliente.result == 'success' || needs.sync-cliente.result == 'skipped' || needs.sync-cliente.result == 'failure') &&
+      (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped')
     runs-on: ubuntu-latest
     outputs:
       status: ${{ steps.deploy.outputs.status }}
@@ -344,6 +381,9 @@ jobs:
       - name: Montar painel da esteira
         env:
           GATE: ${{ needs.gate.result }}
+          DEP_BE_FLAG: ${{ needs.gate.outputs.deploy_backend }}
+          DEP_FE_FLAG: ${{ needs.gate.outputs.deploy_frontend }}
+          DEP_CLI_FLAG: ${{ needs.gate.outputs.deploy_cliente }}
           SYNC_BE: ${{ needs.sync-backend.result }}
           SYNC_FE: ${{ needs.sync-frontend.result }}
           SYNC_CLI: ${{ needs.sync-cliente.result }}
@@ -370,6 +410,15 @@ jobs:
             esac
           }
 
+          row() {
+            local label="$1" flag="$2" sync="$3" dep="$4" sync_n="$5" dep_st="$6"
+            if [ "$flag" != "true" ]; then
+              echo "| $label | SKIP | não afetado neste push |"
+              return
+            fi
+            echo "| $label | sync \`$(icon "$sync")\` / deploy \`$(icon "$dep")\` | envs: ${sync_n:-—} · Coolify \`${dep_st:-—}\` |"
+          }
+
           overall=success
           for r in "$GATE" "$SYNC_BE" "$SYNC_FE" "$SYNC_CLI" "$DEP_BE" "$DEP_FE" "$DEP_CLI"; do
             if [ "$r" = "failure" ]; then overall=failure; fi
@@ -379,15 +428,11 @@ jobs:
           {
             echo "## Resumo da esteira"
             echo
-            echo "| Job | Status | Detalhe |"
+            echo "| App | Status | Detalhe |"
             echo "| --- | --- | --- |"
-            echo "| 1 · Gate | \`$(icon "$GATE")\` | flags |"
-            echo "| 2 · Sync backend | \`$(icon "$SYNC_BE")\` | enviadas: ${SYNC_BE_N:-—} |"
-            echo "| 2 · Sync frontend | \`$(icon "$SYNC_FE")\` | enviadas: ${SYNC_FE_N:-—} |"
-            echo "| 2 · Sync cliente | \`$(icon "$SYNC_CLI")\` | enviadas: ${SYNC_CLI_N:-—} |"
-            echo "| 3 · Deploy backend | \`$(icon "$DEP_BE")\` | Coolify \`${DEP_BE_ST:-—}\` |"
-            echo "| 3 · Deploy frontend | \`$(icon "$DEP_FE")\` | Coolify \`${DEP_FE_ST:-—}\` |"
-            echo "| 3 · Deploy cliente | \`$(icon "$DEP_CLI")\` | Coolify \`${DEP_CLI_ST:-—}\` |"
+            row "Backend" "$DEP_BE_FLAG" "$SYNC_BE" "$DEP_BE" "$SYNC_BE_N" "$DEP_BE_ST"
+            row "Frontend" "$DEP_FE_FLAG" "$SYNC_FE" "$DEP_FE" "$SYNC_FE_N" "$DEP_FE_ST"
+            row "Cliente" "$DEP_CLI_FLAG" "$SYNC_CLI" "$DEP_CLI" "$SYNC_CLI_N" "$DEP_CLI_ST"
             echo
             echo "**Resultado geral:** \`$overall\`"
             echo
@@ -400,4 +445,8 @@ jobs:
             echo "| Branch | \`$REF\` |"
           } >>"$GITHUB_STEP_SUMMARY"
 
+          if [ "$DEP_BE_FLAG" != "true" ] && [ "$DEP_FE_FLAG" != "true" ] && [ "$DEP_CLI_FLAG" != "true" ]; then
+            exit 0
+          fi
+          if [ "$overall" = "failure" ]; then exit 1; fi
           exit 0

@@ -25,8 +25,8 @@ API="$BASE/api/v1"
 
 echo "Deploy Coolify ($APP_LABEL) ..."
 response=""
-for attempt in 1 2 3 4 5; do
-  if response="$(curl -fsS --connect-timeout 60 --max-time 180 -X POST \
+for attempt in 1 2 3 4 5 6 7 8; do
+  if response="$(curl -fsS --connect-timeout 90 --max-time 240 -X POST \
     -H "Authorization: Bearer $COOLIFY_TOKEN" \
     -H "Content-Type: application/json" \
     -H "Accept: application/json" \
@@ -34,9 +34,9 @@ for attempt in 1 2 3 4 5; do
     "$API/deploy" 2>&1)"; then
     break
   fi
-  echo "POST deploy tentativa $attempt falhou — retry em 15s..."
-  sleep 15
-  if [[ "$attempt" -eq 5 ]]; then
+  echo "POST deploy tentativa $attempt falhou — retry em 20s..."
+  sleep 20
+  if [[ "$attempt" -eq 8 ]]; then
     echo "::error::$response"
     exit 28
   fi
